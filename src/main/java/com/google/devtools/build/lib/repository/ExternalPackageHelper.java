@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -37,6 +38,11 @@ import javax.annotation.Nullable;
 /** Helper class for looking up data from the external package. */
 public class ExternalPackageHelper {
   private final ImmutableList<BuildFileName> workspaceFilesByPriority;
+
+  public static final String WORKSPACE_DEPRECATION =
+      ". Was the repository introduced in WORKSPACE? The WORKSPACE file is disabled by default in"
+          + " Bazel 8 (late 2024) and will be removed in Bazel 9 (late 2025), please migrate to"
+          + " Bzlmod. See https://bazel.build/external/migration";
 
   public ExternalPackageHelper(ImmutableList<BuildFileName> workspaceFilesByPriority) {
     Preconditions.checkArgument(!workspaceFilesByPriority.isEmpty());
@@ -100,6 +106,38 @@ public class ExternalPackageHelper {
         Iterables.getLast(packagePath), BuildFileName.WORKSPACE.getFilenameFragment());
   }
 
+  /** Returns WORKSPACE deprecation error message if WORKSPACE file exists. */
+  @Nullable
+  public String getWorkspaceDeprecationErrorMessage(
+      Environment env, boolean workspaceEnabled, boolean isOwnerRepoMainRepo)
+      throws InterruptedException {
+    // WORKSPACE repo could have only be visible from the main repo.
+    if (workspaceEnabled || !isOwnerRepoMainRepo) {
+      return "";
+    }
+    PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
+    ImmutableList<Root> packagePath = packageLocator.getPathEntries();
+    for (Root candidateRoot : packagePath) {
+      for (BuildFileName workspaceFile :
+          ImmutableList.of(
+              BuildFileName.WORKSPACE,
+              BuildFileName.WORKSPACE_DOT_BAZEL,
+              BuildFileName.WORKSPACE_DOT_BZLMOD)) {
+        RootedPath path =
+            checkWorkspaceFile(env, candidateRoot, workspaceFile.getFilenameFragment());
+        if (env.valuesMissing()) {
+          return null;
+        }
+
+        if (path != null) {
+          return WORKSPACE_DEPRECATION;
+        }
+      }
+    }
+
+    return "";
+  }
+
   /** Returns false if some SkyValues were missing. */
   private boolean iterateWorkspaceFragments(Environment env, WorkspaceFileValueProcessor processor)
       throws InterruptedException {
@@ -141,9 +179,12 @@ public class ExternalPackageHelper {
         // Stop iteration when encountered errors.
         return false;
       }
-      rule = externalPackage.getRule(ruleName);
-      // Stop if the rule is found = continue while it is null.
-      return rule == null;
+      Target target = externalPackage.getTargets().get(ruleName);
+      if (target instanceof Rule r) {
+        rule = r;
+        return false;
+      }
+      return true;
     }
 
     public Rule getRule() throws ExternalPackageException {

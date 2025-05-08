@@ -27,30 +27,22 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.io.ByteStreams;
-import com.google.testing.junit.runner.internal.SignalHandlers.HandlerInstaller;
 import com.google.testing.junit.runner.internal.junit4.CancellableRequestFactory;
-import com.google.testing.junit.runner.internal.junit4.SettableCurrentRunningTest;
-import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.SuiteClass;
-import com.google.testing.junit.runner.model.AntXmlResultWriter;
-import com.google.testing.junit.runner.model.XmlResultWriter;
+import com.google.testing.junit.runner.model.TestSuiteModel;
 import com.google.testing.junit.runner.sharding.ShardingEnvironment;
 import com.google.testing.junit.runner.sharding.ShardingFilters;
-import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
 import com.google.testing.junit.runner.sharding.testing.FakeShardingFilters;
-import com.google.testing.junit.runner.util.CurrentRunningTest;
 import com.google.testing.junit.runner.util.FakeTestClock;
-import com.google.testing.junit.runner.util.GoogleTestSecurityManager;
 import com.google.testing.junit.runner.util.TestClock;
-import com.google.testing.junit.runner.util.TestNameProvider;
 import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Test;
@@ -67,12 +59,9 @@ import org.junit.runner.notification.StoppedByUserException;
 import org.junit.runners.JUnit4;
 import org.junit.runners.Suite;
 import org.mockito.InOrder;
-import org.mockito.Mock;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.mockito.stubbing.Answer;
-import sun.misc.Signal;
-import sun.misc.SignalHandler;
 
 /**
  * Tests for {@link JUnit4Runner}
@@ -81,34 +70,28 @@ import sun.misc.SignalHandler;
 public class JUnit4RunnerTest {
   private final ByteArrayOutputStream stdoutByteStream = new ByteArrayOutputStream();
   private final PrintStream stdoutPrintStream = new PrintStream(stdoutByteStream, true);
-  @Mock private RunListener mockRunListener;
-  @Mock private ShardingEnvironment shardingEnvironment = new StubShardingEnvironment();
-  @Mock private ShardingFilters shardingFilters;
+  private RunListener mockRunListener;
+  private ShardingEnvironment shardingEnvironment = new StubShardingEnvironment();
+  private ShardingFilters shardingFilters;
   private JUnit4Config config;
-  private boolean wasSecurityManagerInstalled = false;
-  private SecurityManager previousSecurityManager;
 
   @After
   public void closeStream() throws Exception {
     stdoutPrintStream.close();
   }
 
-  @After
-  public void reinstallPreviousSecurityManager() {
-    if (wasSecurityManagerInstalled) {
-      wasSecurityManagerInstalled = false;
-      System.setSecurityManager(previousSecurityManager);
-    }
-  }
-
   private JUnit4Runner createRunner(Class<?> suiteClass) {
-    return createComponent(suiteClass).runner();
+    return createComponent(suiteClass, new CancellableRequestFactory()).runner();
   }
 
-  private JUnit4BazelMock createComponent(Class<?> suiteClass) {
+  private JUnit4Bazel createComponent(
+      Class<?> suiteClass, CancellableRequestFactory cancellableRequestFactory) {
     return JUnit4BazelMock.builder()
-        .suiteClass(new SuiteClass(suiteClass))
-        .testModule(new TestModule()) // instance method to support outer-class instance variables.
+        .suiteClass(suiteClass)
+        .testModule(
+            new TestModule(
+                cancellableRequestFactory)) // instance method to support outer-class instance
+        // variables.
         .build();
   }
 
@@ -212,9 +195,9 @@ public class JUnit4RunnerTest {
   public void testInterruptedTest() throws Exception {
     config = createConfig();
     mockRunListener = mock(RunListener.class);
-    JUnit4BazelMock component = createComponent(SampleSuite.class);
+    CancellableRequestFactory requestFactory = new CancellableRequestFactory();
+    JUnit4Bazel component = createComponent(SampleSuite.class, requestFactory);
     JUnit4Runner runner = component.runner();
-    final CancellableRequestFactory requestFactory = component.cancellableRequestFactory();
 
     Description testDescription = Description.createTestDescription(SamplePassingTest.class,
         "testThatAlwaysPasses");
@@ -242,23 +225,6 @@ public class JUnit4RunnerTest {
         return null;
       }
     };
-  }
-
-  @Test
-  public void testSecurityManagerInstalled() throws Exception {
-    // If there is already a security manager installed, the runner would crash when trying to
-    // install another one. In order to avoid that, the security manager should be uninstalled here
-    // and restored afterwards.
-    uninstallGoogleTestSecurityManager();
-
-    config = new JUnit4Config(null, null, null, createProperties("1", true));
-
-    JUnit4Runner runner = createRunner(SampleExitingTest.class);
-    Result result = runner.run();
-
-    assertThat(result.getRunCount()).isEqualTo(1);
-    assertThat(result.getFailureCount()).isEqualTo(1);
-    assertThat(result.getIgnoreCount()).isEqualTo(0);
   }
 
   @Test
@@ -313,7 +279,7 @@ public class JUnit4RunnerTest {
 
   @Test
   public void testRunExcludeFilterAlwaysExits() {
-    config = new JUnit4Config("test", "CallsSystemExit", null, createProperties("1", false));
+    config = new JUnit4Config("test", "CallsSystemExit", null, createProperties("1"));
     JUnit4Runner runner = createRunner(SampleSuite.class);
     Result result = runner.run();
 
@@ -390,23 +356,11 @@ public class JUnit4RunnerTest {
 
   @Test
   public void testMustSpecifySupportedJUnitApiVersion() {
-    config = new JUnit4Config(null, null, null, createProperties("2", false));
+    config = new JUnit4Config(null, null, null, createProperties("2"));
     JUnit4Runner runner = createRunner(SamplePassingTest.class);
 
     IllegalStateException e = assertThrows(IllegalStateException.class, () -> runner.run());
     assertThat(e).hasMessageThat().startsWith("Unsupported JUnit Runner API version");
-  }
-
-  /**
-   * Uninstall {@link GoogleTestSecurityManager} if it is installed. If it was installed, it will
-   * be reinstalled after the test completes.
-   */
-  private void uninstallGoogleTestSecurityManager() {
-    previousSecurityManager = System.getSecurityManager();
-    GoogleTestSecurityManager.uninstallIfInstalled();
-    if (previousSecurityManager != System.getSecurityManager()) {
-      wasSecurityManagerInstalled = true;
-    }
   }
 
   private void assertPassingTestHasExpectedOutput(ByteArrayOutputStream outputStream,
@@ -443,16 +397,12 @@ public class JUnit4RunnerTest {
   }
 
   private static JUnit4Config createConfig(@Nullable String includeFilter) {
-    return new JUnit4Config(includeFilter, null, null, createProperties("1", false));
+    return new JUnit4Config(includeFilter, null, null, createProperties("1"));
   }
 
-  private static Properties createProperties(
-      String apiVersion, boolean shouldInstallSecurityManager) {
+  private static Properties createProperties(String apiVersion) {
     Properties properties = new Properties();
     properties.setProperty(JUnit4Config.JUNIT_API_VERSION_PROPERTY, apiVersion);
-    if (!shouldInstallSecurityManager) {
-      properties.setProperty("java.security.manager", "whatever");
-    }
     return properties;
   }
 
@@ -489,23 +439,11 @@ public class JUnit4RunnerTest {
   }
 
 
-  /** Sample test that calls System.exit(). */
-  @RunWith(JUnit4.class)
-  public static class SampleExitingTest {
-
-    @Test
-    public void testThatAlwaysCallsSystemExit() {
-      System.exit(1);
-    }
-  }
-
-
   /** Sample suite. */
   @RunWith(Suite.class)
   @Suite.SuiteClasses({
       JUnit4RunnerTest.SamplePassingTest.class,
       JUnit4RunnerTest.SampleFailingTest.class,
-      JUnit4RunnerTest.SampleExitingTest.class
   })
   public static class SampleSuite {}
 
@@ -555,71 +493,58 @@ public class JUnit4RunnerTest {
     }
   }
 
+  class TestModule extends JUnit4RunnerModule {
+    private final PrintStream stdout = new PrintStream(stdoutByteStream);
+    private final CancellableRequestFactory cancellableRequestFactory;
 
-  private static class StubHandlerInstaller implements HandlerInstaller {
+    TestModule(CancellableRequestFactory cancellableRequestFactory) {
+      super(null);
+      this.cancellableRequestFactory = cancellableRequestFactory;
+    }
 
     @Override
-    public SignalHandler install(Signal signal, SignalHandler handler) {
-      return null;
-    }
-  }
-
-
-  class TestModule {
-
     ShardingEnvironment shardingEnvironment() {
       return shardingEnvironment;
     }
 
+    @Override
     TestClock clock() {
       return new FakeTestClock();
     }
 
+    @Override
     JUnit4Config config() {
       return config;
     }
 
-    HandlerInstaller handlerInstaller() {
-      return new StubHandlerInstaller();
-    }
-
-    OutputStream xmlOutputStream() {
-      return ByteStreams.nullOutputStream();
-    }
-
-    XmlResultWriter xmlResultWriter(AntXmlResultWriter impl) {
-      return impl;
-    }
-
-    Set<RunListener> mockRunListener() {
-      return (mockRunListener == null)
-          ? ImmutableSet.<RunListener>of()
-          : ImmutableSet.of(mockRunListener);
-    }
-
-    ShardingFilters shardingFilters(
-        ShardingEnvironment shardingEnvironment, ShardingFilterFactory defaultShardingStrategy) {
+    @Override
+    ShardingFilters shardingFilters(ShardingEnvironment shardingEnvironment) {
       return (shardingFilters == null)
-          ? new ShardingFilters(shardingEnvironment, defaultShardingStrategy)
+          ? new ShardingFilters(shardingEnvironment, ShardingFilters.DEFAULT_SHARDING_STRATEGY)
           : shardingFilters;
     }
 
-    PrintStream provideStdoutStream() {
-      return new PrintStream(stdoutByteStream);
+    @Override
+    PrintStream stdout() {
+      return this.stdout;
     }
 
-    PrintStream provideStderrStream() {
-      return new PrintStream(ByteStreams.nullOutputStream());
+    @Override
+    Set<RunListener> setOfRunListeners(
+        JUnit4Config config,
+        Supplier<TestSuiteModel> testSuiteModelSupplier,
+        CancellableRequestFactory cancellableRequestFactory) {
+      Set<RunListener> set = new HashSet<>();
+      if (mockRunListener != null) {
+        set.add(mockRunListener);
+      }
+      set.add(JUnit4RunnerBaseModule.provideTextListener(stdout()));
+      return Collections.unmodifiableSet(set);
     }
 
-    CurrentRunningTest provideCurrentRunningTest() {
-      return new SettableCurrentRunningTest() {
-        @Override
-        protected void setGlobalTestNameProvider(TestNameProvider provider) {
-          // Do not set the global current running test when the JUnit4Runner is being tested itself,
-          // in order not to override the real one.
-        }
-      };
+    @Override
+    public CancellableRequestFactory cancellableRequestFactory() {
+      return cancellableRequestFactory;
     }
   }
 }

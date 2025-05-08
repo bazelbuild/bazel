@@ -39,17 +39,6 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
   public List<String> translationFlags;
 
   @Option(
-    name = "j2objc_dead_code_removal",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Whether to perform J2ObjC dead code removal to strip unused code from the final app "
-            + "bundle."
-  )
-  public boolean removeDeadCode;
-
-  @Option(
     name = "j2objc_dead_code_report",
     defaultValue = "null",
     converter = LabelConverter.class,
@@ -61,21 +50,4 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
   )
   public Label deadCodeReport;
 
-  @Option(
-    name = "experimental_j2objc_header_map",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Whether to generate J2ObjC header map in parallel of J2ObjC transpilation."
-  )
-  public boolean experimentalJ2ObjcHeaderMap;
-
-  @Option(
-    name = "experimental_j2objc_shorter_header_path",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Whether to generate with shorter header path (uses \"_ios\" instead of \"_j2objc\")."
-  )
-  public boolean experimentalShorterHeaderPath;
 }

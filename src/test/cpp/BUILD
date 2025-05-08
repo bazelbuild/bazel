@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 # Description:
 #   C++ utility tests for Bazel
 package(default_visibility = ["//visibility:public"])
@@ -15,8 +18,8 @@ cc_test(
             "blaze_util_windows_test.cc",
         ],
         "//conditions:default": [
-            "blaze_util_test.cc",
             "blaze_util_posix_test.cc",
+            "blaze_util_test.cc",
         ],
     }),
     deps = [
@@ -91,7 +94,10 @@ cc_test(
         "//src/main/cpp:startup_options",
         "//src/main/cpp:workspace_layout",
         "@com_google_googletest//:gtest_main",
-    ],
+    ] + select({
+        "//src/conditions:linux": ["//src/main/cpp/util"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_test(

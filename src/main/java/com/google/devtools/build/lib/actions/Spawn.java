@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.DescribableExecutionUnit;
 import java.util.Collection;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -51,27 +50,16 @@ public interface Spawn extends DescribableExecutionUnit {
    */
   ImmutableMap<String, String> getExecutionInfo();
 
-  /**
-   * Returns the {@link RunfilesSupplier} helper encapsulating the runfiles for this spawn.
-   */
-  RunfilesSupplier getRunfilesSupplier();
-
-  /**
-   * Returns the command (the first element) and its arguments.
-   */
+  /** Returns the command (the first element) and its arguments. */
+  @Override
   ImmutableList<String> getArguments();
 
   /**
-   * Returns the initial environment of the process.
-   * If null, the environment is inherited from the parent process.
+   * Returns the initial environment of the process. If null, the environment is inherited from the
+   * parent process.
    */
+  @Override
   ImmutableMap<String, String> getEnvironment();
-
-  /**
-   * Map of the execpath at which we expect the Fileset symlink trees, to a list of
-   * FilesetOutputSymlinks which contains the details of the Symlink trees.
-   */
-  ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> getFilesetMappings();
 
   /**
    * Returns the list of files that are required to execute this spawn (e.g. the compiler binary),
@@ -79,9 +67,8 @@ public interface Spawn extends DescribableExecutionUnit {
    *
    * <p>The returned set of files is a subset of what getInputFiles() returns.
    *
-   * <p>This method explicitly does not expand middleman artifacts. Pass the result to an
-   * appropriate utility method on {@link com.google.devtools.build.lib.actions.Artifact} to expand
-   * the middlemen.
+   * <p>This method explicitly does not expand runfiles trees. Pass the result to an appropriate
+   * utility method on {@link com.google.devtools.build.lib.actions.Artifact} to expand them.
    *
    * <p>This is for use with persistent workers, so we can restart workers when their binaries have
    * changed.
@@ -91,9 +78,8 @@ public interface Spawn extends DescribableExecutionUnit {
   /**
    * Returns the list of files that this command may read.
    *
-   * <p>This method explicitly does not expand middleman artifacts. Pass the result to an
-   * appropriate utility method on {@link com.google.devtools.build.lib.actions.Artifact} to expand
-   * the middlemen.
+   * <p>This method explicitly does not expand runfiles trees. Pass the result to an appropriate
+   * utility method on {@link com.google.devtools.build.lib.actions.Artifact} to expand them.
    *
    * <p>This is for use with remote execution, so we can ship inputs before starting the command.
    * Order stability across multiple calls should be upheld for performance reasons.
@@ -109,6 +95,20 @@ public interface Spawn extends DescribableExecutionUnit {
    * so it can be cached.
    */
   Collection<? extends ActionInput> getOutputFiles();
+
+  /**
+   * Returns the output files that should be considered to be "generated" by this spawn for purposes
+   * of reconstructing the execution graph in {@link
+   * com.google.devtools.build.lib.runtime.ExecutionGraphModule}.
+   *
+   * <p>This method is only used for constructing a model of the execution graph and does not affect
+   * running this spawn in any way. It can be overridden to provide a clearer representation of the
+   * execution graph in the face of oddities such as a difference between {@link #getOutputFiles}
+   * and {@link Action#getOutputs}.
+   */
+  default Iterable<? extends ActionInput> getOutputEdgesForExecutionGraph() {
+    return getOutputFiles();
+  }
 
   /**
    * Returns true if {@code output} must be created for the action to succeed. Can be used by remote
@@ -138,9 +138,8 @@ public interface Spawn extends DescribableExecutionUnit {
    */
   ResourceSet getLocalResources() throws ExecException;
 
-  /**
-   * Returns a mnemonic (string constant) for this kind of spawn.
-   */
+  /** Returns a mnemonic (string constant) for this kind of spawn. */
+  @Override
   String getMnemonic();
 
   /**
@@ -153,16 +152,18 @@ public interface Spawn extends DescribableExecutionUnit {
    * #getExecutionInfo()} can be set by multiple sources while this data is set via the {@code
    * exec_properties} attribute on targets and platforms.
    */
-  ImmutableMap<String, String> getCombinedExecProperties();
+  default ImmutableMap<String, String> getCombinedExecProperties() {
+    return getResourceOwner().getOwner().getExecProperties();
+  }
 
   @Nullable
   PlatformInfo getExecutionPlatform();
 
   @Override
   @Nullable
-  default String getExecutionPlatformLabelString() {
+  default Label getExecutionPlatformLabel() {
     PlatformInfo executionPlatform = getExecutionPlatform();
-    return executionPlatform == null ? null : Objects.toString(executionPlatform.label());
+    return executionPlatform != null ? executionPlatform.label() : null;
   }
 
   @Override
@@ -173,18 +174,20 @@ public interface Spawn extends DescribableExecutionUnit {
 
   @Override
   @Nullable
-  default String getTargetLabel() {
-    Label label = getResourceOwner().getOwner().getLabel();
-    return label == null ? null : label.toString();
+  default String getTargetDescription() {
+    return getResourceOwner().getOwner().getDescription();
+  }
+
+  @Nullable
+  default Label getTargetLabel() {
+    return getResourceOwner().getOwner().getLabel();
   }
 
   /**
-   * If true, this spawn strips output path config prefixes from its inputs, outputs, and command
-   * line (including .params files) before running on an executor.
-   *
-   * <p>See {@link PathStripper}.
+   * Returns the {@link PathMapper} that was used to create this spawn and that should be used to
+   * map the paths of the spawn's inputs and outputs.
    */
-  default boolean stripOutputPaths() {
-    return false;
+  default PathMapper getPathMapper() {
+    return PathMapper.NOOP;
   }
 }

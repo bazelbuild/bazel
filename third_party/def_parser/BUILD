@@ -1,6 +1,4 @@
-# Needed for #9006. Consider replacing label with @rules_python as per #9029 if
-# merging from upstream becomes an issue.
-load("//tools/python:private/defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_test")
 
 licenses(["notice"])  # 3-clause BSD
 
@@ -15,6 +13,9 @@ cc_library(
     name = "def_parser_lib",
     srcs = ["def_parser.cc"],
     hdrs = ["def_parser.h"],
+    tags = [
+        "__DONT_DEPEND_ON_DEF_PARSER__"
+    ],
 )
 
 cc_binary(
@@ -22,6 +23,9 @@ cc_binary(
     srcs = ["def_parser_main.cc"],
     deps = [
         ":def_parser_lib",
+    ],
+    tags = [
+        "__DONT_DEPEND_ON_DEF_PARSER__"
     ],
 )
 

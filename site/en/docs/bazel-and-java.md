@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Java and Bazel
 
+{% include "_buttons.html" %}
+
 This page contains resources that help you use Bazel with Java projects. It
 links to a tutorial, build rules, and other information specific to building
 Java projects with Bazel.
@@ -11,7 +13,7 @@ Java projects with Bazel.
 
 The following resources will help you work with Bazel on Java projects:
 
-*   [Tutorial: Building a Java Project](/tutorials/java)
+*   [Tutorial: Building a Java Project](/start/java)
 *   [Java rules](/reference/be/java)
 
 ## Migrating to Bazel {:#migrating-to-bazel}
@@ -84,7 +86,7 @@ For more details, see
 
 ## Best practices {:#best-practices}
 
-In addition to [general Bazel best practices](/docs/best-practices), below are
+In addition to [general Bazel best practices](/configure/best-practices), below are
 best practices specific to Java projects.
 
 ### Directory structure {:#directory-structure}
@@ -126,20 +128,19 @@ Follow these guidelines when creating your `BUILD` files:
 not need it when getting started with Bazel.
 
 The following modules, configuration fragments, and providers will help you
-[extend Bazel's capabilities](/rules/concepts) when building your Java
+[extend Bazel's capabilities](/extending/concepts) when building your Java
 projects:
 
-*   Main Java provider: [`java_common`](/rules/lib/java_common)
-*   Main Java module: [`JavaInfo`](/rules/lib/JavaInfo)
-*   Configuration fragment: [`java`](/rules/lib/java)
+*   Main Java module: [`java_common`](/rules/lib/toplevel/java_common)
+*   Main Java provider: [`JavaInfo`](/rules/lib/providers/JavaInfo)
+*   Configuration fragment: [`java`](/rules/lib/fragments/java)
 *   Other modules:
 
-    *   [`java_annotation_processing`](/rules/lib/java_annotation_processing)
-    *   [`java_compilation_info`](/rules/lib/java_compilation_info)
-    *   [`java_output`](/rules/lib/java_output)
-    *   [`java_output_jars`](/rules/lib/java_output_jars)
-    *   [`JavaRuntimeInfo`](/rules/lib/JavaRuntimeInfo)
-    *   [`JavaToolchainInfo`](/rules/lib/JavaToolchainInfo)
+    *   [`java_annotation_processing`](/rules/lib/builtins/java_annotation_processing)
+    *   [`java_compilation_info`](/rules/lib/providers/java_compilation_info)
+    *   [`java_output_jars`](/rules/lib/providers/java_output_jars)
+    *   [`JavaRuntimeInfo`](/rules/lib/providers/JavaRuntimeInfo)
+    *   [`JavaToolchainInfo`](/rules/lib/providers/JavaToolchainInfo)
 
 ## Configuring the Java toolchains {:#config-java-toolchains}
 
@@ -155,15 +156,15 @@ Execution toolchain is the JVM, either local or from a repository, with some
 additional information about its version, operating system, and CPU
 architecture.
 
-Java execution toolchains may added using `local_java_repository` or
-`remote_java_repository` rules in the `WORKSPACE` file. Adding the rule makes
+Java execution toolchains may added using the `local_java_repository` or
+`remote_java_repository` repo rules in a module extension. Adding the rule makes
 the JVM available using a flag. When multiple definitions for the same operating
 system and CPU architecture are given, the first one is used.
 
 Example configuration of local JVM:
 
 ```python
-load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
+load("@rules_java//toolchains:local_java_repository.bzl", "local_java_repository")
 
 local_java_repository(
   name = "additionaljdk",          # Can be used with --java_runtime_version=additionaljdk, --java_runtime_version=11 or --java_runtime_version=additionaljdk_11
@@ -175,13 +176,14 @@ local_java_repository(
 Example configuration of remote JVM:
 
 ```python
-load("@bazel_tools//tools/jdk:remote_java_repository.bzl", "remote_java_repository")
+load("@rules_java//toolchains:remote_java_repository.bzl", "remote_java_repository")
 
 remote_java_repository(
   name = "openjdk_canary_linux_arm",
   prefix = "openjdk_canary", # Can be used with --java_runtime_version=openjdk_canary_11
   version = "11",            # or --java_runtime_version=11
-  target_compatible_with = [   # Specifies constraints this JVM is compatible with "@platforms//cpu:arm",
+  target_compatible_with = [ # Specifies constraints this JVM is compatible with
+    "@platforms//cpu:arm",
     "@platforms//os:linux",
   ],
   urls = ...,               # Other parameters are from http_repository rule.
@@ -232,7 +234,7 @@ The `TestRunner` tool executes JUnit 4 tests in a controlled environment.
 
 You can reconfigure the compilation by adding `default_java_toolchain` macro to
 a `BUILD` file and registering it either by adding `register_toolchains` rule to
-the `WORKSPACE` file or by using
+the `MODULE.bazel` file or by using
 [`--extra_toolchains`](/docs/user-manual#extra-toolchains) flag.
 
 The toolchain is only used when the `source_version` attribute matches the
@@ -242,7 +244,7 @@ Example toolchain configuration:
 
 ```python
 load(
-  "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
+  "@rules_java//toolchains:default_java_toolchain.bzl",
   "default_java_toolchain", "DEFAULT_TOOLCHAIN_CONFIGURATION", "BASE_JDK9_JVM_OPTS", "DEFAULT_JAVACOPTS"
 )
 
@@ -250,7 +252,7 @@ default_java_toolchain(
   name = "repository_default_toolchain",
   configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,        # One of predefined configurations
                                                           # Other parameters are from java_toolchain rule:
-  java_runtime = "@bazel_tools//tools/jdk:remote_jdk11", # JDK to use for compilation and toolchain's tools execution
+  java_runtime = "@rules_java//toolchains:remote_jdk11", # JDK to use for compilation and toolchain's tools execution
   jvm_opts = BASE_JDK9_JVM_OPTS + ["--enable_preview"],   # Additional JDK options
   javacopts = DEFAULT_JAVACOPTS + ["--enable_preview"],   # Additional javac options
   source_version = "9",
@@ -290,7 +292,7 @@ files using `package_configuration` attribute of `default_java_toolchain`.
 Please refer to the example below.
 
 ```python
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 
 # This is a convenience macro that inherits values from Bazel's default java_toolchain
 default_java_toolchain(
@@ -333,7 +335,7 @@ version may be grouped with `.bazelrc` configs":
 
 ```python
 build:java8 --java_language_version=8
-build:java8 --java_runtime_version=localjdk_8
+build:java8 --java_runtime_version=local_jdk_8
 build:java11 --java_language_version=11
 build:java11 --java_runtime_version=remotejdk_11
 ```

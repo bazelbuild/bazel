@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -26,7 +26,8 @@ add_to_bazelrc "build --experimental_build_event_upload_strategy=local"
 set -e
 
 function set_up() {
-  setup_skylib_support
+  add_bazel_skylib "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
 
   mkdir -p pkg
   touch pkg/somesourcefile
@@ -50,6 +51,8 @@ EOF
   chmod 755 pkg/slowtest.sh
   touch pkg/sourcefileA pkg/sourcefileB pkg/sourcefileC
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 exports_files(["somesourcefile"])
 sh_test(
   name = "true",
@@ -116,8 +119,7 @@ def _simple_aspect_impl(target, ctx):
         ctx.actions.write(
             output=aspect_out,
             content = "Hello from aspect")
-    return struct(output_groups={
-        "aspect-out" : depset([aspect_out]) })
+    return [OutputGroupInfo(aspect_out=depset([aspect_out]))]
 
 simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
@@ -130,15 +132,14 @@ def _failing_aspect_impl(target, ctx):
             outputs = [aspect_out],
             command = "false",
         )
-    return struct(output_groups={
-        "aspect-out" : depset([aspect_out]) })
+    return [OutputGroupInfo(aspect_out=depset([aspect_out]))]
 
 failing_aspect = aspect(implementation=_failing_aspect_impl)
 EOF
 cat > semifailingaspect.bzl <<'EOF'
 def _semifailing_aspect_impl(target, ctx):
     if not ctx.rule.attr.outs:
-        return struct(output_groups = {})
+        return [OutputGroupInfo()]
     bad_outputs = list()
     good_outputs = list()
     mixed_outputs = list()
@@ -174,6 +175,21 @@ def _semifailing_aspect_impl(target, ctx):
     })]
 
 semifailing_aspect = aspect(implementation = _semifailing_aspect_impl)
+EOF
+cat > requiringaspect.bzl <<'EOF'
+load(":simpleaspect.bzl", "simple_aspect")
+def _requiring_aspect_impl(target, ctx):
+    for orig_out in ctx.rule.attr.outs:
+        aspect_out = ctx.actions.declare_file(orig_out.name + ".requiring")
+        ctx.actions.write(
+            output=aspect_out,
+            content = "Hello from requiring aspect")
+    return [OutputGroupInfo(aspect_out=depset([aspect_out]))]
+
+requiring_aspect = aspect(
+    implementation=_requiring_aspect_impl,
+    requires=[simple_aspect],
+)
 EOF
 mkdir -p semifailingpkg/
 cat > semifailingpkg/BUILD <<'EOF'
@@ -537,8 +553,10 @@ base=$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR
 echo "some information" > $base/something.part
 EOF
   chmod u+x undeclared_annotations/undeclared_annotations_test.sh
-  echo "sh_test(name='bep_undeclared_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])" \
-    > undeclared_annotations/BUILD
+  cat > undeclared_annotations/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(name='bep_undeclared_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])
+EOF
   bazel test  --build_event_text_file="${TEST_log}" //undeclared_annotations:bep_undeclared_test || fail "Expected success"
   expect_log 'test_result'
   expect_log 'test.outputs_manifest__ANNOTATIONS'
@@ -557,8 +575,11 @@ base=$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR
 echo "some information" > $base/something.pb
 EOF
   chmod u+x undeclared_annotations/undeclared_annotations_test.sh
-  echo "sh_test(name='bep_undeclared_pb_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])" \
-    > undeclared_annotations/BUILD
+  cat > undeclared_annotations/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(name='bep_undeclared_pb_test', srcs=['undeclared_annotations_test.sh'], tags=['local'])
+EOF
+
   bazel test --build_event_text_file="${TEST_log}" //undeclared_annotations:bep_undeclared_pb_test || fail "Expected success"
   expect_log 'test_result'
   expect_log 'test.outputs_manifest__ANNOTATIONS.pb'
@@ -579,7 +600,7 @@ function test_test_runtime() {
 function test_test_start_times() {
   # Verify that the start time of a test is reported, regardless whether
   # it was cached or not.
-  bazel clean --expunge
+  bazel clean
   bazel test --build_event_text_file=$TEST_log pkg:true \
     || fail "bazel test failed"
   expect_log 'test_attempt_start_millis_epoch.*[1-9]'
@@ -617,7 +638,7 @@ function test_test_attempts_multi_runs_flake_detection() {
 function test_cached_test_results() {
   # Verify that both, clean and cached test results are reported correctly,
   # including the appropriate reference to log files.
-  bazel clean --expunge
+  bazel clean
   bazel test --build_event_text_file=$TEST_log pkg:true \
     || fail "Clean testing pkg:true failed"
   expect_log '^test_result'
@@ -716,7 +737,7 @@ function test_bep_output_groups() {
   #    2. bar_outputs (6/0)
   #    3. baz_outputs (0/1)
   #    4. skip_outputs (1/0)
-  #    5. _validation implicit with --experimental_run_validations (1/0)
+  #    5. _validation implicit with --run_validations (1/0)
   #
   # We request the first three output groups and expect foo_outputs and
   # bar_outputs to appear in BEP, because both groups have at least one
@@ -726,7 +747,7 @@ function test_bep_output_groups() {
    --build_event_text_file=bep_output \
    --build_event_json_file="$TEST_log" \
    --build_event_max_named_set_of_file_entries=1 \
-   --experimental_run_validations \
+   --run_validations \
    --output_groups=foo_outputs,bar_outputs,baz_outputs \
     && fail "expected failure" || true
 
@@ -755,13 +776,46 @@ function test_bep_output_groups() {
   expect_not_log "-valid\""  # validation outputs shouldn't appear in BEP
 }
 
+function test_action_timing_details() {
+  mkdir -p demo
+  cat >demo/BUILD <<'EOF'
+genrule(
+    name = "passrule",
+    outs = ["pass.out"],
+    cmd = "echo passrule > $(location pass.out); true",
+)
+genrule(
+    name = "failrule",
+    outs = ["fail.out"],
+    cmd = "echo failrule > $(location fail.out); false",
+)
+EOF
+
+  bazel build //demo:passrule //demo:failrule \
+     --keep_going \
+     --spawn_strategy=local \
+     --genrule_strategy=local \
+     --build_event_publish_all_actions \
+     --build_event_json_file="$TEST_log" \
+    && fail "expected failure"
+  # Successful and failed action start/end times should be present and take
+  # place after the year 1999.
+  local -r _DATE_PATTERN='[2-9][0-9][0-9][0-9]-[0-3][0-9]-[0-3][0-9]'
+  local -r _TIME_PATTERN='[0-2][0-9]:[0-6][0-9]:[0-6][0-9]\.[0-9][0-9]*'
+  local -r _DATETIME_PATTERN="${_DATE_PATTERN}"T"${_TIME_PATTERN}"Z
+  expect_log '{"id":{"action.*pass.out.*startTime":"'"${_DATETIME_PATTERN}"
+  expect_log '{"id":{"action.*pass.out.*endTime":"'"${_DATETIME_PATTERN}"
+  expect_log '{"id":{"action.*fail.out.*startTime":"'"${_DATETIME_PATTERN}"
+  expect_log '{"id":{"action.*fail.out.*endTime":"'"${_DATETIME_PATTERN}"
+}
+
 function test_aspect_artifacts() {
   bazel build --build_event_text_file=$TEST_log \
     --aspects=simpleaspect.bzl%simple_aspect \
-    --output_groups=aspect-out \
+    --output_groups=aspect_out \
     pkg:output_files_and_tags || fail "bazel build failed"
   expect_log 'aspect.*simple_aspect'
-  expect_log 'name.*aspect-out'
+  expect_log 'name.*aspect_out'
   expect_log 'name.*out1.txt.aspect'
   expect_not_log 'aborted'
   expect_log_n '^configured' 2
@@ -773,7 +827,7 @@ function test_aspect_target_summary() {
   bazel build --build_event_text_file=$TEST_log \
     --experimental_bep_target_summary \
     --aspects=simpleaspect.bzl%simple_aspect \
-    --output_groups=aspect-out \
+    --output_groups=aspect_out \
     pkg:output_files_and_tags || fail "bazel build failed"
   expect_not_log 'aborted'
   expect_log_n '^configured' 2
@@ -784,10 +838,58 @@ function test_aspect_target_summary() {
   expect_log_once 'overall_build_success.*true'
 }
 
+function test_aspect_with_failing_target_summary() {
+  mkdir -p demo
+  cat >demo/BUILD <<'EOF'
+genrule(
+    name = "failrule",
+    outs = ["fail.out"],
+    cmd = "echo failrule > $(location fail.out); false",
+)
+EOF
+
+  bazel build --build_event_text_file=$TEST_log \
+    --experimental_bep_target_summary \
+    --aspects=simpleaspect.bzl%simple_aspect \
+    --output_groups=default,aspect_out \
+    //demo:failrule && fail "bazel build unexpectedly succeeded"
+  expect_not_log 'aborted'
+  expect_log_n '^configured' 2
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
+  expect_log_n '^completed' 2
+  expect_log_once '^target_summary '
+  expect_not_log 'overall_build_success.*true'
+}
+
+function test_aspect_with_requires_failing_target_summary() {
+  mkdir -p demo
+  cat >demo/BUILD <<'EOF'
+genrule(
+    name = "failrule",
+    outs = ["fail.out"],
+    cmd = "echo failrule > $(location fail.out); false",
+)
+EOF
+
+  bazel build --keep_going --build_event_text_file=$TEST_log \
+    --experimental_bep_target_summary \
+    --aspects=requiringaspect.bzl%requiring_aspect \
+    --output_groups=default,aspect_out \
+    //demo:failrule && fail "bazel build unexpectedly succeeded"
+  expect_not_log 'aborted'
+  expect_log_n '^configured' 3
+  expect_log 'last_message: true'
+  expect_log_once '^build_tool_logs'
+  expect_log_n '^completed' 3
+  expect_log_once '^target_summary '
+  expect_not_log 'overall_build_success.*true'
+}
+
 function test_failing_aspect() {
   bazel build --build_event_text_file=$TEST_log \
     --aspects=failingaspect.bzl%failing_aspect \
-    --output_groups=aspect-out \
+    --output_groups=aspect_out \
     pkg:output_files_and_tags && fail "expected failure" || true
   expect_log 'aspect.*failing_aspect'
   expect_log '^finished'
@@ -799,7 +901,7 @@ function test_aspect_analysis_failure_no_target_summary() {
   bazel build -k --build_event_text_file=$TEST_log \
     --experimental_bep_target_summary \
     --aspects=failingaspect.bzl%failing_aspect \
-    --output_groups=aspect-out \
+    --output_groups=aspect_out \
     pkg:output_files_and_tags && fail "expected failure" || true
   expect_log 'aspect.*failing_aspect'
   expect_log '^finished'
@@ -819,7 +921,7 @@ function test_failing_aspect_bep_output_groups() {
   #    2. bar_outputs (6/0)
   #    3. baz_outputs (0/1)
   #    4. skip_outputs (1/0)
-  #    5. _validation implicit with --experimental_run_validations (1/0)
+  #    5. _validation implicit with --run_validations (1/0)
   #
   # We request the first two output groups and expect only bar_outputs to
   # appear in BEP, because all actions contributing to bar_outputs succeeded.
@@ -832,7 +934,7 @@ function test_failing_aspect_bep_output_groups() {
    --build_event_text_file=bep_output \
    --build_event_json_file="$TEST_log" \
    --build_event_max_named_set_of_file_entries=1 \
-   --experimental_run_validations \
+   --run_validations \
    --experimental_use_validation_aspect \
    --aspects=semifailingaspect.bzl%semifailing_aspect \
    --output_groups=foo_outputs,bar_outputs,good-aspect-out,bad-aspect-out,mixed-aspect-out \
@@ -984,10 +1086,10 @@ function test_loading_failure() {
   # being expanded.
   (bazel build --build_event_text_file=$TEST_log \
          //does/not/exist && fail "build failure expected") || true
-  expect_log_once 'aborted'
+  expect_log_once 'aborted\ {'
   expect_log_once 'reason: LOADING_FAILURE'
   expect_log 'description.*BUILD file not found'
-  expect_not_log 'expanded'
+  expect_not_log 'expanded\ {'
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'
 }
@@ -1021,9 +1123,9 @@ function test_visibility_indirect() {
   expect_log 'reason: ANALYSIS_FAILURE'
   expect_log '^aborted'
   expect_log '//visibility:cannotsee'
-  # There should be precisely one events with target_completed as event id type
+  # There should be precisely one event with target_configured as event id type
   (echo 'g/^id/+1p'; echo 'q') | ed "${TEST_log}" 2>&1 | tail -n +2 > event_id_types
-  [ `grep target_completed event_id_types | wc -l` -eq 1 ] \
+  [ `grep target_configured event_id_types | wc -l` -eq 1 ] \
       || fail "not precisely one target_completed event id"
 }
 
@@ -1077,7 +1179,7 @@ function test_stdout_stderr_reported() {
   # Verify that bazel's stdout/stderr is included in the build event stream.
 
   # Make sure we generate enough output on stderr
-  bazel clean --expunge
+  bazel clean
   bazel test --build_event_text_file=$TEST_log --curses=no \
         pkg:slow 2>stderr.log || fail "slowtest failed"
   # Take a line that is likely not the output of an action (possibly reported
@@ -1092,7 +1194,7 @@ function test_stdout_stderr_reported() {
 function test_unbuffered_stdout_stderr() {
    # Verify that the option --bes_outerr_buffer_size ensures that messages are
    # flushed out to the BEP immediately
-  bazel clean --expunge
+  bazel clean
   bazel build --build_event_text_file="${TEST_log}" \
         --bes_outerr_buffer_size=1 chain:entry10
   progress_count=$(grep '^progress' "${TEST_log}" | wc -l )
@@ -1192,6 +1294,8 @@ function test_circular_dep() {
   touch test.sh
   chmod u+x test.sh
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "circular",
   srcs = ["test.sh"],
@@ -1226,12 +1330,12 @@ EOF
   [ `grep unconfigured_label event_id_types | wc -l` -eq 1 ] \
       || fail "not precisely one unconfigured_label event id"
 
-  (bazel build --build_event_text_file="${TEST_log}" :badfilegroup :doesnotexist \
+  (bazel build -k --build_event_text_file="${TEST_log}" :badfilegroup :doesnotexist \
     && fail "Expected failure") || :
   # There should be precisely two events with target_completed as event id type
   (echo 'g/^id/+1p'; echo 'q') | ed "${TEST_log}" 2>&1 | tail -n +2 > event_id_types
   [ `grep target_completed event_id_types | wc -l` -eq 2 ] \
-      || fail "not precisely one target_completed event id"
+      || fail "not precisely two target_completed event ids"
   # Moreover, we expect precisely one event identified by an unconfigured label
   [ `grep unconfigured_label event_id_types | wc -l` -eq 1 ] \
       || fail "not precisely one unconfigured_label event id"
@@ -1414,9 +1518,52 @@ function test_memory_profile() {
   expect_log 'used_heap_size_post_build: [1-9]'
 }
 
+function test_skyframe_stats() {
+  mkdir -p a
+  echo 'filegroup(name="a")' > a/BUILD
+
+  bazel build --build_event_json_file=bep.json //a >& "$TEST_log" || fail "build failed"
+  cp bep.json "$TEST_log" || fail "cp failed"
+  expect_log '"skyfunctionName":"PACKAGE","count":'
+
+  bazel build --build_event_json_file=bep.json //a >& "$TEST_log" || fail "build failed"
+  cp bep.json "$TEST_log" || fail "cp failed"
+
+  # Check that nodes that were requested at the top level but were clean are
+  # not reported as having been evaluated (BUILD_INFO is requested at the top
+  # level)
+  expect_not_log '"skyfunctionName":"BUILD_INFO","count":'
+}
+
+function test_build_metrics() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(name="a", srcs=["a.sh"])
+EOF
+
+  cat > a/a.sh <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+
+  chmod +x a/a.sh
+
+  bazel build --build_event_text_file=bep.txt //a:a || fail "build failed"
+
+  assert_contains "^build_metrics {" bep.txt
+  assert_contains "cpu_time_in_ms: " bep.txt
+
+  # Check if null builds still have build metrics
+  bazel build --build_event_text_file=bep.txt //a:a || fail "build failed"
+  assert_contains "^build_metrics {" bep.txt
+}
+
 function test_packages_loaded_contains_only_successfully_loaded_packages() {
   mkdir just-to-get-packages-needed-for-toolchain-resolution
   cat > just-to-get-packages-needed-for-toolchain-resolution/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = 'whatever')
 EOF
   # Do an initial invocation to get Bazel to load packages necessary for
@@ -1433,12 +1580,14 @@ EOF
     unsuccessful-because-of-BUILD-file-syntax-error \
     unsuccessful-because-of-BUILD-file-evaluation-error
   cat > successful/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(
   name = 'successful',
   deps = ['//dep-of-successful:dep'],
 )
 EOF
   cat > dep-of-successful/BUILD <<'EOF'
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = 'dep', visibility = ['//visibility:public'])
 EOF
   # We use 3 different sorts of package loading errors to exercise different

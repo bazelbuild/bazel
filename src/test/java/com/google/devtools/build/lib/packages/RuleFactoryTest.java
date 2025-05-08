@@ -20,65 +20,81 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class RuleFactoryTest extends PackageLoadingTestCase {
 
-  private ConfiguredRuleClassProvider provider = TestRuleClassProvider.getRuleClassProvider();
-  private final RuleFactory ruleFactory = new RuleFactory(provider);
+  private final ConfiguredRuleClassProvider provider = TestRuleClassProvider.getRuleClassProvider();
 
   private static final ImmutableList<StarlarkThread.CallStackEntry> DUMMY_STACK =
       ImmutableList.of(
-          new StarlarkThread.CallStackEntry(
-              "<toplevel>", Location.fromFileLineColumn("BUILD", 42, 1)),
-          new StarlarkThread.CallStackEntry("foo", Location.fromFileLineColumn("foo.bzl", 10, 1)),
-          new StarlarkThread.CallStackEntry(
-              "myrule", Location.fromFileLineColumn("bar.bzl", 30, 6)));
+          StarlarkThread.callStackEntry(
+              StarlarkThread.TOP_LEVEL, Location.fromFileLineColumn("BUILD", 42, 1)),
+          StarlarkThread.callStackEntry("foo", Location.fromFileLineColumn("foo.bzl", 10, 1)),
+          StarlarkThread.callStackEntry("myrule", Location.fromFileLineColumn("bar.bzl", 30, 6)));
 
   private Package.Builder newBuilder(PackageIdentifier id, Path filename) {
     return packageFactory
         .newPackageBuilder(
-            id, "TESTING", StarlarkSemantics.DEFAULT, RepositoryMapping.ALWAYS_FALLBACK)
-        .setFilename(RootedPath.toRootedPath(root, filename));
+            id,
+            RootedPath.toRootedPath(root, filename),
+            "TESTING",
+            Optional.empty(),
+            Optional.empty(),
+            StarlarkSemantics.DEFAULT,
+            /* repositoryMapping= */ RepositoryMapping.ALWAYS_FALLBACK,
+            /* mainRepositoryMapping= */ null,
+            /* cpuBoundSemaphore= */ null,
+            /* generatorMap= */ null,
+            /* configSettingVisibilityPolicy= */ null,
+            /* globber= */ null)
+        .setLoads(ImmutableList.of());
   }
 
   @Test
-  public void testCreateRule() throws Exception {
+  public void testCreateRule(@TestParameter boolean explicitlySetGeneratorAttrs) throws Exception {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("name", "foo");
-    attributeValues.put("alwayslink", true);
+    attributeValues.put("executable", true);
+    attributeValues.put("outs", ImmutableList.of("foo.out"));
+    attributeValues.put("cmd", "echo");
 
-    RuleClass ruleClass = provider.getRuleClassMap().get("cc_library");
+    // TODO(b/274802222): Should this be prohibited?
+    if (explicitlySetGeneratorAttrs) {
+      attributeValues.put("generator_name", "fake_generator_name");
+      attributeValues.put("generator_function", "fake_generator_function");
+    }
+
+    RuleClass ruleClass = provider.getRuleClassMap().get("genrule");
     Rule rule =
         RuleFactory.createAndAddRule(
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
-            new Reporter(new EventBus()),
-            StarlarkSemantics.DEFAULT,
+            true,
             DUMMY_STACK);
 
     assertThat(rule.getAssociatedRule()).isSameInstanceAs(rule);
@@ -93,10 +109,10 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     assertThat(rule.getLabel()).isEqualTo(Label.parseCanonical("//mypkg:foo"));
     assertThat(rule.getName()).isEqualTo("foo");
 
-    assertThat(rule.getRuleClass()).isEqualTo("cc_library");
-    assertThat(rule.getTargetKind()).isEqualTo("cc_library rule");
+    assertThat(rule.getRuleClass()).isEqualTo("genrule");
+    assertThat(rule.getTargetKind()).isEqualTo("genrule rule");
     // The rule reports the location of the outermost call (aka generator), in the BUILD file.
-    // Thie behavior was added to fix b/23974287, but it loses informtion and is redundant
+    // This behavior was added to fix b/23974287, but it loses information and is redundant
     // w.r.t. generator_location. A better fix to that issue would be to keep rule.location as
     // the innermost call, and to report the entire call stack at the first error for the rule.
     assertThat(rule.getLocation().file()).isEqualTo("BUILD");
@@ -106,13 +122,13 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
 
     // Attr with explicitly-supplied value:
     AttributeMap attributes = RawAttributeMapper.of(rule);
-    assertThat(attributes.get("alwayslink", Type.BOOLEAN)).isTrue();
-    assertThrows(Exception.class, () -> attributes.get("alwayslink", Type.STRING));
+    assertThat(attributes.get("executable", Type.BOOLEAN)).isTrue();
+    assertThrows(Exception.class, () -> attributes.get("tools", Type.STRING));
     assertThrows(Exception.class, () -> attributes.get("nosuchattr", Type.STRING));
 
     // Attrs with default values:
     // cc_library linkstatic default=0 according to build encyc.
-    assertThat(attributes.get("linkstatic", Type.BOOLEAN)).isFalse();
+    assertThat(attributes.get("output_to_bindir", Type.BOOLEAN)).isFalse();
     assertThat(attributes.get("testonly", Type.BOOLEAN)).isFalse();
     assertThat(attributes.get("srcs", BuildType.LABEL_LIST)).isEmpty();
   }
@@ -122,7 +138,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     Path myPkgPath = scratch.resolve("/workspace/WORKSPACE");
     Package.Builder pkgBuilder =
         packageFactory.newExternalPackageBuilder(
-            RootedPath.toRootedPath(root, myPkgPath),
+            WorkspaceFileValue.key(RootedPath.toRootedPath(root, myPkgPath)),
             "TESTING",
             RepositoryMapping.ALWAYS_FALLBACK,
             StarlarkSemantics.DEFAULT);
@@ -137,14 +153,13 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
-            new Reporter(new EventBus()),
-            StarlarkSemantics.DEFAULT,
+            true,
             DUMMY_STACK);
     assertThat(rule.containsErrors()).isFalse();
   }
 
   @Test
-  public void testWorkspaceRuleFailsInBuildFile() throws Exception {
+  public void testWorkspaceRuleFailsInBuildFile() {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);
 
@@ -161,14 +176,13 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
-                    new Reporter(new EventBus()),
-                    StarlarkSemantics.DEFAULT,
+                    true,
                     DUMMY_STACK));
     assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
   }
 
   @Test
-  public void testBuildRuleFailsInWorkspaceFile() throws Exception {
+  public void testBuildRuleFailsInWorkspaceFile() {
     Path myPkgPath = scratch.resolve("/workspace/WORKSPACE");
     Package.Builder pkgBuilder = newBuilder(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, myPkgPath);
 
@@ -185,13 +199,12 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
-                    new Reporter(new EventBus()),
-                    StarlarkSemantics.DEFAULT,
+                    true,
                     DUMMY_STACK));
     assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
   }
 
-  private void assertAttr(RuleClass ruleClass, String attrName, Type<?> type) throws Exception {
+  private static void assertAttr(RuleClass ruleClass, String attrName, Type<?> type) {
     assertWithMessage(
             "Rule class '"
                 + ruleClass.getName()
@@ -200,13 +213,13 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                 + "' of type '"
                 + type
                 + "'")
-        .that(ruleClass.hasAttr(attrName, type))
+        .that(ruleClass.getAttributeProvider().hasAttr(attrName, type))
         .isTrue();
   }
 
   @Test
-  public void testOutputFileNotEqualDot() throws Exception {
-    Path myPkgPath = scratch.resolve("/workspace/mypkg");
+  public void testOutputFileNotEqualDot() {
+    Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);
 
     Map<String, Object> attributeValues = new HashMap<>();
@@ -221,8 +234,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
-                    new Reporter(new EventBus()),
-                    StarlarkSemantics.DEFAULT,
+                    true,
                     DUMMY_STACK));
     assertWithMessage(e.getMessage())
         .that(e.getMessage().contains("output file name can't be equal '.'"))
@@ -237,20 +249,18 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package pkg = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath).build();
 
-    for (String name : ruleFactory.getRuleClassNames()) {
+    for (RuleClass ruleClass : provider.getRuleClassMap().values()) {
       // Create rule instance directly so we'll avoid mandatory attribute check yet will be able
       // to use TargetUtils.isTestRule() method to identify test rules.
-      RuleClass ruleClass = ruleFactory.getRuleClass(name);
       Rule rule =
           new Rule(
               pkg,
               Label.create(pkg.getPackageIdentifier(), "myrule"),
               ruleClass,
               Location.fromFile(myPkgPath.toString()),
-              CallStack.EMPTY,
-              AttributeContainer.newMutableInstance(ruleClass));
+              /* interiorCallStack= */ null);
       if (TargetUtils.isTestRule(rule)) {
-        assertAttr(ruleClass, "tags", Type.STRING_LIST);
+        assertAttr(ruleClass, "tags", Types.STRING_LIST);
         assertAttr(ruleClass, "size", Type.STRING);
         assertAttr(ruleClass, "flaky", Type.BOOLEAN);
         assertAttr(ruleClass, "shard_count", Type.INTEGER);

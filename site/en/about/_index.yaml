@@ -48,14 +48,14 @@ landing_page:
       - label: Get started
         path: /about/intro
         classname: button bazel-button-dark
-    - heading: Bazel vision
+    - heading: Why Bazel?
       path: ''
       image_path: /images/why_vision.svg
       description: >
-        Understand why Bazel exists, and where we plan to take it in the future.
+        Understand why we made Bazel, who it works best for, and how it can make your builds better.
       buttons:
-      - label: See the vision
-        path: /about/vision
+      - label: Why Bazel?
+        path: /about/why
         classname: button bazel-button-dark
     - heading: Roadmap
       path: ''

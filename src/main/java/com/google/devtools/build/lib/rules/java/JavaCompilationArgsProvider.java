@@ -14,26 +14,64 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableList;
+import static java.util.Objects.requireNonNull;
+
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Collection;
 import java.util.Iterator;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
-/** A collection of recursively collected Java build information. */
-@AutoValue
+/**
+ * A collection of recursively collected Java build information.
+ *
+ * @param runtimeJars Returns recursively collected runtime jars.
+ * @param directCompileTimeJars Returns non-recursively collected compile-time jars. This is the set
+ *     of jars that compilations are permitted to reference with Strict Java Deps enabled.
+ *     <p>If you're reading this, you probably want {@link #getTransitiveCompileTimeJars} .
+ * @param transitiveCompileTimeJars Returns recursively collected compile-time jars. This is the
+ *     compile-time classpath passed to the compiler.
+ * @param directFullCompileTimeJars Returns non-recursively collected, non-interface compile-time
+ *     jars.
+ *     <p>If you're reading this, you probably want {@link #getTransitiveCompileTimeJars} .
+ * @param transitiveFullCompileTimeJars Returns recursively collected, non-interface compile-time
+ *     jars.
+ *     <p>If you're reading this, you probably want {@link #getTransitiveCompileTimeJars} .
+ * @param compileTimeJavaDependencyArtifacts Returns non-recursively collected Java dependency
+ *     artifacts for computing a restricted classpath when building this target (called when
+ *     strict_java_deps = 1).
+ *     <p>Note that dependency artifacts are needed only when non-recursive compilation args do not
+ *     provide a safe super-set of dependencies. Non-strict targets such as proto_library, always
+ *     collecting their transitive closure of deps, do not need to provide dependency artifacts.
+ */
 @Immutable
-public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvider {
+@AutoCodec
+public record JavaCompilationArgsProvider(
+    NestedSet<Artifact> runtimeJars,
+    NestedSet<Artifact> directCompileTimeJars,
+    NestedSet<Artifact> transitiveCompileTimeJars,
+    NestedSet<Artifact> directFullCompileTimeJars,
+    NestedSet<Artifact> transitiveFullCompileTimeJars,
+    NestedSet<Artifact> compileTimeJavaDependencyArtifacts)
+    implements JavaInfoInternalProvider {
+  public JavaCompilationArgsProvider {
+    requireNonNull(runtimeJars, "runtimeJars");
+    requireNonNull(directCompileTimeJars, "directCompileTimeJars");
+    requireNonNull(transitiveCompileTimeJars, "transitiveCompileTimeJars");
+    requireNonNull(directFullCompileTimeJars, "directFullCompileTimeJars");
+    requireNonNull(transitiveFullCompileTimeJars, "transitiveFullCompileTimeJars");
+    requireNonNull(compileTimeJavaDependencyArtifacts, "compileTimeJavaDependencyArtifacts");
+  }
 
   @SerializationConstant
   public static final JavaCompilationArgsProvider EMPTY =
@@ -52,92 +90,13 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
       NestedSet<Artifact> directFullCompileTimeJars,
       NestedSet<Artifact> transitiveFullCompileTimeJars,
       NestedSet<Artifact> compileTimeJavaDependencyArtifacts) {
-    return new AutoValue_JavaCompilationArgsProvider(
+    return new JavaCompilationArgsProvider(
         runtimeJars,
         directCompileTimeJars,
         transitiveCompileTimeJars,
         directFullCompileTimeJars,
         transitiveFullCompileTimeJars,
         compileTimeJavaDependencyArtifacts);
-  }
-
-  /** Returns recursively collected runtime jars. */
-  public abstract NestedSet<Artifact> getRuntimeJars();
-
-  /**
-   * Returns non-recursively collected compile-time jars. This is the set of jars that compilations
-   * are permitted to reference with Strict Java Deps enabled.
-   *
-   * <p>If you're reading this, you probably want {@link #getTransitiveCompileTimeJars}.
-   */
-  public abstract NestedSet<Artifact> getDirectCompileTimeJars();
-
-  /**
-   * Returns recursively collected compile-time jars. This is the compile-time classpath passed to
-   * the compiler.
-   */
-  public abstract NestedSet<Artifact> getTransitiveCompileTimeJars();
-
-  /**
-   * Returns non-recursively collected, non-interface compile-time jars.
-   *
-   * <p>If you're reading this, you probably want {@link #getTransitiveCompileTimeJars}.
-   */
-  public abstract NestedSet<Artifact> getDirectFullCompileTimeJars();
-
-  /**
-   * Returns recursively collected, non-interface compile-time jars.
-   *
-   * <p>If you're reading this, you probably want {@link #getTransitiveCompileTimeJars}.
-   */
-  public abstract NestedSet<Artifact> getTransitiveFullCompileTimeJars();
-
-  /**
-   * Returns non-recursively collected Java dependency artifacts for computing a restricted
-   * classpath when building this target (called when strict_java_deps = 1).
-   *
-   * <p>Note that dependency artifacts are needed only when non-recursive compilation args do not
-   * provide a safe super-set of dependencies. Non-strict targets such as proto_library, always
-   * collecting their transitive closure of deps, do not need to provide dependency artifacts.
-   */
-  public abstract NestedSet<Artifact> getCompileTimeJavaDependencyArtifacts();
-
-  /**
-   * Returns a {@link JavaCompilationArgsProvider} for the given {@link TransitiveInfoCollection}s.
-   *
-   * <p>If the given targets have a {@link JavaCompilationArgsProvider}, the information from that
-   * provider will be returned. Otherwise, any jar files provided by the targets will be wrapped in
-   * the returned provider.
-   *
-   * @deprecated The handling of raw jar files is present for legacy compatibility. All new
-   *     Java-based rules should require their dependencies to provide {@link
-   *     JavaCompilationArgsProvider}, and that precompiled jar files be wrapped in {@code
-   *     java_import}. New rules should not use this method, and existing rules should be cleaned up
-   *     to disallow jar files in their deps.
-   */
-  // TODO(b/11285003): disallow jar files in deps, require java_import instead
-  @Deprecated
-  public static JavaCompilationArgsProvider legacyFromTargets(
-      Iterable<? extends TransitiveInfoCollection> infos) {
-    Builder argsBuilder = builder();
-    for (TransitiveInfoCollection info : infos) {
-      JavaCompilationArgsProvider provider = null;
-
-      if (provider == null) {
-        provider = JavaInfo.getProvider(JavaCompilationArgsProvider.class, info);
-      }
-      if (provider != null) {
-        argsBuilder.addExports(provider);
-      } else {
-        NestedSet<Artifact> filesToBuild = info.getProvider(FileProvider.class).getFilesToBuild();
-        for (Artifact jar : FileType.filter(filesToBuild.toList(), JavaSemantics.JAR)) {
-          argsBuilder
-              .addRuntimeJar(jar)
-              .addDirectCompileTimeJar(/* interfaceJar= */ jar, /* fullJar= */ jar);
-        }
-      }
-    }
-    return argsBuilder.build();
   }
 
   /** Enum to specify transitive compilation args traversal */
@@ -162,9 +121,9 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
     // so there's nothing to prune, and reading jdeps at compile-time isn't free.
     return builder()
         .addDirectCompileTimeJars(
-            /* interfaceJars= */ args.getTransitiveCompileTimeJars(),
-            /* fullJars= */ args.getTransitiveFullCompileTimeJars())
-        .addRuntimeJars(args.getRuntimeJars())
+            /* interfaceJars= */ args.transitiveCompileTimeJars(),
+            /* fullJars= */ args.transitiveFullCompileTimeJars())
+        .addRuntimeJars(args.runtimeJars())
         .build();
   }
 
@@ -192,14 +151,6 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
     return javaCompilationArgs.build();
   }
 
-  /**
-   * Returns a {@link JavaCompilationArgsProvider} that forwards the union of information from the
-   * inputs, see {@link #merge(Collection<JavaCompilationArgsProvider>)}.
-   */
-  public static JavaCompilationArgsProvider merge(JavaCompilationArgsProvider... providers) {
-    return merge(ImmutableList.copyOf(providers));
-  }
-
   /** Returns a new builder instance. */
   public static final Builder builder() {
     return new Builder();
@@ -221,32 +172,6 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
 
     /** Use {@code TransitiveJavaCompilationArgs#builder()} to instantiate the builder. */
     private Builder() {}
-
-    /**
-     * Legacy method for dealing with objects which construct {@link JavaCompilationArtifacts}
-     * objects.
-     */
-    // TODO(bazel-team): Remove when we get rid of JavaCompilationArtifacts.
-    @CanIgnoreReturnValue
-    public Builder merge(JavaCompilationArtifacts other, boolean isNeverLink) {
-      if (!isNeverLink) {
-        addRuntimeJars(NestedSetBuilder.wrap(Order.NAIVE_LINK_ORDER, other.getRuntimeJars()));
-      }
-      addDirectCompileTimeJars(
-          /* interfaceJars= */ NestedSetBuilder.wrap(
-              Order.NAIVE_LINK_ORDER, other.getCompileTimeJars()),
-          /* fullJars= */ NestedSetBuilder.wrap(
-              Order.NAIVE_LINK_ORDER, other.getFullCompileTimeJars()));
-      return this;
-    }
-
-    /**
-     * Legacy method for dealing with objects which construct {@link JavaCompilationArtifacts}
-     * objects.
-     */
-    public Builder merge(JavaCompilationArtifacts other) {
-      return merge(other, /* isNeverLink= */ false);
-    }
 
     @CanIgnoreReturnValue
     public Builder addRuntimeJar(Artifact runtimeJar) {
@@ -281,17 +206,18 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
       return this;
     }
 
-    /**
-     * Adds transitive interface compile-time jars.
-     *
-     * @deprecated this is necessary to support java_common.create_provider, which is also
-     *     deprecated. It allows creating providers where the direct compile-time jars aren't a
-     *     subset of the transitive jars, and it doesn't provide a way to associate the 'full' jars.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder addTransitiveCompileTimeJars(NestedSet<Artifact> transitiveCompileTimeJars) {
-      this.transitiveCompileTimeJarsBuilder.addTransitive(transitiveCompileTimeJars);
+    // Needed to preserve order while translating Starlark JavaInfo
+    private Builder addStrictlyDirectCompileTimeJars(
+        NestedSet<Artifact> interfaceJars, NestedSet<Artifact> fullJars) {
+      this.directCompileTimeJarsBuilder.addTransitive(interfaceJars);
+      this.directFullCompileTimeJarsBuilder.addTransitive(fullJars);
+      return this;
+    }
+
+    private Builder addTransitiveCompileTimeJars(
+        NestedSet<Artifact> interfaceJars, NestedSet<Artifact> fullJars) {
+      this.transitiveCompileTimeJarsBuilder.addTransitive(interfaceJars);
+      this.transitiveFullCompileTimeJarsBuilder.addTransitive(fullJars);
       return this;
     }
 
@@ -310,7 +236,6 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
     public Builder addExports(JavaCompilationArgsProvider args) {
       return addExports(args, ClasspathType.BOTH);
     }
-
     /**
      * Add the {@link JavaCompilationArgsProvider} for a dependency with export-like semantics:
      * direct jars of the input are direct jars of the output.
@@ -319,24 +244,6 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
      */
     public Builder addExports(JavaCompilationArgsProvider args, ClasspathType type) {
       return addArgs(args, type, true);
-    }
-
-    /**
-     * Add the {@link JavaCompilationArgsProvider} for a dependency with dep-like semantics; see
-     * also {@link #addDeps(JavaCompilationArgsProvider, ClasspathType)}.
-     */
-    public Builder addDeps(JavaCompilationArgsProvider args) {
-      return addDeps(args, ClasspathType.BOTH);
-    }
-
-    /*
-    * Add the {@link JavaCompilationArgsProvider} for a dependency with dep-like semantics:
-    * direct jars of the input are <em>not</em> direct jars of the output.
-
-    * @param type of jars to collect; use {@link ClasspathType#RUNTIME} for neverlink
-    */
-    public Builder addDeps(JavaCompilationArgsProvider args, ClasspathType type) {
-      return addArgs(args, type, false);
     }
 
     /**
@@ -350,16 +257,16 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
         JavaCompilationArgsProvider args, ClasspathType type, boolean recursive) {
       if (!ClasspathType.RUNTIME_ONLY.equals(type)) {
         if (recursive) {
-          directCompileTimeJarsBuilder.addTransitive(args.getDirectCompileTimeJars());
-          directFullCompileTimeJarsBuilder.addTransitive(args.getDirectFullCompileTimeJars());
+          directCompileTimeJarsBuilder.addTransitive(args.directCompileTimeJars());
+          directFullCompileTimeJarsBuilder.addTransitive(args.directFullCompileTimeJars());
           compileTimeJavaDependencyArtifactsBuilder.addTransitive(
-              args.getCompileTimeJavaDependencyArtifacts());
+              args.compileTimeJavaDependencyArtifacts());
         }
-        transitiveCompileTimeJarsBuilder.addTransitive(args.getTransitiveCompileTimeJars());
-        transitiveFullCompileTimeJarsBuilder.addTransitive(args.getTransitiveFullCompileTimeJars());
+        transitiveCompileTimeJarsBuilder.addTransitive(args.transitiveCompileTimeJars());
+        transitiveFullCompileTimeJarsBuilder.addTransitive(args.transitiveFullCompileTimeJars());
       }
       if (!ClasspathType.COMPILE_ONLY.equals(type)) {
-        runtimeJarsBuilder.addTransitive(args.getRuntimeJars());
+        runtimeJarsBuilder.addTransitive(args.runtimeJars());
       }
       return this;
     }
@@ -382,5 +289,43 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
           transitiveFullCompileTimeJarsBuilder.build(),
           compileTimeJavaDependencyArtifactsBuilder.build());
     }
+  }
+
+  /**
+   * Constructs a {@link JavaCompilationArgsProvider} instance for a Starlark-constructed {@link
+   * JavaInfo}.
+   *
+   * @param javaInfo the {@link JavaInfo} instance from which to extract the relevant fields
+   * @return a {@link JavaCompilationArgsProvider} instance, or {@code null} if this is a {@link
+   *     JavaInfo} for a {@code java_binary} or {@code java_test}
+   * @throws EvalException if there were errors reading any fields
+   * @throws TypeException if some field was not a {@link Depset} of {@link Artifact}s
+   */
+  @Nullable
+  static JavaCompilationArgsProvider fromStarlarkJavaInfo(StructImpl javaInfo)
+      throws EvalException, TypeException {
+    Boolean isBinary = javaInfo.getValue("_is_binary", Boolean.class);
+    if (isBinary != null && isBinary) {
+      return null;
+    }
+    JavaCompilationArgsProvider.Builder builder =
+        JavaCompilationArgsProvider.builder()
+            .addStrictlyDirectCompileTimeJars(
+                javaInfo.getValue("compile_jars", Depset.class).getSet(Artifact.class),
+                javaInfo.getValue("full_compile_jars", Depset.class).getSet(Artifact.class))
+            .addTransitiveCompileTimeJars(
+                javaInfo
+                    .getValue("transitive_compile_time_jars", Depset.class)
+                    .getSet(Artifact.class),
+                javaInfo
+                    .getValue("_transitive_full_compile_time_jars", Depset.class)
+                    .getSet(Artifact.class))
+            .addCompileTimeJavaDependencyArtifacts(
+                javaInfo
+                    .getValue("_compile_time_java_dependencies", Depset.class)
+                    .getSet(Artifact.class))
+            .addRuntimeJars(
+                javaInfo.getValue("transitive_runtime_jars", Depset.class).getSet(Artifact.class));
+    return builder.build();
   }
 }

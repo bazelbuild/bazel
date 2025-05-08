@@ -19,19 +19,21 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.Iterables;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ArgChunk;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -39,7 +41,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -87,7 +89,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       Artifact output,
       CommandLine commandLine,
       ParameterFileType type) {
-    super(owner, inputs, output, false);
+    super(owner, inputs, output);
     this.commandLine = commandLine;
     this.type = type;
     this.hasInputArtifactToExpand = !inputs.isEmpty();
@@ -117,8 +119,8 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   public String getStringContents()
       throws CommandLineExpansionException, InterruptedException, IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ParameterFile.writeParameterFile(out, getArguments(), type, ISO_8859_1);
-    return new String(out.toByteArray(), ISO_8859_1);
+    ParameterFile.writeParameterFile(out, getArguments(), type);
+    return out.toString(ISO_8859_1);
   }
 
   @Nullable
@@ -138,10 +140,11 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
       throws ExecException, InterruptedException {
-    final Iterable<String> arguments;
+    final ArgChunk arguments;
     try {
-      ArtifactExpander artifactExpander = Preconditions.checkNotNull(ctx.getArtifactExpander());
-      arguments = commandLine.arguments(artifactExpander);
+      InputMetadataProvider inputMetadataProvider =
+          Preconditions.checkNotNull(ctx.getInputMetadataProvider());
+      arguments = commandLine.expand(inputMetadataProvider, PathMapper.NOOP);
     } catch (CommandLineExpansionException e) {
       throw new UserExecException(
           e,
@@ -153,36 +156,31 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     return new ParamFileWriter(arguments, type);
   }
 
-  @VisibleForSerialization
-  Artifact getOutput() {
-    return Iterables.getOnlyElement(outputs);
-  }
-
   private static class ParamFileWriter implements DeterministicWriter {
-    private final Iterable<String> arguments;
+    private final ArgChunk arguments;
     private final ParameterFileType type;
 
-    ParamFileWriter(Iterable<String> arguments, ParameterFileType type) {
+    ParamFileWriter(ArgChunk arguments, ParameterFileType type) {
       this.arguments = arguments;
       this.type = type;
     }
 
     @Override
-    public void writeOutputFile(OutputStream out) throws IOException {
-      ParameterFile.writeParameterFile(out, arguments, type, ISO_8859_1);
+    public void writeTo(OutputStream out) throws IOException {
+      ParameterFile.writeParameterFile(out, arguments.arguments(PathMapper.NOOP), type);
     }
   }
 
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
-    fp.addString(String.valueOf(makeExecutable));
     fp.addString(type.toString());
-    commandLine.addToFingerprint(actionKeyContext, artifactExpander, fp);
+    commandLine.addToFingerprint(
+        actionKeyContext, inputMetadataProvider, CoreOptions.OutputPathsMode.OFF, fp);
   }
 
   @Override
@@ -190,8 +188,6 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     StringBuilder message = new StringBuilder();
     message.append("GUID: ");
     message.append(GUID);
-    message.append("\nExecutable: ");
-    message.append(makeExecutable);
     message.append("\nParam File Type: ");
     message.append(type);
     message.append("\nContent digest (approximate): ");
@@ -200,7 +196,8 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       // incomprehensible. Instead, just give a digest, which makes it easy to
       // tell if two contents are equal or not.
       var fp = new Fingerprint();
-      commandLine.addToFingerprint(new ActionKeyContext(), null, fp);
+      commandLine.addToFingerprint(
+          new ActionKeyContext(), null, CoreOptions.OutputPathsMode.OFF, fp);
       message.append(BaseEncoding.base16().lowerCase().encode(fp.digestAndReset()));
       message.append(
           "\n"

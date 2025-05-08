@@ -3,11 +3,13 @@ Book: /_book.yaml
 
 # Starlark Language
 
+{% include "_buttons.html" %}
+
 <!-- [TOC] -->
 
 This page is an overview of [Starlark](https://github.com/bazelbuild/starlark),
 formerly known as Skylark, the language used in Bazel. For a complete list of
-functions and types, see the [Bazel API reference](/rules/lib/starlark-overview).
+functions and types, see the [Bazel API reference](/rules/lib/overview).
 
 For more information about the language, see [Starlark's GitHub repo](https://github.com/bazelbuild/starlark/).
 
@@ -39,11 +41,25 @@ types are supported:
 * [None](lib/globals#None)
 * [bool](lib/bool)
 * [dict](lib/dict)
-* [tuple](lib/globals#tuple)
-* function
+* [tuple](lib/tuple)
+* [function](lib/function)
 * [int](lib/int)
 * [list](lib/list)
 * [string](lib/string)
+
+## Type annotations {:#StarlarkTypes}
+
+**Experimental**. Type annotations are an experimental feature and may change
+at any time. Don't depend on it. It may be enabled in Bazel at HEAD
+by using the `--experimental_starlark_types` flag.
+
+Starlark in Bazel at HEAD is incrementally adding support for type annotations
+with a syntax inspired by [PEP 484](https://peps.python.org/pep-0484/).
+
+- Starlark type annotations are under active development. The progress is
+  tracked on [issue#22935](https://github.com/bazelbuild/bazel/issues/22935).
+- The specification is incrementally extended: [starlark-with-types/spec.md](https://github.com/bazelbuild/starlark/blob/starlark-with-types/spec.md)
+- Initial proposal: {# disableFinding(LINK_DOCS) #}[SEP-001 Bootstrapping Starlark types](https://docs.google.com/document/d/1Sid7EAbBd_w_T7D94Li_f_bK3zMTztFbzIMvcpzo1wY/edit?tab=t.0#heading=h.5mcn15i0e1ch)
 
 ## Mutability
 
@@ -98,7 +114,7 @@ definitions for constants, rules, macros, and functions.
 [Native functions](/reference/be/functions) and [native rules](
 /reference/be/overview#language-specific-native-rules) are global symbols in
 `BUILD` files. `bzl` files need to load them using the [`native` module](
-https://bazel.build/rules/lib/native).
+/rules/lib/toplevel/native).
 
 There are two syntactic restrictions in `BUILD` files: 1) declaring functions is
 illegal, and 2) `*args` and `**kwargs` arguments are not allowed.
@@ -141,7 +157,7 @@ The following Python features are not supported:
 * implicit string concatenation (use explicit `+` operator).
 * Chained comparisons (such as `1 < x < 5`).
 * `class` (see [`struct`](lib/struct#struct) function).
-* `import` (see [`load`](concepts#loading-an-extension) statement).
+* `import` (see [`load`](/extending/concepts#loading-an-extension) statement).
 * `while`, `yield`.
 * float and set types.
 * generators and generator expressions.

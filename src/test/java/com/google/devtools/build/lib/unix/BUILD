@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -45,6 +46,14 @@ java_library(
 java_test(
     name = "UnixTests",
     size = "medium",
+    env = select({
+        "@platforms//os:linux": {
+            # Force the same locale as Bazel's client to test roundtripping of
+            # arbitrary byte sequences through strings.
+            "LC_ALL": "en_US.ISO-8859-1",
+        },
+        "//conditions:default": {},
+    }),
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [

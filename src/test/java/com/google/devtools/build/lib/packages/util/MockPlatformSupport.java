@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.util;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
@@ -21,35 +20,48 @@ import java.io.IOException;
 /** Mocking support for platforms and toolchains. */
 public class MockPlatformSupport {
 
-  /** Adds mocks for basic host and target platform. */
+  /** Adds mocks for basic exec and target platform. */
   public static void setup(MockToolsConfig mockToolsConfig) throws IOException {
     setup(
         mockToolsConfig,
         TestConstants.PLATFORMS_PATH,
         TestConstants.CONSTRAINTS_PACKAGE_ROOT,
-        TestConstants.CONSTRAINTS_PATH,
-        TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT,
-        TestConstants.LOCAL_CONFIG_PLATFORM_PATH);
+        TestConstants.CONSTRAINTS_PATH);
   }
 
-  /** Adds mocks for basic host and target platform. */
+  /** Adds mocks for basic exec and target platform. */
   public static void setup(
       MockToolsConfig mockToolsConfig,
       String platformsPath,
       String constraintsPackageRoot,
-      String constraintsPath,
-      String localConfigPlatformPackageRoot,
-      String localConfigPlatformPath)
+      String constraintsPath)
       throws IOException {
     mockToolsConfig.create(
         constraintsPath + "/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])");
     mockToolsConfig.create(
+        constraintsPath + "/env/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "licenses(['notice'])",
+        "constraint_setting(name = 'target_environment')",
+        "constraint_value(",
+        "    name = 'device',",
+        "    constraint_setting = ':target_environment',",
+        ")",
+        "constraint_value(",
+        "    name = 'simulator',",
+        "    constraint_setting = ':target_environment',",
+        ")");
+    mockToolsConfig.create(
         constraintsPath + "/cpu/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])",
         "constraint_setting(name = 'cpu')",
+        "constraint_value(",
+        "    name = 'all',",
+        "    constraint_setting = ':cpu',",
+        ")",
         "constraint_value(",
         "    name = 'x86_32',",
         "    constraint_setting = ':cpu',",
@@ -71,6 +83,10 @@ public class MockPlatformSupport {
         "    constraint_setting = ':cpu',",
         ")",
         "constraint_value(",
+        "    name = 'arm64e',",
+        "    constraint_setting = ':cpu',",
+        ")",
+        "constraint_value(",
         "    name = 'arm64_32',",
         "    constraint_setting = ':cpu',",
         ")",
@@ -84,6 +100,14 @@ public class MockPlatformSupport {
         ")",
         "constraint_value(",
         "    name = 'aarch64',",
+        "    constraint_setting = ':cpu',",
+        ")",
+        "constraint_value(",
+        "    name = 'riscv32',",
+        "    constraint_setting = ':cpu',",
+        ")",
+        "constraint_value(",
+        "    name = 'riscv64',",
         "    constraint_setting = ':cpu',",
         ")",
         "constraint_value(",
@@ -109,6 +133,10 @@ public class MockPlatformSupport {
         ")",
         "constraint_value(",
         "    name = 'tvos',",
+        "    constraint_setting = ':os',",
+        ")",
+        "constraint_value(",
+        "    name = 'visionos',",
         "    constraint_setting = ':os',",
         ")",
         "constraint_value(",
@@ -155,7 +183,7 @@ public class MockPlatformSupport {
         "    ],",
         ")");
     mockToolsConfig.create(
-        localConfigPlatformPath + "/BUILD",
+        constraintsPath + "/host/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])",
         "platform(",
@@ -166,7 +194,24 @@ public class MockPlatformSupport {
         "        '" + constraintsPackageRoot + "cpu:x86_64',",
         "        '" + constraintsPackageRoot + "os:linux',",
         "    ],",
+        ")",
+        "platform(",
+        "     name = 'piii',",
+        "     constraint_values = [",
+        "        '" + constraintsPackageRoot + "cpu:x86_32',",
+        "        '" + constraintsPackageRoot + "os:linux',",
+        "    ],",
         ")");
+    mockToolsConfig.create(
+        constraintsPath + "/host/constraints.bzl",
+        "HOST_CONSTRAINTS = [",
+        // Regardless of the actual machine the tests are run on, hardcode everything to a single
+        // default value for simplicity.
+        "        '" + constraintsPackageRoot + "cpu:x86_64',",
+        "        '" + constraintsPackageRoot + "os:linux',",
+        "    ]");
+    mockToolsConfig.create(
+        constraintsPath + "/host/extension.bzl", "def host_platform_repo(**kwargs):", "    pass");
 
     mockToolsConfig.create(
         "third_party/bazel_platforms/android/BUILD",
@@ -174,7 +219,7 @@ public class MockPlatformSupport {
         "package(default_visibility=['//visibility:public'])",
         "platform(",
         "  name = 'armeabi-v7a',",
-        "  parents = ['" + TestConstants.LOCAL_CONFIG_PLATFORM_PACKAGE_ROOT + ":host'],",
+        "  parents = ['" + TestConstants.PLATFORM_LABEL + "'],",
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7',",
@@ -197,9 +242,7 @@ public class MockPlatformSupport {
         "toolchain(",
         "   name = 'toolchain_cc-compiler-k8',",
         "   toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
-        "   toolchain = '"
-            + crosstoolLabel.getRelativeWithRemapping("cc-compiler-k8-compiler", ImmutableMap.of())
-            + "',",
+        "   toolchain = '" + crosstoolLabel.getSamePackageLabel("cc-compiler-k8-compiler") + "',",
         "   target_compatible_with = [':mock_value'],",
         ")");
   }
@@ -219,9 +262,7 @@ public class MockPlatformSupport {
         "toolchain(",
         "   name = 'toolchain_cc-compiler-ppc',",
         "   toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
-        "   toolchain = '"
-            + crosstoolLabel.getRelativeWithRemapping("cc-compiler-ppc-compiler", ImmutableMap.of())
-            + "',",
+        "   toolchain = '" + crosstoolLabel.getSamePackageLabel("cc-compiler-ppc-compiler") + "',",
         "   target_compatible_with = [':mock_value'],",
         ")");
   }

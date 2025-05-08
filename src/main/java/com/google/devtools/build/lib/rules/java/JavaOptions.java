@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
@@ -22,7 +21,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.Strict
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration.ImportDepsCheckingLevel;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.common.options.EnumConverter;
@@ -50,21 +48,12 @@ public class JavaOptions extends FragmentOptions {
     }
   }
 
-  /** Converter for the --experimental_import_deps_checking option */
-  public static class ImportDepsCheckingLevelConverter
-      extends EnumConverter<ImportDepsCheckingLevel> {
-    public ImportDepsCheckingLevelConverter() {
-      super(
-          ImportDepsCheckingLevel.class,
-          "Enforcement level for the dependency checking for import targets.");
-    }
-  }
-
   @Option(
       name = "experimental_disallow_legacy_java_toolchain_flags",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If enabled, disallow legacy Java toolchain flags (--javabase, --host_javabase,"
               + " --java_toolchain, --host_java_toolchain) and require the use of --platforms"
@@ -294,18 +283,6 @@ public class JavaOptions extends FragmentOptions {
               + "binary.")
   public Label proguard;
 
-  @Option(
-      name = "extra_proguard_specs",
-      allowMultiple = true,
-      defaultValue = "null",
-      converter = LabelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Additional Proguard specs that will be used for all Proguard invocations.  Note that "
-              + "using this option only has an effect when Proguard is used anyway.")
-  public List<Label> extraProguardSpecs;
-
   /**
    * Comma-separated list of Mnemonic=label pairs of optimizers to run in the given order, treating
    * {@code Proguard} specially by substituting in the relevant Proguard binary automatically. All
@@ -329,6 +306,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Do not use.")
   public boolean runLocalJavaOptimizations;
 
@@ -337,13 +315,12 @@ public class JavaOptions extends FragmentOptions {
    */
   @Option(
       name = "experimental_local_java_optimization_configuration",
-      allowMultiple = true,
       defaultValue = "null",
       converter = LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Do not use.")
-  public List<Label> localJavaOptimizationConfiguration;
+  public Label localJavaOptimizationConfiguration;
 
   // TODO(b/237004872) Remove this after rollout of bytecode_optimization_pass_actions.
   /** If true, the OPTIMIZATION stage of the bytecode optimizer will be split across two actions. */
@@ -379,19 +356,11 @@ public class JavaOptions extends FragmentOptions {
   public boolean enforceProguardFileExtension;
 
   @Option(
-      name = "java_optimization_mode",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Do not use.")
-  public String javaOptimizationMode;
-
-  @Option(
       name = "legacy_bazel_java_test",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Use the legacy mode of Bazel for java_test.")
+      help = "No-op, kept only for backwards compatibility")
   public boolean legacyBazelJavaTest;
 
   @Option(
@@ -399,11 +368,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      help =
-          "When 'strict-deps' is on, .java files that depend on classes not declared in their "
-              + "rule's 'deps' fail to build. In other words, it's forbidden to depend on classes "
-              + "obtained transitively. When true, Java protos are strict regardless of their "
-              + "'strict_deps' attribute.")
+      help = "No-op, kept only for backwards compatibility")
   public boolean strictDepsJavaProtos;
 
   @Option(
@@ -411,17 +376,15 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
-      help =
-          "If set, any java_proto_library or java_mutable_proto_library which sets the "
-              + "strict_deps attribute explicitly will fail to build.")
+      help = "No-op, kept only for backwards compatibility.")
   public boolean isDisallowStrictDepsForJpl;
 
   @Option(
       name = "experimental_one_version_enforcement",
       defaultValue = "OFF",
       converter = OneVersionEnforcementLevelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "When enabled, enforce that a java_binary rule can't contain more than one version "
               + "of the same class file on the classpath. This enforcement can break the build, or "
@@ -430,20 +393,17 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_import_deps_checking",
-      defaultValue = "OFF",
-      converter = ImportDepsCheckingLevelConverter.class,
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      help =
-          "When enabled, check whether the dependencies of an aar_import are complete. "
-              + "This enforcement can break the build, or can just result in warnings.")
-  public ImportDepsCheckingLevel importDepsCheckingLevel;
+      help = "No-op, kept only for backwards compatibility")
+  public String importDepsCheckingLevel;
 
   @Option(
       name = "one_version_enforcement_on_java_tests",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "When enabled, and with experimental_one_version_enforcement set to a non-NONE value,"
               + " enforce one version on java_test targets. This flag can be disabled to improve"
@@ -457,9 +417,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Flag to help transition from allowing to disallowing runtime_deps on neverlink"
-              + " Java archives. The depot needs to be cleaned up to roll this out by default.")
+      help = "No-op, kept only for backwards compatibility")
   public boolean allowRuntimeDepsOnNeverLink;
 
   @Option(
@@ -467,6 +425,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "Flag to help transition away from adding test support libraries to the compile-time"
               + " deps of Java test rules.")
@@ -477,6 +436,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Whether to validate java_* sources.")
   public boolean runAndroidLint;
 
@@ -485,7 +445,8 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Limit --experimental_run_android_lint_on_java_rules to Android-compatible libraries.")
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "No-op, kept only for backwards compatibility")
   public boolean limitAndroidLintToAndroidCompatible;
 
   @Option(
@@ -494,13 +455,12 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "Roll-out flag for making java_proto_library propagate CcLinkParamsStore. DO NOT USE.")
+      help = "No-op, kept only for backwards compatibility")
   public boolean jplPropagateCcLinkParamsStore;
 
-  // Plugins are built using the host config. To avoid cycles we just don't propagate
-  // this option to the host config. If one day we decide to use plugins when building
-  // host tools, we can improve this by (for example) creating a compiler configuration that is
-  // used only for building plugins.
+  // Plugins are built using the exec config. To avoid cycles we just don't propagate this option to
+  // the exec config. If one day we decide to use plugins when building exec tools, we can improve
+  // this by (for example) creating a compiler configuration that is used only for building plugins.
   @Option(
       name = "plugin",
       converter = LabelListConverter.class,
@@ -512,21 +472,12 @@ public class JavaOptions extends FragmentOptions {
   public List<Label> pluginList;
 
   @Option(
-      name = "incompatible_disallow_resource_jars",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Disables the resource_jars attribute; use java_import and deps or runtime_deps instead.")
-  public boolean disallowResourceJars;
-
-  @Option(
       name = "experimental_java_header_input_pruning",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "If enabled, header compilation actions support --java_classpath=bazel")
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "No-op, kept only for backwards compatibility")
   public boolean experimentalJavaHeaderInputPruning;
 
   @Option(
@@ -534,6 +485,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If enabled, turbine is used for all annotation processing")
   public boolean experimentalTurbineAnnotationProcessing;
 
@@ -555,7 +507,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "java_language_version",
-      defaultValue = "8",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java language version")
@@ -563,12 +515,13 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "tool_java_language_version",
-      defaultValue = "8",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java language version used to execute the tools that are needed during a build")
   public String hostJavaLanguageVersion;
 
+  @Deprecated
   @Option(
       name = "incompatible_dont_collect_native_libraries_in_data",
       defaultValue = "false",
@@ -579,17 +532,8 @@ public class JavaOptions extends FragmentOptions {
   public boolean dontCollectDataLibraries;
 
   @Option(
-      name = "incompatible_require_javaplugininfo_in_javacommon",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "When enabled java_common.compile only accepts JavaPluginInfo for plugins.")
-  public boolean requireJavaPluginInfo;
-
-  @Option(
       name = "incompatible_multi_release_deploy_jars",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -607,7 +551,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_disallow_java_import_empty_jars",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -619,75 +563,16 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Enable experimental jspecify integration.")
   public boolean experimentalEnableJspecify;
-  @Override
-  public FragmentOptions getHost() {
-    // Note validation actions don't run in host config, so no need copying flags related to that.
-    // TODO(b/171078539): revisit if relevant validations are run in host config
-    JavaOptions host = (JavaOptions) getDefault();
 
-    if (hostJvmOpts == null || hostJvmOpts.isEmpty()) {
-      host.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
-    } else {
-      host.jvmOpts = hostJvmOpts;
-    }
-
-
-    host.javacOpts = hostJavacOpts;
-
-    host.javaLauncher = hostJavaLauncher;
-
-    // Java builds often contain complicated code generators for which
-    // incremental build performance is important.
-    host.useIjars = useIjars;
-    host.headerCompilation = headerCompilation;
-
-    host.javaDeps = javaDeps;
-    host.javaClasspath = javaClasspath;
-    host.inmemoryJdepsFiles = inmemoryJdepsFiles;
-
-    host.strictJavaDeps = strictJavaDeps;
-    host.fixDepsTool = fixDepsTool;
-
-    host.enforceOneVersion = enforceOneVersion;
-    host.importDepsCheckingLevel = importDepsCheckingLevel;
-    // java_test targets can be used as a host tool, Ex: as a validating tool on a genrule.
-    host.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
-    host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
-    host.addTestSupportToCompileTimeDeps = addTestSupportToCompileTimeDeps;
-
-    host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
-
-    host.disallowResourceJars = disallowResourceJars;
-
-    host.javaRuntimeVersion = hostJavaRuntimeVersion;
-    host.javaLanguageVersion = hostJavaLanguageVersion;
-
-    host.bytecodeOptimizers = bytecodeOptimizers;
-    host.splitBytecodeOptimizationPass = splitBytecodeOptimizationPass;
-    host.bytecodeOptimizationPassActions = bytecodeOptimizationPassActions;
-
-    host.enforceProguardFileExtension = enforceProguardFileExtension;
-    host.extraProguardSpecs = extraProguardSpecs;
-    host.proguard = proguard;
-
-    // Save host options for further use.
-    host.hostJavacOpts = hostJavacOpts;
-    host.hostJavaLauncher = hostJavaLauncher;
-    host.hostJavaRuntimeVersion = hostJavaRuntimeVersion;
-    host.hostJavaLanguageVersion = hostJavaLanguageVersion;
-
-    host.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
-
-    host.requireJavaPluginInfo = requireJavaPluginInfo;
-
-    host.multiReleaseDeployJars = multiReleaseDeployJars;
-
-    host.disallowJavaImportExports = disallowJavaImportExports;
-
-    host.disallowJavaImportEmptyJars = disallowJavaImportEmptyJars;
-
-    return host;
-  }
+  @Option(
+      name = "experimental_java_test_auto_create_deploy_jar",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "DO NOT USE")
+  public boolean autoCreateDeployJarForJavaTests;
 }

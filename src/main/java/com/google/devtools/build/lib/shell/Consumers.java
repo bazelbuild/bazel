@@ -193,15 +193,14 @@ final class Consumers {
       } catch (ExecutionException ee) {
         // Runnable threw a RuntimeException
         Throwable nested = ee.getCause();
-        if (nested instanceof RuntimeException) {
-          final RuntimeException re = (RuntimeException) nested;
+        if (nested instanceof final RuntimeException re) {
           // The stream sink classes, unfortunately, tunnel IOExceptions
           // out of run() in a RuntimeException. If that's the case,
           // unpack and re-throw the IOException. Otherwise, re-throw
           // this unexpected RuntimeException
           final Throwable cause = re.getCause();
-          if (cause instanceof IOException) {
-            throw (IOException) cause;
+          if (cause instanceof IOException ioException) {
+            throw ioException;
           } else {
             throw re;
           }

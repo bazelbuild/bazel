@@ -95,7 +95,7 @@ pkg_deb(
     ],
     description_file = "description",
     homepage = "https://bazel.build",
-    maintainer = "The Bazel Authors <bazel-dev@googlegroups.com>",
+    maintainer = "The Bazel Authors <bazel-discuss@googlegroups.com>",
     package = "bazel",
     suggests = [
         # Keep in sync with Suggests section in ./control

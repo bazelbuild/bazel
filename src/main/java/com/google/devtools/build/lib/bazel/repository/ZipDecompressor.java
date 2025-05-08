@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.devtools.build.lib.bazel.repository.StripPrefixedPath.maybeDeprefixSymlink;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
@@ -29,11 +29,11 @@ import com.google.devtools.build.zip.ZipReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -89,7 +89,8 @@ public class ZipDecompressor implements Decompressor {
       for (ZipFileEntry entry : entries) {
         String entryName = entry.getName();
         entryName = renameFiles.getOrDefault(entryName, entryName);
-        StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entryName, prefix);
+        StripPrefixedPath entryPath =
+            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
         if (entryPath.skip()) {
           continue;
@@ -102,12 +103,9 @@ public class ZipDecompressor implements Decompressor {
         Set<String> prefixes = new HashSet<>();
         for (ZipFileEntry entry : entries) {
           StripPrefixedPath entryPath =
-              StripPrefixedPath.maybeDeprefix(entry.getName(), Optional.absent());
-          Optional<String> suggestion =
-              CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment());
-          if (suggestion.isPresent()) {
-            prefixes.add(suggestion.get());
-          }
+              StripPrefixedPath.maybeDeprefix(entry.getName().getBytes(UTF_8), Optional.empty());
+          CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment())
+              .ifPresent(prefixes::add);
         }
         throw new CouldNotFindPrefixException(prefix.get(), prefixes);
       }
@@ -146,17 +144,22 @@ public class ZipDecompressor implements Decompressor {
       // For symlinks, the "compressed data" is actually the target name.
       int read = reader.getInputStream(entry).read(buffer);
       Preconditions.checkState(read == buffer.length);
-      PathFragment target = PathFragment.create(new String(buffer, Charset.defaultCharset()));
+
+      PathFragment target = StripPrefixedPath.createPathFragment(buffer);
       if (target.containsUplevelReferences()) {
         PathFragment pointsTo = strippedRelativePath.getParentDirectory().getRelative(target);
         if (pointsTo.containsUplevelReferences()) {
-          throw new IOException("Zip entries cannot refer to files outside of their directory: "
-              + reader.getFilename() + " has a symlink " + strippedRelativePath + " pointing to "
-              + target);
+          throw new IOException(
+              "Zip entries cannot refer to files outside of their directory: "
+                  + reader.getFilename()
+                  + " has a symlink "
+                  + strippedRelativePath
+                  + " pointing to "
+                  + new String(buffer, UTF_8));
         }
       }
-      target = maybeDeprefixSymlink(target, prefix, destinationDirectory);
-      symlinks.put(outputPath, target);
+
+      symlinks.put(outputPath, maybeDeprefixSymlink(buffer, prefix, destinationDirectory));
     } else {
       try (InputStream input = reader.getInputStream(entry);
           OutputStream output = outputPath.getOutputStream()) {

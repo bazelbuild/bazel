@@ -14,29 +14,35 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.hash.Hashing;
+import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
-import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.exec.SpawnLogContext;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction;
 import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -69,7 +75,7 @@ public final class SolibSymlinkAction extends AbstractAction {
 
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException {
+      throws ActionExecutionException, InterruptedException {
     Path mangledPath = actionExecutionContext.getInputPath(symlink);
     try {
       mangledPath.createSymbolicLink(actionExecutionContext.getInputPath(getPrimaryInput()));
@@ -83,17 +89,40 @@ public final class SolibSymlinkAction extends AbstractAction {
               FailureDetail.newBuilder()
                   .setMessage(message)
                   .setSymlinkAction(
-                      SymlinkAction.newBuilder().setCode(Code.LINK_CREATION_IO_EXCEPTION))
+                      FailureDetails.SymlinkAction.newBuilder()
+                          .setCode(Code.LINK_CREATION_IO_EXCEPTION))
                   .build());
       throw new ActionExecutionException(message, e, this, false, code);
     }
+
+    SpawnLogContext logContext = actionExecutionContext.getContext(SpawnLogContext.class);
+    if (logContext != null) {
+      try {
+        logContext.logSymlinkAction(this);
+      } catch (IOException e) {
+        String message =
+            String.format(
+                "failed to log creation of _solib symbolic link '%s' to target '%s': %s",
+                symlink.prettyPrint(), getPrimaryInput(), e.getMessage());
+        DetailedExitCode code =
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage(message)
+                    .setSymlinkAction(
+                        FailureDetails.SymlinkAction.newBuilder()
+                            .setCode(Code.LINK_LOG_IO_EXCEPTION))
+                    .build());
+        throw new ActionExecutionException(message, e, this, false, code);
+      }
+    }
+    SymlinkAction.maybeInjectMetadata(this, actionExecutionContext);
     return ActionResult.EMPTY;
   }
 
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable Artifact.ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     fp.addPath(symlink.getExecPath());
     fp.addPath(getPrimaryInput().getExecPath());
@@ -119,7 +148,6 @@ public final class SolibSymlinkAction extends AbstractAction {
    * (by essentially "collecting" as many shared libraries as possible in the single directory),
    * since we will be paying quadratic price for each additional entry on the -rpath.
    *
-   * @param actionRegistry action registry of rule requesting symlink.
    * @param actionConstructionContext action construction context of rule requesting symlink
    * @param solibDir String giving the solib directory
    * @param library Shared library artifact that needs to be mangled.
@@ -128,7 +156,6 @@ public final class SolibSymlinkAction extends AbstractAction {
    * @return mangled symlink artifact.
    */
   public static Artifact getDynamicLibrarySymlink(
-      ActionRegistry actionRegistry,
       ActionConstructionContext actionConstructionContext,
       String solibDir,
       final Artifact library,
@@ -136,14 +163,13 @@ public final class SolibSymlinkAction extends AbstractAction {
       boolean prefixConsumer) {
     PathFragment mangledName =
         getMangledName(
-            actionRegistry.getOwner().getLabel(),
+            actionConstructionContext.getOwner().getLabel(),
             solibDir,
             actionConstructionContext.getConfiguration().getMnemonic(),
             library.getRootRelativePath(),
             preserveName,
             prefixConsumer);
-    return getDynamicLibrarySymlinkInternal(
-        actionRegistry, actionConstructionContext, library, mangledName);
+    return getDynamicLibrarySymlinkInternal(actionConstructionContext, library, mangledName);
   }
 
   /**
@@ -154,7 +180,6 @@ public final class SolibSymlinkAction extends AbstractAction {
    * (by essentially "collecting" as many shared libraries as possible in the single directory),
    * since we will be paying quadratic price for each additional entry on the -rpath.
    *
-   * @param actionRegistry action registry of rule requesting symlink.
    * @param actionConstructionContext action construction context of rule requesting symlink
    * @param solibDir String giving the solib directory
    * @param library Shared library artifact that needs to be linked.
@@ -162,7 +187,6 @@ public final class SolibSymlinkAction extends AbstractAction {
    * @return linked symlink artifact.
    */
   public static Artifact getDynamicLibrarySymlink(
-      ActionRegistry actionRegistry,
       ActionConstructionContext actionConstructionContext,
       String solibDir,
       final Artifact library,
@@ -174,8 +198,7 @@ public final class SolibSymlinkAction extends AbstractAction {
 
     PathFragment solibDirPath = PathFragment.create(solibDir);
     PathFragment linkName = solibDirPath.getRelative(path);
-    return getDynamicLibrarySymlinkInternal(
-        actionRegistry, actionConstructionContext, library, linkName);
+    return getDynamicLibrarySymlinkInternal(actionConstructionContext, library, linkName);
   }
 
   /**
@@ -193,7 +216,6 @@ public final class SolibSymlinkAction extends AbstractAction {
             solibDirOverride != null ? solibDirOverride : toolchainProvidedSolibDir);
     PathFragment symlinkName = solibDir.getRelative(library.getRootRelativePath().getBaseName());
     return getDynamicLibrarySymlinkInternal(
-        /* actionRegistry= */ ruleContext,
         /* actionConstructionContext= */ ruleContext,
         library,
         symlinkName);
@@ -204,7 +226,6 @@ public final class SolibSymlinkAction extends AbstractAction {
    * {@link #getDynamicLibrarySymlink} and the specialized {@link #getCppRuntimeSymlink}.
    */
   private static Artifact getDynamicLibrarySymlinkInternal(
-      ActionRegistry actionRegistry,
       ActionConstructionContext actionConstructionContext,
       Artifact library,
       PathFragment symlinkName) {
@@ -215,9 +236,25 @@ public final class SolibSymlinkAction extends AbstractAction {
     // Ignore libraries that are already represented by the symlinks.
     ArtifactRoot root = actionConstructionContext.getBinDirectory();
     Artifact symlink = actionConstructionContext.getShareableArtifact(symlinkName, root);
-    actionRegistry.registerAction(
+    actionConstructionContext.registerAction(
         new SolibSymlinkAction(actionConstructionContext.getActionOwner(), library, symlink));
     return symlink;
+  }
+
+  @VisibleForTesting public static final int MAX_FILENAME_LENGTH = 255;
+
+  private static String maybeHashPreserveExtension(String filename) {
+    if (filename.length() <= MAX_FILENAME_LENGTH) {
+      return filename;
+    } else {
+      String hashedName = Hashing.sha256().hashString(filename, UTF_8).toString();
+      String extension = Files.getFileExtension(filename);
+      if (extension.isEmpty()) {
+        return hashedName;
+      } else {
+        return hashedName + "." + extension;
+      }
+    }
   }
 
   /**
@@ -243,12 +280,14 @@ public final class SolibSymlinkAction extends AbstractAction {
     if (preserveName) {
       String escapedLibraryPath =
           Actions.escapedPath("_" + libraryPath.getParentDirectory().getPathString());
+      String escapedFullPath =
+          prefixConsumer ? escapedRulePath + "__" + escapedLibraryPath : escapedLibraryPath;
       PathFragment mangledDir =
-          solibDirPath.getRelative(
-              prefixConsumer ? escapedRulePath + "__" + escapedLibraryPath : escapedLibraryPath);
+          solibDirPath.getRelative(maybeHashPreserveExtension(escapedFullPath));
       return mangledDir.getRelative(soname);
     } else {
-      return solibDirPath.getRelative(prefixConsumer ? escapedRulePath + "__" + soname : soname);
+      String filename = prefixConsumer ? escapedRulePath + "__" + soname : soname;
+      return solibDirPath.getRelative(maybeHashPreserveExtension(filename));
     }
   }
 
@@ -277,20 +316,13 @@ public final class SolibSymlinkAction extends AbstractAction {
   }
 
   @Override
-  public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
-    return false; // Always ignore path prefix conflict for the SolibSymlinkAction.
-  }
-
-  @Override
   public boolean mayInsensitivelyPropagateInputs() {
     return true;
   }
 
   @Override
-  @Nullable
   public PlatformInfo getExecutionPlatform() {
-    // SolibSymlinkAction is platform agnostic.
-    return null;
+    return PlatformInfo.EMPTY_PLATFORM_INFO;
   }
 
   @Override

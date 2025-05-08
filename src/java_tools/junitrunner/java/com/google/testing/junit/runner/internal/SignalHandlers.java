@@ -14,16 +14,12 @@
 
 package com.google.testing.junit.runner.internal;
 
+import java.util.concurrent.atomic.AtomicReference;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
 
-import java.util.concurrent.atomic.AtomicReference;
-
-import javax.inject.Inject;
-
-/**
- * Helper class to install signal handlers.
- */
+/** Helper class to install signal handlers. */
+@SuppressWarnings("SunApi") // no alternative for signal handling?
 public class SignalHandlers {
   private final HandlerInstaller handlerInstaller;
 
@@ -39,7 +35,6 @@ public class SignalHandlers {
     };
   }
 
-  @Inject
   public SignalHandlers(HandlerInstaller installer) {
     this.handlerInstaller = installer;
   }

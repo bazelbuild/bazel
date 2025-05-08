@@ -24,12 +24,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.Map;
 import net.starlark.java.eval.Starlark;
 
-/**
- * Access a repository on the local filesystem.
- */
+/** Access a repository on the local filesystem. */
 public class LocalRepositoryFunction extends RepositoryFunction {
 
   @Override
@@ -38,23 +35,27 @@ public class LocalRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public RepositoryDirectoryValue.Builder fetch(
-      Rule rule,
-      Path outputDirectory,
-      BlazeDirectories directories,
-      Environment env,
-      Map<String, String> markerData,
-      SkyKey key)
+  protected void setupRepoRootBeforeFetching(Path repoRoot) throws RepositoryFunctionException {
+    // Repo setup is already handled in RepositoryDelegatorFunction.symlinkRepoRoot
+  }
+
+  @Override
+  public FetchResult fetch(
+      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env, SkyKey key)
       throws InterruptedException, RepositoryFunctionException {
+    ensureNativeRepoRuleEnabled(
+        rule, env, "load(\"@bazel_tools//tools/build_defs/repo:local.bzl\", \"local_repository\")");
+    // DO NOT MODIFY THIS! It's being deprecated in favor of Starlark counterparts.
+    // See https://github.com/bazelbuild/bazel/issues/18285
     String userDefinedPath = RepositoryFunction.getPathAttr(rule);
     Path targetPath = directories.getWorkspace().getRelative(userDefinedPath);
-    RepositoryDirectoryValue.Builder result =
+    RepositoryDirectoryValue result =
         RepositoryDelegatorFunction.symlinkRepoRoot(
             directories, outputDirectory, targetPath, userDefinedPath, env);
     if (result != null) {
       env.getListener().post(resolve(rule, directories));
     }
-    return result;
+    return new FetchResult(ImmutableMap.of());
   }
 
   @Override
@@ -66,8 +67,8 @@ public class LocalRepositoryFunction extends RepositoryFunction {
     String name = rule.getName();
     Object pathObj = rule.getAttr("path");
     String path;
-    if (pathObj instanceof String) {
-      path = (String) pathObj;
+    if (pathObj instanceof String string) {
+      path = string;
     } else {
       path = "";
     }
@@ -94,11 +95,11 @@ public class LocalRepositoryFunction extends RepositoryFunction {
       @Override
       public Object getResolvedInformation(XattrProvider xattrProvider) {
         return ImmutableMap.<String, Object>builder()
-            .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "local_repository")
+            .put(ResolvedFileValue.ORIGINAL_RULE_CLASS, "local_repository")
             .put(
-                ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
+                ResolvedFileValue.ORIGINAL_ATTRIBUTES,
                 ImmutableMap.<String, Object>builder().put("name", name).put("path", path).build())
-            .put(ResolvedHashesFunction.NATIVE, repr)
+            .put(ResolvedFileValue.NATIVE, repr)
             .build();
       }
     };

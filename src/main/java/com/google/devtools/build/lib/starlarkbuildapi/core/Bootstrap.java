@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableMap;
  * <p>A global environment may be initialized by tabulating globals into a single map by passing a
  * single map builder to {@link #addBindingsToBuilder} for several bootstrap helpers.
  */
+// TODO(bazel-team): If we end up deleting starlarkbuildapi/, consider merging this interface into
+// ConfiguredRuleClassProvider.RuleSet.
 public interface Bootstrap {
 
   /** Adds this bootstrap's bindings to the given environment map builder. */

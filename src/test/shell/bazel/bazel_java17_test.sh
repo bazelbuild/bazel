@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2021 The Bazel Authors. All rights reserved.
 #
@@ -49,59 +49,28 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
+RULES_JAVA_REPO_NAME=$(cat "$(rlocation io_bazel/src/test/shell/bazel/RULES_JAVA_REPO_NAME)")
 JAVA_TOOLS_ZIP="$1"; shift
 JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
 
-echo "JAVA_TOOLS_ZIP=$JAVA_TOOLS_ZIP"
+override_java_tools "${RULES_JAVA_REPO_NAME}" "${JAVA_TOOLS_ZIP}" "${JAVA_TOOLS_PREBUILT_ZIP}"
 
+# Override test globals that are defaulted to 21 in testenv.sh.tmpl for all
+# other tests. For the purpose of this test, we want to run java_tools at
+# runtime 11 to test for failures in incompatible system classpaths.
+add_to_bazelrc "build --java_runtime_version=11"
+add_to_bazelrc "build --tool_java_runtime_version=11"
 
-JAVA_TOOLS_RLOCATION=$(rlocation io_bazel/$JAVA_TOOLS_ZIP)
-
-if "$is_windows"; then
-    JAVA_TOOLS_ZIP_FILE_URL="file:///${JAVA_TOOLS_RLOCATION}"
-    JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file:///$(rlocation io_bazel/$JAVA_TOOLS_PREBUILT_ZIP)"
-else
-    JAVA_TOOLS_ZIP_FILE_URL="file://${JAVA_TOOLS_RLOCATION}"
-    JAVA_TOOLS_PREBUILT_ZIP_FILE_URL="file://$(rlocation io_bazel/$JAVA_TOOLS_PREBUILT_ZIP)"
-fi
-JAVA_TOOLS_ZIP_FILE_URL=${JAVA_TOOLS_ZIP_FILE_URL:-}
-JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
-
-
-function set_up() {
-    cat >>WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-# java_tools versions only used to test Bazel with various JDK toolchains.
-
-http_archive(
-    name = "remote_java_tools",
-    urls = ["${JAVA_TOOLS_ZIP_FILE_URL}"]
-)
-http_archive(
-    name = "remote_java_tools_linux",
-    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
-)
-http_archive(
-    name = "remote_java_tools_windows",
-    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
-)
-http_archive(
-    name = "remote_java_tools_darwin",
-    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
-)
-EOF
-    cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
+function set_up(){
+  add_protobuf "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
 }
 
 # Java source files version shall match --java_language_version_flag version.
 function test_java17_text_block() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = 'Javac17Example',
     srcs = ['Javac17Example.java'],
@@ -137,5 +106,96 @@ EOF
   expect_log "^World\$"
 }
 
+function test_incompatible_system_classpath() {
+  mkdir -p pkg
+  # This test defines a custom Java toolchain as it relies on the availability of a runtime that is
+  # strictly newer than the one specified as the toolchain's java_runtime.
+  cat >pkg/BUILD <<'EOF'
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
+java_binary(
+    name = "Main",
+    srcs = ["Main.java"],
+    main_class = "com.example.Main",
+)
+default_java_toolchain(
+    name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
+    java_runtime = "@rules_java//toolchains:remotejdk_17",
+)
+EOF
+
+  cat >pkg/Main.java <<'EOF'
+package com.example;
+import java.net.URI;
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello, world!");
+  }
+}
+EOF
+
+  bazel build //pkg:Main \
+    --extra_toolchains=//pkg:java_toolchain_definition \
+    --java_language_version=17 \
+    --java_runtime_version=remotejdk_21 \
+    &>"${TEST_log}" && fail "Expected build to fail"
+
+  expect_log "error: \[BazelJavaConfiguration\] The Java 17 runtime used to run javac is not " \
+    "recent enough to compile for the Java 21 runtime in external/remotejdk21_[a-z0-9]*\. Either " \
+    "register a Java toolchain with a newer java_runtime or specify a lower " \
+    "--java_runtime_version\."
+}
+
+function test_incompatible_tool_system_classpath() {
+  mkdir -p pkg
+  # This test defines a custom Java toolchain as it relies on the availability of a runtime that is
+  # strictly newer than the one specified as the toolchain's java_runtime.
+  cat >pkg/BUILD <<'EOF'
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
+java_binary(
+    name = "Main",
+    srcs = ["Main.java"],
+    main_class = "com.example.Main",
+)
+genrule(
+    name = "gen",
+    outs = ["gen.txt"],
+    tools = [":Main"],
+    cmd = "$(location :Main) > $@",
+)
+default_java_toolchain(
+    name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
+    java_runtime = "@bazel_tools//tools/jdk:remotejdk_17",
+)
+EOF
+
+  cat >pkg/Main.java <<'EOF'
+package com.example;
+import java.net.URI;
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello, world!");
+  }
+}
+EOF
+
+  bazel build //pkg:gen \
+    --extra_toolchains=//pkg:java_toolchain_definition \
+    --tool_java_language_version=17 \
+    --tool_java_runtime_version=remotejdk_21 \
+    &>"${TEST_log}" && fail "Expected build to fail"
+
+  expect_log "error: \[BazelJavaConfiguration\] The Java 17 runtime used to run javac is not " \
+    "recent enough to compile for the Java 21 runtime in external/remotejdk21_[a-z0-9]*\. Either " \
+    "register a Java toolchain with a newer java_runtime or specify a lower " \
+    "--tool_java_runtime_version\."
+}
 
 run_suite "Tests Java 17 language features"

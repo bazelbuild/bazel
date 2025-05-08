@@ -361,37 +361,6 @@ public final class JavacOptions {
     }
   }
 
-  /**
-   * Normalizer for {@code -parameters}, which allows the (non-standard) flag {@code
-   * -XDnoparameters} to disable it based on which option appears last in the params list.
-   */
-  static final class ParameterOptionNormalizer implements JavacOptionNormalizer {
-
-    private static final String PARAMETERS = "-parameters";
-    private boolean parameters = false;
-
-    @Override
-    public boolean processOption(String option, Iterator<String> remaining) {
-      switch (option) {
-        case "-XDnoparameters":
-          parameters = false;
-          return true;
-        case PARAMETERS:
-          parameters = true;
-          return true;
-        default:
-          return false;
-      }
-    }
-
-    @Override
-    public void normalize(List<String> normalized) {
-      if (parameters) {
-        normalized.add(PARAMETERS);
-      }
-    }
-  }
-
   private final ImmutableList<JavacOptionNormalizer> normalizers;
 
   JavacOptions(ImmutableList<JavacOptionNormalizer> normalizers) {
@@ -450,7 +419,6 @@ public final class JavacOptions {
         ImmutableList.of(
             new XlintOptionNormalizer(warningsAsErrorsDefault),
             new WErrorOptionNormalizer(warningsAsErrorsDefault),
-            new ReleaseOptionNormalizer(),
-            new ParameterOptionNormalizer()));
+            new ReleaseOptionNormalizer()));
   }
 }

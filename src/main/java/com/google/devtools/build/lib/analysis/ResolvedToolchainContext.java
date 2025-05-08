@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -26,8 +27,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.ToolchainException;
-import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import javax.annotation.Nullable;
 
 /**
@@ -37,7 +38,8 @@ import javax.annotation.Nullable;
 @AutoValue
 @Immutable
 @ThreadSafe
-public abstract class ResolvedToolchainContext implements ToolchainContext {
+public abstract class ResolvedToolchainContext
+    implements ResolvedToolchainsDataInterface<ToolchainInfo> {
 
   /**
    * Finishes preparing the {@link ResolvedToolchainContext} by finding the specific toolchain
@@ -46,7 +48,7 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
   public static ResolvedToolchainContext load(
       UnloadedToolchainContext unloadedToolchainContext,
       String targetDescription,
-      Iterable<ConfiguredTargetAndData> toolchainTargets)
+      ImmutableSet<ConfiguredTargetAndData> toolchainTargets)
       throws ToolchainException {
 
     ImmutableMap.Builder<ToolchainTypeInfo, ToolchainInfo> toolchainsBuilder =
@@ -109,24 +111,26 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
         targetDescription,
         unloadedToolchainContext.requestedLabelToToolchainType(),
         toolchains,
-        templateVariableProviders.build());
+        templateVariableProviders.build(),
+        ImmutableSet.copyOf(toolchainTargets));
   }
-
-  /** Returns a description of the target being used, for error messaging. */
-  public abstract String targetDescription();
-
-  /** Sets the map from requested {@link Label} to toolchain type provider. */
-  public abstract ImmutableMap<Label, ToolchainTypeInfo> requestedToolchainTypeLabels();
 
   public abstract ImmutableMap<ToolchainTypeInfo, ToolchainInfo> toolchains();
 
   /** Returns the template variables that these toolchains provide. */
   public abstract ImmutableList<TemplateVariableInfo> templateVariableProviders();
 
+  /** Returns the actual prerequisites for this context, for use in validation. */
+  public abstract ImmutableSet<ConfiguredTargetAndData> prerequisiteTargets();
+
   /**
    * Returns the toolchain for the given type, or {@code null} if the toolchain type was not
-   * required in this context.
+   * required in this context. Be careful if {@code ResolvedToolchainContext} is from the
+   * default-exec-group (usually {@code RuleContext.getToolchainContext()}) because it will not have
+   * toolchains after Automatic Exec Groups are enabled. In that case please use {@code
+   * RuleContext.getToolchainInfo(toolchainTypeLabel)}.
    */
+  @Override
   @Nullable
   public ToolchainInfo forToolchainType(Label toolchainTypeLabel) {
     ToolchainTypeInfo toolchainTypeInfo = requestedToolchainTypeLabels().get(toolchainTypeLabel);

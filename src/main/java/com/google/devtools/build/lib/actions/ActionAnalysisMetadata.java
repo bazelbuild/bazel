@@ -15,11 +15,9 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -87,7 +85,7 @@ public interface ActionAnalysisMetadata {
    * <p>Note the following exception: for actions that discover inputs, the key must change if any
    * input names change or else action validation may falsely validate.
    *
-   * <p>In case the {@link ArtifactExpander} is not provided, the key is not guaranteed to be
+   * <p>In case the {@link InputMetadataProvider} is not provided, the key is not guaranteed to be
    * correct. In fact, getting the key of an action is generally impossible until we have all the
    * information necessary to execute the action. An example of this is when arguments to an action
    * are defined as a lazy evaluation of Starlark over outputs of another action, after expanding
@@ -95,7 +93,8 @@ public interface ActionAnalysisMetadata {
    * unique key will depend on knowing the tree artifact contents. At analysis time, we only know
    * about the tree artifact directory and we find what is in it only after we execute that action.
    */
-  String getKey(ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander)
+  String getKey(
+      ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider)
       throws InterruptedException;
 
   /**
@@ -108,30 +107,49 @@ public interface ActionAnalysisMetadata {
   String describe();
 
   /**
-   * Returns the tool Artifacts that this Action depends upon. May be empty. This is a subset of
-   * getInputs().
+   * Returns the (possibly empty) set of tool artifacts that this action depends upon.
    *
-   * <p>This may be used by spawn strategies to determine whether an external tool has not changed
-   * since the last time it was used and could thus be reused, or whether it has to be restarted.
+   * <p>Tools are a subset of {@link #getInputs} and used by the workers to determine whether a
+   * compiler has changed since the last time it was used. This should include all artifacts that
+   * the tool does not dynamically reload / check on each unit of work - e.g. its own binary, the
+   * JDK for Java binaries, shared libraries, ... but not a configuration file, if it reloads that
+   * when it has changed.
    *
-   * <p>See {@link AbstractAction#getTools()} for an explanation of why it's important that this set
-   * contains exactly the right set of artifacts in order for the build to stay correct and the
-   * worker strategy to work.
+   * <p>If this method does not return exactly the right set of artifacts, the following can happen:
+   * If an artifact that should be included is missing, the tool might not be restarted when it
+   * should, and builds can become incorrect (example: The compiler binary is not part of this set,
+   * then the compiler gets upgraded, but the worker strategy still reuses the old version). If an
+   * artifact that should <em>not</em> be included is accidentally part of this set, the worker
+   * process will be restarted more often that is necessary - e.g. if a file that is unique to each
+   * unit of work, e.g. the source code that a compiler should compile for a compile action, is part
+   * of this set, then the worker will never be reused and will be restarted for each unit of work.
    */
   NestedSet<Artifact> getTools();
 
   /**
    * Returns the input Artifacts that this Action depends upon. May be empty.
    *
-   * <p>During execution, the {@link Iterable} returned by {@code getInputs} <em>must not</em> be
-   * concurrently modified before the value is fully read in {@code JavaDistributorDriver#exec} (via
-   * the {@code Iterable<ActionInput>} argument there). Violating this would require somewhat
-   * pathological behavior by the {@link Action}, since it would have to modify its inputs, as a
-   * list, say, without reassigning them. This should never happen with any Action subclassing
-   * AbstractAction, since AbstractAction's implementation of getInputs() returns an immutable
-   * iterable.
+   * <p>For actions that do input discovery, a different result may be returned before and after
+   * action execution, because input discovery may add or remove inputs. The original input set may
+   * be retrieved from {@link ActionExecutionMetadata#getOriginalInputs}.
    */
   NestedSet<Artifact> getInputs();
+
+  /**
+   * Returns this action's original inputs prior to input discovery.
+   *
+   * <p>Unlike {@link #getInputs}, the same result is returned before and after action execution.
+   */
+  NestedSet<Artifact> getOriginalInputs();
+
+  /**
+   * Returns the input Artifacts that must be built before the action can be executed, but are not
+   * dependencies of the action in the action cache.
+   *
+   * <p>Useful for actions that do input discovery: then these Artifacts will be readable during
+   * input discovery and then it can be decided which ones are actually necessary.
+   */
+  NestedSet<Artifact> getSchedulingDependencies();
 
   /**
    * Returns the environment variables from the client environment that this action depends on. May
@@ -145,10 +163,11 @@ public interface ActionAnalysisMetadata {
   Collection<String> getClientEnvironmentVariables();
 
   /**
-   * Returns the (unordered, immutable) set of output Artifacts that this action generates. (It
-   * would not make sense for this to be empty.)
+   * Returns the output artifacts that this action generates.
+   *
+   * <p>The returned {@link Collection} is immutable, non-empty, and duplicate-free.
    */
-  ImmutableSet<Artifact> getOutputs();
+  Collection<Artifact> getOutputs();
 
   /**
    * Returns input files that need to be present to allow extra_action rules to shadow this action
@@ -156,7 +175,7 @@ public interface ActionAnalysisMetadata {
    * other files as well. For example C(++) compilation may perform include file header scanning.
    * This needs to be mirrored by the extra_action rule. Called by {@link
    * com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time for actions that
-   * return true for {link #discoversInputs()}.
+   * return true for {link ActionExecutionMetadata#discoversInputs}.
    *
    * @param actionExecutionContext Services in the scope of the action, like the Out/Err streams.
    * @throws ActionExecutionException only when code called from this method throws that exception.
@@ -176,17 +195,17 @@ public interface ActionAnalysisMetadata {
   ImmutableSet<Artifact> getMandatoryOutputs();
 
   /**
-   * Returns the "primary" input of this action, if applicable.
+   * Returns the "primary" input of this action, or {@code null} if this action has no inputs.
    *
    * <p>For example, a C++ compile action would return the .cc file which is being compiled,
    * irrespective of the other inputs.
-   *
-   * <p>May return null.
    */
+  @Nullable
   Artifact getPrimaryInput();
 
   /**
-   * Returns the "primary" output of this action.
+   * Returns the "primary" output of this action, which is the same as the first artifact in {@link
+   * #getOutputs}.
    *
    * <p>For example, the linked library would be the primary output of a LinkAction.
    *
@@ -207,16 +226,12 @@ public interface ActionAnalysisMetadata {
   NestedSet<Artifact> getMandatoryInputs();
 
   /**
-   * Returns true iff path prefix conflict (conflict where two actions generate two output artifacts
-   * with one of the artifact's path being the prefix for another) between this action and another
-   * action should be reported.
+   * Returns a String to String map containing the execution properties of this action.
+   *
+   * <p>These properties are typically inherited from {@link #getOwner()} and contain the
+   * exec_properties provided on the target or execution platform level. Subclasses can override
+   * this to return an empty map if that is more appropriate.
    */
-  boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action);
-
-  /** Returns the action type. Must not be {@code null}. */
-  MiddlemanType getActionType();
-
-  /** Returns a String to String map containing the execution properties of this action. */
   ImmutableMap<String, String> getExecProperties();
 
   /**
@@ -236,12 +251,15 @@ public interface ActionAnalysisMetadata {
 
   static ImmutableMap<String, String> mergeMaps(
       ImmutableMap<String, String> first, ImmutableMap<String, String> second) {
-    // Use a different type to allow overriding keys.
-    // TODO(jcater): When ImmutableMap.Builder.buildKeepingLast is in released guava, upgrade and
-    // use that.
-    LinkedHashMap<String, String> result = new LinkedHashMap<>();
-    result.putAll(first);
-    result.putAll(second);
-    return ImmutableMap.copyOf(result);
+    if (first.isEmpty()) {
+      return second;
+    }
+    if (second.isEmpty()) {
+      return first;
+    }
+    return ImmutableMap.<String, String>builderWithExpectedSize(first.size() + second.size())
+        .putAll(first)
+        .putAll(second)
+        .buildKeepingLast();
   }
 }

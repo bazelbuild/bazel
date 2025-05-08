@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Maintaining Bazel Chocolatey package on Windows
 
+{% include "_buttons.html" %}
+
 Note: The Chocolatey package is experimental; please provide feedback
 (`@petemounce` in issue tracker).
 

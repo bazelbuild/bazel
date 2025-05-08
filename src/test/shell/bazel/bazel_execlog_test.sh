@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -86,10 +86,10 @@ EOF
   # If dependencies were not properly accounted for, the order would have been:
   # rule1, rule2, dir1, dir2
 
-  dir1Num=`grep "Action dir_name1" -n output.json | grep -Eo '^[^:]+'`
-  dir2Num=`grep "Action dir_name2" -n output.json | grep -Eo '^[^:]+'`
-  rule1Num=`grep "Executing genrule //:rule1" -n output.json | grep -Eo '^[^:]+'`
-  rule2Num=`grep "Executing genrule //:rule2" -n output.json | grep -Eo '^[^:]+'`
+  dir1Num=`grep "//:dir" -n output.json | grep -Eo '^[^:]+'`
+  dir2Num=`grep "//:dir2" -n output.json | grep -Eo '^[^:]+'`
+  rule1Num=`grep "//:rule1" -n output.json | grep -Eo '^[^:]+'`
+  rule2Num=`grep "//:rule2" -n output.json | grep -Eo '^[^:]+'`
 
   if [ "$rule1Num" -lt "$dir1Num" ]
   then
@@ -115,14 +115,17 @@ genrule(
       cmd = "echo hello > $(location out.txt)"
 )
 EOF
-  bazel build //:all --experimental_execution_log_file output 2>&1 >> $TEST_log || fail "could not build"
+  bazel build //:all --execution_log_binary_file output 2>&1 >> $TEST_log || fail "could not build"
   wc output || fail "no output produced"
 }
 
 function test_empty_file_in_runfiles() {
+  add_rules_python "MODULE.bazel"
   mkdir d
   touch d/main.py
   cat > BUILD <<'EOF'
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(
     name = "py_tool",
     main = "d/main.py",
@@ -135,7 +138,7 @@ genrule(
     cmd = "echo hello > $(location out.txt)"
 )
 EOF
-  bazel build //:rule --experimental_execution_log_file output 2>&1 >> $TEST_log || fail "could not build"
+  bazel build //:rule --execution_log_binary_file output 2>&1 >> $TEST_log || fail "could not build"
   [[ -e output ]] || fail "no output produced"
 }
 
@@ -147,11 +150,6 @@ genrule(
       cmd = "echo hello > $(location out.txt)"
 )
 EOF
-  bazel build //:all --experimental_execution_log_file=output --experimental_execution_log_file= 2>&1 >> $TEST_log || fail "could not build"
-  if [[ -e output ]]; then
-    fail "file shouldn't exist"
-  fi
-
   bazel build //:all --execution_log_json_file=output --execution_log_json_file= 2>&1 >> $TEST_log || fail "could not build"
   if [[ -e output ]]; then
     fail "file shouldn't exist"
@@ -188,6 +186,50 @@ EOF
   grep "listedOutputs" output.json || fail "log does not contain listed outputs"
 }
 
+function test_nested_directory() {
+  mkdir d
+  cat > d/BUILD <<'EOF'
+genrule(
+      name = "action",
+      outs = ["out.txt"],
+      cmd = "echo hello > $(location out.txt)",
+      tags = ["no-remote-cache"],
+)
+EOF
+
+  cd d
+  bazel build //d:action --execution_log_json_file=%workspace%/output.json 2>&1 >> $TEST_log || fail "could not build"
+  [[ -e ../output.json ]] || fail "no json log produced"
+  bazel build //d:action --execution_log_binary_file=%workspace%/output.binary 2>&1 >> $TEST_log || fail "could not build"
+  [[ -e ../output.binary ]] || fail "no binary log produced"
+  bazel build //d:action --execution_log_compact_file=%workspace%/output.compact 2>&1 >> $TEST_log || fail "could not build"
+  [[ -e ../output.compact ]] || fail "no compact log produced"
+}
+
+function test_coverage() {
+  add_rules_shell "MODULE.bazel"
+
+  cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+)
+EOF
+  cat > test.sh <<'EOF'
+echo "hello world"
+EOF
+  chmod +x test.sh
+
+  bazel coverage //:test --execution_log_compact_file=output.compact >> $TEST_log 2>&1 || fail "coverage failed"
+  [[ -e output.compact ]] || fail "no compact log produced"
+
+  rm output.compact
+  bazel coverage //:test --experimental_split_coverage_postprocessing --experimental_fetch_all_coverage_outputs \
+    --execution_log_compact_file=output.compact >> $TEST_log 2>&1 || fail "coverage failed"
+  [[ -e output.compact ]] || fail "no compact log produced"
+}
+
 function test_no_remote_cache() {
   cat > BUILD <<'EOF'
 genrule(
@@ -199,6 +241,54 @@ genrule(
 EOF
   bazel build //:action --execution_log_json_file=output.json 2>&1 >> $TEST_log || fail "could not build"
   grep "\"remoteCacheable\": false" output.json || fail "log does not contain valid remoteCacheable entry"
+}
+
+function test_digest() {
+  cat > BUILD <<'EOF'
+genrule(
+    name = "gen",
+    outs = ["out.txt"],
+    cmd = "touch $@",
+)
+EOF
+
+  DIGEST="\"digest\": "
+
+  CACHEDIR=$(mktemp -d)
+
+  # No cache
+  # Expect 2 digests (genrule-setup.sh and out.txt).
+  bazel build //:gen --execution_log_json_file=output.json \
+       >& $TEST_log || fail "build failed"
+  expect_log "1 .*-sandbox"
+  local num_digests=$(grep -c "$DIGEST" output.json)
+  if [[ $num_digests -ne 2 ]]; then
+    fail "expected 2 digests, got $num_digests"
+  fi
+
+  # Cache miss
+  # Expect 3 digests (genrule-setup.sh, out.txt, action digest).
+  bazel clean
+  bazel build //:gen --execution_log_json_file=output.json \
+      --remote_download_minimal --disk_cache="$CACHEDIR"  \
+      >& $TEST_log || fail "build failed"
+  expect_log "1 .*-sandbox"
+  local num_digests=$(grep -c "$DIGEST" output.json)
+  if [[ $num_digests -ne 3 ]]; then
+    fail "expected 3 digests, got $num_digests"
+  fi
+
+  # Cache hit
+  # Expect 3 digests (genrule-setup.sh, out.txt, action digest).
+  bazel clean
+  bazel build //:gen --execution_log_json_file=output.json \
+      --remote_download_minimal --disk_cache="$CACHEDIR" \
+      >& $TEST_log || fail "build failed"
+  expect_log "1 disk cache hit"
+  local num_digests=$(grep -c "$DIGEST" output.json)
+  if [[ $num_digests -ne 3 ]]; then
+    fail "expected 3 digests, got $num_digests"
+  fi
 }
 
 run_suite "execlog_tests"

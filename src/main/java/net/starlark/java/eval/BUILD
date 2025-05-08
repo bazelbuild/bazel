@@ -1,5 +1,6 @@
 # Description: Bazel's Starlark interpreter
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:defs.bzl", "java_library")
 
 licenses(["notice"])  # Apache 2.0
@@ -26,16 +27,23 @@ java_library(
         "FormatParser.java",
         "GuardedValue.java",
         "HasBinary.java",
+        "ImmutableSingletonStarlarkList.java",
+        "ImmutableStarlarkList.java",
         "JNI.java",
+        "LazyImmutableStarlarkList.java",
         "MethodDescriptor.java",
         "MethodLibrary.java",
         "Module.java",
         "Mutability.java",
+        "MutableStarlarkList.java",
         "NoneType.java",
         "ParamDescriptor.java",
         "Printer.java",
         "RangeList.java",
+        "RegularImmutableStarlarkList.java",
+        "RegularTuple.java",
         "Sequence.java",
+        "SingletonTuple.java",
         "Starlark.java",
         "StarlarkCallable.java",
         "StarlarkFloat.java",
@@ -44,12 +52,16 @@ java_library(
         "StarlarkInt.java",
         "StarlarkIterable.java",
         "StarlarkList.java",
+        "StarlarkMembershipTestable.java",
         "StarlarkSemantics.java",
+        "StarlarkSet.java",
         "StarlarkThread.java",
         "StarlarkValue.java",
         "StringModule.java",
         "Structure.java",
+        "SymbolGenerator.java",
         "Tuple.java",
+        "TypeChecker.java",
     ],
     visibility = ["//src/main/java/net/starlark/java:clients"],
     deps = [
@@ -57,7 +69,9 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/spelling",
         "//src/main/java/net/starlark/java/syntax",
+        "//src/main/java/net/starlark/java/types",
         "//third_party:error_prone_annotations",
+        "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -101,5 +115,5 @@ cc_binary(
         "//conditions:default": ["cpu_profiler_unimpl.cc"],
     }),
     linkshared = 1,
-    deps = ["@bazel_tools//tools/jdk:jni"],
+    deps = ["@rules_java//toolchains:jni"],
 )

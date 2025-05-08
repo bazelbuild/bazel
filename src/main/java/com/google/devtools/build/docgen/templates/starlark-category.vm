@@ -6,12 +6,14 @@
 <body>
 <h1 class="page-title">${category.title}</h1>
 
+{% dynamic setvar source_file "NONE" %}
+{% include "_buttons.html" %}
 ${description}
 
 <ul>
-#foreach ($module in $modules)
+#foreach ($page in $allPages)
 
-<li><a href="/rules/lib/${module.name}">${module.title}</a></li>
+<li><a href="/rules/lib/${category.path}/${page.name}">${page.title}</a></li>
 #end
 </ul>
 </body>

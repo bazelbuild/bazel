@@ -65,6 +65,8 @@ public final class ExitCode {
       ExitCode.createInfrastructureFailure(37, "BLAZE_INTERNAL_ERROR");
   public static final ExitCode TRANSIENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR =
       ExitCode.createInfrastructureFailure(38, "PUBLISH_ERROR");
+  public static final ExitCode REMOTE_CACHE_EVICTED =
+      ExitCode.createInfrastructureFailure(39, "REMOTE_CACHE_EVICTED");
   public static final ExitCode PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR =
       ExitCode.create(45, "PERSISTENT_BUILD_EVENT_SERVICE_UPLOAD_ERROR");
   public static final ExitCode EXTERNAL_DEPS_ERROR = ExitCode.create(48, "EXTERNAL_DEPS_ERROR");

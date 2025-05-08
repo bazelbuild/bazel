@@ -14,15 +14,23 @@
 
 package net.starlark.java.eval;
 
+import static java.util.Arrays.stream;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.ParamDescriptor.ConditionalCheck;
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
 
 /**
  * A value class to store Methods with their corresponding {@link StarlarkMethod} annotation
@@ -33,7 +41,7 @@ import net.starlark.java.annot.StarlarkMethod;
  */
 final class MethodDescriptor {
   private final Method method;
-  private final StarlarkMethod annotation;
+  @Nullable private transient StarlarkMethod annotation;
 
   private final String name;
   private final String doc;
@@ -46,6 +54,10 @@ final class MethodDescriptor {
   private final boolean allowReturnNones;
   private final boolean useStarlarkThread;
   private final boolean useStarlarkSemantics;
+  private final boolean positionalsReusableAsJavaArgsVectorIfArgumentCountValid;
+  private final StarlarkType starlarkType;
+
+  @Nullable private final ConditionalCheck conditionalCheck;
 
   private enum HowToHandleReturn {
     NULL_TO_NONE, // any Starlark value; null -> None
@@ -100,16 +112,85 @@ final class MethodDescriptor {
     } else {
       howToHandleReturn = HowToHandleReturn.FROM_JAVA;
     }
+
+    this.positionalsReusableAsJavaArgsVectorIfArgumentCountValid =
+        !extraKeywords
+            && !extraPositionals
+            && !useStarlarkSemantics
+            && !useStarlarkThread
+            && stream(parameters).allMatch(MethodDescriptor::paramUsableAsPositionalWithoutChecks);
+
+    if (!annotation.enableOnlyWithFlag().isEmpty() || !annotation.disableWithFlag().isEmpty()) {
+      conditionalCheck =
+          new ConditionalCheck(annotation.enableOnlyWithFlag(), annotation.disableWithFlag());
+    } else {
+      conditionalCheck = null;
+    }
+
+    // relies on instance state: annotation, parameters, method, extraKeywords, extraPositionals
+    starlarkType = buildStarlarkType();
+  }
+
+  private StarlarkType buildStarlarkType() {
+    if (getAnnotation().structField()) {
+      // TODO(ilist@): handle allowReturnNones once we have Optional type
+      return TypeChecker.fromJava(getMethod().getReturnType());
+    }
+
+    ParamDescriptor[] parameters = getParameters();
+    ImmutableList.Builder<String> parameterNames = ImmutableList.builder();
+    ImmutableList.Builder<StarlarkType> parameterTypes = ImmutableList.builder();
+    ImmutableSet.Builder<String> mandatoryParameters = ImmutableSet.builder();
+    boolean positional = true;
+    int numOrdinaryParameters = parameters.length;
+    for (int i = 0; i < parameters.length; i++) {
+      if (parameters[i].isPositional() != positional) { // the first keyword argument
+        positional = false;
+        numOrdinaryParameters = i;
+      }
+      if (parameters[i].isNamed()) {
+        parameterNames.add(parameters[i].getName());
+      }
+      // TODO(ilist@): handle union types once we have them
+      parameterTypes.add(
+          parameters[i].getAllowedClasses() == null || parameters[i].getAllowedClasses().size() != 1
+              ? Types.ANY
+              : TypeChecker.fromJava(parameters[i].getAllowedClasses().get(0)));
+      if (parameters[i].getDefaultValue() == null) {
+        mandatoryParameters.add(parameters[i].getName());
+      }
+    }
+    // TODO(ilist@): handle allowReturnNones once we have Optional type
+    StarlarkType returnType = TypeChecker.fromJava(getMethod().getReturnType());
+
+    return Types.callable(
+        parameterNames.build(),
+        parameterTypes.build(),
+        numOrdinaryParameters,
+        mandatoryParameters.build(),
+        // TODO(ilist@): more precise type on args and kwargs
+        acceptsExtraArgs() ? Types.ANY : null,
+        acceptsExtraKwargs() ? Types.ANY : null,
+        returnType);
+  }
+
+  private static boolean paramUsableAsPositionalWithoutChecks(ParamDescriptor param) {
+    return param.isPositional()
+        && param.conditionalCheck == null
+        && param.getAllowedClasses() == null;
   }
 
   /** Returns the StarlarkMethod annotation corresponding to this method. */
   StarlarkMethod getAnnotation() {
+    if (annotation == null) {
+      // Annotation is null on deserialization, becuase deserializer can't handle annotations
+      annotation = StarlarkAnnotations.getStarlarkMethod(method);
+    }
     return annotation;
   }
 
-  /** @return Starlark method descriptor for provided Java method and signature annotation. */
-  static MethodDescriptor of(
-      Method method, StarlarkMethod annotation, StarlarkSemantics semantics) {
+  /** Returns starlark method descriptor for provided Java method and signature annotation. */
+  static MethodDescriptor of(Method method, StarlarkMethod annotation) {
     // This happens when the interface is public but the implementation classes
     // have reduced visibility.
     method.setAccessible(true);
@@ -117,7 +198,7 @@ final class MethodDescriptor {
     Class<?>[] paramClasses = method.getParameterTypes();
     Param[] paramAnnots = annotation.parameters();
     ParamDescriptor[] params = new ParamDescriptor[paramAnnots.length];
-    Arrays.setAll(params, i -> ParamDescriptor.of(paramAnnots[i], paramClasses[i], semantics));
+    Arrays.setAll(params, i -> ParamDescriptor.of(paramAnnots[i], paramClasses[i]));
 
     return new MethodDescriptor(
         method,
@@ -286,5 +367,50 @@ final class MethodDescriptor {
   /** @see StarlarkMethod#selfCall() */
   boolean isSelfCall() {
     return selfCall;
+  }
+
+  public StarlarkType getStarlarkType() {
+    return starlarkType;
+  }
+
+  /**
+   * Returns true if we may directly reuse the Starlark positionals vector as the Java {@code args}
+   * vector passed to {@link #call} as long as the Starlark call was made with a valid number of
+   * arguments.
+   *
+   * <p>More precisely, this means that we do not need to insert extra values into the args vector
+   * (such as ones corresponding to {@code *args}, {@code **kwargs}, or {@code self} in Starlark),
+   * and all Starlark parameters are simple positional parameters which cannot be disabled by a flag
+   * and do not require type checking.
+   */
+  boolean isPositionalsReusableAsJavaArgsVectorIfArgumentCountValid() {
+    return positionalsReusableAsJavaArgsVectorIfArgumentCountValid;
+  }
+
+  /** Returns true if parameter is enabled. */
+  void checkEnabled(StarlarkThread thread) throws EvalException {
+    if (conditionalCheck == null) { // fast path
+      return;
+    }
+
+    // TODO(b/407506132): A method enabled by a non-experimental flag should not be marked as
+    //  experimental
+    if (!thread
+        .getSemantics()
+        .isFeatureEnabledBasedOnTogglingFlags(
+            conditionalCheck.enableOnlyWithFlag(), conditionalCheck.disableWithFlag())) {
+      if (!conditionalCheck.enableOnlyWithFlag().isEmpty()) {
+        throw Starlark.errorf(
+            "function %s() is experimental and thus unavailable with the current flags. It may be"
+                + " enabled by setting --%s",
+            name, conditionalCheck.enableOnlyWithFlag().substring(1)); // remove [+-] prefix
+      }
+      if (!conditionalCheck.disableWithFlag().isEmpty()) {
+        throw Starlark.errorf(
+            "function %s() is deprecated and will be removed soon. It may be temporarily re-enabled"
+                + " by setting --%s",
+            name, conditionalCheck.disableWithFlag().substring(1)); // remove [+-] prefix
+      }
+    }
   }
 }

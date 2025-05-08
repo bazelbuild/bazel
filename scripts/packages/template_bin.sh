@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -18,7 +18,7 @@ set -e
 
 # Bazel self-extractable installer
 
-# Installation and etc prefix can be overriden from command line
+# Installation and etc prefix can be overridden from command line
 install_prefix=${1:-"/usr/local"}
 
 progname="$0"
@@ -187,6 +187,6 @@ For fish shell completion, link this file into your
 ${HOME}/.config/fish/completions/ directory:
   ln -s ${base}/bin/bazel.fish ${HOME}/.config/fish/completions/bazel.fish
 
-See http://bazel.build/docs/getting-started.html to start a new project!
+See http://bazel.build/start to start a new project!
 EOF
 exit 0

@@ -15,7 +15,6 @@
 package com.google.devtools.build.singlejar;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -25,9 +24,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -137,77 +134,13 @@ public final class FakeZipFile {
   private final List<FakeZipEntry> entries = new ArrayList<>();
 
   @CanIgnoreReturnValue
-  public FakeZipFile addEntry(String name, String content) {
-    entries.add(new FakeZipEntry(name, null, content, null, EntryMode.DONT_CARE));
-    return this;
-  }
-
-  @CanIgnoreReturnValue
   public FakeZipFile addEntry(String name, String content, boolean compressed) {
     entries.add(new FakeZipEntry(name, null, content, null,
         compressed ? EntryMode.EXPECT_DEFLATE : EntryMode.EXPECT_STORED));
     return this;
   }
 
-  @CanIgnoreReturnValue
-  public FakeZipFile addEntry(String name, Date date, String content) {
-    entries.add(new FakeZipEntry(name, date, content, null, EntryMode.DONT_CARE));
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public FakeZipFile addEntry(String name, Date date, String content, boolean compressed) {
-    entries.add(new FakeZipEntry(name, date, content, null,
-        compressed ? EntryMode.EXPECT_DEFLATE : EntryMode.EXPECT_STORED));
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public FakeZipFile addEntry(String name, ByteValidator content) {
-    entries.add(new FakeZipEntry(name, null, content, null, EntryMode.DONT_CARE));
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public FakeZipFile addEntry(String name, ByteValidator content, boolean compressed) {
-    entries.add(new FakeZipEntry(name, null, content, null,
-        compressed ? EntryMode.EXPECT_DEFLATE : EntryMode.EXPECT_STORED));
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public FakeZipFile addEntry(String name, Date date, ByteValidator content) {
-    entries.add(new FakeZipEntry(name, date, content, null, EntryMode.DONT_CARE));
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public FakeZipFile addEntry(String name, Date date, ByteValidator content, boolean compressed) {
-    entries.add(new FakeZipEntry(name, date, content, null,
-        compressed ? EntryMode.EXPECT_DEFLATE : EntryMode.EXPECT_STORED));
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public FakeZipFile addEntry(String name, byte[] extra) {
-    entries.add(new FakeZipEntry(name, null, (String) null, extra, EntryMode.DONT_CARE));
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public FakeZipFile addEntry(String name, byte[] extra, boolean compressed) {
-    entries.add(new FakeZipEntry(name, null, (String) null, extra,
-        compressed ? EntryMode.EXPECT_DEFLATE : EntryMode.EXPECT_STORED));
-    return this;
-  }
-
   private byte[] preamble = null;
-
-  @CanIgnoreReturnValue
-  public FakeZipFile addPreamble(byte[] contents) {
-    preamble = Arrays.copyOf(contents, contents.length);
-    return this;
-  }
 
   private int getUnsignedShort(byte[] source, int offset) {
     int a = source[offset + 0] & 0xff;
@@ -236,56 +169,5 @@ public final class FakeZipFile {
     assertThat(count).isEqualTo(entries.size());
     count = getUnsignedShort(data, data.length-12);
     assertThat(count).isEqualTo(entries.size());
-  }
-
-  /**
-   * Assert that {@code expected} is the same zip file as {@code actual}. It is similar to
-   * {@link org.junit.Assert#assertArrayEquals(byte[], byte[])} but should use a more
-   * helpful error message.
-   */
-  public static void assertSame(byte[] expected, byte[] actual) throws IOException {
-    // First parse the zip files, then compare to have explicit comparison messages.
-    ZipInputStream expectedZip = new ZipInputStream(new ByteArrayInputStream(expected));
-    ZipInputStream actualZip = new ZipInputStream(new ByteArrayInputStream(actual));
-    StringBuffer actualFileList = new StringBuffer();
-    StringBuffer expectedFileList = new StringBuffer();
-    Map<String, ZipEntry> actualEntries = new HashMap<String, ZipEntry>();
-    Map<String, ZipEntry> expectedEntries = new HashMap<String, ZipEntry>();
-    Map<String, byte[]> actualEntryContents = new HashMap<String, byte[]>();
-    Map<String, byte[]> expectedEntryContents = new HashMap<String, byte[]>();
-    parseZipEntry(expectedZip, expectedFileList, expectedEntries, expectedEntryContents);
-    parseZipEntry(actualZip, actualFileList, actualEntries, actualEntryContents);
-    // Compare the ordered file list first.
-    assertThat(actualFileList.toString()).isEqualTo(expectedFileList.toString());
-
-    // Then compare each entry.
-    for (String name : expectedEntries.keySet()) {
-      ZipEntry expectedEntry = expectedEntries.get(name);
-      ZipEntry actualEntry = actualEntries.get(name);
-      assertWithMessage("Time differs for " + name)
-          .that(actualEntry.getTime())
-          .isEqualTo(expectedEntry.getTime());
-      assertWithMessage("Extraneous content differs for " + name)
-          .that(actualEntry.getExtra())
-          .isEqualTo(expectedEntry.getExtra());
-      assertWithMessage("Content differs for " + name)
-          .that(actualEntryContents.get(name))
-          .isEqualTo(expectedEntryContents.get(name));
-    }
-
-    // Finally do a binary array comparison to be sure that test fails if files are different in
-    // some way we don't test.
-    assertThat(actual).isEqualTo(expected);
-  }
-
-  private static void parseZipEntry(ZipInputStream expectedZip, StringBuffer expectedFileList,
-      Map<String, ZipEntry> expectedEntries, Map<String, byte[]> expectedEntryContents)
-      throws IOException {
-    ZipEntry expectedEntry;
-    while ((expectedEntry = expectedZip.getNextEntry()) != null) {
-      expectedFileList.append(expectedEntry.getName()).append("\n");
-      expectedEntries.put(expectedEntry.getName(), expectedEntry);
-      expectedEntryContents.put(expectedEntry.getName(), readZipEntryContent(expectedZip));
-    }
   }
 }

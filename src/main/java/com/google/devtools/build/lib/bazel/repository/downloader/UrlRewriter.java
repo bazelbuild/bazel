@@ -21,7 +21,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -32,17 +31,17 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringReader;
-import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.HashMap;
@@ -86,26 +85,38 @@ public class UrlRewriter {
    * @param configPath Path to the config file to use. May be null.
    * @param reporter Used for logging when URLs are rewritten.
    */
-  public static UrlRewriter getDownloaderUrlRewriter(String configPath, Reporter reporter)
+  public static UrlRewriter getDownloaderUrlRewriter(
+      Path workspaceRoot, @Nullable PathFragment configPath, Reporter reporter)
       throws UrlRewriterParseException {
     Consumer<String> log = str -> reporter.handle(Event.info(str));
 
     // "empty" UrlRewriter shouldn't alter auth headers
-    if (Strings.isNullOrEmpty(configPath)) {
+    if (configPath == null || configPath.isEmpty()) {
       return new UrlRewriter(log, "", new StringReader(""));
     }
 
-    try (BufferedReader reader = Files.newBufferedReader(Paths.get(configPath))) {
-      return new UrlRewriter(log, configPath, reader);
+    // There have been reports (eg. https://github.com/bazelbuild/bazel/issues/22104) that
+    // there are occasional errors when `configFile` can't be found, and when this happens
+    // investigation suggests that the current working directory isn't the workspace root.
+    Path actualConfigPath = workspaceRoot.getRelative(configPath);
+
+    if (!actualConfigPath.exists()) {
+      throw new UrlRewriterParseException(
+          String.format("Unable to find downloader config file %s", configPath.getPathString()));
+    }
+
+    try (InputStream inputStream = actualConfigPath.getInputStream();
+        Reader inputStreamReader = new InputStreamReader(inputStream);
+        Reader reader = new BufferedReader(inputStreamReader)) {
+      return new UrlRewriter(log, configPath.getPathString(), reader);
     } catch (IOException e) {
-      throw new UncheckedIOException(e);
+      throw new UrlRewriterParseException(e.getMessage());
     }
   }
 
   /**
-   * Rewrites {@code urls} using the configuration provided to {@link
-   * #getDownloaderUrlRewriter(String, Reporter)}. The returned list of URLs may be empty if the
-   * configuration used blocks all the input URLs.
+   * Rewrites {@code urls} using the configuration provided to {@link #getDownloaderUrlRewriter}.
+   * The returned list of URLs may be empty if the configuration used blocks all the input URLs.
    *
    * @param urls The input list of {@link URL}s. May be empty.
    * @return The amended lists of URLs.

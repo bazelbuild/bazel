@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.BuildSettingApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi.BuildSettingApi;
 import net.starlark.java.eval.Printer;
 
 /**

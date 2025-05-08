@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Build programs with Bazel
 
+{% include "_buttons.html" %}
+
 This page covers how to build a program with Bazel, build command syntax, and
 target pattern syntax.
 
@@ -25,13 +27,13 @@ Usage: bazel {{ "<var>" }}command{{ "</var>" }} {{ "<var>" }}options{{ "</var>" 
 * [`build`](#bazel-build): Builds the specified targets.
 * [`canonicalize-flags`](/docs/user-manual#canonicalize-flags): Canonicalize Bazel flags.
 * [`clean`](/docs/user-manual#clean): Removes output files and optionally stops the server.
-* [`cquery`](/docs/cquery): Executes a [post-analysis](#analysis) dependency graph query.
+* [`cquery`](/query/cquery): Executes a [post-analysis](#analysis) dependency graph query.
 * [`dump`](/docs/user-manual#dump): Dumps the internal state of the Bazel server process.
 * [`help`](/docs/user-manual#help): Prints help for commands, or the index.
 * [`info`](/docs/user-manual#info): Displays runtime info about the bazel server.
 * [`fetch`](#fetching-external-dependencies): Fetches all external dependencies of a target.
 * [`mobile-install`](/docs/user-manual#mobile-install): Installs apps on mobile devices.
-* [`query`](/docs/query-how-to): Executes a dependency graph query.
+* [`query`](/query/guide): Executes a dependency graph query.
 * [`run`](/docs/user-manual#running-executables): Runs the specified target.
 * [`shutdown`](/docs/user-manual#shutdown): Stops the Bazel server.
 * [`test`](/docs/user-manual#running-tests): Builds and runs the specified test targets.
@@ -158,12 +160,12 @@ workspace.
 </tr>
 <tr>
   <td><code>//...</code></td>
-  <td>All targets in packages in the workspace. This does not include targets
+  <td>All rule targets in packages in the main repository. Does not include targets
   from <a href="/docs/external">external repositories</a>.</td>
 </tr>
 <tr>
   <td><code>//:all</code></td>
-  <td>All targets in the top-level package, if there is a `BUILD` file at the
+  <td>All rule targets in the top-level package, if there is a `BUILD` file at the
   root of the workspace.</td>
 </tr>
 </table>
@@ -266,10 +268,11 @@ part of building the former.
 
 Targets with `tags = ["manual"]` are not included in wildcard target patterns
 (`...`, `:*`, `:all`, etc.) when specified in commands like
-`bazel build` and `bazel test`; you should specify such
-test targets with explicit target patterns on the command line if you want Bazel
-to build/test them. In contrast, `bazel query` doesn't perform any
-such filtering automatically (that would defeat the purpose of
+`bazel build` and `bazel test` (but they are included in
+negative wildcard target patterns, that is they will be subtracted). You should
+specify such test targets with explicit target patterns on the command line if
+you want Bazel to build/test them. In contrast, `bazel query` doesn't perform
+any such filtering automatically (that would defeat the purpose of
 `bazel query`).
 
 ### Fetching external dependencies {:#fetching-external-dependencies}
@@ -294,7 +297,7 @@ you disallow during-build fetching, you'll need to run `bazel fetch`:
 - Before you build for the first time.
 - After you add a new external dependency.
 
-Once it has been run, you should not need to run it again until the WORKSPACE
+Once it has been run, you should not need to run it again until the MODULE.bazel
 file changes.
 
 `fetch` takes a list of targets to fetch dependencies for. For
@@ -309,6 +312,13 @@ To fetch all external dependencies for a workspace, run:
 
 ```posix-terminal
 bazel fetch //...
+```
+
+With Bazel 7 or later, if you have Bzlmod enabled, you can also fetch all
+external dependencies by running
+
+```posix-terminal
+bazel fetch
 ```
 
 You do not need to run bazel fetch at all if you have all of the tools you are
@@ -339,7 +349,9 @@ be determined, for example to manually clean up the cache. The cache is never
 cleaned up automatically, as it might contain a copy of a file that is no
 longer available upstream.
 
-#### Distribution files directories {:#distribution-directory}
+#### [Deprecated] Distribution files directories {:#distribution-directory}
+
+**Deprecated**: *Using repository cache is preferred to achieve offline build.*
 
 The distribution directory is another Bazel mechanism to avoid unnecessary
 downloads. Bazel searches distribution directories before the repository cache.
@@ -352,7 +364,7 @@ option, you can specify additional read-only directories to look for files
 instead of fetching them. A file is taken from such a directory if the file name
 is equal to the base name of the URL and additionally the hash of the file is
 equal to the one specified in the download request. This only works if the
-file hash is specified in the WORKSPACE declaration.
+file hash is specified in the repo rule declaration.
 
 While the condition on the file name is not necessary for correctness, it
 reduces the number of candidate files to one per specified directory. In this
@@ -367,11 +379,60 @@ contain toolchains and rules that may not be necessary for everyone. For
 example, Android tools are unbundled and fetched only when building Android
 projects.
 
-However, these implicit dependencies may cause problems when running
-Bazel in an airgapped environment, even if you have vendored all of your
-WORKSPACE dependencies. To solve that, you can prepare a distribution directory
-containing these dependencies on a machine with network access, and then
-transfer them to the airgapped environment with an offline approach.
+However, these implicit dependencies may cause problems when running Bazel in an
+airgapped environment, even if you have vendored all of your external
+dependencies. To solve that, you can prepare a repository cache (with Bazel 7 or
+later) or distribution directory (with Bazel prior to 7) containing these
+dependencies on a machine with network access, and then transfer them to the
+airgapped environment with an offline approach.
+
+##### Repository cache (with Bazel 7 or later)
+
+To prepare the [repository cache](#repository-cache), use the
+[`--repository_cache`](/reference/command-line-reference#flag--repository_cache)
+flag. You will need to do this once for every new Bazel binary version, since
+the implicit dependencies can be different for every release.
+
+To fetch those dependencies outside of your airgapped environment, first create
+an empty workspace:
+
+```posix-terminal
+mkdir empty_workspace && cd empty_workspace
+
+touch MODULE.bazel
+```
+
+To fetch built-in Bzlmod dependencies, run
+
+```posix-terminal
+bazel fetch --repository_cache="path/to/repository/cache"
+```
+
+If you still rely on the legacy WORKSPACE file, to fetch built-in WORKSPACE
+dependencies, run
+
+```posix-terminal
+bazel sync --repository_cache="path/to/repository/cache"
+```
+
+Finally, when you use Bazel in your airgapped environment, pass the same
+`--repository_cache` flag. For convenience, you can add it as an `.bazelrc`
+entry:
+
+```python
+common --repository_cache="path/to/repository/cache"
+```
+
+In addition, you may also need to clone the
+[BCR](https://github.com/bazelbuild/bazel-central-registry) locally and use
+`--registry` flag to point your local copy to prevent Bazel from accessing the
+BCR through internet. Add the following line to your `.bazelrc`:
+
+```python
+common --registry="path/to/local/bcr/registry"
+```
+
+##### Distribution directory (with Bazel prior to 7)
 
 To prepare the [distribution directory](#distribution-directory), use the
 [`--distdir`](/reference/command-line-reference#flag--distdir)
@@ -431,15 +492,15 @@ require building `//foo:bin` using a toolchain capable of creating 64-bit
 executables, but the build system must also build various tools used during the
 build itself—for example tools that are built from source, then subsequently
 used in, say, a genrule—and these must be built to run on your workstation. Thus
-we can identify two configurations: the **host configuration**, which is used
+we can identify two configurations: the **exec configuration**, which is used
 for building tools that run during the build, and the **target configuration**
 (or _request configuration_, but we say "target configuration" more often even
 though that word already has many meanings), which is used for building the
 binary you ultimately requested.
 
 Typically, there are many libraries that are prerequisites of both the requested
-build target (`//foo:bin`) and one or more of the host tools, for example some
-base libraries. Such libraries must be built twice, once for the host
+build target (`//foo:bin`) and one or more of the exec tools, for example some
+base libraries. Such libraries must be built twice, once for the exec
 configuration, and once for the target configuration. Bazel takes care of
 ensuring that both variants are built, and that the derived files are kept
 separate to avoid interference; usually such targets can be built concurrently,
@@ -447,37 +508,7 @@ since they are independent of each other. If you see progress messages
 indicating that a given target is being built twice, this is most likely the
 explanation.
 
-Bazel uses one of two ways to select the host configuration, based on the
-`--distinct_host_configuration` option. This boolean option is somewhat subtle,
-and the setting may improve (or worsen) the speed of your builds.
-
-#### `--distinct_host_configuration=false` {:#distinct-host-config-false}
-
-Caution: We do not recommend this option. If you frequently make changes to your
-request configuration, such as alternating between `-c opt` and `-c dbg` builds,
-or between simple- and cross-compilation, you will typically rebuild the
-majority of your codebase each time you switch.
-
-When this option is false, the host and request configurations are identical:
-all tools required during the build will be built in exactly the same way as
-target programs. This setting means that no libraries need to be built twice
-during a single build.
-
-However, it does mean that any change to your request configuration also affects
-your host configuration, causing all the tools to be rebuilt, and then anything
-that depends on the tool output to be rebuilt too. Thus, for example, simply
-changing a linker option between builds might cause all tools to be re-linked,
-and then all actions using them re-executed, and so on, resulting in a very
-large rebuild.
-
-Note: If your host architecture is not capable of running your target binaries,
-your build will not work.
-
-#### `--distinct_host_configuration=true` _(default)_ {:#distinct-host-config-true}
-
-If this option is true, then instead of using the same configuration for the
-host and request, a completely distinct host configuration is used. The host
-configuration is derived from the target configuration as follows:
+The exec configuration is derived from the target configuration as follows:
 
 -   Use the same version of Crosstool (`--crosstool_top`) as specified in the
     request configuration, unless `--host_crosstool_top` is specified.
@@ -485,7 +516,7 @@ configuration is derived from the target configuration as follows:
 -   Use the same values of these options as specified in the request
     configuration: `--compiler`, `--use_ijars`, and if `--host_crosstool_top` is
     used, then the value of `--host_cpu` is used to look up a
-    `default_toolchain` in the Crosstool (ignoring `--compiler`) for the host
+    `default_toolchain` in the Crosstool (ignoring `--compiler`) for the exec
     configuration.
 -   Use the value of `--host_javabase` for `--javabase`
 -   Use the value of `--host_java_toolchain` for `--java_toolchain`
@@ -498,23 +529,17 @@ configuration is derived from the target configuration as follows:
 -   Suppress stamping of binaries with build data (see `--embed_*` options).
 -   All other values remain at their defaults.
 
-There are many reasons why it might be preferable to select a distinct host
-configuration from the request configuration. Some are too esoteric to mention
-here, but two of them are worth pointing out.
+There are many reasons why it might be preferable to select a distinct exec
+configuration from the request configuration. Most importantly:
 
 Firstly, by using stripped, optimized binaries, you reduce the time spent
 linking and executing the tools, the disk space occupied by the tools, and the
 network I/O time in distributed builds.
 
-Secondly, by decoupling the host and request configurations in all builds, you
+Secondly, by decoupling the exec and request configurations in all builds, you
 avoid very expensive rebuilds that would result from minor changes to the
 request configuration (such as changing a linker options does), as described
 earlier.
-
-That said, for certain builds, this option may be a hindrance. In particular,
-builds in which changes of configuration are infrequent (especially certain Java
-builds), and builds where the amount of code that must be built in both host and
-target configurations is large, may not benefit.
 
 ### Correct incremental rebuilds {:#correct-incremental-rebuilds}
 
@@ -610,7 +635,7 @@ the host system in unknown ways. To disable this warning you can pass the
 
 Note: Hermeticity means that the action only uses its declared input
 files and no other files in the filesystem, and it only produces its declared
-output files. See [Hermeticity](/concepts/hermeticity) for more details.
+output files. See [Hermeticity](/basics/hermeticity) for more details.
 
 On some platforms such as [Google Kubernetes
 Engine](https://cloud.google.com/kubernetes-engine/){: .external} cluster nodes or Debian,
@@ -666,7 +691,7 @@ inputs to a rule, and all rule-specific error messages.
 The loading and analysis phases are fast because Bazel avoids unnecessary file
 I/O at this stage, reading only BUILD files in order to determine the work to be
 done. This is by design, and makes Bazel a good foundation for analysis tools,
-such as Bazel's [query](/docs/query-how-to) command, which is implemented atop the loading
+such as Bazel's [query](/query/guide) command, which is implemented atop the loading
 phase.
 
 #### Execution phase {:#execution}

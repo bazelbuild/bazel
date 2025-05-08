@@ -44,8 +44,8 @@ public class CommandUtils {
         CommandFailureUtils.describeCommandFailure(verbose, cwd(command), command)
             + ": "
             + exception.getMessage();
-    if (exception instanceof AbnormalTerminationException) {
-      CommandResult result = ((AbnormalTerminationException) exception).getResult();
+    if (exception instanceof AbnormalTerminationException abnormalTerminationException) {
+      CommandResult result = abnormalTerminationException.getResult();
       try {
         return message + "\n"
             + new String(result.getStdout())

@@ -15,7 +15,6 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -23,6 +22,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
+import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
+import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -66,6 +67,47 @@ public final class OptionsParserTest {
             OptionsParser.ConstructionException.class,
             () -> OptionsParser.builder().optionsClasses(BadOptions.class).build());
     assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+  }
+
+  public enum TestEnum {
+    DEFAULT,
+    EXPLICIT;
+  }
+
+  public static class TestEnumConverter extends EnumConverter<TestEnum> {
+    public TestEnumConverter() {
+      super(TestEnum.class, "test enum");
+    }
+  }
+
+  public static class ChoosyConverter implements Converter<String> {
+    @Override
+    public String convert(String input, @Nullable Object conversionContext)
+        throws OptionsParsingException {
+      switch (input) {
+        case "default":
+          return "default";
+        case " explicit":
+          return "explicit";
+        default:
+          throw new OptionsParsingException("illegal");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "choosy";
+    }
+  }
+
+  public static class ChoosyOptions extends OptionsBase {
+    @Option(
+        name = "choosy",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "default",
+        converter = ChoosyConverter.class)
+    public String choosy;
   }
 
   public static class ExampleFoo extends OptionsBase {
@@ -168,20 +210,67 @@ public final class OptionsParserTest {
     public boolean privateBoolean;
 
     @Option(
-      name = "internal_string",
-      metadataTags = {OptionMetadataTag.INTERNAL},
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "super secret"
-    )
+        name = "internal_string",
+        metadataTags = {OptionMetadataTag.INTERNAL},
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "super secret")
     public String privateString;
   }
 
+  public static class ExampleEquivalentWithFoo extends OptionsBase {
+
+    @Option(
+        name = "foo",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "differentDefault")
+    public String foo;
+
+    @Option(
+        name = "bar",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "differentDefault")
+    public String bar;
+
+    @Option(
+        name = "ignored_with_value",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "differentDefault")
+    public String ignoredWithValue;
+
+    @Option(
+        name = "ignored_without_value",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public boolean ignoredWithoutValue;
+  }
+
+  public static class ExampleIncompatibleWithFoo extends OptionsBase {
+
+    @Option(
+        name = "foo",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public boolean foo;
+  }
+
   public static class StringConverter extends Converter.Contextless<String> {
+
     @Override
     public String convert(String input) {
       return input;
     }
+
     @Override
     public String getTypeDescription() {
       return "a string";
@@ -199,8 +288,15 @@ public final class OptionsParserTest {
   }
 
   @Test
-  public void parseWithMultipleOptionsInterfaces()
-      throws OptionsParsingException {
+  public void defaultValueOfBadOptionRemains() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ChoosyOptions.class).build();
+
+    assertThrows(OptionsParsingException.class, () -> parser.parse("--choosy=wat"));
+    assertThat(parser.getOptions(ChoosyOptions.class).choosy).isEqualTo("default");
+  }
+
+  @Test
+  public void parseWithMultipleOptionsInterfaces() throws OptionsParsingException {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(ExampleFoo.class, ExampleBaz.class).build();
     parser.parse("--baz=oops", "--bar", "17");
@@ -227,7 +323,8 @@ public final class OptionsParserTest {
                 parser.parseWithSourceFunction(
                     PriorityCategory.COMMAND_LINE,
                     sourceFunction,
-                    ImmutableList.of("residue", "not", "allowed", "in", "parseWithSource")));
+                    ImmutableList.of("residue", "not", "allowed", "in", "parseWithSource"),
+                    /* fallbackData= */ null));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("Unrecognized arguments: residue not allowed in parseWithSource");
@@ -247,7 +344,8 @@ public final class OptionsParserTest {
     parser.parseWithSourceFunction(
         PriorityCategory.COMMAND_LINE,
         sourceFunction,
-        ImmutableList.of("residue", "is", "allowed", "in", "parseWithSource"));
+        ImmutableList.of("residue", "is", "allowed", "in", "parseWithSource"),
+        /* fallbackData= */ null);
     assertThat(parser.getResidue())
         .containsExactly("residue", "is", "allowed", "in", "parseWithSource");
   }
@@ -272,7 +370,9 @@ public final class OptionsParserTest {
                 parser.parseArgsAsExpansionOfOption(
                     optionToExpand,
                     "source",
-                    ImmutableList.of("--underlying=direct_value", "residue", "in", "expansion")));
+                    ArgAndFallbackData.wrapWithFallbackData(
+                        ImmutableList.of("--underlying=direct_value", "residue", "in", "expansion"),
+                        /* fallbackData= */ null)));
     assertThat(parser.getResidue()).isNotEmpty();
     assertThat(e).hasMessageThat().isEqualTo("Unrecognized arguments: residue in expansion");
   }
@@ -446,7 +546,7 @@ public final class OptionsParserTest {
   }
 
   @Test
-  public void multipleOccuringOption() throws OptionsParsingException {
+  public void multipleOccurringOption() throws OptionsParsingException {
     OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
     parser.parse("--bing", "abcdef", "--foo", "foo1", "--bing", "123456" );
     assertThat(parser.getOptions(ExampleFoo.class).bing).containsExactly("abcdef", "123456");
@@ -1358,8 +1458,20 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(ExpansionWarningOptions.class).build();
     parser.parse("--first", "--second");
     assertThat(parser.getWarnings())
-        .containsExactly(
-            "option '--underlying' was expanded to from both option '--first' and option "
+        .contains(
+            "option '--underlying' was expanded from both option '--first' and option "
+                + "'--second'");
+  }
+
+  @Test
+  public void noWarningForTwoConflictingExpansionOptionsFromRcFile() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(ExpansionWarningOptions.class).build();
+    parser.parse(
+        OptionPriority.PriorityCategory.RC_FILE, null, ImmutableList.of("--first", "--second"));
+    assertThat(parser.getWarnings())
+        .doesNotContain(
+            "option '--underlying' was expanded from both option '--first' and option "
                 + "'--second'");
   }
 
@@ -1798,7 +1910,7 @@ public final class OptionsParserTest {
   }
 
   @Test
-  public void canonicalizeSkipsDuplicateAndStillOmmitsImplicitDeps() throws Exception {
+  public void canonicalizeSkipsDuplicateAndStillOmitsImplicitDeps() throws Exception {
     assertThat(canonicalize(Yesterday.class, "--e=x", "--e=y")).containsExactly("--e=y");
   }
 
@@ -1904,6 +2016,14 @@ public final class OptionsParserTest {
       defaultValue = "defaultValue"
     )
     public String flag;
+
+    @Option(
+        name = "new_boolean_name",
+        oldName = "old_boolean_name",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false")
+    public boolean booleanFlag;
   }
 
   @Test
@@ -1942,6 +2062,129 @@ public final class OptionsParserTest {
   public void testOldNameCanonicalization() throws Exception {
     assertThat(canonicalize(OldNameExample.class, "--old_name=foo"))
         .containsExactly("--new_name=foo");
+  }
+
+  @Test
+  public void testOldName_booleanTrue() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--old_boolean_name=true");
+    OldNameExample result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isTrue();
+    // Using old option name should cause a warning.
+    assertThat(parser.getWarnings())
+        .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
+    assertThat(parser.getWarnings()).containsNoDuplicates();
+
+    parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--new_boolean_name=true");
+    result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isTrue();
+    // Should be no warnings if the new name is used.
+    assertThat(parser.getWarnings()).isEmpty();
+  }
+
+  @Test
+  public void testOldName_booleanFalse() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--old_boolean_name=false");
+    OldNameExample result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isFalse();
+    // Using old option name should cause a warning.
+    assertThat(parser.getWarnings())
+        .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
+    assertThat(parser.getWarnings()).containsNoDuplicates();
+
+    parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--new_boolean_name=false");
+    result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isFalse();
+    // Should be no warnings if the new name is used.
+    assertThat(parser.getWarnings()).isEmpty();
+  }
+
+  @Test
+  public void testOldName_specialBooleanSyntax() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--old_boolean_name");
+    OldNameExample result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isTrue();
+    // Using old option name should cause a warning.
+    assertThat(parser.getWarnings())
+        .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
+    assertThat(parser.getWarnings()).containsNoDuplicates();
+
+    parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--new_boolean_name");
+    result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isTrue();
+    // Should be no warnings if the new name is used.
+    assertThat(parser.getWarnings()).isEmpty();
+  }
+
+  @Test
+  public void testOldName_negatedSpecialBooleanSyntax() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--noold_boolean_name");
+    OldNameExample result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isFalse();
+    // Using old option name should cause a warning.
+    assertThat(parser.getWarnings())
+        .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
+    assertThat(parser.getWarnings()).containsNoDuplicates();
+
+    parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--nonew_boolean_name");
+    result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isFalse();
+    // Should be no warnings if the new name is used.
+    assertThat(parser.getWarnings()).isEmpty();
+  }
+
+  @Test
+  public void testOldName_repeatedBooleanFlag() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--old_boolean_name=false", "--old_boolean_name");
+    OldNameExample result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isTrue();
+    // Using old option name should cause a single warning even if the old name was specified
+    // multiple times.
+    assertThat(parser.getWarnings())
+        .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
+    assertThat(parser.getWarnings()).containsNoDuplicates();
+  }
+
+  @Test
+  public void testOldName_overriddenByNewName() throws OptionsParsingException {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(OldNameExample.class).build();
+    parser.parse("--old_boolean_name=false", "--new_boolean_name");
+    OldNameExample result = parser.getOptions(OldNameExample.class);
+    assertThat(result.booleanFlag).isTrue();
+    // Using old option name should cause a warning even when overridden by new name.
+    assertThat(parser.getWarnings())
+        .contains("Option 'old_boolean_name' is deprecated: Use --new_boolean_name instead");
+    assertThat(parser.getWarnings()).containsNoDuplicates();
+  }
+
+  public static class OldNameNoWarningExample extends OptionsBase {
+    @Option(
+        name = "new_name",
+        oldName = "old_name",
+        oldNameWarning = false,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defaultValue")
+    public String flag;
+  }
+
+  @Test
+  public void testOldName_noWarning() throws OptionsParsingException {
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(OldNameNoWarningExample.class).build();
+    parser.parse("--old_name=foo");
+    OldNameNoWarningExample result = parser.getOptions(OldNameNoWarningExample.class);
+    assertThat(result.flag).isEqualTo("foo");
+    // Using old option name should not cause a warning
+    assertThat(parser.getWarnings()).isEmpty();
   }
 
   public static class ExampleBooleanFooOptions extends OptionsBase {
@@ -2184,7 +2427,7 @@ public final class OptionsParserTest {
             /*implicitDependent=*/ null,
             /*expandedFrom=*/ null);
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(ExampleFoo.class.getField("foo"));
+        FieldOptionDefinition.extractOptionDefinition(ExampleFoo.class.getField("foo"));
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");
 
@@ -2206,7 +2449,7 @@ public final class OptionsParserTest {
             /*implicitDependent=*/ null,
             /*expandedFrom=*/ null);
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(ExampleFoo.class.getField("foo"));
+        FieldOptionDefinition.extractOptionDefinition(ExampleFoo.class.getField("foo"));
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hi=bar");
     parser.parse("--hi=123");
@@ -2227,7 +2470,8 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(ImplicitDependencyOptions.class).build();
     OptionInstanceOrigin origin = createInvocationPolicyOrigin();
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(ImplicitDependencyOptions.class.getField("first"));
+        FieldOptionDefinition.extractOptionDefinition(
+            ImplicitDependencyOptions.class.getField("first"));
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");
 
@@ -2248,15 +2492,15 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(ImplicitDependencyOptions.class).build();
     ParsedOptionDescription first =
         ParsedOptionDescription.newDummyInstance(
-            OptionDefinition.extractOptionDefinition(
+            FieldOptionDefinition.extractOptionDefinition(
                 ImplicitDependencyOptions.class.getField("first")),
             createInvocationPolicyOrigin(),
-            /*conversionContext=*/ null);
+            /* conversionContext= */ null);
     OptionInstanceOrigin origin =
         createInvocationPolicyOrigin(/*implicitDependent=*/ first, /*expandedFrom=*/ null);
 
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(
+        FieldOptionDefinition.extractOptionDefinition(
             ImplicitDependencyOptions.class.getField("second"));
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");
@@ -2277,15 +2521,15 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(ImplicitDependencyOptions.class).build();
     ParsedOptionDescription first =
         ParsedOptionDescription.newDummyInstance(
-            OptionDefinition.extractOptionDefinition(
+            FieldOptionDefinition.extractOptionDefinition(
                 ImplicitDependencyOptions.class.getField("first")),
             createInvocationPolicyOrigin(),
-            /*conversionContext=*/ null);
+            /* conversionContext= */ null);
     OptionInstanceOrigin origin =
         createInvocationPolicyOrigin(/*implicitDependent=*/ null, /*expandedFrom=*/ first);
 
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(
+        FieldOptionDefinition.extractOptionDefinition(
             ImplicitDependencyOptions.class.getField("second"));
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");
@@ -2297,6 +2541,141 @@ public final class OptionsParserTest {
             parser.asCompleteListOfParsedOptions().stream()
                 .map(ParsedOptionDescription::getCommandLineForm))
         .containsExactly("--second=hello");
+  }
+
+  @Test
+  public void negativeTargetPatternsInOptions_failsDistinctively() {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parser.parse("//foo", "-//bar", "//baz"));
+    assertThat(e).hasMessageThat().contains("-//bar");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Negative target patterns can only appear after the end of options marker");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Flags corresponding to Starlark-defined build settings always start with '--'");
+  }
+
+  @Test
+  public void negativeExternalTargetPatternsInOptions_failsDistinctively() {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class, () -> parser.parse("//foo", "-@repo//bar", "//baz"));
+    assertThat(e).hasMessageThat().contains("-@repo//bar");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Negative target patterns can only appear after the end of options marker");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Flags corresponding to Starlark-defined build settings always start with '--'");
+  }
+
+  @Test
+  public void fallbackOptions_optionsParsingEquivalently() throws OptionsParsingException {
+    OpaqueOptionsData fallbackData =
+        OptionsParser.getFallbackOptionsData(
+            ImmutableList.of(ExampleFoo.class, ExampleEquivalentWithFoo.class));
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE,
+        o -> ".bazelrc",
+        ImmutableList.of(
+            "--ignored_with_value", "--foo", "--foo=bar", "--ignored_without_value", "--bar", "1"),
+        fallbackData);
+
+    assertThat(parser.getOptions(ExampleFoo.class)).isNotNull();
+    assertThat(parser.getOptions(ExampleFoo.class).foo).isEqualTo("bar");
+    assertThat(parser.getOptions(ExampleFoo.class).bar).isEqualTo(1);
+
+    assertThat(parser.getOptions(ExampleEquivalentWithFoo.class)).isNull();
+  }
+
+  @Test
+  public void fallbackOptions_optionsParsingDifferently() {
+    Exception e =
+        assertThrows(
+            ConstructionException.class,
+            () ->
+                OptionsParser.getFallbackOptionsData(
+                    ImmutableList.of(ExampleFoo.class, ExampleIncompatibleWithFoo.class)));
+    assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+  }
+
+  public static class ExpandingOptions extends OptionsBase {
+    @Option(
+        name = "foo",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        expansion = {"--nobar"},
+        defaultValue = "null")
+    public Void foo;
+  }
+
+  public static class ExpandingOptionsFallback extends OptionsBase {
+    @Option(
+        name = "bar",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true")
+    public boolean bar;
+  }
+
+  @Test
+  public void fallbackOptions_expansionToNegativeBooleanFlag() throws OptionsParsingException {
+    OpaqueOptionsData fallbackData =
+        OptionsParser.getFallbackOptionsData(
+            ImmutableList.of(ExpandingOptions.class, ExpandingOptionsFallback.class));
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExpandingOptions.class).build();
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> ".bazelrc", ImmutableList.of("--foo"), fallbackData);
+
+    assertThat(parser.getOptions(ExpandingOptions.class)).isNotNull();
+    assertThat(parser.getOptions(ExpandingOptionsFallback.class)).isNull();
+  }
+
+  @Test
+  public void testOptionsParser_getUserOptions_excludesClientOptions() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(ExpandingOptions.class, ExpandingOptionsFallback.class)
+            .build();
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> "client", ImmutableList.of("--foo"), null);
+    assertThat(parser.getUserOptions()).isEmpty();
+
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> ".bazelrc", ImmutableList.of("--foo"), null);
+
+    assertThat(parser.getUserOptions().keySet()).containsExactly("--foo", "--nobar");
+  }
+
+  @Test
+  public void testOptionsParser_explicitOptions_excludesFlagsetOptions() throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
+    parser.parse(
+        PriorityCategory.RC_FILE, "//test:PROJECT.scl", ImmutableList.of("--foo=set_by_flagset"));
+    assertThat(parser.asListOfExplicitOptions()).isEmpty();
+    assertThat(parser.canonicalize()).contains("--foo=set_by_flagset");
+  }
+
+  @Test
+  public void testOptionsParser_getUserOptions_excludesInvocationPolicy() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(ExpandingOptions.class, ExpandingOptionsFallback.class)
+            .build();
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> "Invocation policy", ImmutableList.of("--foo"), null);
+    assertThat(parser.getUserOptions()).isEmpty();
+
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> ".bazelrc", ImmutableList.of("--foo"), null);
+
+    assertThat(parser.getUserOptions().keySet()).containsExactly("--foo", "--nobar");
   }
 
   private static OptionInstanceOrigin createInvocationPolicyOrigin() {

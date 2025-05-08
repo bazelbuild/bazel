@@ -16,16 +16,15 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Null-object like {@link CppSemantics} implementation. Only to be used in tests that don't depend
@@ -42,27 +41,22 @@ public final class MockCppSemantics implements CppSemantics {
     return Language.CPP;
   }
 
+  private static final String CPP_TOOLCHAIN_TYPE = "@bazel_tools//tools/cpp:toolchain_type";
+
+  @Override
+  public String getCppToolchainType() {
+    return CPP_TOOLCHAIN_TYPE;
+  }
+
   @Override
   public void finalizeCompileActionBuilder(
       BuildConfigurationValue configuration,
       FeatureConfiguration featureConfiguration,
-      CppCompileActionBuilder actionBuilder,
-      RuleErrorConsumer ruleErrorConsumer) {}
+      CppCompileActionBuilder actionBuilder) {}
 
   @Override
   public boolean allowIncludeScanning() {
     return false;
-  }
-
-  @Override
-  public HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext) {
-    return HeadersCheckingMode.LOOSE;
-  }
-
-  @Override
-  public HeadersCheckingMode determineStarlarkHeadersCheckingMode(
-      RuleContext context, CppConfiguration cppConfig, CcToolchainProvider toolchain) {
-    return HeadersCheckingMode.LOOSE;
   }
 
   @Override
@@ -71,16 +65,8 @@ public final class MockCppSemantics implements CppSemantics {
   }
 
   @Override
-  public void validateAttributes(RuleContext ruleContext) {}
-
-  @Override
   public boolean needsIncludeValidation() {
     return true;
-  }
-
-  @Override
-  public StructImpl getCcSharedLibraryInfo(TransitiveInfoCollection dep) {
-    return null;
   }
 
   @Override
@@ -91,18 +77,11 @@ public final class MockCppSemantics implements CppSemantics {
       ImmutableSet<String> unsupportedFeatures) {}
 
   @Override
-  public boolean createEmptyArchive() {
-    return false;
-  }
-
-  @Override
-  public void checkCanUseImplementationDeps(RuleContext ruleContext) {
-    boolean experimentalCcImplementationDeps =
-        ruleContext.getFragment(CppConfiguration.class).experimentalCcImplementationDeps();
-    if (!experimentalCcImplementationDeps
-        && ruleContext.attributes().isAttributeValueExplicitlySpecified("implementation_deps")) {
-      ruleContext.attributeError(
-          "implementation_deps", "requires --experimental_cc_implementation_deps");
-    }
-  }
+  public void validateStarlarkCompileApiCall(
+      StarlarkActionFactory actionFactory,
+      StarlarkThread thread,
+      String includePrefix,
+      String stripIncludePrefix,
+      Sequence<?> additionalIncludeScanningRoots,
+      int stackDepth) {}
 }

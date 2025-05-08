@@ -14,7 +14,19 @@
 
 package net.starlark.java.lib.json;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_16;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.packages.NativeInfo;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.CodingErrorAction;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -23,10 +35,12 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFloat;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkIterable;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
@@ -82,15 +96,15 @@ public final class Json implements StarlarkValue {
               + " floating-point value.\n"
               + "<li>A string value is encoded as a JSON string literal that denotes the value. "
               + " Each unpaired surrogate is replaced by U+FFFD.\n"
-              + "<li>A dict is encoded as a JSON object, in key order.  It is an error if any key"
-              + " is not a string.\n"
+              + "<li>A dict is encoded as a JSON object, in lexicographical key order.  It is an"
+              + " error if any key is not a string.\n"
               + "<li>A list or tuple is encoded as a JSON array.\n"
               + "<li>A struct-like value is encoded as a JSON object, in field name order.\n"
               + "</ul>\n"
               + "An application-defined type may define its own JSON encoding.\n"
               + "Encoding any other value yields an error.\n",
       parameters = {@Param(name = "x")})
-  public String encode(Object x) throws EvalException {
+  public String encode(Object x) throws EvalException, InterruptedException {
     Encoder enc = new Encoder();
     try {
       enc.encode(x);
@@ -104,14 +118,14 @@ public final class Json implements StarlarkValue {
 
     private final StringBuilder out = new StringBuilder();
 
-    private void encode(Object x) throws EvalException {
+    private void encode(Object x) throws EvalException, InterruptedException {
       if (x == Starlark.NONE) {
         out.append("null");
         return;
       }
 
-      if (x instanceof String) {
-        appendQuoted((String) x);
+      if (x instanceof String s) {
+        appendQuoted(s);
         return;
       }
 
@@ -120,8 +134,8 @@ public final class Json implements StarlarkValue {
         return;
       }
 
-      if (x instanceof StarlarkFloat) {
-        if (!Double.isFinite(((StarlarkFloat) x).toDouble())) {
+      if (x instanceof StarlarkFloat fl) {
+        if (!Double.isFinite(fl.toDouble())) {
           throw Starlark.errorf("cannot encode non-finite float %s", x);
         }
         out.append(x.toString()); // always contains a decimal point or exponent
@@ -136,9 +150,7 @@ public final class Json implements StarlarkValue {
       }
 
       // e.g. dict (must have string keys)
-      if (x instanceof Map) {
-        Map<?, ?> m = (Map) x;
-
+      if (x instanceof Map<?, ?> m) {
         // Sort keys for determinism.
         Object[] keys = m.keySet().toArray();
         for (Object key : keys) {
@@ -169,11 +181,11 @@ public final class Json implements StarlarkValue {
       }
 
       // e.g. tuple, list
-      if (x instanceof StarlarkIterable) {
+      if (x instanceof StarlarkIterable<?> it) {
         out.append('[');
         String sep = "";
         int i = 0;
-        for (Object elem : (StarlarkIterable) x) {
+        for (Object elem : it) {
           out.append(sep);
           sep = ",";
           try {
@@ -188,12 +200,11 @@ public final class Json implements StarlarkValue {
       }
 
       // e.g. struct
-      if (x instanceof Structure) {
-        Structure obj = (Structure) x;
-
+      if (x instanceof Structure || x instanceof NativeInfo) {
         // Sort keys for determinism.
-        String[] fields = obj.getFieldNames().toArray(new String[0]);
-        Arrays.sort(fields);
+        List<String> fields =
+            Ordering.natural()
+                .sortedCopy(Starlark.dir(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, x));
 
         out.append('{');
         String sep = "";
@@ -203,7 +214,18 @@ public final class Json implements StarlarkValue {
           appendQuoted(field);
           out.append(":");
           try {
-            Object v = obj.getValue(field); // may fail (field not defined)
+            Object v =
+                Starlark.getattr(
+                    Mutability.IMMUTABLE,
+                    StarlarkSemantics.DEFAULT,
+                    x,
+                    field,
+                    null); // may fail (field not defined)
+            // This preserves legacy behavior where only struct_fields from NativeInfo were emitted
+            // When serializing non NativeInfo, just let it fail on functions
+            if (x instanceof NativeInfo && v instanceof StarlarkCallable) {
+              continue;
+            }
             encode(v); // may fail (unexpected type)
           } catch (EvalException ex) {
             throw Starlark.errorf("in %s field .%s: %s", Starlark.type(x), field, ex.getMessage());
@@ -279,22 +301,47 @@ public final class Json implements StarlarkValue {
   @StarlarkMethod(
       name = "decode",
       doc =
-          "The decode function accepts one positional parameter, a JSON string.\n"
+          "The decode function has one required positional parameter: a JSON string.\n"
               + "It returns the Starlark value that the string denotes.\n"
-              + "<ul>"
-              + "<li>'null', 'true', and 'false' are parsed as None, True, and False.\n"
-              + "<li>Numbers are parsed as int, or as a float if they contain"
-              + " a decimal point or an exponent. Although JSON has no syntax "
-              + " for non-finite values, very large values may be decoded as infinity.\n"
-              + "<li>a JSON object is parsed as a new unfrozen Starlark dict."
-              + " Keys must be unique strings.\n"
+              + "<ul><li><code>\"null\"</code>, <code>\"true\"</code> and <code>\"false\"</code>"
+              + " are parsed as <code>None</code>, <code>True</code>, and <code>False</code>.\n"
+              + "<li>Numbers are parsed as int, or as a float if they contain a decimal point or an"
+              + " exponent. Although JSON has no syntax  for non-finite values, very large values"
+              + " may be decoded as infinity.\n"
+              + "<li>a JSON object is parsed as a new unfrozen Starlark dict. If the same key"
+              + " string occurs more than once in the object, the last value for the key is kept.\n"
               + "<li>a JSON array is parsed as new unfrozen Starlark list.\n"
               + "</ul>\n"
-              + "Decoding fails if x is not a valid JSON encoding.\n",
-      parameters = {@Param(name = "x")},
+              + "If <code>x</code> is not a valid JSON encoding and the optional"
+              + " <code>default</code> parameter is specified (including specified as"
+              + " <code>None</code>), this function returns the <code>default</code> value.\n"
+              + "If <code>x</code> is not a valid JSON encoding and the optional"
+              + " <code>default</code> parameter is <em>not</em> specified, this function fails.",
+      parameters = {
+        @Param(name = "x", doc = "JSON string to decode."),
+        @Param(
+            name = "default",
+            named = true,
+            doc = "If specified, the value to return when <code>x</code> cannot be decoded.",
+            defaultValue = "unbound")
+      },
       useStarlarkThread = true)
-  public Object decode(String x, StarlarkThread thread) throws EvalException {
-    return new Decoder(thread.mutability(), x).decode();
+  public Object decode(String x, Object defaultValue, StarlarkThread thread) throws EvalException {
+    try {
+      return new Decoder(
+              thread.mutability(),
+              x,
+              thread
+                  .getSemantics()
+                  .getBool(StarlarkSemantics.INTERNAL_BAZEL_ONLY_UTF_8_BYTE_STRINGS))
+          .decode();
+    } catch (EvalException e) {
+      if (defaultValue != Starlark.UNBOUND) {
+        return defaultValue;
+      } else {
+        throw e;
+      }
+    }
   }
 
   private static final class Decoder {
@@ -306,11 +353,13 @@ public final class Json implements StarlarkValue {
 
     private final Mutability mu;
     private final String s; // the input string
+    private final boolean utf8ByteStrings;
     private int i = 0; // current index in s
 
-    private Decoder(Mutability mu, String s) {
+    private Decoder(Mutability mu, String s, boolean utf8ByteStrings) {
       this.mu = mu;
       this.s = s;
+      this.utf8ByteStrings = utf8ByteStrings;
     }
 
     // decode is the entry point into the decoder.
@@ -398,11 +447,7 @@ public final class Json implements StarlarkValue {
               }
               i++; // ':'
               Object value = parse();
-              int sz = dict.size();
               dict.putEntry((String) key, value); // can't fail
-              if (dict.size() == sz) {
-                throw Starlark.errorf("object has duplicate key: %s", Starlark.repr(key));
-              }
               c = next();
               if (c != ',') {
                 if (c != '}') {
@@ -424,6 +469,25 @@ public final class Json implements StarlarkValue {
           break;
       }
       throw Starlark.errorf("unexpected character %s", quoteChar(c));
+    }
+
+    private static CharsetEncoder createUtf8Encoder() {
+      // The default encoding behavior for Java's UTF-8 encoder is to replace with '?', not the
+      // Unicode replacement character U+FFFD. This also applies to String#getBytes(...).
+      return UTF_8
+          .newEncoder()
+          .onMalformedInput(CodingErrorAction.REPLACE)
+          .onUnmappableCharacter(CodingErrorAction.REPLACE)
+          .replaceWith("\uFFFD".getBytes(UTF_8));
+    }
+
+    private static CharsetEncoder createUtf16Encoder() {
+      // The default encoding behavior for Java's UTF-16 encoder is to replace with the Unicode
+      // replacement character U+FFFD, but this doesn't apply to String#getBytes(...).
+      return UTF_16
+          .newEncoder()
+          .onMalformedInput(CodingErrorAction.REPLACE)
+          .onUnmappableCharacter(CodingErrorAction.REPLACE);
     }
 
     private String parseString() throws EvalException {
@@ -457,53 +521,67 @@ public final class Json implements StarlarkValue {
         c = s.charAt(i);
         i++; // consume c
         switch (c) {
-          case '\\':
-          case '/':
-          case '"':
-            str.append(c);
-            break;
-          case 'b':
-            str.append('\b');
-            break;
-          case 'f':
-            str.append('\f');
-            break;
-          case 'n':
-            str.append('\n');
-            break;
-          case 'r':
-            str.append('\r');
-            break;
-          case 't':
-            str.append('\t');
-            break;
-          case 'u': // \ uXXXX
+          case '\\', '/', '"' -> str.append(c);
+          case 'b' -> str.append('\b');
+          case 'f' -> str.append('\f');
+          case 'n' -> str.append('\n');
+          case 'r' -> str.append('\r');
+          case 't' -> str.append('\t');
+          case 'u' -> {
             if (i + 4 >= s.length()) {
               throw Starlark.errorf("incomplete \\uXXXX escape");
             }
-            int hex = 0;
-            for (int j = 0; j < 4; j++) {
-              c = s.charAt(i + j);
-              int nybble = 0;
-              if (isdigit(c)) {
-                nybble = c - '0';
-              } else if ('a' <= c && c <= 'f') {
-                nybble = 10 + c - 'a';
-              } else if ('A' <= c && c <= 'F') {
-                nybble = 10 + c - 'A';
-              } else {
-                throw Starlark.errorf("invalid hex char %s in \\uXXXX escape", quoteChar(c));
-              }
-              hex = (hex << 4) | nybble;
+            StringBuilder utf16String = new StringBuilder();
+            utf16String.append(parseUnicodeEscape());
+            // Parse any additional \\uXXXX escapes so that surrogate pairs are decoded correctly.
+            while (i + 6 < s.length() && s.charAt(i) == '\\' && s.charAt(i + 1) == 'u') {
+              i += 2;
+              utf16String.append(parseUnicodeEscape());
             }
-            str.append((char) hex);
-            i += 4;
-            break;
-          default:
-            throw Starlark.errorf("invalid escape '\\%s'", c);
+            // Append the unescaped Unicode string as raw UTF-{8,16} bytes. See the comment on the
+            // CharsetEncoder instances above for why we can't use String#getBytes(...).
+            ByteBuffer byteBuffer;
+            try {
+              byteBuffer =
+                  (utf8ByteStrings ? createUtf8Encoder() : createUtf16Encoder())
+                      .encode(CharBuffer.wrap(utf16String));
+            } catch (CharacterCodingException e) {
+              // Cannot happen because we replace with U+FFFD.
+              throw new IllegalStateException(e);
+            }
+            byte[] bytes = new byte[byteBuffer.remaining()];
+            byteBuffer.get(bytes);
+            if (utf8ByteStrings) {
+              str.append(new String(bytes, ISO_8859_1));
+            } else {
+              str.append(new String(bytes, UTF_16));
+            }
+          }
+          default -> throw Starlark.errorf("invalid escape '\\%s'", c);
         }
       }
       throw Starlark.errorf("unclosed string literal");
+    }
+
+    private char parseUnicodeEscape() throws EvalException {
+      int hex = 0;
+      for (int j = 0; j < 4; j++) {
+        char c = s.charAt(i + j);
+        int nybble;
+        if (isdigit(c)) {
+          nybble = c - '0';
+        } else if ('a' <= c && c <= 'f') {
+          nybble = 10 + c - 'a';
+        } else if ('A' <= c && c <= 'F') {
+          nybble = 10 + c - 'A';
+        } else {
+          throw Starlark.errorf("invalid hex char %s in \\uXXXX escape", quoteChar(c));
+        }
+        hex = (hex << 4) | nybble;
+      }
+      i += 4;
+      // 4 hex bytes -> 1 UTF-16 code unit
+      return (char) hex;
     }
 
     private Object parseNumber(char c) throws EvalException {
@@ -613,8 +691,10 @@ public final class Json implements StarlarkValue {
         @Param(name = "x"),
         @Param(name = "prefix", positional = false, named = true, defaultValue = "''"),
         @Param(name = "indent", positional = false, named = true, defaultValue = "'\\t'"),
-      })
-  public String encodeIndent(Object x, String prefix, String indent) throws EvalException {
+      },
+      useStarlarkThread = true)
+  public String encodeIndent(Object x, String prefix, String indent, StarlarkThread starlarkThread)
+      throws EvalException, InterruptedException {
     return indent(encode(x), prefix, indent);
   }
 

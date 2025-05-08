@@ -42,9 +42,7 @@ public class UnixDigestHashAttributeNameTest extends FileSystemTest {
     // Instead of actually trying to access this file, a call to getxattr() should be made. We
     // intercept this call and return a fake extended attribute value, thereby causing the checksum
     // computation to be skipped entirely.
-    assertThat(
-            DigestUtils.getDigestWithManualFallback(
-                absolutize("myfile"), 123, SyscallCache.NO_CACHE))
+    assertThat(DigestUtils.getDigestWithManualFallback(absolutize("myfile"), SyscallCache.NO_CACHE))
         .isEqualTo(FAKE_DIGEST);
   }
 

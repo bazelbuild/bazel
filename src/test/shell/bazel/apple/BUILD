@@ -1,3 +1,5 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 package(default_visibility = ["//visibility:private"])
 
 filegroup(
@@ -6,22 +8,11 @@ filegroup(
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
-config_setting(
-    name = "darwin",
-    values = {"host_cpu": "darwin"},
-)
-
-sh_library(
-    name = "apple_common",
-    testonly = 1,
-    srcs = ["apple_common.sh"],
-)
-
 filegroup(
     name = "objc-deps",
     testonly = 1,
     srcs = select({
-        ":darwin": [
+        "//src/conditions:darwin": [
             "//tools/osx:xcode-locator",
         ],
         "//conditions:default": [],
@@ -33,12 +24,9 @@ sh_test(
     size = "large",
     srcs = ["bazel_apple_test.sh"],
     data = [
-        ":apple_common",
         ":objc-deps",
-        "//:workspace-file",
         "//src/test/shell/bazel:test-deps",
     ],
-    shard_count = 3,
     tags = ["no_windows"],
 )
 
@@ -47,7 +35,6 @@ sh_test(
     size = "large",
     srcs = ["bazel_objc_test.sh"],
     data = [
-        ":apple_common",
         ":objc-deps",
         "//src/test/shell/bazel:test-deps",
     ],

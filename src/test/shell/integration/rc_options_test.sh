@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -51,16 +51,12 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 #### SETUP #############################################################
 
 add_to_bazelrc "build --terminal_columns=6"
 
 function create_pkg() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$1
   mkdir -p $pkg
   # have test with a long name, to be able to test line breaking in the output
@@ -70,6 +66,7 @@ exit 0
 EOF
   chmod 755 $pkg/xxxxxxxxxxxxxxxxxxxxxxxxxtrue.sh
   cat > $pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "xxxxxxxxxxxxxxxxxxxxxxxxxtrue",
   srcs = ["xxxxxxxxxxxxxxxxxxxxxxxxxtrue.sh"],
@@ -99,6 +96,23 @@ function test_options_override() {
   # the lines are wrapped to 10 characters
   expect_log '^xxxxxxxx'
   expect_not_log '^xxxxxxxxxxx'
+}
+
+function test_bep_option_source() {
+  local -r build_event_text_file="$(pwd)/bep.txt"
+  local -r pkg=$FUNCNAME
+  create_pkg $pkg
+  bazel build --build_event_text_file="$TEST_log" \
+      $pkg:xxxxxxxxxxxxxxxxxxxxxxxxxtrue || fail "build failed"
+  if is_windows; then
+    # `/` are replaced by `\` on Windows.
+    # They are doubled due to escaping.
+    # Then they need to be doubled again in the regular expression for grep.
+    expected_path=$(echo "$bazelrc" | sed 's|^C:|c:|; s|/|\\\\\\\\|g')
+  else
+    expected_path="$bazelrc"
+  fi
+  expect_log "source: \"$expected_path\""
 }
 
 run_suite "Integration tests for rc options handling"

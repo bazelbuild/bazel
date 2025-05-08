@@ -1,3 +1,5 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 # Description:
 #   C++ utility source for Bazel
 package_group(
@@ -60,7 +62,6 @@ cc_library(
         "//src/tools/launcher:__subpackages__",
         "//src/tools/singlejar:__pkg__",
         "//third_party/def_parser:__pkg__",
-        "//tools/cpp/runfiles:__pkg__",
         "//tools/test:__pkg__",
     ],
     deps = [

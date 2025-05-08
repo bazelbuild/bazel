@@ -15,7 +15,8 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
@@ -25,7 +26,7 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A collection of global Starlark build API functions that apply to WORKSPACE files. */
-@DocumentMethods
+@GlobalMethods(environment = Environment.WORKSPACE)
 public interface WorkspaceGlobalsApi {
 
   @StarlarkMethod(
@@ -68,14 +69,17 @@ public interface WorkspaceGlobalsApi {
   @StarlarkMethod(
       name = "register_execution_platforms",
       doc =
-          "Register an already-defined platform so that Bazel can use it as an "
-              + "<a href=\"${link toolchains#toolchain-resolution}\">execution platform</a> "
-              + "during <a href=\"${link toolchains}\">toolchain resolution</a>.",
+          "Specifies already-defined execution platforms to be registered. Should be absolute <a"
+              + " href='https://bazel.build/reference/glossary#target-pattern'>target patterns</a>"
+              + " (ie. beginning with either <code>@</code> or <code>//</code>). See <a"
+              + " href=\"${link toolchains}\">toolchain resolution</a> for more information."
+              + " Patterns that expand to multiple targets, such as <code>:all</code>, will be"
+              + " registered in lexicographical order by name.",
       extraPositionals =
           @Param(
               name = "platform_labels",
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
-              doc = "The labels of the platforms to register."),
+              doc = "The target patterns to register."),
       useStarlarkThread = true)
   void registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
@@ -83,16 +87,18 @@ public interface WorkspaceGlobalsApi {
   @StarlarkMethod(
       name = "register_toolchains",
       doc =
-          "Register an already-defined toolchain so that Bazel can use it during "
-              + "<a href=\"${link toolchains}\">toolchain resolution</a>. See examples of "
-              + "<a href=\"${link toolchains#defining-toolchains}\">defining</a> and "
-              + "<a href=\"${link toolchains#registering-and-building-with-toolchains}\">"
-              + "registering toolchains</a>.",
+          "Specifies already-defined toolchains to be registered. Should be absolute <a"
+              + " href='https://bazel.build/reference/glossary#target-pattern'>target patterns</a>"
+              + " (ie. beginning with either <code>@</code> or <code>//</code>). See <a"
+              + " href=\"${link toolchains}\">toolchain resolution</a> for more information."
+              + " Patterns that expand to multiple targets, such as <code>:all</code>, will be"
+              + " registered in lexicographical order by target name (not the name of the toolchain"
+              + " implementation).",
       extraPositionals =
           @Param(
               name = "toolchain_labels",
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
-              doc = "The labels of the toolchains to register."),
+              doc = "The target patterns to register."),
       useStarlarkThread = true)
   void registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
@@ -100,10 +106,10 @@ public interface WorkspaceGlobalsApi {
   @StarlarkMethod(
       name = "bind",
       doc =
-          "<p>Warning: use of <code>bind()</code> is not recommended. See <a"
-              + " href=\"https://github.com/bazelbuild/bazel/issues/1952\">Consider removing"
-              + " bind</a> for a long discussion of its issues and alternatives.</p> <p>Gives a"
-              + " target an alias in the <code>//external</code> package.</p>",
+          "<p>DEPRECATED: see <a href=\"https://github.com/bazelbuild/bazel/issues/1952\">Consider"
+              + " removing bind</a> for a long discussion of its issues and alternatives."
+              + " <code>bind()</code> is not be available in Bzlmod.</p> <p>Gives a target an alias"
+              + " in the <code>//external</code> package.</p>",
       parameters = {
         @Param(
             name = "name",

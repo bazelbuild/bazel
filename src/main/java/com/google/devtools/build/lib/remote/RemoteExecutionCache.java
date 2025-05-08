@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -23,23 +24,32 @@ import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfe
 import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
 import static java.lang.String.format;
 
-import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
+import com.google.devtools.build.lib.remote.common.RemotePathResolver;
+import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
-import com.google.devtools.build.lib.remote.merkletree.MerkleTree.PathOrBytes;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTree.ContentSource;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.core.Completable;
@@ -52,19 +62,59 @@ import io.reactivex.rxjava3.core.SingleEmitter;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.subjects.AsyncSubject;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 
-/** A {@link RemoteCache} with additional functionality needed for remote execution. */
-public class RemoteExecutionCache extends RemoteCache {
+/** A {@link CombinedCache} with additional functionality needed for remote execution. */
+public class RemoteExecutionCache extends CombinedCache {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  /**
+   * An interface used to check whether a given {@link Path} is stored in a remote or a disk cache.
+   */
+  public interface RemotePathChecker {
+    boolean isRemote(RemoteActionExecutionContext context, Path path) throws IOException;
+  }
+
+  private RemotePathChecker remotePathChecker =
+      new RemotePathChecker() {
+        @Override
+        public boolean isRemote(RemoteActionExecutionContext context, Path path)
+            throws IOException {
+          var fs = path.getFileSystem();
+          if (fs instanceof RemoteActionFileSystem remoteActionFileSystem) {
+            if (remoteActionFileSystem.isRemote(path)) {
+              if (context.getReadCachePolicy().allowDiskCache()) {
+                try (var inputStream = path.getInputStream()) {
+                  // If the file exists in the disk cache, download it and continue the upload.
+                  return false;
+                } catch (IOException e) {
+                  logger.atWarning().withCause(e).log(
+                      "Failed to get input stream for %s", path.getPathString());
+                }
+              }
+              return true;
+            }
+          }
+          return false;
+        }
+      };
 
   public RemoteExecutionCache(
-      CacheCapabilities cacheCapabilities,
-      RemoteCacheClient protocolImpl,
+      RemoteCacheClient remoteCacheClient,
+      @Nullable DiskCacheClient diskCacheClient,
       RemoteOptions options,
       DigestUtil digestUtil) {
-    super(cacheCapabilities, protocolImpl, options, digestUtil);
+    super(checkNotNull(remoteCacheClient), diskCacheClient, options, digestUtil);
+  }
+
+  @VisibleForTesting
+  void setRemotePathChecker(RemotePathChecker remotePathChecker) {
+    this.remotePathChecker = remotePathChecker;
   }
 
   /**
@@ -83,7 +133,8 @@ public class RemoteExecutionCache extends RemoteCache {
       RemoteActionExecutionContext context,
       MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
-      boolean force)
+      boolean force,
+      @Nullable RemotePathResolver remotePathResolver)
       throws IOException, InterruptedException {
     Iterable<Digest> merkleTreeAllDigests;
     try (SilentCloseable s = Profiler.instance().profile("merkleTree.getAllDigests()")) {
@@ -96,7 +147,8 @@ public class RemoteExecutionCache extends RemoteCache {
     }
 
     Flowable<TransferResult> uploads =
-        createUploadTasks(context, merkleTree, additionalInputs, allDigests, force)
+        createUploadTasks(
+                context, merkleTree, additionalInputs, allDigests, force, remotePathResolver)
             .flatMapPublisher(
                 result ->
                     Flowable.using(
@@ -125,27 +177,79 @@ public class RemoteExecutionCache extends RemoteCache {
     }
   }
 
+  private static final class VirtualActionInputBlob implements Blob {
+    private VirtualActionInput virtualActionInput;
+    // Can be large compared to the retained size of the VirtualActionInput and thus shouldn't be
+    // kept in memory for an extended period of time.
+    private volatile ByteString data;
+
+    VirtualActionInputBlob(VirtualActionInput virtualActionInput) {
+      this.virtualActionInput = Preconditions.checkNotNull(virtualActionInput);
+    }
+
+    @Override
+    public InputStream get() throws IOException {
+      if (data == null) {
+        synchronized (this) {
+          if (data == null) {
+            data = Preconditions.checkNotNull(virtualActionInput, "used after close()").getBytes();
+          }
+        }
+      }
+      return data.newInput();
+    }
+
+    @Override
+    public void close() {
+      virtualActionInput = null;
+      data = null;
+    }
+  }
+
   private ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context,
       Digest digest,
       MerkleTree merkleTree,
-      Map<Digest, Message> additionalInputs) {
+      Map<Digest, Message> additionalInputs,
+      @Nullable RemotePathResolver remotePathResolver) {
     Directory node = merkleTree.getDirectoryByDigest(digest);
     if (node != null) {
-      return cacheProtocol.uploadBlob(context, digest, node.toByteString());
+      return remoteCacheClient.uploadBlob(context, digest, node.toByteString());
     }
 
-    PathOrBytes file = merkleTree.getFileByDigest(digest);
+    ContentSource file = merkleTree.getFileByDigest(digest);
     if (file != null) {
-      if (file.getBytes() != null) {
-        return cacheProtocol.uploadBlob(context, digest, file.getBytes());
-      }
-      return cacheProtocol.uploadFile(context, digest, file.getPath());
+      return switch (file) {
+        case ContentSource.VirtualActionInputSource(VirtualActionInput virtualActionInput) ->
+            remoteCacheClient.uploadBlob(
+                context, digest, new VirtualActionInputBlob(virtualActionInput));
+        case ContentSource.PathSource(Path path) -> {
+          try {
+            if (remotePathChecker.isRemote(context, path)) {
+              // If we get here, the remote input was determined to exist in the remote or disk
+              // cache at some point before action execution, but reported to be missing when
+              // querying the remote for missing action inputs; possibly because it was evicted in
+              // the interim.
+              if (remotePathResolver != null) {
+                throw new CacheNotFoundException(
+                    digest, remotePathResolver.localPathToExecPath(path.asFragment()));
+              } else {
+                // This path should only be taken for RemoteRepositoryRemoteExecutor, which has no
+                // way to handle lost inputs.
+                throw new CacheNotFoundException(digest, path.getPathString());
+              }
+            }
+          } catch (IOException e) {
+            yield immediateFailedFuture(e);
+          }
+          yield remoteCacheClient.uploadFile(context, digest, path);
+        }
+      };
     }
 
     Message message = additionalInputs.get(digest);
     if (message != null) {
-      return cacheProtocol.uploadBlob(context, digest, message.toByteString());
+      return remoteCacheClient.uploadBlob(context, digest, message.toByteString());
     }
 
     return immediateFailedFuture(
@@ -167,14 +271,21 @@ public class RemoteExecutionCache extends RemoteCache {
       MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
       Iterable<Digest> allDigests,
-      boolean force) {
+      boolean force,
+      @Nullable RemotePathResolver remotePathResolver) {
     return Single.using(
         () -> Profiler.instance().profile("collect digests"),
         ignored ->
             Flowable.fromIterable(allDigests)
                 .flatMapMaybe(
                     digest ->
-                        maybeCreateUploadTask(context, merkleTree, additionalInputs, digest, force))
+                        maybeCreateUploadTask(
+                            context,
+                            merkleTree,
+                            additionalInputs,
+                            digest,
+                            force,
+                            remotePathResolver))
                 .collect(toImmutableList()),
         SilentCloseable::close);
   }
@@ -184,7 +295,8 @@ public class RemoteExecutionCache extends RemoteCache {
       MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
       Digest digest,
-      boolean force) {
+      boolean force,
+      @Nullable RemotePathResolver remotePathResolver) {
     return Maybe.create(
         emitter -> {
           AsyncSubject<Void> completion = AsyncSubject.create();
@@ -209,7 +321,11 @@ public class RemoteExecutionCache extends RemoteCache {
                             return toCompletable(
                                 () ->
                                     uploadBlob(
-                                        context, uploadTask.digest, merkleTree, additionalInputs),
+                                        context,
+                                        uploadTask.digest,
+                                        merkleTree,
+                                        additionalInputs,
+                                        remotePathResolver),
                                 directExecutor());
                           }),
                   /* onAlreadyRunning= */ () -> emitter.onSuccess(uploadTask),
@@ -229,11 +345,6 @@ public class RemoteExecutionCache extends RemoteCache {
 
                 @Override
                 public void onError(@NonNull Throwable e) {
-                  Disposable d = uploadTask.disposable.get();
-                  if (d != null && d.isDisposed()) {
-                    return;
-                  }
-
                   completion.onError(e);
                 }
               });
@@ -257,7 +368,8 @@ public class RemoteExecutionCache extends RemoteCache {
                                   if (digestsToQuery.isEmpty()) {
                                     return immediateFuture(ImmutableSet.of());
                                   }
-                                  return findMissingDigests(context, digestsToQuery);
+                                  return remoteCacheClient.findMissingDigests(
+                                      context, digestsToQuery);
                                 },
                                 directExecutor())
                             .map(

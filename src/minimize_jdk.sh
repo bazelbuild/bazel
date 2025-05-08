@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -17,7 +17,26 @@
 # This script creates from the full JDK a minimized version that only contains
 # the specified JDK modules.
 
-set -euo pipefail
+# --- begin runfiles.bash initialization v3 ---
+# Copy-pasted from the Bazel Bash runfiles library v3.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+# shellcheck disable=SC1090
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v3 ---
+
+# Force a UTF-8 compatible locale for Java tools to operate under paths with
+# Unicode characters.
+if [[ $(locale charmap) != "UTF-8" ]]; then
+  export LC_CTYPE=C.UTF-8
+fi
+if [[ $(locale charmap) != "UTF-8" ]]; then
+  export LC_CTYPE=en_US.UTF-8
+fi
 
 if [ "$1" == "--allmodules" ]; then
   shift
@@ -30,8 +49,8 @@ else
 fi
 fulljdk=$1
 out=$3
-ARCH=`uname -p`
-if [[ "${ARCH}" == 'ppc64le'  ]] || [[ "${ARCH}" == 's390x' ]]; then
+ARCH=`uname -m`
+if [[ "${ARCH}" == 'ppc64le'  ]] || [[ "${ARCH}" == 's390x' ]] || [[ "${ARCH}" == 'riscv64' ]]; then
   FULL_JDK_DIR="jdk*"
   DOCS=""
 else
@@ -40,12 +59,18 @@ else
 fi
 
 UNAME=$(uname -s | tr 'A-Z' 'a-z')
+# Options for the JVM that runs the Bazel server, which are either required or
+# recommended when using the embedded JDK on platforms that use a minified JDK.
+# Setting these options here rather than in blaze.cc avoids the need to detect
+# compatible JDKs.
+# Native access is required for the JNI library.
+# Compact object headers reduce retained and peak memory usage.
+JVM_OPTIONS='--enable-native-access=ALL-UNNAMED -XX:+UnlockExperimentalVMOptions -XX:+UseCompactObjectHeaders'
 
 if [[ "$UNAME" =~ msys_nt* ]]; then
-  set -x
   mkdir "tmp.$$"
   cd "tmp.$$"
-  unzip "../$fulljdk"
+  unzip -q "../$fulljdk"
   cd $FULL_JDK_DIR
   # We have to add this module explicitly because it is windows specific, it allows
   # the usage of the Windows truststore
@@ -53,12 +78,21 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   modules="$modules,jdk.crypto.mscapi"
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
+    --add-options=" ${JVM_OPTIONS}"\
     --output reduced
+  # Patch the app manifest of the java.exe launcher to force its active code
+  # page to UTF-8 on Windows 1903 and later, which is required for proper
+  # support of Unicode characters outside the system code page.
+  # The JDK currently (as of JDK 23) doesn't support this natively:
+  # https://mail.openjdk.org/pipermail/core-libs-dev/2024-November/133773.html
+  "$(rlocation io_bazel/src/read_manifest.exe)" reduced/bin/java.exe \
+    | sed 's|</asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>&|' \
+    | "$(rlocation io_bazel/src/write_manifest.exe)" reduced/bin/java.exe
   cp $DOCS legal/java.base/ASSEMBLY_EXCEPTION \
     reduced/
   # These are necessary for --host_jvm_debug to work.
   cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
-  zip -r -9 ../reduced.zip reduced/
+  zip -q -X -r ../reduced.zip reduced/
   cd ../..
   mv "tmp.$$/reduced.zip" "$out"
   rm -rf "tmp.$$"
@@ -70,6 +104,7 @@ else
   cd $FULL_JDK_DIR
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
+    --add-options=" ${JVM_OPTIONS}" \
     --output reduced
   cp $DOCS legal/java.base/ASSEMBLY_EXCEPTION \
     reduced/
@@ -79,7 +114,8 @@ else
   else
     cp lib/libdt_socket.so lib/libjdwp.so reduced/lib
   fi
-  GZIP=-9 tar -zcf ../reduced.tgz reduced
+  find reduced -exec touch -ht 198001010000 {} +
+  zip -q -X -r ../reduced.zip reduced/
   cd ..
-  mv reduced.tgz "$out"
+  mv reduced.zip "$out"
 fi

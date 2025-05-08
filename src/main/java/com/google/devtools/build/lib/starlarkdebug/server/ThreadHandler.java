@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.starlarkdebug.server;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Breakpoint;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Error;
@@ -150,6 +152,12 @@ final class ThreadHandler {
       map.put(location, breakpoint);
     }
     this.breakpoints = ImmutableMap.copyOf(map);
+  }
+
+  ImmutableSet<String> getBreakpointFilePaths() {
+    return breakpoints.keySet().stream()
+        .map(StarlarkDebuggingProtos.Location::getPath)
+        .collect(toImmutableSet());
   }
 
   /**

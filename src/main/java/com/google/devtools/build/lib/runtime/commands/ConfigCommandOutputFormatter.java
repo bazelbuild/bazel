@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
+import com.google.devtools.build.lib.analysis.config.output.ConfigurationForOutput;
+import com.google.devtools.build.lib.analysis.config.output.FragmentForOutput;
+import com.google.devtools.build.lib.analysis.config.output.FragmentOptionsForOutput;
 import com.google.devtools.build.lib.runtime.commands.ConfigCommand.ConfigurationDiffForOutput;
-import com.google.devtools.build.lib.runtime.commands.ConfigCommand.ConfigurationForOutput;
 import com.google.devtools.build.lib.runtime.commands.ConfigCommand.FragmentDiffForOutput;
-import com.google.devtools.build.lib.runtime.commands.ConfigCommand.FragmentForOutput;
-import com.google.devtools.build.lib.runtime.commands.ConfigCommand.FragmentOptionsForOutput;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.gson.Gson;
 import java.io.PrintWriter;
@@ -41,16 +41,16 @@ abstract class ConfigCommandOutputFormatter {
     this.writer = writer;
   }
 
-  /** Outputs a list of configuration hash IDs. * */
+  /** Outputs a list of configuration hash IDs. */
   public abstract void writeConfigurationIDs(Iterable<ConfigurationForOutput> configurations);
 
-  /** Outputs a single configuration. * */
+  /** Outputs a single configuration. */
   public abstract void writeConfiguration(ConfigurationForOutput configuration);
 
-  /** Outputs a series of configurations. * */
+  /** Outputs a series of configurations. */
   public abstract void writeConfigurations(Iterable<ConfigurationForOutput> configurations);
 
-  /** Outputs the diff between two configurations * */
+  /** Outputs the diff between two configurations */
   public abstract void writeConfigurationDiff(ConfigurationDiffForOutput diff);
 
   /** A {@link ConfigCommandOutputFormatter} that outputs plan user-readable text. */
@@ -65,31 +65,36 @@ abstract class ConfigCommandOutputFormatter {
       configurations.forEach(
           config ->
               writer.printf(
-                  "%s %s%s%s%n",
-                  config.configHash,
-                  config.mnemonic,
-                  (config.isHost ? " (host)" : ""),
-                  (config.isExec ? " (exec)" : "")));
+                  "%s %s%s%n", config.getConfigHash(), config.getMnemonic(), getSuffix(config)));
+    }
+
+    private static String getSuffix(ConfigurationForOutput config) {
+      if (config.isExec()) {
+        return " (exec)";
+      } else if (!config.hasTestConfig()) {
+        return " (test-trimmed)";
+      }
+      return "";
     }
 
     @Override
     public void writeConfiguration(ConfigurationForOutput configuration) {
-      writer.println("BuildConfigurationValue " + configuration.configHash + ":");
-      writer.println("Skyframe Key: " + configuration.skyKey);
+      writer.println("BuildConfigurationValue " + configuration.getConfigHash() + ":");
+      writer.println("Skyframe Key: " + configuration.getSkyKey());
 
       StringBuilder fragments = new StringBuilder();
-      for (FragmentForOutput fragment : configuration.fragments) {
+      for (FragmentForOutput fragment : configuration.getFragments()) {
         fragments
-            .append(fragment.name)
+            .append(fragment.getName())
             .append(": [")
-            .append(String.join(",", fragment.fragmentOptions))
+            .append(String.join(",", fragment.getFragmentOptions()))
             .append("], ");
       }
 
       writer.println("Fragments: " + fragments);
-      for (FragmentOptionsForOutput fragment : configuration.fragmentOptions) {
-        writer.println("FragmentOptions " + fragment.name + " {");
-        for (Map.Entry<String, String> optionSetting : fragment.options.entrySet()) {
+      for (FragmentOptionsForOutput fragment : configuration.getFragmentOptions()) {
+        writer.println("FragmentOptions " + fragment.getName() + " {");
+        for (Map.Entry<String, String> optionSetting : fragment.getOptions().entrySet()) {
           writer.printf("  %s: %s\n", optionSetting.getKey(), optionSetting.getValue());
         }
         writer.println("}");
@@ -133,7 +138,7 @@ abstract class ConfigCommandOutputFormatter {
     public void writeConfigurationIDs(Iterable<ConfigurationForOutput> configurations) {
       Iterable<String> configurationIDs =
           Streams.stream(configurations)
-              .map(config -> config.configHash)
+              .map(config -> config.getConfigHash())
               .collect(Collectors.toList());
       writer.println(gson.toJson(ImmutableMap.of("configuration-IDs", configurationIDs)));
     }

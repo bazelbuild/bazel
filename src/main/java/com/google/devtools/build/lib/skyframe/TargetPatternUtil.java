@@ -26,7 +26,8 @@ import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -49,15 +50,23 @@ public class TargetPatternUtil {
 
     Iterable<TargetPatternKey> targetPatternKeys =
         TargetPatternValue.keys(targetPatterns, filteringPolicy);
-    SkyframeIterableResult resolvedPatterns = env.getOrderedValuesAndExceptions(targetPatternKeys);
+    SkyframeLookupResult resolvedPatterns = env.getValuesAndExceptions(targetPatternKeys);
     boolean valuesMissing = env.valuesMissing();
-    ImmutableList.Builder<Label> labels = valuesMissing ? null : new ImmutableList.Builder<>();
+    // Use an ArrayList so that we can add and remove results based on negative patterns.
+    List<Label> labels = valuesMissing ? null : new ArrayList<>();
 
     for (TargetPatternKey pattern : targetPatternKeys) {
-      TargetPatternValue value;
       try {
-        value = (TargetPatternValue) resolvedPatterns.nextOrThrow(TargetParsingException.class);
-        if (!valuesMissing && value != null) {
+        TargetPatternValue value =
+            (TargetPatternValue) resolvedPatterns.getOrThrow(pattern, TargetParsingException.class);
+        if (valuesMissing || value == null) {
+          continue;
+        }
+        if (pattern.isNegative()) {
+          // Remove from the results.
+          labels.removeAll(value.getTargets().getTargets());
+        } else {
+          // Add to results.
           labels.addAll(value.getTargets().getTargets());
         }
       } catch (TargetParsingException e) {
@@ -73,7 +82,7 @@ public class TargetPatternUtil {
       return null;
     }
 
-    return labels.build();
+    return ImmutableList.copyOf(labels);
   }
 
   // TODO(bazel-team): look into moving this into SignedTargetPattern itself.
@@ -101,8 +110,8 @@ public class TargetPatternUtil {
   // TODO(bazel-team): Consolidate this and TargetParsingException. Just have the latter store the
   //   original unparsed pattern too.
   public static final class InvalidTargetPatternException extends Exception {
-    private String invalidPattern;
-    private TargetParsingException tpe;
+    private final String invalidPattern;
+    private final TargetParsingException tpe;
 
     public InvalidTargetPatternException(String invalidPattern, TargetParsingException tpe) {
       super(tpe);

@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.analysis.ShellConfiguration.Options;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.Options;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,10 +31,13 @@ import org.junit.runners.JUnit4;
 public class ShellConfigurationTest extends BuildViewTestCase {
 
   @Test
-  public void optionsAlsoApplyToHost() {
-    ShellConfiguration.Options o = Options.getDefaults(ShellConfiguration.Options.class);
-    o.shellExecutable = PathFragment.create("/my/shell/binary");
-    ShellConfiguration.Options h = o.getHost();
-    assertThat(h.shellExecutable).isEqualTo(PathFragment.create("/my/shell/binary"));
+  public void optionsAlsoApplyToHost() throws Exception {
+    BuildOptions options = targetConfig.getOptions().clone();
+    options.get(Options.class).shellExecutable = PathFragment.create("/my/shell/binary");
+
+    ShellConfiguration.Options execOptions =
+        AnalysisTestUtil.execOptions(options, skyframeExecutor, reporter)
+            .get(ShellConfiguration.Options.class);
+    assertThat(execOptions.shellExecutable).isEqualTo(PathFragment.create("/my/shell/binary"));
   }
 }

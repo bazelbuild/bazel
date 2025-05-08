@@ -22,7 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.NullEventHandler;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -45,7 +44,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
 import org.junit.Before;
 
 /** Base test class for query preloading tests. */
@@ -120,7 +118,7 @@ public abstract class QueryPreloadingTestCase extends PackageLoadingTestCase {
             .evaluate(
                 ImmutableSet.of(),
                 EvaluationContext.newBuilder()
-                    .setNumThreads(1)
+                    .setParallelism(1)
                     .setEventHandler(NullEventHandler.INSTANCE)
                     .build())
             .getWalkableGraph();
@@ -184,7 +182,7 @@ public abstract class QueryPreloadingTestCase extends PackageLoadingTestCase {
 
   @Before
   public final void initializeVisitor() {
-    setUpSkyframe(ConstantRuleVisibility.PRIVATE);
+    setUpSkyframe(RuleVisibility.PRIVATE);
     this.visitor = skyframeExecutor.getQueryTransitivePackagePreloader();
   }
 
@@ -193,10 +191,6 @@ public abstract class QueryPreloadingTestCase extends PackageLoadingTestCase {
 
     public CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock, DigestHashFunction.SHA256);
-    }
-
-    public void stubStat(Path path, @Nullable FileStatus stubbedResult) {
-      stubbedStats.put(path.asFragment(), stubbedResult);
     }
 
     @Override

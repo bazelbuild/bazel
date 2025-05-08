@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -28,13 +29,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BuildSettingProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -45,11 +45,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptionDetails;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions.SelectRestriction;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
+import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -57,9 +58,11 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.config.ConfigRuleClasses.ConfigSettingRule;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.FieldOptionDefinition;
+import com.google.devtools.common.options.IsolatedOptionsData;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
@@ -67,6 +70,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -77,22 +81,42 @@ import javax.annotation.Nullable;
  */
 public final class ConfigSetting implements RuleConfiguredTargetFactory {
 
+  /** Flags we'd like to remove once there are no more repo references. */
+  private static final ImmutableSet<String> DEPRECATED_FLAGS =
+      ImmutableSet.of("cpu", "host_cpu", "crosstool_top");
+
   @Override
   @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, ActionConflictException {
     AttributeMap attributes = NonconfigurableAttributeMapper.of(ruleContext.getRule());
 
+    Optional<String> likelyLabelInvalidSetting =
+        attributes.get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Types.STRING_DICT).keySet().stream()
+            .filter(s -> s.startsWith("@") || s.startsWith("//") || s.startsWith(":"))
+            .findFirst();
+    if (likelyLabelInvalidSetting.isPresent()) {
+      ruleContext.attributeError(
+          ConfigSettingRule.SETTINGS_ATTRIBUTE,
+          String.format(
+              "'%s' is not a valid setting name, but appears to be a label. Did you mean to place"
+                  + " it in %s instead?",
+              likelyLabelInvalidSetting.get(), ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE));
+      return null;
+    }
+
     // Get the built-in Blaze flag settings that match this rule.
     ImmutableMultimap<String, String> nativeFlagSettings =
         ImmutableMultimap.<String, String>builder()
-            .putAll(attributes.get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Type.STRING_DICT)
-                .entrySet())
-            .putAll(attributes.get(ConfigSettingRule.DEFINE_SETTINGS_ATTRIBUTE, Type.STRING_DICT)
-                .entrySet()
-                .stream()
-                .map(in -> Maps.immutableEntry("define", in.getKey() + "=" + in.getValue()))
-                .collect(ImmutableList.toImmutableList()))
+            .putAll(
+                attributes.get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Types.STRING_DICT).entrySet())
+            .putAll(
+                attributes
+                    .get(ConfigSettingRule.DEFINE_SETTINGS_ATTRIBUTE, Types.STRING_DICT)
+                    .entrySet()
+                    .stream()
+                    .map(in -> Maps.immutableEntry("define", in.getKey() + "=" + in.getValue()))
+                    .collect(ImmutableList.toImmutableList()))
             .build();
 
     // Get the user-defined flag settings that match this rule.
@@ -113,7 +137,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
 
     BuildOptionDetails optionDetails = ruleContext.getConfiguration().getBuildOptionDetails();
     boolean nativeFlagsMatch =
-        matchesConfig(nativeFlagSettings.entries(), optionDetails, ruleContext);
+        nativeFlagsMatch(nativeFlagSettings.entries(), optionDetails, ruleContext);
 
     UserDefinedFlagMatch userDefinedFlags =
         UserDefinedFlagMatch.fromAttributeValueAndPrerequisites(
@@ -131,13 +155,13 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             nativeFlagSettings,
             userDefinedFlags.getSpecifiedFlagValues(),
             ImmutableSet.copyOf(constraintValueSettings),
-            nativeFlagsMatch && userDefinedFlags.matches() && constraintValuesMatch);
+            ConfigMatchingProvider.MatchResult.merge(
+                userDefinedFlags.result(), nativeFlagsMatch && constraintValuesMatch));
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(FileProvider.class, FileProvider.EMPTY)
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
-        .addProvider(LicensesProviderImpl.EMPTY)
         .addProvider(ConfigMatchingProvider.class, configMatcher)
         .build();
   }
@@ -149,7 +173,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       BuildConfigurationValue configuration) {
     // values
     attributes
-        .get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Type.STRING_DICT)
+        .get(ConfigSettingRule.SETTINGS_ATTRIBUTE, Types.STRING_DICT)
         .forEach(
             (optionName, value) -> {
               if (optionName.equals("define")) {
@@ -167,7 +191,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
 
     // define_values
     requiredFragments.addDefines(
-        attributes.get(ConfigSettingRule.DEFINE_SETTINGS_ATTRIBUTE, Type.STRING_DICT).keySet());
+        attributes.get(ConfigSettingRule.DEFINE_SETTINGS_ATTRIBUTE, Types.STRING_DICT).keySet());
 
     // flag_values
     requiredFragments.addStarlarkOptions(
@@ -198,6 +222,10 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       return false;
     }
 
+    if (constraintValues.isEmpty()) {
+      return true;
+    }
+
     // The set of constraint_values in a config_setting should never contain multiple
     // constraint_values that map to the same constraint_setting. This method checks if there are
     // duplicates and records an error if so.
@@ -209,16 +237,17 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
         return false;
     }
 
+    if (ruleContext.getToolchainContext() == null) {
+      ruleContext.attributeError(
+          ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, "No target platform is present");
+      return false;
+    }
+
     return ruleContext
         .getToolchainContext()
         .targetPlatform()
         .constraints()
         .containsAll(constraintValues);
-  }
-
-  private static RepositoryName getToolsRepository(RuleContext ruleContext) {
-    return RepositoryName.createUnvalidated(
-        ruleContext.attributes().get(ConfigSettingRule.TOOLS_REPOSITORY_ATTRIBUTE, Type.STRING));
   }
 
   /**
@@ -271,7 +300,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
    * Given a list of [flagName, flagValue] pairs for native Blaze flags, returns true if flagName ==
    * flagValue for every item in the list under this configuration, false otherwise.
    */
-  private static boolean matchesConfig(
+  private static boolean nativeFlagsMatch(
       Collection<Map.Entry<String, String>> expectedSettings,
       BuildOptionDetails options,
       RuleContext ruleContext) {
@@ -282,55 +311,75 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     for (Map.Entry<String, String> setting : expectedSettings) {
       String optionName = setting.getKey();
       String expectedRawValue = setting.getValue();
-
-      Class<? extends FragmentOptions> optionClass = options.getOptionClass(optionName);
-      if (optionClass == null) {
-        ruleContext.attributeError(
-            ConfigSettingRule.SETTINGS_ATTRIBUTE,
-            String.format(PARSE_ERROR_MESSAGE + "unknown option: '%s'", optionName));
-        foundMismatch = true;
-        continue;
-      }
-
-      SelectRestriction selectRestriction = options.getSelectRestriction(optionName);
-      if (selectRestriction != null) {
-        boolean underToolsPackage =
-            isUnderToolsPackage(ruleContext.getRule().getLabel(), getToolsRepository(ruleContext));
-        if (!(selectRestriction.isVisibleWithinToolsPackage() && underToolsPackage)) {
-          String errorMessage =
-              String.format("option '%s' cannot be used in a config_setting", optionName);
-          if (selectRestriction.isVisibleWithinToolsPackage()) {
-            errorMessage +=
-                String.format(
-                    " (it is allowlisted to %s//tools/... only)",
-                    getToolsRepository(ruleContext).getCanonicalForm());
-          }
-          if (selectRestriction.getErrorMessage() != null) {
-            errorMessage += ". " + selectRestriction.getErrorMessage();
-          }
-          ruleContext.attributeError(ConfigSettingRule.SETTINGS_ATTRIBUTE, errorMessage);
-          foundMismatch = true;
-          continue;
-        }
-      }
-
-      OptionsParser parser;
-      try {
-        parser = OptionsParser.builder().optionsClasses(optionClass).build();
-        parser.parse("--" + optionName + "=" + expectedRawValue);
-      } catch (OptionsParsingException ex) {
-        ruleContext.attributeError(
-            ConfigSettingRule.SETTINGS_ATTRIBUTE, PARSE_ERROR_MESSAGE + ex.getMessage());
-        foundMismatch = true;
-        continue;
-      }
-
-      Object expectedParsedValue = parser.getOptions(optionClass).asMap().get(optionName);
-      if (!optionMatches(options, optionName, expectedParsedValue)) {
+      if (!checkOptionValue(options, ruleContext, optionName, expectedRawValue)) {
         foundMismatch = true;
       }
     }
     return !foundMismatch;
+  }
+
+  /** Returns {@code true} if the option is set to the expected value in the configuration. */
+  private static boolean checkOptionValue(
+      BuildOptionDetails options,
+      RuleContext ruleContext,
+      String optionName,
+      String expectedRawValue) {
+
+    ImmutableList<String> disabledSelectOptions =
+        ruleContext.getConfiguration().getOptions().get(CoreOptions.class).disabledSelectOptions;
+    if (disabledSelectOptions.contains(optionName)) {
+      ruleContext.attributeError(
+          ConfigSettingRule.SETTINGS_ATTRIBUTE,
+          String.format(
+              PARSE_ERROR_MESSAGE
+                  + "select() on %s is not allowed. Use platform constraints instead:"
+                  + " https://bazel.build/docs/configurable-attributes#platforms.",
+              optionName));
+      return false;
+    }
+
+    if (DEPRECATED_FLAGS.contains(optionName) && ruleContext.getLabel().getRepository().isMain()) {
+      ruleContext.ruleWarning(
+          String.format(
+              "select() on %s is deprecated. Use platform constraints instead:"
+                  + " https://bazel.build/docs/configurable-attributes#platforms.",
+              optionName));
+    }
+    Class<? extends FragmentOptions> optionClass = options.getOptionClass(optionName);
+    if (optionClass == null) {
+      if (isTestOption(optionName)) {
+        // If TestOptions isn't present then they were trimmed, so any test options set are
+        // considered unset by default.
+        return false;
+      }
+
+      // Report the unknown option as an error.
+      ruleContext.attributeError(
+          ConfigSettingRule.SETTINGS_ATTRIBUTE,
+          String.format(PARSE_ERROR_MESSAGE + "unknown option: '%s'", optionName));
+      return false;
+    }
+
+    OptionsParser parser;
+    try {
+      parser = OptionsParser.builder().optionsClasses(optionClass).build();
+      parser.parse("--" + optionName + "=" + expectedRawValue);
+    } catch (OptionsParsingException ex) {
+      ruleContext.attributeError(
+          ConfigSettingRule.SETTINGS_ATTRIBUTE, PARSE_ERROR_MESSAGE + ex.getMessage());
+      return false;
+    }
+
+    Object expectedParsedValue = parser.getOptions(optionClass).asMap().get(optionName);
+    return optionMatches(options, optionName, expectedParsedValue);
+  }
+
+  // Special hard-coded check to allow config_setting to handle test options even when the test
+  // configuration has been trimmed.
+  private static boolean isTestOption(String optionName) {
+    return IsolatedOptionsData.getAllOptionDefinitionsForClass(TestOptions.class).stream()
+        .map(FieldOptionDefinition::getOptionName)
+        .anyMatch(name -> name.equals(optionName));
   }
 
   /**
@@ -389,19 +438,21 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
   }
 
   private static final class UserDefinedFlagMatch {
-    private final boolean matches;
+    private final ConfigMatchingProvider.MatchResult result;
     private final ImmutableMap<Label, String> specifiedFlagValues;
 
     private static final Joiner QUOTED_COMMA_JOINER = Joiner.on("', '");
 
-    private UserDefinedFlagMatch(boolean matches, ImmutableMap<Label, String> specifiedFlagValues) {
-      this.matches = matches;
+    private UserDefinedFlagMatch(
+        ConfigMatchingProvider.MatchResult result,
+        ImmutableMap<Label, String> specifiedFlagValues) {
+      this.result = result;
       this.specifiedFlagValues = specifiedFlagValues;
     }
 
     /** Returns whether the specified flag values matched the actual flag values. */
-    public boolean matches() {
-      return matches;
+    public ConfigMatchingProvider.MatchResult result() {
+      return result;
     }
 
     /** Gets the specified flag values, with aliases converted to their original targets' labels. */
@@ -434,7 +485,10 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
         BuildOptionDetails optionDetails,
         RuleContext ruleContext) {
       Map<Label, String> specifiedFlagValues = new LinkedHashMap<>();
+
       boolean matches = true;
+      // Only configuration-dependent errors should be deferred.
+      ArrayList<String> deferredErrors = new ArrayList<>();
       boolean foundDuplicate = false;
 
       // Get the actual targets the 'flag_values' keys reference.
@@ -455,6 +509,8 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
           // config_feature_flag
           ConfigFeatureFlagProvider provider = ConfigFeatureFlagProvider.fromTarget(target);
           if (!provider.isValidValue(specifiedValue)) {
+            // This is a configuration-independent error on the attributes of config_setting.
+            // So, is appropriate to error immediately.
             ruleContext.attributeError(
                 ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
                 String.format(
@@ -464,16 +520,23 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             matches = false;
             continue;
           }
-          if (!provider.getFlagValue().equals(specifiedValue)) {
+          if (!Strings.isNullOrEmpty(provider.getError())) {
+            deferredErrors.add(provider.getError());
+            continue;
+          } else if (!provider.getFlagValue().equals(specifiedValue)) {
             matches = false;
           }
         } else if (target.satisfies(BuildSettingProvider.REQUIRE_BUILD_SETTING_PROVIDER)) {
           // build setting
           BuildSettingProvider provider = target.getProvider(BuildSettingProvider.class);
-          Object configurationValue =
-              optionDetails.getOptionValue(specifiedLabel) != null
-                  ? optionDetails.getOptionValue(specifiedLabel)
-                  : provider.getDefaultValue();
+
+          Object configurationValue;
+          if (optionDetails.getOptionValue(provider.getLabel()) != null) {
+            configurationValue = optionDetails.getOptionValue(provider.getLabel());
+          } else {
+            configurationValue = provider.getDefaultValue();
+          }
+
           Object convertedSpecifiedValue;
           try {
             // We don't need to supply a base package or repo mapping for the conversion here,
@@ -483,6 +546,8 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
                     .get(provider.getType())
                     .convert(specifiedValue, /*conversionContext=*/ null);
           } catch (OptionsParsingException e) {
+            // This is a configuration-independent error on the attributes of config_setting.
+            // So, is appropriate to error immediately.
             ruleContext.attributeError(
                 ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
                 String.format(
@@ -508,6 +573,8 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
                     ? ImmutableList.of(convertedSpecifiedValue)
                     : (Iterable<?>) convertedSpecifiedValue;
             if (Iterables.size(specifiedValueAsIterable) != 1) {
+              // This is a configuration-independent error on the attributes of config_setting.
+              // So, is appropriate to error immediately.
               ruleContext.attributeError(
                   ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
                   String.format(
@@ -524,6 +591,10 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             matches = false;
           }
         } else {
+          // This should be configuration-independent error on the attributes of config_setting.
+          // So, is appropriate to error immediately.
+          // 'Should' b/c the underlying flag rule COULD change providers based on configuration;
+          // however, this is HIGHLY irregular.
           ruleContext.attributeError(
               ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
               String.format(
@@ -543,6 +614,8 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
         for (Label actualLabel : aliases.keySet()) {
           List<Label> aliasList = aliases.get(actualLabel);
           if (aliasList.size() > 1) {
+            // This is a configuration-independent error on the attributes of config_setting.
+            // So, is appropriate to error immediately.
             ruleContext.attributeError(
                 ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
                 String.format(
@@ -552,8 +625,15 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
         }
         matches = false;
       }
+      if (!deferredErrors.isEmpty()) {
+        return new UserDefinedFlagMatch(
+            ConfigMatchingProvider.MatchResult.InError.create(Joiner.on(", ").join(deferredErrors)),
+            ImmutableMap.copyOf(specifiedFlagValues));
+      }
 
-      return new UserDefinedFlagMatch(matches, ImmutableMap.copyOf(specifiedFlagValues));
+      return new UserDefinedFlagMatch(
+          ConfigMatchingProvider.MatchResult.create(matches),
+          ImmutableMap.copyOf(specifiedFlagValues));
     }
   }
 

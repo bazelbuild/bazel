@@ -43,6 +43,15 @@ bool BuildInfoEntrySet::GetKeyValue(
   return false;
 }
 
+void BuildInfoEntrySet::AddSlashes(std::string& key) {
+  for (std::string::iterator it = key.begin(); it != key.end(); it++) {
+    if (*it == ':') {
+      it = key.insert(it, '\\');
+      it++;
+    }
+  }
+}
+
 std::map<std::string, BuildInfoEntrySet::BuildInfoEntry>
 BuildInfoEntrySet::TranslateKeys(
     const std::map<std::string, std::string>& translation_keys,
@@ -54,6 +63,7 @@ BuildInfoEntrySet::TranslateKeys(
     std::string key_value;
     if (GetKeyValue(key, keys, values, key_value) &&
         keys.find(key) != keys.end()) {
+      AddSlashes(key_value);
       translated_keys.emplace(
           translation,
           BuildInfoEntrySet::BuildInfoEntry(key_value, keys.at(key).key_type));

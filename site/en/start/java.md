@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Bazel Tutorial: Build a Java Project
 
+{% include "_buttons.html" %}
+
 This tutorial covers the basics of building Java applications with
 Bazel. You will set up your workspace and build a simple Java project that
 illustrates key Bazel concepts, such as targets and `BUILD` files.
@@ -68,7 +70,7 @@ java-tutorial
 │                   │   └── Runner.java
 │                   ├── Greeting.java
 │                   └── ProjectRunner.java
-└── WORKSPACE
+└── MODULE.bazel
 ```
 
 ## Build with Bazel
@@ -79,7 +81,7 @@ Before you can build a project, you need to set up its workspace. A workspace is
 a directory that holds your project's source files and Bazel's build outputs. It
 also contains files that Bazel recognizes as special:
 
-*  The `WORKSPACE` file, which identifies the directory and its contents as a
+*  The `MODULE.bazel` file, which identifies the directory and its contents as a
    Bazel workspace and lives at the root of the project's directory structure,
 
 *  One or more `BUILD` files, which tell Bazel how to build different parts of
@@ -87,7 +89,7 @@ also contains files that Bazel recognizes as special:
    is a *package*. You will learn about packages later in this tutorial.)
 
 To designate a directory as a Bazel workspace, create an empty file named
-`WORKSPACE` in that directory.
+`MODULE.bazel` in that directory.
 
 When Bazel builds the project, all inputs and dependencies must be in the same
 workspace. Files residing in different workspaces are independent of one
@@ -246,7 +248,7 @@ same inputs as it did before, but the structure of the build is different:
 /docs/images/tutorial_java_02.svg)
 
 You've now built the project with two targets. The `ProjectRunner` target builds
-two source files and depends on one other target (`:greeter`), which builds
+one source files and depends on one other target (`:greeter`), which builds
 one additional source file.
 
 ### Use multiple packages
@@ -425,11 +427,11 @@ For more details, see:
 
 *  The [other rules](/rules) to learn more about Bazel.
 
-*  The [C++ build tutorial](/tutorials/cpp) to get started with building
+*  The [C++ build tutorial](/start/cpp) to get started with building
    C++ projects with Bazel.
 
-*  The [Android application tutorial](/tutorials/android-app) and
-   [iOS application tutorial](/tutorials/ios-app) to get started with
+*  The [Android application tutorial](/start/android-app ) and
+   [iOS application tutorial](/start/ios-app)) to get started with
    building mobile applications for Android and iOS with Bazel.
 
 Happy building!

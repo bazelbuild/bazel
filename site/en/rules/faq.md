@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Frequently Asked Questions
 
+{% include "_buttons.html" %}
+
 These are some common issues and questions with writing extensions.
 
 ## Why is my file not produced / my action never executed?
@@ -20,7 +22,7 @@ Bazel only executes the actions needed to produce the *requested* output files.
   mentioned on the command line, add it to your rule's default outputs by
   returning a [`DefaultInfo`](lib/globals#DefaultInfo) provider.
 
-See the [Rules page](/rules/rules#requesting-output-files) for more information.
+See the [Rules page](/extending/rules#requesting-output-files) for more information.
 
 ## Why is my implementation function not executed?
 
@@ -40,14 +42,14 @@ that creates the action. The proper path for the file can be obtained using
 
 For binaries (the executable outputs run by a `bazel run` or `bazel test`
 command), you declare inputs by including them in the
-[runfiles](/rules/rules#runfiles). Instead of using the `path` field, use
+[runfiles](/extending/rules#runfiles). Instead of using the `path` field, use
 [`File.short_path`](lib/File#short_path), which is file's path relative to
 the runfiles directory in which the binary executes.
 
 ## How can I control which files are built by `bazel build //pkg:mytarget`?
 
 Use the [`DefaultInfo`](lib/globals#DefaultInfo) provider to
-[set the default outputs](/rules/rules#requesting-output-files).
+[set the default outputs](/extending/rules#requesting-output-files).
 
 ## How can I run a program or do file I/O as part of my build?
 

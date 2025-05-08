@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -52,7 +51,7 @@ public class ExecutionStatisticsTestUtil {
 
     Command command = new Command(fullCommandLine.toArray(new String[0]));
     CommandResult commandResult = command.execute();
-    assertThat(commandResult.getTerminationStatus().success()).isTrue();
+    assertThat(commandResult.terminationStatus().success()).isTrue();
 
     Optional<ExecutionStatistics.ResourceUsage> resourceUsage =
         ExecutionStatistics.getResourceUsage(statisticsFilePath);

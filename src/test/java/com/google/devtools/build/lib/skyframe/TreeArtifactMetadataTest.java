@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions;
@@ -34,7 +36,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -45,6 +47,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -66,16 +69,17 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Test the behavior of ActionMetadataHandler and ArtifactFunction with respect to TreeArtifacts.
+ * Test the behavior of ActionOutputMetadataStore and ArtifactFunction with respect to
+ * TreeArtifacts.
  */
 @RunWith(JUnit4.class)
-public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
+public final class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
 
   // A list of subpaths for the SetArtifact created by our custom ActionExecutionFunction.
   private List<PathFragment> testTreeArtifactContents;
 
   @Before
-  public final void setUp() {
+  public void setUp() {
     delegateActionExecutionFunction = new TreeArtifactExecutionFunction();
   }
 
@@ -231,15 +235,11 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       throws InterruptedException, ActionConflictException,
           Actions.ArtifactGeneratedByOtherRuleException {
     if (evaluator.getExistingValue(ALL_OWNER) == null) {
+      ImmutableList<ActionAnalysisMetadata> generatingActions = ImmutableList.copyOf(actions);
+      Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+          actionKeyContext, generatingActions, ALL_OWNER);
       differencer.inject(
-          ImmutableMap.of(
-              ALL_OWNER,
-              new BasicActionLookupValue(
-                  Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                      actionKeyContext,
-                      ImmutableList.copyOf(actions),
-                      ALL_OWNER,
-                      /*outputFiles=*/ null))));
+          ImmutableMap.of(ALL_OWNER, Delta.justNew(new BasicActionLookupValue(generatingActions))));
     }
   }
 
@@ -250,7 +250,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setParallelism(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     return evaluator.evaluate(Arrays.asList(keys), evaluationContext);
@@ -271,7 +271,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           TreeFileArtifact suboutput = TreeFileArtifact.createTreeOutput(output, subpath);
           Path path = suboutput.getPath();
           FileArtifactValue noDigest =
-              ActionMetadataHandler.fileArtifactValueFromArtifact(
+              ActionOutputMetadataStore.fileArtifactValueFromArtifact(
                   suboutput,
                   FileStatusWithDigestAdapter.maybeAdapt(path.statIfFound(Symlinks.NOFOLLOW)),
                   SyscallCache.NO_CACHE,
@@ -284,10 +284,8 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
         }
       }
 
-      return ActionExecutionValue.createForTesting(
-          /*artifactData=*/ ImmutableMap.of(),
-          ImmutableMap.of(output, tree.build()),
-          /*outputSymlinks=*/ null);
+      return ActionsTestUtil.createActionExecutionValue(
+          /* artifactData= */ ImmutableMap.of(), ImmutableMap.of(output, tree.build()));
     }
   }
 }

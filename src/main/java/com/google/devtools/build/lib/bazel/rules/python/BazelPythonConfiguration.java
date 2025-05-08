@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.bazel.rules.python;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
@@ -30,32 +32,17 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Bazel-specific Python configuration. */
 @Immutable
+@StarlarkBuiltin(name = "bazel_py", category = DocCategory.CONFIGURATION_FRAGMENT)
 @RequiresOptions(options = {BazelPythonConfiguration.Options.class, PythonOptions.class})
 public class BazelPythonConfiguration extends Fragment {
 
   /** Bazel-specific Python configuration options. */
   public static final class Options extends FragmentOptions {
-    @Option(
-        name = "python2_path",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        help = "Deprecated, no-op. Disabled by `--incompatible_use_python_toolchains`.")
-    public String python2Path;
-
-    @Option(
-        name = "python3_path",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        help = "Deprecated, no-op. Disabled by `--incompatible_use_python_toolchains`.")
-    public String python3Path;
-
     @Option(
         name = "python_top",
         converter = LabelConverter.class,
@@ -83,6 +70,7 @@ public class BazelPythonConfiguration extends Fragment {
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "If true, the roots of repositories in the runfiles tree are added to PYTHONPATH, so "
                 + "that imports like `import mytoplevelpackage.package.module` are valid."
@@ -91,14 +79,6 @@ public class BazelPythonConfiguration extends Fragment {
                 + "`import myreponame.mytoplevelpackage.package.module` is valid. The latter form "
                 + "is less likely to experience import name collisions.")
     public boolean experimentalPythonImportAllRepositories;
-
-     /**
-     * Make Python configuration options available for host configurations as well
-     */
-    @Override
-    public FragmentOptions getHost() {
-      return clone(); // host options are the same as target options
-    }
   }
 
   private final Options options;
@@ -118,18 +98,6 @@ public class BazelPythonConfiguration extends Fragment {
     Options opts = buildOptions.get(Options.class);
     if (pythonOpts.incompatibleUsePythonToolchains) {
       // Forbid deprecated flags.
-      if (opts.python2Path != null) {
-        reporter.handle(
-            Event.error(
-                "`--python2_path` is disabled by `--incompatible_use_python_toolchains`. Since "
-                    + "`--python2_path` is a deprecated no-op, there is no need to pass it."));
-      }
-      if (opts.python3Path != null) {
-        reporter.handle(
-            Event.error(
-                "`--python3_path` is disabled by `--incompatible_use_python_toolchains`. Since "
-                    + "`--python3_path` is a deprecated no-op, there is no need to pass it."));
-      }
       if (opts.pythonTop != null) {
         reporter.handle(
             Event.error(
@@ -143,16 +111,26 @@ public class BazelPythonConfiguration extends Fragment {
     }
   }
 
+  @StarlarkConfigurationField(
+      name = "python_top",
+      doc = "The value of the --python_top flag; may be None if not specified")
   public Label getPythonTop() {
     return options.pythonTop;
   }
 
+  @StarlarkMethod(
+      name = "python_path",
+      structField = true,
+      doc = "The value of the --python_path flag.")
   public String getPythonPath() {
     return options.pythonPath == null ? "python" : options.pythonPath;
   }
 
+  @StarlarkMethod(
+      name = "python_import_all_repositories",
+      structField = true,
+      doc = "The value of the --experimental_python_import_all_repositories flag.")
   public boolean getImportAllRepositories() {
     return options.experimentalPythonImportAllRepositories;
   }
-
 }

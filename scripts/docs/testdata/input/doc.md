@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Configurations
 
+{% include "_buttons.html" %}
+
 A build setting is a single piece of [configuration](/rules/rules#configurations) information.
 
 Like all rules, build setting rules have [implementation functions](https://bazel.build/rules/rules#implementation-function).

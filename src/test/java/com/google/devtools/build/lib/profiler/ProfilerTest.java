@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
@@ -31,8 +32,11 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.profiler.Profiler.SlowTask;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.worker.WorkerMetric;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus;
+import com.google.devtools.build.skyframe.InMemoryGraph;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -42,6 +46,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.junit.After;
@@ -61,6 +67,7 @@ public final class ProfilerTest {
   @Before
   public void setManualClock() {
     BlazeClock.setClock(clock);
+    profiler.clear();
   }
 
   @AfterClass
@@ -105,15 +112,22 @@ public final class ProfilerTest {
         false,
         BlazeClock.instance(),
         BlazeClock.nanoTime(),
-        /*slimProfile=*/ false,
-        /*includePrimaryOutput=*/ false,
-        /*includeTargetLabel=*/ false,
-        /*collectTaskHistograms=*/ true,
-        /*collectWorkerDataInProfiler=*/ false,
-        /*collectLoadAverage=*/ false,
-        /*collectSystemNetworkUsage=*/ false,
-        WorkerMetricsCollector.instance(),
-        BugReporter.defaultInstance());
+        /* slimProfile= */ false,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration */ false,
+        /* collectTaskHistograms= */ true,
+        new CollectLocalResourceUsage(
+            BugReporter.defaultInstance(),
+            WorkerProcessMetricsCollector.instance(),
+            new ResourceManager(),
+            InMemoryGraph.create(),
+            /* collectWorkerDataInProfiler= */ false,
+            /* collectLoadAverage= */ false,
+            /* collectSystemNetworkUsage= */ false,
+            /* collectResourceManagerEstimation= */ false,
+            /* collectPressureStallIndicators= */ false,
+            /* collectSkyframeCounts= */ false));
     return buffer;
   }
 
@@ -127,15 +141,22 @@ public final class ProfilerTest {
         false,
         BlazeClock.instance(),
         BlazeClock.nanoTime(),
-        /*slimProfile=*/ false,
-        /*includePrimaryOutput=*/ false,
-        /*includeTargetLabel=*/ false,
-        /*collectTaskHistograms=*/ true,
-        /*collectWorkerDataInProfiler=*/ false,
-        /*collectLoadAverage=*/ false,
-        /*collectSystemNetworkUsage=*/ false,
-        WorkerMetricsCollector.instance(),
-        BugReporter.defaultInstance());
+        /* slimProfile= */ false,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration */ false,
+        /* collectTaskHistograms= */ true,
+        new CollectLocalResourceUsage(
+            BugReporter.defaultInstance(),
+            WorkerProcessMetricsCollector.instance(),
+            new ResourceManager(),
+            InMemoryGraph.create(),
+            /* collectWorkerDataInProfiler= */ false,
+            /* collectLoadAverage= */ false,
+            /* collectSystemNetworkUsage= */ false,
+            /* collectResourceManagerEstimation= */ false,
+            /* collectPressureStallIndicators= */ false,
+            /* collectSkyframeCounts= */ false));
   }
 
   @Test
@@ -168,14 +189,14 @@ public final class ProfilerTest {
     profiler.logEvent(ProfilerTask.PHASE, "should be ignored");
 
     JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
-    assertThat(removeUsageEvents(jsonProfile.getTraceEvents()))
+    List<TraceEvent> filteredEvents = removeCounterEvents(jsonProfile.getTraceEvents());
+    assertThat(filteredEvents)
         .hasSize(
             2 /* thread names */
                 + 2 /* thread indices */
                 + 2 /* build phase marker */
                 + 1 /* VFS event, the first is too short */
                 + 2 /* action + action dependency checking */
-                + 1 /* action counters */
                 + 1 /* finishing */);
 
     assertThat(
@@ -234,15 +255,22 @@ public final class ProfilerTest {
         true,
         clock,
         clock.nanoTime(),
-        /*slimProfile=*/ false,
-        /*includePrimaryOutput=*/ false,
-        /*includeTargetLabel=*/ false,
-        /*collectTaskHistograms=*/ true,
-        /*collectWorkerDataInProfiler=*/ false,
-        /*collectLoadAverage=*/ false,
-        /*collectSystemNetworkUsage=*/ false,
-        WorkerMetricsCollector.instance(),
-        BugReporter.defaultInstance());
+        /* slimProfile= */ false,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration */ false,
+        /* collectTaskHistograms= */ true,
+        new CollectLocalResourceUsage(
+            BugReporter.defaultInstance(),
+            WorkerProcessMetricsCollector.instance(),
+            new ResourceManager(),
+            InMemoryGraph.create(),
+            /* collectWorkerDataInProfiler= */ false,
+            /* collectLoadAverage= */ false,
+            /* collectSystemNetworkUsage= */ false,
+            /* collectResourceManagerEstimation= */ false,
+            /* collectPressureStallIndicators= */ false,
+            /* collectSkyframeCounts= */ false));
     try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION, "action task")) {
       // Next task takes less than 10 ms but should be recorded anyway.
       long before = clock.nanoTime();
@@ -252,13 +280,13 @@ public final class ProfilerTest {
     profiler.stop();
 
     JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
-    assertThat(jsonProfile.getTraceEvents())
+    List<TraceEvent> filteredEvents = removeCounterEvents(jsonProfile.getTraceEvents());
+    assertThat(filteredEvents)
         .hasSize(
             2 /* thread names */
                 + 2 /* thread sort indices */
                 + 1 /* VFS */
                 + 1 /* action */
-                + 1 /* action counters */
                 + 1 /* finishing */);
 
     TraceEvent vfsStat =
@@ -268,44 +296,52 @@ public final class ProfilerTest {
                     traceEvent -> ProfilerTask.VFS_STAT.description.equals(traceEvent.category()))
                 .collect(Collectors.toList()));
     assertThat(vfsStat.duration().toMillis()).isLessThan(ProfilerTask.VFS_STAT.minDuration);
+    // There is only one action count event since we only let the clock run for 1ms.
     assertThat(Iterables.filter(jsonProfile.getTraceEvents(), t -> t.name().equals("action count")))
         .hasSize(1);
   }
 
   @Test
   public void testProfilerWorkerMetrics() throws Exception {
-    ImmutableList<WorkerMetric> workerMetrics =
-        ImmutableList.of(
-            WorkerMetric.create(
-                WorkerMetric.WorkerProperties.create(
-                    /* workerId= */ 1,
-                    /* processId= */ 1,
-                    /* mnemonic= */ "dummy1",
-                    /* isMultiplex= */ true,
-                    /* isSandboxed= */ true),
-                WorkerMetric.WorkerStat.create(1024, Instant.now(), Instant.now()),
-                /* isMeasurable= */ true),
-            WorkerMetric.create(
-                WorkerMetric.WorkerProperties.create(
-                    /* workerId= */ 1,
-                    /* processId= */ 1,
-                    /* mnemonic= */ "dummy2",
-                    /* isMultiplex= */ false,
-                    /* isSandboxed= */ false),
-                WorkerMetric.WorkerStat.create(2048, Instant.now(), Instant.now()),
-                /* isMeasurable= */ true),
-            WorkerMetric.create(
-                WorkerMetric.WorkerProperties.create(
-                    /* workerId= */ 1,
-                    /* processId= */ 1,
-                    /* mnemonic= */ "dummy2",
-                    /* isMultiplex= */ false,
-                    /* isSandboxed= */ false),
-                /* workerStat= */ null,
-                /* isMeasurable= */ false));
+    if (OS.getCurrent() != OS.LINUX && OS.getCurrent() != OS.DARWIN) {
+      // We disable the WorkerMemoryUsageCollector on Windows, so we should skip the test if the
+      // current OS is not Linux and Darwin.
+      return;
+    }
+    Instant collectionTime = BlazeClock.instance().now();
+    WorkerProcessMetrics workerMetric1 =
+        new WorkerProcessMetrics(
+            /* workerId= */ 1,
+            /* processId= */ 1,
+            /* status= */ new WorkerProcessStatus(),
+            /* mnemonic= */ "dummy1",
+            /* isMultiplex= */ true,
+            /* isSandbox= */ true,
+            /* workerKeyHash= */ 1);
+    workerMetric1.addCollectedMetrics(1024, collectionTime);
 
-    WorkerMetricsCollector workerMetricsCollector = mock(WorkerMetricsCollector.class);
-    when(workerMetricsCollector.collectMetrics()).thenReturn(workerMetrics);
+    WorkerProcessMetrics workerMetric2 =
+        new WorkerProcessMetrics(
+            /* workerId= */ 2,
+            /* processId= */ 2,
+            /* status= */ new WorkerProcessStatus(),
+            /* mnemonic= */ "dummy2",
+            /* isMultiplex= */ false,
+            /* isSandbox= */ false,
+            /* workerKeyHash= */ 2);
+    workerMetric2.addCollectedMetrics(2048, collectionTime);
+
+    ImmutableList<WorkerProcessMetrics> workerMetrics =
+        ImmutableList.of(workerMetric1, workerMetric2);
+    WorkerProcessMetricsCollector workerProcessMetricsCollector =
+        mock(WorkerProcessMetricsCollector.class);
+    var metricsCollected = new CountDownLatch(1);
+    when(workerProcessMetricsCollector.getLiveWorkerProcessMetrics())
+        .thenAnswer(
+            unused -> {
+              metricsCollected.countDown();
+              return workerMetrics;
+            });
 
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     profiler.start(
@@ -317,24 +353,37 @@ public final class ProfilerTest {
         true,
         clock,
         clock.nanoTime(),
-        /*slimProfile=*/ false,
-        /*includePrimaryOutput=*/ false,
-        /*includeTargetLabel=*/ false,
-        /*collectTaskHistograms=*/ true,
-        /*collectWorkerDataInProfiler=*/ true,
-        /*collectLoadAverage=*/ false,
-        /*collectSystemNetworkUsage=*/ false,
-        workerMetricsCollector,
-        BugReporter.defaultInstance());
-    Thread.sleep(400);
+        /* slimProfile= */ false,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration */ false,
+        /* collectTaskHistograms= */ true,
+        new CollectLocalResourceUsage(
+            BugReporter.defaultInstance(),
+            workerProcessMetricsCollector,
+            new ResourceManager(),
+            InMemoryGraph.create(),
+            /* collectWorkerDataInProfiler= */ true,
+            /* collectLoadAverage= */ false,
+            /* collectSystemNetworkUsage= */ false,
+            /* collectResourceManagerEstimation= */ false,
+            /* collectPressureStallIndicators= */ false,
+            /* collectSkyframeCounts= */ false));
+    metricsCollected.await(10, TimeUnit.SECONDS);
     profiler.stop();
 
     JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
-    ImmutableList<TraceEvent> usageEvents =
+    ImmutableList<TraceEvent> totalWorkerMemoryUsageEvents =
         jsonProfile.getTraceEvents().stream()
-            .filter(e -> e.name().contains("Workers memory usage"))
+            .filter(e -> e.name().contains("Total worker memory usage"))
             .collect(toImmutableList());
-    assertThat(usageEvents).hasSize(1);
+    ImmutableList<TraceEvent> perMnemonicWorkerMemoryUsageEvents =
+        jsonProfile.getTraceEvents().stream()
+            .filter(e -> e.name().contains("Per-mnemonic worker memory usage"))
+            .collect(toImmutableList());
+
+    assertThat(totalWorkerMemoryUsageEvents).hasSize(1);
+    assertThat(perMnemonicWorkerMemoryUsageEvents).hasSize(1);
   }
 
   @Test
@@ -350,15 +399,22 @@ public final class ProfilerTest {
         true,
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
-        /*slimProfile=*/ false,
-        /*includePrimaryOutput=*/ false,
-        /*includeTargetLabel=*/ false,
-        /*collectTaskHistograms=*/ true,
-        /*collectWorkerDataInProfiler=*/ false,
-        /*collectLoadAverage=*/ false,
-        /*collectSystemNetworkUsage=*/ false,
-        WorkerMetricsCollector.instance(),
-        BugReporter.defaultInstance());
+        /* slimProfile= */ false,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration */ false,
+        /* collectTaskHistograms= */ true,
+        new CollectLocalResourceUsage(
+            BugReporter.defaultInstance(),
+            WorkerProcessMetricsCollector.instance(),
+            new ResourceManager(),
+            InMemoryGraph.create(),
+            /* collectWorkerDataInProfiler= */ false,
+            /* collectLoadAverage= */ false,
+            /* collectSystemNetworkUsage= */ false,
+            /* collectResourceManagerEstimation= */ false,
+            /* collectPressureStallIndicators= */ false,
+            /* collectSkyframeCounts= */ false));
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
     // Unlike the VFS_STAT event above, the remote execution event will not be recorded since we
     // don't record the slowest remote exec events (see ProfilerTask.java).
@@ -370,11 +426,11 @@ public final class ProfilerTest {
     profiler.stop();
 
     JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
-    assertThat(jsonProfile.getTraceEvents())
-        .hasSize(2 /*threads */ + 2 /*threads sort index */ + 1 /*VFS */);
+    List<TraceEvent> filteredEvents = removeCounterEvents(jsonProfile.getTraceEvents());
+    assertThat(filteredEvents).hasSize(2 /*threads */ + 2 /*threads sort index */ + 1 /*VFS */);
 
     assertThat(
-            jsonProfile.getTraceEvents().stream()
+            filteredEvents.stream()
                 .filter(
                     traceEvent ->
                         !"thread_name".equals(traceEvent.name())
@@ -402,8 +458,8 @@ public final class ProfilerTest {
     // Add some fast tasks - these shouldn't show up in the slowest.
     for (int i = 0; i < 30; i++) {
       profiler.logSimpleTask(
-          /*startTimeNanos=*/ 1,
-          /*stopTimeNanos=*/ ProfilerTask.VFS_STAT.minDuration + 10,
+          /* startTimeNanos= */ 1,
+          /* stopTimeNanos= */ ProfilerTask.VFS_STAT.minDuration + 10,
           ProfilerTask.VFS_STAT,
           "stat");
     }
@@ -413,8 +469,8 @@ public final class ProfilerTest {
     for (int i = 0; i < 30; i++) {
       long fakeDuration = ProfilerTask.VFS_STAT.minDuration + i + 10_000;
       profiler.logSimpleTask(
-          /*startTimeNanos=*/ 1,
-          /*stopTimeNanos=*/ fakeDuration + 1,
+          /* startTimeNanos= */ 1,
+          /* stopTimeNanos= */ fakeDuration + 1,
           ProfilerTask.VFS_STAT,
           "stat");
       expectedSlowestDurations.add(fakeDuration);
@@ -431,8 +487,8 @@ public final class ProfilerTest {
                 () -> {
                   for (int j = 0; j < 100; j++) {
                     profiler.logSimpleTask(
-                        /*startTimeNanos=*/ 1,
-                        /*stopTimeNanos=*/ ProfilerTask.VFS_STAT.minDuration + j + 1,
+                        /* startTimeNanos= */ 1,
+                        /* stopTimeNanos= */ ProfilerTask.VFS_STAT.minDuration + j + 1,
                         ProfilerTask.VFS_STAT,
                         "stat");
                   }
@@ -477,15 +533,22 @@ public final class ProfilerTest {
         true,
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
-        /*slimProfile=*/ false,
-        /*includePrimaryOutput=*/ false,
-        /*includeTargetLabel=*/ false,
-        /*collectTaskHistograms=*/ true,
-        /*collectWorkerDataInProfiler=*/ false,
-        /*collectLoadAverage=*/ false,
-        /*collectSystemNetworkUsage=*/ false,
-        WorkerMetricsCollector.instance(),
-        BugReporter.defaultInstance());
+        /* slimProfile= */ false,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration */ false,
+        /* collectTaskHistograms= */ true,
+        new CollectLocalResourceUsage(
+            BugReporter.defaultInstance(),
+            WorkerProcessMetricsCollector.instance(),
+            new ResourceManager(),
+            InMemoryGraph.create(),
+            /* collectWorkerDataInProfiler= */ false,
+            /* collectLoadAverage= */ false,
+            /* collectSystemNetworkUsage= */ false,
+            /* collectResourceManagerEstimation= */ false,
+            /* collectPressureStallIndicators= */ false,
+            /* collectSkyframeCounts= */ false));
     profiler.logSimpleTask(10000, 20000, ProfilerTask.VFS_STAT, "stat");
 
     assertThat(ProfilerTask.VFS_STAT.collectsSlowestInstances()).isTrue();
@@ -494,16 +557,14 @@ public final class ProfilerTest {
     profiler.stop();
 
     JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
-    assertThat(jsonProfile.getTraceEvents()).hasSize(2);
 
-    assertThat(
-            jsonProfile.getTraceEvents().stream()
-                .filter(
-                    traceEvent ->
-                        !"thread_name".equals(traceEvent.name())
-                            && !"thread_sort_index".equals(traceEvent.name()))
-                .collect(Collectors.toList()))
-        .isEmpty();
+    // Filter out thread metadata and counter data and make sure that the remaining list is empty,
+    // i.e. there is no individual task recorded.
+    List<TraceEvent> traceEvents =
+        jsonProfile.getTraceEvents().stream()
+            .filter(traceEvent -> !"M".equals(traceEvent.type()) && !"C".equals(traceEvent.type()))
+            .collect(toImmutableList());
+    assertThat(traceEvents).isEmpty();
   }
 
   @Test
@@ -536,7 +597,7 @@ public final class ProfilerTest {
     profiler.stop();
 
     JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
-    assertThat(removeUsageEvents(jsonProfile.getTraceEvents()))
+    assertThat(removeCounterEvents(jsonProfile.getTraceEvents()))
         .hasSize(
             4 /* thread names */
                 + 4 /* thread indices */
@@ -602,7 +663,7 @@ public final class ProfilerTest {
     profiler.stop();
 
     JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
-    List<TraceEvent> filteredEvents = removeUsageEvents(jsonProfile.getTraceEvents());
+    List<TraceEvent> filteredEvents = removeCounterEvents(jsonProfile.getTraceEvents());
     assertThat(filteredEvents)
         .hasSize(
             4 /* thread names */
@@ -621,13 +682,10 @@ public final class ProfilerTest {
         .hasSize(102); // thread2b + last task + finishing
   }
 
-  // Filter out CPU usage/memory usage/load average events. These are non-deterministic depending on
-  // the duration
-  // of the profile.
-  private static List<TraceEvent> removeUsageEvents(List<TraceEvent> events) {
-    return events.stream()
-        .filter(e -> (!e.name().contains("usage") && !e.name().contains("load average")))
-        .collect(toImmutableList());
+  // Filter out counter series events such as CPU usage/memory usage/load average events. These are
+  // non-deterministic depending on the duration of the profile.
+  private static ImmutableList<TraceEvent> removeCounterEvents(List<TraceEvent> events) {
+    return events.stream().filter(e -> !"C".equals(e.type())).collect(toImmutableList());
   }
 
   /**
@@ -682,32 +740,24 @@ public final class ProfilerTest {
         false,
         badClock,
         initialNanoTime,
-        /*slimProfile=*/ false,
-        /*includePrimaryOutput=*/ false,
-        /*includeTargetLabel=*/ false,
-        /*collectTaskHistograms=*/ true,
-        /*collectWorkerDataInProfiler=*/ false,
-        /*collectLoadAverage=*/ false,
-        /*collectSystemNetworkUsage=*/ false,
-        WorkerMetricsCollector.instance(),
-        BugReporter.defaultInstance());
+        /* slimProfile= */ false,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration */ false,
+        /* collectTaskHistograms= */ true,
+        new CollectLocalResourceUsage(
+            BugReporter.defaultInstance(),
+            WorkerProcessMetricsCollector.instance(),
+            new ResourceManager(),
+            InMemoryGraph.create(),
+            /* collectWorkerDataInProfiler= */ false,
+            /* collectLoadAverage= */ false,
+            /* collectSystemNetworkUsage= */ false,
+            /* collectResourceManagerEstimation= */ false,
+            /* collectPressureStallIndicators= */ false,
+            /* collectSkyframeCounts= */ false));
     profiler.logSimpleTask(badClock.nanoTime(), ProfilerTask.INFO, "some task");
     profiler.stop();
-  }
-
-  /** Checks that the histograms are cleared in the stop call. */
-  @Test
-  public void testEmptyTaskHistograms() throws Exception {
-    startUnbuffered(getAllProfilerTasks());
-    profiler.logSimpleTaskDuration(
-        Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
-    for (StatRecorder recorder : profiler.tasksHistograms) {
-      assertThat(recorder).isNotNull();
-    }
-    profiler.stop();
-    for (StatRecorder recorder : profiler.tasksHistograms) {
-      assertThat(recorder).isNull();
-    }
   }
 
   @Test
@@ -745,15 +795,22 @@ public final class ProfilerTest {
         false,
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
-        /*slimProfile=*/ false,
-        /*includePrimaryOutput=*/ false,
-        /*includeTargetLabel=*/ false,
-        /*collectTaskHistograms=*/ true,
-        /*collectWorkerDataInProfiler=*/ false,
-        /*collectLoadAverage=*/ false,
-        /*collectSystemNetworkUsage=*/ false,
-        WorkerMetricsCollector.instance(),
-        BugReporter.defaultInstance());
+        /* slimProfile= */ false,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration */ false,
+        /* collectTaskHistograms= */ true,
+        new CollectLocalResourceUsage(
+            BugReporter.defaultInstance(),
+            WorkerProcessMetricsCollector.instance(),
+            new ResourceManager(),
+            InMemoryGraph.create(),
+            /* collectWorkerDataInProfiler= */ false,
+            /* collectLoadAverage= */ false,
+            /* collectSystemNetworkUsage= */ false,
+            /* collectResourceManagerEstimation= */ false,
+            /* collectPressureStallIndicators= */ false,
+            /* collectSkyframeCounts= */ false));
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
     IOException expected = assertThrows(IOException.class, profiler::stop);
@@ -778,15 +835,22 @@ public final class ProfilerTest {
         false,
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
-        /*slimProfile=*/ false,
-        /*includePrimaryOutput=*/ false,
-        /*includeTargetLabel=*/ false,
-        /*collectTaskHistograms=*/ true,
-        /*collectWorkerDataInProfiler=*/ false,
-        /*collectLoadAverage=*/ false,
-        /*collectSystemNetworkUsage=*/ false,
-        WorkerMetricsCollector.instance(),
-        BugReporter.defaultInstance());
+        /* slimProfile= */ false,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration */ false,
+        /* collectTaskHistograms= */ true,
+        new CollectLocalResourceUsage(
+            BugReporter.defaultInstance(),
+            WorkerProcessMetricsCollector.instance(),
+            new ResourceManager(),
+            InMemoryGraph.create(),
+            /* collectWorkerDataInProfiler= */ false,
+            /* collectLoadAverage= */ false,
+            /* collectSystemNetworkUsage= */ false,
+            /* collectResourceManagerEstimation= */ false,
+            /* collectPressureStallIndicators= */ false,
+            /* collectSkyframeCounts= */ false));
     profiler.logSimpleTaskDuration(
         Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
     IOException expected = assertThrows(IOException.class, profiler::stop);
@@ -806,16 +870,30 @@ public final class ProfilerTest {
         true,
         clock,
         clock.nanoTime(),
-        /*slimProfile=*/ false,
-        /*includePrimaryOutput=*/ true,
-        /*includeTargetLabel=*/ false,
-        /*collectTaskHistograms=*/ true,
-        /*collectWorkerDataInProfiler=*/ false,
-        /*collectLoadAverage=*/ false,
-        /*collectSystemNetworkUsage=*/ false,
-        WorkerMetricsCollector.instance(),
-        BugReporter.defaultInstance());
-    try (SilentCloseable c = profiler.profileAction(ProfilerTask.ACTION, "test", "foo.out", "")) {
+        /* slimProfile= */ false,
+        /* includePrimaryOutput= */ true,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration */ false,
+        /* collectTaskHistograms= */ true,
+        new CollectLocalResourceUsage(
+            BugReporter.defaultInstance(),
+            WorkerProcessMetricsCollector.instance(),
+            new ResourceManager(),
+            InMemoryGraph.create(),
+            /* collectWorkerDataInProfiler= */ false,
+            /* collectLoadAverage= */ false,
+            /* collectSystemNetworkUsage= */ false,
+            /* collectResourceManagerEstimation= */ false,
+            /* collectPressureStallIndicators= */ false,
+            /* collectSkyframeCounts= */ false));
+    try (SilentCloseable c =
+        profiler.profileAction(
+            ProfilerTask.ACTION, /* mnemonic */
+            null,
+            "test",
+            "foo.out",
+            "", /* configuration */
+            null)) {
       profiler.logEvent(ProfilerTask.PHASE, "event1");
     }
     profiler.stop();
@@ -842,17 +920,30 @@ public final class ProfilerTest {
         true,
         clock,
         clock.nanoTime(),
-        /*slimProfile=*/ false,
-        /*includePrimaryOutput=*/ false,
-        /*includeTargetLabel=*/ true,
-        /*collectTaskHistograms=*/ true,
-        /*collectWorkerDataInProfiler=*/ false,
-        /*collectLoadAverage=*/ false,
-        /*collectSystemNetworkUsage=*/ false,
-        WorkerMetricsCollector.instance(),
-        BugReporter.defaultInstance());
+        /* slimProfile= */ false,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ true,
+        /* includeConfiguration */ false,
+        /* collectTaskHistograms= */ true,
+        new CollectLocalResourceUsage(
+            BugReporter.defaultInstance(),
+            WorkerProcessMetricsCollector.instance(),
+            new ResourceManager(),
+            InMemoryGraph.create(),
+            /* collectWorkerDataInProfiler= */ false,
+            /* collectLoadAverage= */ false,
+            /* collectSystemNetworkUsage= */ false,
+            /* collectResourceManagerEstimation= */ false,
+            /* collectPressureStallIndicators= */ false,
+            /* collectSkyframeCounts= */ false));
     try (SilentCloseable c =
-        profiler.profileAction(ProfilerTask.ACTION, "test", "foo.out", "//foo:bar")) {
+        profiler.profileAction(
+            ProfilerTask.ACTION, /* mnemonic */
+            null,
+            "test",
+            "foo.out",
+            "//foo:bar", /* configuration */
+            null)) {
       profiler.logEvent(ProfilerTask.PHASE, "event1");
     }
     profiler.stop();
@@ -862,6 +953,51 @@ public final class ProfilerTest {
     assertThat(
             jsonProfile.getTraceEvents().stream()
                 .filter(traceEvent -> "//foo:bar".equals(traceEvent.targetLabel()))
+                .collect(Collectors.toList()))
+        .hasSize(1);
+  }
+
+  @Test
+  public void testTargetConfigurationForAction() throws Exception {
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+    profiler.start(
+        getAllProfilerTasks(),
+        buffer,
+        JSON_TRACE_FILE_FORMAT,
+        "dummy_output_base",
+        UUID.randomUUID(),
+        true,
+        clock,
+        clock.nanoTime(),
+        /* slimProfile= */ false,
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration */ true,
+        /* collectTaskHistograms= */ true,
+        new CollectLocalResourceUsage(
+            BugReporter.defaultInstance(),
+            WorkerProcessMetricsCollector.instance(),
+            new ResourceManager(),
+            InMemoryGraph.create(),
+            /* collectWorkerDataInProfiler= */ false,
+            /* collectLoadAverage= */ false,
+            /* collectSystemNetworkUsage= */ false,
+            /* collectResourceManagerEstimation= */ false,
+            /* collectPressureStallIndicators= */ false,
+            /* collectSkyframeCounts= */ false));
+    try (SilentCloseable c =
+        profiler.profileAction(
+            ProfilerTask.ACTION, /* mnemonic */ null, "test", "foo.out", "//foo:bar", "012345")) {
+      profiler.logEvent(ProfilerTask.PHASE, "event1");
+    }
+    profiler.stop();
+
+    JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
+
+    assertThat(
+            jsonProfile.getTraceEvents().stream()
+                .filter(traceEvent -> "012345".equals(traceEvent.configuration()))
                 .collect(Collectors.toList()))
         .hasSize(1);
   }
@@ -878,14 +1014,21 @@ public final class ProfilerTest {
         BlazeClock.instance(),
         BlazeClock.instance().nanoTime(),
         slimProfile,
-        /*includePrimaryOutput=*/ false,
-        /*includeTargetLabel=*/ false,
-        /*collectTaskHistograms=*/ true,
-        /*collectWorkerDataInProfiler=*/ false,
-        /*collectLoadAverage=*/ false,
-        /*collectSystemNetworkUsage=*/ false,
-        WorkerMetricsCollector.instance(),
-        BugReporter.defaultInstance());
+        /* includePrimaryOutput= */ false,
+        /* includeTargetLabel= */ false,
+        /* includeConfiguration */ false,
+        /* collectTaskHistograms= */ true,
+        new CollectLocalResourceUsage(
+            BugReporter.defaultInstance(),
+            WorkerProcessMetricsCollector.instance(),
+            new ResourceManager(),
+            InMemoryGraph.create(),
+            /* collectWorkerDataInProfiler= */ false,
+            /* collectLoadAverage= */ false,
+            /* collectSystemNetworkUsage= */ false,
+            /* collectResourceManagerEstimation= */ false,
+            /* collectPressureStallIndicators= */ false,
+            /* collectSkyframeCounts= */ false));
     long curTime = Profiler.nanoTimeMaybe();
     for (int i = 0; i < 100_000; i++) {
       Duration duration;
@@ -903,11 +1046,11 @@ public final class ProfilerTest {
 
   @Test
   public void testSlimProfileSize() throws Exception {
-    ByteArrayOutputStream fatOutputStream = getJsonProfileOutputStream(/*slimProfile=*/ false);
+    ByteArrayOutputStream fatOutputStream = getJsonProfileOutputStream(/* slimProfile= */ false);
     String fatOutput = fatOutputStream.toString();
     assertThat(fatOutput).doesNotContain("merged");
 
-    ByteArrayOutputStream slimOutputStream = getJsonProfileOutputStream(/*slimProfile=*/ true);
+    ByteArrayOutputStream slimOutputStream = getJsonProfileOutputStream(/* slimProfile= */ true);
     String slimOutput = slimOutputStream.toString();
     assertThat(slimOutput).contains("merged");
 
@@ -924,11 +1067,18 @@ public final class ProfilerTest {
   public void testProfileMnemonicIncluded() throws Exception {
     ByteArrayOutputStream buffer = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
     try (SilentCloseable c =
-        profiler.profileAction(ProfilerTask.ACTION, "without mnemonic", "", "")) {
+        profiler.profileAction(
+            ProfilerTask.ACTION, /* mnemonic */
+            null,
+            "without mnemonic",
+            "",
+            "", /* configuration */
+            null)) {
       clock.advanceMillis(100);
     }
     try (SilentCloseable c =
-        profiler.profileAction(ProfilerTask.ACTION, "foo", "with mnemonic", "", "")) {
+        profiler.profileAction(
+            ProfilerTask.ACTION, "foo", "with mnemonic", "", "", /* configuration */ null)) {
       clock.advanceMillis(100);
     }
     profiler.stop();
@@ -963,5 +1113,96 @@ public final class ProfilerTest {
 
     // Make sure the mnemonic has been set to the specified value
     assertThat(mnemonicWithMnemonic).isEqualTo("foo");
+  }
+
+  @Test
+  public void testActionCacheHitsCounted() throws Exception {
+    ByteArrayOutputStream buffer = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
+    // The setup here is one action and one action check taking 200ms (the bucket duration),
+    // another action check for 300ms, so spilling over in the next bucket.
+    try (SilentCloseable c =
+        profiler.profileAction(
+            ProfilerTask.ACTION_CHECK,
+            "bar action",
+            "with mnemonic",
+            "",
+            "", /* configuration */
+            null)) {
+      try (SilentCloseable c2 =
+              profiler.profileAction(
+                  ProfilerTask.ACTION, /* mnemonic */
+                  null,
+                  "foo action",
+                  "",
+                  "", /* configuration */
+                  null);
+          SilentCloseable c3 =
+              profiler.profileAction(
+                  ProfilerTask.ACTION_CHECK, /* mnemonic */
+                  null,
+                  "bar action",
+                  "",
+                  "", /* configuration */
+                  null)) {
+        clock.advanceMillis(200);
+      }
+      clock.advanceMillis(100);
+    }
+    profiler.stop();
+
+    JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
+    Object[] actionCountEvents =
+        jsonProfile.getTraceEvents().stream()
+            .filter(e -> "action count".equals(e.name()))
+            .toArray();
+
+    assertThat(actionCountEvents).hasLength(2);
+
+    TraceEvent first = (TraceEvent) actionCountEvents[0];
+    assertThat(first.processId()).isEqualTo(CounterSeriesTraceData.PROCESS_ID);
+    assertThat(first.threadId()).isEqualTo(Thread.currentThread().getId());
+    // Two cache hit checks and one executed action.
+    assertThat(first.args()).containsExactly("action", 1.0, "local action cache", 2.0);
+
+    TraceEvent second = (TraceEvent) actionCountEvents[1];
+    assertThat(first.processId()).isEqualTo(CounterSeriesTraceData.PROCESS_ID);
+    assertThat(first.threadId()).isEqualTo(Thread.currentThread().getId());
+    // One of the cache hit checks spilled over and used half of the second bucket.
+    assertThat(second.args()).containsExactly("action", 0.0, "local action cache", 0.5);
+  }
+
+  @Test
+  public void testLocalActionsCounted() throws Exception {
+    // Given 2 subsequent local actions with length of 200 ms and 100ms
+    ByteArrayOutputStream buffer = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
+
+    long startTime1 = clock.nanoTime();
+    clock.advanceMillis(200);
+    profiler.completeTask(startTime1, ProfilerTask.LOCAL_ACTION_COUNTS, "resource usage 1");
+    long startTime2 = clock.nanoTime();
+    clock.advanceMillis(100);
+    profiler.completeTask(startTime2, ProfilerTask.LOCAL_ACTION_COUNTS, "resource usage 2");
+
+    // When profiler builded the profile.
+    profiler.stop();
+
+    // Then find 2 records of local actions of length 1 and 0.5 (because size of window is 200 ms)
+    JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
+    Object[] actionCountEvents =
+        jsonProfile.getTraceEvents().stream()
+            .filter(e -> e.name().equals("action count (local)"))
+            .toArray();
+
+    assertThat(actionCountEvents).hasLength(2);
+
+    TraceEvent first = (TraceEvent) actionCountEvents[0];
+    assertThat(first.processId()).isEqualTo(CounterSeriesTraceData.PROCESS_ID);
+    assertThat(first.threadId()).isEqualTo(Thread.currentThread().getId());
+    assertThat(first.args()).containsExactly("local action", 1.0);
+
+    TraceEvent second = (TraceEvent) actionCountEvents[1];
+    assertThat(first.processId()).isEqualTo(CounterSeriesTraceData.PROCESS_ID);
+    assertThat(first.threadId()).isEqualTo(Thread.currentThread().getId());
+    assertThat(second.args()).containsExactly("local action", 0.5);
   }
 }

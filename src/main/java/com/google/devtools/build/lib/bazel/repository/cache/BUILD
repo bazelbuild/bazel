@@ -1,6 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -12,9 +15,14 @@ filegroup(
 #   Main Java code for Bazel
 java_library(
     name = "cache",
-    srcs = ["RepositoryCache.java"],
+    srcs = [
+        "DownloadCache.java",
+        "RepoContentsCache.java",
+        "RepositoryCache.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/bazel",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -22,9 +30,6 @@ java_library(
 
 java_library(
     name = "events",
-    srcs = ["RepositoryCacheHitEvent.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
-    ],
+    srcs = ["DownloadCacheHitEvent.java"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/events"],
 )

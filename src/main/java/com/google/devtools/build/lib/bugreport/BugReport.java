@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -37,6 +38,7 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -61,11 +63,17 @@ public final class BugReport {
   private static BlazeRuntimeInterface runtime = null;
 
   @SuppressWarnings("StaticAssignmentOfThrowable")
-  @GuardedBy("LOCK")
+  @GuardedBy("lock")
   @Nullable
   private static Throwable lastCrashingThrowable = null;
 
-  private static final Object LOCK = new Object();
+  /**
+   * Global lock held while reporting a crash.
+   *
+   * <p>Holding a global lock isn't ideal, but it ensures that concurrent crashes produce coherent
+   * bug reports to the user, logs, and bug-reporting backend.
+   */
+  private static final ReentrantLock lock = new ReentrantLock(/* fair= */ true);
 
   private static final boolean SHOULD_NOT_SEND_BUG_REPORT_BECAUSE_IN_TEST =
       TestType.isInTest() && System.getenv("ENABLE_BUG_REPORT_LOGGING_IN_TEST") == null;
@@ -107,10 +115,13 @@ public final class BugReport {
   public static Throwable getAndResetLastCrashingThrowableIfInTest() {
     if (TestType.isInTest()) {
       // Instead of the jvm having been halted, we might have a saved Throwable.
-      synchronized (LOCK) {
+      lock.lock();
+      try {
         Throwable result = lastCrashingThrowable;
         lastCrashingThrowable = null;
         return result;
+      } finally {
+        lock.unlock();
       }
     }
     return null;
@@ -127,12 +138,15 @@ public final class BugReport {
   public static void maybePropagateLastCrashIfInTest() {
     if (TestType.isInTest()) {
       // Instead of the jvm having been halted, we might have a saved Throwable.
-      synchronized (LOCK) {
+      lock.lock();
+      try {
         Throwable lastUnprocessedThrowableInTest = getAndResetLastCrashingThrowableIfInTest();
         if (lastUnprocessedThrowableInTest != null) {
           throw new IllegalStateException(
               "Unprocessed throwable detected in test", lastUnprocessedThrowableInTest);
         }
+      } finally {
+        lock.unlock();
       }
     }
   }
@@ -246,21 +260,30 @@ public final class BugReport {
     if (runtime != null) {
       runtime.fillInCrashContext(ctx);
     }
+    // Multiple concurrent crashes may deadlock if certain background threads crash while another
+    // crash is already being reported. In these cases, log loudly and return eagerly.
+    if (ctx.returnIfCrashInProgress()) {
+      if (!lock.tryLock()) {
+        logger.atSevere().withCause(throwable).log(
+            "Crash already in progress, not reporting to avoid deadlock: %s", ctx);
+        return;
+      }
+    } else {
+      lock.lock();
+    }
     try {
-      synchronized (LOCK) {
+      try {
         logger.atSevere().withCause(throwable).log("Handling crash with %s", ctx);
 
-        // Don't try to send a bug report during a crash in a test, it will throw itself.
         if (TestType.isInTest()) {
           lastCrashingThrowable = throwable;
-        } else if (ctx.shouldSendBugReport()) {
-          sendBugReport(throwable, ctx.getArgs());
         }
 
         String crashMsg;
         String heapDumpPath;
         // Might be a wrapped OOM - the detailed exit code reflects the root cause.
-        if (crash.getDetailedExitCode().getExitCode().equals(ExitCode.OOM_ERROR)) {
+        boolean isOom = crash.getDetailedExitCode().getExitCode().equals(ExitCode.OOM_ERROR);
+        if (isOom) {
           crashMsg = constructOomExitMessage(ctx.getExtraOomInfo());
           heapDumpPath = ctx.getHeapDumpPath();
           if (heapDumpPath != null) {
@@ -274,7 +297,16 @@ public final class BugReport {
         ctx.getEventHandler().handle(Event.fatal(crashMsg));
 
         try {
+          // Emit exit data before sending a bug report. Bug reports involve an RPC, and given that
+          // we are crashing, who knows if it will complete. It's more important that we write
+          // exit code and failure detail information so that the crash can be handled correctly.
           emitExitData(crash, ctx, numericExitCode, heapDumpPath);
+          // Skip sending a bug report if the crash is an OOM - attempting an RPC while out of
+          // memory can cause issues. Also, don't try to send a bug report during a crash in a test,
+          // it will throw itself.
+          if (ctx.shouldSendBugReport() && !isOom && !TestType.isInTest()) {
+            sendBugReport(throwable, ctx.getArgs());
+          }
         } finally {
           if (ctx.shouldHaltJvm()) {
             // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will
@@ -282,9 +314,11 @@ public final class BugReport {
             // therefore induce a deadlock. This call would block on the shutdown sequence
             // completing, but the shutdown sequence would in turn be blocked on this thread
             // finishing. Instead, exit fast via halt().
-            Runtime.getRuntime().halt(numericExitCode);
+            halt(numericExitCode);
           }
         }
+      } finally {
+        lock.unlock();
       }
     } catch (Throwable t) {
       logger.atSevere().withCause(t).log("Threw while crashing");
@@ -302,7 +336,7 @@ public final class BugReport {
       t.printStackTrace(System.err);
     } finally {
       if (ctx.shouldHaltJvm()) {
-        Runtime.getRuntime().halt(numericExitCode);
+        halt(numericExitCode);
       }
     }
     if (!ctx.shouldHaltJvm()) {
@@ -310,6 +344,16 @@ public final class BugReport {
     }
     logger.atSevere().log("Failed to crash in handleCrash");
     throw new IllegalStateException("Should have halted", throwable);
+  }
+
+  private static void halt(int numericExitCode) {
+    if (TestType.getTestType() == TestType.UNKNOWN_TEST) {
+      // Only intercept halt in unit tests. In shell integration tests, we do want to halt.
+      throw new SecurityException(
+          "Intercepted call to Runtime.halt with status " + numericExitCode);
+    } else {
+      Runtime.getRuntime().halt(numericExitCode);
+    }
   }
 
   /**
@@ -403,7 +447,8 @@ public final class BugReport {
   static void logException(
       Throwable exception, boolean isCrash, List<String> args, String... values) {
     logger.atSevere().withCause(exception).log("Exception");
-    String preamble = getProductName();
+    String preamble =
+        CrashFailureDetails.oomDetected() ? "While OOMing, " + getProductName() : getProductName();
     Level level = isCrash ? Level.SEVERE : Level.WARNING;
     if (!isCrash) {
       preamble += " had a non fatal error with args: ";
@@ -413,7 +458,9 @@ public final class BugReport {
       preamble += " crashed with args: ";
     }
 
+    logger.atInfo().log("Calling logToRemote");
     LoggingUtil.logToRemote(level, preamble + Joiner.on(' ').join(args), exception, values);
+    logger.atInfo().log("Call to logToRemote complete");
   }
 
   private static final class DefaultBugReporter implements BugReporter {
@@ -424,7 +471,7 @@ public final class BugReport {
     }
 
     @Override
-    public void sendNonFatalBugReport(Exception exception) {
+    public void sendNonFatalBugReport(Throwable exception) {
       BugReport.sendNonFatalBugReport(exception);
     }
 

@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.base.Strings;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.Path;
-import java.util.Objects;
+import com.google.devtools.build.lib.vfs.Root;
 import javax.annotation.Nullable;
 
 /**
@@ -34,6 +34,7 @@ public final class ServerDirectories {
 
   /** Where Bazel gets unpacked. */
   private final Path installBase;
+
   /** The content hash of everything in installBase. */
   @Nullable private final HashCode installMD5;
 
@@ -44,6 +45,7 @@ public final class ServerDirectories {
   private final Path outputUserRoot;
 
   private final Path execRootBase;
+  @Nullable private final Root virtualSourceRoot; // Null if the source root is not virtualized.
 
   // TODO(bazel-team): Use a builder to simplify/unify these constructors. This makes it easier to
   // have sensible defaults, e.g. execRootBase = outputBase + "/execroot". Then reorder the fields
@@ -54,13 +56,14 @@ public final class ServerDirectories {
       Path outputBase,
       Path outputUserRoot,
       Path execRootBase,
+      @Nullable Root virtualSourceRoot,
       @Nullable String installMD5) {
     this.installBase = installBase;
-    this.installMD5 =
-        Strings.isNullOrEmpty(installMD5) ? null : checkMD5(HashCode.fromString(installMD5));
+    this.installMD5 = toMD5HashCode(installMD5);
     this.outputBase = outputBase;
     this.outputUserRoot = outputUserRoot;
     this.execRootBase = execRootBase;
+    this.virtualSourceRoot = virtualSourceRoot;
   }
 
   public ServerDirectories(Path installBase, Path outputBase, Path outputUserRoot) {
@@ -68,12 +71,21 @@ public final class ServerDirectories {
         // Some tests set installBase to null.
         // TODO(bazel-team): Be more consistent about whether nulls are permitted. (e.g. equals()
         // presently doesn't tolerate them for some fields). We should probably just disallow them.
-        installBase, outputBase, outputUserRoot, outputBase.getRelative(EXECROOT), null);
+        installBase,
+        outputBase,
+        outputUserRoot,
+        outputBase.getRelative(EXECROOT),
+        /* virtualSourceRoot= */ null,
+        /* installMD5= */ null);
   }
 
-  private static HashCode checkMD5(HashCode hash) {
-    Preconditions.checkArgument(
-        hash.bits() == Hashing.md5().bits(), "Hash '%s' has %s bits", hash, hash.bits());
+  @Nullable
+  private static HashCode toMD5HashCode(@Nullable String installMD5) {
+    if (Strings.isNullOrEmpty(installMD5)) {
+      return null;
+    }
+    HashCode hash = HashCode.fromString(installMD5);
+    checkArgument(hash.bits() == Hashing.md5().bits(), "Hash '%s' has %s bits", hash, hash.bits());
     return hash;
   }
 
@@ -108,40 +120,29 @@ public final class ServerDirectories {
   /**
    * Parent of all execution roots.
    *
-   * <p>This is physically, always /outputbase/execroot, but might be virtualized.
+   * <p>By default, this is a folder called {@linkplain #EXECROOT execroot} in {@link
+   * #getOutputBase}. However, some {@link com.google.devtools.build.lib.vfs.FileSystem}
+   * implementations may choose to virtualize the execroot (in other words, it is not a real on-disk
+   * path, but one that the {@link com.google.devtools.build.lib.vfs.FileSystem} recognizes).
+   *
+   * <p>This is virtual if and only if {@link #getVirtualSourceRoot} is present.
    */
   public Path getExecRootBase() {
     return execRootBase;
   }
 
-  /** Returns the installed embedded binaries directory, under the shared installBase location. */
-  public Path getEmbeddedBinariesRoot() {
-    return getEmbeddedBinariesRoot(installBase);
-  }
-
-  @VisibleForTesting
-  public static Path getEmbeddedBinariesRoot(Path installBase) {
-    return installBase;
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(installBase, installMD5, outputBase, outputUserRoot, execRootBase);
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (!(obj instanceof ServerDirectories)) {
-      return false;
-    }
-    ServerDirectories that = (ServerDirectories) obj;
-    return this.installBase.equals(that.installBase)
-        && Objects.equals(this.installMD5, that.installMD5)
-        && this.outputBase.equals(that.outputBase)
-        && this.outputUserRoot.equals(that.outputUserRoot)
-        && this.execRootBase.equals(that.execRootBase);
+  /**
+   * Returns a stable, virtual root that (if present) should be used as the effective package path
+   * for all commands during the server's lifetime.
+   *
+   * <p>If present, the server's {@link com.google.devtools.build.lib.vfs.FileSystem} is responsible
+   * for translating paths under this root to the actual requested {@code --package_path} for a
+   * given command.
+   *
+   * <p>Present if and only if {@link #getExecRootBase} is virtualized.
+   */
+  @Nullable
+  public Root getVirtualSourceRoot() {
+    return virtualSourceRoot;
   }
 }

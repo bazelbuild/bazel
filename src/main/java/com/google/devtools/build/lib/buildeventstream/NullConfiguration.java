@@ -19,10 +19,10 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import java.util.Collection;
 
 /**
- * {@link BuildEvent} presenting the configuration in the build event protocol
- * that internally is just a null pointer.
+ * {@link BuildEvent} presenting the configuration in the build event protocol that internally is
+ * just a null pointer.
  */
-public class NullConfiguration implements BuildEvent {
+public final class NullConfiguration implements BuildEvent {
   public static final NullConfiguration INSTANCE = new NullConfiguration();
 
   @Override
@@ -41,4 +41,6 @@ public class NullConfiguration implements BuildEvent {
         .setConfiguration(BuildEventStreamProtos.Configuration.getDefaultInstance())
         .build();
   }
+
+  private NullConfiguration() {}
 }

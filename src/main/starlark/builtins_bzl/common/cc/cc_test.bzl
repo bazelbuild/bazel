@@ -14,18 +14,23 @@
 
 """cc_test Starlark implementation."""
 
+load(":common/cc/attrs.bzl", "cc_binary_attrs", "linkstatic_doc", "stamp_doc")
 load(":common/cc/cc_binary.bzl", "cc_binary_impl")
-load(":common/paths.bzl", "paths")
-load(":common/cc/cc_binary_attrs.bzl", "cc_binary_attrs_with_aspects", "cc_binary_attrs_without_aspects")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_shared_library.bzl", "dynamic_deps_initializer")
 load(":common/cc/semantics.bzl", "semantics")
+load(":common/paths.bzl", "paths")
 
 cc_internal = _builtins.internal.cc_internal
+config_common = _builtins.toplevel.config_common
 platform_common = _builtins.toplevel.platform_common
 testing = _builtins.toplevel.testing
 
-def _cc_test_impl(ctx):
-    binary_info, cc_info, providers = cc_binary_impl(ctx, [])
+_CC_TEST_TOOLCHAIN_TYPE = "@" + semantics.get_repo() + "//tools/cpp:test_runner_toolchain_type"
+
+def _legacy_cc_test_impl(ctx):
+    binary_info, providers = cc_binary_impl(ctx, [])
     test_env = {}
     test_env.update(cc_helper.get_expanded_env(ctx, {}))
 
@@ -52,26 +57,17 @@ def _cc_test_impl(ctx):
     if cc_helper.has_target_constraints(ctx, ctx.attr._apple_constraints):
         # When built for Apple platforms, require the execution to be on a Mac.
         providers.append(testing.ExecutionInfo({"requires-darwin": ""}))
-    return _handle_legacy_return(ctx, cc_info, providers)
-
-def _handle_legacy_return(ctx, cc_info, providers):
-    if ctx.fragments.cpp.enable_legacy_cc_provider():
-        # buildifier: disable=rule-impl-return
-        return struct(
-            cc = cc_internal.create_cc_provider(cc_info = cc_info),
-            providers = providers,
-        )
-    else:
-        return providers
+    return providers
 
 def _impl(ctx):
-    if semantics.should_use_legacy_cc_test(ctx):
+    cc_test_toolchain = ctx.exec_groups["test"].toolchains[_CC_TEST_TOOLCHAIN_TYPE]
+    if cc_test_toolchain:
+        cc_test_info = cc_test_toolchain.cc_test_info
+    else:
         # This is the "legacy" cc_test flow
-        return _cc_test_impl(ctx)
+        return _legacy_cc_test_impl(ctx)
 
-    cc_test_info = ctx.attr._test_toolchain.cc_test_info
-
-    binary_info, cc_info, providers = cc_binary_impl(ctx, cc_test_info.linkopts)
+    binary_info, providers = cc_binary_impl(ctx, cc_test_info.linkopts, cc_test_info.linkstatic)
     processed_environment = cc_helper.get_expanded_env(ctx, {})
 
     test_providers = cc_test_info.get_runner.func(
@@ -81,67 +77,93 @@ def _impl(ctx):
         **cc_test_info.get_runner.args
     )
     providers.extend(test_providers)
-    return _handle_legacy_return(ctx, cc_info, providers)
+    return providers
 
-def make_cc_test(with_linkstatic = False, with_aspects = False):
-    """Makes one of the cc_test rule variants.
+_cc_test_attrs = dict(cc_binary_attrs)
 
-    This function shall only be used internally in CC ruleset.
+# Update cc_test defaults:
+_cc_test_attrs.update(
+    _is_test = attr.bool(default = True),
+    _apple_constraints = attr.label_list(
+        default = [
+            "@" + paths.join(semantics.get_platforms_root(), "os:ios"),
+            "@" + paths.join(semantics.get_platforms_root(), "os:macos"),
+            "@" + paths.join(semantics.get_platforms_root(), "os:tvos"),
+            "@" + paths.join(semantics.get_platforms_root(), "os:watchos"),
+        ],
+    ),
+    # Starlark tests don't get `env_inherit` by default.
+    env_inherit = attr.string_list(),
+    stamp = attr.int(values = [-1, 0, 1], default = 0, doc = stamp_doc),
+    linkstatic = attr.bool(default = False, doc = linkstatic_doc),
+)
+_cc_test_attrs.update(semantics.get_test_malloc_attr())
+_cc_test_attrs.update(semantics.get_coverage_attrs())
+
+def cc_test_initializer(**kwargs):
+    """Entry point for cc_test rules.
+
+    It  serves to detect if the `linkstatic` attribute was explicitly set or not.
+    This is to workaround a deficiency in Starlark attributes.
+    (See: https://github.com/bazelbuild/bazel/issues/14434)
 
     Args:
-      with_linkstatic: sets value _linkstatic_explicitly_set attribute
-      with_aspects: Attaches graph_structure_aspect to `deps` attribute and
-        implicit deps.
-    Returns:
-      A cc_test rule class.
+        **kwargs: Arguments suitable for cc_test.
     """
-    _cc_test_attrs = None
-    if with_aspects:
-        _cc_test_attrs = dict(cc_binary_attrs_with_aspects)
-    else:
-        _cc_test_attrs = dict(cc_binary_attrs_without_aspects)
 
-    # Update cc_test defaults:
-    _cc_test_attrs.update(
-        _is_test = attr.bool(default = True),
-        _apple_constraints = attr.label_list(
-            default = [
-                "@" + paths.join(semantics.get_platforms_root(), "os:ios"),
-                "@" + paths.join(semantics.get_platforms_root(), "os:macos"),
-                "@" + paths.join(semantics.get_platforms_root(), "os:tvos"),
-                "@" + paths.join(semantics.get_platforms_root(), "os:watchos"),
-            ],
-        ),
-        _windows_constraints = attr.label_list(
-            default = [
-                "@" + paths.join(semantics.get_platforms_root(), "os:windows"),
-            ],
-        ),
-        # Starlark tests don't get `env_inherit` by default.
-        env_inherit = attr.string_list(),
-        stamp = attr.int(values = [-1, 0, 1], default = 0),
-        linkstatic = attr.bool(default = False),
-    )
-    _cc_test_attrs.update(semantics.get_test_malloc_attr())
-    _cc_test_attrs.update(semantics.get_test_toolchain_attr())
-    _cc_test_attrs.update(semantics.get_coverage_attrs())
+    if "linkstatic" not in kwargs:
+        kwargs["linkstatic"] = semantics.get_linkstatic_default_for_test()
 
-    _cc_test_attrs.update(
-        _linkstatic_explicitly_set = attr.bool(default = with_linkstatic),
-    )
-    return rule(
-        implementation = _impl,
-        attrs = _cc_test_attrs,
-        outputs = {
-            # TODO(b/198254254): Handle case for windows.
-            "stripped_binary": "%{name}.stripped",
-            "dwp_file": "%{name}.dwp",
-        },
-        fragments = ["google_cpp", "cpp"],
-        exec_groups = {
-            "cpp_link": exec_group(copy_from_rule = True),
-        },
-        toolchains = cc_helper.use_cpp_toolchain(),
-        incompatible_use_toolchain_transition = True,
-        test = True,
-    )
+    return dynamic_deps_initializer(**kwargs)
+
+cc_test = rule(
+    initializer = cc_test_initializer,
+    implementation = _impl,
+    doc = """
+<p>
+A <code>cc_test()</code> rule compiles a test.  Here, a test
+is a binary wrapper around some testing code.
+</p>
+
+<p><i>By default, C++ tests are dynamically linked.</i><br/>
+    To statically link a unit test, specify
+    <a href="${link cc_binary.linkstatic}"><code>linkstatic=True</code></a>.
+    It would probably be good to comment why your test needs
+    <code>linkstatic</code>; this is probably not obvious.</p>
+
+<h4>Implicit output targets</h4>
+<ul>
+<li><code><var>name</var>.stripped</code> (only built if explicitly requested): A stripped
+  version of the binary. <code>strip -g</code> is run on the binary to remove debug
+  symbols.  Additional strip options can be provided on the command line using
+  <code>--stripopt=-foo</code>.</li>
+<li><code><var>name</var>.dwp</code> (only built if explicitly requested): If
+  <a href="https://gcc.gnu.org/wiki/DebugFission">Fission</a> is enabled: a debug
+  information package file suitable for debugging remotely deployed binaries. Else: an
+  empty file.</li>
+</ul>
+
+<p>
+See the <a href="${link cc_binary_args}">cc_binary()</a> arguments, except that
+the <code>stamp</code> argument is set to 0 by default for tests and
+that <code>cc_test</code> has extra <a href="${link common-definitions#common-attributes-tests}">
+attributes common to all test rules (*_test)</a>.</p>
+""" + semantics.cc_test_extra_docs,
+    attrs = _cc_test_attrs,
+    outputs = {
+        # TODO(b/198254254): Handle case for windows.
+        "stripped_binary": "%{name}.stripped",
+        "dwp_file": "%{name}.dwp",
+    },
+    fragments = ["cpp", "coverage"] + semantics.additional_fragments(),
+    exec_groups = {
+        "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
+        # testing.ExecutionInfo defaults to an exec_group of "test".
+        "test": exec_group(toolchains = [config_common.toolchain_type(_CC_TEST_TOOLCHAIN_TYPE, mandatory = False)]),
+    },
+    toolchains = [] +
+                 cc_helper.use_cpp_toolchain() +
+                 semantics.get_runtimes_toolchain(),
+    test = True,
+    provides = [CcInfo],
+)

@@ -43,11 +43,13 @@ public class SourceFileReader {
   private ListMultimap<String, RuleDocumentationAttribute> attributeDocEntries;
   private final ConfiguredRuleClassProvider ruleClassProvider;
   private final String javaSourceFilePath;
+  private final String sourceUrl;
 
   public SourceFileReader(
-      ConfiguredRuleClassProvider ruleClassProvider, String javaSourceFilePath) {
+      ConfiguredRuleClassProvider ruleClassProvider, String javaSourceFilePath, String sourceUrl) {
     this.ruleClassProvider = ruleClassProvider;
     this.javaSourceFilePath = javaSourceFilePath;
+    this.sourceUrl = sourceUrl;
   }
 
   /**
@@ -205,8 +207,9 @@ public class SourceFileReader {
                     ruleType,
                     ruleFamily,
                     sb.toString(),
-                    getLineCnt(),
                     javaSourceFilePath,
+                    getLineCnt(),
+                    sourceUrl,
                     flags,
                     familySummary));
             sb = new StringBuilder();
@@ -250,8 +253,8 @@ public class SourceFileReader {
                     ruleClassProvider.getRuleClassDefinition(ruleName).getClass(),
                     attributeName,
                     sb.toString(),
-                    startLineCnt,
                     javaSourceFilePath,
+                    startLineCnt,
                     flags));
             sb = new StringBuilder();
             inBlazeAttributeDocs = false;

@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
@@ -30,11 +31,13 @@ java_library(
     name = "documentation-tests",
     testonly = 1,
     srcs = [
+        "BuildDocCollectorTest.java",
         "DocCheckerUtilsTest.java",
         "DocLinkMapTest.java",
         "RuleDocumentationAttributeTest.java",
         "RuleDocumentationTest.java",
         "RuleLinkExpanderTest.java",
+        "SourceUrlMapperTest.java",
         "StarlarkDocExpanderTest.java",
         "StarlarkDocumentationTest.java",
     ],
@@ -48,7 +51,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/protobuf:stardoc_output_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
     ],

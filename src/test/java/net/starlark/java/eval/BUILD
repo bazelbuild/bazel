@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_binary", "java_test")
+load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
 
 package(default_testonly = 1)
 
@@ -24,19 +24,27 @@ java_test(
         "MutabilityTest.java",
         "PrinterTest.java",
         "StarlarkAnnotationsTest.java",
+        "StarlarkClassTest.java",
         "StarlarkEvaluationTest.java",
         "StarlarkFlagGuardingTest.java",
         "StarlarkListTest.java",
         "StarlarkMutableTest.java",
         "StarlarkThreadDebuggingTest.java",
         "StarlarkThreadTest.java",
+        "TypeCheckTest.java",
     ],
-    jvm_flags = ["-Dfile.encoding=UTF8"],
+    jvm_flags = [
+        "-Dfile.encoding=UTF8",
+        # StarlarkListTest.concat_failsCleanlyOnOverflow() needs at least 4GB of max heap
+        "-Xmx4096m",
+    ],
     deps = [
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//src/main/java/net/starlark/java/types",
         "//third_party:guava",
+        "//third_party:guava-testlib",
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
@@ -44,12 +52,10 @@ java_test(
 )
 
 # Script-based tests of the Starlark interpreter.
-java_test(
-    name = "ScriptTest",
+java_library(
+    name = "ScriptTest_lib",
     srcs = ["ScriptTest.java"],
     data = glob(["testdata/*.star"]),
-    jvm_flags = ["-Dfile.encoding=UTF8"],
-    use_testrunner = False,
     deps = [
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
@@ -58,6 +64,21 @@ java_test(
         "//third_party:error_prone_annotations",
         "//third_party:guava",
     ],
+)
+
+java_test(
+    name = "ScriptTest",
+    main_class = "net.starlark.java.eval.ScriptTest",
+    use_testrunner = False,
+    runtime_deps = [":ScriptTest_lib"],
+)
+
+java_test(
+    name = "ScriptTest_Latin1",
+    jvm_flags = ["-Dnet.starlark.java.eval.ScriptTest.utf8ByteStrings=true"],
+    main_class = "net.starlark.java.eval.ScriptTest",
+    use_testrunner = False,
+    runtime_deps = [":ScriptTest_lib"],
 )
 
 # Script-based benchmarks of the Starlark interpreter.

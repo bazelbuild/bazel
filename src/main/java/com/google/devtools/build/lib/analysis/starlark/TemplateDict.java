@@ -15,22 +15,26 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.TemplateDictApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 
 /** Implementation of the {@code TemplateDict} Starlark type */
 public class TemplateDict implements TemplateDictApi {
@@ -58,11 +62,13 @@ public class TemplateDict implements TemplateDictApi {
       Depset valuesSet,
       String joinWith,
       StarlarkCallable mapEach,
+      Boolean uniquify,
+      Object formatJoined,
+      Boolean allowClosure,
       StarlarkThread thread)
       throws EvalException {
-    if (mapEach instanceof StarlarkFunction) {
-      StarlarkFunction sfn = (StarlarkFunction) mapEach;
-      if (sfn.getModule().getGlobal(sfn.getName()) != sfn) {
+    if (mapEach instanceof StarlarkFunction sfn) {
+      if (!allowClosure && sfn.getModule().getGlobal(sfn.getName()) != sfn) {
         throw Starlark.errorf(
             "to avoid unintended retention of analysis data structures, "
                 + "the map_each function (declared at %s) must be declared "
@@ -71,7 +77,14 @@ public class TemplateDict implements TemplateDictApi {
       }
     }
     substitutions.add(
-        new LazySubstitution(key, thread.getSemantics(), valuesSet, mapEach, joinWith));
+        new LazySubstitution(
+            key,
+            thread.getSemantics(),
+            valuesSet,
+            mapEach,
+            uniquify,
+            joinWith,
+            formatJoined != Starlark.NONE ? (String) formatJoined : null));
     return this;
   }
 
@@ -84,50 +97,86 @@ public class TemplateDict implements TemplateDictApi {
     private final StarlarkSemantics semantics;
     private final Depset valuesSet;
     private final StarlarkCallable mapEach;
+    private final boolean uniquify;
     private final String joinWith;
+    @Nullable private final String formatJoined;
 
     public LazySubstitution(
         String key,
         StarlarkSemantics semantics,
         Depset valuesSet,
         StarlarkCallable mapEach,
-        String joinWith) {
+        boolean uniquify,
+        String joinWith,
+        @Nullable String formatJoined) {
       super(key);
       this.semantics = semantics;
       this.valuesSet = valuesSet;
       this.mapEach = mapEach;
+      this.uniquify = uniquify;
       this.joinWith = joinWith;
+      this.formatJoined = formatJoined;
     }
 
     @Override
     public String getValue() throws EvalException {
       try (Mutability mutability = Mutability.create("expand_template")) {
-        StarlarkThread execThread = new StarlarkThread(mutability, semantics);
+        StarlarkThread execThread =
+            StarlarkThread.create(
+                mutability,
+                semantics,
+                "map_each callback",
+                // The map_each callback should not create any persistent state beyond the returned
+                // String value.
+                SymbolGenerator.createTransient());
         ImmutableList<?> values = valuesSet.toList();
         List<String> parts = new ArrayList<>(values.size());
         for (Object val : values) {
           try {
-            Object ret =
-                Starlark.call(
-                    execThread,
-                    mapEach,
-                    /*args=*/ ImmutableList.of(val),
-                    /*kwargs=*/ ImmutableMap.of());
-            if (ret instanceof String) {
-              parts.add((String) ret);
-              continue;
+            Object ret = Starlark.positionalOnlyCall(execThread, mapEach, val);
+            if (ret instanceof String string) {
+              parts.add(string);
+            } else if (ret instanceof Sequence<?> sequence) {
+              for (Object v : sequence) {
+                if (!(v instanceof String)) {
+                  throw Starlark.errorf(
+                      "Function provided to map_each must return string, None, or list of strings,"
+                          + " but returned list containing element '%s' of type %s for key '%s' and"
+                          + " value: %s",
+                      v, Starlark.type(v), getKey(), val);
+                }
+                parts.add((String) v);
+              }
+            } else if (ret != Starlark.NONE) {
+              throw Starlark.errorf(
+                  "Function provided to map_each must return string, None, or list of strings, but "
+                      + "returned type %s for key '%s' and value: %s",
+                  Starlark.type(ret), getKey(), val);
             }
-            throw Starlark.errorf(
-                "Function provided to map_each must return a String, but returned type %s for key:"
-                    + " %s",
-                Starlark.type(ret), getKey());
           } catch (InterruptedException e) {
             // Report the error to the user, but the stack trace is not of use to them
             throw Starlark.errorf(
                 "Could not evaluate substitution for %s: %s", val, e.getMessage());
           }
         }
-        return Joiner.on(joinWith).join(parts);
+        if (uniquify) {
+          // Stably deduplicate parts in-place.
+          int count = parts.size();
+          HashSet<String> seen = Sets.newHashSetWithExpectedSize(count);
+          int addIndex = 0;
+          for (int i = 0; i < count; ++i) {
+            String val = parts.get(i);
+            if (seen.add(val)) {
+              parts.set(addIndex++, val);
+            }
+          }
+          parts = parts.subList(0, addIndex);
+        }
+        String joined = Joiner.on(joinWith).join(parts);
+        if (formatJoined != null) {
+          return Starlark.format(semantics, formatJoined, joined);
+        }
+        return joined;
       }
     }
   }

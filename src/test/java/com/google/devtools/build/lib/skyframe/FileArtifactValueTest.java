@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.io.BaseEncoding;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
+import java.time.Instant;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -54,6 +56,13 @@ public final class FileArtifactValueTest {
     return path;
   }
 
+  private Path scratchSymlink(String name, String targetPath) throws IOException {
+    Path path = fs.getPath(name);
+    path.getParentDirectory().createDirectoryAndParents();
+    path.createSymbolicLink(PathFragment.create(targetPath));
+    return path;
+  }
+
   private static byte[] toBytes(String hex) {
     return BaseEncoding.base16().upperCase().decode(hex);
   }
@@ -65,22 +74,39 @@ public final class FileArtifactValueTest {
     new EqualsTester()
         .addEqualityGroup(
             FileArtifactValue.createForNormalFile(
-                toBytes("00112233445566778899AABBCCDDEEFF"), /*proxy=*/ null, 1L),
+                toBytes("00112233445566778899AABBCCDDEEFF"), /* proxy= */ null, 1L),
             FileArtifactValue.createForNormalFile(
-                toBytes("00112233445566778899AABBCCDDEEFF"), /*proxy=*/ null, 1L))
+                toBytes("00112233445566778899AABBCCDDEEFF"), /* proxy= */ null, 1L))
         .addEqualityGroup(
             FileArtifactValue.createForNormalFile(
-                toBytes("00112233445566778899AABBCCDDEEFF"), /*proxy=*/ null, 2L))
+                toBytes("00112233445566778899AABBCCDDEEFF"), /* proxy= */ null, 2L))
         .addEqualityGroup(FileArtifactValue.createForDirectoryWithMtime(1))
         .addEqualityGroup(
             FileArtifactValue.createForNormalFile(
-                toBytes("FFFFFF00000000000000000000000000"), /*proxy=*/ null, 1L))
+                toBytes("FFFFFF00000000000000000000000000"), /* proxy= */ null, 1L))
         .addEqualityGroup(
             FileArtifactValue.createForDirectoryWithMtime(2),
             FileArtifactValue.createForDirectoryWithMtime(2))
-        .addEqualityGroup(FileArtifactValue.OMITTED_FILE_MARKER)
+        .addEqualityGroup(
+            // expireAtEpochMilli doesn't contribute to the equality
+            FileArtifactValue.createForRemoteFileWithMaterializationData(
+                toBytes("00112233445566778899AABBCCDDEEFF"),
+                /* size= */ 1,
+                /* locationIndex= */ 1,
+                /* expirationTime= */ Instant.ofEpochMilli(1)),
+            FileArtifactValue.createForRemoteFileWithMaterializationData(
+                toBytes("00112233445566778899AABBCCDDEEFF"),
+                /* size= */ 1,
+                /* locationIndex= */ 1,
+                /* expirationTime= */ Instant.ofEpochMilli(2)))
+        .addEqualityGroup(
+            // A ResolvedSymlinkArtifactValue is not equal to the FileArtifactValue it wraps.
+            FileArtifactValue.createFromExistingWithResolvedPath(
+                FileArtifactValue.createForNormalFile(
+                    toBytes("00112233445566778899AABBCCDDEEFF"), /* proxy= */ null, 1L),
+                PathFragment.create("/some/path")))
         .addEqualityGroup(FileArtifactValue.MISSING_FILE_MARKER)
-        .addEqualityGroup(FileArtifactValue.DEFAULT_MIDDLEMAN)
+        .addEqualityGroup(FileArtifactValue.RUNFILES_TREE_MARKER)
         .addEqualityGroup("a string")
         .testEquals();
   }
@@ -112,6 +138,10 @@ public final class FileArtifactValueTest {
         // We check for mtime equality for directories.
         .addEqualityGroup(createForTesting(dir1))
         .addEqualityGroup(createForTesting(dir2), createForTesting(dir3))
+        // A ResolvedSymlinkArtifactValue is not equal to the FileArtifactValue it wraps.
+        .addEqualityGroup(
+            FileArtifactValue.createFromExistingWithResolvedPath(
+                createForTesting(path1), PathFragment.create("/some/path")))
         .testEquals();
   }
 
@@ -139,10 +169,45 @@ public final class FileArtifactValueTest {
 
   @Test
   public void testDirectory() throws Exception {
-    Path path = scratchDir("/dir", /*mtime=*/ 1L);
+    Path path = scratchDir("/dir", /* mtime= */ 1L);
     FileArtifactValue value = createForTesting(path);
     assertThat(value.getDigest()).isNull();
     assertThat(value.getModifiedTime()).isEqualTo(1L);
+  }
+
+  @Test
+  public void testUnresolvedSymlink() throws Exception {
+    Path path = scratchSymlink("/sym", "/some/path");
+    FileArtifactValue value = FileArtifactValue.createForUnresolvedSymlink(path);
+    FileArtifactValue value2 = FileArtifactValue.createForUnresolvedSymlink(path);
+    assertThat(value.getType()).isEqualTo(FileStateType.SYMLINK);
+    assertThat(value.getUnresolvedSymlinkTarget()).isEqualTo("/some/path");
+    new EqualsTester().addEqualityGroup(value, value2).testEquals();
+  }
+
+  @Test
+  public void testResolvedSymlinkToFile() throws Exception {
+    Path path = scratchFile("/file", /* mtime= */ 1L, "content");
+    FileArtifactValue delegate = FileArtifactValue.createForTesting(path);
+    FileArtifactValue value =
+        FileArtifactValue.createFromExistingWithResolvedPath(
+            delegate, PathFragment.create("/file"));
+    assertThat(value.getType()).isEqualTo(FileStateType.REGULAR_FILE);
+    assertThat(value.getResolvedPath()).isEqualTo(PathFragment.create("/file"));
+    assertThat(value.getDigest()).isEqualTo(delegate.getDigest());
+    assertThat(value.getSize()).isEqualTo(delegate.getSize());
+  }
+
+  @Test
+  public void testResolvedSymlinkToDirectory() throws Exception {
+    Path path = scratchDir("/dir", /* mtime= */ 1L);
+    FileArtifactValue delegate = FileArtifactValue.createForTesting(path);
+    FileArtifactValue value =
+        FileArtifactValue.createFromExistingWithResolvedPath(
+            delegate, PathFragment.create("/file"));
+    assertThat(value.getType()).isEqualTo(FileStateType.DIRECTORY);
+    assertThat(value.getResolvedPath()).isEqualTo(PathFragment.create("/file"));
+    assertThat(value.getModifiedTime()).isEqualTo(delegate.getModifiedTime());
   }
 
   // Empty files are the same as normal files -- mtime is not stored.
@@ -232,11 +297,28 @@ public final class FileArtifactValueTest {
   }
 
   @Test
+  public void testUptodateUnresolvedSymlink() throws Exception {
+    Path path = fs.getPath("/dir/symlink");
+    path.getParentDirectory().createDirectoryAndParents();
+    path.createSymbolicLink(PathFragment.create("target_path"));
+    FileArtifactValue value = FileArtifactValue.createForUnresolvedSymlink(path);
+
+    clock.advanceMillis(1);
+    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+
+    path.delete();
+    path.createSymbolicLink(PathFragment.create("modified_target_path"));
+
+    clock.advanceMillis(1);
+    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+  }
+
+  @Test
   public void addToFingerprint_equalByDigest() throws Exception {
     FileArtifactValue value1 =
-        FileArtifactValue.createForTesting(scratchFile("/dir/file1", /*mtime=*/ 1, "content"));
+        FileArtifactValue.createForTesting(scratchFile("/dir/file1", /* mtime= */ 1, "content"));
     FileArtifactValue value2 =
-        FileArtifactValue.createForTesting(scratchFile("/dir/file2", /*mtime=*/ 2, "content"));
+        FileArtifactValue.createForTesting(scratchFile("/dir/file2", /* mtime= */ 2, "content"));
     Fingerprint fingerprint1 = new Fingerprint();
     Fingerprint fingerprint2 = new Fingerprint();
 
@@ -251,9 +333,9 @@ public final class FileArtifactValueTest {
   @Test
   public void addToFingerprint_notEqualByDigest() throws Exception {
     FileArtifactValue value1 =
-        FileArtifactValue.createForTesting(scratchFile("/dir/file1", /*mtime=*/ 1, "content1"));
+        FileArtifactValue.createForTesting(scratchFile("/dir/file1", /* mtime= */ 1, "content1"));
     FileArtifactValue value2 =
-        FileArtifactValue.createForTesting(scratchFile("/dir/file2", /*mtime=*/ 1, "content2"));
+        FileArtifactValue.createForTesting(scratchFile("/dir/file2", /* mtime= */ 1, "content2"));
     Fingerprint fingerprint1 = new Fingerprint();
     Fingerprint fingerprint2 = new Fingerprint();
 
@@ -268,9 +350,9 @@ public final class FileArtifactValueTest {
   @Test
   public void addToFingerprint_equalByMtime() throws Exception {
     FileArtifactValue value1 =
-        FileArtifactValue.createForTesting(scratchDir("/dir1", /*mtime=*/ 1));
+        FileArtifactValue.createForTesting(scratchDir("/dir1", /* mtime= */ 1));
     FileArtifactValue value2 =
-        FileArtifactValue.createForTesting(scratchDir("/dir2", /*mtime=*/ 1));
+        FileArtifactValue.createForTesting(scratchDir("/dir2", /* mtime= */ 1));
     Fingerprint fingerprint1 = new Fingerprint();
     Fingerprint fingerprint2 = new Fingerprint();
 
@@ -285,9 +367,9 @@ public final class FileArtifactValueTest {
   @Test
   public void addToFingerprint_notEqualByMtime() throws Exception {
     FileArtifactValue value1 =
-        FileArtifactValue.createForTesting(scratchDir("/dir1", /*mtime=*/ 1));
+        FileArtifactValue.createForTesting(scratchDir("/dir1", /* mtime= */ 1));
     FileArtifactValue value2 =
-        FileArtifactValue.createForTesting(scratchDir("/dir2", /*mtime=*/ 2));
+        FileArtifactValue.createForTesting(scratchDir("/dir2", /* mtime= */ 2));
     Fingerprint fingerprint1 = new Fingerprint();
     Fingerprint fingerprint2 = new Fingerprint();
 
@@ -301,9 +383,10 @@ public final class FileArtifactValueTest {
 
   @Test
   public void addToFingerprint_fileWithDigestNotEqualToFileWithOnlyMtime() throws Exception {
-    FileArtifactValue value1 = FileArtifactValue.createForTesting(scratchDir("/dir", /*mtime=*/ 1));
+    FileArtifactValue value1 =
+        FileArtifactValue.createForTesting(scratchDir("/dir", /* mtime= */ 1));
     FileArtifactValue value2 =
-        FileArtifactValue.createForTesting(scratchFile("/dir/file", /*mtime=*/ 1, "contents"));
+        FileArtifactValue.createForTesting(scratchFile("/dir/file", /* mtime= */ 1, "contents"));
     Fingerprint fingerprint1 = new Fingerprint();
     Fingerprint fingerprint2 = new Fingerprint();
 

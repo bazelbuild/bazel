@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.server;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandDispatcher;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
+import com.google.devtools.build.lib.runtime.CommandDispatcher.UiVerbosity;
 import com.google.devtools.build.lib.runtime.SafeRequestLogging;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.CommandManager.RunningCommand;
@@ -46,12 +49,15 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.InvocationPolicyParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import io.grpc.Context;
 import io.grpc.Server;
@@ -102,7 +108,7 @@ import javax.annotation.Nullable;
  * to cancel it. Cancellation is done by the client sending the server a {@code cancel()} RPC call
  * which results in the main thread of the command being interrupted.
  */
-public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase implements RPCServer {
+public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   public static GrpcServerImpl create(
@@ -133,7 +139,6 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         idleServerTasks,
         slowInterruptMessageSuffix);
   }
-
 
   @VisibleForTesting
   enum StreamType {
@@ -195,6 +200,35 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
 
     public void onCompleted() {
       observer.onCompleted();
+    }
+  }
+
+  /** Command extension reporter that packs the protobuf into a RunResponse and sends it. */
+  private static class RpcCommandExtensionReporter implements CommandExtensionReporter {
+
+    // Store commandId and responseCookie as ByteStrings to avoid String -> UTF8 bytes conversion
+    // for each serialized chunk of output.
+    private final ByteString commandIdBytes;
+    private final ByteString responseCookieBytes;
+
+    private final BlockingStreamObserver<RunResponse> observer;
+
+    RpcCommandExtensionReporter(
+        String commandId, String responseCookie, BlockingStreamObserver<RunResponse> observer) {
+      this.commandIdBytes = ByteString.copyFromUtf8(commandId);
+      this.responseCookieBytes = ByteString.copyFromUtf8(responseCookie);
+      this.observer = observer;
+    }
+
+    @Override
+    public synchronized void report(Any commandExtension) {
+      observer.onNext(
+          RunResponse.newBuilder()
+              .setCookieBytes(responseCookieBytes)
+              .setCommandIdBytes(commandIdBytes)
+              .setStandardOutput(ByteString.EMPTY)
+              .addCommandExtensions(commandExtension)
+              .build());
     }
   }
 
@@ -365,18 +399,40 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
    * It also disables the "die when the PID file changes" handler so that it doesn't kill the server
    * while the "clean --expunge" command is running.
    */
-  @Override
   public void prepareForAbruptShutdown() {
     shutdownHooks.disable();
     pidFileWatcher.signalShutdown();
   }
 
-  @Override
+  /** Interrupts (cancels) in-flight commands. */
   public void interrupt() {
     commandManager.interruptInflightCommands();
   }
 
-  @Override
+  private Server bindIpv6WithRetries(InetSocketAddress address, int maxRetries) throws IOException {
+    Server server = null;
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        server =
+            NettyServerBuilder.forAddress(address)
+                .addService(this)
+                .directExecutor()
+                .build()
+                .start();
+        break;
+      } catch (IOException e) {
+        if (attempt == maxRetries) {
+          throw e;
+        }
+      }
+    }
+    return server;
+  }
+
+  /** Starts serving and block until the shutdown command is received. */
+  // Suppress ErrorProne warnings for hardcoding "[::1]" and "127.0.0.1" instead of
+  // InetAddress.getLoopbackAddress().
+  @SuppressWarnings("AddressSelection")
   public void serve() throws AbruptExitException {
     Preconditions.checkState(!serving);
 
@@ -391,8 +447,10 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       if (Epoll.isAvailable() && !Socket.isIPv6Preferred()) {
         throw new IOException("ipv6 is not preferred on the system.");
       }
-      server =
-          NettyServerBuilder.forAddress(address).addService(this).directExecutor().build().start();
+      // For some strange reasons, Bazel server sometimes fails to bind to IPv6 localhost when
+      // running in macOS sandbox-exec with internet blocked. Retrying seems to help.
+      // See https://github.com/bazelbuild/bazel/issues/20743
+      server = bindIpv6WithRetries(address, OS.getCurrent() == OS.DARWIN ? 3 : 1);
     } catch (IOException ipv6Exception) {
       address = new InetSocketAddress("127.0.0.1", port);
       try {
@@ -507,11 +565,10 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     ImmutableList.Builder<Pair<String, String>> startupOptions = ImmutableList.builder();
     for (StartupOption option : request.getStartupOptionsList()) {
       // UTF-8 won't do because we want to be able to pass arbitrary binary strings.
-      // Not that the internals of Bazel handle that correctly, but why not make at least this
-      // little part correct?
-      startupOptions.add(new Pair<>(
-          option.getSource().toString(StandardCharsets.ISO_8859_1),
-          option.getOption().toString(StandardCharsets.ISO_8859_1)));
+      startupOptions.add(
+          new Pair<>(
+              platformBytesToInternalString(option.getSource()),
+              platformBytesToInternalString(option.getOption())));
     }
 
     commandManager.preemptEligibleCommands();
@@ -537,12 +594,11 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
               new RpcOutputStream(command.getId(), responseCookie, StreamType.STDERR, observer));
 
       try {
-        // UTF-8 won't do because we want to be able to pass arbitrary binary strings.
-        // Not that the internals of Bazel handle that correctly, but why not make at least this
-        // little part correct?
-        ImmutableList<String> args = request.getArgList().stream()
-            .map(arg -> arg.toString(StandardCharsets.ISO_8859_1))
-            .collect(ImmutableList.toImmutableList());
+        // Transform args into Bazel's internal string representation.
+        ImmutableList<String> args =
+            request.getArgList().stream()
+                .map(GrpcServerImpl::platformBytesToInternalString)
+                .collect(ImmutableList.toImmutableList());
 
         InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());
         logger.atInfo().log("%s", SafeRequestLogging.getRequestLogString(args));
@@ -552,10 +608,12 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                 args,
                 rpcOutErr,
                 request.getBlockForLock() ? LockingMode.WAIT : LockingMode.ERROR_OUT,
+                request.getQuiet() ? UiVerbosity.QUIET : UiVerbosity.NORMAL,
                 request.getClientDescription(),
                 clock.currentTimeMillis(),
                 Optional.of(startupOptions.build()),
-                request.getCommandExtensionsList());
+                request.getCommandExtensionsList(),
+                new RpcCommandExtensionReporter(command.getId(), responseCookie, observer));
       } catch (OptionsParsingException e) {
         rpcOutErr.printErrLn(e.getMessage());
         result =
@@ -568,6 +626,10 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                                 .setCode(Command.Code.INVOCATION_POLICY_PARSE_FAILURE))
                         .build()));
       }
+
+      // Record tasks to be run by IdleTaskManager. This is triggered in RunningCommand#close()
+      // (as a Closeable), as we go out of scope immediately after this.
+      command.setIdleTasks(result.getIdleTasks());
     } catch (InterruptedException e) {
       result =
           BlazeCommandResult.detailedExitCode(
@@ -681,5 +743,9 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         .setMessage(message)
         .setGrpcServer(GrpcServer.newBuilder().setCode(detailedCode))
         .build();
+  }
+
+  private static String platformBytesToInternalString(ByteString bytes) {
+    return bytes.toString(ISO_8859_1);
   }
 }

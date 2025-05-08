@@ -37,10 +37,11 @@ import com.google.devtools.build.lib.actions.FileValue.DifferentRealPathFileValu
 import com.google.devtools.build.lib.actions.FileValue.DifferentRealPathFileValueWithoutStoredChain;
 import com.google.devtools.build.lib.actions.FileValue.SymlinkFileValueWithStoredChain;
 import com.google.devtools.build.lib.actions.FileValue.SymlinkFileValueWithoutStoredChain;
-import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
+import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -57,7 +58,6 @@ import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
-import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.ErrorInfoSubject;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -114,7 +115,7 @@ public class FileFunctionTest {
   private static final EvaluationContext EVALUATION_OPTIONS =
       EvaluationContext.newBuilder()
           .setKeepGoing(false)
-          .setNumThreads(DEFAULT_THREAD_COUNT)
+          .setParallelism(DEFAULT_THREAD_COUNT)
           .setEventHandler(NullEventHandler.INSTANCE)
           .build();
 
@@ -162,8 +163,7 @@ public class FileFunctionTest {
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(pkgLocatorRef, externalFileAction, directories);
     differencer = new SequencedRecordingDifferencer();
-    ConfiguredRuleClassProvider ruleClassProvider =
-        TestRuleClassProvider.getRuleClassProviderWithClearedSuffix();
+    ConfiguredRuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
         ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
     MemoizingEvaluator evaluator =
@@ -182,20 +182,8 @@ public class FileFunctionTest {
                 .put(
                     FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
                     new FileSymlinkInfiniteExpansionUniquenessFunction())
-                .put(FileValue.FILE, new FileFunction(pkgLocatorRef, directories))
-                .put(
-                    SkyFunctions.PACKAGE,
-                    new PackageFunction(
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        /*packageProgress=*/ null,
-                        PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
-                            .INSTANCE,
-                        GlobbingStrategy.SKYFRAME_HYBRID,
-                        k -> ThreadStateReceiver.NULL_INSTANCE))
+                .put(SkyFunctions.FILE, new FileFunction(pkgLocatorRef, directories))
+                .put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build())
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
@@ -211,7 +199,7 @@ public class FileFunctionTest {
                             .builder(directories)
                             .build(ruleClassProvider, fs),
                         directories,
-                        /*bzlLoadFunctionForInlining=*/ null))
+                        /* bzlLoadFunctionForInlining= */ null))
                 .put(
                     SkyFunctions.EXTERNAL_PACKAGE,
                     new ExternalPackageFunction(
@@ -228,14 +216,32 @@ public class FileFunctionTest {
                         new AtomicBoolean(true),
                         ImmutableMap::of,
                         directories,
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
+                        new RepoContentsCache()))
+                .put(
+                    SkyFunctions.REPOSITORY_MAPPING,
+                    new SkyFunction() {
+                      @Override
+                      public SkyValue compute(SkyKey skyKey, Environment env) {
+                        return RepositoryMappingValue.VALUE_FOR_ROOT_MODULE_WITHOUT_REPOS;
+                      }
+                    })
+                .put(
+                    BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
+                    new SkyFunction() {
+                      @Override
+                      public SkyValue compute(SkyKey skyKey, Environment env) {
+                        return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
+                      }
+                    })
                 .build(),
             differencer);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator);
-    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
-    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.set(
-        differencer, RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY);
+    RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    RepositoryDelegatorFunction.FORCE_FETCH.set(
+        differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
+    RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
@@ -252,8 +258,16 @@ public class FileFunctionTest {
 
   private static FileValue valueForPathHelper(Root root, Path path, MemoizingEvaluator evaluator)
       throws InterruptedException {
-    PathFragment pathFragment = root.relativize(path);
-    RootedPath rootedPath = RootedPath.toRootedPath(root, pathFragment);
+    return valueForRootedPathHelper(
+        RootedPath.toRootedPath(root, root.relativize(path)), evaluator);
+  }
+
+  private FileValue valueForRootedPath(RootedPath rootedPath) throws InterruptedException {
+    return valueForRootedPathHelper(rootedPath, makeEvaluator());
+  }
+
+  private static FileValue valueForRootedPathHelper(
+      RootedPath rootedPath, MemoizingEvaluator evaluator) throws InterruptedException {
     SkyKey key = FileValue.key(rootedPath);
     EvaluationResult<FileValue> result =
         evaluator.evaluate(ImmutableList.of(key), EVALUATION_OPTIONS);
@@ -443,8 +457,6 @@ public class FileFunctionTest {
         getFilesSeenAndAssertValueChangesIfContentsOfFileChanges(externalPath, true, "a"));
     assertThat(seenFiles)
         .containsExactly(
-            rootedPath("WORKSPACE"),
-            rootedPath("WORKSPACE.bazel"),
             rootedPath("a"),
             rootedPath(""),
             rootedPath("/output_base"),
@@ -846,7 +858,8 @@ public class FileFunctionTest {
     FileValue value = (FileValue) result.get(key);
     assertThat(value).isNotNull();
     assertThat(value.exists()).isTrue();
-    assertThat(value.realRootedPath().getRootRelativePath().getPathString())
+    assertThat(
+            value.realRootedPath((RootedPath) key.argument()).getRootRelativePath().getPathString())
         .isEqualTo("insideroot");
   }
 
@@ -1058,7 +1071,7 @@ public class FileFunctionTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            .setNumThreads(DEFAULT_THREAD_COUNT)
+            .setParallelism(DEFAULT_THREAD_COUNT)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<FileValue> result = evaluator.evaluate(keys, evaluationContext);
@@ -1208,7 +1221,7 @@ public class FileFunctionTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            .setNumThreads(DEFAULT_THREAD_COUNT)
+            .setParallelism(DEFAULT_THREAD_COUNT)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<FileValue> result = evaluator.evaluate(keys, evaluationContext);
@@ -1271,7 +1284,7 @@ public class FileFunctionTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            .setNumThreads(DEFAULT_THREAD_COUNT)
+            .setParallelism(DEFAULT_THREAD_COUNT)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<FileValue> result =
@@ -1302,7 +1315,7 @@ public class FileFunctionTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            .setNumThreads(DEFAULT_THREAD_COUNT)
+            .setParallelism(DEFAULT_THREAD_COUNT)
             .setEventHandler(eventHandler)
             .build();
     EvaluationResult<FileValue> result =
@@ -1330,7 +1343,7 @@ public class FileFunctionTest {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            .setNumThreads(1)
+            .setParallelism(1)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     EvaluationResult<FileValue> result =
@@ -1345,10 +1358,11 @@ public class FileFunctionTest {
     fs.stubbedStatErrors.remove(foo.asFragment());
     differencer.inject(
         fileStateSkyKey("foo"),
-        FileStateValue.create(
-            RootedPath.toRootedPath(pkgRoot, foo),
-            SyscallCache.NO_CACHE,
-            new TimestampGranularityMonitor(BlazeClock.instance())));
+        Delta.justNew(
+            FileStateValue.create(
+                RootedPath.toRootedPath(pkgRoot, foo),
+                SyscallCache.NO_CACHE,
+                new TimestampGranularityMonitor(BlazeClock.instance()))));
     result = evaluator.evaluate(ImmutableList.of(fooKey), evaluationContext);
     assertThatEvaluationResult(result).hasNoError();
     assertThat(result.get(fooKey).exists()).isTrue();
@@ -1397,7 +1411,7 @@ public class FileFunctionTest {
       fail(String.format("Evaluation error for %s: %s", key, result.getError()));
     }
     FileValue fileValue = (FileValue) result.get(key);
-    assertThat(fileValue.realRootedPath().asPath().toString())
+    assertThat(fileValue.realRootedPath((RootedPath) key.argument()).asPath().toString())
         .isEqualTo(pkgRoot.getRelative(expectedRealPathString).toString());
   }
 
@@ -1406,10 +1420,11 @@ public class FileFunctionTest {
     symlink("a", "b");
     symlink("b", "c");
     directory("c");
-    FileValue fileValue = valueForPath(path("a"));
+    RootedPath rootedPath = rootedPath("a");
+    FileValue fileValue = valueForRootedPath(rootedPath);
     assertThat(fileValue).isInstanceOf(SymlinkFileValueWithStoredChain.class);
     assertThat(fileValue.getUnresolvedLinkTarget()).isEqualTo(PathFragment.create("b"));
-    assertThat(fileValue.logicalChainDuringResolution())
+    assertThat(fileValue.logicalChainDuringResolution(rootedPath))
         .containsExactly(rootedPath("a"), rootedPath("b"), rootedPath("c"))
         .inOrder();
   }
@@ -1419,10 +1434,11 @@ public class FileFunctionTest {
     symlink("a", "b");
     symlink("b", "c");
     directory("c/d");
-    FileValue fileValue = valueForPath(path("a/d"));
+    RootedPath rootedPath = rootedPath("a/d");
+    FileValue fileValue = valueForRootedPath(rootedPath);
     assertThat(fileValue).isInstanceOf(DifferentRealPathFileValueWithStoredChain.class);
-    assertThat(fileValue.realRootedPath()).isEqualTo(rootedPath("c/d"));
-    assertThat(fileValue.logicalChainDuringResolution())
+    assertThat(fileValue.realRootedPath(rootedPath)).isEqualTo(rootedPath("c/d"));
+    assertThat(fileValue.logicalChainDuringResolution(rootedPath))
         .containsExactly(rootedPath("a/d"), rootedPath("b/d"), rootedPath("c/d"))
         .inOrder();
   }
@@ -1432,10 +1448,12 @@ public class FileFunctionTest {
     symlink("a", "b");
     symlink("b", "c");
     file("c");
-    FileValue fileValue = valueForPath(path("a"));
+    RootedPath rootedPath = rootedPath("a");
+    FileValue fileValue = valueForRootedPath(rootedPath);
     assertThat(fileValue).isInstanceOf(SymlinkFileValueWithoutStoredChain.class);
     assertThat(fileValue.getUnresolvedLinkTarget()).isEqualTo(PathFragment.create("b"));
-    assertThrows(IllegalStateException.class, fileValue::logicalChainDuringResolution);
+    assertThrows(
+        IllegalStateException.class, () -> fileValue.logicalChainDuringResolution(rootedPath));
   }
 
   @Test
@@ -1443,10 +1461,12 @@ public class FileFunctionTest {
     symlink("a", "b");
     symlink("b", "c");
     file("c/d");
-    FileValue fileValue = valueForPath(path("a/d"));
+    RootedPath rootedPath = rootedPath("a/d");
+    FileValue fileValue = valueForRootedPath(rootedPath);
     assertThat(fileValue).isInstanceOf(DifferentRealPathFileValueWithoutStoredChain.class);
-    assertThat(fileValue.realRootedPath()).isEqualTo(rootedPath("c/d"));
-    assertThrows(IllegalStateException.class, fileValue::logicalChainDuringResolution);
+    assertThat(fileValue.realRootedPath(rootedPath)).isEqualTo(rootedPath("c/d"));
+    assertThrows(
+        IllegalStateException.class, () -> fileValue.logicalChainDuringResolution(rootedPath));
   }
 
   @Test
@@ -1459,10 +1479,11 @@ public class FileFunctionTest {
     directory("g");
     symlink("g/f", "../h");
     directory("h");
-    FileValue fileValue = valueForPath(path("a/d"));
+    RootedPath rootedPath = rootedPath("a/d");
+    FileValue fileValue = valueForRootedPath(rootedPath);
     assertThat(fileValue).isInstanceOf(DifferentRealPathFileValueWithStoredChain.class);
-    assertThat(fileValue.realRootedPath()).isEqualTo(rootedPath("h"));
-    assertThat(fileValue.logicalChainDuringResolution())
+    assertThat(fileValue.realRootedPath(rootedPath)).isEqualTo(rootedPath("h"));
+    assertThat(fileValue.logicalChainDuringResolution(rootedPath))
         .containsExactly(
             rootedPath("a/d"),
             rootedPath("b/d"),

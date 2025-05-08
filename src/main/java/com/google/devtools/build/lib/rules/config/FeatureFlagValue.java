@@ -14,52 +14,40 @@
 
 package com.google.devtools.build.lib.rules.config;
 
-import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableList;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 /** Marker interface for detecting feature flags in the Starlark setting map. */
 public interface FeatureFlagValue {
-  /** Returns the value of this flag, or null if it's set default. */
-  @Nullable
-  String getValue();
-
   /** A feature flag value for a flag known to be set to a particular value. */
-  @AutoValue
-  abstract class SetValue implements FeatureFlagValue {
+  @AutoCodec
+  public record SetValue(String value) implements FeatureFlagValue {
+    public SetValue {
+      requireNonNull(value, "value");
+    }
+
     static SetValue of(String value) {
-      return new AutoValue_FeatureFlagValue_SetValue(value);
+      return new SetValue(value);
     }
 
     @Override
-    public abstract String getValue();
-
-    @Override
     public final String toString() {
-      return String.format("FeatureFlagValue.SetValue{%s}", getValue());
+      return String.format("FeatureFlagValue.SetValue{%s}", value());
     }
   }
 
   /** A feature flag value for a flag known to be set to its default value. */
   enum DefaultValue implements FeatureFlagValue {
     INSTANCE;
-
-    @Nullable
-    @Override
-    public String getValue() {
-      return null;
-    }
 
     @Override
     public String toString() {
@@ -70,11 +58,6 @@ public interface FeatureFlagValue {
   /** A feature flag value for a flag which was requested but which value was already trimmed. */
   enum UnknownValue implements FeatureFlagValue {
     INSTANCE;
-
-    @Override
-    public String getValue() {
-      throw new IllegalStateException();
-    }
 
     @Override
     public String toString() {
@@ -96,8 +79,9 @@ public interface FeatureFlagValue {
     }
     result.addStarlarkOptions(newValueObjects.buildOrThrow());
     BuildOptions builtResult = result.build();
-    if (builtResult.contains(ConfigFeatureFlagOptions.class)) {
-      builtResult.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent = true;
+    var configFeatureFlagOptions = builtResult.get(ConfigFeatureFlagOptions.class);
+    if (configFeatureFlagOptions != null) {
+      configFeatureFlagOptions.allFeatureFlagValuesArePresent = true;
     }
     return builtResult;
   }
@@ -111,11 +95,10 @@ public interface FeatureFlagValue {
     Set<Label> seenFlags = new LinkedHashSet<>();
     Set<Label> flagsToTrim = new LinkedHashSet<>();
     Map<Label, Object> unknownFlagsToAdd = new LinkedHashMap<>();
-    boolean changeAllValuesPresentOption = false;
-    if (original.contains(ConfigFeatureFlagOptions.class)) {
-      changeAllValuesPresentOption =
-          original.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent;
-    }
+    var originalConfigFeatureFlagOptions = original.get(ConfigFeatureFlagOptions.class);
+    boolean changeAllValuesPresentOption =
+        originalConfigFeatureFlagOptions != null
+            && originalConfigFeatureFlagOptions.allFeatureFlagValuesArePresent;
 
     // What do we need to change?
     original.getStarlarkOptions().entrySet().stream()
@@ -135,59 +118,15 @@ public interface FeatureFlagValue {
 
     // Else construct a new one. This should not be the common case.
     BuildOptions.Builder result = original.toBuilder();
-    flagsToTrim.forEach(trimmedFlag -> result.removeStarlarkOption(trimmedFlag));
+    for (Label trimmedFlag : flagsToTrim) {
+      result.removeStarlarkOption(trimmedFlag);
+    }
     unknownFlagsToAdd.forEach((flag, value) -> result.addStarlarkOption(flag, value));
     BuildOptions builtResult = result.build();
-    if (builtResult.contains(ConfigFeatureFlagOptions.class)) {
-      builtResult.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent = false;
+    var builtConfigFeatureFlagOptions = builtResult.get(ConfigFeatureFlagOptions.class);
+    if (builtConfigFeatureFlagOptions != null) {
+      builtConfigFeatureFlagOptions.allFeatureFlagValuesArePresent = false;
     }
     return builtResult;
-  }
-
-  /**
-   * Returns the map of known non-default flag values. Throws UnknownValueException when a flag is
-   * set to UNKNOWN_VALUE (due to an earlier trimming gone wrong).
-   */
-  static ImmutableSortedMap<Label, String> getFlagValues(BuildOptions options)
-      throws UnknownValueException {
-    ImmutableSortedMap.Builder<Label, String> knownValues = ImmutableSortedMap.naturalOrder();
-    ImmutableList.Builder<Label> unknownFlagsBuilder = new ImmutableList.Builder<>();
-    for (Map.Entry<Label, Object> entry : options.getStarlarkOptions().entrySet()) {
-      if (entry.getValue().equals(UnknownValue.INSTANCE)) {
-        unknownFlagsBuilder.add(entry.getKey());
-      } else if (entry.getValue() instanceof FeatureFlagValue) {
-        String value = ((FeatureFlagValue) entry.getValue()).getValue();
-        if (value != null) {
-          knownValues.put(entry.getKey(), value);
-        }
-      }
-    }
-    ImmutableList<Label> unknownFlags = unknownFlagsBuilder.build();
-    if (!unknownFlags.isEmpty()) {
-      throw new UnknownValueException(unknownFlags);
-    }
-    return knownValues.buildOrThrow();
-  }
-
-  /** Exception class for when getFlagValues runs into UNKNOWN_VALUE. */
-  static final class UnknownValueException extends InvalidConfigurationException {
-    private static final String ERROR_TEMPLATE =
-        "Feature flag %1$s was accessed in a configuration it is not present in. All "
-            + "targets which depend on %1$s directly or indirectly must name it in their "
-            + "transitive_configs attribute.";
-    private final ImmutableList<Label> unknownFlags;
-
-    UnknownValueException(ImmutableList<Label> unknownFlags) {
-      super(
-          "Some feature flags were incorrectly specified:\n"
-              + unknownFlags.stream()
-                  .map((missingLabel) -> String.format(ERROR_TEMPLATE, missingLabel))
-                  .collect(Collectors.joining("\n")));
-      this.unknownFlags = unknownFlags;
-    }
-
-    ImmutableList<Label> getUnknownFlags() {
-      return unknownFlags;
-    }
   }
 }

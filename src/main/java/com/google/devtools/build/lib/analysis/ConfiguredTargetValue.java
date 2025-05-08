@@ -14,11 +14,22 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import javax.annotation.Nullable;
+
 /** A {@link com.google.devtools.build.skyframe.SkyValue} for a {@link ConfiguredTarget}. */
 public interface ConfiguredTargetValue extends ConfiguredObjectValue {
 
   /** Returns the configured target for this value. */
+  @Nullable // May be null after clearing.
   ConfiguredTarget getConfiguredTarget();
+
+  /**
+   * Clears data from this value.
+   *
+   * <p>Should only be used when user specifies --discard_analysis_cache. Must be called at most
+   * once per value, after which this object's other methods cannot be called.
+   */
+  void clear(boolean clearEverything);
 
   @Override
   default ConfiguredTarget getConfiguredObject() {

@@ -31,6 +31,8 @@ public class LocalRepositoryRule implements RuleDefinition {
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+    // DO NOT MODIFY THIS! It's being deprecated in favor of Starlark counterparts.
+    // See https://github.com/bazelbuild/bazel/issues/18285
     return builder
         /* <!-- #BLAZE_RULE(local_repository).ATTRIBUTE(path) -->
         The path to the local repository's directory.

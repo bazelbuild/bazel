@@ -1,6 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -14,6 +17,8 @@ java_library(
     srcs = [
         "BazelCompileContext.java",
         "BazelModuleContext.java",
+        "BazelModuleKey.java",
+        "IgnoredSubdirectories.java",
         "Label.java",
         "LabelConstants.java",
         "LabelParser.java",
@@ -23,6 +28,7 @@ java_library(
         "RepositoryName.java",
         "ResolvedTargets.java",
         "SignedTargetPattern.java",
+        "StarlarkThreadContext.java",
         "TargetParsingException.java",
         "TargetPattern.java",
         "TargetPatternResolver.java",
@@ -38,17 +44,21 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/io:process_package_directory_exception",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/supplier",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
         "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/spelling",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
         "//third_party:caffeine",

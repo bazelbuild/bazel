@@ -36,7 +36,6 @@ public final class ConfigFeatureFlagOptions extends FragmentOptions {
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
         OptionEffectTag.LOADING_AND_ANALYSIS
       },
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       defaultValue = "false")
   public boolean enforceTransitiveConfigsForConfigFeatureFlag = false;
 
@@ -59,12 +58,4 @@ public final class ConfigFeatureFlagOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.INTERNAL},
       defaultValue = "true")
   public boolean allFeatureFlagValuesArePresent = true;
-
-  @Override
-  public ConfigFeatureFlagOptions getHost() {
-    ConfigFeatureFlagOptions host = (ConfigFeatureFlagOptions) super.getHost();
-    host.enforceTransitiveConfigsForConfigFeatureFlag = false;
-    host.allFeatureFlagValuesArePresent = this.allFeatureFlagValuesArePresent;
-    return host;
-  }
 }

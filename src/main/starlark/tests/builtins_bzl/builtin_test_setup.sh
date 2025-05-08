@@ -19,7 +19,11 @@
 # implementation can rely on release Bazel, we can add the tests directly.
 
 function setup_tests() {
-  setup_skylib_support
+  add_rules_testing "MODULE.bazel"
+  add_bazel_skylib "MODULE.bazel"
+  add_rules_python "MODULE.bazel"
+  add_platforms "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
   src=$(get_runfiles_dir $1)
   dest="${2:-$1}"
   if [ ! -e "$src" ]; then
@@ -38,10 +42,10 @@ function setup_tests() {
 }
 
 function get_runfiles_dir() {
-  src="$TEST_SRCDIR/io_bazel/$1"
+  src="$TEST_SRCDIR/_main/$1"
   if [ -e "$src" ]; then
       echo $src
   elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-      echo $(grep -m1 "io_bazel/$1" "${RUNFILES_MANIFEST_FILE}" | cut -d' ' -f2 | sed "s|$1.*|$1|")
+      echo $(grep -m1 "_main/$1" "${RUNFILES_MANIFEST_FILE}" | cut -d' ' -f2 | sed "s|$1.*|$1|")
   fi
 }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -104,8 +106,25 @@ public final class QueryParserTest {
   public void testOptionalArguments() throws Exception {
     checkPrettyPrint("opt('foo', 'bar')");
     checkPrettyPrint("opt('foo', 'bar', 'qux')");
-    checkParseFails("opt('foo', 'bar', 'qux', 'zyc')", "syntax error at ', zyc )'");
-    checkParseFails("opt('foo')", "syntax error at ')'");
+    checkParseFails(
+        "opt('foo', 'bar', 'qux', 'zyc')", "too many arguments to function 'opt' at ', zyc )'");
+    checkParseFails("opt('foo')", "too few arguments to function 'opt' at ')'");
+    checkParseFails("opt()", "too few arguments to function 'opt' at ')'");
+  }
+
+  @Test
+  public void testUnknownFunction() throws Exception {
+    String knownFunctions =
+        Stream.concat(
+                QueryEnvironment.DEFAULT_QUERY_FUNCTIONS.stream()
+                    .map(f -> String.format("'%s'", f.getName())),
+                Stream.of("'opt'"))
+            .sorted()
+            .collect(joining(", "));
+    checkParseFails(
+        "badfunc('foo', 'bar', 'qux', 'zyc')",
+        String.format(
+            "unknown function 'badfunc' at 'badfunc ( foo'; expected one of [%s]", knownFunctions));
   }
 
   @Test
@@ -120,12 +139,22 @@ public final class QueryParserTest {
 
   @Test
   public void checkParseErrors() {
-    checkParseFails("foo(a)", "syntax error at '( a )'");
-    checkParseFails("deps(", "premature end of input");
-    checkParseFails("deps(a, ", "premature end of input");
-    checkParseFails("deps(a, b, c, d)", "expected an integer literal: 'b'");
-    checkParseFails("set(a, ", "syntax error at ','");
+    checkParseFails("rdeps(", "premature end of input");
+    checkParseFails("rdeps(,", "syntax error at ','");
+    checkParseFails("rdeps(a", "premature end of input");
+    checkParseFails("rdeps(a, ", "premature end of input");
+    checkParseFails("rdeps(a, )", "syntax error at ')'");
+    checkParseFails("rdeps(a, b", "premature end of input");
+    checkParseFails("rdeps(a, b, ", "premature end of input");
+    checkParseFails("rdeps(a, b, )", "syntax error at ')'");
+    checkParseFails("rdeps(a, b, 3", "premature end of input");
+    checkParseFails("rdeps(a, b, 3, ", "too many arguments to function 'rdeps' at ','");
+    checkParseFails("rdeps(a, b, c, d)", "expected an integer literal: 'c'");
+    checkParseFails("set(", "premature end of input");
+    checkParseFails("set(a", "premature end of input");
     checkParseFails("set(a b", "premature end of input");
+    checkParseFails("set(a, ", "syntax error at ','");
+    checkParseFails("set(a, b)", "syntax error at ', b )'");
   }
 
   @Test

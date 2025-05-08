@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -18,6 +18,17 @@
 # Test that bootstrapping bazel is a fixed point
 #
 
+# --- begin runfiles.bash initialization v3 ---
+# Copy-pasted from the Bazel Bash runfiles library v3.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v3 ---
+
 set -u
 DISTFILE=$(rlocation io_bazel/${1#./})
 shift 1
@@ -35,6 +46,15 @@ else
   fail "Could not find sha1sum or shasum on the PATH"
 fi
 
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*|darwin)
+  declare -r is_linux=false
+  ;;
+*)
+  declare -r is_linux=true
+  ;;
+esac
+
 function hash_outputs() {
   # runfiles/MANIFEST & runfiles_manifest contain absolute path, ignore.
   # ar on OS-X is non-deterministic, ignore .a files.
@@ -50,31 +70,67 @@ function hash_outputs() {
 }
 
 function test_determinism()  {
-    local workdir="${TEST_TMPDIR}/workdir"
+    # Verify that Bazel can build itself under a path with spaces and non-ASCII
+    # characters.
+    local workdir="${TEST_TMPDIR}/wo🌱rk dir"
     mkdir "${workdir}" || fail "Could not create work directory"
     cd "${workdir}" || fail "Could not change to work directory"
     unzip -q "${DISTFILE}"
 
-    distdir="derived/distdir"
+    # Set up the maven repository properly.
+    cp derived/maven/BUILD.vendor derived/maven/BUILD
 
     # Build Bazel once.
+    #
+    # Use an output base with spaces and non-ASCII characters to verify that
+    # Bazel supports this. Characters with a 4-byte UTF-8 encoding would cause
+    # Java compilation to fail due to
+    # https://bugs.openjdk.org/browse/JDK-8258246.
+    # On Linux, the host needs to provide the C.UTF-8 locale for this to work,
+    # otherwise the DumpPlatformClasspath action will fail.
+    if [[ $is_linux && "$(LC_CTYPE=C.UTF-8 locale charmap)" != "UTF-8" ]]; then
+      output_base_1="${TEST_TMPDIR}/out 1"
+    else
+      output_base_1="${TEST_TMPDIR}/ouäöü€t 1"
+    fi
     bazel \
-      --output_base="${TEST_TMPDIR}/out1" \
+      --output_base="${output_base_1}" \
       build \
-      --distdir=$distdir \
+      --extra_toolchains=@rules_python//python:autodetecting_toolchain \
+      --enable_bzlmod \
+      --check_direct_dependencies=error \
+      --lockfile_mode=update \
+      --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --nostamp \
-      //src:bazel
+      //src:bazel &> $TEST_log || fail "First build failed"
+    assert_exists "${output_base_1}/java.log"
+    expect_not_log ERROR
+    expect_not_log "Exception:"
+    expect_not_log "Error:"
     hash_outputs >"${TEST_TMPDIR}/sum1"
 
     # Build Bazel twice.
+    if [[ $is_linux && "$(LC_CTYPE=C.UTF-8 locale charmap)" != "UTF-8" ]]; then
+      output_base_2="${TEST_TMPDIR}/out 2"
+    else
+      output_base_2="${TEST_TMPDIR}/ouäöü€t 2"
+    fi
     bazel-bin/src/bazel \
       --bazelrc="${TEST_TMPDIR}/bazelrc" \
-      --install_base="${TEST_TMPDIR}/install_base2" \
-      --output_base="${TEST_TMPDIR}/out2" \
+      --install_base="${TEST_TMPDIR}/install_baseäöü€t 2" \
+      --output_base="${output_base_2}" \
       build \
-      --distdir=$distdir \
+      --extra_toolchains=@rules_python//python:autodetecting_toolchain \
+      --enable_bzlmod \
+      --check_direct_dependencies=error \
+      --lockfile_mode=update \
+      --override_repository=$(cat derived/maven/MAVEN_CANONICAL_REPO_NAME)=derived/maven \
       --nostamp \
-      //src:bazel
+      //src:bazel &> $TEST_log || fail "Second build failed"
+    assert_exists "${output_base_2}/java.log"
+    expect_not_log ERROR
+    expect_not_log "Exception:"
+    expect_not_log "Error:"
     hash_outputs >"${TEST_TMPDIR}/sum2"
 
     if ! diff -U0 "${TEST_TMPDIR}/sum1" "${TEST_TMPDIR}/sum2" >$TEST_log; then

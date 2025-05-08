@@ -14,131 +14,21 @@
 
 package com.google.devtools.build.lib.util;
 
-import static java.util.Map.Entry.comparingByKey;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.cmdline.Label;
 import java.io.File;
 import java.util.Collection;
-import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * Utility methods for describing command failures.
- * See also the CommandUtils class.
- * Unlike that one, this class does not depend on Command;
- * instead, it just manipulates command lines represented as
- * Collection&lt;String&gt;.
+ * Utility methods for describing command failures. See also the CommandUtils class. Unlike that
+ * one, this class does not depend on Command; instead, it just manipulates command lines
+ * represented as Collection&lt;String&gt;.
  */
 public class CommandFailureUtils {
-
-  // Interface that provides building blocks when describing command.
-  private interface DescribeCommandImpl {
-    void describeCommandBeginIsolate(StringBuilder message);
-    void describeCommandEndIsolate(StringBuilder message);
-    void describeCommandCwd(String cwd, StringBuilder message);
-    void describeCommandEnvPrefix(StringBuilder message, boolean isolated);
-    void describeCommandEnvVar(StringBuilder message, Map.Entry<String, String> entry);
-    /**
-     * Formats the command element and adds it to the message.
-     *
-     * @param message the message to modify
-     * @param commandElement the command element to be added to the message
-     * @param isBinary is true if the `commandElement` is the binary to be executed
-     */
-    void describeCommandElement(StringBuilder message, String commandElement, boolean isBinary);
-
-    void describeCommandExec(StringBuilder message);
-  }
-
-  private static final class LinuxDescribeCommandImpl implements DescribeCommandImpl {
-
-    @Override
-    public void describeCommandBeginIsolate(StringBuilder message) {
-      message.append("(");
-    }
-
-    @Override
-    public void describeCommandEndIsolate(StringBuilder message) {
-      message.append(")");
-    }
-
-    @Override
-    public void describeCommandCwd(String cwd, StringBuilder message) {
-      message.append("cd ").append(ShellEscaper.escapeString(cwd)).append(" && \\\n  ");
-    }
-
-    @Override
-    public void describeCommandEnvPrefix(StringBuilder message, boolean isolated) {
-      message.append(isolated
-          ? "env - \\\n  "
-          : "env \\\n  ");
-    }
-
-    @Override
-    public void describeCommandEnvVar(StringBuilder message, Map.Entry<String, String> entry) {
-      message.append(ShellEscaper.escapeString(entry.getKey())).append('=')
-          .append(ShellEscaper.escapeString(entry.getValue())).append(" \\\n  ");
-    }
-
-    @Override
-    public void describeCommandElement(
-        StringBuilder message, String commandElement, boolean isBinary) {
-      message.append(ShellEscaper.escapeString(commandElement));
-    }
-
-    @Override
-    public void describeCommandExec(StringBuilder message) {
-      message.append("exec ");
-    }
-  }
-
-  // TODO(bazel-team): (2010) Add proper escaping. We can't use ShellUtils.shellEscape() as it is
-  // incompatible with CMD.EXE syntax, but something else might be needed.
-  private static final class WindowsDescribeCommandImpl implements DescribeCommandImpl {
-
-    @Override
-    public void describeCommandBeginIsolate(StringBuilder message) {
-      // TODO(bazel-team): Implement this.
-    }
-
-    @Override
-    public void describeCommandEndIsolate(StringBuilder message) {
-      // TODO(bazel-team): Implement this.
-    }
-
-    @Override
-    public void describeCommandCwd(String cwd, StringBuilder message) {
-      message.append("cd ").append("/d ").append(cwd).append("\n");
-    }
-
-    @Override
-    public void describeCommandEnvPrefix(StringBuilder message, boolean isolated) { }
-
-    @Override
-    public void describeCommandEnvVar(StringBuilder message, Map.Entry<String, String> entry) {
-      message.append("SET ").append(entry.getKey()).append('=')
-          .append(entry.getValue()).append("\n  ");
-    }
-
-    @Override
-    public void describeCommandElement(
-        StringBuilder message, String commandElement, boolean isBinary) {
-      // Replace the forward slashes with back slashes if the `commandElement` is the binary path
-      message.append(isBinary ? commandElement.replace('/', '\\') : commandElement);
-    }
-
-    @Override
-    public void describeCommandExec(StringBuilder message) {
-      // TODO(bazel-team): Implement this if possible for greater efficiency.
-    }
-  }
-
-  private static final DescribeCommandImpl describeCommandImpl =
-      OS.getCurrent() == OS.WINDOWS ? new WindowsDescribeCommandImpl()
-                                    : new LinuxDescribeCommandImpl();
   private static final int APPROXIMATE_MAXIMUM_MESSAGE_LENGTH = 200;
 
   private CommandFailureUtils() {} // Prevent instantiation.
@@ -156,9 +46,11 @@ public class CommandFailureUtils {
       boolean prettyPrintArgs,
       Collection<String> commandLineElements,
       @Nullable Map<String, String> environment,
+      @Nullable List<String> environmentVariablesToClear,
       @Nullable String cwd,
       @Nullable String configurationChecksum,
-      @Nullable String executionPlatformAsLabelString) {
+      @Nullable Label executionPlatformLabel,
+      @Nullable String spawnRunner) {
 
     Preconditions.checkNotNull(form);
     StringBuilder message = new StringBuilder();
@@ -166,12 +58,12 @@ public class CommandFailureUtils {
     int numberRemaining = size;
 
     if (form == CommandDescriptionForm.COMPLETE) {
-      describeCommandImpl.describeCommandBeginIsolate(message);
+      ScriptUtil.emitBeginIsolate(message);
     }
 
     if (form != CommandDescriptionForm.ABBREVIATED) {
       if (cwd != null) {
-        describeCommandImpl.describeCommandCwd(cwd, message);
+        ScriptUtil.emitChangeDirectory(message, cwd);
       }
       /*
        * On Linux, insert an "exec" keyword to save a fork in "blaze run"
@@ -180,7 +72,7 @@ public class CommandFailureUtils {
        *
        * On Windows, this is a no-op.
        */
-      describeCommandImpl.describeCommandExec(message);
+      ScriptUtil.emitExec(message);
       /*
        * Java does not provide any way to invoke a subprocess with the environment variables
        * in a specified order.  The order of environment variables in the 'environ' array
@@ -203,15 +95,8 @@ public class CommandFailureUtils {
        * (in ProcessEnvironment.StringEnvironment.toEnvironmentBlock()).
        */
       if (environment != null) {
-        describeCommandImpl.describeCommandEnvPrefix(
-            message, form != CommandDescriptionForm.COMPLETE_UNISOLATED);
-        // A map can never have two keys with the same value, so we only need to compare the keys.
-        Comparator<Map.Entry<String, String>> mapEntryComparator = comparingByKey();
-        for (Map.Entry<String, String> entry :
-            Ordering.from(mapEntryComparator).sortedCopy(environment.entrySet())) {
-          message.append("  ");
-          describeCommandImpl.describeCommandEnvVar(message, entry);
-        }
+        ScriptUtil.emitEnvPrefix(
+            message, /* ignoreEnvironment= */ true, environment, environmentVariablesToClear);
       }
     }
 
@@ -229,14 +114,14 @@ public class CommandFailureUtils {
         if (numberRemaining < size) {
           message.append(prettyPrintArgs ? " \\\n    " : " ");
         }
-        describeCommandImpl.describeCommandElement(message, commandElement, isFirstArgument);
+        ScriptUtil.emitCommandElement(message, commandElement, isFirstArgument);
         numberRemaining--;
       }
       isFirstArgument = false;
     }
 
     if (form == CommandDescriptionForm.COMPLETE) {
-      describeCommandImpl.describeCommandEndIsolate(message);
+      ScriptUtil.emitEndIsolate(message);
     }
 
     if (form == CommandDescriptionForm.COMPLETE) {
@@ -246,9 +131,14 @@ public class CommandFailureUtils {
         message.append("# Configuration: ").append(configurationChecksum);
       }
 
-      if (executionPlatformAsLabelString != null) {
+      if (executionPlatformLabel != null) {
         message.append("\n");
-        message.append("# Execution platform: ").append(executionPlatformAsLabelString);
+        message.append("# Execution platform: ").append(executionPlatformLabel);
+      }
+
+      if (spawnRunner != null) {
+        message.append("\n");
+        message.append("# Runner: ").append(spawnRunner);
       }
     }
 
@@ -257,17 +147,19 @@ public class CommandFailureUtils {
 
   /**
    * Construct an error message that describes a failed command invocation. Currently this returns a
-   * message of the form "foo failed: error executing command /dir/foo bar baz".
+   * message of the form "foo failed: error executing FooCompile command /dir/foo bar baz".
    */
   @VisibleForTesting
   static String describeCommandFailure(
       boolean verbose,
+      String mnemonic,
       Collection<String> commandLineElements,
       Map<String, String> env,
       @Nullable String cwd,
       @Nullable String configurationChecksum,
-      @Nullable String targetLabel,
-      @Nullable String executionPlatformAsLabelString) {
+      @Nullable String targetDescription,
+      @Nullable Label executionPlatformLabel,
+      @Nullable String spawnRunner) {
 
     String commandName = commandLineElements.iterator().next();
     // Extract the part of the command name after the last "/", if any.
@@ -278,9 +170,11 @@ public class CommandFailureUtils {
         : CommandDescriptionForm.ABBREVIATED;
 
     StringBuilder output = new StringBuilder();
-    output.append("error executing command ");
-    if (targetLabel != null) {
-      output.append("(from target ").append(targetLabel).append(") ");
+    output.append("error executing ");
+    output.append(mnemonic);
+    output.append(" command ");
+    if (targetDescription != null) {
+      output.append("(from ").append(targetDescription).append(") ");
     }
     if (verbose) {
       output.append("\n  ");
@@ -291,9 +185,11 @@ public class CommandFailureUtils {
             /* prettyPrintArgs= */ false,
             commandLineElements,
             env,
+            null,
             cwd,
             configurationChecksum,
-            executionPlatformAsLabelString));
+            executionPlatformLabel,
+            spawnRunner));
     return shortCommandName + " failed: " + output;
   }
 
@@ -301,11 +197,13 @@ public class CommandFailureUtils {
       boolean verboseFailures, @Nullable String cwd, DescribableExecutionUnit command) {
     return describeCommandFailure(
         verboseFailures,
+        command.getMnemonic(),
         command.getArguments(),
         command.getEnvironment(),
         cwd,
         command.getConfigurationChecksum(),
-        command.getTargetLabel(),
-        command.getExecutionPlatformLabelString());
+        command.getTargetDescription(),
+        command.getExecutionPlatformLabel(),
+        /* spawnRunner= */ null);
   }
 }

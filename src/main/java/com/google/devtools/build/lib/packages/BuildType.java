@@ -13,15 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.DictType;
@@ -29,7 +33,6 @@ import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.ListType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +68,12 @@ public final class BuildType {
       LabelKeyedDictType.create(Type.STRING);
   /** The type of a list of {@linkplain #LABEL labels}. */
   @SerializationConstant public static final ListType<Label> LABEL_LIST = ListType.create(LABEL);
+
+  /** The type of a dictionary of {@linkplain #LABEL_LIST label lists}. */
+  @SerializationConstant
+  public static final DictType<String, List<Label>> LABEL_LIST_DICT =
+      DictType.create(Type.STRING, LABEL_LIST);
+
   /**
    * This is a label type that does not cause dependencies. It is needed because certain rules want
    * to verify the type of a target referenced by one of their attributes, but if there was a
@@ -75,6 +84,13 @@ public final class BuildType {
   /** The type of a list of {@linkplain #NODEP_LABEL labels} that do not cause dependencies. */
   @SerializationConstant
   public static final ListType<Label> NODEP_LABEL_LIST = ListType.create(NODEP_LABEL);
+
+  @SerializationConstant
+  public static final Type<Label> DORMANT_LABEL =
+      new LabelType(LabelClass.GENQUERY_SCOPE_REFERENCE);
+
+  @SerializationConstant
+  public static final ListType<Label> DORMANT_LABEL_LIST = ListType.create(DORMANT_LABEL);
 
   /**
    * This is a label type that causes dependencies, but the dependencies are NOT to be configured.
@@ -102,43 +118,16 @@ public final class BuildType {
    * justify early syntax error detection.
    */
   @SerializationConstant public static final Type<License> LICENSE = new LicenseType();
-  /** The type of a single distribution. Only used internally, as a type symbol, not a converter. */
-  @SerializationConstant
-  static final Type<DistributionType> DISTRIBUTION =
-      new Type<DistributionType>() {
-        @Override
-        public DistributionType cast(Object value) {
-          return (DistributionType) value;
-        }
 
-        @Override
-        public DistributionType convert(Object x, Object what, LabelConverter labelConverter) {
-          throw new UnsupportedOperationException();
-        }
-
-        @Nullable
-        @Override
-        public DistributionType getDefaultValue() {
-          return null;
-        }
-
-        @Override
-        public void visitLabels(
-            LabelVisitor visitor, DistributionType value, @Nullable Attribute context) {}
-
-        @Override
-        public String toString() {
-          return "distribution";
-        }
-      };
-  /**
-   * The type of a set of distributions. Distributions are not a first-class type, but they do
-   * warrant early syntax checking.
-   */
-  @SerializationConstant
-  public static final Type<Set<DistributionType>> DISTRIBUTIONS = new Distributions();
   /** The type of an output file, treated as a {@link #LABEL}. */
   @SerializationConstant public static final Type<Label> OUTPUT = new OutputType();
+
+  private static final ImmutableMap<Type<?>, String> whyNotConfigurable =
+      ImmutableMap.<Type<?>, String>builder()
+          .put(LICENSE, "loading phase license checking logic assumes non-configurable values")
+          .put(OUTPUT, "output paths are part of the static graph structure")
+          .buildOrThrow();
+
   /** The type of a list of {@linkplain #OUTPUT outputs}. */
   @SerializationConstant public static final ListType<Label> OUTPUT_LIST = ListType.create(OUTPUT);
 
@@ -156,22 +145,234 @@ public final class BuildType {
 
   /**
    * Variation of {@link Type#convert} that supports selector expressions for configurable
-   * attributes* (i.e. "{ config1: 'value1_of_orig_type', config2: 'value2_of_orig_type; }"). If x
-   * is a selector expression, returns a {@link Selector} instance that contains key-mapped entries
+   * attributes (i.e. "{ config1: 'value1_of_orig_type', config2: 'value2_of_orig_type; }"). If x is
+   * a selector expression, returns a {@link SelectorList} instance that contains key-mapped entries
    * of the native type. Else, returns the native type directly.
+   *
+   * <p>If {@code simplifyUnconditionalSelects} is true, then an unconditional select is simplified
+   * to the select's value converted to a native value; and a concatenation of unconditional selects
+   * (and direct values, if any) is simplified to a concatenation of the select's values and the
+   * direct values converted to native values. In other words, {@code ["//x"] +
+   * select("//conditions:default": ["//y"])} becomes {@code [Label("//x"), Label("//y")]}. If a
+   * concatenation contains a non-unconditional select, the concatenation is not simplified.
+   *
+   * <p>Returns null iff {@code simplifyUnconditionalSelects} is true, {@code x} is {@code
+   * select({"//conditions:default": None})}, and the {@code type.getDefaultValue()} is null.
    *
    * <p>The caller is responsible for casting the returned value appropriately.
    */
-  public static <T> Object selectableConvert(
-      Type<T> type, Object x, Object what, LabelConverter context) throws ConversionException {
-    if (x instanceof com.google.devtools.build.lib.packages.SelectorList) {
-      return new SelectorList<>(
-          ((com.google.devtools.build.lib.packages.SelectorList) x).getElements(),
-          what,
-          context,
-          type);
+  @Nullable
+  static <T> Object selectableConvert(
+      Type<T> type,
+      Object x,
+      Object what,
+      LabelConverter context,
+      boolean simplifyUnconditionalSelects)
+      throws ConversionException {
+    if (x instanceof com.google.devtools.build.lib.packages.SelectorList selectorList) {
+      List<Object> selectorListElements = selectorList.getElements();
+      if (!simplifyUnconditionalSelects) {
+        return new SelectorList<T>(selectorListElements, what, context, type);
+      }
+      if (selectorListElements.size() > 1 && type.concat(ImmutableList.of()) == null) {
+        throw new ConversionException(
+            String.format("type '%s' doesn't support select concatenation", type));
+      }
+      // Note: ArrayList, not ImmutableList, because we may insert a null into it; the default value
+      // of an unconditional Selector<T> is null if the SelectorValue value is None and the native
+      // type's default value is null.
+      ArrayList<T> values = new ArrayList<>(selectorListElements.size());
+      for (Object element : selectorListElements) {
+        if (element instanceof SelectorValue selectorValue) {
+          ImmutableMap<?, ?> dictionary = selectorValue.getDictionary();
+          if (dictionary.size() != 1) {
+            // Cannot simplify: selectorValue has multiple branches.
+            return new SelectorList<T>(selectorListElements, what, context, type);
+          }
+          Selector<T> selector =
+              new Selector<>(dictionary, what, context, type, selectorValue.getNoMatchError());
+          if (!selector.isUnconditional()) {
+            // Cannot simplify: the only branch is not the default condition.
+            return new SelectorList<T>(selectorListElements, what, context, type);
+          }
+          values.add(selector.getDefault());
+        } else {
+          values.add(type.convert(element, what, context));
+        }
+      }
+      if (values.size() == 1) {
+        return values.getFirst();
+      } else {
+        return type.concat(values);
+      }
     } else {
       return type.convert(x, what, context);
+    }
+  }
+
+  /**
+   * Converts the build-language-typed {@code buildLangValue} to a native value via {@link
+   * BuildType#selectableConvert}. Canonicalizes the value's order if it is a {@link List} type and
+   * {@code attr.isOrderIndependent()} returns {@code true}.
+   *
+   * <p>Returns null iff {@code simplifyUnconditionalSelects} is true, {@code buildLangValue} is
+   * {@code select({"//conditions:default": None})}, and {@code attr.getType().getDefaultValue()} is
+   * null.
+   *
+   * <p>Throws {@link ConversionException} if the conversion fails, or if {@code buildLangValue} is
+   * a selector expression but {@code attr.isConfigurable()} is {@code false}.
+   */
+  @Nullable
+  public static Object convertFromBuildLangType(
+      String ruleClass,
+      Attribute attr,
+      Object buildLangValue,
+      LabelConverter labelConverter,
+      Interner<ImmutableList<?>> listInterner,
+      boolean simplifyUnconditionalSelects)
+      throws ConversionException {
+    if ((buildLangValue instanceof com.google.devtools.build.lib.packages.SelectorList)
+        && !attr.isConfigurable()) {
+      throw new ConversionException(
+          String.format("attribute \"%s\" is not configurable", attr.getName()));
+    }
+
+    Object converted =
+        BuildType.selectableConvert(
+            attr.getType(),
+            buildLangValue,
+            new AttributeConversionContext(attr.getName(), ruleClass),
+            labelConverter,
+            simplifyUnconditionalSelects);
+
+    if (converted instanceof List<?>) {
+      if (attr.isOrderIndependent()) {
+        @SuppressWarnings("unchecked")
+        List<? extends Comparable<?>> list = (List<? extends Comparable<?>>) converted;
+        converted = Ordering.natural().sortedCopy(list);
+      }
+      // It's common for multiple rule instances in the same package to have the same value for some
+      // attributes. As a concrete example, consider a package having several 'java_test' instances,
+      // each with the same exact 'tags' attribute value.
+      converted = listInterner.intern(ImmutableList.copyOf((List<?>) converted));
+    }
+
+    return converted;
+  }
+
+  /** Copies a Starlark SelectorList converting label strings to Label objects. */
+  private static <T> Object copyAndLiftSelectorList(
+      Type<T> type,
+      com.google.devtools.build.lib.packages.SelectorList x,
+      Object what,
+      LabelConverter context)
+      throws ConversionException {
+    List<Object> elements = x.getElements();
+    try {
+      if (elements.size() > 1 && type.concat(ImmutableList.of()) == null) {
+        throw new ConversionException(
+            String.format("type '%s' doesn't support select concatenation", type));
+      }
+
+      ImmutableList.Builder<Object> builder = ImmutableList.builder();
+      for (Object elem : elements) {
+        ImmutableMap.Builder<Label, Object> newMap = ImmutableMap.builder();
+        if (elem instanceof SelectorValue) {
+          for (var entry : ((SelectorValue) elem).getDictionary().entrySet()) {
+            Label key = LABEL.convert(entry.getKey(), what, context);
+            newMap.put(
+                key,
+                entry.getValue() == Starlark.NONE
+                    ? Starlark.NONE
+                    : type.copyAndLiftStarlarkValue(
+                        entry.getValue(), new SelectBranchMessage(what, key), context));
+          }
+          builder.add(
+              new SelectorValue(
+                  newMap.buildKeepingLast(), ((SelectorValue) elem).getNoMatchError()));
+        } else {
+          Object directValue = type.copyAndLiftStarlarkValue(elem, what, context);
+          builder.add(directValue);
+        }
+      }
+      return com.google.devtools.build.lib.packages.SelectorList.of(builder.build());
+    } catch (EvalException e) {
+      throw new ConversionException(e.getMessage());
+    }
+  }
+
+  /**
+   * Copies a Starlark value to immutable ones and converts label strings to Label objects.
+   *
+   * <p>{@code attrOwner} is the name of the rule or macro on which the attribute is defined, e.g.
+   * "cc_library".
+   *
+   * <p>All Starlark values are also type checked.
+   *
+   * <p>In comparison to {@link #convertFromBuildLangType} unordered attributes are not
+   * canonicalized or interned.
+   *
+   * <p>Use the function before passing the values to initializers.
+   *
+   * @throws ConversionException if the {@code starlarkValue} doesn't match the type of attr or if
+   *     {@code starlarkValue} is a selector expression but {@code attr.isConfigurable()} is {@code
+   *     false}.
+   */
+  public static Object copyAndLiftStarlarkValue(
+      String attrOwner, Attribute attr, Object starlarkValue, LabelConverter labelConverter)
+      throws ConversionException {
+    if (starlarkValue instanceof com.google.devtools.build.lib.packages.SelectorList) {
+      if (!attr.isConfigurable()) {
+        throw new ConversionException(
+            String.format("attribute \"%s\" is not configurable", attr.getName()));
+      }
+      return copyAndLiftSelectorList(
+          attr.getType(),
+          (com.google.devtools.build.lib.packages.SelectorList) starlarkValue,
+          new AttributeConversionContext(attr.getName(), attrOwner),
+          labelConverter);
+    } else {
+      return attr.getType()
+          .copyAndLiftStarlarkValue(
+              starlarkValue,
+              new AttributeConversionContext(attr.getName(), attrOwner),
+              labelConverter);
+    }
+  }
+
+  /**
+   * If the given attribute type is non-configurable, returns the reason why. Otherwise, returns
+   * {@code null}.
+   */
+  @Nullable
+  public static String maybeGetNonConfigurableReason(Type<?> type) {
+    return whyNotConfigurable.get(type);
+  }
+
+  /**
+   * A pair of an attribute name and owner, with a toString that includes both.
+   *
+   * <p>This is used to defer stringifying this information until needed for an error message, so as
+   * to avoid generating unnecessary garbage.
+   */
+  private static class AttributeConversionContext {
+    private final String attrName;
+    private final String attrOwner;
+
+    /**
+     * Constructs a new context object from a pair of strings.
+     *
+     * @param attrName an attribute name, such as "deps"
+     * @param attrOwner a rule or macro on which the attribute is defined, e.g. "cc_library"
+     */
+    AttributeConversionContext(String attrName, String attrOwner) {
+      this.attrName = attrName;
+      this.attrOwner = attrOwner;
+    }
+
+    @Override
+    public String toString() {
+      return String.format("attribute '%s' of '%s'", attrName, attrOwner);
     }
   }
 
@@ -311,6 +512,12 @@ public final class BuildType {
     }
 
     @Override
+    public Object copyAndLiftStarlarkValue(
+        Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
+      return STRING_LIST.copyAndLiftStarlarkValue(x, what, labelConverter);
+    }
+
+    @Override
     public License getDefaultValue() {
       return License.NO_LICENSE;
     }
@@ -321,49 +528,6 @@ public final class BuildType {
     @Override
     public String toString() {
       return "license";
-    }
-  }
-
-  /**
-   * Like Label, Distributions is a derived type, which is declared specially in order to allow
-   * syntax validation. It represents the declared distributions of a target, as described in {@link
-   * License}.
-   */
-  private static final class Distributions extends Type<Set<DistributionType>> {
-    @SuppressWarnings("unchecked")
-    @Override
-    public Set<DistributionType> cast(Object value) {
-      return (Set<DistributionType>) value;
-    }
-
-    @Override
-    public Set<DistributionType> convert(Object x, Object what, LabelConverter labelConverter)
-        throws ConversionException {
-      try {
-        List<String> distribStrings = STRING_LIST.convert(x, what);
-        return License.parseDistributions(distribStrings);
-      } catch (LicenseParsingException e) {
-        throw new ConversionException(e.getMessage());
-      }
-    }
-
-    @Override
-    public Set<DistributionType> getDefaultValue() {
-      return Collections.emptySet();
-    }
-
-    @Override
-    public void visitLabels(
-        LabelVisitor visitor, Set<DistributionType> value, @Nullable Attribute context) {}
-
-    @Override
-    public String toString() {
-      return "distributions";
-    }
-
-    @Override
-    public Type<DistributionType> getListElementType() {
-      return DISTRIBUTION;
     }
   }
 
@@ -464,11 +628,12 @@ public final class BuildType {
     public Set<Label> getKeyLabels() {
       ImmutableSet.Builder<Label> keys = ImmutableSet.builder();
       for (Selector<T> selector : elements) {
-        for (Label label : selector.getEntries().keySet()) {
-          if (!Selector.isDefaultConditionLabel(label)) {
-            keys.add(label);
-          }
-        }
+        selector.forEach(
+            (label, value) -> {
+              if (!Selector.isDefaultConditionLabel(label)) {
+                keys.add(label);
+              }
+            });
       }
       return keys.build();
     }
@@ -482,15 +647,7 @@ public final class BuildType {
     public void repr(Printer printer) {
       // Convert to a lib.packages.SelectorList to guarantee consistency with callers that serialize
       // directly on that type.
-      List<SelectorValue> selectorValueList = new ArrayList<>();
-      for (Selector<T> element : elements) {
-        selectorValueList.add(new SelectorValue(element.getEntries(), element.getNoMatchError()));
-      }
-      try {
-        printer.repr(com.google.devtools.build.lib.packages.SelectorList.of(selectorValueList));
-      } catch (EvalException e) {
-        throw new IllegalStateException("this list should have been validated on creation", e);
-      }
+      printer.repr(Attribute.valueToStarlark(this));
     }
   }
 
@@ -511,9 +668,9 @@ public final class BuildType {
   }
 
   /**
-   * Special Type that represents a selector expression for configurable attributes. Holds a mapping
-   * of {@code <Label, T>} entries, where keys are configurability patterns and values are objects
-   * of the attribute's native Type.
+   * Represents the entries in a single select expression (in the order they were initially
+   * specified). Contains the configurability pattern (label) and value (objects of the attribute's
+   * native type) of each entry.
    */
   public static final class Selector<T> {
     /** Value to use when none of an attribute's selection criteria match. */
@@ -521,14 +678,18 @@ public final class BuildType {
     public static final String DEFAULT_CONDITION_KEY = "//conditions:default";
 
     static final Label DEFAULT_CONDITION_LABEL =
-        Label.parseAbsoluteUnchecked(DEFAULT_CONDITION_KEY);
+        Label.parseCanonicalUnchecked(DEFAULT_CONDITION_KEY);
 
     private final Type<T> originalType;
-    // Can hold null values, underlying implementation should be ordered.
-    private final Map<Label, T> map;
+
+    private final Label[] labels;
+
+    // Can contain nulls, when an entry maps to None and the Type<T> has a null getDefaultValue().
+    private final T[] values;
+
     private final Set<Label> conditionsWithDefaultValues;
     private final String noMatchError;
-    private final boolean hasDefaultCondition;
+    private final int defaultConditionPos;
 
     /** Creates a new Selector using the default error message when no conditions match. */
     Selector(
@@ -546,64 +707,127 @@ public final class BuildType {
         String noMatchError)
         throws ConversionException {
       this.originalType = originalType;
-      LinkedHashMap<Label, T> result = Maps.newLinkedHashMapWithExpectedSize(x.size());
+      Label[] labels = new Label[x.size()];
+      @SuppressWarnings("unchecked")
+      T[] values = (T[]) new Object[x.size()];
       ImmutableSet.Builder<Label> defaultValuesBuilder = ImmutableSet.builder();
-      boolean foundDefaultCondition = false;
+      int pos = 0;
+      int defaultConditionPos = -1;
       for (Map.Entry<?, ?> entry : x.entrySet()) {
         Label key = LABEL.convert(entry.getKey(), what, context);
-        if (key.equals(DEFAULT_CONDITION_LABEL)) {
-          foundDefaultCondition = true;
-        }
+        labels[pos] = key;
+        T value;
         if (entry.getValue() == Starlark.NONE) {
           // { "//condition": None } is the same as not setting the value.
-          result.put(key, originalType.getDefaultValue());
+          value = originalType.getDefaultValue();
           defaultValuesBuilder.add(key);
         } else {
           Object selectBranch = what == null ? null : new SelectBranchMessage(what, key);
-          result.put(key, originalType.convert(entry.getValue(), selectBranch, context));
+          value = originalType.convert(entry.getValue(), selectBranch, context);
         }
+        if (key.equals(DEFAULT_CONDITION_LABEL)) {
+          defaultConditionPos = pos;
+        }
+        values[pos] = value;
+        pos++;
       }
-      this.map = Collections.unmodifiableMap(result);
+      this.labels = labels;
+      this.values = values;
       this.noMatchError = noMatchError;
       this.conditionsWithDefaultValues = defaultValuesBuilder.build();
-      this.hasDefaultCondition = foundDefaultCondition;
+      this.defaultConditionPos = defaultConditionPos;
     }
 
     /**
-     * Create a new Selector from raw values. A defensive copy of the supplied map is <i>not</i>
-     * made, so it imperative that it is not modified following construction.
+     * Create a new Selector from raw values. Defensive copies of the supplied arrays are <i>not</i>
+     * made, so it is imperative that they are not modified following construction.
      */
     Selector(
-        LinkedHashMap<Label, T> map,
+        Label[] labels,
+        T[] values,
         Type<T> originalType,
         String noMatchError,
         ImmutableSet<Label> conditionsWithDefaultValues,
-        boolean hasDefaultCondition) {
+        int defaultConditionPos) {
+      this.labels = labels;
+      this.values = values;
       this.originalType = originalType;
-      this.map = Collections.unmodifiableMap(map);
       this.noMatchError = noMatchError;
       this.conditionsWithDefaultValues = conditionsWithDefaultValues;
-      this.hasDefaultCondition = hasDefaultCondition;
+      this.defaultConditionPos = defaultConditionPos;
     }
 
-    /**
-     * Returns the selector's (configurability pattern --gt; matching values) map.
-     *
-     * <p>Entries in this map retain the order of the entries in the map provided to the {@link
-     * #Selector} constructor.
-     */
-    public Map<Label, T> getEntries() {
-      return map;
+    public boolean hasDefault() {
+      return defaultConditionPos >= 0;
     }
 
     /** Returns the value to use when none of the attribute's selection keys match. */
+    @Nullable
     public T getDefault() {
-      return map.get(DEFAULT_CONDITION_LABEL);
+      return defaultConditionPos < 0 ? null : values[defaultConditionPos];
     }
 
-    /** Returns whether or not this selector has a default condition. */
-    public boolean hasDefault() {
-      return hasDefaultCondition;
+    /**
+     * Returns a new {@link ArrayList} containing all the values in the entries of this {@link
+     * Selector}, in the same order they were initially specified.
+     *
+     * <p>Prefer using {@link #forEach} since that makes no allocations.
+     */
+    public ArrayList<T> valuesCopy() {
+      // N.B. We can't use ImmutableList since we can have null values.
+      ArrayList<T> result = Lists.newArrayListWithCapacity(getNumEntries());
+      forEach((label, value) -> result.add(value));
+      return result;
+    }
+
+    /**
+     * Returns a new {@link LinkedHashMap} representing the branches of this {@link Selector}, in
+     * the same order they were initially specified.
+     *
+     * <p>Prefer using {@link #forEach} since that makes no allocations.
+     */
+    public LinkedHashMap<Label, T> mapCopy() {
+      // N.B. We can't use ImmutableMap since we can have null values. But we also want to respect
+      // the ordering of our original map, so we use LinkedHashMap instead of HashMap.
+      LinkedHashMap<Label, T> result = Maps.newLinkedHashMapWithExpectedSize(getNumEntries());
+      forEach(result::put);
+      return result;
+    }
+
+    /** Consumer for {@link #forEach}. */
+    public interface SelectorEntryConsumer<T> {
+      void accept(Label conditionLabel, @Nullable T value);
+    }
+
+    /**
+     * Passes each entry to the provided {@code consumer}, in the same order they were initially
+     * specified.
+     */
+    public void forEach(SelectorEntryConsumer<T> consumer) {
+      for (int i = 0; i < labels.length; i++) {
+        consumer.accept(labels[i], values[i]);
+      }
+    }
+
+    /** Consumer for {@link #forEachExceptionally}. */
+    interface ExceptionalSelectorEntryConsumer<T, E1 extends Exception, E2 extends Exception> {
+      void accept(Label conditionLabel, @Nullable T value) throws E1, E2;
+    }
+
+    /**
+     * Passes each entry to the provided {@code consumer}, in the same order they were initially
+     * specified.
+     */
+    public <E1 extends Exception, E2 extends Exception> void forEachExceptionally(
+        ExceptionalSelectorEntryConsumer<T, E1, E2> consumer) throws E1, E2 {
+      for (int i = 0; i < labels.length; i++) {
+        consumer.accept(labels[i], values[i]);
+      }
+    }
+
+    /** Returns the number of entries. */
+    public int getNumEntries() {
+      return labels.length;
     }
 
     /**
@@ -619,7 +843,7 @@ public final class BuildType {
      * all values are always chosen.
      */
     public boolean isUnconditional() {
-      return map.size() == 1 && hasDefaultCondition;
+      return labels.length == 1 && defaultConditionPos >= 0;
     }
 
     /**

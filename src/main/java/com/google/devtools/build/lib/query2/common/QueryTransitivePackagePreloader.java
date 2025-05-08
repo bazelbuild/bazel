@@ -111,7 +111,7 @@ public class QueryTransitivePackagePreloader {
       throws QueryException {
     FailureDetails.FailureDetail failureDetail;
     if (!(exception instanceof DetailedException)) {
-      bugReporter.sendBugReport(
+      bugReporter.sendNonFatalBugReport(
           new IllegalStateException(
               "Non-detailed exception found for " + operation + ": " + resultForDebugging,
               exception));
@@ -144,9 +144,8 @@ public class QueryTransitivePackagePreloader {
         evaluationContextBuilderSupplier
             .get()
             .setKeepGoing(keepGoing)
-            .setNumThreads(parallelThreads)
+            .setParallelism(parallelThreads)
             .setEventHandler(eventHandler)
-            .setUseForkJoinPool(true)
             .build();
     EvaluationResult<SkyValue> result =
         memoizingEvaluatorSupplier.get().evaluate(valueNames, evaluationContext);

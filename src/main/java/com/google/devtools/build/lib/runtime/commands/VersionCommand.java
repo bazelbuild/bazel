@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
@@ -32,16 +34,15 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Optional;
 
-/**
- * The 'blaze version' command, which informs users about the blaze version
- * information.
- */
-@Command(name = "version",
-         options = { VersionCommand.VersionOptions.class },
-         allowResidue = false,
-         mustRunInWorkspace = false,
-         help = "resource:version.txt",
-         shortDescription = "Prints version information for %{product}.")
+/** The 'blaze version' command, which informs users about the blaze version information. */
+@Command(
+    name = "version",
+    buildPhase = NONE,
+    options = {VersionCommand.VersionOptions.class},
+    allowResidue = false,
+    mustRunInWorkspace = false,
+    help = "resource:version.txt",
+    shortDescription = "Prints version information for %{product}.")
 public final class VersionCommand implements BlazeCommand {
   /** Options for the "version" command. */
   public static class VersionOptions extends OptionsBase {

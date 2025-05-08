@@ -22,12 +22,13 @@ import com.google.common.hash.Hasher;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.StringEncoding;
+import com.google.devtools.build.lib.vfs.FileSystem.PathDevirtualizer;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -84,6 +85,12 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
     return pathFragment.getPathString();
   }
 
+  public Path devirtualize() {
+    return fileSystem instanceof PathDevirtualizer pathDevirtualizer
+        ? pathDevirtualizer.devirtualizePath(this)
+        : this;
+  }
+
   @Override
   public String filePathForFileTypeMatcher() {
     return pathFragment.getPathString();
@@ -97,6 +104,19 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    */
   public String getBaseName() {
     return pathFragment.getBaseName();
+  }
+
+  /**
+   * Returns a {@link Path} formed by appending {@code newName} to this {@link Path}'s parent
+   * directory. If this {@link Path} has zero segments, returns {@code null}. If {@code newName} is
+   * absolute, the value of {@code this} will be ignored and a {@link Path} corresponding to {@code
+   * newName} will be returned. This is consistent with the behavior of {@link
+   * #getRelative(String)}.
+   */
+  @Nullable
+  public Path replaceName(String newName) {
+    Path parent = getParentDirectory();
+    return parent != null ? parent.getRelative(newName) : null;
   }
 
   /** Synonymous with {@link Path#getRelative(String)}. */
@@ -194,10 +214,9 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof Path)) {
+    if (!(o instanceof Path other)) {
       return false;
     }
-    Path other = (Path) o;
     return fileSystem == other.fileSystem && pathFragment.equals(other.pathFragment);
   }
 
@@ -422,42 +441,45 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
-   * Creates a directory with the name of the current path, not following symbolic links. Returns
-   * normally iff the directory exists after the call: true if the directory was created by this
-   * call, false if the directory was already in existence. Throws an exception if the directory
-   * could not be created for any reason.
+   * Ensures that a directory exists with the name of the current path, not following symbolic
+   * links. If necessary, creates the directory.
    *
-   * @throws IOException if the directory creation failed for any reason
+   * @throws IOException if the directory creation failed
+   * @return whether the directory was created by this call
    */
   public boolean createDirectory() throws IOException {
     return fileSystem.createDirectory(asFragment());
   }
 
   /**
-   * Creates a writable directory or ensures an existing one at current path is writable. Does not
-   * follow symlinks. Returns whether a new directory has been created (including false if it only
-   * adjusts permissions for an existing directory).
+   * Ensures that a directory exists with the name of the current path, not following symbolic
+   * links. If necessary, creates the directory or adjusts permissions on a preexisting one.
    *
-   * <p>Returns normally iff directory at current path exists and is writable.
+   * <p>This operation is not atomic. Concurrent modifications will result in undefined behavior.
    *
-   * <p>This operation is not atomic -- concurrent modifications of the path will result in
-   * undefined behavior.
+   * @throws IOException if the directory creation or permission adjustment failed
+   * @return whether a new directory was created by this call
    */
   public boolean createWritableDirectory() throws IOException {
     return fileSystem.createWritableDirectory(asFragment());
   }
 
   /**
-   * Ensures that the directory with the name of the current path and all its ancestor directories
-   * exist.
+   * Ensures that a directory exists with the name of the current path, following symbolic links. If
+   * necessary, creates the directory and any missing ancestor directories.
    *
-   * <p>Does not return whether the directory already existed or was created by some other
-   * concurrent call to this method.
-   *
-   * @throws IOException if the directory creation failed for any reason
+   * @throws IOException if the directory creation failed
    */
   public void createDirectoryAndParents() throws IOException {
     fileSystem.createDirectoryAndParents(asFragment());
+  }
+
+  /**
+   * Returns the path of a new temporary directory with the given prefix created under the given
+   * parent path, but <b>not</b> necessarily with secure permissions.
+   */
+  public Path createTempDirectory(String prefix) throws IOException {
+    return fileSystem.getPath(fileSystem.createTempDirectory(asFragment(), prefix));
   }
 
   /**
@@ -534,13 +556,18 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
-   * Renames the file denoted by the current path to the location "target", not following symbolic
-   * links.
+   * Atomically renames the file denoted by the current path to the location "target", not following
+   * symbolic links.
    *
    * <p>Files cannot be atomically renamed across devices; copying is required. Use {@link
-   * FileSystemUtils#copyFile} followed by {@link Path#delete}.
+   * FileSystemUtils#moveFile(Path, Path)} instead.
    *
-   * @throws IOException if the rename failed for any reason
+   * <p>A non-directory cannot be renamed into an existing directory, or vice-versa. A directory can
+   * be renamed into an existing directory if and only if the latter is empty.
+   *
+   * @throws FileNotFoundException if the file denoted by the current path does not exist, or the
+   *     parent directory of the target path does not exist
+   * @throws IOException if the rename failed for any other reason
    */
   public void renameTo(Path target) throws IOException {
     checkSameFileSystem(target);
@@ -717,8 +744,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
         } else {
           hasher.putChar('-');
         }
-        hasher.putBytes(
-            DigestUtils.getDigestWithManualFallback(path, stat.getSize(), xattrProvider));
+        hasher.putBytes(DigestUtils.getDigestWithManualFallback(path, xattrProvider));
       } else if (stat.isDirectory()) {
         hasher.putChar('d').putUnencodedChars(path.getDirectoryDigest(xattrProvider));
       } else if (stat.isSymbolicLink()) {
@@ -732,8 +758,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
               } else {
                 hasher.putChar('-');
               }
-              hasher.putBytes(
-                  DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(resolved, xattrProvider));
+              hasher.putBytes(DigestUtils.getDigestWithManualFallback(resolved, xattrProvider));
             } else {
               // link to a non-file: include the link itself in the hash
               hasher.putChar('l').putUnencodedChars(link.toString());
@@ -766,22 +791,10 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
-   * Opens the file denoted by this path, following symbolic links, for reading, and returns a file
-   * channel for it.
-   *
-   * @throws IOException if the file was not found or could not be opened for reading
-   */
-  public ReadableByteChannel createReadableByteChannel() throws IOException {
-    return fileSystem.createReadableByteChannel(asFragment());
-  }
-
-  /**
    * Opens the file denoted by this path, following symbolic links, for reading and writing and
    * returns a file channel for it.
    *
-   * <p>Truncates the file, therefore it cannot be used to read already existing files. Please use
-   * {@link #createReadableByteChannel} to get a {@linkplain ReadableByteChannel channel} for reads
-   * instead.
+   * <p>Truncates the file, therefore it cannot be used to read already existing files.
    */
   public SeekableByteChannel createReadWriteByteChannel() throws IOException {
     return fileSystem.createReadWriteByteChannel(asFragment());
@@ -793,7 +806,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
    * <p>Caveat: the result may be useless if this path's getFileSystem() is not the UNIX filesystem.
    */
   public File getPathFile() {
-    return new File(getPathString());
+    return new File(StringEncoding.internalToPlatform(getPathString()));
   }
 
   /**

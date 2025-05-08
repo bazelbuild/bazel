@@ -24,7 +24,7 @@ public class RepositoryFetchProgress implements FetchProgress {
 
   /** Returns the unique identifying string for a repository fetching event. */
   public static String repositoryFetchContextString(RepositoryName repoName) {
-    return "repository " + repoName.getNameWithAt();
+    return "repository " + repoName;
   }
 
   public static RepositoryFetchProgress ongoing(RepositoryName repoName, String message) {

@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -26,7 +26,7 @@ import com.google.protobuf.CodedOutputStream;
  * Codec for {@link Rule} that throws. We expect never to serialize Rule except for in PackageCodec,
  * which has custom logic.
  */
-public class RuleCodec implements ObjectCodec<Rule> {
+public class RuleCodec extends LeafObjectCodec<Rule> {
 
   @VisibleForTesting
   static final String SERIALIZATION_ERROR_TEMPLATE =
@@ -43,13 +43,13 @@ public class RuleCodec implements ObjectCodec<Rule> {
   }
 
   @Override
-  public void serialize(SerializationContext context, Rule obj, CodedOutputStream codedOut)
+  public void serialize(LeafSerializationContext context, Rule obj, CodedOutputStream codedOut)
       throws SerializationException {
     throw new SerializationException(String.format(SERIALIZATION_ERROR_TEMPLATE, obj));
   }
 
   @Override
-  public Rule deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public Rule deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException {
     throw new SerializationException(DESERIALIZATION_ERROR_TEMPLATE);
   }

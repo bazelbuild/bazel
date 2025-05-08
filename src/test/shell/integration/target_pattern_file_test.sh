@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -55,19 +55,15 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 add_to_bazelrc "build --package_path=%workspace%"
 
 #### SETUP #############################################################
 
 function setup() {
+  add_rules_shell "MODULE.bazel"
   cat >BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 genrule(name = "x", outs = ["x.out"], cmd = "echo true > $@", executable = True)
 sh_test(name = "y", srcs = ["x.out"])
 EOF
@@ -76,6 +72,7 @@ EOF
 # Test comment
 //:x # Trailing comment
 //:y
+#
 EOF
 }
 

@@ -149,7 +149,7 @@ public final class TestXmlOutputParser {
       if (name.equals("name")) {
         builder.setName(value);
       } else if (name.equals("time")) {
-        builder.setRunDurationMillis(parseTime(value));
+        builder.setRunDurationMillis(parseTimeToMillis(value));
       }
     }
 
@@ -158,18 +158,23 @@ public final class TestXmlOutputParser {
   }
 
   /**
-   * Parses a time in test.xml format.
+   * Parses a time value in test.xml xs:decimal format, returned as milliseconds.
    *
-   * @throws NumberFormatException if the time is malformed (i.e. is neither an integer nor a
-   *     decimal fraction with '.' as the fraction separator)
+   * @throws NumberFormatException if the given string is not a valid per {@link Float#valueOf}
    */
-  private long parseTime(String string) {
+  private long parseTimeToMillis(String string) {
+    // xs:decimal values are supposed to look like "12.34" and represent a number of seconds,
+    // however we also support two other formats.
+    //   * "12" (no decimal point). For Historical Reasons we assume this is a number of
+    //     milliseconds.
+    //   * "1e2" or "1.2E3" (scientific e notation). Some JUNIT writers incorrectly don't use
+    //     xs:decimal, and we want Bazel to still work with them. See
+    //     https://github.com/bazelbuild/bazel/issues/24605.
 
-    // This is ugly. For Historical Reasons, we have to check whether the number
-    // contains a decimal point or not. If it does, the number is expressed in
-    // milliseconds, otherwise, in seconds.
-    if (string.contains(".")) {
-      return Math.round(Float.parseFloat(string) * 1000);
+    if (string.contains(".") || string.contains("e") || string.contains("E")) {
+      // test.xml times are supposed to be in seconds.
+      float seconds = Float.parseFloat(string);
+      return Math.round(seconds * 1000);
     } else {
       return Long.parseLong(string);
     }
@@ -194,7 +199,7 @@ public final class TestXmlOutputParser {
       if (name.equals("classname")) {
         builder.setClassName(value);
       } else if (name.equals("time")) {
-        builder.setRunDurationMillis(parseTime(value));
+        builder.setRunDurationMillis(parseTimeToMillis(value));
       }
     }
 
@@ -216,11 +221,12 @@ public final class TestXmlOutputParser {
       throws XMLStreamException, TestXmlOutputParserException {
     int failures = 0;
     int errors = 0;
+    boolean skipped = false;
 
     while (true) {
       int event = parser.next();
       switch (event) {
-        case XMLStreamConstants.START_ELEMENT:
+        case XMLStreamConstants.START_ELEMENT -> {
           String childElementName = parser.getLocalName().intern();
 
           // We are not parsing four elements here: system-out, system-err,
@@ -243,6 +249,10 @@ public final class TestXmlOutputParser {
               errors += 1;
               skipCompleteElement(parser);
               break;
+            case "skipped":
+              skipped = true;
+              skipCompleteElement(parser);
+              break;
             case "testdecorator":
               builder.addChild(parseTestDecorator(parser));
               break;
@@ -252,9 +262,8 @@ public final class TestXmlOutputParser {
               // is bliss.
               skipCompleteElement(parser);
           }
-          break;
-
-        case XMLStreamConstants.END_ELEMENT:
+        }
+        case XMLStreamConstants.END_ELEMENT -> {
           // Propagate errors/failures from children up to the current case
           for (int i = 0; i < builder.getChildCount(); i += 1) {
             if (builder.getChild(i).getStatus() == TestCase.Status.ERROR) {
@@ -269,6 +278,8 @@ public final class TestXmlOutputParser {
             builder.setStatus(TestCase.Status.ERROR);
           } else if (failures > 0) {
             builder.setStatus(TestCase.Status.FAILED);
+          } else if (skipped) {
+            builder.setStatus(TestCase.Status.SKIPPED);
           } else {
             builder.setStatus(TestCase.Status.PASSED);
           }
@@ -278,7 +289,8 @@ public final class TestXmlOutputParser {
             throw createBadElementException(elementName, parser);
           }
           return;
-        default: // fall out
+        }
+        default -> {}
       }
     }
   }
@@ -299,27 +311,18 @@ public final class TestXmlOutputParser {
       String value = parser.getAttributeValue(i);
 
       switch (name) {
-        case "name":
-          builder.setName(value);
-          break;
-        case "classname":
-          builder.setClassName(value);
-          break;
-        case "time":
-          builder.setRunDurationMillis(parseTime(value));
-          break;
-        case "result":
-          builder.setResult(value);
-          break;
-        case "status":
+        case "name" -> builder.setName(value);
+        case "classname" -> builder.setClassName(value);
+        case "time" -> builder.setRunDurationMillis(parseTimeToMillis(value));
+        case "result" -> builder.setResult(value);
+        case "status" -> {
           if (value.equals("notrun")) {
             builder.setRun(false);
           } else if (value.equals("run")) {
             builder.setRun(true);
           }
-          break;
-        default:
-          // fall through
+        }
+        default -> {}
       }
     }
 
@@ -339,16 +342,13 @@ public final class TestXmlOutputParser {
       int event = parser.next();
 
       switch (event) {
-        case XMLStreamConstants.START_ELEMENT:
-          depth++;
-          break;
-
-        case XMLStreamConstants.END_ELEMENT:
+        case XMLStreamConstants.START_ELEMENT -> depth++;
+        case XMLStreamConstants.END_ELEMENT -> {
           if (--depth == 0) {
             return;
           }
-          break;
-        default: // fall out
+        }
+        default -> {}
       }
     }
   }

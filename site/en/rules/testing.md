@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Testing
 
+{% include "_buttons.html" %}
+
 There are several different approaches to testing Starlark code in Bazel. This
 page gathers the current best practices and frameworks by use case.
 
@@ -24,7 +26,7 @@ Some caveats:
 
 *   It requires a fair amount of boilerplate to set up the rules under test and
     the rules containing test assertions. This boilerplate may seem daunting at
-    first. It helps to [keep in mind](/rules/concepts#evaluation-model) that macros
+    first. It helps to [keep in mind](/extending/concepts#evaluation-model) that macros
     are evaluated and targets generated during the loading phase, while rule
     implementation functions don't run until later, during the analysis phase.
 

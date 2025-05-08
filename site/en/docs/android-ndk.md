@@ -3,8 +3,10 @@ Book: /_book.yaml
 
 # Using the Android Native Development Kit with Bazel
 
+{% include "_buttons.html" %}
+
 _If you're new to Bazel, please start with the [Building Android with
-Bazel](/tutorials/android-app) tutorial._
+Bazel](/start/android-app ) tutorial._
 
 ## Overview {:#overview}
 
@@ -32,8 +34,13 @@ android_ndk_repository(
 )
 ```
 
-For more information on the `android_ndk_repository` rule, see the [Build
+For more information about the `android_ndk_repository` rule, see the [Build
 Encyclopedia entry](/reference/be/android#android_ndk_repository).
+
+If you're using a recent version of the Android NDK (r22 and beyond), use the
+Starlark implementation of `android_ndk_repository`.
+Follow the instructions in
+[its README](https://github.com/bazelbuild/rules_android_ndk).
 
 ## Quick start {:#quick-start}
 
@@ -154,48 +161,47 @@ public class MainActivity extends AppCompatActivity {
 Note: The name of the native library is derived from the name of the top
 level `android_binary` target. In this example, it is `app`.
 
-## Configuring the STL {:#configuring-stl}
-
-To configure the C++ STL, use the flag `--android_crosstool_top`.
-
-```posix-terminal
-bazel build //:app --android_crosstool_top={{ "<var>" }}target label{{ "</var>" }}
-```
-
-The available STLs in `@androidndk` are:
-
-| STL     | Target label                            |
-|---------|-----------------------------------------|
-| STLport | `@androidndk//:toolchain-stlport`       |
-| libc++  | `@androidndk//:toolchain-libcpp`        |
-| gnustl  | `@androidndk//:toolchain-gnu-libstdcpp` |
-
-For r16 and below, the default STL is `gnustl`. For r17 and above, it is
-`libc++`. For convenience, the target `@androidndk//:default_crosstool` is
-aliased to the respective default STLs.
-
-Please note that from r18 onwards, [STLport and gnustl will be
-removed](https://android.googlesource.com/platform/ndk/+/master/docs/Roadmap.md#ndk-r18){: .external},
-making `libc++` the only STL in the NDK.
-
-See the [NDK
-documentation](https://developer.android.com/ndk/guides/cpp-support){: .external}
-for more information on these STLs.
-
 ## Configuring the target ABI {:#configuring-target-abi}
 
-To configure the target ABI, use the `--fat_apk_cpu` flag as follows:
+To configure the target ABI, use the `--android_platforms` flag as follows:
 
 ```posix-terminal
-bazel build //:app --fat_apk_cpu={{ "<var>" }}comma-separated list of ABIs{{ "</var>" }}
+bazel build //:app --android_platforms={{ "<var>" }}comma-separated list of platforms{{ "</var>" }}
 ```
 
-By default, Bazel builds native Android code for `armeabi-v7a`. To build for x86
-(such as for emulators), pass `--fat_apk_cpu=x86`. To create a fat APK for multiple
-architectures, you can specify multiple CPUs: `--fat_apk_cpu=armeabi-v7a,x86`.
+Just like the `--platforms` flag, the values passed to `--android_platforms` are
+the labels of [`platform`](https://bazel.build/reference/be/platforms-and-toolchains#platform)
+targets, using standard constraint values to describe your device.
 
-If more than one ABI is specified, Bazel will build an APK containing a shared
-object for each ABI.
+For example, for an Android device with a 64-bit ARM processor, you'd define
+your platform like this:
+
+```py
+platform(
+    name = "android_arm64",
+    constraint_values = [
+        "@platforms//os:android",
+        "@platforms//cpu:arm64",
+    ],
+)
+```
+
+Every Android `platform` should use the [`@platforms//os:android`](https://github.com/bazelbuild/platforms/blob/33a3b209f94856193266871b1545054afb90bb28/os/BUILD#L36)
+OS constraint. To migrate the CPU constraint, check this chart:
+
+CPU Value     | Platform
+------------- | ------------------------------------------
+`armeabi-v7a` | `@platforms//cpu:armv7`
+`arm64-v8a`   | `@platforms//cpu:arm64`
+`x86`         | `@platforms//cpu:x86_32`
+`x86_64`      | `@platforms//cpu:x86_64`
+
+And, of course, for a multi-architecture APK, you pass multiple labels, for
+example: `--android_platforms=//:arm64,//:x86_64` (assuming you defined those in
+your top-level `BUILD.bazel` file).
+
+Bazel is unable to select a default Android platform, so one must be defined and
+specified with `--android_platforms`.
 
 Depending on the NDK revision and Android API level, the following ABIs are
 available:
@@ -220,6 +226,7 @@ Use the following flags to build according to a C++ standard:
 | C++98        | Default, no flag needed |
 | C++11        | `--cxxopt=-std=c++11`   |
 | C++14        | `--cxxopt=-std=c++14`   |
+| C++17        | `--cxxopt=-std=c++17`   |
 
 For example:
 
@@ -242,169 +249,36 @@ cc_library(
 )
 ```
 
-## Integration with platforms and toolchains {:#integration-platforms}
-
-Bazel's configuration model is moving towards
-[platforms](/docs/platforms) and
-[toolchains](/docs/toolchains). If your
-build uses the `--platforms` flag to select for the architecture or operating system
-to build for, you will need to pass the `--extra_toolchains` flag to Bazel in
-order to use the NDK.
-
-For example, to integrate with the `android_arm64_cgo` toolchain provided by
-the Go rules, pass `--extra_toolchains=@androidndk//:all` in addition to the
-`--platforms` flag.
-
-```posix-terminal
-bazel build //my/cc:lib \
-  --platforms=@io_bazel_rules_go//go/toolchain:android_arm64_cgo \
-  --extra_toolchains=@androidndk//:all
-```
-
-You can also register them directly in the `WORKSPACE` file:
-
-```python
-android_ndk_repository(name = "androidndk")
-register_toolchains("@androidndk//:all")
-```
-
-Registering these toolchains tells Bazel to look for them in the NDK `BUILD`
-file (for NDK 20) when resolving architecture and operating system constraints:
-
-```python
-toolchain(
-  name = "x86-clang8.0.7-libcpp_toolchain",
-  toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
-  target_compatible_with = [
-      "@platforms//os:android",
-      "@platforms//cpu:x86_32",
-  ],
-  toolchain = "@androidndk//:x86-clang8.0.7-libcpp",
-)
-
-toolchain(
-  name = "x86_64-clang8.0.7-libcpp_toolchain",
-  toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
-  target_compatible_with = [
-      "@platforms//os:android",
-      "@platforms//cpu:x86_64",
-  ],
-  toolchain = "@androidndk//:x86_64-clang8.0.7-libcpp",
-)
-
-toolchain(
-  name = "arm-linux-androideabi-clang8.0.7-v7a-libcpp_toolchain",
-  toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
-  target_compatible_with = [
-      "@platforms//os:android",
-      "@platforms//cpu:arm",
-  ],
-  toolchain = "@androidndk//:arm-linux-androideabi-clang8.0.7-v7a-libcpp",
-)
-
-toolchain(
-  name = "aarch64-linux-android-clang8.0.7-libcpp_toolchain",
-  toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
-  target_compatible_with = [
-      "@platforms//os:android",
-      "@platforms//cpu:aarch64",
-  ],
-  toolchain = "@androidndk//:aarch64-linux-android-clang8.0.7-libcpp",
-)
-```
-
-## How it works: introducing Android configuration transitions {:#intro-android-config}
-
-The `android_binary` rule can explicitly ask Bazel to build its dependencies in
-an Android-compatible configuration so that the Bazel build *just works* without
-any special flags, except for `--fat_apk_cpu` and `--android_crosstool_top` for
-ABI and STL configuration.
-
-Behind the scenes, this automatic configuration uses Android [configuration
-transitions](/rules/rules#configurations).
-
-A compatible rule, like `android_binary`, automatically changes the
-configuration of its dependencies to an Android configuration, so only
-Android-specific subtrees of the build are affected. Other parts of the build
-graph are processed using the top-level target configuration. It may even
-process a single target in both configurations, if there are paths through the
-build graph to support that.
-
-Once Bazel is in an Android-compatible configuration, either specified at the
-top level or due to a higher-level transition point, additional transition
-points encountered do not further modify the configuration.
-
-The only built-in location that triggers the transition to the Android
-configuration is `android_binary`'s `deps` attribute.
-
-Note: The `data` attribute of `android_binary` intentionally does *not*
-trigger the transition. Additionally, `android_local_test` and `android_library`
-intentionally do *not* trigger the transition at all.
-
-For example, if you try to build an `android_library` target with a `cc_library`
-dependency without any flags, you may encounter an error about a missing JNI
-header:
-
-```
-ERROR: {{ "<var>" }}project{{ "</var>" }}/app/src/main/BUILD.bazel:16:1: C++ compilation of rule '//app/src/main:jni_lib' failed (Exit 1)
-app/src/main/cpp/native-lib.cpp:1:10: fatal error: 'jni.h' file not found
-#include <jni.h>
-         ^~~~~~~
-1 error generated.
-Target //app/src/main:lib failed to build
-Use --verbose_failures to see the command lines of failed build steps.
-```
-
-Ideally, these automatic transitions should make Bazel do the right thing in the
-majority of cases. However, if the target on the Bazel command-line is already
-below any of these transition rules, such as C++ developers testing a specific
-`cc_library`, then a custom `--crosstool_top` must be used.
-
 ## Building a `cc_library` for Android without using `android_binary` {:#cclibrary-android}
 
 To build a standalone `cc_binary` or `cc_library` for Android without using an
-`android_binary`, use the `--crosstool_top`, `--cpu` and `--host_crosstool_top`
-flags.
+`android_binary`, use the `--platforms` flag.
 
-For example:
+For example, assuming you have defined Android platforms in
+`my/platforms/BUILD`:
 
 ```posix-terminal
 bazel build //my/cc/jni:target \
-      --crosstool_top=@androidndk//:default_crosstool \
-      --cpu=<abi> \
-      --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+      --platforms=//my/platforms:x86_64
 ```
-
-In this example, the top-level `cc_library` and `cc_binary` targets are built
-using the NDK toolchain. However, this causes Bazel's own host tools to be built
-with the NDK toolchain (and thus for Android), because the host toolchain is
-copied from the target toolchain. To work around this, specify the value of
-`--host_crosstool_top` to be `@bazel_tools//tools/cpp:toolchain` to
-explicitly set the host's C++ toolchain.
 
 With this approach, the entire build tree is affected.
 
 Note: All of the targets on the command line must be compatible with
 building for Android when specifying these flags, which may make it difficult to
-use [Bazel wild-cards](/docs/build#specifying-build-targets) like
+use [Bazel wild-cards](/run/build#specifying-build-targets) like
 `/...` and `:all`.
 
 These flags can be put into a `bazelrc` config (one for each ABI), in
 `{{ "<var>" }}project{{ "</var>" }}/.bazelrc`:
 
 ```
-common:android_x86 --crosstool_top=@androidndk//:default_crosstool
-common:android_x86 --cpu=x86
-common:android_x86 --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+common:android_x86 --platforms=//my/platforms:x86
 
-common:android_armeabi-v7a --crosstool_top=@androidndk//:default_crosstool
-common:android_armeabi-v7a --cpu=armeabi-v7a
-common:android_armeabi-v7a --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+common:android_armeabi-v7a --platforms=//my/platforms:armeabi-v7a
 
 # In general
-common:android_<abi> --crosstool_top=@androidndk//:default_crosstool
-common:android_<abi> --cpu=<abi>
-common:android_<abi> --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+common:android_<abi> --platforms=//my/platforms:<abi>
 ```
 
 Then, to build a `cc_library` for `x86` for example, run:

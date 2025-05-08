@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Getting Started with Bazel Docker Container
 
+{% include "_buttons.html" %}
+
 This page provides details on the contents of the Bazel container, how to build
 the [abseil-cpp](https://github.com/abseil/abseil-cpp){: .external} project using Bazel
 inside the Bazel container, and how to build this project directly
@@ -18,7 +20,7 @@ environment so they can be reused across builds.
 Clone the project to a directory in your host machine.
 
 ```posix-terminal
-git clone https://github.com/abseil/abseil-cpp.git /src/workspace
+git clone --depth 1 --branch 20220623.1 https://github.com/abseil/abseil-cpp.git /src/workspace
 ```
 
 Create a folder that will have cached results to be shared across builds.
@@ -37,7 +39,7 @@ docker run \
   -v /src/workspace:/src/workspace \
   -v /tmp/build_output:/tmp/build_output \
   -w /src/workspace \
-  l.gcr.io/google/bazel:latest \
+  gcr.io/bazel-public/bazel:latest \
   --output_user_root=/tmp/build_output \
   build //absl/...
 ```
@@ -53,7 +55,7 @@ docker run \
   -v /src/workspace:/src/workspace \
   -v /tmp/build_output:/tmp/build_output \
   -w /src/workspace \
-  l.gcr.io/google/bazel:latest \
+  gcr.io/bazel-public/bazel:latest \
   --output_user_root=/tmp/build_output \
   build --config={asan | tsan | msan} -- //absl/... -//absl/types:variant_test
 ```
@@ -62,27 +64,27 @@ docker run \
 
 The instructions in this section allow you to build using the Bazel container
 with the sources inside the container. By starting a container at the beginning
-of your developement workflow and doing changes in the worskpace within the
+of your development workflow and doing changes in the worskpace within the
 container, build results will be cached.
 
 Start a shell in the Bazel container:
 
 ```posix-terminal
-docker run --interactive --entrypoint=/bin/bash l.gcr.io/google/bazel:latest
+docker run --interactive --entrypoint=/bin/bash gcr.io/bazel-public/bazel:latest
 ```
 
-Each container id is unique. In the instructions bellow, the container was 5a99103747c6.
+Each container id is unique. In the instructions below, the container was 5a99103747c6.
 
 Clone the project.
 
 ```posix-terminal
-root@5a99103747c6:~# git clone https://github.com/abseil/abseil-cpp.git && cd abseil-cpp/
+ubuntu@5a99103747c6:~$ git clone --depth 1 --branch 20220623.1 https://github.com/abseil/abseil-cpp.git && cd abseil-cpp/
 ```
 
 Do a regular build.
 
 ```posix-terminal
-root@5a99103747c6:~/abseil-cpp# bazel build //absl/...
+ubuntu@5a99103747c6:~/abseil-cpp$ bazel build //absl/...
 ```
 
 Build the project with sanitizers by adding the `--config={{ "<var>" }}asan{{ "</var>" }}|{{ "<var>" }}tsan{{ "</var>" }}|{{ "<var>" }}msan{{ "</var>" }}`
@@ -90,7 +92,7 @@ build flag to select AddressSanitizer (asan), ThreadSanitizer (tsan) or
 MemorySanitizer (msan) accordingly.
 
 ```posix-terminal
-root@5a99103747c6:~/abseil-cpp# bazel build --config=--config={asan | tsan | msan} -- //absl/... -//absl/types:variant_test
+ubuntu@5a99103747c6:~/abseil-cpp$ bazel build --config={asan | tsan | msan} -- //absl/... -//absl/types:variant_test
 ```
 
 ## Explore the Bazel container {:#explore-bazel-container}
@@ -98,35 +100,37 @@ root@5a99103747c6:~/abseil-cpp# bazel build --config=--config={asan | tsan | msa
 If you haven't already, start an interactive shell inside the Bazel container.
 
 ```posix-terminal
-docker run -it --entrypoint=/bin/bash l.gcr.io/google/bazel:latest
-root@5a99103747c6:/#
+docker run -it --entrypoint=/bin/bash gcr.io/bazel-public/bazel:latest
+ubuntu@5a99103747c6:~$
 ```
 
 Explore the container contents.
 
 ```posix-terminal
-root@5a99103747c6:/# clang --version
-clang version 8.0.0 (trunk 340178)
-Target: x86_64-unknown-linux-gnu
-Thread model: posix
-InstalledDir: /usr/local/bin
+ubuntu@5a99103747c6:~$ gcc --version
+gcc (Ubuntu 9.4.0-1ubuntu1~20.04.1) 9.4.0
+Copyright (C) 2019 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
-root@5a99103747c6:/# java -version
-openjdk version "1.8.0_181"
-OpenJDK Runtime Environment (build 1.8.0_181-8u181-b13-0ubuntu0.16.04.1-b13)
-OpenJDK 64-Bit Server VM (build 25.181-b13, mixed mode)
+ubuntu@5a99103747c6:~$ java -version
+openjdk version "1.8.0_362"
+OpenJDK Runtime Environment (build 1.8.0_362-8u372-ga~us1-0ubuntu1~20.04-b09)
+OpenJDK 64-Bit Server VM (build 25.362-b09, mixed mode)
 
-root@5a99103747c6:/# python -V
-Python 2.7.12
+ubuntu@5a99103747c6:~$ python -V
+Python 3.8.10
 
-root@5a99103747c6:/# python3 -V
-Python 3.6.6
-
-root@5a99103747c6:/# bazel version
+ubuntu@5a99103747c6:~$ bazel version
+WARNING: Invoking Bazel in batch mode since it is not invoked from within a workspace (below a directory having a WORKSPACE file).
 Extracting Bazel installation...
-Build label: 0.17.1
+Build label: 6.2.1
 Build target: bazel-out/k8-opt/bin/src/main/java/com/google/devtools/build/lib/bazel/BazelServer_deploy.jar
-Build time: Fri Sep 14 10:39:25 2018 (1536921565)
-Build timestamp: 1536921565
-Build timestamp as int: 1536921565
+Build time: Fri Jun 2 16:59:58 2023 (1685725198)
+Build timestamp: 1685725198
+Build timestamp as int: 1685725198
 ```
+
+## Explore the Bazel Dockerfile {:#explore-bazel-dockerfile}
+
+If you want to check how the Bazel Docker image is built, you can find its Dockerfile at [bazelbuild/continuous-integration/bazel/oci](https://github.com/bazelbuild/continuous-integration/tree/master/bazel/oci).

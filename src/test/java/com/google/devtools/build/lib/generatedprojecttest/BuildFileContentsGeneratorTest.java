@@ -51,7 +51,7 @@ public final class BuildFileContentsGeneratorTest {
 
   @Test
   public void defaultPackageVisibilityIsAddedToStartOfBuildFile() throws IllegalStateException {
-    generator.addRule(new BuildRuleBuilder("java_library", generator.uniqueRuleName()));
+    generator.addRule(new BuildRuleBuilder("cc_library", generator.uniqueRuleName()));
     generator.setDefaultPackageVisibility("//visibility:private");
     assertThat(generator.getContents())
         .startsWith("package(default_visibility = ['//visibility:private'])");
@@ -59,7 +59,7 @@ public final class BuildFileContentsGeneratorTest {
 
   @Test
   public void defaultPackageVisibilityDefaultsToPublic() throws IllegalStateException {
-    generator.addRule(new BuildRuleBuilder("java_library", generator.uniqueRuleName()));
+    generator.addRule(new BuildRuleBuilder("cc_library", generator.uniqueRuleName()));
     assertThat(generator.getContents())
         .startsWith("package(default_visibility = ['//visibility:public'])");
   }

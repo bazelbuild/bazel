@@ -51,6 +51,8 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
   private long contentLength = -1;
   /** the path header in the http request */
   private String path;
+  /** the bytes to skip in a full or chunked response */
+  private long skipBytes;
 
   public HttpDownloadHandler(
       Credentials credentials, ImmutableList<Entry<String, String>> extraHttpHeaders) {
@@ -72,8 +74,8 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
     }
     checkState(userPromise != null, "response before request");
 
-    if (msg instanceof HttpResponse) {
-      response = (HttpResponse) msg;
+    if (msg instanceof HttpResponse httpResponse) {
+      response = httpResponse;
       if (!response.protocolVersion().equals(HttpVersion.HTTP_1_1)) {
         HttpException error =
             new HttpException(
@@ -105,6 +107,19 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
 
       ByteBuf content = ((HttpContent) msg).content();
       int readableBytes = content.readableBytes();
+      if (skipBytes > 0) {
+        int skipNow;
+        if (skipBytes < readableBytes) {
+          // readableBytes is an int, meaning skipBytes < readableBytes <= INT_MAX.
+          // So, this conversion is safe.
+          skipNow = (int) skipBytes;
+        } else {
+          skipNow = readableBytes;
+        }
+        content.readerIndex(content.readerIndex() + skipNow);
+        skipBytes -= skipNow;
+        readableBytes = readableBytes - skipNow;
+      }
       content.readBytes(out, readableBytes);
       bytesReceived += readableBytes;
       if (msg instanceof LastHttpContent) {
@@ -128,15 +143,15 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
       throws Exception {
     checkState(userPromise == null, "handler can't be shared between pipelines.");
     userPromise = promise;
-    if (!(msg instanceof DownloadCommand)) {
+    if (!(msg instanceof DownloadCommand cmd)) {
       failAndResetUserPromise(
           new IllegalArgumentException(
               "Unsupported message type: " + StringUtil.simpleClassName(msg)));
       return;
     }
-    DownloadCommand cmd = (DownloadCommand) msg;
     out = cmd.out();
     path = constructPath(cmd.uri(), cmd.digest().getHash(), cmd.casDownload());
+    skipBytes = cmd.offset();
     HttpRequest request = buildRequest(path, constructHost(cmd.uri()));
     addCredentialHeaders(request, cmd.uri());
     addExtraRemoteHeaders(request);

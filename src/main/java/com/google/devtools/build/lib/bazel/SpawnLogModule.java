@@ -13,115 +13,155 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel;
 
-import com.google.devtools.build.lib.bazel.execlog.StableSort;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.common.eventbus.Subscribe;
+import com.google.common.primitives.Booleans;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.exec.CompactSpawnLogContext;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.ExpandedSpawnLogContext;
+import com.google.devtools.build.lib.exec.ExpandedSpawnLogContext.Encoding;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnLogContext;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
-import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.BinaryOutputStreamWrapper;
-import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.JsonOutputStreamWrapper;
-import com.google.devtools.build.lib.util.io.MessageOutputStreamWrapper.MessageOutputStreamCollection;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.File;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.io.InputStream;
+import javax.annotation.Nullable;
 
-/**
- * Module providing on-demand spawn logging.
- */
+/** Module providing on-demand spawn logging. */
 public final class SpawnLogModule extends BlazeModule {
-  /**
-   * SpawnLogContext will log to a temporary file as the execution is being performed. rawOutput is
-   * the path to that temporary file.
-   */
-  private SpawnLogContext spawnLogContext;
+  private static final String EXEC_LOG_FILENAME = "execution_log.binpb.zst";
 
-  private Path rawOutput;
+  @Nullable private SpawnLogContext spawnLogContext;
+  @Nullable private Path outputPath;
 
-  /**
-   * After the execution is done, the temporary file contents will be sorted and logged as the user
-   * requested, to binary and/or json files. We will open the streams at the beginning of the
-   * command so that any errors (e.g., unwritable location) will be surfaced before the execution
-   * begins.
-   */
-  private MessageOutputStreamCollection outputStreams;
-
-  private CommandEnvironment env;
+  @Nullable private AbruptExitException abruptExit = null;
 
   private void clear() {
     spawnLogContext = null;
-    outputStreams = new MessageOutputStreamCollection();
-    rawOutput = null;
-    env = null;
+    outputPath = null;
+    abruptExit = null;
   }
 
   private void initOutputs(CommandEnvironment env) throws IOException {
     clear();
-    this.env = env;
 
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
     if (executionOptions == null) {
       return;
     }
-    FileSystem fileSystem = env.getRuntime().getFileSystem();
-    Path workingDirectory = env.getWorkingDirectory();
 
-    if (executionOptions.executionLogBinaryFile != null
-        && !executionOptions.executionLogBinaryFile.isEmpty()) {
-      outputStreams.addStream(
-          new BinaryOutputStreamWrapper(
-              workingDirectory
-                  .getRelative(executionOptions.executionLogBinaryFile)
-                  .getOutputStream()));
-    }
+    int numFormats =
+        Booleans.countTrue(
+            executionOptions.executionLogCompactFile != null,
+            executionOptions.executionLogBinaryFile != null,
+            executionOptions.executionLogJsonFile != null);
 
-    if (executionOptions.executionLogJsonFile != null
-        && !executionOptions.executionLogJsonFile.isEmpty()) {
-      outputStreams.addStream(
-          new JsonOutputStreamWrapper(
-              workingDirectory
-                  .getRelative(executionOptions.executionLogJsonFile)
-                  .getOutputStream()));
-    }
-
-    AsynchronousFileOutputStream outStream = null;
-    if (executionOptions.executionLogFile != null && !executionOptions.executionLogFile.isEmpty()) {
-      rawOutput = workingDirectory.getRelative(executionOptions.executionLogFile);
-      outStream =
-          new AsynchronousFileOutputStream(
-              workingDirectory.getRelative(executionOptions.executionLogFile));
-    } else if (!outputStreams.isEmpty()) {
-      // Execution log requested but raw log file not specified
-      File file = File.createTempFile("exec", ".log");
-      rawOutput = fileSystem.getPath(file.getAbsolutePath());
-      outStream = new AsynchronousFileOutputStream(rawOutput);
-    }
-
-    if (outStream == null) {
-      // No logging needed
-      clear();
+    if (numFormats == 0) {
+      // No logging requested.
       return;
     }
 
-    spawnLogContext =
-        new SpawnLogContext(
-            env.getExecRoot(),
-            outStream,
-            env.getOptions().getOptions(ExecutionOptions.class),
-            env.getOptions().getOptions(RemoteOptions.class),
-            env.getXattrProvider());
+    if (numFormats > 1) {
+      String message =
+          "Must specify at most one of --execution_log_binary_file, --execution_log_json_file and"
+              + " --execution_log_compact_file";
+      env.getBlazeModuleEnvironment()
+          .exit(
+              new AbruptExitException(
+                  DetailedExitCode.of(
+                      FailureDetail.newBuilder()
+                          .setMessage(message)
+                          .setExecutionOptions(
+                              FailureDetails.ExecutionOptions.newBuilder()
+                                  .setCode(
+                                      FailureDetails.ExecutionOptions.Code
+                                          .MULTIPLE_EXECUTION_LOG_FORMATS))
+                          .build())));
+      return;
+    }
+
+    Path outputBase = env.getOutputBase();
+
+    if (executionOptions.executionLogCompactFile != null) {
+      outputPath = getAbsolutePath(executionOptions.executionLogCompactFile, env);
+
+      try {
+        spawnLogContext =
+            new CompactSpawnLogContext(
+                outputPath,
+                env.getExecRoot().asFragment(),
+                env.getWorkspaceName(),
+                env.getOptions()
+                    .getOptions(BuildLanguageOptions.class)
+                    .experimentalSiblingRepositoryLayout,
+                env.getOptions().getOptions(RemoteOptions.class),
+                env.getRuntime().getFileSystem().getDigestFunction(),
+                env.getXattrProvider(),
+                env.getCommandId());
+      } catch (InterruptedException e) {
+        env.getReporter()
+            .handle(Event.error("Error while setting up the execution log: " + e.getMessage()));
+      }
+    } else {
+      Encoding encoding = null;
+
+      if (executionOptions.executionLogBinaryFile != null) {
+        encoding = Encoding.BINARY;
+        outputPath = getAbsolutePath(executionOptions.executionLogBinaryFile, env);
+      } else if (executionOptions.executionLogJsonFile != null) {
+        encoding = Encoding.JSON;
+        outputPath = getAbsolutePath(executionOptions.executionLogJsonFile, env);
+      }
+
+      // Use a well-known temporary path to avoid accumulation of potentially large files in /tmp
+      // due to abnormally terminated invocations (e.g., when running out of memory).
+      Path tempPath = outputBase.getRelative(EXEC_LOG_FILENAME);
+
+      spawnLogContext =
+          new ExpandedSpawnLogContext(
+              checkNotNull(outputPath),
+              tempPath,
+              checkNotNull(encoding),
+              /* sorted= */ executionOptions.executionLogSort,
+              env.getExecRoot().asFragment(),
+              env.getOptions().getOptions(RemoteOptions.class),
+              env.getRuntime().getFileSystem().getDigestFunction(),
+              env.getXattrProvider());
+    }
+  }
+
+  /**
+   * If the given path is absolute path, leave it as it is. If the given path is a relative path, it
+   * is relative to the current working directory. If the given path starts with '%workspace%, it is
+   * relative to the workspace root, which is the output of `bazel info workspace`.
+   *
+   * @return Absolute Path
+   */
+  private Path getAbsolutePath(PathFragment path, CommandEnvironment env) {
+    String pathString = path.getPathString();
+    if (env.getWorkspace() != null) {
+      pathString = pathString.replace("%workspace%", env.getWorkspace().getPathString());
+    }
+    if (!PathFragment.isAbsolute(pathString)) {
+      return env.getWorkingDirectory().getRelative(pathString);
+    }
+
+    return env.getRuntime().getFileSystem().getPath(pathString);
   }
 
   @Override
@@ -149,37 +189,36 @@ public final class SpawnLogModule extends BlazeModule {
           .exit(
               new AbruptExitException(
                   createDetailedExitCode(
-                      "Error initializing execution log",
+                      String.format("Error initializing execution log: %s", e.getMessage()),
                       Code.EXECUTION_LOG_INITIALIZATION_FAILURE)));
     }
   }
 
-  @Override
-  public void afterCommand() throws AbruptExitException {
-    boolean done = false;
-    if (spawnLogContext != null) {
-      try {
-        spawnLogContext.close();
-        if (!outputStreams.isEmpty()) {
-          InputStream in = rawOutput.getInputStream();
-          StableSort.stableSort(in, outputStreams);
-          outputStreams.close();
-        }
-        done = true;
-      } catch (IOException e) {
-        String message = e.getMessage() == null ? "Error writing execution log" : e.getMessage();
-        throw new AbruptExitException(
-            createDetailedExitCode(message, Code.EXECUTION_LOG_WRITE_FAILURE), e);
-      } finally {
-        if (!done && !outputStreams.isEmpty()) {
-          env.getReporter()
-              .handle(
-                  Event.warn(
-                      "Execution log might not have been populated. Raw execution log is at "
-                          + rawOutput));
-        }
-        clear();
+  @Subscribe
+  public void buildComplete(BuildCompleteEvent event) {
+    // The log must be finalized in buildComplete() instead of afterCommand(), because it's our
+    // last chance to publish it to the build event protocol.
+
+    if (spawnLogContext == null) {
+      // No logging requested.
+      clear();
+      return;
+    }
+
+    try {
+      spawnLogContext.close();
+      if (spawnLogContext.shouldPublish()) {
+        event.getResult().getBuildToolLogCollection().addLocalFile(EXEC_LOG_FILENAME, outputPath);
       }
+    } catch (IOException e) {
+      abruptExit =
+          new AbruptExitException(
+              createDetailedExitCode(
+                  String.format("Error writing execution log: %s", e.getMessage()),
+                  Code.EXECUTION_LOG_WRITE_FAILURE),
+              e);
+    } finally {
+      clear();
     }
   }
 
@@ -189,5 +228,12 @@ public final class SpawnLogModule extends BlazeModule {
             .setMessage(message)
             .setExecution(Execution.newBuilder().setCode(detailedCode))
             .build());
+  }
+
+  @Override
+  public void afterCommand() throws AbruptExitException {
+    if (abruptExit != null) {
+      throw abruptExit;
+    }
   }
 }

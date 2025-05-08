@@ -20,8 +20,9 @@ import java.util.Objects;
 
 /**
  * In case we can't get a fast digest from the filesystem, we store this metadata as a proxy to the
- * file contents. Currently it is two timestamps and a "node id". On Linux we use both ctime and
- * mtime and inode number. We might want to add the device number in the future.
+ * file contents. Currently it is up to two timestamps and a "node id". On Linux, macOS and Windows
+ * we use both ctime and mtime, on Linux and macOS also the inode number. On other OSes, only the
+ * mtime is used. We might want to add the device number in the future.
  *
  * <p>For a Linux example of why mtime alone is insufficient, note that 'mv' preserves mtime. So if
  * files 'a' and 'b' initially have the same timestamp, then we would think 'b' is unchanged after
@@ -43,9 +44,9 @@ public final class FileContentsProxy {
   }
 
   public static FileContentsProxy create(FileStatus stat) throws IOException {
-    // Note: there are file systems that return mtime for this call instead of ctime, such as the
-    // WindowsFileSystem.
     return new FileContentsProxy(
+        // Note: there are file systems that return mtime for getLastChangeTime() instead of ctime,
+        // such as the JavaIoFileSystem.
         stat.getLastChangeTime(), stat.getLastModifiedTime(), stat.getNodeId());
   }
 
@@ -55,11 +56,10 @@ public final class FileContentsProxy {
       return true;
     }
 
-    if (!(other instanceof FileContentsProxy)) {
+    if (!(other instanceof FileContentsProxy that)) {
       return false;
     }
 
-    FileContentsProxy that = (FileContentsProxy) other;
     return ctime == that.ctime && mtime == that.mtime && nodeId == that.nodeId;
   }
 

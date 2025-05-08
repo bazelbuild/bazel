@@ -3,9 +3,11 @@ Book: /_book.yaml
 
 # Troubleshooting Bazel Remote Execution with Docker Sandbox
 
+{% include "_buttons.html" %}
+
 Bazel builds that succeed locally may fail when executed remotely due to
 restrictions and requirements that do not affect local builds. The most common
-causes of such failures are described in [Adapting Bazel Rules for Remote Execution](/docs/remote-execution-rules).
+causes of such failures are described in [Adapting Bazel Rules for Remote Execution](/remote/rules).
 
 This page describes how to identify and resolve the most common issues that
 arise with remote execution using the Docker sandbox feature, which imposes
@@ -95,7 +97,7 @@ machine and is a reliable way to confirm whether your build will succeed when
 executed remotely.
 
 However, with this method, locally installed tools, binaries, and data may leak
-into into your build, especially if it uses [configure-style WORKSPACE rules](/docs/remote-execution-rules#manage-workspace-rules).
+into into your build, especially if it uses [configure-style WORKSPACE rules](/remote/rules#manage-workspace-rules).
 Such leaks will cause problems with remote execution; to detect them, [troubleshoot in a Docker container](#troubleshooting-docker-container)
 in addition to troubleshooting natively.
 
@@ -130,19 +132,19 @@ The following are the most commonly encountered issues and their workarounds.
 *  **A file, tool, binary, or resource referenced by the Bazel runfiles tree is
    missing.**. Confirm that all dependencies of the affected targets have been
    [explicitly declared](/concepts/dependencies). See
-   [Managing implicit dependencies](/docs/remote-execution-rules#manage-dependencies)
+   [Managing implicit dependencies](/remote/rules#manage-dependencies)
    for more information.
 
 *  **A file, tool, binary, or resource referenced by an absolute path or the `PATH`
    variable is missing.** Confirm that all required tools are installed within
-   the toolchain container and use [toolchain rules](/docs/toolchains) to properly
+   the toolchain container and use [toolchain rules](/extending/toolchains) to properly
    declare dependencies pointing to the missing resource. See
-   [Invoking build tools through toolchain rules](/docs/remote-execution-rules#invoking-build-tools-through-toolchain-rules)
+   [Invoking build tools through toolchain rules](/remote/rules#invoking-build-tools-through-toolchain-rules)
    for more information.
 
 *  **A binary execution fails.** One of the build rules is referencing a binary
    incompatible with the execution environment (the Docker container). See
-   [Managing platform-dependent binaries](/docs/remote-execution-rules#manage-binaries)
+   [Managing platform-dependent binaries](/remote/rules#manage-binaries)
    for more information. If you cannot resolve the issue, contact [bazel-discuss@google.com](mailto:bazel-discuss@google.com)
    for help.
 
@@ -253,7 +255,7 @@ You can resolve build failures as follows:
 
 *   If the build fails during the analysis or loading phases, one or more of
     your build rules declared in the WORKSPACE file are not compatible with
-    remote execution. See [Adapting Bazel Rules for Remote Execution](/docs/remote-execution-rules)
+    remote execution. See [Adapting Bazel Rules for Remote Execution](/remote/rules)
     for possible causes and workarounds.
 
 *   If the build fails for any other reason, see the troubleshooting steps in [Step 2: Resolve detected issues](#start-container).

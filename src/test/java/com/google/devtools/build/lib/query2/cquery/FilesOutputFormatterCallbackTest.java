@@ -21,30 +21,29 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo.ValidationMode;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
 
 /** Tests cquery's {@link --output=files} format. */
-public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest {
+public final class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest {
 
-  private CqueryOptions options;
-  private Reporter reporter;
-  private final List<Event> events = new ArrayList<>();
+  private final CqueryOptions options = new CqueryOptions();
+  private final Reporter reporter = new Reporter(new EventBus());
 
   @Before
-  public final void defineSimpleRule() throws Exception {
+  public void defineSimpleRule() throws Exception {
     writeFile(
         "defs/rules.bzl",
         "def _r_impl(ctx):",
@@ -71,7 +70,7 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         "            runfiles = ctx.runfiles([runfile]),",
         "        ),",
         "        OutputGroupInfo(",
-        "            foobar = [output_group_only],",
+        "            foobar = [output_group_only, ctx.file.explicit_source_dep],",
         "        ),",
         "    ]",
         "r = rule(",
@@ -87,22 +86,20 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     writeFile("defs/BUILD", "exports_files(['rules.bzl'])");
     writeFile(
         "pkg/BUILD",
-        "load('//defs:rules.bzl', 'r')",
-        "r(",
-        "    name = 'main',",
-        "    explicit_source_dep = 'BUILD',",
-        ")",
-        "r(",
-        "    name = 'other',",
-        "    deps = [':main'],",
-        "    explicit_source_dep = 'BUILD',",
-        ")");
-  }
+        """
+        load("//defs:rules.bzl", "r")
 
-  @Before
-  public final void setUpCqueryOptions() {
-    this.options = new CqueryOptions();
-    this.reporter = new Reporter(new EventBus(), events::add);
+        r(
+            name = "main",
+            explicit_source_dep = "BUILD",
+        )
+
+        r(
+            name = "other",
+            explicit_source_dep = "BUILD",
+            deps = [":main"],
+        )
+        """);
   }
 
   private List<String> getOutput(String queryExpression, List<String> outputGroups)
@@ -110,7 +107,7 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
-    PostAnalysisQueryEnvironment<KeyedConfiguredTarget> env =
+    PostAnalysisQueryEnvironment<CqueryNode> env =
         ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
 
     ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -125,33 +122,45 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             new TopLevelArtifactContext(
                 false,
                 false,
-                false,
                 OutputGroupInfo.determineOutputGroups(outputGroups, ValidationMode.OFF, false)));
     env.evaluateQuery(expression, callback);
-    return Arrays.asList(output.toString(UTF_8).split(System.lineSeparator()));
+    return Arrays.asList(output.toString(UTF_8).split("\n"));
   }
 
   @Test
   public void basicQuery_defaultOutputGroup() throws Exception {
     List<String> output = getOutput("//pkg:all", ImmutableList.of());
+    var sourceAndGeneratedFiles =
+        output.stream()
+            .collect(Collectors.<String>partitioningBy(path -> path.matches("^[^/]*-out/.*")));
+    assertThat(sourceAndGeneratedFiles.get(false)).containsExactly("pkg/BUILD", "defs/rules.bzl");
     assertContainsExactlyWithBinDirPrefix(
-        output, "pkg/main_default_file", "pkg/other_default_file");
+        sourceAndGeneratedFiles.get(true), "pkg/main_default_file", "pkg/other_default_file");
   }
 
   @Test
   public void basicQuery_defaultAndCustomOutputGroup() throws Exception {
     List<String> output = getOutput("//pkg:main", ImmutableList.of("+foobar"));
+    var sourceAndGeneratedFiles =
+        output.stream()
+            .collect(Collectors.<String>partitioningBy(path -> path.matches("^[^/]*-out/.*")));
+    assertThat(sourceAndGeneratedFiles.get(false)).containsExactly("pkg/BUILD", "defs/rules.bzl");
     assertContainsExactlyWithBinDirPrefix(
-        output, "pkg/main_default_file", "pkg/main_output_group_only");
+        sourceAndGeneratedFiles.get(true), "pkg/main_default_file", "pkg/main_output_group_only");
   }
 
   @Test
   public void basicQuery_customOutputGroupOnly() throws Exception {
     List<String> output = getOutput("//pkg:other", ImmutableList.of("foobar"));
-    assertContainsExactlyWithBinDirPrefix(output, "pkg/other_output_group_only");
+    var sourceAndGeneratedFiles =
+        output.stream()
+            .collect(Collectors.<String>partitioningBy(path -> path.matches("^[^/]*-out/.*")));
+    assertThat(sourceAndGeneratedFiles.get(false)).containsExactly("pkg/BUILD");
+    assertContainsExactlyWithBinDirPrefix(
+        sourceAndGeneratedFiles.get(true), "pkg/other_output_group_only");
   }
 
-  private void assertContainsExactlyWithBinDirPrefix(
+  private static void assertContainsExactlyWithBinDirPrefix(
       List<String> output, String... binDirRelativePaths) {
     if (binDirRelativePaths.length == 0) {
       assertThat(output).isEmpty();

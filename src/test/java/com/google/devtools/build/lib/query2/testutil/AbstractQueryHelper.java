@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Arrays;
@@ -120,5 +121,10 @@ public abstract class AbstractQueryHelper<T> implements QueryHelper<T> {
   public void setMainRepoTargetParser(RepositoryMapping mapping) {
     this.mainRepoTargetParser =
         new TargetPattern.Parser(PathFragment.EMPTY_FRAGMENT, RepositoryName.MAIN, mapping);
+  }
+
+  @Override
+  public void maybeHandleDiffs() throws AbruptExitException, InterruptedException {
+    // Do nothing.
   }
 }

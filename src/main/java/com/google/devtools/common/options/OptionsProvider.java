@@ -15,11 +15,12 @@ package com.google.devtools.common.options;
 
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
- * A read-only interface for options parser results, which only allows to query the options of
- * a specific class, but not e.g. the residue any other information pertaining to the command line.
+ * A read-only interface for options parser results, which only allows to query the options of a
+ * specific class, but not e.g. the residue any other information pertaining to the command line.
  */
 public interface OptionsProvider {
   public static final OptionsProvider EMPTY =
@@ -31,19 +32,36 @@ public interface OptionsProvider {
         }
 
         @Override
-        public Map<String, Object> getStarlarkOptions() {
+        public ImmutableMap<String, Object> getStarlarkOptions() {
+          return ImmutableMap.of();
+        }
+
+        @Override
+        public ImmutableMap<String, String> getScopesAttributes() {
+          return ImmutableMap.of();
+        }
+
+        @Override
+        public ImmutableMap<String, Object> getExplicitStarlarkOptions(
+            Predicate<? super ParsedOptionDescription> filter) {
+          return ImmutableMap.of();
+        }
+
+        @Override
+        public ImmutableMap<String, String> getUserOptions() {
           return ImmutableMap.of();
         }
       };
 
   /**
-   * Returns the options instance for the given {@code optionsClass}, that is,
-   * the parsed options, or null if it is not among those available.
+   * Returns the options instance for the given {@code optionsClass}, that is, the parsed options,
+   * or null if it is not among those available.
    *
-   * <p>The returned options should be treated by library code as immutable and
-   * a provider is permitted to return the same options instance multiple times.
+   * <p>The returned options should be treated by library code as immutable and a provider is
+   * permitted to return the same options instance multiple times.
    */
-  @Nullable <O extends OptionsBase> O getOptions(Class<O> optionsClass);
+  @Nullable
+  <O extends OptionsBase> O getOptions(Class<O> optionsClass);
 
   /**
    * Returns the starlark options in a name:value map.
@@ -55,4 +73,18 @@ public interface OptionsProvider {
    * names for starlark options, this will need to change.
    */
   Map<String, Object> getStarlarkOptions();
+
+  /**
+   * Variant of {@link #getStarlarkOptions()} that only returns explicitly set Starlark options with
+   * the given filter criteria.
+   */
+  Map<String, Object> getExplicitStarlarkOptions(Predicate<? super ParsedOptionDescription> filter);
+
+  /**
+   * Returns the options that were parsed from either a user blazerc file or the command line as a
+   * map of option name to the option's {@code expandedFrom}, or "" if the option was not expanded.
+   */
+  ImmutableMap<String, String> getUserOptions();
+
+  Map<String, String> getScopesAttributes();
 }

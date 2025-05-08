@@ -14,16 +14,16 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
-import static com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.getGeneratedName;
-import static com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.sanitizeTypeParameter;
-import static com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.writeGeneratedClassToFile;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getGeneratedName;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.sanitizeTypeParameter;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.writeGeneratedClassToFile;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.CodecScanningConstants;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.SerializationProcessingFailedException;
 import com.squareup.javapoet.FieldSpec;
+import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeSpec;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
@@ -52,18 +52,18 @@ public class SerializationConstantProcessor extends AbstractProcessor {
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
     try {
       processInternal(roundEnv);
-    } catch (SerializationProcessingFailedException e) {
+    } catch (SerializationProcessingException e) {
       // Reporting a message with ERROR kind will fail compilation.
       env.getMessager().printMessage(Diagnostic.Kind.ERROR, e.getMessage(), e.getElement());
     }
     return false;
   }
 
-  private void processInternal(RoundEnvironment roundEnv)
-      throws SerializationProcessingFailedException {
+  private void processInternal(RoundEnvironment roundEnv) throws SerializationProcessingException {
     for (Element element : roundEnv.getElementsAnnotatedWith(SerializationConstant.class)) {
-      writeGeneratedClassToFile(
-          element, buildRegisteredSingletonClass((VariableElement) element, env), env);
+      JavaFile unused =
+          writeGeneratedClassToFile(
+              element, buildRegisteredSingletonClass((VariableElement) element, env), env);
     }
   }
 
@@ -71,9 +71,9 @@ public class SerializationConstantProcessor extends AbstractProcessor {
       ImmutableList.of(Modifier.STATIC, Modifier.FINAL);
 
   static TypeSpec buildRegisteredSingletonClass(VariableElement symbol, ProcessingEnvironment env)
-      throws SerializationProcessingFailedException {
+      throws SerializationProcessingException {
     if (!symbol.getModifiers().containsAll(REQUIRED_SINGLETON_MODIFIERS)) {
-      throw new SerializationProcessingFailedException(
+      throw new SerializationProcessingException(
           symbol,
           "Field must be static and final to be annotated with @SerializationConstant or"
               + " @AutoCodec");

@@ -38,10 +38,10 @@ public class TargetLoadingUtil {
    *
    * <p>Establishes all Skyframe dependencies needed for incremental correctness.
    *
-   * <p>Returns {@code null} if {@code env.valuesMissing()}.
+   * <p>Returns {@link TargetAndErrorIfAny} if no dep was mising; otherwise, returns the {@link
+   * SkyKey} specifying the missing dep.
    */
-  @Nullable
-  public static TargetAndErrorIfAny loadTarget(Environment env, Label label)
+  public static Object loadTarget(Environment env, Label label)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
     if (label.getName().contains("/")) {
       // This target is in a subdirectory, therefore it could potentially be invalidated by
@@ -50,18 +50,19 @@ public class TargetLoadingUtil {
       PackageIdentifier newPkgId =
           PackageIdentifier.create(label.getRepository(), containingDirectory);
       ContainingPackageLookupValue containingPackageLookupValue;
+      SkyKey containingPackageKey = ContainingPackageLookupValue.key(newPkgId);
       try {
         containingPackageLookupValue =
             (ContainingPackageLookupValue)
                 env.getValueOrThrow(
-                    ContainingPackageLookupValue.key(newPkgId),
+                    containingPackageKey,
                     BuildFileNotFoundException.class,
                     InconsistentFilesystemException.class);
       } catch (InconsistentFilesystemException e) {
         throw new NoSuchTargetException(label, e.getMessage());
       }
       if (containingPackageLookupValue == null) {
-        return null;
+        return containingPackageKey;
       }
 
       if (!containingPackageLookupValue.hasContainingPackage()) {
@@ -84,11 +85,11 @@ public class TargetLoadingUtil {
       }
     }
 
-    SkyKey packageKey = PackageValue.key(label.getPackageIdentifier());
+    SkyKey packageKey = label.getPackageIdentifier();
     PackageValue packageValue =
         (PackageValue) env.getValueOrThrow(packageKey, NoSuchPackageException.class);
-    if (env.valuesMissing() || packageValue == null) {
-      return null;
+    if (packageValue == null) {
+      return packageKey;
     }
 
     Package pkg = packageValue.getPackage();

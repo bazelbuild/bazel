@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import javax.annotation.Nullable;
 
@@ -34,9 +35,22 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
   String getProgressMessage();
 
   /**
-   * Returns a human-readable description of the inputs to {@link #getKey(ActionKeyContext)}. Used
-   * in the output from '--explain', and in error messages for '--check_up_to_date' and
-   * '--check_tests_up_to_date'. May return null, meaning no extra information is available.
+   * A variant of {@link #getProgressMessage} that additionally takes the {@link RepositoryMapping}
+   * of the main repository, which can be used by the implementation to emit labels with apparent
+   * instead of canonical repository names. A return value of {@code null} indicates no message
+   * should be reported.
+   *
+   * <p>The default implementation simply returns the result of {@link #getProgressMessage}.
+   */
+  @Nullable
+  default String getProgressMessage(RepositoryMapping mainRepositoryMapping) {
+    return getProgressMessage();
+  }
+
+  /**
+   * Returns a human-readable description of the inputs to {@link #getKey}. Used in the output from
+   * '--explain', and in error messages for '--check_up_to_date' and '--check_tests_up_to_date'. May
+   * return null, meaning no extra information is available.
    *
    * <p>If the return value is non-null, for consistency it should be a multiline message of the
    * form:
@@ -65,26 +79,26 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
   String describeKey();
 
   /**
-   * Get the {@link RunfilesSupplier} providing runfiles needed by this action.
-   */
-  RunfilesSupplier getRunfilesSupplier();
-
-  /**
-   * Returns true iff the getInputs set is known to be complete.
+   * Returns true iff the {@link #getInputs} set has been updated taking input discovery into
+   * account.
    *
-   * <p>For most Actions, this always returns true, but in some cases (e.g. C++ compilation), inputs
-   * are dynamically discovered from the previous execution of the Action, and so before the initial
-   * execution, this method will return false in those cases.
+   * <p>For most actions, this always returns true. For actions which {@linkplain #discoversInputs
+   * discover inputs} (e.g. C++ compilation), inputs are dynamically discovered from the previous
+   * execution of the action, and so before the initial execution, this method returns false.
    *
-   * <p>Any builder <em>must</em> unconditionally execute an Action for which this method returns
+   * <p>Any builder <em>must</em> unconditionally execute an action for which this method returns
    * false, regardless of all other inferences made by its dependency analysis. In addition, all
-   * prerequisites mentioned in the (possibly incomplete) value returned by getInputs must also be
-   * built first, as usual.
+   * prerequisites mentioned in the (possibly incomplete) value returned by {@link #getInputs} must
+   * also be built first, as usual.
    */
   @ThreadSafe
-  boolean inputsDiscovered();
+  boolean inputsKnown();
 
-  /** Returns true iff {@link #inputsDiscovered()} may ever return false. */
+  /**
+   * Returns true if this action discovers inputs.
+   *
+   * <p>The value returned by this method is constant for lifetime of this action.
+   */
   @ThreadSafe
   boolean discoversInputs();
 
@@ -99,6 +113,16 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
    * <p>This property is relevant for action rewinding and top-level output fetching.
    */
   default boolean mayInsensitivelyPropagateInputs() {
+    return false;
+  }
+
+  /**
+   * Returns true if the action may modify spawn outputs after the spawn has executed.
+   *
+   * <p>If this returns true, any kind of spawn output caching or reuse needs to happen
+   * synchronously directly after the spawn execution.
+   */
+  default boolean mayModifySpawnOutputsAfterExecution() {
     return false;
   }
 }

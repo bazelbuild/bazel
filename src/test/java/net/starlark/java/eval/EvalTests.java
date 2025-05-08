@@ -26,6 +26,7 @@ import org.junit.runners.Suite;
   MethodLibraryTest.class,
   MutabilityTest.class,
   PrinterTest.class,
+  StarlarkClassTest.class,
   StarlarkEvaluationTest.class,
   StarlarkFlagGuardingTest.class,
   StarlarkAnnotationsTest.class,
@@ -33,5 +34,6 @@ import org.junit.runners.Suite;
   StarlarkMutableTest.class,
   StarlarkThreadDebuggingTest.class,
   StarlarkThreadTest.class,
+  TypeCheckTest.class
 })
 public class EvalTests {}

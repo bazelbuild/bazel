@@ -20,8 +20,9 @@ import com.google.devtools.build.lib.vfs.Path;
 /**
  * An action which must know when it is skipped due to an action cache hit.
  *
- * Use should be rare, as the action graph is a functional model.
+ * <p>Use should be rare, as the action graph is a functional model.
  */
+// TODO(lberki): Maybe merge this with RichDataProducingAction?
 public interface NotifyOnActionCacheHit extends Action {
   /** A custom interface similar to {@link ActionExecutionContext}, but specific to cache hits. */
   interface ActionCachedContext {
@@ -31,12 +32,11 @@ public interface NotifyOnActionCacheHit extends Action {
      */
     ExtendedEventHandler getEventHandler();
 
-    /**
-     * Returns the execution root. This is the directory underneath which Blaze builds its entire
-     * output working tree, including the source symlink forest. All build actions are executed
-     * relative to this directory.
-     */
+    /** Returns the execution root. See {@link CommandEnvironment#getExecRoot}. */
     Path getExecRoot();
+
+    /** Returns the {@link ArtifactPathResolver} for this action. */
+    ArtifactPathResolver getPathResolver();
 
     /**
      * Looks up and returns an action context implementation of the given interface type.

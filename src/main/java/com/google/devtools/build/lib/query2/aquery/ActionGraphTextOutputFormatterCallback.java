@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.query2.aquery;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
+import static com.google.devtools.build.lib.query2.aquery.AqueryUtils.getActionInputs;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -31,20 +31,22 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.SourceManifestAction;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
+import com.google.devtools.build.lib.util.ScriptUtil;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -52,44 +54,55 @@ import java.io.PrintStream;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.EvalException;
 
 /** Output callback for aquery, prints human readable output. */
 class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
+  public enum OutputType {
+    TEXT("text"),
+    COMMANDS("commands");
+
+    final String formatName;
+
+    OutputType(String formatName) {
+      this.formatName = formatName;
+    }
+  }
 
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
+  private final OutputType outputType;
   private final AqueryActionFilter actionFilters;
+  private final LabelPrinter labelPrinter;
   private Map<String, String> paramFileNameToContentMap;
 
   ActionGraphTextOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       AqueryOptions options,
       OutputStream out,
-      SkyframeExecutor skyframeExecutor,
-      TargetAccessor<KeyedConfiguredTargetValue> accessor,
-      AqueryActionFilter actionFilters) {
-    super(eventHandler, options, out, skyframeExecutor, accessor);
+      TargetAccessor<ConfiguredTargetValue> accessor,
+      OutputType outputType,
+      AqueryActionFilter actionFilters,
+      LabelPrinter labelPrinter) {
+    super(eventHandler, options, out, accessor);
+    this.outputType = outputType;
     this.actionFilters = actionFilters;
+    this.labelPrinter = labelPrinter;
   }
 
   @Override
   public String getName() {
-    return "text";
+    return outputType.formatName;
   }
 
   @Override
-  public void processOutput(Iterable<KeyedConfiguredTargetValue> partialResult)
+  public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
     try {
       // Enabling includeParamFiles should enable includeCommandline by default.
       options.includeCommandline |= options.includeParamFiles;
 
-      for (KeyedConfiguredTargetValue keyedConfiguredTargetValue : partialResult) {
-        ConfiguredTargetValue configuredTargetValue =
-            keyedConfiguredTargetValue.getConfiguredTargetValue();
+      for (ConfiguredTargetValue configuredTargetValue : partialResult) {
         if (!(configuredTargetValue instanceof RuleConfiguredTargetValue)) {
           // We have to include non-rule values in the graph to visit their dependencies, but they
           // don't have any actions to print out.
@@ -100,7 +113,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           writeAction(action, printStream);
         }
         if (options.useAspects) {
-          for (AspectValue aspectValue : accessor.getAspectValues(keyedConfiguredTargetValue)) {
+          for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
             if (aspectValue != null) {
               for (ActionAnalysisMetadata action : aspectValue.getActions()) {
                 writeAction(action, printStream);
@@ -116,8 +129,8 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
 
   private void writeAction(ActionAnalysisMetadata action, PrintStream printStream)
       throws IOException, CommandLineExpansionException, InterruptedException, EvalException {
-    if (options.includeParamFiles && action instanceof ParameterFileWriteAction) {
-      ParameterFileWriteAction parameterFileWriteAction = (ParameterFileWriteAction) action;
+    if (options.includeParamFiles
+        && action instanceof ParameterFileWriteAction parameterFileWriteAction) {
 
       String fileContent = String.join(" \\\n    ", parameterFileWriteAction.getArguments());
       String paramFileName = action.getPrimaryOutput().getExecPathString();
@@ -125,12 +138,21 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       getParamFileNameToContentMap().put(paramFileName, fileContent);
     }
 
-    if (!AqueryUtils.matchesAqueryFilters(action, actionFilters)) {
+    if (!AqueryUtils.matchesAqueryFilters(action, actionFilters, options.includePrunedInputs)) {
       return;
     }
 
-    ActionOwner actionOwner = action.getOwner();
     StringBuilder stringBuilder = new StringBuilder();
+    switch (outputType) {
+      case TEXT -> writeText(action, stringBuilder);
+      case COMMANDS -> writeCommand(action, stringBuilder);
+    }
+    printStream.write(stringBuilder.toString().getBytes(UTF_8));
+  }
+
+  private void writeText(ActionAnalysisMetadata action, StringBuilder stringBuilder)
+      throws IOException, CommandLineExpansionException, InterruptedException, EvalException {
+    ActionOwner actionOwner = action.getOwner();
     stringBuilder
         .append(action.prettyPrint())
         .append('\n')
@@ -139,13 +161,13 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
         .append('\n');
 
     if (actionOwner != null) {
-      BuildEvent configuration = actionOwner.getConfiguration();
+      BuildEvent configuration = actionOwner.getBuildConfigurationEvent();
       BuildEventStreamProtos.Configuration configProto =
           configuration.asStreamProto(/*context=*/ null).getConfiguration();
 
       stringBuilder
           .append("  Target: ")
-          .append(actionOwner.getLabel())
+          .append(labelPrinter.toString(actionOwner.getLabel()))
           .append('\n')
           .append("  Configuration: ")
           .append(configProto.getMnemonic())
@@ -153,7 +175,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       if (actionOwner.getExecutionPlatform() != null) {
         stringBuilder
             .append("  Execution platform: ")
-            .append(actionOwner.getExecutionPlatform().label().toString())
+            .append(labelPrinter.toString(actionOwner.getExecutionPlatform().label()))
             .append("\n");
       }
 
@@ -194,29 +216,33 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       }
     }
 
-    if (action instanceof ActionExecutionMetadata) {
-      ActionExecutionMetadata actionExecutionMetadata = (ActionExecutionMetadata) action;
+    if (action instanceof ActionExecutionMetadata actionExecutionMetadata) {
       stringBuilder
           .append("  ActionKey: ")
-          .append(actionExecutionMetadata.getKey(actionKeyContext, /*artifactExpander=*/ null))
+          .append(
+              actionExecutionMetadata.getKey(actionKeyContext, /* inputMetadataProvider= */ null))
           .append('\n');
     }
 
     if (options.includeArtifacts) {
+      NestedSet<Artifact> inputs = getActionInputs(action, options.includePrunedInputs);
+
       stringBuilder
           .append("  Inputs: [")
           .append(
-              action.getInputs().toList().stream()
-                  .map(input -> escapeBytestringUtf8(input.getExecPathString()))
+              inputs.toList().stream()
+                  .map(input -> internalToEscapedUnicode(input.getExecPathString()))
                   .sorted()
                   .collect(Collectors.joining(", ")))
-          .append("]\n")
+          .append("]\n");
+
+      stringBuilder
           .append("  Outputs: [")
           .append(
               action.getOutputs().stream()
                   .map(
                       output ->
-                          escapeBytestringUtf8(
+                          internalToEscapedUnicode(
                               output.isTreeArtifact()
                                   ? output.getExecPathString() + " (TreeArtifact)"
                                   : output.getExecPathString()))
@@ -225,8 +251,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("]\n");
     }
 
-    if (action instanceof AbstractAction) {
-      AbstractAction abstractAction = (AbstractAction) action;
+    if (action instanceof AbstractAction abstractAction) {
       // TODO(twerth): This handles the fixed environment. We probably want to output the inherited
       // environment as well.
       Iterable<Map.Entry<String, String>> fixedEnvironment =
@@ -238,30 +263,13 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                 Streams.stream(fixedEnvironment)
                     .map(
                         environmentVariable ->
-                            escapeBytestringUtf8(
+                            internalToEscapedUnicode(
                                 environmentVariable.getKey()
                                     + "="
                                     + environmentVariable.getValue()))
                     .sorted()
                     .collect(Collectors.joining(", ")))
             .append("]\n");
-      }
-      ImmutableSet<Entry<String, String>> executionInfoSpecifiers =
-          abstractAction.getExecutionInfo().entrySet();
-      if (!executionInfoSpecifiers.isEmpty()) {
-        stringBuilder
-            .append("  ExecutionInfo: {")
-            .append(
-                executionInfoSpecifiers.stream()
-                    .sorted(Map.Entry.comparingByKey())
-                    .map(
-                        e ->
-                            String.format(
-                                "%s: %s",
-                                ShellEscaper.escapeString(e.getKey()),
-                                ShellEscaper.escapeString(e.getValue())))
-                    .collect(Collectors.joining(", ")))
-            .append("}\n");
       }
     }
     if (options.includeCommandline && action instanceof CommandAction) {
@@ -273,21 +281,23 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                   /* prettyPrintArgs= */ true,
                   ((CommandAction) action)
                       .getArguments().stream()
-                          .map(a -> escapeBytestringUtf8(a))
+                          .map(a -> internalToEscapedUnicode(a))
                           .collect(toImmutableList()),
                   /* environment= */ null,
+                  /* environmentVariablesToClear= */ null,
                   /* cwd= */ null,
                   action.getOwner().getConfigurationChecksum(),
-                  action.getExecutionPlatform() == null
-                      ? null
-                      : Objects.toString(action.getExecutionPlatform().label())))
+                  action.getExecutionPlatform() != null
+                      ? action.getExecutionPlatform().label()
+                      : null,
+                  /* spawnRunner= */ null))
           .append("\n");
     }
 
     if (options.includeParamFiles) {
       // Assumption: if an Action takes a param file as an input, it will be used
       // to provide params to the command.
-      for (Artifact input : action.getInputs().toList()) {
+      for (Artifact input : getActionInputs(action, options.includePrunedInputs).toList()) {
         String inputFileName = input.getExecPathString();
         if (getParamFileNameToContentMap().containsKey(inputFileName)) {
           stringBuilder
@@ -316,13 +326,14 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
           .append("}\n");
     }
 
-    if (action instanceof TemplateExpansionAction) {
+    if (action instanceof TemplateExpansionAction templateExpansionAction) {
       stringBuilder
           .append("  Template: ")
-          .append(((TemplateExpansionAction) action).getTemplate())
+          .append(AqueryUtils.getTemplateContent(templateExpansionAction))
           .append("\n");
+
       stringBuilder.append("  Substitutions: [\n");
-      for (Substitution substitution : ((TemplateExpansionAction) action).getSubstitutions()) {
+      for (Substitution substitution : templateExpansionAction.getSubstitutions()) {
         stringBuilder
             .append("    {")
             .append(substitution.getKey())
@@ -333,28 +344,47 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       stringBuilder.append("  ]\n");
     }
 
-    if (options.includeFileWriteContents && action instanceof FileWriteAction) {
-      FileWriteAction fileWriteAction = (FileWriteAction) action;
-      stringBuilder
-          .append("  FileWriteContents: [")
-          .append(
-              Base64.getEncoder().encodeToString(fileWriteAction.getFileContents().getBytes(UTF_8)))
-          .append("]\n");
+    if (action instanceof AbstractFileWriteAction.FileContentsProvider fileAction) {
+      stringBuilder.append(String.format("  IsExecutable: %b\n", fileAction.makeExecutable()));
+      if (options.includeFileWriteContents) {
+        String contents = fileAction.getFileContents(eventHandler);
+        stringBuilder
+            .append("  FileWriteContents: [")
+            .append(Base64.getEncoder().encodeToString(contents.getBytes(UTF_8)))
+            .append("]\n");
+      }
     }
-    if (options.includeFileWriteContents && action instanceof SourceManifestAction) {
-      SourceManifestAction sourceManifestAction = (SourceManifestAction) action;
+
+    if (action instanceof UnresolvedSymlinkAction) {
       stringBuilder
-          .append("  FileWriteContents: [")
-          .append(
-              Base64.getEncoder()
-                  .encodeToString(
-                      sourceManifestAction.getFileContentsAsString(eventHandler).getBytes(UTF_8)))
-          .append("]\n");
+          .append("  UnresolvedSymlinkTarget: ")
+          .append(((UnresolvedSymlinkAction) action).getTarget())
+          .append("\n");
     }
 
     stringBuilder.append('\n');
+  }
 
-    printStream.write(stringBuilder.toString().getBytes(UTF_8));
+  private void writeCommand(ActionAnalysisMetadata action, StringBuilder stringBuilder)
+      throws IOException, CommandLineExpansionException, InterruptedException, EvalException {
+    if (!(action instanceof CommandAction)) {
+      return;
+    }
+
+    boolean first = true;
+    for (String arg :
+        ((CommandAction) action)
+            .getArguments().stream()
+                .map(a -> internalToEscapedUnicode(a))
+                .collect(toImmutableList())) {
+      if (!first) {
+        stringBuilder.append(' ');
+      }
+      ScriptUtil.emitCommandElement(
+          /* message= */ stringBuilder, /* commandElement= */ arg, /* isBinary= */ first);
+      first = false;
+    }
+    stringBuilder.append('\n');
   }
 
   /** Lazy initialization of paramFileNameToContentMap. */
@@ -366,24 +396,20 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
   }
 
   /**
-   * Decode a bytestring that might contain UTF-8, and escape any characters outside the basic
-   * printable ASCII range.
-   *
-   * <p>This function is intended for human consumption in debug output that needs to be durable
-   * against unusual encoding settings, and does not guarantee that the escaping process is
-   * reverseable.
+   * Convert an internal string (see {@link com.google.devtools.build.lib.util.StringEncoding}) to a
+   * Unicode string with any character outside the basic printable ASCII range escaped.
    *
    * <p>Characters other than printable ASCII but within the Basic Multilingual Plane are formatted
    * with `\\uXXXX`. Characters outside the BMP are formatted as `\\UXXXXXXXX`.
    */
-  public static String escapeBytestringUtf8(String maybeUtf8) {
-    if (maybeUtf8.chars().allMatch(c -> c >= 0x20 && c < 0x7F)) {
-      return maybeUtf8;
+  public static String internalToEscapedUnicode(String internal) {
+    if (internal.chars().allMatch(c -> c >= 0x20 && c < 0x7F)) {
+      return internal;
     }
 
-    final String decoded = decodeBytestringUtf8(maybeUtf8);
-    final StringBuilder sb = new StringBuilder(decoded.length() * 8);
-    decoded
+    final String unicode = internalToUnicode(internal);
+    final StringBuilder sb = new StringBuilder(unicode.length() * 8);
+    unicode
         .codePoints()
         .forEach(
             c -> {

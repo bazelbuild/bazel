@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
@@ -24,16 +26,16 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 
-/**
- * The 'blaze shutdown' command.
- */
-@Command(name = "shutdown",
-         options = { ShutdownCommand.Options.class },
-         allowResidue = false,
-         mustRunInWorkspace = false,
-         shortDescription = "Stops the %{product} server.",
-         help = "This command shuts down the memory resident %{product} server process.\n"
-              + "%{options}")
+/** The 'blaze shutdown' command. */
+@Command(
+    name = "shutdown",
+    buildPhase = NONE,
+    options = {ShutdownCommand.Options.class},
+    allowResidue = false,
+    mustRunInWorkspace = false,
+    shortDescription = "Stops the %{product} server.",
+    help =
+        "This command shuts down the memory resident %{product} server process.\n" + "%{options}")
 public final class ShutdownCommand implements BlazeCommand {
 
   public static class Options extends OptionsBase {

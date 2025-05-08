@@ -38,8 +38,7 @@ public abstract class AbstractObjectCodecTest<T> {
   private ObjectCodecTester<T> objectCodecTester;
 
   /** Construct with the given codec and subjects. */
-  protected AbstractObjectCodecTest(
-      ObjectCodec<T> underTest, @SuppressWarnings("unchecked") T... subjects) {
+  protected AbstractObjectCodecTest(ObjectCodec<T> underTest, T... subjects) {
     this.underTest = underTest;
     this.subjects = ImmutableList.copyOf(subjects);
   }
@@ -81,13 +80,13 @@ public abstract class AbstractObjectCodecTest<T> {
 
   protected T fromBytes(DeserializationContext context, byte[] bytes)
       throws SerializationException, IOException {
-    return TestUtils.fromBytes(context, underTest, bytes);
+    return RoundTripping.fromBytes(context, underTest, bytes);
   }
 
   /** Serialize subject using the {@link ObjectCodec} under test. */
   protected byte[] toBytes(SerializationContext context, T subject)
       throws IOException, SerializationException {
-    return TestUtils.toBytes(context, underTest, subject);
+    return RoundTripping.toBytes(context, underTest, subject);
   }
 
   protected void verifyDeserialization(T deserialized, T subject) {

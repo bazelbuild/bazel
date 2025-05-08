@@ -21,6 +21,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.TreeSet;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -40,6 +41,8 @@ public final class RegexFilter implements Predicate<String> {
   @Nullable private final Pattern exclusionPattern;
   private final int hashCode;
 
+  @Nullable private final String originalInput;
+
   /**
    * Converts from a comma-separated list of regex expressions with optional -/+ prefix into the
    * RegexFilter. Commas prefixed with backslash are considered to be part of regex definition and
@@ -52,6 +55,14 @@ public final class RegexFilter implements Predicate<String> {
 
     @Override
     public RegexFilter convert(String input) throws OptionsParsingException {
+
+      if (input.startsWith("--")) {
+        throw new OptionsParsingException(
+            String.format(
+                "Failed to build filter: value looks like another flag (%s). Either"
+                    + " escape the value with \"\\-\\-\", or pass an explicit value to the flag.",
+                input));
+      }
       List<String> inclusionList = new ArrayList<>();
       List<String> exclusionList = new ArrayList<>();
 
@@ -67,7 +78,7 @@ public final class RegexFilter implements Predicate<String> {
       }
 
       try {
-        return new RegexFilter(inclusionList, exclusionList);
+        return new RegexFilter(inclusionList, exclusionList, input);
       } catch (PatternSyntaxException e) {
         throw new OptionsParsingException(
             "Failed to build valid regular expression: " + e.getMessage());
@@ -87,18 +98,26 @@ public final class RegexFilter implements Predicate<String> {
    * <p>Null {@code inclusionPattern} or {@code exclusionPattern} means that inclusion or exclusion
    * matching will not be applied, respectively.
    */
-  private RegexFilter(@Nullable Pattern inclusionPattern, @Nullable Pattern exclusionPattern) {
+  private RegexFilter(
+      @Nullable Pattern inclusionPattern,
+      @Nullable Pattern exclusionPattern,
+      @Nullable String originalInput) {
     this.inclusionPattern = inclusionPattern;
     this.exclusionPattern = exclusionPattern;
+    this.originalInput = originalInput;
     this.hashCode =
         Objects.hash(
             inclusionPattern == null ? null : inclusionPattern.pattern(),
             exclusionPattern == null ? null : exclusionPattern.pattern());
   }
 
+  private RegexFilter(List<String> inclusions, List<String> exclusions, String originalInput) {
+    this(takeUnionOfRegexes(inclusions), takeUnionOfRegexes(exclusions), originalInput);
+  }
+
   /** Creates new RegexFilter using provided inclusion and exclusion path lists. */
   public RegexFilter(List<String> inclusions, List<String> exclusions) {
-    this(takeUnionOfRegexes(inclusions), takeUnionOfRegexes(exclusions));
+    this(inclusions, exclusions, /* originalInput= */ null);
   }
 
   /**
@@ -110,9 +129,10 @@ public final class RegexFilter implements Predicate<String> {
     if (regexList.isEmpty()) {
       return null;
     }
+    TreeSet<String> deduped = new TreeSet<>(regexList);
     // Wraps each individual regex into an independent group, then combines them using '|' and
     // wraps the result in a non-capturing group.
-    return Pattern.compile("(?:(?>" + Joiner.on(")|(?>").join(regexList) + "))");
+    return Pattern.compile("(?:(?>" + Joiner.on(")|(?>").join(deduped) + "))");
   }
 
   /**
@@ -134,16 +154,6 @@ public final class RegexFilter implements Predicate<String> {
     return isIncluded(value);
   }
 
-  @Nullable
-  public String getInclusionRegex() {
-    return inclusionPattern == null ? null : inclusionPattern.pattern();
-  }
-
-  @Nullable
-  public String getExclusionRegex() {
-    return exclusionPattern == null ? null : exclusionPattern.pattern();
-  }
-
   @Override
   public String toString() {
     StringBuilder builder = new StringBuilder();
@@ -160,16 +170,26 @@ public final class RegexFilter implements Predicate<String> {
     return builder.toString();
   }
 
+  /**
+   * RegexFilter doesn't serialize cleanly: {@code
+   * !RegexFilter.convert(".*").toString().equals(".")}.
+   *
+   * <p>This method provides the ability to reproduce the original input string.
+   */
+  @Nullable
+  public String toOriginalString() {
+    return originalInput;
+  }
+
   @Override
   public boolean equals(Object other) {
     if (this == other) {
       return true;
     }
-    if (!(other instanceof RegexFilter)) {
+    if (!(other instanceof RegexFilter otherFilter)) {
       return false;
     }
 
-    RegexFilter otherFilter = (RegexFilter) other;
     if (this.exclusionPattern == null ^ otherFilter.exclusionPattern == null) {
       return false;
     }

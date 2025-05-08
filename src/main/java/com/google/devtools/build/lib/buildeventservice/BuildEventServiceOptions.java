@@ -100,6 +100,21 @@ public class BuildEventServiceOptions extends OptionsBase {
   public List<String> besKeywords;
 
   @Option(
+      name = "bes_system_keywords",
+      defaultValue = "null",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      allowMultiple = true,
+      help =
+          "Specifies a list of notification keywords to be included directly, without the "
+              + "\"user_keyword=\" prefix included for keywords supplied via --bes_keywords. "
+              + "Intended for Build service operators that set --bes_lifecycle_events=false and "
+              + "include keywords when calling PublishLifecycleEvent. Build service operators "
+              + "using this flag should prevent users from overriding the flag value.")
+  public List<String> besSystemKeywords;
+
+  @Option(
       name = "bes_outerr_buffer_size",
       defaultValue = "10240",
       documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -134,11 +149,13 @@ public class BuildEventServiceOptions extends OptionsBase {
       name = "bes_upload_mode",
       defaultValue = "wait_for_upload_complete",
       converter = BesUploadModeConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
           "Specifies whether the Build Event Service upload should block the build completion "
-              + "or should end the invocation immediately and finish the upload in the background.")
+              + "or should end the invocation immediately and finish the upload in the background. "
+              + "Either 'wait_for_upload_complete' (default), 'nowait_for_upload_complete', "
+              + "or 'fully_async'.")
   public BesUploadMode besUploadMode;
 
   @Option(

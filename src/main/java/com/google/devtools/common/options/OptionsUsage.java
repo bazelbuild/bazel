@@ -197,11 +197,18 @@ class OptionsUsage {
       StringBuilder usage,
       Escaper escaper,
       OptionsData optionsData,
-      boolean includeTags) {
+      boolean includeTags,
+      String commandName) {
     String plainFlagName = optionDefinition.getOptionName();
     String flagName = getFlagName(optionDefinition);
     String valueDescription = optionDefinition.getValueTypeHelpText();
     String typeDescription = getTypeDescription(optionDefinition);
+
+    StringBuilder anchorId = new StringBuilder();
+    if (commandName != null) {
+      anchorId.append(commandName).append("-");
+    }
+    anchorId.append("flag--").append(plainFlagName);
 
     // String.format is a lot slower, sometimes up to 10x.
     // https://stackoverflow.com/questions/925423/is-it-better-practice-to-use-string-format-over-string-concatenation-in-java
@@ -209,19 +216,29 @@ class OptionsUsage {
     // Considering that this runs for every flag in the CLI reference, it's better to use regular
     // appends here.
     usage
+        .append("<dt id=\"")
         // Add the id of the flag to point anchor hrefs to it
-        .append("<dt id=\"flag--")
-        .append(plainFlagName)
+        .append(anchorId)
         .append("\">")
         // Add the href to the id hash
-        .append("<code><a href=\"#flag--")
-        .append(plainFlagName)
+        .append("<code");
+    // Historically, we used `flag--${plainFlagName}` as the anchor id, but this is not unique
+    // across commands. We now use the per-command `anchorId` defined above, but we moved the old
+    // `flag--${plainFlagName}` to be an id on the code block for backwards compatibility with
+    // old links.
+    if (commandName != null) {
+      usage.append(" id=\"").append(plainFlagName).append("\"");
+    }
+    usage
+        .append(">")
+        .append("<a href=\"#")
+        .append(anchorId)
         .append("\">")
         .append("--")
         .append(flagName)
         .append("</a>");
 
-    if (optionDefinition.usesBooleanValueSyntax() || optionDefinition.isVoidField()) {
+    if (!optionDefinition.requiresValue()) {
       // Nothing for boolean, tristate, boolean_or_enum, or void options.
     } else if (!valueDescription.isEmpty()) {
       usage.append("=").append(escaper.escape(valueDescription));

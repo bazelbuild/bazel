@@ -52,15 +52,17 @@ landing_page:
       path: /extending/concepts/
     - heading: Rules
       path: /extending/rules
-    - heading: Macros
+    - heading: Symbolic macros
       path: /extending/macros
+    - heading: Legacy macros
+      path: /extending/legacy-macros
     - heading: Depsets
       path: /extending/depsets
     - heading: Aspects
       path: /extending/aspects
     - heading: Repository rules
       path: /extending/repo
-    - heading: Configuring
+    - heading: Configurations
       path: /extending/config
 
   # Writing rules row
@@ -75,8 +77,10 @@ landing_page:
     items:
     - heading: Creating a rule
       path: /rules/rules-tutorial
-    - heading: Creating a macro
+    - heading: Creating a symbolic macro
       path: /rules/macro-tutorial
+    - heading: Creating a legacy macro
+      path: /rules/legacy-macro-tutorial
     - heading: Creating custom verbs
       path: /rules/verbs-tutorial
     - heading: Starlark language
@@ -125,6 +129,8 @@ landing_page:
       path: /extending/platforms
     - heading: Execution groups
       path: /extending/exec-groups
+    - heading: Automatic execution groups
+      path: /extending/auto-exec-groups
     - heading: Toolchains
       path: /extending/toolchains
 

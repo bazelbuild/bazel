@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
@@ -25,16 +27,21 @@ import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.DiffAwareness.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker.DirtyResult;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.ImmutableDiff;
+import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.Version;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -61,14 +68,15 @@ import javax.annotation.Nullable;
  * affected ancestor entries of nodes. It is also resilient to diffs which report only a root of
  * deleted subtree.
  */
-final class FileSystemValueCheckerInferringAncestors {
+public final class FileSystemValueCheckerInferringAncestors {
   @Nullable private final TimestampGranularityMonitor tsgm;
-  private final Map<SkyKey, SkyValue> graphValues;
-  private final Map<SkyKey, SkyValue> graphDoneValues;
+  private final InMemoryGraph inMemoryGraph;
   private final Map<RootedPath, NodeVisitState> nodeStates;
   private final SyscallCache syscallCache;
+  private final SkyValueDirtinessChecker skyValueDirtinessChecker;
+
   private final Set<SkyKey> valuesToInvalidate = Sets.newConcurrentHashSet();
-  private final ConcurrentMap<SkyKey, SkyValue> valuesToInject = new ConcurrentHashMap<>();
+  private final ConcurrentMap<SkyKey, Delta> valuesToInject = new ConcurrentHashMap<>();
 
   private static final class NodeVisitState {
 
@@ -114,26 +122,39 @@ final class FileSystemValueCheckerInferringAncestors {
 
   private FileSystemValueCheckerInferringAncestors(
       @Nullable TimestampGranularityMonitor tsgm,
-      Map<SkyKey, SkyValue> graphValues,
-      Map<SkyKey, SkyValue> graphDoneValues,
+      InMemoryGraph inMemoryGraph,
       Map<RootedPath, NodeVisitState> nodeStates,
-      SyscallCache syscallCache) {
+      SyscallCache syscallCache,
+      SkyValueDirtinessChecker skyValueDirtinessChecker) {
     this.tsgm = tsgm;
-    this.graphValues = graphValues;
-    this.graphDoneValues = graphDoneValues;
     this.nodeStates = nodeStates;
     this.syscallCache = syscallCache;
+    this.skyValueDirtinessChecker = skyValueDirtinessChecker;
+    this.inMemoryGraph = inMemoryGraph;
   }
 
+  @VisibleForTesting
   @SuppressWarnings("ReferenceEquality")
-  static ImmutableDiff getDiffWithInferredAncestors(
+  public static ImmutableDiff getDiffWithInferredAncestors(
       @Nullable TimestampGranularityMonitor tsgm,
-      Map<SkyKey, SkyValue> graphValues,
-      Map<SkyKey, SkyValue> graphDoneValues,
+      InMemoryGraph inMemoryGraph,
       Iterable<FileStateKey> modifiedKeys,
       int nThreads,
-      SyscallCache syscallCache)
+      SyscallCache syscallCache,
+      SkyValueDirtinessChecker skyValueDirtinessChecker)
       throws InterruptedException, AbruptExitException {
+    Map<RootedPath, NodeVisitState> nodeStates = makeNodeVisitStates(modifiedKeys);
+    return new FileSystemValueCheckerInferringAncestors(
+            tsgm,
+            inMemoryGraph,
+            Collections.unmodifiableMap(nodeStates),
+            syscallCache,
+            skyValueDirtinessChecker)
+        .processEntries(nThreads);
+  }
+
+  private static Map<RootedPath, NodeVisitState> makeNodeVisitStates(
+      Iterable<FileStateKey> modifiedKeys) {
     Map<RootedPath, NodeVisitState> nodeStates = new HashMap<>();
     for (FileStateKey fileStateKey : modifiedKeys) {
       RootedPath top = fileStateKey.argument();
@@ -160,14 +181,7 @@ final class FileSystemValueCheckerInferringAncestors {
         lastCreated = existingState == null;
       }
     }
-
-    return new FileSystemValueCheckerInferringAncestors(
-            tsgm,
-            graphValues,
-            graphDoneValues,
-            Collections.unmodifiableMap(nodeStates),
-            syscallCache)
-        .processEntries(nThreads);
+    return nodeStates;
   }
 
   private ImmutableDiff processEntries(int nThreads)
@@ -197,11 +211,20 @@ final class FileSystemValueCheckerInferringAncestors {
       try {
         Futures.getDone(future);
       } catch (ExecutionException e) {
-        if (e.getCause() instanceof StatFailedException) {
+        if (e.getCause() instanceof StatFailedException statFailed) {
+          if (statFailed.getCause() instanceof DetailedIOException detailedException) {
+            FailureDetail failureDetailWithUpdatedErrorMessage =
+                detailedException.getDetailedExitCode().getFailureDetail().toBuilder()
+                    .setMessage(statFailed.getMessage() + ": " + detailedException.getMessage())
+                    .build();
+            throw new AbruptExitException(
+                DetailedExitCode.of(failureDetailWithUpdatedErrorMessage), e);
+          }
           throw new AbruptExitException(
               DetailedExitCode.of(
                   FailureDetail.newBuilder()
-                      .setMessage(e.getCause().getMessage())
+                      .setMessage(
+                          statFailed.getMessage() + ": " + statFailed.getCause().getMessage())
                       .setDiffAwareness(
                           FailureDetails.DiffAwareness.newBuilder().setCode(Code.DIFF_STAT_FAILED))
                       .build()),
@@ -252,8 +275,9 @@ final class FileSystemValueCheckerInferringAncestors {
       NodeVisitState parentState)
       throws StatFailedException {
     FileStateKey key = FileStateValue.key(path);
-    @Nullable FileStateValue fsv = (FileStateValue) graphValues.get(key);
-    if (fsv == null) {
+    @Nullable InMemoryNodeEntry fsvNode = inMemoryGraph.getIfPresent(key);
+    @Nullable FileStateValue oldFsv = fsvNode != null ? (FileStateValue) fsvNode.toValue() : null;
+    if (oldFsv == null) {
       visitUnknownEntry(key, isInferredDirectory, parentState);
       parentState.addMaybeDeletedChild(path.getRootRelativePath().getBaseName());
       return true;
@@ -263,31 +287,62 @@ final class FileSystemValueCheckerInferringAncestors {
         || (maybeDeletedChildren != null
             && listingHasEntriesOutsideOf(path, maybeDeletedChildren))) {
       parentState.markInferredDirectory();
-      if (fsv.getType().isDirectory()) {
+      if (oldFsv.getType().isDirectory()) {
         return false;
       }
-      valuesToInject.put(key, FileStateValue.DIRECTORY_FILE_STATE_NODE);
+      Version directoryFileStateNodeMtsv;
+      try {
+        directoryFileStateNodeMtsv =
+            skyValueDirtinessChecker.getMaxTransitiveSourceVersionForNewValue(
+                key, FileStateValue.DIRECTORY_FILE_STATE_NODE);
+      } catch (IOException e) {
+        throw new StatFailedException(
+            "Failed to get MTSV for inferred directory " + path.asPath(), e);
+      }
+      valuesToInject.put(
+          key, Delta.justNew(FileStateValue.DIRECTORY_FILE_STATE_NODE, directoryFileStateNodeMtsv));
       parentListingKey(path).ifPresent(valuesToInvalidate::add);
       return true;
     }
 
-    FileStateValue newFsv = getNewFileStateValueFromFileSystem(path);
-    if (!newFsv.equals(fsv)) {
-      valuesToInject.put(key, newFsv);
-    }
-
+    FileStateValue newFsv = injectAndGetNewFileStateValueIfDirty(path, fsvNode, oldFsv);
     if (newFsv.getType().exists()) {
       parentState.markInferredDirectory();
-    } else if (fsv.getType().exists()) {
+    } else if (oldFsv.getType().exists()) {
       // exists -> not exists -- deletion.
       parentState.addMaybeDeletedChild(path.getRootRelativePath().getBaseName());
     }
 
-    boolean typeChanged = newFsv.getType() != fsv.getType();
+    boolean typeChanged = newFsv.getType() != oldFsv.getType();
     if (typeChanged) {
       parentListingKey(path).ifPresent(valuesToInvalidate::add);
     }
     return typeChanged;
+  }
+
+  /**
+   * Injects the new file state value if dirty. Returns the old file state value if not dirty and
+   * the new file state value if dirty.
+   */
+  private FileStateValue injectAndGetNewFileStateValueIfDirty(
+      RootedPath path, InMemoryNodeEntry oldFsvNode, FileStateValue oldFsv)
+      throws StatFailedException {
+    Preconditions.checkState(oldFsv != null, "Unexpected null FileStateValue.");
+    @Nullable Version oldMtsv = oldFsvNode.getMaxTransitiveSourceVersion();
+    DirtyResult dirtyResult;
+    try {
+      dirtyResult =
+          skyValueDirtinessChecker.check(oldFsvNode.getKey(), oldFsv, oldMtsv, syscallCache, tsgm);
+    } catch (IOException e) {
+      throw new StatFailedException("Failed to check dirtiness of " + path.asPath(), e);
+    }
+    if (!dirtyResult.isDirty()) {
+      return oldFsv;
+    }
+    FileStateValue newFsv = (FileStateValue) dirtyResult.getNewValue();
+    @Nullable Version newMtsv = dirtyResult.getNewMaxTransitiveSourceVersion();
+    valuesToInject.put(oldFsvNode.getKey(), Delta.justNew(newFsv, newMtsv));
+    return newFsv;
   }
 
   private void visitUnknownEntry(
@@ -297,13 +352,12 @@ final class FileSystemValueCheckerInferringAncestors {
     // Run stats on unknown files in order to preserve the parent listing if present unless we
     // already know it has changed.
     Optional<DirectoryListingStateValue.Key> parentListingKey = parentListingKey(path);
-    @Nullable
-    DirectoryListingStateValue parentListing =
-        parentListingKey
-            // Only look for done listings since already invalidated ones will be reevaluated
-            // anyway.
-            .map(k -> (DirectoryListingStateValue) graphDoneValues.get(k))
-            .orElse(null);
+    @Nullable DirectoryListingStateValue parentListing = null;
+    if (parentListingKey.isPresent()) {
+      @Nullable InMemoryNodeEntry entry = inMemoryGraph.getIfPresent(parentListingKey.get());
+      parentListing =
+          entry != null && entry.isDone() ? (DirectoryListingStateValue) entry.getValue() : null;
+    }
 
     // No listing/we already know it has changed -- nothing to gain from stats anymore.
     if (parentListing == null || valuesToInvalidate.contains(parentListingKey.get())) {
@@ -318,9 +372,9 @@ final class FileSystemValueCheckerInferringAncestors {
     // We don't take advantage of isInferredDirectory because we set it only in cases of a present
     // descendant/done listing which normally cannot exist without having FileStateValue for
     // ancestors.
-    FileStateValue value = getNewFileStateValueFromFileSystem(path);
-    valuesToInject.put(key, value);
-    if (isInferredDirectory || value.getType().exists()) {
+    FileStateValue newValue = injectAndGetNewFileStateValueForUnknownEntry(path, key);
+
+    if (isInferredDirectory || newValue.getType().exists()) {
       parentState.markInferredDirectory();
     }
 
@@ -328,26 +382,41 @@ final class FileSystemValueCheckerInferringAncestors {
     Dirent dirent =
         parentListing.getDirents().maybeGetDirent(path.getRootRelativePath().getBaseName());
     @Nullable Dirent.Type typeInListing = dirent != null ? dirent.getType() : null;
-    if (!Objects.equals(typeInListing, direntTypeFromFileStateType(value.getType()))) {
+    if (!Objects.equals(typeInListing, direntTypeFromFileStateType(newValue.getType()))) {
       valuesToInvalidate.add(parentListingKey.get());
     }
   }
 
-  private FileStateValue getNewFileStateValueFromFileSystem(RootedPath path)
+  /** Injects the new file state value for unknown entry. */
+  private FileStateValue injectAndGetNewFileStateValueForUnknownEntry(RootedPath path, SkyKey key)
       throws StatFailedException {
+    FileStateValue newValue;
     try {
-      return FileStateValue.create(path, syscallCache, tsgm);
+      newValue = (FileStateValue) skyValueDirtinessChecker.createNewValue(path, syscallCache, tsgm);
     } catch (IOException e) {
-      throw new StatFailedException(path, e);
+      throw new StatFailedException(
+          "Failed to create file state value for unknown path " + path.asPath(), e);
     }
+    Version newMtsv;
+    try {
+      newMtsv = skyValueDirtinessChecker.getMaxTransitiveSourceVersionForNewValue(key, newValue);
+    } catch (IOException e) {
+      throw new StatFailedException("Failed to get MTSV for unknown path " + path.asPath(), e);
+    }
+    valuesToInject.put(key, Delta.justNew(newValue, newMtsv));
+    return newValue;
   }
 
   private boolean listingHasEntriesOutsideOf(RootedPath path, Set<String> allAffectedEntries) {
     // TODO(192010830): Try looking up BUILD files if there is no listing -- this is a lookup we
     //  can speculatively try since those files are often checked against.
     @Nullable
+    InMemoryNodeEntry nodeEntry = inMemoryGraph.getIfPresent(DirectoryListingStateValue.key(path));
+    @Nullable
     DirectoryListingStateValue listing =
-        (DirectoryListingStateValue) graphDoneValues.get(DirectoryListingStateValue.key(path));
+        nodeEntry != null && nodeEntry.isDone()
+            ? (DirectoryListingStateValue) nodeEntry.getValue()
+            : null;
     if (listing == null) {
       return false;
     }
@@ -365,24 +434,18 @@ final class FileSystemValueCheckerInferringAncestors {
 
   @Nullable
   private static Dirent.Type direntTypeFromFileStateType(FileStateType type) {
-    switch (type) {
-      case NONEXISTENT:
-        return null;
-      case REGULAR_FILE:
-        return Dirent.Type.FILE;
-      case SPECIAL_FILE:
-        return Dirent.Type.UNKNOWN;
-      case SYMLINK:
-        return Dirent.Type.SYMLINK;
-      case DIRECTORY:
-        return Dirent.Type.DIRECTORY;
-    }
-    throw new AssertionError();
+    return switch (type) {
+      case NONEXISTENT -> null;
+      case REGULAR_FILE -> Dirent.Type.FILE;
+      case SPECIAL_FILE -> Dirent.Type.UNKNOWN;
+      case SYMLINK -> Dirent.Type.SYMLINK;
+      case DIRECTORY -> Dirent.Type.DIRECTORY;
+    };
   }
 
-  private static class StatFailedException extends Exception {
-    StatFailedException(RootedPath path, IOException cause) {
-      super(String.format("Failed to stat: '%s' while computing diff", path.asPath()), cause);
+  private static final class StatFailedException extends Exception {
+    StatFailedException(String message, IOException cause) {
+      super(message, cause);
     }
   }
 }

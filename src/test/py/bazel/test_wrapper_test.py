@@ -13,9 +13,9 @@
 # limitations under the License.
 
 import os
-import unittest
 import zipfile
 
+from absl.testing import absltest
 from src.test.py.bazel import test_base
 
 
@@ -33,89 +33,102 @@ class TestWrapperTest(test_base.TestBase):
     self.fail('FAIL:\n | %s\n---' % '\n | '.join(output))
 
   def _CreateMockWorkspace(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    self.ScratchFile('foo/BUILD', [
-        'load(":native_test.bzl", "bat_test", "exe_test")',
-        'bat_test(',
-        '    name = "passing_test",',
-        '    content = ["@exit /B 0"],',
-        ')',
-        'bat_test(',
-        '    name = "failing_test",',
-        '    content = ["@exit /B 1"],',
-        ')',
-        'bat_test(',
-        '    name = "printing_test",',
-        '    content = [',
-        '        "@echo lorem ipsum",',
-        '        "@echo HOME=%HOME%",',
-        '        "@echo TEST_SRCDIR=%TEST_SRCDIR%",',
-        '        "@echo TEST_TMPDIR=%TEST_TMPDIR%",',
-        '        "@echo USER=%USER%",',
-        '    ]',
-        ')',
-        'bat_test(',
-        '    name = "runfiles_test",',
-        '    content = [',
-        '        "@echo off",',
-        '        "echo MF=%RUNFILES_MANIFEST_FILE%",',
-        '        "echo ONLY=%RUNFILES_MANIFEST_ONLY%",',
-        '        "echo DIR=%RUNFILES_DIR%",',
-        '        "echo data_path=%1",',
-        '        "if exist %1 (echo data_exists=1) else (echo data_exists=0)",',
-        '    ],',
-        '    data = ["dummy.dat"],',
-        '    args = ["$(location dummy.dat)"],',
-        ')',
-        'bat_test(',
-        '    name = "sharded_test",',
-        '    content = [',
-        '        "@echo STATUS=%TEST_SHARD_STATUS_FILE%",',
-        '        "@echo INDEX=%TEST_SHARD_INDEX% TOTAL=%TEST_TOTAL_SHARDS%",',
-        '    ],',
-        '    shard_count = 2,',
-        ')',
-        'bat_test(',
-        '    name = "unexported_test",',
-        '    content = [',
-        '        "@echo GOOD=%HOME%",',
-        '        "@echo BAD=%TEST_UNDECLARED_OUTPUTS_MANIFEST%",',
-        '    ],',
-        ')',
-        'bat_test(',
-        '    name = "print_arg0_test",',
-        '    content = [',
-        '        "@echo ARG0=%0",',
-        '    ],',
-        ')',
-        'exe_test(',
-        '    name = "testargs_test",',
-        '    src = "testargs.exe",',
-        r'    args = ["foo", "a b", "", "\"c d\"", "\"\"", "bar"],',
-        ')',
-        'py_test(',
-        '    name = "undecl_test",',
-        '    srcs = ["undecl_test.py"],',
-        '    data = ["dummy.ico", "dummy.dat"],',
-        '    deps = ["@bazel_tools//tools/python/runfiles"],',
-        ')',
-        'py_test(',
-        '    name = "annot_test",',
-        '    srcs = ["annot_test.py"],',
-        ')',
-        'py_test(',
-        '    name = "xml_test",',
-        '    srcs = ["xml_test.py"],',
-        ')',
-        'py_test(',
-        '    name = "xml2_test",',
-        '    srcs = ["xml2_test.py"],',
-        ')',
-        'py_test(',
-        '    name = "add_cur_dir_to_path_test",',
-        '    srcs = ["add_cur_dir_to_path_test.py"],',
-        ')'
-    ])
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "rules_python", version = "0.40.0")']
+    )
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load(":native_test.bzl", "bat_test", "exe_test")',
+            'load("@rules_python//python:py_test.bzl", "py_test")',
+            'bat_test(',
+            '    name = "passing_test",',
+            '    content = ["@exit /B 0"],',
+            ')',
+            'bat_test(',
+            '    name = "failing_test",',
+            '    content = ["@exit /B 1"],',
+            ')',
+            'bat_test(',
+            '    name = "printing_test",',
+            '    content = [',
+            '        "@echo lorem ipsum",',
+            '        "@echo HOME=%HOME%",',
+            '        "@echo TEST_SRCDIR=%TEST_SRCDIR%",',
+            '        "@echo TEST_TMPDIR=%TEST_TMPDIR%",',
+            '        "@echo USER=%USER%",',
+            '    ]',
+            ')',
+            'bat_test(',
+            '    name = "runfiles_test",',
+            '    content = [',
+            '        "@echo off",',
+            '        "echo MF=%RUNFILES_MANIFEST_FILE%",',
+            '        "echo ONLY=%RUNFILES_MANIFEST_ONLY%",',
+            '        "echo DIR=%RUNFILES_DIR%",',
+            '        "echo data_path=%1",',
+            (
+                '        "if exist %1 (echo data_exists=1) else (echo'
+                ' data_exists=0)",'
+            ),
+            '    ],',
+            '    data = ["dummy.dat"],',
+            '    args = ["$(location dummy.dat)"],',
+            ')',
+            'bat_test(',
+            '    name = "sharded_test",',
+            '    content = [',
+            '        "type nul > %TEST_SHARD_STATUS_FILE%",',
+            '        "@echo STATUS=%TEST_SHARD_STATUS_FILE%",',
+            (
+                '        "@echo INDEX=%TEST_SHARD_INDEX%'
+                ' TOTAL=%TEST_TOTAL_SHARDS%",'
+            ),
+            '    ],',
+            '    shard_count = 2,',
+            ')',
+            'bat_test(',
+            '    name = "unexported_test",',
+            '    content = [',
+            '        "@echo GOOD=%HOME%",',
+            '        "@echo BAD=%TEST_UNDECLARED_OUTPUTS_MANIFEST%",',
+            '    ],',
+            ')',
+            'bat_test(',
+            '    name = "print_arg0_test",',
+            '    content = [',
+            '        "@echo ARG0=%0",',
+            '    ],',
+            ')',
+            'exe_test(',
+            '    name = "testargs_test",',
+            '    src = "testargs.exe",',
+            r'    args = ["foo", "a b", "", "\"c d\"", "\"\"", "bar"],',
+            ')',
+            'py_test(',
+            '    name = "undecl_test",',
+            '    srcs = ["undecl_test.py"],',
+            '    data = ["dummy.ico", "dummy.dat"],',
+            '    deps = ["@bazel_tools//tools/python/runfiles"],',
+            ')',
+            'py_test(',
+            '    name = "annot_test",',
+            '    srcs = ["annot_test.py"],',
+            ')',
+            'py_test(',
+            '    name = "xml_test",',
+            '    srcs = ["xml_test.py"],',
+            ')',
+            'py_test(',
+            '    name = "xml2_test",',
+            '    srcs = ["xml2_test.py"],',
+            ')',
+            'py_test(',
+            '    name = "add_cur_dir_to_path_test",',
+            '    srcs = ["add_cur_dir_to_path_test.py"],',
+            ')',
+        ],
+    )
 
     self.CopyFile(
         src_path=self.Rlocation('io_bazel/src/test/py/bazel/printargs.exe'),
@@ -169,9 +182,9 @@ class TestWrapperTest(test_base.TestBase):
             'os.mkdir(os.path.join(root, "out2"))',
             'os.makedirs(os.path.join(root, "empty/sub"))',
             'r = runfiles.Create()',
-            'shutil.copyfile(r.Rlocation("__main__/foo/dummy.ico"),',
+            'shutil.copyfile(r.Rlocation("_main/foo/dummy.ico"),',
             '                os.path.join(root, "out1", "data1.ico"))',
-            'shutil.copyfile(r.Rlocation("__main__/foo/dummy.dat"),',
+            'shutil.copyfile(r.Rlocation("_main/foo/dummy.dat"),',
             '                os.path.join(root, "out2", "my data 2.dat"))',
         ],
         executable=True)
@@ -228,29 +241,37 @@ class TestWrapperTest(test_base.TestBase):
         executable=True)
 
   def _AssertPassingTest(self, flags):
-    exit_code, _, stderr = self.RunBazel([
-        'test',
-        '//foo:passing_test',
-        '-t-',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        [
+            'test',
+            '//foo:passing_test',
+            '-t-',
+        ]
+        + flags
+    )
 
   def _AssertFailingTest(self, flags):
-    exit_code, _, stderr = self.RunBazel([
-        'test',
-        '//foo:failing_test',
-        '-t-',
-    ] + flags)
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:failing_test',
+            '-t-',
+        ]
+        + flags,
+        allow_failure=True,
+    )
     self.AssertExitCode(exit_code, 3, stderr)
 
   def _AssertPrintingTest(self, flags):
-    exit_code, stdout, stderr = self.RunBazel([
-        'test',
-        '//foo:printing_test',
-        '-t-',
-        '--test_output=all',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:printing_test',
+            '-t-',
+            '--test_output=all',
+        ]
+        + flags
+    )
     lorem = False
     for line in stderr + stdout:
       if line.startswith('lorem ipsum'):
@@ -283,15 +304,17 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(stderr + stdout)
 
   def _AssertRunfiles(self, flags):
-    exit_code, stdout, stderr = self.RunBazel([
-        'test',
-        '//foo:runfiles_test',
-        '-t-',
-        '--test_output=all',
-        # Ensure Bazel does not create a runfiles tree.
-        '--enable_runfiles=no',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:runfiles_test',
+            '-t-',
+            '--test_output=all',
+            # Ensure Bazel does not create a runfiles tree.
+            '--enable_runfiles=no',
+        ]
+        + flags
+    )
     mf = mf_only = rf_dir = path = exists = None
     for line in stderr + stdout:
       if line.startswith('MF='):
@@ -329,15 +352,17 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(stderr + stdout)
 
   def _AssertRunfilesSymlinks(self, flags):
-    exit_code, stdout, stderr = self.RunBazel([
-        'test',
-        '//foo:runfiles_test',
-        '-t-',
-        '--test_output=all',
-        # Ensure Bazel creates a runfiles tree.
-        '--enable_runfiles=yes',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:runfiles_test',
+            '-t-',
+            '--test_output=all',
+            # Ensure Bazel creates a runfiles tree.
+            '--enable_runfiles=yes',
+        ]
+        + flags
+    )
     mf_only = rf_dir = path = exists = None
     for line in stderr + stdout:
       if line.startswith('ONLY='):
@@ -364,13 +389,15 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(stderr + stdout)
 
   def _AssertShardedTest(self, flags):
-    exit_code, stdout, stderr = self.RunBazel([
-        'test',
-        '//foo:sharded_test',
-        '-t-',
-        '--test_output=all',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:sharded_test',
+            '-t-',
+            '--test_output=all',
+        ]
+        + flags
+    )
     status = None
     index_lines = []
     for line in stderr + stdout:
@@ -388,13 +415,15 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(stderr + stdout)
 
   def _AssertUnexportsEnvvars(self, flags):
-    exit_code, stdout, stderr = self.RunBazel([
-        'test',
-        '//foo:unexported_test',
-        '-t-',
-        '--test_output=all',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:unexported_test',
+            '-t-',
+            '--test_output=all',
+        ]
+        + flags
+    )
     good = bad = None
     for line in stderr + stdout:
       if line.startswith('GOOD='):
@@ -405,16 +434,17 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(stderr + stdout)
 
   def _AssertTestBinaryLocation(self, flags):
-    exit_code, bazel_bin, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, bazel_bin, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = bazel_bin[0].replace('/', '\\')
 
-    exit_code, stdout, stderr = self.RunBazel([
-        'test',
-        '//foo:print_arg0_test',
-        '--test_output=all',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:print_arg0_test',
+            '--test_output=all',
+        ]
+        + flags
+    )
 
     arg0 = None
     for line in stderr + stdout:
@@ -426,13 +456,15 @@ class TestWrapperTest(test_base.TestBase):
     # The test binary should located at the bazel bin folder
     self.assertEqual(arg0, os.path.join(bazel_bin, 'foo\\print_arg0_test.bat'))
 
-    exit_code, stdout, stderr = self.RunBazel([
-        'test',
-        '//foo:print_arg0_test',
-        '--test_output=all',
-        '--enable_runfiles',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:print_arg0_test',
+            '--test_output=all',
+            '--enable_runfiles',
+        ]
+        + flags
+    )
 
     arg0 = None
     for line in stderr + stdout:
@@ -445,25 +477,26 @@ class TestWrapperTest(test_base.TestBase):
         arg0,
         os.path.join(bazel_bin,
                      'foo\\print_arg0_test.bat.runfiles\\'
-                     '__main__\\foo\\print_arg0_test.bat')
+                     '_main\\foo\\print_arg0_test.bat')
     )
 
   def _AssertTestArgs(self, flags):
-    exit_code, bazel_bin, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, bazel_bin, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = bazel_bin[0]
 
-    exit_code, stdout, stderr = self.RunBazel([
-        'test',
-        '//foo:testargs_test',
-        '-t-',
-        '--test_output=all',
-        '--test_arg=baz',
-        '--test_arg="x y"',
-        '--test_arg=""',
-        '--test_arg=qux',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:testargs_test',
+            '-t-',
+            '--test_output=all',
+            '--test_arg=baz',
+            '--test_arg="x y"',
+            '--test_arg=""',
+            '--test_arg=qux',
+        ]
+        + flags
+    )
 
     actual = []
     for line in stderr + stdout:
@@ -491,18 +524,19 @@ class TestWrapperTest(test_base.TestBase):
         actual)
 
   def _AssertUndeclaredOutputs(self, flags):
-    exit_code, bazel_testlogs, stderr = self.RunBazel(
-        ['info', 'bazel-testlogs'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
     bazel_testlogs = bazel_testlogs[0]
 
-    exit_code, _, stderr = self.RunBazel([
-        'test',
-        '//foo:undecl_test',
-        '-t-',
-        '--test_output=errors',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        [
+            'test',
+            '//foo:undecl_test',
+            '-t-',
+            '--test_output=errors',
+            '--zip_undeclared_test_outputs',
+        ]
+        + flags
+    )
 
     undecl_zip = os.path.join(bazel_testlogs, 'foo', 'undecl_test',
                               'test.outputs', 'outputs.zip')
@@ -547,18 +581,18 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(mf_content)
 
   def _AssertUndeclaredOutputsAnnotations(self, flags):
-    exit_code, bazel_testlogs, stderr = self.RunBazel(
-        ['info', 'bazel-testlogs'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
     bazel_testlogs = bazel_testlogs[0]
 
-    exit_code, _, stderr = self.RunBazel([
-        'test',
-        '//foo:annot_test',
-        '-t-',
-        '--test_output=errors',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        [
+            'test',
+            '//foo:annot_test',
+            '-t-',
+            '--test_output=errors',
+        ]
+        + flags
+    )
 
     undecl_annot = os.path.join(bazel_testlogs, 'foo', 'annot_test',
                                 'test.outputs_manifest', 'ANNOTATIONS')
@@ -570,19 +604,20 @@ class TestWrapperTest(test_base.TestBase):
     self.assertListEqual(annot_content, ['Hello aHello c'])
 
   def _AssertXmlGeneration(self, flags, split_xml=False):
-    exit_code, bazel_testlogs, stderr = self.RunBazel(
-        ['info', 'bazel-testlogs'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
     bazel_testlogs = bazel_testlogs[0]
 
-    exit_code, _, stderr = self.RunBazel([
-        'test',
-        '//foo:xml_test',
-        '-t-',
-        '--test_output=errors',
-        '--%sexperimental_split_xml_generation' % ('' if split_xml else 'no'),
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        [
+            'test',
+            '//foo:xml_test',
+            '-t-',
+            '--test_output=errors',
+            '--%sexperimental_split_xml_generation'
+            % ('' if split_xml else 'no'),
+        ]
+        + flags
+    )
 
     test_xml = os.path.join(bazel_testlogs, 'foo', 'xml_test', 'test.xml')
     self.assertTrue(os.path.exists(test_xml))
@@ -619,19 +654,20 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(xml_contents)
 
   def _AssertXmlGeneratedByTestIsRetained(self, flags, split_xml=False):
-    exit_code, bazel_testlogs, stderr = self.RunBazel(
-        ['info', 'bazel-testlogs'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
     bazel_testlogs = bazel_testlogs[0]
 
-    exit_code, _, stderr = self.RunBazel([
-        'test',
-        '//foo:xml2_test',
-        '-t-',
-        '--test_output=errors',
-        '--%sexperimental_split_xml_generation' % ('' if split_xml else 'no'),
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        [
+            'test',
+            '//foo:xml2_test',
+            '-t-',
+            '--test_output=errors',
+            '--%sexperimental_split_xml_generation'
+            % ('' if split_xml else 'no'),
+        ]
+        + flags
+    )
 
     test_xml = os.path.join(bazel_testlogs, 'foo', 'xml2_test', 'test.xml')
     self.assertTrue(os.path.exists(test_xml))
@@ -644,14 +680,30 @@ class TestWrapperTest(test_base.TestBase):
   # See https://github.com/bazelbuild/bazel/issues/8088
   def testRunningTestFromExternalRepo(self):
     rule_definition = [
-        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
-        'local_repository(name = "a", path = "a")'
+        'bazel_dep(name = "rules_python", version = "0.40.0")',
+        'local_repository = use_repo_rule(',
+        (
+            '   "@bazel_tools//tools/build_defs/repo:local.bzl",'
+            ' "local_repository")'
+        ),
+        'local_repository(name = "a", path = "a")',
     ]
-    rule_definition.extend(self.GetDefaultRepoRules())
-    self.ScratchFile('WORKSPACE', rule_definition)
-    self.CreateWorkspaceWithDefaultRepos('a/WORKSPACE')
-    self.ScratchFile('BUILD', ['py_test(name = "x", srcs = ["x.py"])'])
-    self.ScratchFile('a/BUILD', ['py_test(name = "x", srcs = ["x.py"])'])
+    self.ScratchFile('MODULE.bazel', rule_definition)
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_python//python:py_test.bzl", "py_test")',
+            'py_test(name = "x", srcs = ["x.py"])',
+        ],
+    )
+    self.ScratchFile('a/REPO.bazel')
+    self.ScratchFile(
+        'a/BUILD',
+        [
+            'load("@rules_python//python:py_test.bzl", "py_test")',
+            'py_test(name = "x", srcs = ["x.py"])',
+        ],
+    )
     self.ScratchFile('x.py')
     self.ScratchFile('a/x.py')
 
@@ -678,12 +730,14 @@ class TestWrapperTest(test_base.TestBase):
           ] + stderr)
 
   def _AssertAddCurrentDirectoryToPathTest(self, flags):
-    exit_code, _, stderr = self.RunBazel([
-        'test',
-        '//foo:add_cur_dir_to_path_test',
-        '--test_output=all',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        [
+            'test',
+            '//foo:add_cur_dir_to_path_test',
+            '--test_output=all',
+        ]
+        + flags
+    )
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
@@ -707,4 +761,4 @@ class TestWrapperTest(test_base.TestBase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  absltest.main()

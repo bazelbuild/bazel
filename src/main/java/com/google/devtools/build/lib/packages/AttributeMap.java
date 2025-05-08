@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -29,20 +28,15 @@ import javax.annotation.Nullable;
  * its particular needs are.
  */
 public interface AttributeMap {
-  /**
-   * Returns the name of the rule; this is equivalent to {@code getLabel().getName()}.
-   */
-  String getName();
+  /** Describe the underlying rule, for use in messages. */
+  default String describeRule() {
+    return getLabel().toString();
+  }
 
   /**
    * Returns the label of the rule.
    */
   Label getLabel();
-
-  /**
-   * Returns the name of the rule class.
-   */
-  String getRuleClassName();
 
   /**
    * Returns true if an attribute with the given name exists.
@@ -80,14 +74,13 @@ public interface AttributeMap {
   }
 
   /**
-   * Returns true if the given attribute is configurable for this rule instance, false
-   * if it isn't configurable or doesn't exist.
+   * Returns true if the given attribute is configurable for this rule instance or if any attributes
+   * it requires (for computed defaults) are configurable. Returns false if the attribute doesn't
+   * exist.
    */
   boolean isConfigurable(String attributeName);
 
-  /**
-   * Returns the names of all attributes covered by this map.
-   */
+  /** Returns the names of all attributes covered by this map. */
   Iterable<String> getAttributeNames();
 
   /**
@@ -136,17 +129,5 @@ public interface AttributeMap {
   /** Same as {@link #visitAllLabels} but for attributes matching a {@link DependencyFilter}. */
   void visitLabels(DependencyFilter filter, BiConsumer<Attribute, Label> consumer);
 
-  // TODO(bazel-team): These methods are here to support computed defaults that inherit
-  // package-level default values. Instead, we should auto-inherit and remove the computed
-  // defaults. If we really need to give access to package-level defaults, we should come up with
-  // a more generic interface.
-  String getPackageDefaultHdrsCheck();
-
-  boolean isPackageDefaultHdrsCheckSet();
-
-  Boolean getPackageDefaultTestOnly();
-
-  String getPackageDefaultDeprecation();
-
-  ImmutableList<String> getPackageDefaultCopts();
+  PackageArgs getPackageArgs();
 }

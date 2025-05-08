@@ -14,11 +14,10 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.util.GroupedList;
+import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.Version;
 import java.util.function.Supplier;
@@ -104,14 +103,8 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
   }
 
   @Override
-  public SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
-      throws InterruptedException {
-    return delegate.getOrderedValuesAndExceptions(depKeys);
-  }
-
-  @Override
   @Nullable
-  public GroupedList<SkyKey> getTemporaryDirectDeps() {
+  public GroupedDeps getTemporaryDirectDeps() {
     return delegate.getTemporaryDirectDeps();
   }
 
@@ -126,8 +119,8 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
   }
 
   @Override
-  public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
-    return delegate.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
+  public boolean inErrorBubbling() {
+    return delegate.inErrorBubbling();
   }
 
   @Override
@@ -136,8 +129,8 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
   }
 
   @Override
-  public boolean restartPermitted() {
-    return delegate.restartPermitted();
+  public SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps() {
+    return delegate.getLookupHandleForPreviouslyRequestedDeps();
   }
 
   @Override

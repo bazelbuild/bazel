@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
@@ -40,24 +42,12 @@ public interface WrapCcHelperApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         starlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT, ?, ?>,
         CompilationInfoT extends CompilationInfoApi<FileT>,
         FileT extends FileApi,
-        CcCompilationContextT extends CcCompilationContextApi<FileT>,
+        CcCompilationContextT extends
+            CcCompilationContextApi<FileT, ? extends CppModuleMapApi<FileT>>,
         WrapCcIncludeProviderT extends WrapCcIncludeProviderApi>
     extends StarlarkValue {
-
-  @StarlarkMethod(
-      name = "feature_configuration",
-      documented = false,
-      doc = "",
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true),
-      })
-  public FeatureConfigurationT starlarkGetFeatureConfiguration(
-      starlarkRuleContextT starlarkRuleContext, CcToolchainProviderT ccToolchain)
-      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "collect_transitive_swig_includes",
@@ -66,28 +56,6 @@ public interface WrapCcHelperApi<
         @Param(name = "ctx", positional = false, named = true),
       })
   public Depset starlarkCollectTransitiveSwigIncludes(starlarkRuleContextT starlarkRuleContext);
-
-  @StarlarkMethod(
-      name = "create_compile_actions",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "feature_configuration", positional = false, named = true),
-        @Param(name = "cc_toolchain", positional = false, named = true),
-        @Param(name = "cc_file", positional = false, named = true),
-        @Param(name = "header_file", positional = false, named = true),
-        @Param(name = "dep_compilation_contexts", positional = false, named = true),
-        @Param(name = "target_copts", positional = false, named = true),
-      })
-  public CompilationInfoT starlarkCreateCompileActions(
-      starlarkRuleContextT starlarkRuleContext,
-      FeatureConfigurationT featureConfiguration,
-      CcToolchainProviderT ccToolchain,
-      FileT ccFile,
-      FileT headerFile,
-      Sequence<?> depCcCompilationContexts, // <CcCompilationContextT> expected
-      Sequence<?> targetCopts /* <String> expected */)
-      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "mangled_target_name",
@@ -153,7 +121,7 @@ public interface WrapCcHelperApi<
   // TODO(plf): Write in Starlark when all 3 SWIG rules are in Starlark.
   public void registerSwigAction(
       starlarkRuleContextT starlarkRuleContext,
-      CcToolchainProviderT ccToolchain,
+      Info ccToolchain,
       FeatureConfigurationT featureConfiguration,
       CcCompilationContextT wrapperCcCompilationContext,
       Depset swigIncludes,
@@ -167,5 +135,5 @@ public interface WrapCcHelperApi<
       Depset auxiliaryInputs,
       String swigAttributeName,
       Object zipTool)
-      throws EvalException, InterruptedException;
+      throws EvalException, InterruptedException, RuleErrorException;
 }

@@ -13,42 +13,53 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.DependencyKey;
+import com.google.common.collect.Multimaps;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyKind.NonAttributeDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyKind.ToolchainDependencyKind;
-import com.google.devtools.build.lib.analysis.DependencyResolver;
-import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
-import com.google.devtools.build.lib.analysis.ToolchainCollection;
-import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.DependencyResolver;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * TransitionResolver resolves the dependencies of a ConfiguredTarget, reporting which
- * configurations its dependencies are actually needed in according to the transitions applied to
- * them. This class has been extracted from TransitionsOutputFormatterCallback.java so that it can
- * be used in both ProtoOutputFormatterCallback and TransitionsOutputFormatterCallback
+ * TransitionResolver resolves the dependencies of a {@link
+ * com.google.devtools.build.lib.analysis.ConfiguredTarget}, reporting which configurations its
+ * dependencies are actually needed in according to the transitions applied to them. See {@link
+ * TransitionsOutputFormatterCallback}.
  */
 public class CqueryTransitionResolver {
 
@@ -91,102 +102,183 @@ public class CqueryTransitionResolver {
   }
 
   private final ExtendedEventHandler eventHandler;
-  private final DependencyResolver dependencyResolver;
   private final ConfiguredTargetAccessor accessor;
   private final CqueryThreadsafeCallback cqueryThreadsafeCallback;
-  @Nullable private final TransitionFactory<RuleTransitionData> trimmingTransitionFactory;
+  private final RuleClassProvider ruleClassProvider;
+  private final StarlarkTransitionCache transitionCache;
 
   public CqueryTransitionResolver(
       ExtendedEventHandler eventHandler,
-      DependencyResolver dependencyResolver,
       ConfiguredTargetAccessor accessor,
       CqueryThreadsafeCallback cqueryThreadsafeCallback,
-      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {
+      RuleClassProvider ruleClassProvider,
+      StarlarkTransitionCache transitionCache) {
     this.eventHandler = eventHandler;
-    this.dependencyResolver = dependencyResolver;
     this.accessor = accessor;
     this.cqueryThreadsafeCallback = cqueryThreadsafeCallback;
-    this.trimmingTransitionFactory = trimmingTransitionFactory;
+    this.ruleClassProvider = ruleClassProvider;
+    this.transitionCache = transitionCache;
   }
 
   /**
-   * Return the set of dependencies of a KeyedConfiguredTarget, including information about the
+   * Return the set of dependencies of a ConfiguredTarget, including information about the
    * configuration transitions applied to the dependencies.
    *
    * @see ResolvedTransition for more details.
-   * @param keyedConfiguredTarget the configured target whose dependencies are being looked up.
+   * @param configuredTarget the configured target whose dependencies are being looked up.
    */
-  public ImmutableSet<ResolvedTransition> dependencies(KeyedConfiguredTarget keyedConfiguredTarget)
-      throws DependencyResolver.Failure, InconsistentAspectOrderException, InterruptedException {
-    ImmutableSet.Builder<ResolvedTransition> resolved = new ImmutableSet.Builder<>();
-
-    if (!(keyedConfiguredTarget.getConfiguredTarget() instanceof RuleConfiguredTarget)) {
-      return resolved.build();
+  ImmutableSet<ResolvedTransition> dependencies(CqueryNode configuredTarget)
+      throws EvaluateException, InterruptedException, IncompatibleTargetException {
+    if (!(configuredTarget instanceof RuleConfiguredTarget)) {
+      return ImmutableSet.of();
     }
 
-    Target target = accessor.getTarget(keyedConfiguredTarget);
-    BuildConfigurationValue config =
-        cqueryThreadsafeCallback.getConfiguration(keyedConfiguredTarget.getConfigurationKey());
+    Target target = accessor.getTarget(configuredTarget);
+    BuildConfigurationValue configuration =
+        cqueryThreadsafeCallback.getConfiguration(configuredTarget.getConfigurationKey());
 
-    ImmutableMap<Label, ConfigMatchingProvider> configConditions =
-        keyedConfiguredTarget.getConfigConditions();
+    var targetAndConfiguration = new TargetAndConfiguration(target, configuration);
+    var attributeTransitionCollector =
+        HashBasedTable.<DependencyKind, Label, ConfigurationTransition>create();
+    var state =
+        DependencyResolver.State.createForCquery(
+            targetAndConfiguration, attributeTransitionCollector::put);
 
-    // Get a ToolchainContext to use for dependency resolution.
-    ToolchainCollection<ToolchainContext> toolchainContexts =
-        accessor.getToolchainContexts(target, config);
-    // We don't actually use fromOptions in our implementation of
-    // DependencyResolver but passing to avoid passing a null and since we have the information
-    // anyway.
-    OrderedSetMultimap<DependencyKind, DependencyKey> deps =
-        dependencyResolver.dependentNodeMap(
-            new TargetAndConfiguration(target, config),
-            /*aspect=*/ null,
-            configConditions,
-            toolchainContexts,
-            trimmingTransitionFactory);
-    for (Map.Entry<DependencyKind, DependencyKey> attributeAndDep : deps.entries()) {
-      DependencyKey dep = attributeAndDep.getValue();
+    var producer = new DependencyResolver(targetAndConfiguration);
+    try {
+      if (!producer.evaluate(
+          state,
+          ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
+          ruleClassProvider,
+          transitionCache,
+          /* semaphoreLocker= */ () -> {},
+          accessor.getLookupEnvironment(),
+          eventHandler)) {
+        throw new EvaluateException("DependencyResolver.evaluate did not complete");
+      }
+    } catch (ReportedException | UnreportedException e) {
+      throw new EvaluateException(e.getMessage());
+    }
 
-      if (attributeAndDep.getKey() instanceof NonAttributeDependencyKind) {
-        // No attribute edge to report.
-        continue;
+    if (!state.transitiveRootCauses().isEmpty()) {
+      throw new EvaluateException(
+          "expected empty: " + state.transitiveRootCauses().build().toList());
+    }
+
+    OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> deps = producer.getDepValueMap();
+
+    var resolved = ImmutableSet.<ResolvedTransition>builder();
+    for (Map.Entry<DependencyKind, Collection<ConfiguredTargetAndData>> entry :
+        deps.asMap().entrySet()) {
+      DependencyKind kind = entry.getKey();
+      if (kind instanceof NonAttributeDependencyKind) {
+        continue; // No attribute edge to report.
       }
 
-      String dependencyName;
-      if (DependencyKind.isToolchain(attributeAndDep.getKey())) {
-        ToolchainDependencyKind tdk = (ToolchainDependencyKind) attributeAndDep.getKey();
-        if (tdk.isDefaultExecGroup()) {
-          dependencyName = "[toolchain dependency]";
-        } else {
-          dependencyName = String.format("[toolchain dependency: %s]", tdk.getExecGroupName());
+      // There can be multiple labels under a given kind. Groups the targets by label.
+      ImmutableListMultimap<Label, ConfiguredTargetAndData> targetsByLabel =
+          Multimaps.index(
+              entry.getValue(),
+              prerequisite -> prerequisite.getConfiguredTarget().getOriginalLabel());
+      String dependencyName = getDependencyName(kind);
+      Map<Label, ConfigurationTransition> attributeTransitions =
+          attributeTransitionCollector.row(kind);
+
+      for (Map.Entry<Label, Collection<ConfiguredTargetAndData>> labelEntry :
+          targetsByLabel.asMap().entrySet()) {
+        Label label = labelEntry.getKey();
+        Collection<ConfiguredTargetAndData> targets = labelEntry.getValue();
+
+        // The most common case, so short-circuit this.
+        String transitionName = usesNoTransition(configuration, targets);
+        if (transitionName != null) {
+          resolved.add(
+              ResolvedTransition.create(
+                  label, /* buildOptions= */ ImmutableList.of(), dependencyName, transitionName));
+          continue;
         }
-      } else {
-        dependencyName = attributeAndDep.getKey().getAttribute().getName();
-      }
 
-      if (attributeAndDep.getValue().getTransition() == NoTransition.INSTANCE
-          || attributeAndDep.getValue().getTransition() == NullTransition.INSTANCE) {
+        // The rule transition does not vary across a split so using the first target is sufficient.
+        ConfigurationTransition ruleTransition =
+            getRuleTransition(targets.iterator().next().getConfiguredTarget());
+
+        var toOptions =
+            targets.stream().map(t -> t.getConfiguration().getOptions()).collect(toImmutableList());
+
         resolved.add(
             ResolvedTransition.create(
-                dep.getLabel(),
-                ImmutableList.of(),
+                label,
+                toOptions,
                 dependencyName,
-                attributeAndDep.getValue().getTransition().getName()));
-        continue;
+                getTransitionName(attributeTransitions.get(label), ruleTransition)));
       }
-      BuildOptions fromOptions = config.getOptions();
-      // TODO(bazel-team): support transitions on Starlark-defined build flags. These require
-      // Skyframe loading to get flag default values. See ConfigurationResolver.applyTransition
-      // for an example of the required logic.
-      ImmutableSet<BuildOptions> toOptions =
-          ImmutableSet.copyOf(
-              dep.getTransition()
-                  .apply(TransitionUtil.restrict(dep.getTransition(), fromOptions), eventHandler)
-                  .values());
-      resolved.add(
-          ResolvedTransition.create(
-              dep.getLabel(), toOptions, dependencyName, dep.getTransition().getName()));
     }
     return resolved.build();
+  }
+
+  static class EvaluateException extends Exception {
+    private EvaluateException(String message) {
+      super(message);
+    }
+  }
+
+  @Nullable
+  private static String usesNoTransition(
+      BuildConfigurationValue fromConfiguration, Collection<ConfiguredTargetAndData> targets) {
+    ConfiguredTargetAndData first = targets.iterator().next();
+    // Check whether the configuration changed.
+    if (targets.size() == 1 && Objects.equals(fromConfiguration, first.getConfiguration())) {
+      return NoTransition.INSTANCE.getName();
+    }
+    // If any target has a null configuration, they all do, so it's sufficient to check the first.
+    if (first.getConfiguration() == null) {
+      return "(null transition)";
+    }
+    return null;
+  }
+
+  private static String getDependencyName(DependencyKind kind) {
+    if (DependencyKind.isToolchain(kind)) {
+      ToolchainDependencyKind tdk = (ToolchainDependencyKind) kind;
+      if (tdk.isDefaultExecGroup()) {
+        return "[toolchain dependency]";
+      }
+      return String.format("[toolchain dependency: %s]", tdk.getExecGroupName());
+    }
+    return kind.getAttribute().getName();
+  }
+
+  // Keep in sync with TargetAndConfigurationProducer.computeTransition.
+  @Nullable
+  private ConfigurationTransition getRuleTransition(CqueryNode configuredTarget) {
+    Rule rule = accessor.getTarget(configuredTarget).getAssociatedRule();
+    if (rule == null) {
+      return null;
+    }
+    TransitionFactory<RuleTransitionData> transitionFactory =
+        rule.getRuleClassObject().getTransitionFactory();
+    TransitionFactory<RuleTransitionData> trimmingTransitionFactory =
+        ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory();
+
+    boolean isAlias = rule.getAssociatedRule().getName().equals("alias");
+    if (trimmingTransitionFactory != null && !isAlias) {
+      transitionFactory =
+          ComposingTransitionFactory.of(transitionFactory, trimmingTransitionFactory);
+    }
+
+    var transitionData = RuleTransitionData.create(rule, /* configConditions= */ null, "");
+    return transitionFactory.create(transitionData);
+  }
+
+  private static String getTransitionName(
+      @Nullable ConfigurationTransition attributeTransition,
+      ConfigurationTransition ruleTransition) {
+    if (attributeTransition == null || NoTransition.isInstance(attributeTransition)) {
+      return ruleTransition.getName();
+    } else if (NoTransition.isInstance(ruleTransition)) {
+      return attributeTransition.getName();
+    } else {
+      return "(" + attributeTransition.getName() + " + " + ruleTransition.getName() + ")";
+    }
   }
 }

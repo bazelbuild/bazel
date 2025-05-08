@@ -20,7 +20,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,24 +45,13 @@ public final class StarlarkMutableTest {
           () -> it.remove());
     }
     {
-      Iterator<?> it = list.listIterator();
-      it.next();
-      assertThrows(
-          UnsupportedOperationException.class,
-          () -> it.remove());
+      assertThrows(UnsupportedOperationException.class, list::listIterator);
     }
     {
-      Iterator<?> it = list.listIterator(1);
-      it.next();
-      assertThrows(
-          UnsupportedOperationException.class,
-          () -> it.remove());
+      assertThrows(UnsupportedOperationException.class, () -> list.listIterator(1));
     }
     {
-      List<Object> sublist = list.subList(1, 2);
-      assertThrows(
-          UnsupportedOperationException.class,
-          () -> sublist.set(0, 4));
+      assertThrows(UnsupportedOperationException.class, () -> list.subList(1, 2));
     }
   }
 

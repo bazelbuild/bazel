@@ -47,12 +47,6 @@ public class WorkspaceFactoryTest {
   }
 
   @Test
-  public void testWorkspaceStartsWithNumber() throws Exception {
-    helper.parse("workspace(name = '123abc')");
-    assertThat(helper.getParserError()).contains("invalid user-provided repo name '123abc'");
-  }
-
-  @Test
   public void testWorkspaceWithIllegalCharacters() throws Exception {
     helper.parse("workspace(name = 'a+b+c')");
     assertThat(helper.getParserError()).contains("invalid user-provided repo name 'a+b+c'");
@@ -67,7 +61,7 @@ public class WorkspaceFactoryTest {
 
   @Test
   public void testIllegalWorkspaceFunctionPosition() throws Exception {
-    helper = new WorkspaceFactoryTestHelper(/*allowOverride=*/ false, root);
+    helper = new WorkspaceFactoryTestHelper(/* allowWorkspace= */ false, root);
     helper.parse("workspace(name = 'foo')");
     assertThat(helper.getParserError()).contains(
         "workspace() function should be used only at the top of the WORKSPACE file");
@@ -181,7 +175,9 @@ public class WorkspaceFactoryTest {
         "    path = '/foo',",
         "    repo_mapping = {},",
         ")");
-    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create("foo"))).isEmpty();
+    assertThat(
+            helper.getPackage().getExternalPackageRepositoryMapping(RepositoryName.create("foo")))
+        .isEmpty();
   }
 
   @Test
@@ -206,7 +202,8 @@ public class WorkspaceFactoryTest {
   @Test
   public void testEmptyRepositoryHasEmptyMap() throws Exception {
     helper.parse("");
-    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create(""))).isEmpty();
+    assertThat(helper.getPackage().getExternalPackageRepositoryMapping(RepositoryName.create("")))
+        .isEmpty();
   }
 
   @Test
@@ -225,7 +222,7 @@ public class WorkspaceFactoryTest {
   private void assertMapping(
       WorkspaceFactoryTestHelper helper, String repo, String local, String global)
       throws Exception {
-    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create(repo)))
+    assertThat(helper.getPackage().getExternalPackageRepositoryMapping(RepositoryName.create(repo)))
         .containsEntry(local, RepositoryName.create(global));
   }
 

@@ -89,7 +89,7 @@ class ExecuteRetrier extends RemoteRetrier {
   }
 
   private static boolean shouldRetry(Exception e) {
-    if (BulkTransferException.isOnlyCausedByCacheNotFoundException(e)) {
+    if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
       return true;
     }
     Status status = StatusProto.fromThrowable(e);

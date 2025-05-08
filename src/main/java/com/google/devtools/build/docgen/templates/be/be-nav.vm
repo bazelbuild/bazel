@@ -33,7 +33,7 @@
 #end
 
   <li><a href="${bazelbuildGithub}/rules_appengine" target="_blank" rel="noopener">AppEngine</a></li>
-  <li><a href="${bazelbuildGithub}/rules_apple" target="_blank" rel="noopener">Apple (Swift, iOS, macOS, tvOS, watchOS)</a></li>
+  <li><a href="${bazelbuildGithub}/rules_apple" target="_blank" rel="noopener">Apple (Swift, iOS, macOS, tvOS, visionOS, watchOS)</a></li>
   <li><a href="${bazelbuildGithub}/rules_dotnet" target="_blank" rel="noopener">C#</a></li>
   <li><a href="${bazelbuildGithub}/rules_d" target="_blank" rel="noopener">D</a></li>
   <li><a href="${bazelbuildGithub}/rules_docker" target="_blank" rel="noopener">Docker</a></li>

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
  # Copyright 2016 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -78,30 +78,27 @@ function init_gcov() {
 function llvm_coverage_lcov() {
   local output_file="${1}"; shift
   export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
-  "${COVERAGE_GCOV_PATH}" merge -output "${output_file}.data" \
+  "${LLVM_PROFDATA}" merge -output "${output_file}.data" \
       "${COVERAGE_DIR}"/*.profraw
 
   local object_param=""
   while read -r line; do
     if [[ ${line: -24} == "runtime_objects_list.txt" ]]; then
       while read -r line_runtime_object; do
-        if [[ -e "${RUNFILES_DIR}/${TEST_WORKSPACE}/${line_runtime_object}" ]]; then
-          object_param+=" -object ${RUNFILES_DIR}/${TEST_WORKSPACE}/${line_runtime_object}"
-        fi
+        object_param+=" -object ${line_runtime_object}"
       done < "${line}"
     fi
   done < "${COVERAGE_MANIFEST}"
 
   "${LLVM_COV}" export -instr-profile "${output_file}.data" -format=lcov \
-      -ignore-filename-regex='.*external/.+' \
-      -ignore-filename-regex='/tmp/.+' \
+      -ignore-filename-regex='^/tmp/.+' \
       ${object_param} | sed 's#/proc/self/cwd/##' > "${output_file}"
 }
 
 function llvm_coverage_profdata() {
   local output_file="${1}"; shift
   export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
-  "${COVERAGE_GCOV_PATH}" merge -output "${output_file}" \
+  "${LLVM_PROFDATA}" merge -output "${output_file}" \
       "${COVERAGE_DIR}"/*.profraw
 }
 
@@ -135,6 +132,16 @@ function gcov_coverage() {
               mkdir -p "${COVERAGE_DIR}/$(dirname ${gcno_path})"
               cp "$ROOT/${gcno_path}" "${COVERAGE_DIR}/${gcno_path}"
           fi
+
+          # Extract gcov's version: the output of `gcov --version` contains the
+          # version as a set of major-minor-patch numbers, of which we extract
+          # the major version.
+          # gcov --version outputs a line like:
+          #   gcov (Debian 7.3.0-5) 7.3.0
+          # llvm-cov gcov --version outputs a line like:
+          #   LLVM version 9.0.1
+          gcov_major_version=$("${GCOV}" --version | sed -n -E -e 's/^.*\s([0-9]+)\.[0-9]+\.[0-9]+\s?.*$/\1/p')
+
           # Invoke gcov to generate a code coverage report with the flags:
           # -i              Output gcov file in an intermediate text format.
           #                 The output is a single .gcov file per .gcda file.
@@ -151,19 +158,22 @@ function gcov_coverage() {
           # Don't generate branch coverage (-b) because of a gcov issue that
           # segfaults when both -i and -b are used (see
           # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=84879).
-          "${GCOV}" -i $COVERAGE_GCOV_OPTIONS -o "$(dirname ${gcda})" "${gcda}"
 
-          # Extract gcov's version: the output of `gcov --version` contains the
-          # version as a set of major-minor-patch numbers, of which we extract
-          # the major version.
-          gcov_major_version=$("${GCOV}" --version | sed -n -E -e 's/^.*\s([0-9]+)\.[0-9]+\.[0-9]+\s?.*$/\1/p')
+          # Don't generate branch coverage (-b) when using gcov 7 or earlier
+          # because of a gcov issue that segfaults when both -i and -b are used
+          # (see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=84879).
+          if [[ $gcov_major_version -le 7 ]]; then
+              "${GCOV}" -i $COVERAGE_GCOV_OPTIONS -o "$(dirname ${gcda})" "${gcda}"
+          else
+              "${GCOV}" -i -b $COVERAGE_GCOV_OPTIONS -o "$(dirname ${gcda})" "${gcda}"
+          fi
 
-          # Check the gcov version so we can process the data correctly
-          if [[ $gcov_major_version -ge 9 ]]; then
-              # gcov 9 or higher use a JSON based format for their coverage reports.
-              # The output is generated into multiple files: "$(basename ${gcda}).gcov.json.gz"
+          # Check the type of output: gcov 9 or later outputs compressed JSON
+          # files, but earlier versions of gcov, and all versions of llvm-cov,
+          # do not. These output textual information.
+          if stat --printf='' *.gcov.json.gz > /dev/null 2>&1; then
               # Concatenating JSON documents does not yield a valid document, so they are moved individually
-              mv -- *.gcov.json.gz "$(dirname "$output_file")"
+              mv -- *.gcov.json.gz "$(dirname "$output_file")/$(dirname ${gcno_path})"
           else
               # Append all .gcov files in the current directory to the output file.
               cat -- *.gcov >> "$output_file"

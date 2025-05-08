@@ -22,7 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -35,8 +34,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.StarlarkList;
 
 /**
  * Provides shared functionality for parameterized command-line launching.
@@ -71,19 +68,6 @@ public final class CommandHelper {
 
     private Builder(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
-    }
-
-    /**
-     * Adds tools, as a set of executable binaries, by fetching them from the given attribute on the
-     * {@code ruleContext}, in HOST mode. Populates manifests, remoteRunfiles and label map where
-     * required.
-     */
-    @CanIgnoreReturnValue
-    public Builder addHostToolDependencies(String toolAttributeName) {
-      List<? extends TransitiveInfoCollection> dependencies =
-          ruleContext.getPrerequisites(toolAttributeName);
-      addToolDependencies(dependencies);
-      return this;
     }
 
     /**
@@ -133,9 +117,6 @@ public final class CommandHelper {
   @VisibleForTesting
   public static int maxCommandLength = OS.getCurrent() == OS.WINDOWS ? 8000 : 64000;
 
-  /** {@link RunfilesSupplier}s for tools used by this rule. */
-  private final Sequence<RunfilesSupplier> toolsRunfilesSuppliers;
-
   /**
    * Use labelMap for heuristically expanding labels (does not include "outs")
    * This is similar to heuristic location expansion in LocationExpander
@@ -169,7 +150,6 @@ public final class CommandHelper {
     this.ruleContext = ruleContext;
 
     NestedSetBuilder<Artifact> resolvedToolsBuilder = NestedSetBuilder.stableOrder();
-    ImmutableList.Builder<RunfilesSupplier> toolsRunfilesBuilder = ImmutableList.builder();
     Map<Label, Collection<Artifact>> tempLabelMap = new HashMap<>();
 
     for (Map.Entry<Label, ? extends Iterable<Artifact>> entry : labelMap.entrySet()) {
@@ -177,32 +157,39 @@ public final class CommandHelper {
     }
 
     for (Iterable<? extends TransitiveInfoCollection> tools : toolsList) {
-      for (TransitiveInfoCollection dep : tools) { // (Note: host configuration)
+      for (TransitiveInfoCollection dep : tools) { // (Note: exec configuration)
 
         FilesToRunProvider tool = dep.getProvider(FilesToRunProvider.class);
         if (tool == null) {
           continue;
         }
 
-        NestedSet<Artifact> files = tool.getFilesToRun();
-        resolvedToolsBuilder.addTransitive(files);
+        NestedSet<Artifact> filesToBuild = dep.getProvider(FileProvider.class).getFilesToBuild();
+        resolvedToolsBuilder.addTransitive(filesToBuild);
 
-        Label label = AliasProvider.getDependencyLabel(dep);
         Artifact executableArtifact = tool.getExecutable();
+        Label label = AliasProvider.getDependencyLabel(dep);
+
         // If the label has an executable artifact add that to the multimaps.
         if (executableArtifact != null) {
           mapGet(tempLabelMap, label).add(executableArtifact);
-          // Also send the runfiles when running remotely.
-          toolsRunfilesBuilder.add(tool.getRunfilesSupplier());
+          // Also send the runfiles if needed.
+          RunfilesSupport runfilesSupport = tool.getRunfilesSupport();
+          if (runfilesSupport != null) {
+            resolvedToolsBuilder.add(runfilesSupport.getRunfilesTreeArtifact());
+            // It's possible that getExecutable() returns an artifact that is not in
+            // getFilesToBuild(). It is not nice, but it happens
+            // (see test_executable_without_default_files)
+            resolvedToolsBuilder.add(tool.getRunfilesSupport().getExecutable());
+          }
         } else {
           // Map all depArtifacts to the respective label using the multimaps.
-          mapGet(tempLabelMap, label).addAll(files.toList());
+          mapGet(tempLabelMap, label).addAll(filesToBuild.toList());
         }
       }
     }
 
     this.resolvedTools = resolvedToolsBuilder.build();
-    this.toolsRunfilesSuppliers = StarlarkList.immutableCopyOf(toolsRunfilesBuilder.build());
     ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> labelMapBuilder =
         ImmutableMap.builder();
     for (Map.Entry<Label, Collection<Artifact>> entry : tempLabelMap.entrySet()) {
@@ -213,10 +200,6 @@ public final class CommandHelper {
 
   public NestedSet<Artifact> getResolvedTools() {
     return resolvedTools;
-  }
-
-  public Sequence<RunfilesSupplier> getToolsRunfilesSuppliers() {
-    return toolsRunfilesSuppliers;
   }
 
   public ImmutableMap<Label, ImmutableCollection<Artifact>> getLabelMap() {
@@ -272,9 +255,9 @@ public final class CommandHelper {
     }
   }
 
-  private static Pair<List<String>, Artifact> buildCommandLineMaybeWithScriptFile(
+  private static Pair<ImmutableList<String>, Artifact> buildCommandLineMaybeWithScriptFile(
       RuleContext ruleContext, String command, CommandConstructor constructor) {
-    List<String> argv;
+    ImmutableList<String> argv;
     Artifact scriptFileArtifact = null;
     if (command.length() <= maxCommandLength) {
       argv = constructor.asExecArgv(command);
@@ -309,9 +292,9 @@ public final class CommandHelper {
    * if the command line is longer than the allowed maximum {@link #maxCommandLength}. Fixes up the
    * input artifact list with the created bash script when required.
    */
-  public List<String> buildCommandLine(
+  public ImmutableList<String> buildCommandLine(
       String command, NestedSetBuilder<Artifact> inputs, CommandConstructor constructor) {
-    Pair<List<String>, Artifact> argvAndScriptFile =
+    Pair<ImmutableList<String>, Artifact> argvAndScriptFile =
         buildCommandLineMaybeWithScriptFile(ruleContext, command, constructor);
     if (argvAndScriptFile.second != null) {
       inputs.add(argvAndScriptFile.second);
@@ -326,7 +309,7 @@ public final class CommandHelper {
    */
   public List<String> buildCommandLine(
       String command, List<Artifact> inputs, CommandConstructor constructor) {
-    Pair<List<String>, Artifact> argvAndScriptFile =
+    Pair<ImmutableList<String>, Artifact> argvAndScriptFile =
         buildCommandLineMaybeWithScriptFile(ruleContext, command, constructor);
     if (argvAndScriptFile.second != null) {
       inputs.add(argvAndScriptFile.second);

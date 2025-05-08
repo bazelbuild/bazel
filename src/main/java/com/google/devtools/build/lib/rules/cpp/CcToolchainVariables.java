@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -25,16 +26,16 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainVariablesApi;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +45,7 @@ import java.util.Stack;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Configured build variables usable by the toolchain configuration.
@@ -51,6 +53,7 @@ import net.starlark.java.eval.Starlark;
  * <p>TODO(b/32655571): Investigate cleanup once implicit iteration is not needed. Variables
  * instance could serve as a top level View used to expand all flag_groups.
  */
+@Immutable
 public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   /**
    * A piece of a single string value.
@@ -65,7 +68,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      *
      * @param variables binding of variable names to their values for a single flag expansion.
      */
-    String expand(CcToolchainVariables variables) throws ExpansionException;
+    String expand(CcToolchainVariables variables, PathMapper pathMapper) throws ExpansionException;
 
     String getString();
   }
@@ -80,7 +83,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public String expand(CcToolchainVariables variables) {
+    public String expand(CcToolchainVariables variables, PathMapper pathMapper) {
       return text;
     }
 
@@ -89,8 +92,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       if (this == object) {
         return true;
       }
-      if (object instanceof StringLiteralChunk) {
-        StringLiteralChunk that = (StringLiteralChunk) object;
+      if (object instanceof StringLiteralChunk that) {
         return text.equals(that.text);
       }
       return false;
@@ -117,12 +119,13 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public String expand(CcToolchainVariables variables) throws ExpansionException {
+    public String expand(CcToolchainVariables variables, PathMapper pathMapper)
+        throws ExpansionException {
       // We check all variables in FlagGroup.expandCommandLine.
       // If we arrive here with the variable not being available, the variable was provided, but
       // the nesting level of the NestedSequence was deeper than the nesting level of the flag
       // groups.
-      return variables.getStringVariable(variableName);
+      return variables.getStringVariable(variableName, pathMapper);
     }
 
     @Override
@@ -130,8 +133,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       if (this == object) {
         return true;
       }
-      if (object instanceof VariableChunk) {
-        VariableChunk that = (VariableChunk) object;
+      if (object instanceof VariableChunk that) {
         return variableName.equals(that.variableName);
       }
       return false;
@@ -139,7 +141,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public int hashCode() {
-      return Objects.hash(variableName);
+      return Objects.hashCode(variableName);
     }
 
     @Override
@@ -158,9 +160,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * <p>The {@code StringValueParser} takes a string and parses it into a list of {@link
    * StringChunk} objects, where each chunk represents either a snippet of text or a variable to be
    * expanded. In the above example, the resulting chunks would be ["-f ", var1, "/", var2].
-   *
-   * <p>In addition to the list of chunks, the {@link StringValueParser} also provides the set of
-   * variables necessary for the expansion of this flag via {@link #getUsedVariables}.
    *
    * <p>To get a literal percent character, "%%" can be used in the string.
    */
@@ -181,14 +180,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       parse();
     }
 
-    /** @return the parsed chunks for this string. */
+    /** Returns the parsed chunks for this string. */
     public ImmutableList<StringChunk> getChunks() {
       return chunks.build();
-    }
-
-    /** @return all variable names needed to expand this string. */
-    ImmutableSet<String> getUsedVariables() {
-      return usedVariables.build();
     }
 
     /**
@@ -281,18 +275,38 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      */
     void expand(
         CcToolchainVariables variables,
-        @Nullable ArtifactExpander expander,
+        @Nullable InputMetadataProvider inputMetadataProvider,
+        PathMapper pathMapper,
         List<String> commandLine)
         throws ExpansionException;
   }
 
-  /** An empty variables instance. */
-  public static final CcToolchainVariables EMPTY = builder().build();
+  /** Returns an empty variables instance. */
+  public static CcToolchainVariables empty() {
+    return EmptyVariablesHolder.EMPTY;
+  }
+
+  /**
+   * Avoids cyclic class initialization issues with {@link MapVariables}.
+   *
+   * <p>Without this holder, there would be a cycle here. {@link MapVariables} depends on its parent
+   * class {@link CcToolchainVariables} and {@link CcToolchainVariables} would depend on {@link
+   * MapVariables} via {@link #EMPTY}.
+   *
+   * <p>See <a
+   * href="https://en.wikipedia.org/wiki/Initialization-on-demand_holder_idiom">Initialization on
+   * demand idiom</a>.
+   */
+  private static class EmptyVariablesHolder {
+    private static final CcToolchainVariables EMPTY = builder().build();
+  }
 
   private static final Object NULL_MARKER = new Object();
 
   // Values in this cache are either VariableValue, String error message, or NULL_MARKER.
-  private Map<String, Object> structuredVariableCache;
+  //
+  // It is initialized lazily.
+  private transient volatile Map<String, Object> structuredVariableCache;
 
   /**
    * Retrieves a {@link StringSequence} variable named {@code variableName} from {@code variables}
@@ -300,41 +314,45 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    *
    * <p>Throws {@link ExpansionException} when the variable is not a {@link StringSequence}.
    */
-  public static final ImmutableList<String> toStringList(
-      CcToolchainVariables variables, String variableName) throws ExpansionException {
+  public static ImmutableList<String> toStringList(
+      CcToolchainVariables variables, String variableName, PathMapper pathMapper)
+      throws ExpansionException {
     ImmutableList.Builder<String> result = ImmutableList.builder();
-    for (VariableValue value : variables.getSequenceVariable(variableName)) {
-      result.add(value.getStringValue(variableName));
+    for (VariableValue value : variables.getSequenceVariable(variableName, pathMapper)) {
+      result.add(value.getStringValue(variableName, pathMapper));
     }
     return result.build();
   }
 
   /**
-   * Get a variable value named @param name. Supports accessing fields in structures (e.g.
+   * Gets a variable value named {@code name}. Supports accessing fields in structures (e.g.
    * 'libraries_to_link.interface_libraries')
    *
    * @throws ExpansionException when no such variable or no such field are present, or when
    *     accessing a field of non-structured variable
    */
-  VariableValue getVariable(String name) throws ExpansionException {
-    return lookupVariable(name, /* throwOnMissingVariable= */ true, /* expander= */ null);
+  VariableValue getVariable(String name, PathMapper pathMapper) throws ExpansionException {
+    return lookupVariable(
+        name, /* throwOnMissingVariable= */ true, /* inputMetadataProvider= */ null, pathMapper);
   }
 
-  VariableValue getVariable(String name, @Nullable ArtifactExpander expander)
+  private VariableValue getVariable(
+      String name, @Nullable InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws ExpansionException {
-    return lookupVariable(name, /* throwOnMissingVariable= */ true, expander);
+    return lookupVariable(
+        name, /* throwOnMissingVariable= */ true, inputMetadataProvider, pathMapper);
   }
 
   /**
-   * Lookup a variable named @param name or return a reason why the variable was not found. Supports
-   * accessing fields in structures.
-   *
-   * @return Pair<VariableValue, String> returns either (variable value, null) or (null, string
-   *     reason why variable was not found)
+   * Looks up a variable named {@code name} or return a reason why the variable was not found.
+   * Supports accessing fields in structures.
    */
   @Nullable
   private VariableValue lookupVariable(
-      String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander)
+      String name,
+      boolean throwOnMissingVariable,
+      @Nullable InputMetadataProvider inputMetadataProvider,
+      PathMapper pathMapper)
       throws ExpansionException {
     VariableValue var = getNonStructuredVariable(name);
     if (var != null) {
@@ -351,34 +369,37 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     if (structuredVariableCache == null) {
-      structuredVariableCache = Maps.newConcurrentMap();
+      synchronized (this) {
+        if (structuredVariableCache == null) {
+          structuredVariableCache = Maps.newConcurrentMap();
+        }
+      }
     }
 
-    Object variableOrError =
-        structuredVariableCache.computeIfAbsent(
-            name,
-            n -> {
-              try {
-                VariableValue variable = getStructureVariable(n, throwOnMissingVariable, expander);
-                return variable != null ? variable : NULL_MARKER;
-              } catch (ExpansionException e) {
-                if (throwOnMissingVariable) {
-                  return e.getMessage();
-                } else {
-                  throw new IllegalStateException(
-                      "Should not happen - call to getStructuredVariable threw when asked not to.",
-                      e);
-                }
-              }
-            });
+    Object variableOrError = structuredVariableCache.get(name);
+    if (variableOrError == null) {
+      try {
+        VariableValue variable =
+            getStructureVariable(name, throwOnMissingVariable, inputMetadataProvider, pathMapper);
+        variableOrError = variable != null ? variable : NULL_MARKER;
+      } catch (ExpansionException e) {
+        if (throwOnMissingVariable) {
+          variableOrError = e.getMessage();
+        } else {
+          throw new IllegalStateException(
+              "Should not happen - call to getStructuredVariable threw when asked not to.", e);
+        }
+      }
+      structuredVariableCache.putIfAbsent(name, variableOrError);
+    }
 
-    if (variableOrError instanceof VariableValue) {
-      return (VariableValue) variableOrError;
+    if (variableOrError instanceof VariableValue variableValue) {
+      return variableValue;
     }
     if (throwOnMissingVariable) {
       throw new ExpansionException(
-          variableOrError instanceof String
-              ? (String) variableOrError
+          variableOrError instanceof String string
+              ? string
               : String.format(
                   "Invalid toolchain configuration: Cannot find variable named '%s'.", name));
     }
@@ -387,7 +408,10 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
   @Nullable
   private VariableValue getStructureVariable(
-      String name, boolean throwOnMissingVariable, @Nullable ArtifactExpander expander)
+      String name,
+      boolean throwOnMissingVariable,
+      @Nullable InputMetadataProvider inputMetadataProvider,
+      PathMapper pathMapper)
       throws ExpansionException {
     if (!name.contains(".")) {
       return null;
@@ -409,7 +433,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     while (!fieldsToAccess.empty()) {
       String field = fieldsToAccess.pop();
-      variable = variable.getFieldValue(structPath, field, expander, throwOnMissingVariable);
+      variable =
+          variable.getFieldValue(
+              structPath, field, inputMetadataProvider, pathMapper, throwOnMissingVariable);
       if (variable == null) {
         if (throwOnMissingVariable) {
           throw new ExpansionException(
@@ -425,28 +451,38 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     return variable;
   }
 
-  public String getStringVariable(String variableName) throws ExpansionException {
-    return getVariable(variableName, /* expander= */ null).getStringValue(variableName);
-  }
-
-  public Iterable<? extends VariableValue> getSequenceVariable(String variableName)
+  public String getStringVariable(String variableName, PathMapper pathMapper)
       throws ExpansionException {
-    return getVariable(variableName, /* expander= */ null).getSequenceValue(variableName);
+    return getVariable(variableName, /* inputMetadataProvider= */ null, pathMapper)
+        .getStringValue(variableName, pathMapper);
   }
 
   public Iterable<? extends VariableValue> getSequenceVariable(
-      String variableName, @Nullable ArtifactExpander expander) throws ExpansionException {
-    return getVariable(variableName, expander).getSequenceValue(variableName);
+      String variableName, PathMapper pathMapper) throws ExpansionException {
+    return getVariable(variableName, /* inputMetadataProvider= */ null, pathMapper)
+        .getSequenceValue(variableName, pathMapper);
+  }
+
+  public Iterable<? extends VariableValue> getSequenceVariable(
+      String variableName,
+      @Nullable InputMetadataProvider inputMetadataProvider,
+      PathMapper pathMapper)
+      throws ExpansionException {
+    return getVariable(variableName, inputMetadataProvider, pathMapper)
+        .getSequenceValue(variableName, pathMapper);
   }
 
   /** Returns whether {@code variable} is set. */
   public boolean isAvailable(String variable) {
-    return isAvailable(variable, /* expander= */ null);
+    return isAvailable(variable, /* inputMetadataProvider= */ null);
   }
 
-  boolean isAvailable(String variable, @Nullable ArtifactExpander expander) {
+  boolean isAvailable(String variable, @Nullable InputMetadataProvider inputMetadataProvider) {
     try {
-      return lookupVariable(variable, /* throwOnMissingVariable= */ false, expander) != null;
+      // Availability doesn't depend on the path mapper.
+      return lookupVariable(
+              variable, /* throwOnMissingVariable= */ false, inputMetadataProvider, PathMapper.NOOP)
+          != null;
     } catch (ExpansionException e) {
       throw new IllegalStateException(
           "Should not happen - call to lookupVariable threw when asked not to.", e);
@@ -477,7 +513,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      *
      * @param variableName name of the variable value at hand, for better exception message.
      */
-    String getStringValue(String variableName) throws ExpansionException;
+    String getStringValue(String variableName, PathMapper pathMapper) throws ExpansionException;
 
     /**
      * Returns Iterable value of the variable, if the variable type can be converted to a Iterable
@@ -485,7 +521,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      *
      * @param variableName name of the variable value at hand, for better exception message.
      */
-    Iterable<? extends VariableValue> getSequenceValue(String variableName)
+    Iterable<? extends VariableValue> getSequenceValue(String variableName, PathMapper pathMapper)
         throws ExpansionException;
 
     /**
@@ -494,14 +530,24 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      *
      * @param variableName name of the variable value at hand, for better exception message.
      */
-    VariableValue getFieldValue(String variableName, String field) throws ExpansionException;
-
     VariableValue getFieldValue(
         String variableName,
         String field,
-        @Nullable ArtifactExpander expander,
+        @Nullable InputMetadataProvider inputMetadataProvider,
+        PathMapper pathMapper,
         boolean throwOnMissingVariable)
         throws ExpansionException;
+
+    @VisibleForTesting
+    default VariableValue getFieldValue(String variableName, String field)
+        throws ExpansionException {
+      return getFieldValue(
+          variableName,
+          field,
+          /* inputMetadataProvider= */ null,
+          PathMapper.NOOP,
+          /* throwOnMissingVariable= */ true);
+    }
 
     /** Returns true if the variable is truthy */
     boolean isTruthy();
@@ -510,8 +556,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   /**
    * Adapter for {@link VariableValue} predefining error handling methods. Override {@link
    * #getVariableTypeName()}, {@link #isTruthy()}, and one of {@link #getFieldValue(String,
-   * String)}, {@link #getSequenceValue(String)}, or {@link #getStringValue(String)}, and you'll get
-   * error handling for the other methods for free.
+   * String)}, {@link VariableValue#getSequenceValue(String, PathMapper)}, or {@link
+   * VariableValue#getStringValue(String, PathMapper)}, and you'll get error handling for the other
+   * methods for free.
    */
   abstract static class VariableValueAdapter implements VariableValue {
 
@@ -521,19 +568,13 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     @Override
     public abstract boolean isTruthy();
 
-    @Override
-    public VariableValue getFieldValue(String variableName, String field)
-        throws ExpansionException {
-      return getFieldValue(
-          variableName, field, /* expander= */ null, /* throwOnMissingVariable= */ true);
-    }
-
     @Nullable
     @Override
     public VariableValue getFieldValue(
         String variableName,
         String field,
-        @Nullable ArtifactExpander expander,
+        @Nullable InputMetadataProvider inputMetadataProvider,
+        PathMapper pathMapper,
         boolean throwOnMissingVariable)
         throws ExpansionException {
       if (throwOnMissingVariable) {
@@ -548,7 +589,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public String getStringValue(String variableName) throws ExpansionException {
+    public String getStringValue(String variableName, PathMapper pathMapper)
+        throws ExpansionException {
       throw new ExpansionException(
           String.format(
               "Invalid toolchain configuration: Cannot expand variable '%s': expected string, "
@@ -557,8 +599,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public Iterable<? extends VariableValue> getSequenceValue(String variableName)
-        throws ExpansionException {
+    public Iterable<? extends VariableValue> getSequenceValue(
+        String variableName, PathMapper pathMapper) throws ExpansionException {
       throw new ExpansionException(
           String.format(
               "Invalid toolchain configuration: Cannot expand variable '%s': expected sequence, "
@@ -587,7 +629,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     /** Returns an immutable string sequence. */
     @Override
     public StringSequence build() {
-      return new StringSequence(values.build());
+      return StringSequence.of(values.build());
     }
   }
 
@@ -615,6 +657,14 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     @Override
     public Sequence build() {
       return new Sequence(values.build());
+    }
+
+    /**
+     * @deprecated Only exposed to get the list into Starlark collect_libraries_to_link
+     */
+    @Deprecated
+    public ImmutableList<VariableValue> getValues() {
+      return values.build();
     }
   }
 
@@ -651,7 +701,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     /** Adds a field to the structure. */
     @CanIgnoreReturnValue
     public StructureBuilder addField(String name, ImmutableList<String> values) {
-      fields.put(name, new StringSequence(values));
+      fields.put(name, StringSequence.of(values));
       return this;
     }
 
@@ -668,32 +718,41 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * significantly reduces memory overhead.
    */
   @Immutable
-  public abstract static class LibraryToLinkValue extends VariableValueAdapter {
+  public abstract static class LibraryToLinkValue extends VariableValueAdapter
+      implements StarlarkValue {
+
+    private static final Interner<LibraryToLinkValue> interner = BlazeInterners.newWeakInterner();
+
     public static final String OBJECT_FILES_FIELD_NAME = "object_files";
     public static final String NAME_FIELD_NAME = "name";
+    public static final String PATH_FIELD_NAME = "path";
     public static final String TYPE_FIELD_NAME = "type";
     public static final String IS_WHOLE_ARCHIVE_FIELD_NAME = "is_whole_archive";
 
     private static final String LIBRARY_TO_LINK_VARIABLE_TYPE_NAME = "structure (LibraryToLink)";
 
     public static LibraryToLinkValue forDynamicLibrary(String name) {
-      return new ForDynamicLibrary(name);
+      return interner.intern(new ForDynamicLibrary(name));
     }
 
-    public static LibraryToLinkValue forVersionedDynamicLibrary(String name) {
-      return new ForVersionedDynamicLibrary(name);
+    public static LibraryToLinkValue forVersionedDynamicLibrary(String name, String path) {
+      return interner.intern(new ForVersionedDynamicLibrary(name, path));
     }
 
     public static LibraryToLinkValue forInterfaceLibrary(String name) {
-      return new ForInterfaceLibrary(name);
+      return interner.intern(new ForInterfaceLibrary(name));
     }
 
     public static LibraryToLinkValue forStaticLibrary(String name, boolean isWholeArchive) {
-      return isWholeArchive ? new ForStaticLibraryWholeArchive(name) : new ForStaticLibrary(name);
+      return isWholeArchive
+          ? interner.intern(new ForStaticLibraryWholeArchive(name))
+          : interner.intern(new ForStaticLibrary(name));
     }
 
     public static LibraryToLinkValue forObjectFile(String name, boolean isWholeArchive) {
-      return isWholeArchive ? new ForObjectFileWholeArchive(name) : new ForObjectFile(name);
+      return isWholeArchive
+          ? interner.intern(new ForObjectFileWholeArchive(name))
+          : interner.intern(new ForObjectFile(name));
     }
 
     public static LibraryToLinkValue forObjectFileGroup(
@@ -701,20 +760,22 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       Preconditions.checkNotNull(objects);
       Preconditions.checkArgument(!objects.isEmpty());
       return isWholeArchive
-          ? new ForObjectFileGroupWholeArchive(objects)
-          : new ForObjectFileGroup(objects);
+          ? interner.intern(new ForObjectFileGroupWholeArchive(objects))
+          : interner.intern(new ForObjectFileGroup(objects));
     }
 
+    @Override
     @Nullable
     public VariableValue getFieldValue(
         String variableName,
         String field,
-        @Nullable ArtifactExpander expander,
+        @Nullable InputMetadataProvider inputMetadataProvider,
+        PathMapper pathMapper,
         boolean throwOnMissingVariable) {
       if (TYPE_FIELD_NAME.equals(field)) {
         return new StringValue(getTypeName());
       } else if (IS_WHOLE_ARCHIVE_FIELD_NAME.equals(field)) {
-        return new IntegerValue(getIsWholeArchive() ? 1 : 0);
+        return BooleanValue.of(getIsWholeArchive());
       }
       return null;
     }
@@ -737,13 +798,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof LibraryToLinkValue)) {
+      if (!(obj instanceof LibraryToLinkValue other)) {
         return false;
       }
       if (this == obj) {
         return true;
       }
-      LibraryToLinkValue other = (LibraryToLinkValue) obj;
       return this.getTypeName().equals(other.getTypeName())
           && getIsWholeArchive() == other.getIsWholeArchive();
     }
@@ -764,23 +824,28 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       public VariableValue getFieldValue(
           String variableName,
           String field,
-          @Nullable ArtifactExpander expander,
+          @Nullable InputMetadataProvider inputMetadataProvider,
+          PathMapper pathMapper,
           boolean throwOnMissingVariable) {
         if (NAME_FIELD_NAME.equals(field)) {
-          return new StringValue(name);
+          if (pathMapper.isNoop()) {
+            return new StringValue(name);
+          }
+          return new StringValue(
+              pathMapper.map(PathFragment.createAlreadyNormalized(name)).getPathString());
         }
-        return super.getFieldValue(variableName, field, expander, throwOnMissingVariable);
+        return super.getFieldValue(
+            variableName, field, inputMetadataProvider, pathMapper, throwOnMissingVariable);
       }
 
       @Override
       public boolean equals(Object obj) {
-        if (!(obj instanceof LibraryToLinkValueWithName)) {
+        if (!(obj instanceof LibraryToLinkValueWithName other)) {
           return false;
         }
         if (this == obj) {
           return true;
         }
-        LibraryToLinkValueWithName other = (LibraryToLinkValueWithName) obj;
         return this.name.equals(other.name) && super.equals(other);
       }
 
@@ -802,8 +867,41 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     private static final class ForVersionedDynamicLibrary extends LibraryToLinkValueWithName {
-      private ForVersionedDynamicLibrary(String name) {
+      private final String path;
+
+      private ForVersionedDynamicLibrary(String name, String path) {
         super(name);
+        this.path = path;
+      }
+
+      @Override
+      public VariableValue getFieldValue(
+          String variableName,
+          String field,
+          @Nullable InputMetadataProvider inputMetadataProvider,
+          PathMapper pathMapper,
+          boolean throwOnMissingVariable) {
+        if (PATH_FIELD_NAME.equals(field)) {
+          return new StringValue(path);
+        }
+        return super.getFieldValue(
+            variableName, field, inputMetadataProvider, pathMapper, throwOnMissingVariable);
+      }
+
+      @Override
+      public boolean equals(Object obj) {
+        if (!(obj instanceof ForVersionedDynamicLibrary other)) {
+          return false;
+        }
+        if (this == obj) {
+          return true;
+        }
+        return this.path.equals(other.path) && super.equals(other);
+      }
+
+      @Override
+      public int hashCode() {
+        return 31 * super.hashCode() + path.hashCode();
       }
 
       @Override
@@ -879,7 +977,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       public VariableValue getFieldValue(
           String variableName,
           String field,
-          @Nullable ArtifactExpander expander,
+          @Nullable InputMetadataProvider inputMetadataProvider,
+          PathMapper pathMapper,
           boolean throwOnMissingVariable) {
         if (NAME_FIELD_NAME.equals(field)) {
           return null;
@@ -888,19 +987,23 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         if (OBJECT_FILES_FIELD_NAME.equals(field)) {
           ImmutableList.Builder<String> expandedObjectFiles = ImmutableList.builder();
           for (Artifact objectFile : objectFiles) {
-            if (objectFile.isTreeArtifact() && (expander != null)) {
-              List<Artifact> artifacts = new ArrayList<>();
-              expander.expand(objectFile, artifacts);
-              expandedObjectFiles.addAll(
-                  Iterables.transform(artifacts, artifact -> artifact.getExecPathString()));
+            if (objectFile.isTreeArtifact() && inputMetadataProvider != null) {
+              TreeArtifactValue treeArtifactValue =
+                  inputMetadataProvider.getTreeMetadata(objectFile);
+              if (treeArtifactValue != null) {
+                expandedObjectFiles.addAll(
+                    Collections2.transform(
+                        treeArtifactValue.getChildren(), pathMapper::getMappedExecPathString));
+              }
             } else {
-              expandedObjectFiles.add(objectFile.getExecPathString());
+              expandedObjectFiles.add(pathMapper.getMappedExecPathString(objectFile));
             }
           }
-          return new StringSequence(expandedObjectFiles.build());
+          return StringSequence.of(expandedObjectFiles.build());
         }
 
-        return super.getFieldValue(variableName, field, expander, throwOnMissingVariable);
+        return super.getFieldValue(
+            variableName, field, inputMetadataProvider, pathMapper, throwOnMissingVariable);
       }
 
       @Override
@@ -910,13 +1013,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
       @Override
       public boolean equals(Object obj) {
-        if (!(obj instanceof ForObjectFileGroup)) {
+        if (!(obj instanceof ForObjectFileGroup other)) {
           return false;
         }
         if (this == obj) {
           return true;
         }
-        ForObjectFileGroup other = (ForObjectFileGroup) obj;
         return this.objectFiles.equals(other.objectFiles) && super.equals(other);
       }
 
@@ -950,7 +1052,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
+    public ImmutableList<VariableValue> getSequenceValue(
+        String variableName, PathMapper pathMapper) {
       return values;
     }
 
@@ -987,22 +1090,29 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * objects significantly reduces memory overhead.
    */
   @Immutable
-  @VisibleForTesting
-  static final class StringSequence extends VariableValueAdapter {
-    private final Iterable<String> values;
-    private transient int hash = 0;
+  private static final class StringSequence extends VariableValueAdapter {
+    static final Interner<StringSequence> stringSequenceInterner = BlazeInterners.newWeakInterner();
+    private final ImmutableList<String> values;
 
-    @VisibleForTesting
-    StringSequence(Iterable<String> values) {
-      Preconditions.checkNotNull(values);
-      this.values = values;
+    static StringSequence of(Iterable<String> values) {
+      return stringSequenceInterner.intern(new StringSequence(values));
+    }
+
+    private StringSequence(Iterable<String> values) {
+      ImmutableList.Builder<String> valuesBuilder = new ImmutableList.Builder<>();
+      for (String value : values) {
+        valuesBuilder.add(value.intern());
+      }
+      this.values = valuesBuilder.build();
     }
 
     @Override
-    public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-      final ImmutableList.Builder<VariableValue> sequences = ImmutableList.builder();
+    public ImmutableList<VariableValue> getSequenceValue(
+        String variableName, PathMapper pathMapper) {
+      ImmutableList.Builder<VariableValue> sequences =
+          ImmutableList.builderWithExpectedSize(values.size());
       for (String value : values) {
-        sequences.add(new StringValue(value));
+        sequences.add(new StringValue(pathMapper.mapHeuristically(value)));
       }
       return sequences.build();
     }
@@ -1030,15 +1140,11 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public int hashCode() {
-      int h = hash;
-      if (h == 0) {
-        h = 1;
-        for (String s : values) {
-          h = 31 * h + (s == null ? 0 : s.hashCode());
-        }
-        hash = h;
+      int hash = 1;
+      for (String s : values) {
+        hash = 31 * hash + Objects.hashCode(s);
       }
-      return h;
+      return hash;
     }
   }
 
@@ -1048,8 +1154,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * objects significantly reduces memory overhead.
    *
    * <p>Because checking nested set equality is expensive, equality for these sequences is defined
-   * in terms of {@link NestedSet#shallowEquals}, which can miss some value-equal nested sets. In
-   * practice, since equality is needed just for interning when deserializing, this is acceptable.
+   * in terms of {@link NestedSet#shallowEquals}, which can miss some value-equal nested sets.
+   * Equality is never used currently (but may be needed in the future for interning during
+   * deserialization), so this is acceptable.
    */
   @Immutable
   private static final class StringSetSequence extends VariableValueAdapter {
@@ -1061,9 +1168,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
-      final ImmutableList.Builder<VariableValue> sequences = ImmutableList.builder();
-      for (String value : values.toList()) {
+    public ImmutableList<VariableValue> getSequenceValue(
+        String variableName, PathMapper pathMapper) {
+      ImmutableList<String> valuesList = values.toList();
+      ImmutableList.Builder<VariableValue> sequences =
+          ImmutableList.builderWithExpectedSize(valuesList.size());
+      for (String value : valuesList) {
         sequences.add(new StringValue(value));
       }
       return sequences.build();
@@ -1096,6 +1206,102 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
   }
 
+  @Immutable
+  private static final class PathFragmentSetSequence extends VariableValueAdapter {
+    private final NestedSet<PathFragment> values;
+
+    private PathFragmentSetSequence(NestedSet<PathFragment> values) {
+      Preconditions.checkNotNull(values);
+      this.values = values;
+    }
+
+    @Override
+    public ImmutableList<VariableValue> getSequenceValue(
+        String variableName, PathMapper pathMapper) {
+      ImmutableList<PathFragment> valuesList = values.toList();
+      ImmutableList.Builder<VariableValue> sequences =
+          ImmutableList.builderWithExpectedSize(valuesList.size());
+      for (PathFragment value : valuesList) {
+        sequences.add(new StringValue(pathMapper.map(value).getSafePathString()));
+      }
+      return sequences.build();
+    }
+
+    @Override
+    public String getVariableTypeName() {
+      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return !values.isEmpty();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (!(other instanceof PathFragmentSetSequence otherPathFragments)) {
+        return false;
+      }
+      return values.shallowEquals(otherPathFragments.values);
+    }
+
+    @Override
+    public int hashCode() {
+      return values.shallowHashCode();
+    }
+  }
+
+  @Immutable
+  private static final class ArtifactSetSequence extends VariableValueAdapter {
+    private final NestedSet<Artifact> values;
+
+    private ArtifactSetSequence(NestedSet<Artifact> values) {
+      Preconditions.checkNotNull(values);
+      this.values = values;
+    }
+
+    @Override
+    public ImmutableList<VariableValue> getSequenceValue(
+        String variableName, PathMapper pathMapper) {
+      ImmutableList<Artifact> valuesList = values.toList();
+      ImmutableList.Builder<VariableValue> sequences =
+          ImmutableList.builderWithExpectedSize(valuesList.size());
+      for (Artifact value : valuesList) {
+        sequences.add(new StringValue(pathMapper.getMappedExecPathString(value)));
+      }
+      return sequences.build();
+    }
+
+    @Override
+    public String getVariableTypeName() {
+      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return !values.isEmpty();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (!(other instanceof ArtifactSetSequence otherArtifacts)) {
+        return false;
+      }
+      return values.shallowEquals(otherArtifacts.values);
+    }
+
+    @Override
+    public int hashCode() {
+      return values.shallowHashCode();
+    }
+  }
+
   /**
    * Single structure value. Be careful not to create sequences of single structures, as the memory
    * overhead is prohibitively big.
@@ -1115,13 +1321,10 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public VariableValue getFieldValue(
         String variableName,
         String field,
-        @Nullable ArtifactExpander expander,
+        @Nullable InputMetadataProvider inputMetadataProvider,
+        PathMapper pathMapper,
         boolean throwOnMissingVariable) {
-      if (value.containsKey(field)) {
-        return value.get(field);
-      } else {
-        return null;
-      }
+      return value.getOrDefault(field, null);
     }
 
     @Override
@@ -1152,24 +1355,21 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   }
 
   /**
-   * The leaves in the variable sequence node tree are simple string values. Note that this should
+   * Most leaves in the variable sequence node tree are simple string values. Note that this should
    * never live outside of {@code expand}, as the object overhead is prohibitively expensive.
    */
   @Immutable
-  @VisibleForTesting
-  static final class StringValue extends VariableValueAdapter {
+  private static final class StringValue extends VariableValueAdapter {
     private static final String STRING_VARIABLE_TYPE_NAME = "string";
 
     private final String value;
 
-    @VisibleForTesting
     StringValue(String value) {
-      Preconditions.checkNotNull(value, "Cannot create StringValue from null");
-      this.value = value;
+      this.value = Preconditions.checkNotNull(value, "Cannot create StringValue from null");
     }
 
     @Override
-    public String getStringValue(String variableName) {
+    public String getStringValue(String variableName, PathMapper pathMapper) {
       return value;
     }
 
@@ -1200,47 +1400,81 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
   }
 
-  /**
-   * The leaves in the variable sequence node tree are simple integer values. Note that this should
-   * never live outside of {@code expand}, as the object overhead is prohibitively expensive.
-   */
   @Immutable
-  @VisibleForTesting
-  static final class IntegerValue extends VariableValueAdapter {
-    private static final String INTEGER_VALUE_TYPE_NAME = "integer";
-    private final int value;
+  private static final class BooleanValue extends VariableValueAdapter {
+    private static final BooleanValue TRUE = new BooleanValue(true);
+    private static final BooleanValue FALSE = new BooleanValue(false);
 
-    @VisibleForTesting
-    IntegerValue(int value) {
+    private static BooleanValue of(boolean value) {
+      return value ? TRUE : FALSE;
+    }
+
+    private final boolean value;
+
+    BooleanValue(boolean value) {
       this.value = value;
     }
 
     @Override
-    public String getStringValue(String variableName) {
-      return Integer.toString(value);
+    public String getStringValue(String variableName, PathMapper pathMapper) {
+      return value ? "1" : "0";
     }
 
     @Override
     public String getVariableTypeName() {
-      return INTEGER_VALUE_TYPE_NAME;
+      return "boolean";
     }
 
     @Override
     public boolean isTruthy() {
-      return value != 0;
+      return value;
+    }
+  }
+
+  /**
+   * Represents leaves in the variable sequence node tree that are paths of artifacts. Note that
+   * this should never live outside of {@code expand}, as the object overhead is prohibitively
+   * expensive.
+   */
+  @Immutable
+  private static final class ArtifactValue extends VariableValueAdapter {
+    private static final String ARTIFACT_VARIABLE_TYPE_NAME = "artifact";
+
+    private final Artifact value;
+
+    ArtifactValue(Artifact value) {
+      this.value = value;
+    }
+
+    @Override
+    public String getStringValue(String variableName, PathMapper pathMapper) {
+      return pathMapper.getMappedExecPathString(value);
+    }
+
+    @Override
+    public String getVariableTypeName() {
+      return ARTIFACT_VARIABLE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return true;
     }
 
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof IntegerValue)) {
+      if (this == other) {
+        return true;
+      }
+      if (!(other instanceof ArtifactValue otherValue)) {
         return false;
       }
-      return value == ((IntegerValue) other).value;
+      return value.equals(otherValue.value);
     }
 
     @Override
     public int hashCode() {
-      return value;
+      return value.hashCode();
     }
   }
 
@@ -1263,10 +1497,10 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       this.parent = parent;
     }
 
-    /** Add an integer variable that expands {@code name} to {@code value}. */
+    /** Adds a variable that expands {@code name} to {@code 0} or {@code 1}. */
     @CanIgnoreReturnValue
-    public Builder addIntegerVariable(String name, int value) {
-      variablesMap.put(name, new IntegerValue(value));
+    public Builder addBooleanValue(String name, boolean value) {
+      variablesMap.put(name, BooleanValue.of(value));
       return this;
     }
 
@@ -1277,6 +1511,41 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
       variablesMap.put(name, value);
       return this;
+    }
+
+    /** Add an artifact variable that expands {@code name} to {@code value}. */
+    @CanIgnoreReturnValue
+    public Builder addArtifactVariable(String name, Artifact value) {
+      checkVariableNotPresentAlready(name);
+      Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
+      variablesMap.put(name, value);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder overrideArtifactVariable(String name, Artifact value) {
+      Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
+      variablesMap.put(name, value);
+      return this;
+    }
+
+    /**
+     * Add an artifact or string variable that expands {@code name} to {@code value}.
+     *
+     * <p>Prefer {@link #addArtifactVariable} and {@link #addStringVariable}. This method is only
+     * meant to support string-based Starlark API.
+     */
+    @CanIgnoreReturnValue
+    public Builder addArtifactOrStringVariable(String name, Object value) {
+      return switch (value) {
+        case String s -> addStringVariable(name, s);
+        case Artifact artifact -> addArtifactVariable(name, artifact);
+        case null ->
+            throw new IllegalArgumentException(
+                "Cannot set null as a value for variable '" + name + "'");
+        default ->
+            throw new IllegalArgumentException("Unsupported value type: " + value.getClass());
+      };
     }
 
     /** Overrides a variable to expands {@code name} to {@code value} instead. */
@@ -1299,7 +1568,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
       ImmutableList.Builder<String> builder = ImmutableList.builder();
       builder.addAll(values);
-      variablesMap.put(name, new StringSequence(builder.build()));
+      variablesMap.put(name, StringSequence.of(builder.build()));
       return this;
     }
 
@@ -1328,7 +1597,33 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder addStringSequenceVariable(String name, Iterable<String> values) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, new StringSequence(values));
+      variablesMap.put(name, StringSequence.of(values));
+      return this;
+    }
+
+    /**
+     * Add a sequence variable that expands {@code name} to {@link PathFragment} {@code values}.
+     *
+     * <p>Accepts values as NestedSet. Nested set is stored directly, not cloned, not flattened.
+     */
+    @CanIgnoreReturnValue
+    public Builder addPathFragmentSequenceVariable(String name, NestedSet<PathFragment> values) {
+      checkVariableNotPresentAlready(name);
+      Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
+      variablesMap.put(name, new PathFragmentSetSequence(values));
+      return this;
+    }
+
+    /**
+     * Add a sequence variable that expands {@code name} to {@link Artifact} {@code values}.
+     *
+     * <p>Accepts values as NestedSet. Nested set is stored directly, not cloned, not flattened.
+     */
+    @CanIgnoreReturnValue
+    public Builder addArtifactSequenceVariable(String name, NestedSet<Artifact> values) {
+      checkVariableNotPresentAlready(name);
+      Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
+      variablesMap.put(name, new ArtifactSetSequence(values));
       return this;
     }
 
@@ -1379,13 +1674,22 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     /** @return a new {@link CcToolchainVariables} object. */
     public CcToolchainVariables build() {
       if (variablesMap.size() == 1) {
-        Object o = variablesMap.values().iterator().next();
-        VariableValue variableValue =
-            o instanceof String ? new StringValue((String) o) : (VariableValue) o;
-        return new SingleVariables(parent, variablesMap.keySet().iterator().next(), variableValue);
+        return new SingleVariables(
+            parent,
+            variablesMap.keySet().iterator().next(),
+            asVariableValue(variablesMap.values().iterator().next()));
       }
       return new MapVariables(parent, variablesMap);
     }
+  }
+
+  /** Wraps a raw variablesMap value into an appropriate VariableValue if necessary. */
+  private static VariableValue asVariableValue(Object o) {
+    return switch (o) {
+      case String s -> new StringValue(s);
+      case Artifact artifact -> new ArtifactValue(artifact);
+      default -> (VariableValue) o;
+    };
   }
 
   /**
@@ -1395,12 +1699,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     void addVariables(Builder builder);
   }
 
-  @Immutable
-  @VisibleForSerialization
-  @AutoCodec
-  static class MapVariables extends CcToolchainVariables {
-    private static final Interner<MapVariables> INTERNER = BlazeInterners.newWeakInterner();
-    private static final Interner<ImmutableMap<String, Integer>> KEY_INTERNER =
+  private static final class MapVariables extends CcToolchainVariables {
+    private static final Interner<ImmutableMap<String, Integer>> keyInterner =
         BlazeInterners.newWeakInterner();
 
     @Nullable private final CcToolchainVariables parent;
@@ -1426,26 +1726,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         keyBuilder.put(key, index++);
         valuesBuilder.add(variablesMap.get(key));
       }
-      this.keyToIndex = KEY_INTERNER.intern(keyBuilder.buildOrThrow());
+      this.keyToIndex = keyInterner.intern(keyBuilder.buildOrThrow());
       this.values = valuesBuilder.build();
-    }
-
-    private MapVariables(
-        CcToolchainVariables parent,
-        ImmutableMap<String, Integer> keyToIndex,
-        ImmutableList<Object> values) {
-      this.parent = parent;
-      this.keyToIndex = keyToIndex;
-      this.values = values;
-    }
-
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
-    static MapVariables create(
-        CcToolchainVariables parent,
-        ImmutableMap<String, Integer> keyToIndex,
-        ImmutableList<Object> values) {
-      return INTERNER.intern(new MapVariables(parent, keyToIndex, values));
     }
 
     @Override
@@ -1454,7 +1736,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    Set<String> getVariableKeys() {
+    ImmutableSet<String> getVariableKeys() {
       return keyToIndex.keySet();
     }
 
@@ -1469,11 +1751,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     @Override
     VariableValue getNonStructuredVariable(String name) {
       if (keyToIndex.containsKey(name)) {
-        Object o = values.get(keyToIndex.get(name));
-        if (o instanceof String) {
-          return new StringValue((String) o);
-        }
-        return (VariableValue) o;
+        return CcToolchainVariables.asVariableValue(values.get(keyToIndex.get(name)));
       }
 
       if (parent != null) {
@@ -1495,13 +1773,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      */
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof MapVariables)) {
+      if (!(other instanceof MapVariables that)) {
         return false;
       }
       if (this == other) {
         return true;
       }
-      MapVariables that = (MapVariables) other;
       if (this.parent != that.parent) {
         return false;
       }
@@ -1515,22 +1792,10 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
   }
 
-  @VisibleForSerialization
-  @AutoCodec
-  @Immutable
-  static class SingleVariables extends CcToolchainVariables {
-    private static final Interner<SingleVariables> INTERNER = BlazeInterners.newWeakInterner();
-
+  static final class SingleVariables extends CcToolchainVariables {
     @Nullable private final CcToolchainVariables parent;
     private final String name;
     private final VariableValue variableValue;
-    private int hash = 0;
-
-    @AutoCodec.Instantiator
-    static SingleVariables create(
-        CcToolchainVariables parent, String name, VariableValue variableValue) {
-      return INTERNER.intern(new SingleVariables(parent, name, variableValue));
-    }
 
     SingleVariables(CcToolchainVariables parent, String name, VariableValue variableValue) {
       this.parent = parent;
@@ -1539,7 +1804,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    Set<String> getVariableKeys() {
+    ImmutableSet<String> getVariableKeys() {
       return ImmutableSet.of(name);
     }
 
@@ -1559,13 +1824,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof SingleVariables)) {
+      if (!(other instanceof SingleVariables that)) {
         return false;
       }
       if (this == other) {
         return true;
       }
-      SingleVariables that = (SingleVariables) other;
       if (this.parent != that.parent) {
         return false;
       }
@@ -1575,11 +1839,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public int hashCode() {
-      int h = hash;
-      if (h == 0) {
-        hash = h = Objects.hash(parent, name, variableValue);
-      }
-      return h;
+      return Objects.hash(parent, name, variableValue);
     }
   }
 }

@@ -115,7 +115,7 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
     SpawnExecutionContextForTesting policy =
         new SpawnExecutionContextForTesting(spawn, fileOutErr, Duration.ofMinutes(1));
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.NON_ZERO_EXIT);
     assertThat(spawnResult.exitCode()).isEqualTo(42);
@@ -124,41 +124,28 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
   @Test
   public void testSimpleExecution() throws Exception {
     DarwinSandboxedSpawnRunner runner =
-        new DarwinSandboxedSpawnRunner(
-            new SandboxHelpers(),
-            commandEnvironment,
-            sandboxBase,
-            /* sandboxfsProcess= */ null,
-            /* sandboxfsMapSymlinkTargets= */ false,
-            treeDeleter);
+        new DarwinSandboxedSpawnRunner(commandEnvironment, sandboxBase, treeDeleter);
     doSimpleExecutionTest(runner);
   }
 
   @Test
   public void testSupportsParamFiles() throws Exception {
     DarwinSandboxedSpawnRunner runner =
-        new DarwinSandboxedSpawnRunner(
-            new SandboxHelpers(),
-            commandEnvironment,
-            sandboxBase,
-            /* sandboxfsProcess= */ null,
-            /* sandboxfsMapSymlinkTargets= */ false,
-            treeDeleter);
+        new DarwinSandboxedSpawnRunner(commandEnvironment, sandboxBase, treeDeleter);
     Spawn spawn =
         new SpawnBuilder("cp", "params/param-file", "out")
             .withInput(
                 new ParamFileActionInput(
                     PathFragment.create("params/param-file"),
                     ImmutableList.of("--foo", "--bar"),
-                    ParameterFileType.UNQUOTED,
-                    StandardCharsets.UTF_8))
+                    ParameterFileType.UNQUOTED))
             .withOutput("out")
             .build();
     FileOutErr fileOutErr =
         new FileOutErr(testRoot.getChild("stdout"), testRoot.getChild("stderr"));
     SpawnExecutionContextForTesting policy =
         new SpawnExecutionContextForTesting(spawn, fileOutErr, Duration.ofMinutes(1));
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
     assertThat(spawnResult.status()).isEqualTo(Status.SUCCESS);
     Path paramFile = commandEnvironment.getExecRoot().getRelative("out");
     assertThat(paramFile.exists()).isTrue();
@@ -168,23 +155,5 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
           .asList()
           .containsExactly("--foo", "--bar");
     }
-  }
-
-  @Test
-  public void testSimpleExecutionWithSandboxfs() throws Exception {
-    Path mountPoint = commandEnvironment.getExecRoot().getRelative("mount");
-    mountPoint.createDirectoryAndParents();
-    SandboxfsProcess sandboxfsProcess = new FakeSandboxfsProcess(
-        mountPoint.getFileSystem(), mountPoint.asFragment());
-
-    DarwinSandboxedSpawnRunner runner =
-        new DarwinSandboxedSpawnRunner(
-            new SandboxHelpers(),
-            commandEnvironment,
-            sandboxBase,
-            sandboxfsProcess,
-            /* sandboxfsMapSymlinkTargets= */ false,
-            treeDeleter);
-    doSimpleExecutionTest(runner);
   }
 }

@@ -18,17 +18,30 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 
-/** Visibility provider implementation. */
+/**
+ * Visibility provider implementation.
+ *
+ * <p>This is just used for {@link AliasConfiguredTarget}; other configured targets inline the
+ * {@code VisibilityProvider} interface into their own definition.
+ */
 @Immutable
 public final class VisibilityProviderImpl implements VisibilityProvider {
   private final NestedSet<PackageGroupContents> visibility;
+  private final boolean isCreatedInSymbolicMacro;
 
-  public VisibilityProviderImpl(NestedSet<PackageGroupContents> visibility) {
+  public VisibilityProviderImpl(
+      NestedSet<PackageGroupContents> visibility, boolean isCreatedInSymbolicMacro) {
     this.visibility = visibility;
+    this.isCreatedInSymbolicMacro = isCreatedInSymbolicMacro;
   }
 
   @Override
   public NestedSet<PackageGroupContents> getVisibility() {
     return visibility;
+  }
+
+  @Override
+  public boolean isCreatedInSymbolicMacro() {
+    return isCreatedInSymbolicMacro;
   }
 }

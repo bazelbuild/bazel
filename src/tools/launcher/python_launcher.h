@@ -26,14 +26,11 @@ namespace launcher {
 class PythonBinaryLauncher : public BinaryLauncherBase {
  public:
   PythonBinaryLauncher(const LaunchDataParser::LaunchInfo& launch_info,
-                       std::wstring executable_file, int argc, wchar_t* argv[])
-      : BinaryLauncherBase(launch_info, argc, argv),
-        executable_file_(std::move(executable_file)) {}
+                       const std::wstring& launcher_path, int argc,
+                       wchar_t* argv[])
+      : BinaryLauncherBase(launch_info, launcher_path, argc, argv) {}
   ~PythonBinaryLauncher() override = default;
   ExitCode Launch() override;
-
- private:
-  std::wstring executable_file_;
 };
 
 }  // namespace launcher

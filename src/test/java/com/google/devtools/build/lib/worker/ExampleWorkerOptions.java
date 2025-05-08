@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.time.Duration;
 
 /**
  * Options for the example worker itself.
@@ -82,13 +84,31 @@ public class ExampleWorkerOptions extends OptionsBase {
     public boolean printInputs;
 
     @Option(
-      name = "print_env",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "false",
-      help = "Prints a list of all environment variables."
-    )
+        name = "print_dir_listing",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "",
+        help = "Writes a recursive listing of the given directory, not following symlinks.")
+    public String printDirListing;
+
+    @Option(
+        name = "print_env",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "false",
+        help = "Prints a list of all environment variables.")
     public boolean printEnv;
+
+    @Option(
+        name = "work_time",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        converter = Converters.DurationConverter.class,
+        defaultValue = "0",
+        help =
+            "When the worker receives a work request, it will sleep for this long before "
+                + "responding.")
+    public Duration workTime;
   }
 
   @Option(
@@ -142,6 +162,14 @@ public class ExampleWorkerOptions extends OptionsBase {
       defaultValue = "false",
       help = "Don't send a response until receiving a cancel request.")
   public boolean waitForCancel;
+
+  @Option(
+      name = "ignored_argument",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "false",
+      help = "An argument that does nothing, but whose presence can be asserted in a test.")
+  public boolean ignoredArgument;
 
   /** Enum converter for --worker_protocol. */
   public static class WorkerProtocolEnumConverter

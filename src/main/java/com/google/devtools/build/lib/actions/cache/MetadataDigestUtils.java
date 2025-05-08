@@ -32,8 +32,11 @@ public final class MetadataDigestUtils {
    * @param source the byte buffer source.
    * @return the digest from the given buffer.
    */
-  public static byte[] read(ByteBuffer source) {
+  public static byte[] read(ByteBuffer source) throws IOException {
     int size = VarInt.getVarInt(source);
+    if (size < 0) {
+      throw new IOException("Negative digest size: " + size);
+    }
     byte[] bytes = new byte[size];
     source.get(bytes);
     return bytes;
@@ -48,12 +51,6 @@ public final class MetadataDigestUtils {
   /**
    * Computes an order-independent digest from the given (path, metadata) pairs.
    *
-   * <p>Note that as discussed in https://github.com/bazelbuild/bazel/issues/15660, using {@link
-   * DigestUtils#xor} to achieve order-independence is questionable in case it is possible that
-   * multiple string keys map to the same bytes when passed through {@link Fingerprint#addString}
-   * (due to lossy conversion from UTF-16 to UTF-8). We expect however that paths are represented as
-   * latin1 bytes encoded as a string, so the concern does not apply.
-   *
    * @param mdMap A collection of (execPath, FileArtifactValue) pairs. Values may be null.
    */
   public static byte[] fromMetadata(Map<String, FileArtifactValue> mdMap) {
@@ -62,7 +59,8 @@ public final class MetadataDigestUtils {
     // instance for this computation to amortize its cost.
     Fingerprint fp = new Fingerprint();
     for (Map.Entry<String, FileArtifactValue> entry : mdMap.entrySet()) {
-      result = DigestUtils.xor(result, getDigest(fp, entry.getKey(), entry.getValue()));
+      result =
+          DigestUtils.combineUnordered(result, getDigest(fp, entry.getKey(), entry.getValue()));
     }
     return result;
   }

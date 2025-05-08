@@ -1,4 +1,0 @@
-filegroup(
-    name = "%name%",
-    srcs = glob(["%fileGlobPattern%"], allow_empty = True),
-)

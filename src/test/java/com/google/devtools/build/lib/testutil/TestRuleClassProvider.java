@@ -18,10 +18,11 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.CommonPrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -34,18 +35,23 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -56,7 +62,6 @@ import net.starlark.java.syntax.Location;
 public class TestRuleClassProvider {
 
   private static ConfiguredRuleClassProvider ruleClassProvider = null;
-  private static ConfiguredRuleClassProvider ruleClassProviderWithClearedSuffix = null;
 
   private TestRuleClassProvider() {}
 
@@ -67,40 +72,31 @@ public class TestRuleClassProvider {
       Method setupMethod =
           providerClass.getMethod("setup", ConfiguredRuleClassProvider.Builder.class);
       setupMethod.invoke(null, builder);
+
+      // Add the repository module for any unit tests that test local_repository behavior
+      builder.addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
     } catch (Exception e) {
       throw new IllegalStateException(e);
     }
   }
 
-  private static ConfiguredRuleClassProvider createRuleClassProvider(boolean clearSuffix) {
+  private static ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     addStandardRules(builder);
     // TODO(b/174773026): Eliminate TestingDummyRule/MockToolchainRule from this class, push them
     // down into the tests that use them. It's better for tests to avoid spooky mocks at a distance.
-    // The same might also be said for the cleared-workspace variant of getRuleClassProvider(). If
-    // we eliminate both, TestRuleClassProvider probably doesn't need to exist anymore.
+    // If we eliminate it, TestRuleClassProvider probably doesn't need to exist anymore.
     builder.addRuleDefinition(new TestingDummyRule());
     builder.addRuleDefinition(new MockToolchainRule());
-    if (clearSuffix) {
-      builder.clearWorkspaceFileSuffixForTesting();
-    }
     return builder.build();
   }
 
   /** Returns a rule class provider. */
   public static ConfiguredRuleClassProvider getRuleClassProvider() {
     if (ruleClassProvider == null) {
-      ruleClassProvider = createRuleClassProvider(false);
+      ruleClassProvider = createRuleClassProvider();
     }
     return ruleClassProvider;
-  }
-
-  /** Returns a rule class provider with the workspace suffix cleared. */
-  public static ConfiguredRuleClassProvider getRuleClassProviderWithClearedSuffix() {
-    if (ruleClassProviderWithClearedSuffix == null) {
-      ruleClassProviderWithClearedSuffix = createRuleClassProvider(true);
-    }
-    return ruleClassProviderWithClearedSuffix;
   }
 
   // TODO(bazel-team): The logic for the "minimal" rule class provider is currently split between
@@ -123,15 +119,15 @@ public class TestRuleClassProvider {
     ConfigRules.INSTANCE.init(builder);
   }
 
-  private static class MinimalPrerequisiteValidator extends CommonPrerequisiteValidator {
+  public static class MinimalPrerequisiteValidator extends CommonPrerequisiteValidator {
     @Override
-    public boolean isSameLogicalPackage(
+    protected boolean isSameLogicalPackage(
         PackageIdentifier thisPackage, PackageIdentifier prerequisitePackage) {
       return thisPackage.equals(prerequisitePackage);
     }
 
     @Override
-    protected boolean packageUnderExperimental(PackageIdentifier packageIdentifier) {
+    public boolean packageUnderExperimental(PackageIdentifier packageIdentifier) {
       return false;
     }
 
@@ -139,6 +135,12 @@ public class TestRuleClassProvider {
     protected boolean checkVisibilityForExperimental(RuleContext.Builder context) {
       // It does not matter whether we return true or false here if packageUnderExperimental always
       // returns false.
+      return true;
+    }
+
+    @Override
+    protected boolean checkVisibilityForToolchains(
+        RuleContext.Builder context, Label prerequisite) {
       return true;
     }
 
@@ -180,7 +182,7 @@ public class TestRuleClassProvider {
     @Nullable
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
-      Map<String, String> variables = ruleContext.attributes().get("variables", Type.STRING_DICT);
+      Map<String, String> variables = ruleContext.attributes().get("variables", Types.STRING_DICT);
       return new RuleConfiguredTargetBuilder(ruleContext)
           .setFilesToBuild(NestedSetBuilder.emptySet(Order.STABLE_ORDER))
           .addProvider(RunfilesProvider.EMPTY)
@@ -195,8 +197,9 @@ public class TestRuleClassProvider {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
       return builder
-          .advertiseProvider(TemplateVariableInfo.class)
-          .add(attr("variables", Type.STRING_DICT))
+          .advertiseStarlarkProvider(
+              StarlarkProviderIdentifier.forKey(TemplateVariableInfo.PROVIDER.getKey()))
+          .add(attr("variables", Types.STRING_DICT))
           .build();
     }
 
@@ -220,7 +223,7 @@ public class TestRuleClassProvider {
           .requiresConfigurationFragments(PlatformConfiguration.class)
           .addToolchainTypes(
               ToolchainTypeRequirement.create(
-                  Label.parseAbsoluteUnchecked("//toolchain:test_toolchain")))
+                  Label.parseCanonicalUnchecked("//toolchain:test_toolchain")))
           .build();
     }
 
@@ -230,6 +233,49 @@ public class TestRuleClassProvider {
           .name("mock_toolchain_rule")
           .factoryClass(UnknownRuleConfiguredTarget.class)
           .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
+          .build();
+    }
+  }
+
+  /** A simple provider for testing. */
+  public static final class FooProvider implements TransitiveInfoProvider {}
+
+  private static final Label FAKE_LABEL = Label.parseCanonicalUnchecked("//fake/label.bzl");
+
+  private static final StarlarkProviderIdentifier STARLARK_P1 =
+      StarlarkProviderIdentifier.forKey(
+          new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "STARLARK_P1"));
+
+  /** Definition of a rule that advertises a native provider that it does not return. */
+  public static final class LiarRuleWithNativeProvider implements RuleDefinition {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+      return builder.advertiseProvider(FooProvider.class).build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return Metadata.builder()
+          .name("liar_rule_with_native_provider")
+          .ancestors(BaseRuleClasses.NativeBuildRule.class)
+          .factoryClass(UnknownRuleConfiguredTarget.class)
+          .build();
+    }
+  }
+
+  /** Definition of a rule that advertises a Starlark provider that it does not return. */
+  public static final class LiarRuleWithStarlarkProvider implements RuleDefinition {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+      return builder.advertiseStarlarkProvider(STARLARK_P1).build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return Metadata.builder()
+          .name("liar_rule_with_starlark_provider")
+          .ancestors(BaseRuleClasses.NativeBuildRule.class)
+          .factoryClass(UnknownRuleConfiguredTarget.class)
           .build();
     }
   }

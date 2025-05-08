@@ -33,8 +33,8 @@ import javax.annotation.Nullable;
  *
  * <ul>
  *   <li>{RELEASE} is a sequence of decimal numbers separated by dots;
- *   <li>{SUFFIX} could be: {@code -pre.*}, {@code rc\d+}, or any other string (which compares equal
- *       to SUFFIX is absent)
+ *   <li>{SUFFIX} could be: {@code -pre.*}, or any other string (which compares equal to SUFFIX
+ *       being absent)
  * </ul>
  */
 @AutoValue
@@ -52,9 +52,9 @@ public abstract class BazelVersion {
   /** Returns the original version string. */
   public abstract String getOriginal();
 
-  /** Whether this is a prerelease or a release candidate */
-  boolean isPrereleaseOrCandidate() {
-    return getSuffix().startsWith("-pre") || getSuffix().startsWith("rc");
+  /** Whether this is a prerelease */
+  boolean isPrerelease() {
+    return getSuffix().startsWith("-pre");
   }
 
   /** Parses a version string into a {@link BazelVersion} object. */
@@ -86,7 +86,7 @@ public abstract class BazelVersion {
     int result =
         Objects.compare(
             getRelease(), compatSplit, lexicographical(Comparator.<Integer>naturalOrder()));
-    if (result == 0 && isPrereleaseOrCandidate()) {
+    if (result == 0 && isPrerelease()) {
       result = -1;
     }
 

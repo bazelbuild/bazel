@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
+
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("//tools/mini_tar:tar.bzl", "mini_tar")
-load("//tools/python:private/defs.bzl", "py_binary", "py_test")
 
 licenses(["notice"])
 
@@ -18,8 +19,6 @@ exports_files([
 py_binary(
     name = "mini_tar",
     srcs = ["mini_tar.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
 )
 
@@ -42,6 +41,4 @@ py_test(
         "mini_tar_test.py",
     ],
     data = [":mini_tar_srcs"],
-    python_version = "PY3",
-    srcs_version = "PY3",
 )

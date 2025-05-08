@@ -16,9 +16,16 @@ package com.google.devtools.build.lib.remote.common;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import javax.annotation.Nullable;
 
-/** A context that provide remote execution related information for executing an action remotely. */
+/**
+ * A context providing remote execution related information for executing a {@link RemoteAction}.
+ *
+ * <p>Terminology note: "action" is used here in the remote execution protocol sense, which is
+ * equivalent to a Bazel "spawn" (a Bazel "action" being a higher-level concept).
+ */
 public class RemoteActionExecutionContext {
   /** Determines whether to read/write remote cache, disk cache or both. */
   public enum CachePolicy {
@@ -61,27 +68,35 @@ public class RemoteActionExecutionContext {
   }
 
   @Nullable private final Spawn spawn;
+  @Nullable private final SpawnExecutionContext spawnExecutionContext;
   private final RequestMetadata requestMetadata;
   private final NetworkTime networkTime;
   private final CachePolicy writeCachePolicy;
   private final CachePolicy readCachePolicy;
 
   private RemoteActionExecutionContext(
-      @Nullable Spawn spawn, RequestMetadata requestMetadata, NetworkTime networkTime) {
-    this.spawn = spawn;
-    this.requestMetadata = requestMetadata;
-    this.networkTime = networkTime;
-    this.writeCachePolicy = CachePolicy.ANY_CACHE;
-    this.readCachePolicy = CachePolicy.ANY_CACHE;
+      @Nullable Spawn spawn,
+      @Nullable SpawnRunner.SpawnExecutionContext spawnExecutionContext,
+      RequestMetadata requestMetadata,
+      NetworkTime networkTime) {
+    this(
+        spawn,
+        spawnExecutionContext,
+        requestMetadata,
+        networkTime,
+        CachePolicy.ANY_CACHE,
+        CachePolicy.ANY_CACHE);
   }
 
   private RemoteActionExecutionContext(
       @Nullable Spawn spawn,
+      @Nullable SpawnExecutionContext spawnExecutionContext,
       RequestMetadata requestMetadata,
       NetworkTime networkTime,
       CachePolicy writeCachePolicy,
       CachePolicy readCachePolicy) {
     this.spawn = spawn;
+    this.spawnExecutionContext = spawnExecutionContext;
     this.requestMetadata = requestMetadata;
     this.networkTime = networkTime;
     this.writeCachePolicy = writeCachePolicy;
@@ -90,18 +105,40 @@ public class RemoteActionExecutionContext {
 
   public RemoteActionExecutionContext withWriteCachePolicy(CachePolicy writeCachePolicy) {
     return new RemoteActionExecutionContext(
-        spawn, requestMetadata, networkTime, writeCachePolicy, readCachePolicy);
+        spawn,
+        spawnExecutionContext,
+        requestMetadata,
+        networkTime,
+        writeCachePolicy,
+        readCachePolicy);
   }
 
   public RemoteActionExecutionContext withReadCachePolicy(CachePolicy readCachePolicy) {
     return new RemoteActionExecutionContext(
-        spawn, requestMetadata, networkTime, writeCachePolicy, readCachePolicy);
+        spawn,
+        spawnExecutionContext,
+        requestMetadata,
+        networkTime,
+        writeCachePolicy,
+        readCachePolicy);
   }
 
-  /** Returns the {@link Spawn} of the action being executed or {@code null}. */
+  /**
+   * Returns the {@link Spawn} of the {@link RemoteAction} being executed, or {@code null} if it has
+   * no associated {@link Spawn}.
+   */
   @Nullable
   public Spawn getSpawn() {
     return spawn;
+  }
+
+  /**
+   * Returns the {@link SpawnExecutionContext} of the {@link RemoteAction} being executed, or {@code
+   * null} if it has no associated {@link Spawn}.
+   */
+  @Nullable
+  public SpawnExecutionContext getSpawnExecutionContext() {
+    return spawnExecutionContext;
   }
 
   /** Returns the {@link RequestMetadata} for the action being executed. */
@@ -137,7 +174,8 @@ public class RemoteActionExecutionContext {
 
   /** Creates a {@link RemoteActionExecutionContext} with given {@link RequestMetadata}. */
   public static RemoteActionExecutionContext create(RequestMetadata metadata) {
-    return new RemoteActionExecutionContext(/*spawn=*/ null, metadata, new NetworkTime());
+    return new RemoteActionExecutionContext(
+        /* spawn= */ null, /* spawnExecutionContext= */ null, metadata, new NetworkTime());
   }
 
   /**
@@ -145,16 +183,23 @@ public class RemoteActionExecutionContext {
    * RequestMetadata}.
    */
   public static RemoteActionExecutionContext create(
-      @Nullable Spawn spawn, RequestMetadata metadata) {
-    return new RemoteActionExecutionContext(spawn, metadata, new NetworkTime());
+      Spawn spawn, SpawnExecutionContext spawnExecutionContext, RequestMetadata metadata) {
+    return new RemoteActionExecutionContext(
+        spawn, spawnExecutionContext, metadata, new NetworkTime());
   }
 
   public static RemoteActionExecutionContext create(
-      @Nullable Spawn spawn,
+      Spawn spawn,
+      SpawnExecutionContext spawnExecutionContext,
       RequestMetadata requestMetadata,
       CachePolicy writeCachePolicy,
       CachePolicy readCachePolicy) {
     return new RemoteActionExecutionContext(
-        spawn, requestMetadata, new NetworkTime(), writeCachePolicy, readCachePolicy);
+        spawn,
+        spawnExecutionContext,
+        requestMetadata,
+        new NetworkTime(),
+        writeCachePolicy,
+        readCachePolicy);
   }
 }

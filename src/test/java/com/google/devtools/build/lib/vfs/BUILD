@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -9,6 +10,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/vfs/bazel:srcs",
         "//src/test/java/com/google/devtools/build/lib/vfs/util:srcs",
     ],
     visibility = ["//src:__subpackages__"],
@@ -17,7 +19,6 @@ filegroup(
 # Tests for Windows-specific functionality that can run cross-platform.
 CROSS_PLATFORM_WINDOWS_TESTS = [
     "PathFragmentWindowsTest.java",
-    "RootedPathAndCasingTest.java",
     "WindowsPathTest.java",
 ]
 
@@ -34,6 +35,7 @@ java_library(
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:junit4",
@@ -59,6 +61,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -73,8 +76,8 @@ java_library(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@com_google_protobuf//:protobuf_java",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
@@ -82,15 +85,15 @@ java_library(
     name = "FileSystemTest_lib",
     srcs = ["FileSystemTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
@@ -141,14 +144,14 @@ java_library(
     testonly = 1,
     srcs = ["FileSystemTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )

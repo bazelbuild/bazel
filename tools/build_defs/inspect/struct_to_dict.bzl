@@ -18,6 +18,8 @@ Useful to dump arbitrary provider data. Objects below the
 specified depth are copied literally.
 """
 
+load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+
 def struct_to_dict(x, depth = 5):
     root = {}
     queue = [(root, x)]

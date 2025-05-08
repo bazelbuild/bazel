@@ -16,9 +16,13 @@ package com.google.devtools.build.lib.starlark.util;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkConfig;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.BazelModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
@@ -26,26 +30,31 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
+import com.google.devtools.build.lib.packages.BzlInitThreadContext;
+import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.rules.config.ConfigGlobalLibrary;
 import com.google.devtools.build.lib.rules.config.ConfigStarlarkCommon;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
+import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.syntax.Expression;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.Program;
+import net.starlark.java.syntax.StarlarkFile;
 import net.starlark.java.syntax.SyntaxError;
 
 /** BazelEvaluationTestCase is a helper class for tests of Bazel loading-phase evaluation. */
@@ -57,12 +66,28 @@ import net.starlark.java.syntax.SyntaxError;
 // which the client provides files, flags, and arguments like a command-line tool, and all our tests
 // should be ported to use that API.
 public final class BazelEvaluationTestCase {
+
+  private static final String DEFAULT_LABEL = "//test:label";
   private final EventCollectionApparatus eventCollectionApparatus =
       new EventCollectionApparatus(EventKind.ALL_EVENTS);
+
+  private final Label label;
 
   private StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
   private StarlarkThread thread = null; // created lazily by getStarlarkThread
   private Module module = null; // created lazily by getModule
+
+  private ImmutableMap<String, Class<?>> fragmentNameToClass = ImmutableMap.of();
+
+  private Object threadOwner = "test";
+
+  public BazelEvaluationTestCase() {
+    this(DEFAULT_LABEL);
+  }
+
+  public BazelEvaluationTestCase(String label) {
+    this.label = Label.parseCanonicalUnchecked(label);
+  }
 
   /**
    * Parses the semantics flags and updates the semantics used to filter predeclared bindings, and
@@ -80,15 +105,6 @@ public final class BazelEvaluationTestCase {
 
   public ExtendedEventHandler getEventHandler() {
     return eventCollectionApparatus.reporter();
-  }
-
-  // TODO(adonovan): don't let subclasses inherit vaguely specified "helpers".
-  // Separate all the tests clearly into tests of the scanner, parser, resolver,
-  // and evaluation.
-
-  /** Parses an expression. */
-  final Expression parseExpression(String... lines) throws SyntaxError.Exception {
-    return Expression.parse(ParserInput.fromLines(lines));
   }
 
   /** Updates a global binding in the module. */
@@ -118,7 +134,27 @@ public final class BazelEvaluationTestCase {
     Starlark.execFile(input, FileOptions.DEFAULT, getModule(), getStarlarkThread());
   }
 
-  private static void newThread(StarlarkThread thread) {
+  /**
+   * Joins the lines, parses them as a file with the given label, executes it and exports all {@link
+   * StarlarkExportable}s.
+   */
+  public final void execAndExport(Label label, String... lines) throws Exception {
+    ParserInput input = ParserInput.fromLines(lines);
+    Module module = getModule();
+    StarlarkFile file = StarlarkFile.parse(input);
+    Program prog = Program.compileFile(file, module);
+    BzlLoadFunction.execAndExport(prog, label, getEventHandler(), module, getStarlarkThread());
+  }
+
+  /**
+   * Joins the lines, parses them as a file, executes it and exports all {@link
+   * StarlarkExportable}s.
+   */
+  public final void execAndExport(String... lines) throws Exception {
+    execAndExport(this.label, lines);
+  }
+
+  private void newThread(StarlarkThread thread) {
     // This StarlarkThread has no PackageContext, so attempts to create a rule will fail.
     // Rule creation is tested by StarlarkIntegrationTest.
 
@@ -126,34 +162,52 @@ public final class BazelEvaluationTestCase {
     // for testing rule implementation functions. It has phase LOADING, for example.
     // TODO(adonovan): stop creating threads in tests. This is the responsibility of the
     // production code. Tests should provide only files and commands.
-    new BazelStarlarkContext(
-            BazelStarlarkContext.Phase.LOADING,
+    new BzlInitThreadContext(
+            label,
+            /* transitiveDigest= */ new byte[0], // dummy value for tests
             TestConstants.TOOLS_REPOSITORY,
-            /*fragmentNameToClass=*/ null,
-            new SymbolGenerator<>(new Object()),
-            /*analysisRuleLabel=*/ null,
-            /*networkAllowlistForTests=*/ null) // dummy value for tests
+            /* networkAllowlistForTests= */ Optional.empty(),
+            fragmentNameToClass,
+            /* mainRepoMapping= */ null)
         .storeInThread(thread);
   }
 
-  private static Object newModule(ImmutableMap.Builder<String, Object> predeclared) {
-    StarlarkModules.addPredeclared(predeclared);
+  /**
+   * Allows for subclasses to inject custom fragments into the environment.
+   *
+   * <p>Must be called prior to any evaluation calls.
+   */
+  public void setFragmentNameToClass(ImmutableMap<String, Class<?>> fragmentNameToClass) {
+    Preconditions.checkState(this.thread == null, "Call this method before getStarlarkThread()");
+    this.fragmentNameToClass = fragmentNameToClass;
+  }
+
+  private Object newModule(ImmutableMap.Builder<String, Object> predeclared) {
+    predeclared.putAll(StarlarkGlobalsImpl.INSTANCE.getFixedBzlToplevels());
     predeclared.put("platform_common", new PlatformCommon());
     predeclared.put("config_common", new ConfigStarlarkCommon());
+    predeclared.put("config", new StarlarkConfig());
+    Starlark.addMethods(predeclared, new ConfigGlobalLibrary());
 
     // Return the module's client data. (This one uses dummy values for tests.)
     return BazelModuleContext.create(
-        Label.parseAbsoluteUnchecked("//test:label"),
+        BazelModuleKey.createFakeModuleKeyForTesting(label),
         RepositoryMapping.ALWAYS_FALLBACK,
         "test/label.bzl",
-        /*loads=*/ ImmutableMap.of(),
-        /*bzlTransitiveDigest=*/ new byte[0]);
+        /* loads= */ ImmutableList.of(),
+        /* bzlTransitiveDigest= */ new byte[0]);
+  }
+
+  /** Sets a thread owner, for cases where the default value of {@code "test"} doesn't work. */
+  public void setThreadOwner(Object owner) {
+    this.threadOwner = owner;
   }
 
   public StarlarkThread getStarlarkThread() {
     if (this.thread == null) {
       Mutability mu = Mutability.create("test");
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      StarlarkThread thread =
+          StarlarkThread.create(mu, semantics, "test", SymbolGenerator.create(threadOwner));
       thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
       newThread(thread);
       this.thread = thread;
@@ -190,24 +244,10 @@ public final class BazelEvaluationTestCase {
     }
   }
 
-  public void checkEvalErrorDoesNotContain(String msg, String... input) throws Exception {
-    try {
-      exec(input);
-    } catch (SyntaxError.Exception | EvalException | EventCollectionApparatus.FailFastException e) {
-      assertThat(e).hasMessageThat().doesNotContain(msg);
-    }
-  }
-
   // Forward relevant methods to the EventCollectionApparatus
   @CanIgnoreReturnValue
   public BazelEvaluationTestCase setFailFast(boolean failFast) {
     eventCollectionApparatus.setFailFast(failFast);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public BazelEvaluationTestCase assertNoWarningsOrErrors() {
-    eventCollectionApparatus.assertNoWarningsOrErrors();
     return this;
   }
 
@@ -217,20 +257,6 @@ public final class BazelEvaluationTestCase {
 
   public Event assertContainsError(String expectedMessage) {
     return eventCollectionApparatus.assertContainsError(expectedMessage);
-  }
-
-  public Event assertContainsWarning(String expectedMessage) {
-    return eventCollectionApparatus.assertContainsWarning(expectedMessage);
-  }
-
-  public Event assertContainsDebug(String expectedMessage) {
-    return eventCollectionApparatus.assertContainsDebug(expectedMessage);
-  }
-
-  @CanIgnoreReturnValue
-  public BazelEvaluationTestCase clearEvents() {
-    eventCollectionApparatus.clear();
-    return this;
   }
 
   /** Encapsulates a separate test which can be executed by a Scenario. */
@@ -296,13 +322,6 @@ public final class BazelEvaluationTestCase {
       return this;
     }
 
-    /** Evaluates an expression and compares its result to the ordered list of expected objects. */
-    @CanIgnoreReturnValue
-    public Scenario testExactOrder(String src, Object... items) throws Exception {
-      runTest(collectionTestable(src, items));
-      return this;
-    }
-
     /** Evaluates an expression and checks whether it fails with the expected error. */
     @CanIgnoreReturnValue
     public Scenario testIfExactError(String expectedError, String... lines) throws Exception {
@@ -314,13 +333,6 @@ public final class BazelEvaluationTestCase {
     @CanIgnoreReturnValue
     public Scenario testIfErrorContains(String expectedError, String... lines) throws Exception {
       runTest(errorTestable(false, expectedError, lines));
-      return this;
-    }
-
-    /** Looks up the value of the specified variable and compares it to the expected value. */
-    @CanIgnoreReturnValue
-    public Scenario testLookup(String name, Object expected) throws Exception {
-      runTest(createLookUpTestable(name, expected));
       return this;
     }
 
@@ -340,19 +352,6 @@ public final class BazelEvaluationTestCase {
           } else {
             checkEvalErrorContains(error, lines);
           }
-        }
-      };
-    }
-
-    /**
-     * Creates a Testable that checks whether the value of the expression is a sequence containing
-     * the expected elements.
-     */
-    private Testable collectionTestable(final String src, final Object... expected) {
-      return new Testable() {
-        @Override
-        public void run() throws Exception {
-          assertThat((Iterable<?>) eval(src)).containsExactly(expected).inOrder();
         }
       };
     }
@@ -381,23 +380,6 @@ public final class BazelEvaluationTestCase {
           }
 
           assertThat(actual).isEqualTo(realExpected);
-        }
-      };
-    }
-
-    /**
-     * Creates a Testable that looks up the given variable and compares its value to the expected
-     * value
-     *
-     * @param name
-     * @param expected
-     * @return An instance of Testable that does both lookup and comparison
-     */
-    private Testable createLookUpTestable(final String name, final Object expected) {
-      return new Testable() {
-        @Override
-        public void run() throws Exception {
-          assertThat(lookup(name)).isEqualTo(expected);
         }
       };
     }

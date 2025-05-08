@@ -31,7 +31,8 @@ public final class IntVersion implements Version {
     this.val = val;
   }
 
-  long getVal() {
+  /** Returns the integer value as a long. */
+  public long getVal() {
     return val;
   }
 
@@ -57,10 +58,9 @@ public final class IntVersion implements Version {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof IntVersion)) {
+    if (!(obj instanceof IntVersion other)) {
       return false;
     }
-    IntVersion other = (IntVersion) obj;
     return other.val == val;
   }
 

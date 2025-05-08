@@ -13,31 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRule;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
-import com.google.devtools.build.lib.bazel.rules.objc.BazelObjcImportRule;
-import com.google.devtools.build.lib.bazel.rules.objc.BazelObjcLibraryRule;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.apple.AvailableXcodesRule;
-import com.google.devtools.build.lib.rules.apple.XcodeConfigAlias.XcodeConfigAliasRule;
-import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
-import com.google.devtools.build.lib.rules.apple.XcodeVersionRule;
-import com.google.devtools.build.lib.rules.apple.cpp.AppleCcToolchainRule;
-import com.google.devtools.build.lib.rules.apple.swift.SwiftConfiguration;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.objc.AppleStarlarkCommon;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcConfiguration;
-import com.google.devtools.build.lib.rules.objc.ObjcImportBaseRule;
-import com.google.devtools.build.lib.rules.objc.ObjcLibraryBaseRule;
-import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleBootstrap;
 
 /** Rules for Objective-C support in Bazel. */
 public class ObjcRules implements RuleSet {
@@ -49,34 +34,20 @@ public class ObjcRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
-    RepositoryName toolsRepository = checkNotNull(builder.getToolsRepository());
-
     builder.addConfigurationFragment(ObjcConfiguration.class);
     builder.addConfigurationFragment(AppleConfiguration.class);
-    builder.addConfigurationFragment(SwiftConfiguration.class);
     // j2objc shouldn't be here!
     builder.addConfigurationFragment(J2ObjcConfiguration.class);
 
-    builder.addRuleDefinition(new AppleCcToolchainRule());
-    builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
-    builder.addRuleDefinition(new BazelObjcImportRule());
-    builder.addRuleDefinition(new BazelObjcLibraryRule());
-    builder.addRuleDefinition(new ObjcImportBaseRule());
-    builder.addRuleDefinition(new ObjcLibraryBaseRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.CoptsRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.CompilingRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.AlwaysLinkRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.SdkFrameworksDependerRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.CompileDependencyRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.XcrunRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.CrosstoolRule());
-    builder.addRuleDefinition(new XcodeConfigRule());
-    builder.addRuleDefinition(new XcodeConfigAliasRule());
-    builder.addRuleDefinition(new AvailableXcodesRule());
-    builder.addRuleDefinition(new XcodeVersionRule());
+    builder.addRuleDefinition(new EmptyRule("objc_import") {});
+    builder.addRuleDefinition(new EmptyRule("objc_library") {});
+    builder.addRuleDefinition(new EmptyRule("available_xcodes") {});
+    builder.addRuleDefinition(new EmptyRule("xcode_config") {});
+    builder.addRuleDefinition(new EmptyRule("xcode_config_alias") {});
+    builder.addRuleDefinition(new EmptyRule("xcode_version") {});
 
-    builder.addStarlarkBootstrap(
-        new AppleBootstrap(new AppleStarlarkCommon(BazelCppSemantics.OBJC)));
+    builder.addStarlarkBuiltinsInternal("apple_common", new AppleStarlarkCommon());
+    builder.addStarlarkBootstrap(new AppleBootstrap());
   }
 
   @Override

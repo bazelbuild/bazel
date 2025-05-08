@@ -16,15 +16,12 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -34,22 +31,19 @@ public class BaseSpawn implements Spawn {
   private final ImmutableList<String> arguments;
   private final ImmutableMap<String, String> environment;
   private final ImmutableMap<String, String> executionInfo;
-  private final RunfilesSupplier runfilesSupplier;
   private final ActionExecutionMetadata action;
   private final ResourceSetOrBuilder localResources;
-  private ResourceSet localResourcesCached = null;
+  @Nullable private ResourceSet localResourcesCached;
 
   public BaseSpawn(
       List<String> arguments,
       Map<String, String> environment,
       Map<String, String> executionInfo,
-      RunfilesSupplier runfilesSupplier,
       ActionExecutionMetadata action,
       ResourceSetOrBuilder localResources) {
     this.arguments = ImmutableList.copyOf(arguments);
     this.environment = ImmutableMap.copyOf(environment);
     this.executionInfo = ImmutableMap.copyOf(executionInfo);
-    this.runfilesSupplier = runfilesSupplier;
     this.action = action;
     this.localResources = localResources;
   }
@@ -60,11 +54,6 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public RunfilesSupplier getRunfilesSupplier() {
-    return runfilesSupplier;
-  }
-
-  @Override
   public ImmutableList<String> getArguments() {
     // TODO(bazel-team): this method should be final, as the correct value of the args can be
     // injected in the ctor.
@@ -72,39 +61,8 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> getFilesetMappings() {
-    return ImmutableMap.of();
-  }
-
-  @Override
   public ImmutableMap<String, String> getEnvironment() {
-    PathFragment runfilesRoot = getRunfilesRoot();
-    if (runfilesRoot == null
-        || (environment.containsKey("JAVA_RUNFILES")
-            && environment.containsKey("PYTHON_RUNFILES"))) {
-      return environment;
-    } else {
-      ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
-      // TODO(bazel-team): Unify these into a single env variable.
-      String runfilesRootString = runfilesRoot.getPathString();
-      env.put("JAVA_RUNFILES", runfilesRootString);
-      env.put("PYTHON_RUNFILES", runfilesRootString);
-      env.putAll(environment);
-      return env.buildKeepingLast();
-    }
-  }
-
-  /**
-   * @return the runfiles directory if there is only one, otherwise null
-   */
-  @Nullable
-  private PathFragment getRunfilesRoot() {
-    Set<PathFragment> runfilesSupplierRoots = runfilesSupplier.getRunfilesDirs();
-    if (runfilesSupplierRoots.size() == 1) {
-      return Iterables.getOnlyElement(runfilesSupplierRoots);
-    } else {
-      return null;
-    }
+    return environment;
   }
 
   @Override
@@ -118,7 +76,7 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public ImmutableSet<Artifact> getOutputFiles() {
+  public Collection<? extends ActionInput> getOutputFiles() {
     return action.getOutputs();
   }
 
@@ -129,23 +87,20 @@ public class BaseSpawn implements Spawn {
 
   @Override
   public ResourceSet getLocalResources() throws ExecException {
-    if (localResourcesCached == null) {
+    ResourceSet result = localResourcesCached;
+    if (result == null) {
       // Not expected to be called concurrently, and an idempotent computation if it is.
-      localResourcesCached =
+      result =
           localResources.buildResourceSet(
               OS.getCurrent(), action.getInputs().memoizedFlattenAndGetSize());
+      localResourcesCached = result;
     }
-    return localResourcesCached;
+    return result;
   }
 
   @Override
   public String getMnemonic() {
     return action.getMnemonic();
-  }
-
-  @Override
-  public ImmutableMap<String, String> getCombinedExecProperties() {
-    return action.getOwner().getExecProperties();
   }
 
   @Override

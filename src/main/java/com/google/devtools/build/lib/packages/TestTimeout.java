@@ -132,12 +132,20 @@ public enum TestTimeout {
   }
 
   /**
-   * Returns test timeout of the given test target using explicitly specified timeout or default
-   * through to the size label's associated default.
+   * Returns test timeout of the given target using explicitly specified timeout or default through
+   * the size label's associated default or null if the target is not a test.
    */
   @Nullable
-  public static TestTimeout getTestTimeout(Rule testTarget) {
-    String attr = NonconfigurableAttributeMapper.of(testTarget).get("timeout", Type.STRING);
+  public static TestTimeout getTestTimeout(Rule target) {
+    String attr = NonconfigurableAttributeMapper.attributeOrNull(target, "timeout", Type.STRING);
+    if (attr == null) {
+      // The target is not a test. This is reached by serialization code as it tries to serialize
+      // essential target fields. There's not enough context there to pre-determine whether a
+      // target is a test or not, so it simply serializes any String timeout field.
+      //
+      // TODO(b/297857068): refactor ConfiguredTargetAndData and remove this branch.
+      return null;
+    }
     if (!attr.equals(attr.toLowerCase())) {
       return null; // attribute values must be lowercase
     }

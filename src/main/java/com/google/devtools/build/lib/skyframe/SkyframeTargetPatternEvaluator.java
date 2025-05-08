@@ -13,12 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
@@ -47,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
@@ -84,8 +89,9 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
         skyframeExecutor.targetPatterns(
             allKeys, SkyframeExecutor.DEFAULT_THREAD_COUNT, keepGoing, eventHandler);
     Exception catastrophe = result.getCatastrophe();
-    Throwables.propagateIfPossible(catastrophe, TargetParsingException.class);
     if (catastrophe != null) {
+      throwIfInstanceOf(catastrophe, TargetParsingException.class);
+      throwIfUnchecked(catastrophe);
       throw wrapException(catastrophe, null, result);
     }
     WalkableGraph walkableGraph = Preconditions.checkNotNull(result.getWalkableGraph(), result);
@@ -124,8 +130,8 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
           // exception if there is a bug in error handling.
           Exception exception = error.getException();
           errorMessage = exception.getMessage();
-          if (exception instanceof TargetParsingException) {
-            targetParsingException = (TargetParsingException) exception;
+          if (exception instanceof TargetParsingException tpe) {
+            targetParsingException = tpe;
           } else {
             targetParsingException = wrapException(exception, key, key);
           }
@@ -158,8 +164,8 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
 
   private static TargetParsingException wrapException(
       Exception exception, @Nullable SkyKey key, Object debugging) {
-    if ((key == null || (key instanceof PackageValue.Key))
-        && (exception instanceof NoSuchPackageException)) {
+    if ((key == null || key instanceof PackageIdentifier)
+        && exception instanceof NoSuchPackageException) {
       // A "simple" target pattern (like "//pkg:t") doesn't have a TargetPatternKey, just a Package
       // key, so it results in NoSuchPackageException that we transform here.
       return new TargetParsingException(
@@ -177,7 +183,7 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
   }
 
   @Nullable
-  private PatternLookup createPatternLookup(
+  private static PatternLookup createPatternLookup(
       TargetPattern.Parser mainRepoTargetParser,
       ExtendedEventHandler eventHandler,
       String targetPattern,
@@ -268,11 +274,10 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
     private final TargetPattern targetPattern;
 
     private SimpleLookup(String pattern, TargetPatternKey key) {
-      this(
-          pattern, PackageValue.key(key.getParsedPattern().getDirectory()), key.getParsedPattern());
+      this(pattern, key.getParsedPattern().getDirectory(), key.getParsedPattern());
     }
 
-    private SimpleLookup(String pattern, PackageValue.Key key, TargetPattern targetPattern) {
+    private SimpleLookup(String pattern, PackageIdentifier key, TargetPattern targetPattern) {
       super(pattern, key);
       this.targetPattern = targetPattern;
     }
@@ -292,13 +297,14 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
               eventHandler,
               FilteringPolicies.NO_FILTER,
               /* packageSemaphore= */ null,
+              /* maxConcurrentGetTargetsTasks= */ Optional.empty(),
               SimplePackageIdentifierBatchingCallback::new);
       AtomicReference<Collection<Target>> result = new AtomicReference<>();
       try {
         targetPattern.eval(
             resolver,
-            /*ignoredSubdirectories=*/ ImmutableSet::of,
-            /*excludedSubdirectories=*/ ImmutableSet.of(),
+            /* ignoredSubdirectories= */ () -> IgnoredSubdirectories.EMPTY,
+            /* excludedSubdirectories= */ ImmutableSet.of(),
             partialResult ->
                 result.set(
                     partialResult instanceof Collection

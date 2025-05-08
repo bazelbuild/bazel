@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -55,14 +55,6 @@ msys*)
   declare -r is_windows=false
   ;;
 esac
-
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 
 function test_use_depot_javabase() {
   bazel --batch version >& $TEST_log || fail "Couldn't run ${PRODUCT_NAME}"

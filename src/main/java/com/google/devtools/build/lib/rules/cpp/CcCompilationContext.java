@@ -16,22 +16,14 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.MiddlemanFactory;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bugreport.BugReport;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -42,16 +34,14 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextApi;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -61,20 +51,18 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 
 /**
  * Immutable store of information needed for C++ compilation that is aggregated across dependencies.
  */
 @Immutable
-public final class CcCompilationContext implements CcCompilationContextApi<Artifact> {
+public final class CcCompilationContext implements CcCompilationContextApi<Artifact, CppModuleMap> {
   /** An empty {@code CcCompilationContext}. */
-  public static final CcCompilationContext EMPTY =
-      builder(/* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null)
-          .build();
+  public static final CcCompilationContext EMPTY = builder().build();
 
   private final CommandLineCcCompilationContext commandLineCcCompilationContext;
 
-  private final NestedSet<PathFragment> looseHdrsDirs;
   private final NestedSet<Artifact> declaredIncludeSrcs;
 
   /** Module maps from direct dependencies. */
@@ -97,8 +85,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   // Derived from depsContexts.
   private final NestedSet<Artifact> compilationPrerequisites;
 
-  private final CppConfiguration.HeadersCheckingMode headersCheckingMode;
-
   // Each pair maps the Bazel generated paths of virtual include headers back to their original path
   // relative to the workspace directory.
   // For example it can map
@@ -106,7 +92,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   // back to the path of the header in the workspace directory "include/common/strategy.h".
   // This is needed only when code coverage collection is enabled, to report the actual source file
   // name in the coverage output file.
-  private final NestedSet<Pair<String, String>> virtualToOriginalHeaders;
+  private final NestedSet<Tuple> virtualToOriginalHeaders;
   /**
    * Caches the actual number of transitive headers reachable through transitiveHeaderInfos. We need
    * to create maps to store these and so caching this count can substantially help with memory
@@ -119,7 +105,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   private CcCompilationContext(
       CommandLineCcCompilationContext commandLineCcCompilationContext,
       NestedSet<Artifact> compilationPrerequisites,
-      NestedSet<PathFragment> looseHdrsDirs,
       NestedSet<Artifact> declaredIncludeSrcs,
       NestedSet<Artifact> nonCodeInputs,
       HeaderInfo headerInfo,
@@ -129,12 +114,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       ImmutableList<CppModuleMap> exportingModuleMaps,
       CppModuleMap cppModuleMap,
       boolean propagateModuleMapAsActionInput,
-      CppConfiguration.HeadersCheckingMode headersCheckingMode,
-      NestedSet<Pair<String, String>> virtualToOriginalHeaders,
+      NestedSet<Tuple> virtualToOriginalHeaders,
       NestedSet<Artifact> headerTokens) {
     Preconditions.checkNotNull(commandLineCcCompilationContext);
     this.commandLineCcCompilationContext = commandLineCcCompilationContext;
-    this.looseHdrsDirs = looseHdrsDirs;
     this.declaredIncludeSrcs = declaredIncludeSrcs;
     this.directModuleMaps = directModuleMaps;
     this.exportingModuleMaps = exportingModuleMaps;
@@ -145,7 +128,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     this.nonCodeInputs = nonCodeInputs;
     this.compilationPrerequisites = compilationPrerequisites;
     this.propagateModuleMapAsActionInput = propagateModuleMapAsActionInput;
-    this.headersCheckingMode = headersCheckingMode;
     this.virtualToOriginalHeaders = virtualToOriginalHeaders;
     this.transitiveHeaderCount = -1;
     this.headerTokens = headerTokens;
@@ -158,20 +140,18 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   @Override
   public Depset getStarlarkDefines() {
-    return Depset.of(
-        Depset.ElementType.STRING, NestedSetBuilder.wrap(Order.STABLE_ORDER, getDefines()));
+    return Depset.of(String.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getDefines()));
   }
 
   @Override
   public Depset getStarlarkNonTransitiveDefines() {
     return Depset.of(
-        Depset.ElementType.STRING,
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, getNonTransitiveDefines()));
+        String.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getNonTransitiveDefines()));
   }
 
   @Override
   public Depset getStarlarkHeaders() {
-    return Depset.of(Artifact.TYPE, getDeclaredIncludeSrcs());
+    return Depset.of(Artifact.class, getDeclaredIncludeSrcs());
   }
 
   @Override
@@ -202,7 +182,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   @Override
   public Depset getStarlarkSystemIncludeDirs() {
     return Depset.of(
-        Depset.ElementType.STRING,
+        String.class,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getSystemIncludeDirs().stream()
@@ -213,7 +193,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   @Override
   public Depset getStarlarkFrameworkIncludeDirs() {
     return Depset.of(
-        Depset.ElementType.STRING,
+        String.class,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getFrameworkIncludeDirs().stream()
@@ -224,7 +204,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   @Override
   public Depset getStarlarkIncludeDirs() {
     return Depset.of(
-        Depset.ElementType.STRING,
+        String.class,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getIncludeDirs().stream()
@@ -233,9 +213,20 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   @Override
+  public Depset getStarlarkExternalIncludeDirs() {
+    return Depset.of(
+        String.class,
+        NestedSetBuilder.wrap(
+            Order.STABLE_ORDER,
+            getExternalIncludeDirs().stream()
+                .map(PathFragment::getSafePathString)
+                .collect(ImmutableList.toImmutableList())));
+  }
+
+  @Override
   public Depset getStarlarkQuoteIncludeDirs() {
     return Depset.of(
-        Depset.ElementType.STRING,
+        String.class,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getQuoteIncludeDirs().stream()
@@ -247,31 +238,43 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   public Depset getStarlarkTransitiveCompilationPrerequisites(StarlarkThread thread)
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getTransitiveCompilationPrerequisites());
+    return Depset.of(Artifact.class, getTransitiveCompilationPrerequisites());
   }
 
   @Override
   public Depset getStarlarkValidationArtifacts() {
-    return Depset.of(Artifact.TYPE, getHeaderTokens());
+    return Depset.of(Artifact.class, getHeaderTokens());
+  }
+
+  @Override
+  public Depset getStarlarkVirtualToOriginalHeaders(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Tuple.class, getVirtualToOriginalHeaders());
+  }
+
+  @Override
+  @Nullable
+  public CppModuleMap getStarlarkModuleMap(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getCppModuleMap();
+  }
+
+  @Override
+  public StarlarkList<CppModuleMap> getStarlarkExportingModuleMaps(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return StarlarkList.immutableCopyOf(getExportingModuleMaps());
   }
 
   /**
-   * Returns the transitive compilation prerequisites consolidated into middlemen prerequisites, or
-   * an empty set if there are no prerequisites.
+   * Returns the transitive compilation prerequisites.
    *
    * <p>Transitive compilation prerequisites are the prerequisites that will be needed by all
    * reverse dependencies; note that these do specifically not include any compilation prerequisites
    * that are only needed by the rule itself (for example, compiled source files from the {@code
    * srcs} attribute).
    *
-   * <p>To reduce the number of edges in the action graph, we express the dependency on compilation
-   * prerequisites as a transitive dependency via a middleman. After they have been accumulated
-   * ({@link Builder#addDependentCcCompilationContext(CcCompilationContext)}, and {@link
-   * Builder#addDependentCcCompilationContexts(Iterable)}, they are consolidated into a single
-   * middleman Artifact when {@link Builder#build()} is called.
-   *
-   * <p>The returned set can be empty if there are no prerequisites. Usually, it contains a single
-   * middleman.
+   * <p>The returned set can be empty if there are no prerequisites.
    */
   public NestedSet<Artifact> getTransitiveCompilationPrerequisites() {
     return compilationPrerequisites;
@@ -331,14 +334,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   /**
-   * Returns the immutable set of declared include directories, relative to a "-I" or "-iquote"
-   * directory" (possibly empty but never null).
-   */
-  public NestedSet<PathFragment> getLooseHdrsDirs() {
-    return looseHdrsDirs;
-  }
-
-  /**
    * Returns the immutable set of headers that have been declared in the {@code srcs} or {@code
    * hdrs} attribute (possibly empty but never null).
    */
@@ -392,25 +387,26 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         Map<PathFragment, Artifact> pathToLegalArtifact,
         ArrayList<Artifact> treeArtifacts)
         throws InterruptedException {
-      if (!treeArtifacts.isEmpty()) {
-        SkyframeIterableResult result = env.getOrderedValuesAndExceptions(treeArtifacts);
-        if (env.valuesMissing()) {
+      if (treeArtifacts.isEmpty()) {
+        return true;
+      }
+      SkyframeLookupResult result = env.getValuesAndExceptions(treeArtifacts);
+      if (env.valuesMissing()) {
+        return false;
+      }
+      for (Artifact treeArtifact : treeArtifacts) {
+        SkyValue value = result.get(treeArtifact);
+        if (value == null) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  "Some value from " + treeArtifacts + " was missing, this should never happen"));
           return false;
         }
-        while (result.hasNext()) {
-          SkyValue value = result.next();
-          if (value == null) {
-            BugReport.sendBugReport(
-                new IllegalStateException(
-                    "Some value from " + treeArtifacts + " was missing, this should never happen"));
-            return false;
-          }
-          checkState(
-              value instanceof TreeArtifactValue, "SkyValue %s is not TreeArtifactValue", value);
-          TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
-          for (TreeFileArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
-            pathToLegalArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);
-          }
+        checkState(
+            value instanceof TreeArtifactValue, "SkyValue %s is not TreeArtifactValue", value);
+        TreeArtifactValue treeArtifactValue = (TreeArtifactValue) value;
+        for (TreeFileArtifact treeFileArtifact : treeArtifactValue.getChildren()) {
+          pathToLegalArtifact.put(treeFileArtifact.getExecPath(), treeFileArtifact);
         }
       }
       return true;
@@ -462,7 +458,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     for (HeaderInfo transitiveHeaderInfo : transitiveHeaderInfos) {
       boolean isModule = createModularHeaders && transitiveHeaderInfo.getModule(usePic) != null;
       handleHeadersForIncludeScanning(
-          transitiveHeaderInfo.modularHeaders,
+          transitiveHeaderInfo.getModularHeaders(),
           pathToLegalArtifact,
           treeArtifacts,
           isModule,
@@ -487,7 +483,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     if (transitiveHeaderCount == -1) {
       transitiveHeaderCount = pathToLegalArtifact.size();
     }
-    removeArtifactsFromSet(modularHeaders, headerInfo.modularHeaders);
+    removeArtifactsFromSet(modularHeaders, headerInfo.getModularHeaders());
     removeArtifactsFromSet(modularHeaders, headerInfo.textualHeaders);
     removeArtifactsFromSet(modularHeaders, headerInfo.separateModuleHeaders);
     return new IncludeScanningHeaderData.Builder(pathToLegalArtifact, modularHeaders);
@@ -509,8 +505,9 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       }
       // Not using range-based for loops here as often there is exactly one element in this list
       // and the amount of garbage created by SingletonImmutableList.iterator() is significant.
-      for (int i = 0; i < transitiveHeaderInfo.modularHeaders.size(); i++) {
-        Artifact header = transitiveHeaderInfo.modularHeaders.get(i);
+      ImmutableList<Artifact> modularHeaders = transitiveHeaderInfo.getModularHeaders();
+      for (int i = 0; i < modularHeaders.size(); i++) {
+        Artifact header = modularHeaders.get(i);
         if (includes.contains(header)) {
           modules.add(module);
           break;
@@ -531,7 +528,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return modules;
   }
 
-  private void removeArtifactsFromSet(Set<Artifact> set, ImmutableList<Artifact> artifacts) {
+  private static void removeArtifactsFromSet(Set<Artifact> set, ImmutableList<Artifact> artifacts) {
     // Not using iterators here as the resulting overhead is significant in profiles. Do not use
     // Iterables.removeAll() or Set.removeAll() here as with the given container sizes, that
     // needlessly deteriorates to a quadratic algorithm.
@@ -548,7 +545,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   public Depset getStarlarkTransitiveModules(boolean usePic, StarlarkThread thread)
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getTransitiveModules(usePic));
+    return Depset.of(Artifact.class, getTransitiveModules(usePic));
   }
 
   /**
@@ -564,7 +561,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   @Override
   public Depset getStarlarkAdditionalInputs(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getAdditionalInputs());
+    return Depset.of(Artifact.class, getAdditionalInputs());
   }
 
   /** Adds additional transitive inputs needed for compilation to builder. */
@@ -576,8 +573,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     }
   }
 
-  /** @return modules maps from direct dependencies. */
-  public Iterable<Artifact> getDirectModuleMaps() {
+  /** Returns modules maps from direct dependencies. */
+  public ImmutableList<Artifact> getDirectModuleMaps() {
     return directModuleMaps;
   }
 
@@ -590,15 +587,15 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   /**
-   * @return all declared headers of the current module if the current target is compiled as a
-   *     module.
+   * Returns all declared headers of the current module if the current target is compiled as a
+   * module.
    */
   ImmutableList<Artifact> getHeaderModuleSrcs(boolean separateModule) {
     if (separateModule) {
       return headerInfo.separateModuleHeaders;
     }
     return new ImmutableSet.Builder<Artifact>()
-        .addAll(headerInfo.modularHeaders)
+        .addAll(headerInfo.getModularHeaders())
         .addAll(headerInfo.textualHeaders)
         .addAll(headerInfo.separateModuleHeaders)
         .build()
@@ -622,30 +619,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   /**
-   * Returns a {@code CcCompilationContext} that is based on a given {@code CcCompilationContext}
-   * but returns empty sets for {@link #getLooseHdrsDirs()}.
-   */
-  public static CcCompilationContext disallowUndeclaredHeaders(
-      CcCompilationContext ccCompilationContext) {
-    return new CcCompilationContext(
-        ccCompilationContext.commandLineCcCompilationContext,
-        ccCompilationContext.compilationPrerequisites,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        ccCompilationContext.declaredIncludeSrcs,
-        ccCompilationContext.nonCodeInputs,
-        ccCompilationContext.headerInfo,
-        ccCompilationContext.transitiveModules,
-        ccCompilationContext.transitivePicModules,
-        ccCompilationContext.directModuleMaps,
-        ccCompilationContext.exportingModuleMaps,
-        ccCompilationContext.cppModuleMap,
-        ccCompilationContext.propagateModuleMapAsActionInput,
-        ccCompilationContext.headersCheckingMode,
-        ccCompilationContext.virtualToOriginalHeaders,
-        ccCompilationContext.headerTokens);
-  }
-
-  /**
    * Returns a {@code CcCompilationContext} that is based on a given {@code CcCompilationContext},
    * with {@code extraHeaderTokens} added to the header tokens.
    */
@@ -657,7 +630,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return new CcCompilationContext(
         ccCompilationContext.commandLineCcCompilationContext,
         ccCompilationContext.compilationPrerequisites,
-        ccCompilationContext.looseHdrsDirs,
         ccCompilationContext.declaredIncludeSrcs,
         ccCompilationContext.nonCodeInputs,
         ccCompilationContext.headerInfo,
@@ -667,12 +639,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         ccCompilationContext.exportingModuleMaps,
         ccCompilationContext.cppModuleMap,
         ccCompilationContext.propagateModuleMapAsActionInput,
-        ccCompilationContext.headersCheckingMode,
         ccCompilationContext.virtualToOriginalHeaders,
         headerTokens.build());
   }
 
-  /** @return the C++ module map of the owner. */
+  /** Returns the C++ module map of the owner. */
   public CppModuleMap getCppModuleMap() {
     return cppModuleMap;
   }
@@ -682,29 +653,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return exportingModuleMaps;
   }
 
-  public CppConfiguration.HeadersCheckingMode getHeadersCheckingMode() {
-    return headersCheckingMode;
-  }
-
-  public static ImmutableList<CcCompilationContext> getCcCompilationContexts(
-      Iterable<? extends TransitiveInfoCollection> deps) {
-    ImmutableList.Builder<CcCompilationContext> ccCompilationContextsBuilder =
-        ImmutableList.builder();
-    for (CcInfo ccInfo : AnalysisUtils.getProviders(deps, CcInfo.PROVIDER)) {
-      ccCompilationContextsBuilder.add(ccInfo.getCcCompilationContext());
-    }
-    return ccCompilationContextsBuilder.build();
-  }
-
-  public static CcCompilationContext merge(Collection<CcCompilationContext> ccCompilationContexts) {
-    CcCompilationContext.Builder builder =
-        CcCompilationContext.builder(
-            /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
-    builder.addDependentCcCompilationContexts(ccCompilationContexts);
-    return builder.build();
-  }
-
-  public NestedSet<Pair<String, String>> getVirtualToOriginalHeaders() {
+  public NestedSet<Tuple> getVirtualToOriginalHeaders() {
     return virtualToOriginalHeaders;
   }
 
@@ -741,16 +690,12 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   /** Creates a new builder for a {@link CcCompilationContext} instance. */
-  public static Builder builder(
-      ActionConstructionContext actionConstructionContext,
-      BuildConfigurationValue configuration,
-      Label label) {
-    return new Builder(actionConstructionContext, configuration, label);
+  public static Builder builder() {
+    return new Builder();
   }
 
   /** Builder class for {@link CcCompilationContext}. */
   public static class Builder {
-    private String purpose;
     private final NestedSetBuilder<Artifact> compilationPrerequisites =
         NestedSetBuilder.stableOrder();
     private final TransitiveSetHelper<PathFragment> includeDirs = new TransitiveSetHelper<>();
@@ -760,7 +705,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         new TransitiveSetHelper<>();
     private final TransitiveSetHelper<PathFragment> externalIncludeDirs =
         new TransitiveSetHelper<>();
-    private final NestedSetBuilder<PathFragment> looseHdrsDirs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> declaredIncludeSrcs = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.stableOrder();
     private final HeaderInfo.Builder headerInfoBuilder = new HeaderInfo.Builder();
@@ -771,46 +715,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     private final Set<String> localDefines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
     private boolean propagateModuleMapAsActionInput = true;
-    private CppConfiguration.HeadersCheckingMode headersCheckingMode =
-        CppConfiguration.HeadersCheckingMode.STRICT;
-    private final NestedSetBuilder<Pair<String, String>> virtualToOriginalHeaders =
-        NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<Tuple> virtualToOriginalHeaders = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
 
-    /** The rule that owns the context */
-    private final ActionConstructionContext actionConstructionContext;
-
-    private final BuildConfigurationValue configuration;
-    private final Label label;
-
     /** Creates a new builder for a {@link CcCompilationContext} instance. */
-    private Builder(
-        ActionConstructionContext actionConstructionContext,
-        BuildConfigurationValue configuration,
-        Label label) {
-      this.actionConstructionContext = actionConstructionContext;
-      this.configuration = configuration;
-      this.label = label;
-    }
-
-    /**
-     * Overrides the purpose of this context. This is useful if a Target needs more than one
-     * CcCompilationContext. (The purpose is used to construct the name of the prerequisites
-     * middleman for the context, and all artifacts for a given Target must have distinct names.)
-     *
-     * @param purpose must be a string which is suitable for use as a filename. A single rule may
-     *     have many middlemen with distinct purposes.
-     * @see MiddlemanFactory#createSchedulingDependencyMiddleman
-     */
-    @CanIgnoreReturnValue
-    public Builder setPurpose(String purpose) {
-      this.purpose = purpose;
-      return this;
-    }
-
-    public String getPurpose() {
-      return purpose;
-    }
+    private Builder() {}
 
     /**
      * Merges the {@link CcCompilationContext} of a dependency into this one by adding the contents
@@ -837,7 +746,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       systemIncludeDirs.addTransitive(otherCcCompilationContext.getSystemIncludeDirs());
       frameworkIncludeDirs.addTransitive(otherCcCompilationContext.getFrameworkIncludeDirs());
       externalIncludeDirs.addTransitive(otherCcCompilationContext.getExternalIncludeDirs());
-      looseHdrsDirs.addTransitive(otherCcCompilationContext.getLooseHdrsDirs());
       declaredIncludeSrcs.addTransitive(otherCcCompilationContext.getDeclaredIncludeSrcs());
       headerInfoBuilder.addDep(otherCcCompilationContext.headerInfo);
 
@@ -983,7 +891,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       return this;
     }
 
-    /** Add framewrok include directories to be added with "-F". */
+    /** Add framework include directories to be added with "-F". */
     @CanIgnoreReturnValue
     public Builder addFrameworkIncludeDirs(Iterable<PathFragment> frameworkIncludeDirs) {
       this.frameworkIncludeDirs.addAll(frameworkIncludeDirs);
@@ -1009,13 +917,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     @CanIgnoreReturnValue
     public Builder addExternalIncludeDirs(Iterable<PathFragment> externalIncludeDirs) {
       this.externalIncludeDirs.addAll(externalIncludeDirs);
-      return this;
-    }
-
-    /** Add a single declared include dir, relative to a "-I" or "-iquote" directory". */
-    @CanIgnoreReturnValue
-    public Builder addLooseHdrsDir(PathFragment dir) {
-      looseHdrsDirs.add(dir);
       return this;
     }
 
@@ -1140,37 +1041,13 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     }
 
     @CanIgnoreReturnValue
-    public Builder setHeadersCheckingMode(
-        CppConfiguration.HeadersCheckingMode headersCheckingMode) {
-      this.headersCheckingMode = headersCheckingMode;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addVirtualToOriginalHeaders(
-        NestedSet<Pair<String, String>> virtualToOriginalHeaders) {
+    public Builder addVirtualToOriginalHeaders(NestedSet<Tuple> virtualToOriginalHeaders) {
       this.virtualToOriginalHeaders.addTransitive(virtualToOriginalHeaders);
-      return this;
-    }
-
-    /** Adds a set of header tokens. */
-    @CanIgnoreReturnValue
-    public Builder addHeaderTokens(Iterable<Artifact> headerTokens) {
-      this.headerTokens.addAll(headerTokens);
       return this;
     }
 
     /** Builds the {@link CcCompilationContext}. */
     public CcCompilationContext build() {
-      return build(
-          actionConstructionContext == null ? null : actionConstructionContext.getActionOwner(),
-          actionConstructionContext == null
-              ? null
-              : actionConstructionContext.getAnalysisEnvironment().getMiddlemanFactory());
-    }
-
-    @VisibleForTesting // productionVisibility = Visibility.PRIVATE
-    public CcCompilationContext build(ActionOwner owner, MiddlemanFactory middlemanFactory) {
       TransitiveSetHelper<String> allDefines = new TransitiveSetHelper<>();
       NestedSetBuilder<Artifact> transitiveModules = NestedSetBuilder.stableOrder();
       NestedSetBuilder<Artifact> transitivePicModules = NestedSetBuilder.stableOrder();
@@ -1188,7 +1065,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       allDefines.addAll(defines);
 
       HeaderInfo headerInfo = headerInfoBuilder.build();
-      NestedSet<Artifact> constructedPrereq = createMiddleman(owner, middlemanFactory);
+      NestedSet<Artifact> constructedPrereq = compilationPrerequisites.build();
 
       return new CcCompilationContext(
           new CommandLineCcCompilationContext(
@@ -1200,7 +1077,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
               allDefines.getMergedResult(),
               ImmutableList.copyOf(localDefines)),
           constructedPrereq,
-          looseHdrsDirs.build(),
           declaredIncludeSrcs.build(),
           nonCodeInputs.build(),
           headerInfo,
@@ -1210,50 +1086,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           ImmutableList.copyOf(exportingModuleMaps),
           cppModuleMap,
           propagateModuleMapAsActionInput,
-          headersCheckingMode,
           virtualToOriginalHeaders.build(),
           headerTokens.build());
-    }
-
-    /** Creates a middleman for the compilation prerequisites. */
-    private NestedSet<Artifact> createMiddleman(
-        ActionOwner owner, MiddlemanFactory middlemanFactory) {
-      if (middlemanFactory == null) {
-        // TODO(b/110873917): We don't have a middleman factory, therefore, we use the compilation
-        // prerequisites as they were passed to the builder, i.e. we use every header instead of a
-        // middle man.
-        return compilationPrerequisites.build();
-      }
-      if (compilationPrerequisites.isEmpty()) {
-        return compilationPrerequisites.build();
-      }
-
-      // Compilation prerequisites gathered in the compilationPrerequisites must be generated prior
-      // to executing a C++ compilation step that depends on them (since these prerequisites include
-      // all potential header files, etc that could be referenced during compilation). So there is a
-      // definite need to ensure a scheduling dependency. However, those prerequisites should have
-      // no effect on the decision whether C++ compilation should happen in the first place - only
-      // the CppCompileAction outputs (.o and .d files) and all files referenced by the .d file
-      // should be used to make that decision.
-      //
-      // If this action was never executed, then the .d file is missing, forcing compilation. If the
-      // .d file is present and has not changed then the only reason that would force us to
-      // re-compile would be change in one of the files referenced by the .d file, since no other
-      // files participated in the compilation.
-      //
-      // We also need to propagate errors through this dependency link. Therefore, we use a
-      // scheduling dependency middleman. Such a middleman will be ignored by the dependency checker
-      // yet still represents an edge in the action dependency graph - forcing proper execution
-      // order and error propagation.
-      String name = cppModuleMap != null ? cppModuleMap.getName() : label.toString();
-      Artifact prerequisiteStampFile =
-          middlemanFactory.createSchedulingDependencyMiddleman(
-              owner,
-              name,
-              purpose,
-              compilationPrerequisites.build(),
-              configuration.getMiddlemanDirectory(label.getRepository()));
-      return NestedSetBuilder.create(Order.STABLE_ORDER, prerequisiteStampFile);
     }
 
     /**
@@ -1293,7 +1127,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    * Gathers data about the PIC and no-PIC .pcm files belonging to this context and the associated
    * information about the headers, e.g. modular vs. textual headers and pre-grepped header files.
    *
-   * <p>This also implements a data structure very similar to NestedSet, but chosing slightly
+   * <p>This also implements a data structure very similar to NestedSet, but choosing slightly
    * different trade-offs to account for the specific data stored in here, specifically, we know
    * that there is going to be a single entry in every node of the DAG. Contrary to NestedSet, we
    * reuse memoization data from dependencies to conserve both runtime and memory. Experiments have
@@ -1303,35 +1137,41 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    * The transitive collection can be iterated without materialization in memory.
    */
   @Immutable
-  private static final class HeaderInfo {
+  static final class HeaderInfo {
+    // This class has non-private visibility testing and HeaderInfoCodec.
+
     /**
      * The modules built for this context. If null, then no module is being compiled for this
      * context.
      */
-    private final DerivedArtifact headerModule;
+    final DerivedArtifact headerModule;
 
-    private final DerivedArtifact picHeaderModule;
+    final DerivedArtifact picHeaderModule;
 
     /** All public header files that are compiled into this module. */
-    private final ImmutableList<Artifact> modularPublicHeaders;
+    final ImmutableList<Artifact> modularPublicHeaders;
 
     /** All private header files that are compiled into this module. */
-    private final ImmutableList<Artifact> modularPrivateHeaders;
-
-    /** All header files that are compiled into this module. */
-    private final ImmutableList<Artifact> modularHeaders;
+    final ImmutableList<Artifact> modularPrivateHeaders;
 
     /** All textual header files that are contained in this module. */
-    private final ImmutableList<Artifact> textualHeaders;
+    final ImmutableList<Artifact> textualHeaders;
 
     /** Headers that can be compiled into a separate, smaller module for performance reasons. */
-    private final ImmutableList<Artifact> separateModuleHeaders;
+    final ImmutableList<Artifact> separateModuleHeaders;
 
-    private final DerivedArtifact separateModule;
-    private final DerivedArtifact separatePicModule;
+    final DerivedArtifact separateModule;
+    final DerivedArtifact separatePicModule;
 
     /** HeaderInfos of direct dependencies of C++ target represented by this context. */
-    private final ImmutableList<HeaderInfo> deps;
+    final ImmutableList<HeaderInfo> deps;
+
+    /**
+     * All header files that are compiled into this module.
+     *
+     * <p>Lazily initialized. Use {@link #getModularHeaders} instead.
+     */
+    private transient volatile ImmutableList<Artifact> lazyModularHeaders;
 
     /** Collection representing the memoized form of transitive information, set by flatten(). */
     private TransitiveHeaderCollection memo = null;
@@ -1350,8 +1190,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       this.picHeaderModule = picHeaderModule;
       this.modularPublicHeaders = modularPublicHeaders;
       this.modularPrivateHeaders = modularPrivateHeaders;
-      this.modularHeaders =
-          ImmutableList.copyOf(Iterables.concat(modularPublicHeaders, modularPrivateHeaders));
       this.textualHeaders = textualHeaders;
       this.separateModuleHeaders = separateModuleHeaders;
       this.separateModule = separateModule;
@@ -1406,6 +1244,18 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           dep.addOthers(result, additionalDeps);
         }
       }
+    }
+
+    private ImmutableList<Artifact> getModularHeaders() {
+      if (lazyModularHeaders == null) {
+        synchronized (this) {
+          if (lazyModularHeaders == null) {
+            lazyModularHeaders =
+                ImmutableList.copyOf(Iterables.concat(modularPublicHeaders, modularPrivateHeaders));
+          }
+        }
+      }
+      return lazyModularHeaders;
     }
 
     /** Represents the memoized transitive information for a HeaderInfo instance. */
@@ -1463,9 +1313,9 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     public static class Builder {
       private DerivedArtifact headerModule = null;
       private DerivedArtifact picHeaderModule = null;
-      private final Set<Artifact> modularPublicHeaders = new HashSet<>();
-      private final Set<Artifact> modularPrivateHeaders = new HashSet<>();
-      private final Set<Artifact> textualHeaders = new HashSet<>();
+      private final LinkedHashSet<Artifact> modularPublicHeaders = new LinkedHashSet<>();
+      private final LinkedHashSet<Artifact> modularPrivateHeaders = new LinkedHashSet<>();
+      private final LinkedHashSet<Artifact> textualHeaders = new LinkedHashSet<>();
       private Collection<Artifact> separateModuleHeaders = ImmutableList.of();
       private DerivedArtifact separateModule = null;
       private DerivedArtifact separatePicModule = null;

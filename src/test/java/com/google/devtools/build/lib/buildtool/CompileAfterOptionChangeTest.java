@@ -57,11 +57,16 @@ public class CompileAfterOptionChangeTest extends BuildIntegrationTestCase {
   @Test
   public void testChangingCommandLineOptionRebuilds() throws Exception {
     writeSourceFiles();
-    write("pkg/BUILD",
-          "cc_binary(name='hello',",
-          "          malloc = '//base:system_malloc',",
-          "          srcs=['hello.cc'],",
-          "          defines = ['DEFAULT_GREETING=\\\\\\\"Hello\\\\\\\"'])");
+    write(
+        "pkg/BUILD",
+        """
+        cc_binary(
+            name = "hello",
+            srcs = ["hello.cc"],
+            defines = ['DEFAULT_GREETING=\\\\\\"Hello\\\\\\"'],
+            malloc = "//base:system_malloc",
+        )
+        """);
     // Here's why we need so many backslashes:
     //   Java source:            "...'DEFAULT_GREETING=\\\\\\\"Hello\\\\\\\"'..."
     //   BUILD file:              ...'DEFAULT_GREETING=\\\"Hello\\\"'...
@@ -81,11 +86,16 @@ public class CompileAfterOptionChangeTest extends BuildIntegrationTestCase {
 
     ////////////////////////////////////////////////////////////////////////
     // (2) Build again using a different cc_binary rule
-    write("pkg/BUILD",
-          "cc_binary(name='hello',",
-          "          malloc = '//base:system_malloc',",
-          "          srcs=['hello.cc'],",
-          "          defines = ['DEFAULT_GREETING=\\'\"Hello again\"\\''])");
+    write(
+        "pkg/BUILD",
+        """
+        cc_binary(
+            name = "hello",
+            srcs = ["hello.cc"],
+            defines = ['DEFAULT_GREETING=\\'"Hello again"\\''],
+            malloc = "//base:system_malloc",
+        )
+        """);
     // Here's why we need so many quotes and backslashes:
     //   Java source:            "...'DEFAULT_GREETING=\\'\"Hello again\"\\''..."
     //   BUILD file:              ...'DEFAULT_GREETING=\'"Hello again"\''...
@@ -102,10 +112,15 @@ public class CompileAfterOptionChangeTest extends BuildIntegrationTestCase {
 
     ////////////////////////////////////////////////////////////////////////
     // (3) Build again using additional command line options:
-    write("pkg/BUILD",
-          "cc_binary(name='hello',",
-          "          malloc = '//base:system_malloc',",
-          "          srcs=['hello.cc'])");
+    write(
+        "pkg/BUILD",
+        """
+        cc_binary(
+            name = "hello",
+            srcs = ["hello.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     buildApp("--copt", "-DGREETING=\"Hi\"");
 

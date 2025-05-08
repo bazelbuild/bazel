@@ -13,15 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.AbstractSkyKey;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 
@@ -58,38 +53,17 @@ public abstract class DirectoryListingValue implements SkyValue {
    * directory listing on its parent directory).
    */
   @ThreadSafe
-  public static Key key(RootedPath directoryUnderRoot) {
-    return Key.create(directoryUnderRoot);
-  }
-
-  /** Key type for DirectoryListingValue. */
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  public static class Key extends AbstractSkyKey<RootedPath> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
-
-    private Key(RootedPath arg) {
-      super(arg);
-    }
-
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(RootedPath arg) {
-      return interner.intern(new Key(arg));
-    }
-
-    @Override
-    public SkyFunctionName functionName() {
-      return SkyFunctions.DIRECTORY_LISTING;
-    }
+  public static DirectoryListingKey key(RootedPath directoryUnderRoot) {
+    return DirectoryListingKey.create(directoryUnderRoot);
   }
 
   static DirectoryListingValue value(RootedPath dirRootedPath, FileValue dirFileValue,
       DirectoryListingStateValue realDirectoryListingStateValue) {
-    return dirFileValue.realRootedPath().equals(dirRootedPath)
+    RootedPath realRootedPath = dirFileValue.realRootedPath(dirRootedPath);
+    return realRootedPath.equals(dirRootedPath)
         ? new RegularDirectoryListingValue(realDirectoryListingStateValue)
-        : new DifferentRealPathDirectoryListingValue(dirFileValue.realRootedPath(),
-            realDirectoryListingStateValue);
+        : new DifferentRealPathDirectoryListingValue(
+            realRootedPath, realDirectoryListingStateValue);
   }
 
   /** Normal {@link DirectoryListingValue}. */
@@ -112,10 +86,9 @@ public abstract class DirectoryListingValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof RegularDirectoryListingValue)) {
+      if (!(obj instanceof RegularDirectoryListingValue other)) {
         return false;
       }
-      RegularDirectoryListingValue other = (RegularDirectoryListingValue) obj;
       return directoryListingStateValue.equals(other.directoryListingStateValue);
     }
 
@@ -152,10 +125,9 @@ public abstract class DirectoryListingValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof DifferentRealPathDirectoryListingValue)) {
+      if (!(obj instanceof DifferentRealPathDirectoryListingValue other)) {
         return false;
       }
-      DifferentRealPathDirectoryListingValue other = (DifferentRealPathDirectoryListingValue) obj;
       return realDirRootedPath.equals(other.realDirRootedPath)
           && directoryListingStateValue.equals(other.directoryListingStateValue);
     }

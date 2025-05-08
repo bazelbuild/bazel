@@ -39,6 +39,22 @@ public class TableOfContentsOptions extends OptionsBase {
   public String outputPath;
 
   @Option(
+      name = "version_indicator_input",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path of the file containing the version indicator.")
+  public String versionIndicatorInputPath;
+
+  @Option(
+      name = "version_indicator_output",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path of the file where the version indicator should be written.")
+  public String versionIndicatorOutputPath;
+
+  @Option(
       name = "version",
       abbrev = 'v',
       defaultValue = "",

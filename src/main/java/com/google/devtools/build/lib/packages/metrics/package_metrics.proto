@@ -19,6 +19,7 @@ import "google/protobuf/duration.proto";
 
 option java_package = "com.google.devtools.build.lib.packages.metrics";
 option java_multiple_files = true;
+option deprecated = true;  // Use PackageLoadMetrics instead.
 
 // Message used to consisely report all package metrics.
 message PackageMetrics {

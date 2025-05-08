@@ -14,33 +14,48 @@
 package com.google.devtools.build.lib.profiler;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorMetric.FULL;
+import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorMetric.SOME;
+import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorResource.CPU;
+import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorResource.IO;
+import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorResource.MEMORY;
+import static java.util.stream.Collectors.groupingBy;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.flogger.GoogleLogger;
+import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multiset;
+import com.google.devtools.build.lib.actions.ResourceEstimator;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.profiler.SystemNetworkStats.NetIfAddr;
-import com.google.devtools.build.lib.profiler.SystemNetworkStats.NetIoCounter;
+import com.google.devtools.build.lib.profiler.Profiler.CounterSeriesCollector;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.worker.WorkerMetric;
-import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
+import com.google.devtools.build.lib.util.ResourceUsage;
+import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
+import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
+import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.sun.management.OperatingSystemMXBean;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
+import javax.annotation.Nullable;
 
 /** Thread to collect local resource usage data and log into JSON profile. */
-public class CollectLocalResourceUsage extends Thread {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+public class CollectLocalResourceUsage implements LocalResourceCollector {
 
   // TODO(twerth): Make these configurable.
   private static final Duration BUCKET_DURATION = Duration.ofSeconds(1);
@@ -50,112 +65,302 @@ public class CollectLocalResourceUsage extends Thread {
   private final boolean collectWorkerDataInProfiler;
   private final boolean collectLoadAverage;
   private final boolean collectSystemNetworkUsage;
+  private final boolean collectResourceManagerEstimation;
+  private final InMemoryGraph graph;
 
   private volatile boolean stopLocalUsageCollection;
   private volatile boolean profilingStarted;
 
-  @GuardedBy("this")
-  private TimeSeries localCpuUsage;
+  private final ConcurrentLinkedQueue<CounterSeriesCollector> collectors =
+      new ConcurrentLinkedQueue<>();
 
   @GuardedBy("this")
-  private TimeSeries systemCpuUsage;
-
-  @GuardedBy("this")
-  private TimeSeries localMemoryUsage;
-
-  @GuardedBy("this")
-  private TimeSeries systemMemoryUsage;
-
-  @GuardedBy("this")
-  private TimeSeries workersMemoryUsage;
-
-  @GuardedBy("this")
-  private TimeSeries systemLoadAverage;
-
-  @GuardedBy("this")
-  private TimeSeries systemNetworkUpUsage;
-
-  @GuardedBy("this")
-  private TimeSeries systemNetworkDownUsage;
+  @Nullable
+  private Map<CounterSeriesTask, TimeSeries> timeSeries;
 
   private Stopwatch stopwatch;
 
-  private final WorkerMetricsCollector workerMetricsCollector;
+  private final WorkerProcessMetricsCollector workerProcessMetricsCollector;
 
-  CollectLocalResourceUsage(
+  private final ResourceEstimator resourceEstimator;
+  private final boolean collectPressureStallIndicators;
+
+  private final boolean collectSkyframeCounts;
+
+  private Collector collector;
+
+  public CollectLocalResourceUsage(
       BugReporter bugReporter,
-      WorkerMetricsCollector workerMetricsCollector,
+      WorkerProcessMetricsCollector workerProcessMetricsCollector,
+      ResourceEstimator resourceEstimator,
+      @Nullable InMemoryGraph graph,
       boolean collectWorkerDataInProfiler,
       boolean collectLoadAverage,
-      boolean collectSystemNetworkUsage) {
+      boolean collectSystemNetworkUsage,
+      boolean collectResourceManagerEstimation,
+      boolean collectPressureStallIndicators,
+      boolean collectSkyframeCounts) {
     this.bugReporter = checkNotNull(bugReporter);
     this.collectWorkerDataInProfiler = collectWorkerDataInProfiler;
-    this.workerMetricsCollector = workerMetricsCollector;
+    this.workerProcessMetricsCollector = workerProcessMetricsCollector;
     this.collectLoadAverage = collectLoadAverage;
     this.collectSystemNetworkUsage = collectSystemNetworkUsage;
+    this.collectResourceManagerEstimation = collectResourceManagerEstimation;
+    this.resourceEstimator = resourceEstimator;
+    this.collectPressureStallIndicators = collectPressureStallIndicators;
+    this.collector = new Collector();
+
+    Preconditions.checkState(
+        !collectSkyframeCounts || graph != null,
+        "--experimental_collect_skyframe_counts_in_profiler requires the Skyframe graph.");
+    this.collectSkyframeCounts = collectSkyframeCounts;
+    this.graph = graph;
   }
 
   @Override
-  public void run() {
-    ImmutableSet<String> localLoopbackInterfaces;
-    if (collectSystemNetworkUsage) {
-      localLoopbackInterfaces = getLocalLoopbackInterfaces();
-    } else {
-      localLoopbackInterfaces = ImmutableSet.of();
-    }
-    int numProcessors = Runtime.getRuntime().availableProcessors();
-    stopwatch = Stopwatch.createStarted();
-    synchronized (this) {
-      localCpuUsage =
-          new TimeSeries(
-              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-      localMemoryUsage =
-          new TimeSeries(
-              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-      systemCpuUsage =
-          new TimeSeries(
-              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-      systemMemoryUsage =
-          new TimeSeries(
-              /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-      if (collectWorkerDataInProfiler) {
-        workersMemoryUsage =
-            new TimeSeries(
-                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-      }
-      if (collectLoadAverage) {
-        systemLoadAverage =
-            new TimeSeries(
-                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-      }
-      if (collectSystemNetworkUsage) {
-        systemNetworkUpUsage =
-            new TimeSeries(
-                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-        systemNetworkDownUsage =
-            new TimeSeries(
-                /* startTimeMillis= */ stopwatch.elapsed().toMillis(), BUCKET_DURATION.toMillis());
-      }
-    }
+  public void start() {
+    collector.setDaemon(true);
+    collector.start();
+  }
+
+  @Override
+  public void registerCounterSeriesCollector(CounterSeriesCollector collector) {
+    collectors.add(collector);
+  }
+
+  private List<CounterSeriesCollector> createLocalCollectors() {
     OperatingSystemMXBean osBean =
         (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
     MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
-    Duration previousElapsed = stopwatch.elapsed();
-    long previousCpuTimeNanos = osBean.getProcessCpuTime();
-    Map<String, NetIoCounter> previousNetworkIoCounters = null;
-    profilingStarted = true;
-    while (!stopLocalUsageCollection) {
+    var collectors = new ArrayList<CounterSeriesCollector>();
+    collectors.add(new LocalCpuUsageCollector(osBean));
+    collectors.add(new LocalMemoryUsageCollector(memoryBean, bugReporter));
+    collectors.add(new SystemCpuUsageCollector(osBean));
+    collectors.add(new SystemMemoryUsageCollector(osBean));
+
+    if (collectWorkerDataInProfiler
+        && (OS.getCurrent() == OS.LINUX || OS.getCurrent() == OS.DARWIN)) {
+      // Enabling the WorkerMemoryUsageCollector will cause hangs on Windows. We should only enable
+      // it on Linux and Darwin.
+      collectors.add(new TotalWorkerMemoryUsageCollector(workerProcessMetricsCollector));
+      collectors.add(new PerMnemonicWorkerMemoryUsageCollector(workerProcessMetricsCollector));
+    }
+    if (collectLoadAverage) {
+      collectors.add(new SystemLoadAverageCollector(osBean));
+    }
+    if (collectSystemNetworkUsage) {
+      collectors.add(new SystemNetworkUsageCollector());
+    }
+    if (collectResourceManagerEstimation) {
+      collectors.add(new ResourceManagerEstimationCollector(resourceEstimator));
+    }
+    // The pressure stall indicators are only available on Linux.
+    if (collectPressureStallIndicators && OS.getCurrent() == OS.LINUX) {
+      collectors.add(new PressureStallIndicatorCollector());
+    }
+
+    if (collectSkyframeCounts) {
+      collectors.add(new SkyframeCountsCollector(graph));
+    }
+
+    return collectors;
+  }
+
+  /** Thread that does the collection. */
+  private class Collector extends Thread {
+
+    Collector() {
+      super("collect-local-resources");
+    }
+
+    @Override
+    public void run() {
+      collectors.addAll(createLocalCollectors());
+      synchronized (CollectLocalResourceUsage.this) {
+        timeSeries = new LinkedHashMap<>();
+      }
+
+      stopwatch = Stopwatch.createStarted();
+      Duration startTime = stopwatch.elapsed();
+      Duration previousElapsed = stopwatch.elapsed();
+      profilingStarted = true;
+      while (!stopLocalUsageCollection) {
+        try {
+          Thread.sleep(LOCAL_RESOURCES_COLLECT_SLEEP_INTERVAL.toMillis());
+        } catch (InterruptedException e) {
+          return;
+        }
+        Duration nextElapsed = stopwatch.elapsed();
+        double deltaNanos = nextElapsed.minus(previousElapsed).toNanos();
+        Duration finalPreviousElapsed = previousElapsed;
+        synchronized (CollectLocalResourceUsage.this) {
+          for (var collector : collectors) {
+            collector.collect(
+                deltaNanos,
+                (type, value) ->
+                    addRange(type, startTime, finalPreviousElapsed, nextElapsed, value));
+          }
+        }
+        previousElapsed = nextElapsed;
+      }
+    }
+  }
+
+  @Override
+  public void stop() {
+    if (collector != null) {
+      Preconditions.checkArgument(!stopLocalUsageCollection);
+      stopLocalUsageCollection = true;
+      collector.interrupt();
       try {
-        Thread.sleep(LOCAL_RESOURCES_COLLECT_SLEEP_INTERVAL.toMillis());
+        collector.join();
       } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+      logCollectedData();
+      collector = null;
+    }
+  }
+
+  synchronized void logCollectedData() {
+    if (!profilingStarted) {
+      return;
+    }
+    Preconditions.checkArgument(stopLocalUsageCollection);
+    long endTimeNanos = System.nanoTime();
+    long elapsedNanos = stopwatch.elapsed(TimeUnit.NANOSECONDS);
+    long startTimeNanos = endTimeNanos - elapsedNanos;
+    Duration profileStart = Duration.ofNanos(startTimeNanos);
+    int len = (int) (elapsedNanos / BUCKET_DURATION.toNanos()) + 1;
+    Profiler profiler = Profiler.instance();
+
+    Map<String, List<Map.Entry<CounterSeriesTask, TimeSeries>>> stackedTaskGroups =
+        timeSeries.entrySet().stream().collect(groupingBy(e -> e.getKey().laneName()));
+
+    for (var taskGroup : stackedTaskGroups.values()) {
+      ImmutableMap.Builder<CounterSeriesTask, double[]> stackedCounters =
+          ImmutableMap.builderWithExpectedSize(taskGroup.size());
+      for (var task : taskGroup) {
+        stackedCounters.put(task.getKey(), task.getValue().toDoubleArray(len));
+      }
+      profiler.logCounters(stackedCounters.buildOrThrow(), profileStart, BUCKET_DURATION);
+    }
+
+    collectors.clear();
+    timeSeries = null;
+  }
+
+  private void addRange(
+      CounterSeriesTask type,
+      Duration startTime,
+      Duration previousElapsed,
+      Duration nextElapsed,
+      double value) {
+    synchronized (this) {
+      if (timeSeries == null) {
         return;
       }
-      Duration nextElapsed = stopwatch.elapsed();
+      var series =
+          timeSeries.computeIfAbsent(type, unused -> new TimeSeries(startTime, BUCKET_DURATION));
+      series.addRange(previousElapsed, nextElapsed, value);
+    }
+  }
+
+  private static class LocalCpuUsageCollector implements CounterSeriesCollector {
+    private static final CounterSeriesTask LOCAL_CPU_USAGE =
+        new CounterSeriesTask("CPU usage (Bazel)", "cpu", CounterSeriesTask.Color.GOOD);
+
+    private final OperatingSystemMXBean osBean;
+    private long previousCpuTimeNanos;
+
+    private LocalCpuUsageCollector(OperatingSystemMXBean osBean) {
+      this.osBean = osBean;
+      this.previousCpuTimeNanos = osBean.getProcessCpuTime();
+    }
+
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
       long nextCpuTimeNanos = osBean.getProcessCpuTime();
+      double cpuLevel = (nextCpuTimeNanos - previousCpuTimeNanos) / deltaNanos;
+      previousCpuTimeNanos = nextCpuTimeNanos;
+      consumer.accept(LOCAL_CPU_USAGE, cpuLevel);
+    }
+  }
 
-      double systemCpuLoad = osBean.getSystemCpuLoad();
-      double systemUsage = systemCpuLoad * numProcessors;
+  private static class LocalMemoryUsageCollector implements CounterSeriesCollector {
+    private static final CounterSeriesTask LOCAL_MEMORY_USAGE =
+        new CounterSeriesTask("Memory usage (Bazel)", "memory", CounterSeriesTask.Color.OLIVE);
+    private final MemoryMXBean memoryBean;
+    private final BugReporter bugReporter;
 
+    private LocalMemoryUsageCollector(MemoryMXBean memoryBean, BugReporter bugReporter) {
+      this.memoryBean = memoryBean;
+      this.bugReporter = bugReporter;
+    }
+
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
+      long memoryUsage;
+      try {
+        memoryUsage =
+            memoryBean.getHeapMemoryUsage().getUsed()
+                + memoryBean.getNonHeapMemoryUsage().getUsed();
+      } catch (IllegalArgumentException e) {
+        // The JVM may report committed > max. See b/180619163.
+        bugReporter.sendBugReport(e);
+        memoryUsage = -1;
+      }
+      if (memoryUsage != -1) {
+        memoryUsage = memoryUsage / (1024 * 1024);
+        consumer.accept(LOCAL_MEMORY_USAGE, (double) memoryUsage);
+      }
+    }
+  }
+
+  private static class SystemCpuUsageCollector implements CounterSeriesCollector {
+    private static final CounterSeriesTask SYSTEM_CPU_USAGE =
+        new CounterSeriesTask("CPU usage (total)", "system cpu", CounterSeriesTask.Color.RAIL_LOAD);
+    private final OperatingSystemMXBean osBean;
+    private final int numProcessors;
+
+    private SystemCpuUsageCollector(OperatingSystemMXBean osBean) {
+      this.osBean = osBean;
+      this.numProcessors = Runtime.getRuntime().availableProcessors();
+    }
+
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
+      double systemCpuLoad;
+      try {
+        systemCpuLoad = osBean.getCpuLoad();
+      } catch (NullPointerException unused) {
+        // OperatingSystemMXBean.getCpuLoad() suffers from a TOCTOU issue on Linux that can
+        // cause a NullPointerException. See https://github.com/bazelbuild/bazel/issues/24519 for
+        // details.
+        systemCpuLoad = 0;
+      }
+      if (Double.isNaN(systemCpuLoad)) {
+        // Unlike advertised, on Mac the system CPU load is NaN sometimes.
+        // There is no good way to handle this, so to avoid any downstream method crashing on
+        // this,
+        // we reset the CPU value here.
+        systemCpuLoad = 0;
+      }
+      consumer.accept(SYSTEM_CPU_USAGE, systemCpuLoad * numProcessors);
+    }
+  }
+
+  private static class SystemMemoryUsageCollector implements CounterSeriesCollector {
+    private static final CounterSeriesTask SYSTEM_MEMORY_USAGE =
+        new CounterSeriesTask("Memory usage (total)", "system memory", CounterSeriesTask.Color.BAD);
+    private final OperatingSystemMXBean osBean;
+
+    private SystemMemoryUsageCollector(OperatingSystemMXBean osBean) {
+      this.osBean = osBean;
+    }
+
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
       long systemMemoryUsageMb = -1;
       if (OS.getCurrent() == OS.LINUX) {
         // On Linux we get a better estimate by using /proc/meminfo. See
@@ -169,247 +374,268 @@ public class CollectLocalResourceUsage extends Thread {
         }
       }
       if (systemMemoryUsageMb <= 0) {
-        // In case we aren't running on Linux or /proc/meminfo parsing went wrong, fall back to the
-        // OS bean.
+        // In case we aren't running on Linux or /proc/meminfo parsing went wrong, fall back to
+        // the OS bean.
         systemMemoryUsageMb =
             (osBean.getTotalPhysicalMemorySize() - osBean.getFreePhysicalMemorySize())
                 / (1024 * 1024);
       }
+      consumer.accept(SYSTEM_MEMORY_USAGE, (double) systemMemoryUsageMb);
+    }
+  }
 
-      long memoryUsage;
-      try {
-        memoryUsage =
-            memoryBean.getHeapMemoryUsage().getUsed()
-                + memoryBean.getNonHeapMemoryUsage().getUsed();
-      } catch (IllegalArgumentException e) {
-        // The JVM may report committed > max. See b/180619163.
-        bugReporter.sendBugReport(e);
-        memoryUsage = -1;
-      }
+  private static class TotalWorkerMemoryUsageCollector implements CounterSeriesCollector {
+    private static final CounterSeriesTask WORKERS_MEMORY_USAGE =
+        new CounterSeriesTask(
+            "Total worker memory usage", "workers memory", CounterSeriesTask.Color.RAIL_ANIMATION);
+    private final WorkerProcessMetricsCollector workerProcessMetricsCollector;
 
+    private TotalWorkerMemoryUsageCollector(
+        WorkerProcessMetricsCollector workerProcessMetricsCollector) {
+      this.workerProcessMetricsCollector = workerProcessMetricsCollector;
+    }
+
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
       int workerMemoryUsageMb = 0;
-      if (collectWorkerDataInProfiler) {
+      try (SilentCloseable c = Profiler.instance().profile("Worker metrics collection")) {
         workerMemoryUsageMb =
-            this.workerMetricsCollector.collectMetrics().stream()
-                    .map(WorkerMetric::getWorkerStat)
-                    .filter(Objects::nonNull)
-                    .mapToInt(WorkerMetric.WorkerStat::getUsedMemoryInKB)
+            workerProcessMetricsCollector.getLiveWorkerProcessMetrics().stream()
+                    .mapToInt(WorkerProcessMetrics::getUsedMemoryInKb)
                     .sum()
                 / 1024;
       }
-      double loadAverage = 0;
-      if (collectLoadAverage) {
-        loadAverage = osBean.getSystemLoadAverage();
+      consumer.accept(WORKERS_MEMORY_USAGE, (double) workerMemoryUsageMb);
+    }
+  }
+
+  private static class PerMnemonicWorkerMemoryUsageCollector implements CounterSeriesCollector {
+    private static final HashMap<String, CounterSeriesTask> workerMemoryUsageSeries =
+        new HashMap<>();
+    private static final String SERIES_LANE_NAME = "Per-mnemonic worker memory usage";
+    private final WorkerProcessMetricsCollector workerProcessMetricsCollector;
+
+    private PerMnemonicWorkerMemoryUsageCollector(
+        WorkerProcessMetricsCollector workerProcessMetricsCollector) {
+      this.workerProcessMetricsCollector = workerProcessMetricsCollector;
+    }
+
+    private static CounterSeriesTask getWorkerMemoryUsageSeries(String mnemonic) {
+      return workerMemoryUsageSeries.computeIfAbsent(
+          mnemonic,
+          key ->
+              new CounterSeriesTask(
+                  SERIES_LANE_NAME, mnemonic, CounterSeriesTask.Color.RAIL_ANIMATION));
+    }
+
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
+
+      workerProcessMetricsCollector
+          .getLiveWorkerProcessMetrics()
+          .forEach(
+              collector -> {
+                try (SilentCloseable c = Profiler.instance().profile(collector.getMnemonic())) {
+                  consumer.accept(
+                      getWorkerMemoryUsageSeries(collector.getMnemonic()),
+                      (double) collector.getUsedMemoryInKb() / 1024);
+                }
+              });
+    }
+  }
+
+  private static class SystemLoadAverageCollector implements CounterSeriesCollector {
+    private static final CounterSeriesTask SYSTEM_LOAD_AVERAGE =
+        new CounterSeriesTask("System load average", "load", CounterSeriesTask.Color.GENERIC_WORK);
+    private final OperatingSystemMXBean osBean;
+
+    private SystemLoadAverageCollector(OperatingSystemMXBean osBean) {
+      this.osBean = osBean;
+    }
+
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
+      double loadAverage = osBean.getSystemLoadAverage();
+      if (loadAverage > 0) {
+        consumer.accept(SYSTEM_LOAD_AVERAGE, loadAverage);
       }
+    }
+  }
 
-      double deltaNanos = nextElapsed.minus(previousElapsed).toNanos();
-      double cpuLevel = (nextCpuTimeNanos - previousCpuTimeNanos) / deltaNanos;
+  private static class SystemNetworkUsageCollector implements CounterSeriesCollector {
+    private static final CounterSeriesTask SYSTEM_NETWORK_UP_USAGE =
+        new CounterSeriesTask(
+            "Network Up usage (total)",
+            "system network up (Mbps)",
+            CounterSeriesTask.Color.RAIL_RESPONSE);
+    private static final CounterSeriesTask SYSTEM_NETWORK_DOWN_USAGE =
+        new CounterSeriesTask(
+            "Network Down usage (total)",
+            "system network down (Mbps)",
+            CounterSeriesTask.Color.RAIL_RESPONSE);
 
-      Map<String, NetIoCounter> nextNetworkIoCounters = null;
-      if (collectSystemNetworkUsage) {
-        try {
-          nextNetworkIoCounters = SystemNetworkStats.getNetIoCounters();
-        } catch (IOException e) {
-          logger.atWarning().withCause(e).log("Failed to get Net IO counters");
-        }
-        if (previousNetworkIoCounters == null) {
-          previousNetworkIoCounters = nextNetworkIoCounters;
-        }
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
+      var systemNetworkUsages =
+          NetworkMetricsCollector.instance().collectSystemNetworkUsages(deltaNanos);
+      if (systemNetworkUsages != null) {
+        consumer.accept(SYSTEM_NETWORK_UP_USAGE, systemNetworkUsages.megabitsSentPerSec());
+        consumer.accept(SYSTEM_NETWORK_DOWN_USAGE, systemNetworkUsages.megabitsRecvPerSec());
       }
-
-      synchronized (this) {
-        if (localCpuUsage != null) {
-          localCpuUsage.addRange(previousElapsed.toMillis(), nextElapsed.toMillis(), cpuLevel);
-        }
-        if (localMemoryUsage != null && memoryUsage != -1) {
-          long memoryUsageMb = memoryUsage / (1024 * 1024);
-          localMemoryUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), (double) memoryUsageMb);
-        }
-        if (systemCpuUsage != null) {
-          systemCpuUsage.addRange(previousElapsed.toMillis(), nextElapsed.toMillis(), systemUsage);
-        }
-        if (systemMemoryUsage != null) {
-          systemMemoryUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), (double) systemMemoryUsageMb);
-        }
-        if (collectWorkerDataInProfiler && (workersMemoryUsage != null)) {
-          workersMemoryUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), workerMemoryUsageMb);
-        }
-        if (collectLoadAverage && loadAverage > 0) {
-          systemLoadAverage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), loadAverage);
-        }
-        if (collectSystemNetworkUsage
-            && previousNetworkIoCounters != null
-            && nextNetworkIoCounters != null) {
-          AggregatedNetIoCounter aggregated =
-              aggregateNetIoCounter(
-                  previousNetworkIoCounters,
-                  nextNetworkIoCounters,
-                  deltaNanos,
-                  localLoopbackInterfaces);
-          systemNetworkUpUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), aggregated.upMbps);
-          systemNetworkDownUsage.addRange(
-              previousElapsed.toMillis(), nextElapsed.toMillis(), aggregated.downMbps);
-        }
-      }
-      previousElapsed = nextElapsed;
-      previousCpuTimeNanos = nextCpuTimeNanos;
-      previousNetworkIoCounters = nextNetworkIoCounters;
     }
   }
 
-  public void stopCollecting() {
-    Preconditions.checkArgument(!stopLocalUsageCollection);
-    stopLocalUsageCollection = true;
-    interrupt();
-  }
+  private static class ResourceManagerEstimationCollector implements CounterSeriesCollector {
+    private static final CounterSeriesTask MEMORY_USAGE_ESTIMATION =
+        new CounterSeriesTask(
+            "Memory usage estimation", "estimated memory", CounterSeriesTask.Color.RAIL_IDLE);
+    private static final CounterSeriesTask CPU_USAGE_ESTIMATION =
+        new CounterSeriesTask(
+            "CPU usage estimation",
+            "estimated cpu",
+            CounterSeriesTask.Color.CQ_BUILD_ATTEMPT_PASSED);
 
-  synchronized void logCollectedData() {
-    if (!profilingStarted) {
-      return;
+    private final ResourceEstimator resourceEstimator;
+
+    private ResourceManagerEstimationCollector(ResourceEstimator resourceEstimator) {
+      this.resourceEstimator = resourceEstimator;
     }
-    Preconditions.checkArgument(stopLocalUsageCollection);
-    long endTimeNanos = System.nanoTime();
-    long elapsedNanos = stopwatch.elapsed(TimeUnit.NANOSECONDS);
-    long startTimeNanos = endTimeNanos - elapsedNanos;
-    int len = (int) (elapsedNanos / BUCKET_DURATION.toNanos()) + 1;
-    Profiler profiler = Profiler.instance();
 
-    logCollectedData(profiler, localCpuUsage, ProfilerTask.LOCAL_CPU_USAGE, startTimeNanos, len);
-    localCpuUsage = null;
-
-    logCollectedData(
-        profiler, localMemoryUsage, ProfilerTask.LOCAL_MEMORY_USAGE, startTimeNanos, len);
-    localMemoryUsage = null;
-
-    logCollectedData(profiler, systemCpuUsage, ProfilerTask.SYSTEM_CPU_USAGE, startTimeNanos, len);
-    systemCpuUsage = null;
-
-    logCollectedData(
-        profiler, systemMemoryUsage, ProfilerTask.SYSTEM_MEMORY_USAGE, startTimeNanos, len);
-    systemMemoryUsage = null;
-
-    if (collectWorkerDataInProfiler) {
-      logCollectedData(
-          profiler, workersMemoryUsage, ProfilerTask.WORKERS_MEMORY_USAGE, startTimeNanos, len);
-    }
-    workersMemoryUsage = null;
-
-    if (collectLoadAverage) {
-      logCollectedData(
-          profiler, systemLoadAverage, ProfilerTask.SYSTEM_LOAD_AVERAGE, startTimeNanos, len);
-    }
-    systemLoadAverage = null;
-
-    if (collectSystemNetworkUsage) {
-      logCollectedData(
-          profiler,
-          systemNetworkUpUsage,
-          ProfilerTask.SYSTEM_NETWORK_UP_USAGE,
-          startTimeNanos,
-          len);
-      logCollectedData(
-          profiler,
-          systemNetworkDownUsage,
-          ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE,
-          startTimeNanos,
-          len);
-    }
-    systemNetworkUpUsage = null;
-    systemNetworkDownUsage = null;
-  }
-
-  private static void logCollectedData(
-      Profiler profiler, TimeSeries timeSeries, ProfilerTask type, long startTimeNanos, int len) {
-    double[] localResourceValues = timeSeries.toDoubleArray(len);
-    for (int i = 0; i < len; i++) {
-      long eventTimeNanos = startTimeNanos + i * BUCKET_DURATION.toNanos();
-      profiler.logEventAtTime(eventTimeNanos, type, String.valueOf(localResourceValues[i]));
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
+      double estimatedCpuUsage = resourceEstimator.getUsedCPU();
+      double estimatedMemoryUsageInMb = resourceEstimator.getUsedMemoryInMb();
+      consumer.accept(CPU_USAGE_ESTIMATION, estimatedCpuUsage);
+      consumer.accept(MEMORY_USAGE_ESTIMATION, estimatedMemoryUsageInMb);
     }
   }
 
-  private boolean isLocalLoopback(List<NetIfAddr> addresses) {
-    for (NetIfAddr addr : addresses) {
-      switch (addr.family()) {
-        case AF_INET:
-          if (addr.ipAddr().equals("127.0.0.1")) {
-            return true;
+  private static class PressureStallIndicatorCollector implements CounterSeriesCollector {
+    private static final CounterSeriesTask PRESSURE_STALL_FULL_IO =
+        new CounterSeriesTask(
+            "I/O pressure stall level",
+            "i/o pressure (full)",
+            CounterSeriesTask.Color.RAIL_ANIMATION);
+    private static final CounterSeriesTask PRESSURE_STALL_SOME_IO =
+        new CounterSeriesTask(
+            "I/O pressure stall level",
+            "i/o pressure (some)",
+            CounterSeriesTask.Color.CQ_BUILD_ATTEMPT_FAILED);
+    private static final CounterSeriesTask PRESSURE_STALL_FULL_MEMORY =
+        new CounterSeriesTask(
+            "Memory pressure stall level",
+            "memory pressure (full)",
+            CounterSeriesTask.Color.THREAD_STATE_UNKNOWN);
+    private static final CounterSeriesTask PRESSURE_STALL_SOME_MEMORY =
+        new CounterSeriesTask(
+            "Memory pressure stall level",
+            "memory pressure (some)",
+            CounterSeriesTask.Color.RAIL_IDLE);
+    private static final CounterSeriesTask PRESSURE_STALL_SOME_CPU =
+        new CounterSeriesTask(
+            "CPU pressure stall level",
+            "cpu pressure (some)",
+            CounterSeriesTask.Color.THREAD_STATE_RUNNING);
+
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
+      // The pressure stall indicator for full CPU metric is not defined.
+      double pressureStallFullIo = ResourceUsage.readPressureStallIndicator(IO, FULL);
+      double pressureStallFullMemory = ResourceUsage.readPressureStallIndicator(MEMORY, FULL);
+      double pressureStallSomeIo = ResourceUsage.readPressureStallIndicator(IO, SOME);
+      double pressureStallSomeMemory = ResourceUsage.readPressureStallIndicator(MEMORY, SOME);
+      double pressureStallSomeCpu = ResourceUsage.readPressureStallIndicator(CPU, SOME);
+
+      consumer.accept(PRESSURE_STALL_FULL_IO, pressureStallFullIo);
+      consumer.accept(PRESSURE_STALL_FULL_MEMORY, pressureStallFullMemory);
+      consumer.accept(PRESSURE_STALL_SOME_IO, pressureStallSomeIo);
+      consumer.accept(PRESSURE_STALL_SOME_MEMORY, pressureStallSomeMemory);
+      consumer.accept(PRESSURE_STALL_SOME_CPU, pressureStallSomeCpu);
+    }
+  }
+
+  private static class SkyframeCountsCollector implements CounterSeriesCollector {
+    private record SkyFunctionProfilerTasks(
+        CounterSeriesTask totalCounter, CounterSeriesTask doneCounter) {}
+
+    private static final ImmutableMap<SkyFunctionName, SkyFunctionProfilerTasks>
+        SKYFUNCTION_PROFILER_TASKS =
+            ImmutableMap.of(
+                SkyFunctions.PACKAGE,
+                new SkyFunctionProfilerTasks(
+                    new CounterSeriesTask(
+                        "SkyFunction (PACKAGE)", "package (total)", /* color= */ null),
+                    new CounterSeriesTask(
+                        "SkyFunction (PACKAGE)", "package (done)", /* color= */ null)),
+                SkyFunctions.BZL_LOAD,
+                new SkyFunctionProfilerTasks(
+                    new CounterSeriesTask(
+                        "SkyFunction (BZL_LOAD)", "bzl_load (total)", /* color= */ null),
+                    new CounterSeriesTask(
+                        "SkyFunction (BZL_LOAD)", "bzl_load (done)", /* color= */ null)),
+                SkyFunctions.GLOB,
+                new SkyFunctionProfilerTasks(
+                    new CounterSeriesTask("SkyFunction (GLOB)", "glob (total)", /* color= */ null),
+                    new CounterSeriesTask("SkyFunction (GLOB)", "glob (done)", /* color= */ null)),
+                SkyFunctions.GLOBS,
+                new SkyFunctionProfilerTasks(
+                    new CounterSeriesTask(
+                        "SkyFunction (GLOBS)", "globs (total)", /* color= */ null),
+                    new CounterSeriesTask(
+                        "SkyFunction (GLOBS)", "globs (done)", /* color= */ null)),
+                SkyFunctions.CONFIGURED_TARGET,
+                new SkyFunctionProfilerTasks(
+                    new CounterSeriesTask(
+                        "SkyFunction (CONFIGURED_TARGET)",
+                        "configured target (total)",
+                        /* color= */ null),
+                    new CounterSeriesTask(
+                        "SkyFunction (CONFIGURED_TARGET)",
+                        "configured target (done)",
+                        /* color= */ null)),
+                SkyFunctions.ASPECT,
+                new SkyFunctionProfilerTasks(
+                    new CounterSeriesTask(
+                        "SkyFunction (ASPECT)", "aspect (total)", /* color= */ null),
+                    new CounterSeriesTask(
+                        "SkyFunction (ASPECT)", "aspect (done)", /* color= */ null)),
+                SkyFunctions.ACTION_EXECUTION,
+                new SkyFunctionProfilerTasks(
+                    new CounterSeriesTask(
+                        "SkyFunction (ACTION_EXECUTION)",
+                        "action execution (total)",
+                        /* color= */ null),
+                    new CounterSeriesTask(
+                        "SkyFunction (ACTION_EXECUTION)",
+                        "action execution (done)",
+                        /* color= */ null)));
+
+    private final InMemoryGraph graph;
+
+    private SkyframeCountsCollector(InMemoryGraph graph) {
+      this.graph = graph;
+    }
+
+    @Override
+    public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
+      Multiset<SkyFunctionName> skykeyDoneCounter = HashMultiset.create();
+      Multiset<SkyFunctionName> skykeyCounter = HashMultiset.create();
+      for (InMemoryNodeEntry entry : graph.getAllNodeEntries()) {
+        SkyFunctionName name = entry.getKey().functionName();
+        if (SKYFUNCTION_PROFILER_TASKS.containsKey(name)) {
+          skykeyCounter.add(name);
+          if (entry.isDone()) {
+            skykeyDoneCounter.add(name);
           }
-          break;
-        case AF_INET6:
-          if (addr.ipAddr().equals("::1")) {
-            return true;
-          }
-          break;
-        case UNKNOWN:
-      }
-    }
-    return false;
-  }
-
-  private ImmutableSet<String> getLocalLoopbackInterfaces() {
-    ImmutableSet.Builder<String> result = ImmutableSet.builder();
-    try {
-      for (Map.Entry<String, List<NetIfAddr>> entry :
-          SystemNetworkStats.getNetIfAddrs().entrySet()) {
-        if (isLocalLoopback(entry.getValue())) {
-          result.add(entry.getKey());
         }
       }
-    } catch (IOException e) {
-      logger.atWarning().withCause(e).log("Failed to query network interfaces");
-    }
-    return result.build();
-  }
-
-  static class AggregatedNetIoCounter {
-    private final double upMbps;
-    private final double downMbps;
-
-    AggregatedNetIoCounter(double upMbps, double downMbps) {
-      this.upMbps = upMbps;
-      this.downMbps = downMbps;
-    }
-  }
-
-  private AggregatedNetIoCounter aggregateNetIoCounter(
-      Map<String, NetIoCounter> previousNetIoCounters,
-      Map<String, NetIoCounter> nextNetIoCounters,
-      double deltaNanos,
-      Set<String> excludedInterfaces) {
-    long deltaBytesSent = 0;
-    long deltaBytesRecv = 0;
-    for (Map.Entry<String, NetIoCounter> entry : previousNetIoCounters.entrySet()) {
-      String name = entry.getKey();
-      if (excludedInterfaces.contains(name)) {
-        continue;
-      }
-      NetIoCounter previous = entry.getValue();
-      NetIoCounter next = nextNetIoCounters.get(name);
-      if (next != null) {
-        deltaBytesSent += calcDeltaBytes(previous.bytesSent(), next.bytesSent());
-        deltaBytesRecv += calcDeltaBytes(previous.bytesRecv(), next.bytesRecv());
+      for (var entry : SKYFUNCTION_PROFILER_TASKS.entrySet()) {
+        SkyFunctionName functionName = entry.getKey();
+        consumer.accept(
+            entry.getValue().totalCounter(), (double) skykeyCounter.count(functionName));
+        consumer.accept(
+            entry.getValue().doneCounter(), (double) skykeyDoneCounter.count(functionName));
       }
     }
-    double upMbps = calcNetworkMbps(deltaBytesSent, deltaNanos);
-    double downMbps = calcNetworkMbps(deltaBytesRecv, deltaNanos);
-    return new AggregatedNetIoCounter(upMbps, downMbps);
-  }
-
-  private long calcDeltaBytes(long prevBytes, long nextBytes) {
-    // The nextBytes could wrap, and if that happens, assume prevBytes is 0 (best effort).
-    if (nextBytes < prevBytes) {
-      return nextBytes;
-    } else {
-      return nextBytes - prevBytes;
-    }
-  }
-
-  private double calcNetworkMbps(long deltaBytes, double deltaNanos) {
-    return deltaBytes / deltaNanos * 8000;
   }
 }

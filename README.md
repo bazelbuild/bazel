@@ -24,13 +24,13 @@ Build and test software of any size, quickly and reliably.
 ## Getting Started
 
   * [Install Bazel](https://bazel.build/install)
-  * [Get started with Bazel](https://bazel.build/contribute/getting-started)
+  * [Get started with Bazel](https://bazel.build/start)
   * Follow our tutorials:
 
     - [Build C++](https://bazel.build/tutorials/cpp)
     - [Build Java](https://bazel.build/tutorials/java)
     - [Android](https://bazel.build/tutorials/android-app)
-    - [iOS](https://bazel.build/tutorials/ios-app)
+    - [iOS](https://github.com/bazelbuild/rules_apple/blob/master/doc/tutorials/ios-app.md)
 
 ## Documentation
 
@@ -40,7 +40,7 @@ Build and test software of any size, quickly and reliably.
   * [Extend Bazel](https://bazel.build/rules/concepts)
   * [Write tests](https://bazel.build/reference/test-encyclopedia)
   * [Roadmap](https://bazel.build/community/roadmaps)
-  * [Who is using Bazel?](https://github.com/bazelbuild/bazel/wiki/Bazel-Users)
+  * [Who is using Bazel?](https://bazel.build/community/users)
 
 ## Reporting a Vulnerability
 

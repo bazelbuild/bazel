@@ -12,28 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/main/cpp/util/file_platform.h"
-
-#include <dirent.h>  // DIR, dirent, opendir, closedir
+#include <dirent.h>
 #include <errno.h>
-#include <fcntl.h>   // O_RDONLY
-#include <limits.h>  // PATH_MAX
-#include <stdlib.h>  // getenv
-#include <string.h>  // strncmp
+#include <fcntl.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
-#include <unistd.h>  // access, open, close, fsync
-#include <utime.h>   // utime
+#include <time.h>
+#include <unistd.h>
+#include <utime.h>
 
 #include <string>
-#include <vector>
 
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
-#include "src/main/cpp/util/strings.h"
 
 namespace blaze_util {
 
@@ -124,46 +123,46 @@ static bool MakeDirectories(const string &path, mode_t mode, bool childmost) {
   return stat_succeeded;
 }
 
-
-string CreateTempDir(const std::string &prefix) {
-  std::string parent = Dirname(prefix);
+Path CreateSiblingTempDir(const Path &other_path) {
   // Need parent to exist first.
+  Path parent = other_path.GetParent();
   if (!blaze_util::PathExists(parent) &&
       !blaze_util::MakeDirectories(parent, 0777)) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "couldn't create '" << parent << "': "
-        << blaze_util::GetLastErrorString();
+        << "couldn't create '" << parent.AsPrintablePath()
+        << "': " << blaze_util::GetLastErrorString();
   }
 
-  std::string result(prefix + "XXXXXX");
-  if (mkdtemp(&result[0]) == nullptr) {
-    std::string err = GetLastErrorString();
+  std::string path(other_path.AsNativePath() + ".tmp.XXXXXX");
+  if (mkdtemp(&path.data()[0]) == nullptr) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-        << "could not create temporary directory under " << parent
-        << " to extract install base into (" << err << ")";
+        << "could not create temporary directory under "
+        << parent.AsPrintablePath() << " to extract install base into ("
+        << GetLastErrorString() << ")";
   }
 
   // There's no better way to get the current umask than to set and reset it.
   const mode_t um = umask(0);
   umask(um);
-  chmod(result.c_str(), 0777 & ~um);
+  chmod(path.c_str(), 0777 & ~um);
 
-  return result;
+  return Path(path);
 }
 
-static bool RemoveDirRecursively(const std::string &path) {
+static bool RemoveDirRecursively(const Path &path) {
   DIR *dir;
-  if ((dir = opendir(path.c_str())) == nullptr) {
+  if ((dir = opendir(path.AsNativePath().c_str())) == nullptr) {
     return false;
   }
 
   struct dirent *ent;
   while ((ent = readdir(dir)) != nullptr) {
-    if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
+    string name = ent->d_name;
+    if (name == "." || name == "..") {
       continue;
     }
 
-    if (!RemoveRecursively(blaze_util::JoinPath(path, ent->d_name))) {
+    if (!RemoveRecursively(path.GetRelative(name))) {
       closedir(dir);
       return false;
     }
@@ -173,12 +172,12 @@ static bool RemoveDirRecursively(const std::string &path) {
     return false;
   }
 
-  return rmdir(path.c_str()) == 0;
+  return rmdir(path.AsNativePath().c_str()) == 0;
 }
 
-bool RemoveRecursively(const std::string &path) {
+bool RemoveRecursively(const Path &path) {
   struct stat stat_buf;
-  if (lstat(path.c_str(), &stat_buf) == -1) {
+  if (lstat(path.AsNativePath().c_str(), &stat_buf) == -1) {
     // Non-existent is good enough.
     return errno == ENOENT;
   }
@@ -327,6 +326,8 @@ bool WriteFile(const void *data, size_t size, const Path &path,
   return WriteFile(data, size, path.AsNativePath(), perm);
 }
 
+void InitializeStdOutErrForUtf8() {}
+
 int WriteToStdOutErr(const void *data, size_t size, bool to_stdout) {
   size_t r = fwrite(data, 1, size, to_stdout ? stdout : stderr);
   return (r == size) ? WriteResult::SUCCESS
@@ -334,8 +335,9 @@ int WriteToStdOutErr(const void *data, size_t size, bool to_stdout) {
                                          : WriteResult::OTHER_ERROR);
 }
 
-int RenameDirectory(const std::string &old_name, const std::string &new_name) {
-  if (rename(old_name.c_str(), new_name.c_str()) == 0) {
+int RenameDirectory(const Path &old_path, const Path &new_path) {
+  if (rename(old_path.AsNativePath().c_str(),
+             new_path.AsNativePath().c_str()) == 0) {
     return kRenameDirectorySuccess;
   } else {
     if (errno == ENOTEMPTY || errno == EEXIST) {
@@ -346,15 +348,16 @@ int RenameDirectory(const std::string &old_name, const std::string &new_name) {
   }
 }
 
-bool ReadDirectorySymlink(const blaze_util::Path &name, string *result) {
+bool ReadDirectorySymlink(const blaze_util::Path &symlink,
+                          blaze_util::Path *result) {
   char buf[PATH_MAX + 1];
-  int len = readlink(name.AsNativePath().c_str(), buf, PATH_MAX);
+  int len = readlink(symlink.AsNativePath().c_str(), buf, PATH_MAX);
   if (len < 0) {
     return false;
   }
 
   buf[len] = 0;
-  *result = buf;
+  *result = Path(buf);
   return true;
 }
 
@@ -445,56 +448,7 @@ void SyncFile(const string& path) {
 
 void SyncFile(const Path &path) { SyncFile(path.AsNativePath()); }
 
-class PosixFileMtime : public IFileMtime {
- public:
-  PosixFileMtime()
-      : near_future_(GetFuture(9)),
-        distant_future_({GetFuture(10), GetFuture(10)}) {}
-
-  bool IsUntampered(const Path &path) override;
-  bool SetToNow(const Path &path) override;
-  bool SetToDistantFuture(const Path &path) override;
-
- private:
-  // 9 years in the future.
-  const time_t near_future_;
-  // 10 years in the future.
-  const struct utimbuf distant_future_;
-
-  static bool Set(const Path &path, const struct utimbuf &mtime);
-  static time_t GetNow();
-  static time_t GetFuture(unsigned int years);
-};
-
-bool PosixFileMtime::IsUntampered(const Path &path) {
-  struct stat buf;
-  if (stat(path.AsNativePath().c_str(), &buf)) {
-    return false;
-  }
-
-  // Compare the mtime with `near_future_`, not with `GetNow()` or
-  // `distant_future_`.
-  // This way we don't need to call GetNow() every time we want to compare and
-  // we also don't need to worry about potentially unreliable time equality
-  // check (in case it uses floats or something crazy).
-  return S_ISDIR(buf.st_mode) || (buf.st_mtime > near_future_);
-}
-
-bool PosixFileMtime::SetToNow(const Path &path) {
-  time_t now(GetNow());
-  struct utimbuf times = {now, now};
-  return Set(path, times);
-}
-
-bool PosixFileMtime::SetToDistantFuture(const Path &path) {
-  return Set(path, distant_future_);
-}
-
-bool PosixFileMtime::Set(const Path &path, const struct utimbuf &mtime) {
-  return utime(path.AsNativePath().c_str(), &mtime) == 0;
-}
-
-time_t PosixFileMtime::GetNow() {
+static time_t GetNow() {
   time_t result = time(nullptr);
   if (result == -1) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
@@ -503,11 +457,51 @@ time_t PosixFileMtime::GetNow() {
   return result;
 }
 
-time_t PosixFileMtime::GetFuture(unsigned int years) {
+static time_t GetYearsInFuture(int years) {
   return GetNow() + 3600 * 24 * 365 * years;
 }
 
-IFileMtime *CreateFileMtime() { return new PosixFileMtime(); }
+static bool SetMtime(const Path &path, time_t mtime) {
+  struct utimbuf times = {mtime, mtime};
+  return utime(path.AsNativePath().c_str(), &times) == 0;
+}
+
+static const time_t kNearFuture = GetYearsInFuture(9);
+static const time_t kDistantFuture = GetYearsInFuture(10);
+
+bool IsUntampered(const Path &path) {
+  struct stat buf;
+  if (stat(path.AsNativePath().c_str(), &buf)) {
+    return false;
+  }
+
+  // Compare with kNearFuture, not kDistantFuture.
+  // This way we don't need to worry about a potentially unreliable equality
+  // check if precision isn't preserved.
+  return S_ISDIR(buf.st_mode) || (buf.st_mtime > kNearFuture);
+}
+
+bool SetMtimeToNow(const Path &path) {
+  time_t now = GetNow();
+  return SetMtime(path, now);
+}
+
+bool SetMtimeToNowIfPossible(const Path &path) {
+  bool okay = SetMtimeToNow(path);
+  if (!okay) {
+    // `SetToNow`/`Set` are backed by `utime(2)` which can return `EROFS` and
+    // `EPERM` when there's a permissions issue:
+    if (errno == EROFS || errno == EPERM) {
+      okay = true;
+    }
+  }
+
+  return okay;
+}
+
+bool SetMtimeToDistantFuture(const Path &path) {
+  return SetMtime(path, kDistantFuture);
+}
 
 // mkdir -p path. Returns true if the path was created or already exists and
 // could
@@ -536,22 +530,22 @@ bool ChangeDirectory(const string& path) {
   return chdir(path.c_str()) == 0;
 }
 
-void ForEachDirectoryEntry(const string &path,
-                           DirectoryEntryConsumer *consume) {
+void ForEachDirectoryEntry(const Path &path, DirectoryEntryConsumer *consumer) {
   DIR *dir;
   struct dirent *ent;
 
-  if ((dir = opendir(path.c_str())) == nullptr) {
+  if ((dir = opendir(path.AsNativePath().c_str())) == nullptr) {
     // This is not a directory or it cannot be opened.
     return;
   }
 
   while ((ent = readdir(dir)) != nullptr) {
-    if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
+    string name(ent->d_name);
+    if (name == "." || name == "..") {
       continue;
     }
 
-    string filename(blaze_util::JoinPath(path, ent->d_name));
+    Path child_path = path.GetRelative(name);
     bool is_directory;
 // 'd_type' field isn't part of the POSIX spec.
 #ifdef _DIRENT_HAVE_D_TYPE
@@ -561,18 +555,18 @@ void ForEachDirectoryEntry(const string &path,
 #endif
       {
         struct stat buf;
-        if (lstat(filename.c_str(), &buf) == -1) {
+        if (lstat(child_path.AsNativePath().c_str(), &buf) == -1) {
           BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-              << "stat failed for filename '" << filename
+              << "stat failed for filename '" << child_path.AsPrintablePath()
               << "': " << GetLastErrorString();
         }
         is_directory = S_ISDIR(buf.st_mode);
       }
 
-      consume->Consume(filename, is_directory);
+      consumer->Consume(child_path, is_directory);
   }
 
     closedir(dir);
-  }
+}
 
 }  // namespace blaze_util

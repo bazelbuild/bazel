@@ -11,64 +11,67 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Defines the FlagValues class - registry of 'Flag' objects.
 
 Do NOT import this module directly. Import the flags package and use the
 aliases defined at the package level instead.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
+import copy
 import itertools
 import logging
 import os
 import sys
-import warnings
+from typing import Generic, TypeVar
 from xml.dom import minidom
 
 from absl.flags import _exceptions
 from absl.flags import _flag
 from absl.flags import _helpers
-import six
+from absl.flags import _validators_classes
 
 # Add flagvalues module to disclaimed module ids.
 _helpers.disclaim_module_ids.add(id(sys.modules[__name__]))
 
+_T = TypeVar('_T')
 
-class FlagValues(object):
-  """Registry of 'Flag' objects.
 
-  A 'FlagValues' can then scan command line arguments, passing flag
+class FlagValues:
+  """Registry of :class:`~absl.flags.Flag` objects.
+
+  A :class:`FlagValues` can then scan command line arguments, passing flag
   arguments through to the 'Flag' objects that it owns.  It also
   provides easy access to the flag values.  Typically only one
-  'FlagValues' object is needed by an application: flags.FLAGS
+  :class:`FlagValues` object is needed by an application:
+  :const:`FLAGS`.
 
   This class is heavily overloaded:
 
-  'Flag' objects are registered via __setitem__:
+  :class:`Flag` objects are registered via ``__setitem__``::
+
        FLAGS['longname'] = x   # register a new flag
 
-  The .value attribute of the registered 'Flag' objects can be accessed
-  as attributes of this 'FlagValues' object, through __getattr__.  Both
-  the long and short name of the original 'Flag' objects can be used to
-  access its value:
-       FLAGS.longname          # parsed flag value
-       FLAGS.x                 # parsed flag value (short name)
+  The ``.value`` attribute of the registered :class:`~absl.flags.Flag` objects
+  can be accessed as attributes of this :class:`FlagValues` object, through
+  ``__getattr__``.  Both the long and short name of the original
+  :class:`~absl.flags.Flag` objects can be used to access its value::
 
-  Command line arguments are scanned and passed to the registered 'Flag'
-  objects through the __call__ method.  Unparsed arguments, including
-  argv[0] (e.g. the program name) are returned.
+       FLAGS.longname  # parsed flag value
+       FLAGS.x  # parsed flag value (short name)
+
+  Command line arguments are scanned and passed to the registered
+  :class:`~absl.flags.Flag` objects through the ``__call__`` method.  Unparsed
+  arguments, including ``argv[0]`` (e.g. the program name) are returned::
+
        argv = FLAGS(sys.argv)  # scan command line arguments
 
-  The original registered Flag objects can be retrieved through the use
-  of the dictionary-like operator, __getitem__:
+  The original registered :class:`~absl.flags.Flag` objects can be retrieved
+  through the use of the dictionary-like operator, ``__getitem__``::
+
        x = FLAGS['longname']   # access the registered Flag object
 
-  The str() operator of a 'FlagValues' object provides help for all of
-  the registered 'Flag' objects.
+  The ``str()`` operator of a :class:`absl.flags.FlagValues` object provides
+  help for all of the registered :class:`~absl.flags.Flag` objects.
   """
 
   # A note on collections.abc.Mapping:
@@ -221,8 +224,7 @@ class FlagValues(object):
       return True
     # Check whether flag_obj is registered under its short name.
     short_name = flag_obj.short_name
-    if (short_name is not None and
-        flag_dict.get(short_name, None) == flag_obj):
+    if (short_name is not None and flag_dict.get(short_name, None) == flag_obj):
       return True
     return False
 
@@ -240,13 +242,13 @@ class FlagValues(object):
     for flags_by_module_dict in (self.flags_by_module_dict(),
                                  self.flags_by_module_id_dict(),
                                  self.key_flags_by_module_dict()):
-      for flags_in_module in six.itervalues(flags_by_module_dict):
+      for flags_in_module in flags_by_module_dict.values():
         # While (as opposed to if) takes care of multiple occurrences of a
         # flag in the list for the same module.
         while flag_obj in flags_in_module:
           flags_in_module.remove(flag_obj)
 
-  def _get_flags_defined_by_module(self, module):
+  def get_flags_for_module(self, module):
     """Returns the list of flags defined by a module.
 
     Args:
@@ -259,6 +261,8 @@ class FlagValues(object):
     """
     if not isinstance(module, str):
       module = module.__name__
+    if module == '__main__':
+      module = sys.argv[0]
 
     return list(self.flags_by_module_dict().get(module, []))
 
@@ -275,11 +279,13 @@ class FlagValues(object):
     """
     if not isinstance(module, str):
       module = module.__name__
+    if module == '__main__':
+      module = sys.argv[0]
 
     # Any flag is a key flag for the module that defined it.  NOTE:
     # key_flags is a fresh list: we can update it without affecting the
     # internals of this FlagValues object.
-    key_flags = self._get_flags_defined_by_module(module)
+    key_flags = self.get_flags_for_module(module)
 
     # Take into account flags explicitly declared as key for a module.
     for flag in self.key_flags_by_module_dict().get(module, []):
@@ -292,8 +298,7 @@ class FlagValues(object):
 
     Args:
       flagname: str, name of the flag to lookup.
-      default: Value to return if flagname is not defined. Defaults
-          to None.
+      default: Value to return if flagname is not defined. Defaults to None.
 
     Returns:
       The name of the module which registered the flag with this name.
@@ -303,7 +308,7 @@ class FlagValues(object):
     registered_flag = self._flags().get(flagname)
     if registered_flag is None:
       return default
-    for module, flags in six.iteritems(self.flags_by_module_dict()):
+    for module, flags in self.flags_by_module_dict().items():
       for flag in flags:
         # It must compare the flag with the one in _flags. This is because a
         # flag might be overridden only for its long name (or short name),
@@ -318,8 +323,7 @@ class FlagValues(object):
 
     Args:
       flagname: str, name of the flag to lookup.
-      default: Value to return if flagname is not defined. Defaults
-          to None.
+      default: Value to return if flagname is not defined. Defaults to None.
 
     Returns:
       The ID of the module which registered the flag with this name.
@@ -329,7 +333,7 @@ class FlagValues(object):
     registered_flag = self._flags().get(flagname)
     if registered_flag is None:
       return default
-    for module_id, flags in six.iteritems(self.flags_by_module_id_dict()):
+    for module_id, flags in self.flags_by_module_id_dict().items():
       for flag in flags:
         # It must compare the flag with the one in _flags. This is because a
         # flag might be overridden only for its long name (or short name),
@@ -343,8 +347,8 @@ class FlagValues(object):
     """Allow set default values for undefined flags.
 
     Args:
-      setter: Method(name, value) to call to __setattr__ an unknown flag.
-        Must raise NameError or ValueError for invalid name/value.
+      setter: Method(name, value) to call to __setattr__ an unknown flag. Must
+        raise NameError or ValueError for invalid name/value.
     """
     self.__dict__['__set_unknown'] = setter
 
@@ -369,7 +373,7 @@ class FlagValues(object):
         return value
       except (TypeError, ValueError):  # Flag value is not valid.
         raise _exceptions.IllegalFlagValueError(
-            '"{1}" is not valid for --{0}' .format(name, value))
+            '"{1}" is not valid for --{0}'.format(name, value))
       except NameError:  # Flag name is not valid.
         pass
     raise _exceptions.UnrecognizedFlagError(name, value)
@@ -380,7 +384,7 @@ class FlagValues(object):
     Args:
       flag_values: FlagValues, the FlagValues instance from which to copy flags.
     """
-    for flag_name, flag in six.iteritems(flag_values._flags()):  # pylint: disable=protected-access
+    for flag_name, flag in flag_values._flags().items():  # pylint: disable=protected-access
       # Each flags with short_name appears here twice (once under its
       # normal name, and again with its short name).  To prevent
       # problems (DuplicateFlagError) with double flag registration, we
@@ -398,7 +402,7 @@ class FlagValues(object):
 
     Args:
       flag_values: FlagValues, the FlagValues instance containing flags to
-          remove.
+        remove.
     """
     for flag_name in flag_values:
       self.__delattr__(flag_name)
@@ -408,14 +412,12 @@ class FlagValues(object):
     fl = self._flags()
     if not isinstance(flag, _flag.Flag):
       raise _exceptions.IllegalFlagValueError(flag)
-    if str is bytes and isinstance(name, unicode):
-      # When using Python 2 with unicode_literals, allow it but encode it
-      # into the bytes type we require.
-      name = name.encode('utf-8')
-    if not isinstance(name, type('')):
+    if not isinstance(name, str):
       raise _exceptions.Error('Flag name must be a string')
     if not name:
       raise _exceptions.Error('Flag name cannot be empty')
+    if ' ' in name:
+      raise _exceptions.Error('Flag name cannot contain a space')
     self._check_method_name_conflicts(name, flag)
     if name in fl and not flag.allow_override and not fl[name].allow_override:
       module, module_name = _helpers.get_calling_module_object_and_name()
@@ -438,8 +440,7 @@ class FlagValues(object):
         flags_to_cleanup.add(fl[short_name])
       fl[short_name] = flag
     if (name not in fl  # new flag
-        or fl[name].using_default_value
-        or not flag.using_default_value):
+        or fl[name].using_default_value or not flag.using_default_value):
       if name in fl and fl[name] != flag:
         flags_to_cleanup.add(fl[name])
       fl[name] = flag
@@ -464,12 +465,6 @@ class FlagValues(object):
     """Marks the flag --name as hidden."""
     self.__dict__['__hiddenflags'].add(name)
 
-  # This exists for legacy reasons, and will be removed in the future.
-  def _is_unparsed_flag_access_allowed(self, name):
-    """Determine whether to allow unparsed flag access or not."""
-    del name
-    return False
-
   def __getattr__(self, name):
     """Retrieves the 'value' attribute of the flag --name."""
     fl = self._flags()
@@ -481,50 +476,41 @@ class FlagValues(object):
     if self.__dict__['__flags_parsed'] or fl[name].present:
       return fl[name].value
     else:
-      error_message = (
+      raise _exceptions.UnparsedFlagAccessError(
           'Trying to access flag --%s before flags were parsed.' % name)
-      if self._is_unparsed_flag_access_allowed(name):
-        # Print warning to stderr. Messages in logs are often ignored/unnoticed.
-        warnings.warn(
-            error_message + ' This will raise an exception in the future.',
-            RuntimeWarning,
-            stacklevel=2)
-        # Force logging.exception() to behave realistically, but don't propagate
-        # exception up. Allow flag value to be returned (for now).
-        try:
-          raise _exceptions.UnparsedFlagAccessError(error_message)
-        except _exceptions.UnparsedFlagAccessError:
-          logging.exception(error_message)
-        return fl[name].value
-      else:
-        if six.PY2:
-          # In Python 2, hasattr returns False if getattr raises any exception.
-          # That means if someone calls hasattr(FLAGS, 'flag'), it returns False
-          # instead of raises UnparsedFlagAccessError even if --flag is already
-          # defined. To make the error more visible, the best we can do is to
-          # log an error message before raising the exception.
-          # Don't log a full stacktrace here since that makes other callers
-          # get too much noise.
-          logging.error(error_message)
-        raise _exceptions.UnparsedFlagAccessError(error_message)
 
   def __setattr__(self, name, value):
     """Sets the 'value' attribute of the flag --name."""
-    fl = self._flags()
-    if name in self.__dict__['__hiddenflags']:
-      raise AttributeError(name)
-    if name not in fl:
-      return self._set_unknown_flag(name, value)
-    fl[name].value = value
-    self._assert_validators(fl[name].validators)
-    fl[name].using_default_value = False
+    self._set_attributes(**{name: value})
     return value
 
-  def _assert_all_validators(self):
+  def _set_attributes(self, **attributes):
+    """Sets multiple flag values together, triggers validators afterwards."""
+    fl = self._flags()
+    known_flags = set()
+    for name, value in attributes.items():
+      if name in self.__dict__['__hiddenflags']:
+        raise AttributeError(name)
+      if name in fl:
+        fl[name].value = value
+        known_flags.add(name)
+      else:
+        self._set_unknown_flag(name, value)
+    for name in known_flags:
+      self._assert_validators(fl[name].validators)
+      fl[name].using_default_value = False
+
+  def validate_all_flags(self):
+    """Verifies whether all flags pass validation.
+
+    Raises:
+      AttributeError: Raised if validators work with a non-existing flag.
+      IllegalFlagValueError: Raised if validation fails for at least one
+          validator.
+    """
     all_validators = set()
-    for flag in six.itervalues(self._flags()):
-      for validator in flag.validators:
-        all_validators.add(validator)
+    for flag in self._flags().values():
+      all_validators.update(flag.validators)
     self._assert_validators(all_validators)
 
   def _assert_validators(self, validators):
@@ -533,20 +519,34 @@ class FlagValues(object):
     It asserts validators in the order they were created.
 
     Args:
-      validators: Iterable(validators.Validator), validators to be
-          verified.
+      validators: Iterable(validators.Validator), validators to be verified.
+
     Raises:
       AttributeError: Raised if validators work with a non-existing flag.
       IllegalFlagValueError: Raised if validation fails for at least one
           validator.
     """
+    messages = []
+    bad_flags = set()
     for validator in sorted(
         validators, key=lambda validator: validator.insertion_index):
       try:
+        if isinstance(validator, _validators_classes.SingleFlagValidator):
+          if validator.flag_name in bad_flags:
+            continue
+        elif isinstance(validator, _validators_classes.MultiFlagsValidator):
+          if bad_flags & set(validator.flag_names):
+            continue
         validator.verify(self)
       except _exceptions.ValidationError as e:
+        if isinstance(validator, _validators_classes.SingleFlagValidator):
+          bad_flags.add(validator.flag_name)
+        elif isinstance(validator, _validators_classes.MultiFlagsValidator):
+          bad_flags.update(set(validator.flag_names))
         message = validator.print_flags_with_values(self)
-        raise _exceptions.IllegalFlagValueError('%s: %s' % (message, str(e)))
+        messages.append('%s: %s' % (message, str(e)))
+    if messages:
+      raise _exceptions.IllegalFlagValueError('\n'.join(messages))
 
   def __delattr__(self, flag_name):
     """Deletes a previously-defined flag from a flag object.
@@ -610,13 +610,15 @@ class FlagValues(object):
   def __iter__(self):
     return iter(self._flags())
 
-  def __call__(self, argv):
+  def __call__(self, argv, known_only=False):
     """Parses flags from argv; stores parsed flags into this FlagValues object.
 
     All unparsed arguments are returned.
 
     Args:
        argv: a tuple/list of strings.
+       known_only: bool, if True, parse and remove known flags; return the rest
+         untouched. Unknown flags specified by --undefok are not returned.
 
     Returns:
        The list of arguments not parsed as options, including argv[0].
@@ -626,7 +628,7 @@ class FlagValues(object):
        TypeError: Raised on passing wrong type of arguments.
        ValueError: Raised on flag value parsing error.
     """
-    if _helpers.is_bytes_or_string(argv):
+    if isinstance(argv, (str, bytes)):
       raise TypeError(
           'argv should be a tuple/list of strings, not bytes or string.')
     if not argv:
@@ -639,21 +641,30 @@ class FlagValues(object):
     args = self.read_flags_from_files(argv[1:], force_gnu=False)
 
     # Parse the arguments.
-    unknown_flags, unparsed_args, undefok = self._parse_args(args)
+    unknown_flags, unparsed_args = self._parse_args(args, known_only)
 
     # Handle unknown flags by raising UnrecognizedFlagError.
     # Note some users depend on us raising this particular error.
     for name, value in unknown_flags:
-      if name in undefok:
-        continue
-
       suggestions = _helpers.get_flag_suggestions(name, list(self))
       raise _exceptions.UnrecognizedFlagError(
           name, value, suggestions=suggestions)
 
     self.mark_as_parsed()
-    self._assert_all_validators()
+    self.validate_all_flags()
     return [program_name] + unparsed_args
+
+  def __getstate__(self):
+    raise TypeError("can't pickle FlagValues")
+
+  def __copy__(self):
+    raise TypeError('FlagValues does not support shallow copies. '
+                    'Use absl.testing.flagsaver or copy.deepcopy instead.')
+
+  def __deepcopy__(self, memo):
+    result = object.__new__(type(self))
+    result.__dict__.update(copy.deepcopy(self.__dict__, memo))
+    return result
 
   def _set_is_retired_flag_func(self, is_retired_flag_func):
     """Sets a function for checking retired flags.
@@ -663,11 +674,11 @@ class FlagValues(object):
 
     Args:
       is_retired_flag_func: Callable(str) -> (bool, bool), a function takes flag
-          name as parameter, returns a tuple (is_retired, type_is_bool).
+        name as parameter, returns a tuple (is_retired, type_is_bool).
     """
     self.__dict__['__is_retired_flag_func'] = is_retired_flag_func
 
-  def _parse_args(self, args):
+  def _parse_args(self, args, known_only):
     """Helper function to do the main argument parsing.
 
     This function goes through args and does the bulk of the flag parsing.
@@ -676,18 +687,20 @@ class FlagValues(object):
 
     Args:
       args: [str], a list of strings with the arguments to parse.
+      known_only: bool, if True, parse and remove known flags; return the rest
+        untouched. Unknown flags specified by --undefok are not returned.
 
     Returns:
       A tuple with the following:
           unknown_flags: List of (flag name, arg) for flags we don't know about.
           unparsed_args: List of arguments we did not parse.
-          undefok: Set of flags that were given via --undefok.
 
     Raises:
        Error: Raised on any parsing error.
        ValueError: Raised on flag value parsing error.
     """
-    unknown_flags, unparsed_args, undefok = [], [], set()
+    unparsed_names_and_args = []  # A list of (flag name or None, arg).
+    undefok = set()
     retired_flag_func = self.__dict__['__is_retired_flag_func']
 
     flag_dict = self._flags()
@@ -704,13 +717,15 @@ class FlagValues(object):
 
       if not arg.startswith('-'):
         # A non-argument: default is break, GNU is skip.
-        unparsed_args.append(arg)
+        unparsed_names_and_args.append((None, arg))
         if self.is_gnu_getopt():
           continue
         else:
           break
 
       if arg == '--':
+        if known_only:
+          unparsed_names_and_args.append((None, arg))
         break
 
       # At this point, arg must start with '-'.
@@ -726,7 +741,7 @@ class FlagValues(object):
 
       if not name:
         # The argument is all dashes (including one dash).
-        unparsed_args.append(arg)
+        unparsed_names_and_args.append((None, arg))
         if self.is_gnu_getopt():
           continue
         else:
@@ -740,7 +755,7 @@ class FlagValues(object):
         continue
 
       flag = flag_dict.get(name)
-      if flag:
+      if flag is not None:
         if flag.boolean and value is None:
           value = 'true'
         else:
@@ -748,13 +763,13 @@ class FlagValues(object):
       elif name.startswith('no') and len(name) > 2:
         # Boolean flags can take the form of --noflag, with no value.
         noflag = flag_dict.get(name[2:])
-        if noflag and noflag.boolean:
+        if noflag is not None and noflag.boolean:
           if value is not None:
             raise ValueError(arg + ' does not take an argument')
           flag = noflag
           value = 'false'
 
-      if retired_flag_func and not flag:
+      if retired_flag_func and flag is None:
         is_retired, is_bool = retired_flag_func(name)
 
         # If we didn't recognize that flag, but it starts with
@@ -769,18 +784,35 @@ class FlagValues(object):
             # This happens when a non-bool retired flag is specified
             # in format of "--flag value".
             get_value()
-          logging.error('Flag "%s" is retired and should no longer '
-                        'be specified. See go/totw/90.', name)
+          logging.error(
+              'Flag "%s" is retired and should no longer '
+              'be specified. See go/totw/90.', name)
           continue
 
-      if flag:
+      if flag is not None:
         flag.parse(value)
         flag.using_default_value = False
       else:
-        unknown_flags.append((name, arg))
+        unparsed_names_and_args.append((name, arg))
+
+    unknown_flags = []
+    unparsed_args = []
+    for name, arg in unparsed_names_and_args:
+      if name is None:
+        # Positional arguments.
+        unparsed_args.append(arg)
+      elif name in undefok:
+        # Remove undefok flags.
+        continue
+      else:
+        # This is an unknown flag.
+        if known_only:
+          unparsed_args.append(arg)
+        else:
+          unknown_flags.append((name, arg))
 
     unparsed_args.extend(list(args))
-    return unknown_flags, unparsed_args, undefok
+    return unknown_flags, unparsed_args
 
   def is_parsed(self):
     """Returns whether flags were parsed."""
@@ -790,7 +822,7 @@ class FlagValues(object):
     """Explicitly marks flags as parsed.
 
     Use this when the caller knows that this FlagValues has been parsed as if
-    a __call__() invocation has happened.  This is only a public method for
+    a ``__call__()`` invocation has happened.  This is only a public method for
     use by things like appcommands which do additional command like parsing.
     """
     self.__dict__['__flags_parsed'] = True
@@ -807,7 +839,7 @@ class FlagValues(object):
 
   def flag_values_dict(self):
     """Returns a dictionary that maps flag names to flag values."""
-    return {name: flag.value for name, flag in six.iteritems(self._flags())}
+    return {name: flag.value for name, flag in self._flags().items()}
 
   def __str__(self):
     """Returns a help string for all known flags."""
@@ -819,40 +851,51 @@ class FlagValues(object):
     Args:
       prefix: str, per-line output prefix.
       include_special_flags: bool, whether to include description of
-        _SPECIAL_FLAGS, i.e. --flagfile and --undefok.
+        SPECIAL_FLAGS, i.e. --flagfile and --undefok.
 
     Returns:
       str, formatted help message.
     """
-    helplist = []
-
     flags_by_module = self.flags_by_module_dict()
     if flags_by_module:
       modules = sorted(flags_by_module)
-
       # Print the help for the main module first, if possible.
       main_module = sys.argv[0]
       if main_module in modules:
         modules.remove(main_module)
         modules = [main_module] + modules
-
-      for module in modules:
-        self._render_our_module_flags(module, helplist, prefix)
-      if include_special_flags:
-        self._render_module_flags(
-            'absl.flags',
-            _helpers.SPECIAL_FLAGS._flags().values(),  # pylint: disable=protected-access
-            helplist,
-            prefix)
+      return self._get_help_for_modules(modules, prefix, include_special_flags)
     else:
+      output_lines = []
       # Just print one long list of flags.
-      values = six.itervalues(self._flags())
+      values = self._flags().values()
       if include_special_flags:
         values = itertools.chain(
-            values, six.itervalues(_helpers.SPECIAL_FLAGS._flags()))  # pylint: disable=protected-access
-      self._render_flag_list(values, helplist, prefix)
+            values, _helpers.SPECIAL_FLAGS._flags().values())  # pylint: disable=protected-access
+      self._render_flag_list(values, output_lines, prefix)
+      return '\n'.join(output_lines)
 
-    return '\n'.join(helplist)
+  def _get_help_for_modules(self, modules, prefix, include_special_flags):
+    """Returns the help string for a list of modules.
+
+    Private to absl.flags package.
+
+    Args:
+      modules: List[str], a list of modules to get the help string for.
+      prefix: str, a string that is prepended to each generated help line.
+      include_special_flags: bool, whether to include description of
+        SPECIAL_FLAGS, i.e. --flagfile and --undefok.
+    """
+    output_lines = []
+    for module in modules:
+      self._render_our_module_flags(module, output_lines, prefix)
+    if include_special_flags:
+      self._render_module_flags(
+          'absl.flags',
+          _helpers.SPECIAL_FLAGS._flags().values(),  # pylint: disable=protected-access
+          output_lines,
+          prefix)
+    return '\n'.join(output_lines)
 
   def _render_module_flags(self, module, flags, output_lines, prefix=''):
     """Returns a help string for a given module."""
@@ -863,7 +906,7 @@ class FlagValues(object):
 
   def _render_our_module_flags(self, module, output_lines, prefix=''):
     """Returns a help string for a given module."""
-    flags = self._get_flags_defined_by_module(module)
+    flags = self.get_flags_for_module(module)
     if flags:
       self._render_module_flags(module, flags, output_lines, prefix)
 
@@ -872,8 +915,8 @@ class FlagValues(object):
 
     Args:
       module: module|str, the module to render key flags for.
-      output_lines: [str], a list of strings.  The generated help message
-          lines will be appended to this list.
+      output_lines: [str], a list of strings.  The generated help message lines
+        will be appended to this list.
       prefix: str, a string that is prepended to each generated help line.
     """
     key_flags = self.get_key_flags_for_module(module)
@@ -915,10 +958,12 @@ class FlagValues(object):
         # a different flag is using this name now
         continue
       # only print help once
-      if flag in flagset: continue
+      if flag in flagset:
+        continue
       flagset[flag] = 1
       flaghelp = ''
-      if flag.short_name: flaghelp += '-%s,' % flag.short_name
+      if flag.short_name:
+        flaghelp += '-%s,' % flag.short_name
       if flag.boolean:
         flaghelp += '--[no]%s:' % flag.name
       else:
@@ -927,15 +972,15 @@ class FlagValues(object):
       if flag.help:
         flaghelp += flag.help
       flaghelp = _helpers.text_wrap(
-          flaghelp, indent=prefix+'  ', firstline_indent=prefix)
+          flaghelp, indent=prefix + '  ', firstline_indent=prefix)
       if flag.default_as_str:
         flaghelp += '\n'
         flaghelp += _helpers.text_wrap(
-            '(default: %s)' % flag.default_as_str, indent=prefix+'  ')
+            '(default: %s)' % flag.default_as_str, indent=prefix + '  ')
       if flag.parser.syntactic_help:
         flaghelp += '\n'
         flaghelp += _helpers.text_wrap(
-            '(%s)' % flag.parser.syntactic_help, indent=prefix+'  ')
+            '(%s)' % flag.parser.syntactic_help, indent=prefix + '  ')
       output_lines.append(flaghelp)
 
   def get_flag_value(self, name, default):  # pylint: disable=invalid-name
@@ -957,7 +1002,7 @@ class FlagValues(object):
 
   def _is_flag_file_directive(self, flag_string):
     """Checks whether flag_string contain a --flagfile=<foo> directive."""
-    if isinstance(flag_string, type('')):
+    if isinstance(flag_string, str):
       if flag_string.startswith('--flagfile='):
         return 1
       elif flag_string == '--flagfile':
@@ -991,8 +1036,7 @@ class FlagValues(object):
     elif flagfile_str.startswith('-flagfile='):
       return os.path.expanduser((flagfile_str[(len('-flagfile=')):]).strip())
     else:
-      raise _exceptions.Error(
-          'Hit illegal --flagfile type: %s' % flagfile_str)
+      raise _exceptions.Error('Hit illegal --flagfile type: %s' % flagfile_str)
 
   def _get_flag_file_lines(self, filename, parsed_file_stack=None):
     """Returns the useful (!=comments, etc) lines from a file with flags.
@@ -1013,6 +1057,9 @@ class FlagValues(object):
     EVERYTHING except whitespace lines and comments (lines starting
     with '#' or '//').
     """
+    # For consistency with the cpp version, ignore empty values.
+    if not filename:
+      return []
     if parsed_file_stack is None:
       parsed_file_stack = []
     # We do a little safety check for reparsing a file we've already encountered
@@ -1063,11 +1110,11 @@ class FlagValues(object):
 
     Args:
       argv: [str], a list of strings, usually sys.argv[1:], which may contain
-          one or more flagfile directives of the form --flagfile="./filename".
-          Note that the name of the program (sys.argv[0]) should be omitted.
-      force_gnu: bool, if False, --flagfile parsing obeys normal flag semantics.
-          If True, --flagfile parsing instead follows gnu_getopt semantics.
-          *** WARNING *** force_gnu=False may become the future default!
+        one or more flagfile directives of the form --flagfile="./filename".
+        Note that the name of the program (sys.argv[0]) should be omitted.
+      force_gnu: bool, if False, --flagfile parsing obeys the
+        FLAGS.is_gnu_getopt() value. If True, ignore the value and always follow
+        gnu_getopt semantics.
 
     Returns:
       A new list which has the original list combined with what we read
@@ -1087,14 +1134,15 @@ class FlagValues(object):
     using absl.flags DEFINE_flag() type functions.
 
     Notes (assuming we're getting a commandline of some sort as our input):
-    --> For duplicate flags, the last one we hit should "win".
-    --> Since flags that appear later win, a flagfile's settings can be "weak"
+
+    * For duplicate flags, the last one we hit should "win".
+    * Since flags that appear later win, a flagfile's settings can be "weak"
         if the --flagfile comes at the beginning of the argument sequence,
         and it can be "strong" if the --flagfile comes at the end.
-    --> A further "--flagfile=<otherfile.cfg>" CAN be nested in a flagfile.
+    * A further "--flagfile=<otherfile.cfg>" CAN be nested in a flagfile.
         It will be expanded in exactly the spot where it is found.
-    --> In a flagfile, a line beginning with # or // is a comment.
-    --> Entirely blank lines _should_ be ignored.
+    * In a flagfile, a line beginning with # or // is a comment.
+    * Entirely blank lines _should_ be ignored.
     """
     rest_of_args = argv
     new_argv = []
@@ -1124,8 +1172,8 @@ class FlagValues(object):
           if not force_gnu and not self.__dict__['__use_gnu_getopt']:
             break
         else:
-          if ('=' not in current_arg and
-              rest_of_args and not rest_of_args[0].startswith('-')):
+          if ('=' not in current_arg and rest_of_args and
+              not rest_of_args[0].startswith('-')):
             # If this is an occurrence of a legitimate --x y, skip the value
             # so that it won't be mistaken for a standalone arg.
             fl = self._flags()
@@ -1151,11 +1199,15 @@ class FlagValues(object):
 
     Returns:
       str, the string with the flags assignments from this FlagValues object.
+      The flags are ordered by (module_name, flag_name).
     """
+    module_flags = sorted(self.flags_by_module_dict().items())
     s = ''
-    for flag in self._flags().values():
-      if flag.value is not None:
-        s += flag.serialize() + '\n'
+    for unused_module_name, flags in module_flags:
+      flags = sorted(flags, key=lambda f: f.name)
+      for flag in flags:
+        if flag.value is not None:
+          s += flag.serialize() + '\n'
     return s
 
   def append_flags_into_file(self, filename):
@@ -1189,16 +1241,17 @@ class FlagValues(object):
     all_flag = doc.createElement('AllFlags')
     doc.appendChild(all_flag)
 
-    all_flag.appendChild(_helpers.create_xml_dom_element(
-        doc, 'program', os.path.basename(sys.argv[0])))
+    all_flag.appendChild(
+        _helpers.create_xml_dom_element(doc, 'program',
+                                        os.path.basename(sys.argv[0])))
 
     usage_doc = sys.modules['__main__'].__doc__
     if not usage_doc:
       usage_doc = '\nUSAGE: %s [flags]\n' % sys.argv[0]
     else:
       usage_doc = usage_doc.replace('%s', sys.argv[0])
-    all_flag.appendChild(_helpers.create_xml_dom_element(
-        doc, 'usage', usage_doc))
+    all_flag.appendChild(
+        _helpers.create_xml_dom_element(doc, 'usage', usage_doc))
 
     # Get list of key flags for the main module.
     key_flags = self.get_key_flags_for_module(sys.argv[0])
@@ -1212,15 +1265,15 @@ class FlagValues(object):
       flag_list.sort()
       for unused_flag_name, flag in flag_list:
         is_key = flag in key_flags
-        all_flag.appendChild(flag._create_xml_dom_element(  # pylint: disable=protected-access
-            doc, module_name, is_key=is_key))
+        all_flag.appendChild(
+            flag._create_xml_dom_element(  # pylint: disable=protected-access
+                doc,
+                module_name,
+                is_key=is_key))
 
     outfile = outfile or sys.stdout
-    if six.PY2:
-      outfile.write(doc.toprettyxml(indent='  ', encoding='utf-8'))
-    else:
-      outfile.write(
-          doc.toprettyxml(indent='  ', encoding='utf-8').decode('utf-8'))
+    outfile.write(
+        doc.toprettyxml(indent='  ', encoding='utf-8').decode('utf-8'))
     outfile.flush()
 
   def _check_method_name_conflicts(self, name, flag):
@@ -1239,6 +1292,127 @@ class FlagValues(object):
                 name=flag_name, class_name=type(self).__name__))
 
 
-
-
 FLAGS = FlagValues()
+
+
+class FlagHolder(Generic[_T]):
+  """Holds a defined flag.
+
+  This facilitates a cleaner api around global state. Instead of::
+
+      flags.DEFINE_integer('foo', ...)
+      flags.DEFINE_integer('bar', ...)
+
+      def method():
+        # prints parsed value of 'bar' flag
+        print(flags.FLAGS.foo)
+        # runtime error due to typo or possibly bad coding style.
+        print(flags.FLAGS.baz)
+
+  it encourages code like::
+
+      _FOO_FLAG = flags.DEFINE_integer('foo', ...)
+      _BAR_FLAG = flags.DEFINE_integer('bar', ...)
+
+      def method():
+        print(_FOO_FLAG.value)
+        print(_BAR_FLAG.value)
+
+  since the name of the flag appears only once in the source code.
+  """
+
+  def __init__(self, flag_values, flag, ensure_non_none_value=False):
+    """Constructs a FlagHolder instance providing typesafe access to flag.
+
+    Args:
+      flag_values: The container the flag is registered to.
+      flag: The flag object for this flag.
+      ensure_non_none_value: Is the value of the flag allowed to be None.
+    """
+    self._flagvalues = flag_values
+    # We take the entire flag object, but only keep the name. Why?
+    # - We want FlagHolder[T] to be generic container
+    # - flag_values contains all flags, so has no reference to T.
+    # - typecheckers don't like to see a generic class where none of the ctor
+    #   arguments refer to the generic type.
+    self._name = flag.name
+    # We intentionally do NOT check if the default value is None.
+    # This allows future use of this for "required flags with None default"
+    self._ensure_non_none_value = ensure_non_none_value
+
+  def __eq__(self, other):
+    raise TypeError(
+        "unsupported operand type(s) for ==: '{0}' and '{1}' "
+        "(did you mean to use '{0}.value' instead?)".format(
+            type(self).__name__, type(other).__name__))
+
+  def __bool__(self):
+    raise TypeError(
+        "bool() not supported for instances of type '{0}' "
+        "(did you mean to use '{0}.value' instead?)".format(
+            type(self).__name__))
+
+  __nonzero__ = __bool__
+
+  @property
+  def name(self):
+    return self._name
+
+  @property
+  def value(self):
+    """Returns the value of the flag.
+
+    If ``_ensure_non_none_value`` is ``True``, then return value is not
+    ``None``.
+
+    Raises:
+      UnparsedFlagAccessError: if flag parsing has not finished.
+      IllegalFlagValueError: if value is None unexpectedly.
+    """
+    val = getattr(self._flagvalues, self._name)
+    if self._ensure_non_none_value and val is None:
+      raise _exceptions.IllegalFlagValueError(
+          'Unexpected None value for flag %s' % self._name)
+    return val
+
+  @property
+  def default(self):
+    """Returns the default value of the flag."""
+    return self._flagvalues[self._name].default
+
+  @property
+  def present(self):
+    """Returns True if the flag was parsed from command-line flags."""
+    return bool(self._flagvalues[self._name].present)
+
+
+def resolve_flag_ref(flag_ref, flag_values):
+  """Helper to validate and resolve a flag reference argument."""
+  if isinstance(flag_ref, FlagHolder):
+    new_flag_values = flag_ref._flagvalues  # pylint: disable=protected-access
+    if flag_values != FLAGS and flag_values != new_flag_values:
+      raise ValueError(
+          'flag_values must not be customized when operating on a FlagHolder')
+    return flag_ref.name, new_flag_values
+  return flag_ref, flag_values
+
+
+def resolve_flag_refs(flag_refs, flag_values):
+  """Helper to validate and resolve flag reference list arguments."""
+  fv = None
+  names = []
+  for ref in flag_refs:
+    if isinstance(ref, FlagHolder):
+      newfv = ref._flagvalues  # pylint: disable=protected-access
+      name = ref.name
+    else:
+      newfv = flag_values
+      name = ref
+    if fv and fv != newfv:
+      raise ValueError(
+          'multiple FlagValues instances used in invocation. '
+          'FlagHolders must be registered to the same FlagValues instance as '
+          'do flag names, if provided.')
+    fv = newfv
+    names.append(name)
+  return names, fv

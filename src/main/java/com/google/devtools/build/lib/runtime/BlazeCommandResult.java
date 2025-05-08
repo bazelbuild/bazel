@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.protobuf.Any;
@@ -38,21 +39,24 @@ public final class BlazeCommandResult {
   @Nullable private final ExecRequest execDescription;
   private final ImmutableList<Any> responseExtensions;
   private final boolean shutdown;
+  private final ImmutableList<IdleTask> idleTasks;
 
   private BlazeCommandResult(
       DetailedExitCode detailedExitCode,
       @Nullable ExecRequest execDescription,
       boolean shutdown,
-      ImmutableList<Any> responseExtensions) {
+      ImmutableList<Any> responseExtensions,
+      ImmutableList<IdleTask> idleTasks) {
     this.detailedExitCode = Preconditions.checkNotNull(detailedExitCode);
     this.execDescription = execDescription;
     this.shutdown = shutdown;
     this.responseExtensions = responseExtensions;
+    this.idleTasks = idleTasks;
   }
 
   private BlazeCommandResult(
       DetailedExitCode detailedExitCode, @Nullable ExecRequest execDescription, boolean shutdown) {
-    this(detailedExitCode, execDescription, shutdown, ImmutableList.of());
+    this(detailedExitCode, execDescription, shutdown, ImmutableList.of(), ImmutableList.of());
   }
 
   public ExitCode getExitCode() {
@@ -85,6 +89,10 @@ public final class BlazeCommandResult {
     return responseExtensions;
   }
 
+  public ImmutableList<IdleTask> getIdleTasks() {
+    return idleTasks;
+  }
+
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
@@ -92,6 +100,7 @@ public final class BlazeCommandResult {
         .add("failureDetail", getFailureDetail())
         .add("execDescription", execDescription)
         .add("shutdown", shutdown)
+        .add("responseExtensions", responseExtensions)
         .toString();
   }
 
@@ -118,7 +127,21 @@ public final class BlazeCommandResult {
   public static BlazeCommandResult withResponseExtensions(
       BlazeCommandResult result, ImmutableList<Any> responseExtensions) {
     return new BlazeCommandResult(
-        result.detailedExitCode, result.execDescription, result.shutdown, responseExtensions);
+        result.detailedExitCode,
+        result.execDescription,
+        result.shutdown,
+        responseExtensions,
+        result.idleTasks);
+  }
+
+  public static BlazeCommandResult withIdleTasks(
+      BlazeCommandResult result, ImmutableList<IdleTask> idleTasks) {
+    return new BlazeCommandResult(
+        result.detailedExitCode,
+        result.execDescription,
+        result.shutdown,
+        result.responseExtensions,
+        idleTasks);
   }
 
   public static BlazeCommandResult execute(ExecRequest execDescription) {

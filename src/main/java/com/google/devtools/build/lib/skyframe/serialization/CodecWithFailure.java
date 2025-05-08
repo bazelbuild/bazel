@@ -15,13 +15,12 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 
 /**
  * A codec that throws an error whenever used. For usage in versions of Bazel that should never be
  * serialing the instances of the type T.
  */
-public class CodecWithFailure<T> implements ObjectCodec<T> {
+public class CodecWithFailure<T> extends LeafObjectCodec<T> {
 
   private final String message;
   private final Class<?> clazz;
@@ -38,14 +37,14 @@ public class CodecWithFailure<T> implements ObjectCodec<T> {
   }
 
   @Override
-  public void serialize(SerializationContext context, T obj, CodedOutputStream codedOut)
-      throws SerializationException, IOException {
+  public void serialize(LeafSerializationContext context, T obj, CodedOutputStream codedOut)
+      throws SerializationException {
     throw new SerializationException(message);
   }
 
   @Override
-  public T deserialize(DeserializationContext context, CodedInputStream codedIn)
-      throws SerializationException, IOException {
+  public T deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
+      throws SerializationException {
     throw new SerializationException(message);
   }
 }

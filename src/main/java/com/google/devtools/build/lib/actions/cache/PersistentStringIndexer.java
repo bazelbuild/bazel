@@ -13,33 +13,207 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
+import static java.lang.Math.max;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
-import com.google.devtools.build.lib.util.CanonicalStringIndexer;
+import com.google.devtools.build.lib.util.MapCodec;
 import com.google.devtools.build.lib.util.PersistentMap;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.io.DataInput;
+import java.io.DataOutput;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.Nullable;
 
 /**
- * Persistent version of the CanonicalStringIndexer.
+ * Persistent implementation of {@link StringIndexer}.
  *
- * <p>This class is backed by a PersistentMap that holds one direction of the canonicalization
- * mapping. The other direction is handled purely in memory and reconstituted at load-time.
+ * <p>This class is backed by a {@link PersistentMap} that holds one direction of the
+ * canonicalization mapping. The other direction is handled purely in memory and reconstituted at
+ * load-time.
  *
- * <p>Thread-safety is ensured by locking on all mutating operations from the superclass. Read-only
- * operations are not locked, but rather backed by ConcurrentMaps.
+ * <p>Thread-safety is ensured by locking on all mutating operations. Read-only operations are not
+ * locked.
  */
-@ConditionallyThreadSafe // condition: each instance must instantiated with
-// different dataFile.
-final class PersistentStringIndexer extends CanonicalStringIndexer {
+@ConditionallyThreadSafe // Each instance must be instantiated with a different dataPath.
+final class PersistentStringIndexer implements StringIndexer {
+
+  private static final int INITIAL_CAPACITY = 8192;
+
+  /** Instantiates and loads instance of the persistent string indexer. */
+  static PersistentStringIndexer create(Path dataPath, Path journalPath, Clock clock)
+      throws IOException {
+    PersistentIndexMap stringToInt = new PersistentIndexMap(dataPath, journalPath, clock);
+
+    // INITIAL_CAPACITY or the next power of two greater than the size.
+    int capacity = max(INITIAL_CAPACITY, Integer.highestOneBit(stringToInt.size()) << 1);
+
+    var intToString = new AtomicReferenceArray<String>(capacity);
+    for (Map.Entry<String, Integer> entry : stringToInt.entrySet()) {
+      int index = entry.getValue();
+      if (index < 0 || index >= capacity) {
+        throw new IOException(
+            String.format(
+                "Corrupted filename index %d out of bounds for length %d (map size %d)",
+                index, capacity, stringToInt.size()));
+      }
+      if (intToString.getAndSet(index, entry.getKey()) != null) {
+        throw new IOException("Corrupted filename index has duplicate entry: " + entry.getKey());
+      }
+    }
+    return new PersistentStringIndexer(stringToInt, intToString);
+  }
+
+  private final ReentrantLock lock = new ReentrantLock();
+
+  // These two fields act similarly to a (synchronized) BiMap. Mutating operations are performed in
+  // synchronized blocks. Reads are done lock-free.
+  private final PersistentIndexMap stringToInt;
+  private volatile AtomicReferenceArray<String> intToString;
+
+  private PersistentStringIndexer(
+      PersistentIndexMap stringToInt, AtomicReferenceArray<String> intToString) {
+    this.stringToInt = stringToInt;
+    this.intToString = intToString;
+  }
+
+  @Override
+  public void clear() {
+    lock.lock();
+    try {
+      stringToInt.clear();
+      intToString = new AtomicReferenceArray<>(INITIAL_CAPACITY);
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  @Override
+  public int size() {
+    return stringToInt.size();
+  }
+
+  @Override
+  public Integer getOrCreateIndex(String s) {
+    Integer i = stringToInt.get(s);
+    if (i != null) {
+      return i;
+    }
+    s = s.intern();
+    lock.lock();
+    try {
+      i = stringToInt.size();
+      Integer existing = stringToInt.putIfAbsent(s, i);
+      if (existing != null) {
+        return existing; // Another thread won the race.
+      }
+      int capacity = intToString.length();
+      if (i == capacity) {
+        intToString = copyOf(intToString, capacity * 2);
+      }
+      intToString.set(i, s);
+      return i;
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  private static AtomicReferenceArray<String> copyOf(
+      AtomicReferenceArray<String> oldArray, int newCapacity) {
+    var newArray = new AtomicReferenceArray<String>(newCapacity);
+    for (int j = 0; j < oldArray.length(); j++) {
+      newArray.setPlain(j, oldArray.getPlain(j));
+    }
+    return newArray;
+  }
+
+  @Override
+  @Nullable
+  public Integer getIndex(String s) {
+    return stringToInt.get(s);
+  }
+
+  @Override
+  @Nullable
+  public String getStringForIndex(Integer i) {
+    if (i < 0) {
+      return null;
+    }
+    var snapshot = intToString;
+    return i < snapshot.length() ? snapshot.get(i) : null;
+  }
+
+  /** Saves index data to the file. */
+  long save() throws IOException {
+    lock.lock();
+    try {
+      return stringToInt.save();
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /** Flushes the journal. */
+  void flush() {
+    lock.lock();
+    try {
+      stringToInt.flush();
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  @Override
+  public String toString() {
+    lock.lock();
+    try {
+      StringBuilder builder = new StringBuilder();
+      builder.append("size = ").append(size()).append("\n");
+      for (Map.Entry<String, Integer> entry : stringToInt.entrySet()) {
+        builder.append(entry.getKey()).append(" <==> ").append(entry.getValue()).append("\n");
+      }
+      return builder.toString();
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  private static final MapCodec<String, Integer> CODEC =
+      new MapCodec<String, Integer>() {
+        @Override
+        protected String readKey(DataInput in) throws IOException {
+          int length = in.readInt();
+          if (length < 0) {
+            throw new IOException("corrupt key length: " + length);
+          }
+          byte[] content = new byte[length];
+          in.readFully(content);
+          return new String(content, UTF_8);
+        }
+
+        @Override
+        protected Integer readValue(DataInput in) throws IOException {
+          return in.readInt();
+        }
+
+        @Override
+        protected void writeKey(String key, DataOutput out) throws IOException {
+          byte[] content = key.getBytes(UTF_8);
+          out.writeInt(content.length);
+          out.write(content);
+        }
+
+        @Override
+        protected void writeValue(Integer value, DataOutput out) throws IOException {
+          out.writeInt(value);
+        }
+      };
 
   /**
    * Persistent metadata map. Used as a backing map to provide a persistent implementation of the
@@ -52,21 +226,17 @@ final class PersistentStringIndexer extends CanonicalStringIndexer {
     private final Clock clock;
     private long nextUpdate;
 
-    public PersistentIndexMap(Path mapFile, Path journalFile, Clock clock) throws IOException {
-      super(
-          VERSION,
-          PersistentStringIndexer.<String, Integer>newConcurrentMap(INITIAL_ENTRIES),
-          mapFile,
-          journalFile);
+    PersistentIndexMap(Path mapFile, Path journalFile, Clock clock) throws IOException {
+      super(VERSION, CODEC, new ConcurrentHashMap<>(INITIAL_CAPACITY), mapFile, journalFile);
       this.clock = clock;
       nextUpdate = clock.nanoTime();
-      load(/* failFast= */ true);
+      load();
     }
 
     @Override
-    protected boolean updateJournal() {
+    protected boolean shouldFlushJournal() {
       long time = clock.nanoTime();
-      if (SAVE_INTERVAL_NS == 0 || time > nextUpdate) {
+      if (SAVE_INTERVAL_NS == 0L || time > nextUpdate) {
         nextUpdate = time + SAVE_INTERVAL_NS;
         return true;
       }
@@ -74,85 +244,12 @@ final class PersistentStringIndexer extends CanonicalStringIndexer {
     }
 
     @Override
-    @Nullable
     public Integer remove(Object object) {
       throw new UnsupportedOperationException();
     }
 
-    public void flush() {
-      super.forceFlush();
-    }
-
-    @Override
-    protected String readKey(DataInputStream in) throws IOException {
-      int length = in.readInt();
-      if (length < 0) {
-        throw new IOException("corrupt key length: " + length);
-      }
-      byte[] content = new byte[length];
-      in.readFully(content);
-      return StringCanonicalizer.intern(bytes2string(content));
-    }
-
-    @Override
-    protected Integer readValue(DataInputStream in) throws IOException {
-      return in.readInt();
-    }
-
-    @Override
-    protected void writeKey(String key, DataOutputStream out) throws IOException {
-      byte[] content = string2bytes(key);
-      out.writeInt(content.length);
-      out.write(content);
-    }
-
-    @Override
-    protected void writeValue(Integer value, DataOutputStream out) throws IOException {
-      out.writeInt(value);
+    void flush() {
+      flushJournal();
     }
   }
-
-  private final PersistentIndexMap persistentIndexMap;
-  private static final int INITIAL_ENTRIES = 10000;
-
-  /**
-   * Instantiates and loads instance of the persistent string indexer.
-   */
-  static PersistentStringIndexer newPersistentStringIndexer(Path dataPath,
-                                                            Clock clock) throws IOException {
-    PersistentIndexMap persistentIndexMap = new PersistentIndexMap(dataPath,
-        FileSystemUtils.replaceExtension(dataPath, ".journal"), clock);
-    Map<Integer, String> reverseMapping = newConcurrentMap(INITIAL_ENTRIES);
-    for (Map.Entry<String, Integer> entry : persistentIndexMap.entrySet()) {
-      if (reverseMapping.put(entry.getValue(), entry.getKey()) != null) {
-        throw new IOException("Corrupted filename index has duplicate entry: " + entry.getKey());
-      }
-    }
-    return new PersistentStringIndexer(persistentIndexMap, reverseMapping);
-  }
-
-  private PersistentStringIndexer(PersistentIndexMap stringToInt,
-                                  Map<Integer, String> intToString) {
-    super(stringToInt, intToString);
-    this.persistentIndexMap = stringToInt;
-  }
-
-  /**
-   * Saves index data to the file.
-   */
-  synchronized long save() throws IOException {
-    return persistentIndexMap.save();
-  }
-
-  /**
-   * Flushes the journal.
-   */
-  synchronized void flush() {
-    persistentIndexMap.flush();
-  }
-
-  private static <K, V> ConcurrentMap<K, V> newConcurrentMap(int expectedCapacity) {
-    return new ConcurrentHashMap<>(expectedCapacity);
-  }
-
 }

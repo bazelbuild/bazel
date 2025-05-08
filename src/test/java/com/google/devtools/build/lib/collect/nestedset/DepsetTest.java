@@ -85,8 +85,10 @@ public final class DepsetTest {
     // getSet argument must be a legal Starlark value class, or Object,
     // but not some superclass that doesn't implement StarlarkValue.
     Depset ints =
-        Depset.legacyOf(
-            Order.STABLE_ORDER, Tuple.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)));
+        Depset.of(
+            StarlarkInt.class,
+            NestedSetBuilder.create(
+                Order.STABLE_ORDER, StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)));
     assertThat(ints.getSet(StarlarkInt.class).toString()).isEqualTo("[1, 2, 3]");
     IllegalArgumentException ex =
         assertThrows(IllegalArgumentException.class, () -> ints.getSet(Number.class));
@@ -278,10 +280,10 @@ public final class DepsetTest {
     //  (b) at least one order is "default"
 
     for (Order first : Order.values()) {
-      Depset s1 = Depset.legacyOf(first, Tuple.of("1", "11"));
+      Depset s1 = Depset.of(String.class, NestedSetBuilder.create(first, "1", "11"));
 
       for (Order second : Order.values()) {
-        Depset s2 = Depset.legacyOf(second, Tuple.of("2", "22"));
+        Depset s2 = Depset.of(String.class, NestedSetBuilder.create(second, "2", "22"));
 
         boolean compatible = true;
 
@@ -403,5 +405,31 @@ public final class DepsetTest {
             "in call to depset(), parameter 'direct' got value of type 'string', want 'sequence or"
                 + " NoneType'",
             "depset(direct='hello')");
+  }
+
+  @Test
+  public void testEmptyDepsetInternedPerOrder() throws Exception {
+    ev.exec(
+        "stable1 = depset()",
+        "stable2 = depset()",
+        "preorder1 = depset(order = 'preorder')",
+        "preorder2 = depset(order = 'preorder')");
+    assertThat(ev.lookup("stable1")).isSameInstanceAs(ev.lookup("stable2"));
+    assertThat(ev.lookup("preorder1")).isSameInstanceAs(ev.lookup("preorder2"));
+    assertThat(ev.lookup("stable1")).isNotSameInstanceAs(ev.lookup("preorder1"));
+    assertThat(ev.lookup("stable2")).isNotSameInstanceAs(ev.lookup("preorder2"));
+  }
+
+  @Test
+  public void testSingleNonEmptyTransitiveAndNoDirectsUnwrapped() throws Exception {
+    ev.exec(
+        "inner = depset([1, 2, 3])", "outer = depset(transitive = [depset(), inner, depset()])");
+    assertThat(ev.lookup("outer")).isSameInstanceAs(ev.lookup("inner"));
+  }
+
+  @Test
+  public void testSingleNonEmptyTransitiveAndMatchingDirectUnwrapped() throws Exception {
+    ev.exec("inner = depset([1])", "outer = depset([1], transitive = [depset(), inner, depset()])");
+    assertThat(ev.lookup("outer")).isSameInstanceAs(ev.lookup("inner"));
   }
 }

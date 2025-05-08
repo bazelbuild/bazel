@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Remote Caching
 
+{% include "_buttons.html" %}
+
 This page covers remote caching, setting up a server to host the cache, and
 running builds using the remote cache.
 
@@ -35,7 +37,7 @@ The remote cache stores two types of data:
 
 Note that the remote cache additionally stores the stdout and stderr for every
 action. Inspecting the stdout/stderr of Bazel thus is not a good signal for
-[estimating cache hits](/docs/remote-caching-debug).
+[estimating cache hits](/remote/cache-local).
 
 ### How a build uses remote caching {:#remote-caching}
 
@@ -248,12 +250,12 @@ build --remote_upload_local_results=false
 ### Exclude specific targets from using the remote cache {:#targets-remote-cache}
 
 To exclude specific targets from using the remote cache, tag the target with
-`no-cache`. For example:
+`no-remote-cache`. For example:
 
 ```starlark
 java_library(
     name = "target",
-    tags = ["no-cache"],
+    tags = ["no-remote-cache"],
 )
 ```
 
@@ -281,7 +283,7 @@ domain socket:
 
 ```posix-terminal
    build --remote_cache=http://{{ '<var>' }}your.host:port{{ '</var>' }}
-   build --remote_cache_proxy=unix:/{{ '<var>' }}path/to/socket{{ '</var>' }}
+   build --remote_proxy=unix:/{{ '<var>' }}path/to/socket{{ '</var>' }}
 ```
 
 This feature is unsupported on Windows.
@@ -290,9 +292,8 @@ This feature is unsupported on Windows.
 
 Bazel can use a directory on the file system as a remote cache. This is
 useful for sharing build artifacts when switching branches and/or working
-on multiple workspaces of the same project, such as multiple checkouts. Since
-Bazel does not garbage-collect the directory, you might want to automate a
-periodic cleanup of this directory. Enable the disk cache as follows:
+on multiple workspaces of the same project, such as multiple checkouts.
+Enable the disk cache as follows:
 
 ```posix-terminal
 build --disk_cache={{ '<var>' }}path/to/build/cache{{ '</var>' }}
@@ -302,6 +303,18 @@ You can pass a user-specific path to the `--disk_cache` flag using the `~` alias
 (Bazel will substitute the current user's home directory). This comes in handy
 when enabling the disk cache for all developers of a project via the project's
 checked in `.bazelrc` file.
+
+### Garbage collection {:#disk-cache-gc}
+
+Starting with Bazel 7.4, you can use `--experimental_disk_cache_gc_max_size` and
+`--experimental_disk_cache_gc_max_age` to set a maximum size for the disk cache
+or for the age of individual cache entries. Bazel will automatically garbage
+collect the disk cache while idling between builds; the idle timer can be set
+with `--experimental_disk_cache_gc_idle_delay` (defaulting to 5 minutes).
+
+As an alternative to automatic garbage collection, we also provide a [tool](
+https://github.com/bazelbuild/bazel/tree/master/src/tools/diskcache) to run a
+garbage collection on demand.
 
 ## Known issues {:#known-issues}
 
@@ -346,8 +359,8 @@ and Bazel must rebuild it before using the remote cache.
 * **Faster Bazel builds with remote caching: a benchmark:** Nicolò Valigi wrote a [blog post](https://nicolovaligi.com/faster-bazel-remote-caching-benchmark.html){: .external}
 in which he benchmarks remote caching in Bazel.
 
-* [Adapting Rules for Remote Execution](/docs/remote-execution-rules)
-* [Troubleshooting Remote Execution](/docs/remote-execution-sandbox)
+* [Adapting Rules for Remote Execution](/remote/rules)
+* [Troubleshooting Remote Execution](/remote/sandbox)
 * [WebDAV module](https://nginx.org/en/docs/http/ngx_http_dav_module.html){: .external}
 * [Docker image](https://hub.docker.com/r/buchgr/bazel-remote-cache/){: .external}
 * [bazel-remote](https://github.com/buchgr/bazel-remote/){: .external}
@@ -365,3 +378,4 @@ in which he benchmarks remote caching in Bazel.
 * [BuildGrid](https://gitlab.com/BuildGrid/buildgrid){: .external}
 * [issue #4558](https://github.com/bazelbuild/bazel/issues/4558){: .external}
 * [Application Authentication](https://cloud.google.com/docs/authentication/production){: .external}
+* [NativeLink](https://github.com/TraceMachina/nativelink){: .external}

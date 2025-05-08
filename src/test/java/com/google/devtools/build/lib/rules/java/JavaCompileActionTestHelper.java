@@ -28,6 +28,8 @@ import java.util.Set;
  */
 public final class JavaCompileActionTestHelper {
 
+  public static final String JAVA_LANGUAGE_VERSION_FOR_TESTING = "21";
+
   public static Set<String> getDirectJars(JavaCompileAction javac) throws Exception {
     return getOptions(javac).directJars();
   }
@@ -84,10 +86,6 @@ public final class JavaCompileActionTestHelper {
 
   public static List<String> getSourcePathEntries(JavaCompileAction javac) throws Exception {
     return getOptions(javac).getSourcePath();
-  }
-
-  public static List<String> getBootclasspath(JavaCompileAction javac) throws Exception {
-    return getOptions(javac).getBootClassPath();
   }
 
   /** Returns the JavaBuilder command line, up to the main class or deploy jar. */

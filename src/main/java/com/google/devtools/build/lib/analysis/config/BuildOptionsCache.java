@@ -15,11 +15,13 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.google.auto.value.AutoValue;
-import java.util.function.BiFunction;
+import com.google.devtools.build.lib.events.EventHandler;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 
 /**
  * Protects against excessive memory consumption when the same transition applies multiple times.
@@ -41,9 +43,16 @@ public final class BuildOptionsCache<T> {
 
   private final Cache<CacheKey<T>, BuildOptions> cache = Caffeine.newBuilder().softValues().build();
 
-  private final BiFunction<BuildOptionsView, T, BuildOptions> transition;
+  /** An interface describing a function representing the transition used in this cache. */
+  @FunctionalInterface
+  public interface CacheRetrievalFunction<A, T, B, C> {
+    public C apply(A fromOptions, T context, B eventHandler) throws InterruptedException;
+  }
 
-  public BuildOptionsCache(BiFunction<BuildOptionsView, T, BuildOptions> transition) {
+  private final CacheRetrievalFunction<BuildOptionsView, T, EventHandler, BuildOptions> transition;
+
+  public BuildOptionsCache(
+      CacheRetrievalFunction<BuildOptionsView, T, EventHandler, BuildOptions> transition) {
     this.transition = checkNotNull(transition);
   }
 
@@ -55,10 +64,25 @@ public final class BuildOptionsCache<T> {
    * @param fromOptions the starting options
    * @param context an additional object that affects the transition's result
    */
-  public BuildOptions applyTransition(BuildOptionsView fromOptions, T context) {
-    return cache.get(
-        CacheKey.create(fromOptions.underlying().checksum(), context),
-        unused -> transition.apply(fromOptions, context));
+  public BuildOptions applyTransition(
+      BuildOptionsView fromOptions, T context, @Nullable EventHandler eventHandler)
+      throws InterruptedException {
+    final AtomicReference<InterruptedException> interruptedException = new AtomicReference<>();
+    var ans =
+        cache.get(
+            CacheKey.create(fromOptions.underlying().checksum(), context),
+            unused -> {
+              try {
+                return transition.apply(fromOptions, context, eventHandler);
+              } catch (InterruptedException e) {
+                interruptedException.set(e);
+                return null;
+              }
+            });
+    if (interruptedException.get() != null) {
+      throw interruptedException.get();
+    }
+    return ans;
   }
 
   /**
@@ -67,14 +91,14 @@ public final class BuildOptionsCache<T> {
    *
    * @param <T> the type of the context object
    */
-  @AutoValue
-  abstract static class CacheKey<T> {
-    abstract String checksum();
-
-    abstract T context();
+  record CacheKey<T>(String checksum, T context) {
+    CacheKey {
+      requireNonNull(checksum, "checksum");
+      requireNonNull(context, "context");
+    }
 
     static <T> CacheKey<T> create(String checksum, T context) {
-      return new AutoValue_BuildOptionsCache_CacheKey<>(checksum, context);
+      return new CacheKey<>(checksum, context);
     }
   }
 }

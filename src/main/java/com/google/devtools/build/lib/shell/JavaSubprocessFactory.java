@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.shell;
 
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,6 +24,7 @@ import java.io.OutputStream;
 import java.lang.ProcessBuilder.Redirect;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 
 /** A subprocess factory that uses {@link java.lang.ProcessBuilder}. */
 public class JavaSubprocessFactory implements SubprocessFactory {
@@ -73,21 +76,13 @@ public class JavaSubprocessFactory implements SubprocessFactory {
 
     @Override
     public void waitFor() throws InterruptedException {
-      if (deadlineMillis > 0) {
-        // Careful: I originally used Long.MAX_VALUE if there's no timeout. This is safe with
-        // Process, but not for the UNIXProcess subclass, which has an integer overflow for very
-        // large timeouts. As of this writing, it converts the passed in value to nanos (which
-        // saturates at Long.MAX_VALUE), then adds 999999 to round up (which overflows), converts
-        // back to millis, and then calls Object.wait with a negative timeout, which throws.
-        long waitTimeMillis = deadlineMillis - System.currentTimeMillis();
-        boolean exitedInTime = process.waitFor(waitTimeMillis, TimeUnit.MILLISECONDS);
-        if (!exitedInTime && deadlineExceeded.compareAndSet(false, true)) {
-          process.destroy();
-          // The destroy call returns immediately, so we still need to wait for the actual exit. The
-          // sole caller assumes that waitFor only exits when the process is gone (or throws).
-          process.waitFor();
-        }
-      } else {
+      var waitTimeMillis =
+          (deadlineMillis > 0) ? deadlineMillis - System.currentTimeMillis() : Long.MAX_VALUE;
+      var exitedInTime = process.waitFor(waitTimeMillis, TimeUnit.MILLISECONDS);
+      if (!exitedInTime && deadlineExceeded.compareAndSet(false, true)) {
+        process.destroy();
+        // The destroy call returns immediately, so we still need to wait for the actual exit. The
+        // sole caller assumes that waitFor only exits when the process is gone (or throws).
         process.waitFor();
       }
     }
@@ -120,6 +115,7 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   }
 
   public static final JavaSubprocessFactory INSTANCE = new JavaSubprocessFactory();
+  private final ReentrantLock lock = new ReentrantLock();
 
   private JavaSubprocessFactory() {
     // We are a singleton
@@ -142,18 +138,41 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   // I was able to reproduce this problem reliably by running significantly more threads than
   // there are CPU cores on my workstation - the more threads the more likely it happens.
   //
-  // As a workaround, we put a synchronized block around the fork.
-  private synchronized Process start(ProcessBuilder builder) throws IOException {
-    return builder.start();
+  // As a workaround, we use a lock around the fork.
+  private Process start(ProcessBuilder builder) throws IOException {
+    lock.lock();
+    try {
+      return builder.start();
+    } catch (IOException e) {
+      if (e.getMessage().contains("Failed to exec spawn helper")) {
+        // Detect permanent failures due to an upgrade of the underlying JDK version,
+        // see https://bugs.openjdk.org/browse/JDK-8325621.
+        throw new IllegalStateException(
+            "Subprocess creation has failed, the current JDK version is newer than the version"
+                + " used at startup. Re-rerunning the blaze invocation should succeed.",
+            e);
+      }
+      throw e;
+    } finally {
+      lock.unlock();
+    }
   }
 
   @Override
   public Subprocess create(SubprocessBuilder params) throws IOException {
     ProcessBuilder builder = new ProcessBuilder();
-    builder.command(params.getArgv());
+    builder.command(Lists.transform(params.getArgv(), StringEncoding::internalToPlatform));
     if (params.getEnv() != null) {
       builder.environment().clear();
-      builder.environment().putAll(params.getEnv());
+      params
+          .getEnv()
+          .forEach(
+              (key, value) ->
+                  builder
+                      .environment()
+                      .put(
+                          StringEncoding.internalToPlatform(key),
+                          StringEncoding.internalToPlatform(value)));
     }
 
     builder.redirectOutput(getRedirect(params.getStdout(), params.getStdoutFile()));

@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.profiler;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.stream.JsonReader;
@@ -31,90 +32,106 @@ import javax.annotation.Nullable;
  * <p>Format is documented in
  * https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview
  */
-@AutoValue
-public abstract class TraceEvent {
+public record TraceEvent(
+    @Nullable String category,
+    String name,
+    @Nullable String type,
+    @Nullable Duration timestamp,
+    @Nullable Duration duration,
+    long processId,
+    long threadId,
+    @Nullable ImmutableMap<String, Object> args,
+    @Nullable String primaryOutputPath,
+    @Nullable String targetLabel,
+    @Nullable String mnemonic,
+    @Nullable String configuration) {
+  public TraceEvent {
+    requireNonNull(name, "name");
+  }
+
   public static TraceEvent create(
       @Nullable String category,
       String name,
+      @Nullable String type,
       @Nullable Duration timestamp,
       @Nullable Duration duration,
+      long processId,
       long threadId,
+      @Nullable ImmutableMap<String, Object> args,
       @Nullable String primaryOutputPath,
       @Nullable String targetLabel,
-      @Nullable String mnemonic) {
-    return new AutoValue_TraceEvent(
-        category, name, timestamp, duration, threadId, primaryOutputPath, targetLabel, mnemonic);
+      @Nullable String mnemonic,
+      @Nullable String configuration) {
+    return new TraceEvent(
+        category,
+        name,
+        type,
+        timestamp,
+        duration,
+        processId,
+        threadId,
+        args,
+        primaryOutputPath,
+        targetLabel,
+        mnemonic,
+        configuration);
   }
 
-  @Nullable
-  public abstract String category();
-
-  public abstract String name();
-
-  @Nullable
-  public abstract Duration timestamp();
-
-  @Nullable
-  public abstract Duration duration();
-
-  public abstract long threadId();
-
   // Only applicable to action-related TraceEvents.
-  @Nullable
-  public abstract String primaryOutputPath();
-
-  @Nullable
-  public abstract String targetLabel();
-
-  @Nullable
-  public abstract String mnemonic();
 
   private static TraceEvent createFromJsonReader(JsonReader reader) throws IOException {
     String category = null;
     String name = null;
     Duration timestamp = null;
     Duration duration = null;
+    long processId = -1;
     long threadId = -1;
     String primaryOutputPath = null;
     String targetLabel = null;
     String mnemonic = null;
+    String type = null;
+    String configuration = null;
+    ImmutableMap<String, Object> args = null;
 
     reader.beginObject();
     while (reader.hasNext()) {
       switch (reader.nextName()) {
-        case "cat":
-          category = reader.nextString();
-          break;
-        case "name":
-          name = reader.nextString();
-          break;
-        case "ts":
-          // Duration has no microseconds :-/.
-          timestamp = Duration.ofNanos(reader.nextLong() * 1000);
-          break;
-        case "dur":
-          duration = Duration.ofNanos(reader.nextLong() * 1000);
-          break;
-        case "tid":
-          threadId = reader.nextLong();
-          break;
-        case "out":
-          primaryOutputPath = reader.nextString();
-          break;
-        case "args":
-          ImmutableMap<String, Object> args = parseMap(reader);
+        case "cat" -> category = reader.nextString();
+        case "name" -> name = reader.nextString();
+        case "ph" -> type = reader.nextString();
+        case "ts" ->
+            // Duration has no microseconds :-/.
+            timestamp = Duration.ofNanos(reader.nextLong() * 1000);
+        case "dur" -> duration = Duration.ofNanos(reader.nextLong() * 1000);
+        case "pid" -> processId = reader.nextLong();
+        case "tid" -> threadId = reader.nextLong();
+        case "out" -> primaryOutputPath = reader.nextString();
+        case "args" -> {
+          args = parseMap(reader);
           Object target = args.get("target");
           targetLabel = target instanceof String ? (String) target : null;
           Object mnemonicValue = args.get("mnemonic");
           mnemonic = mnemonicValue instanceof String ? (String) mnemonicValue : null;
-          break;
-        default:
-          reader.skipValue();
+          Object configurationValue = args.get("configuration");
+          configuration = configurationValue instanceof String ? (String) configurationValue : null;
+        }
+        default -> reader.skipValue();
       }
     }
     reader.endObject();
     return TraceEvent.create(
-        category, name, timestamp, duration, threadId, primaryOutputPath, targetLabel, mnemonic);
+        category,
+        name,
+        type,
+        timestamp,
+        duration,
+        processId,
+        threadId,
+        args,
+        primaryOutputPath,
+        targetLabel,
+        mnemonic,
+        configuration);
   }
 
   private static ImmutableMap<String, Object> parseMap(JsonReader reader) throws IOException {
@@ -147,24 +164,20 @@ public abstract class TraceEvent {
   @Nullable
   private static Object parseSingleValueRecursively(JsonReader reader) throws IOException {
     JsonToken nextToken = reader.peek();
-    switch (nextToken) {
-      case BOOLEAN:
-        return reader.nextBoolean();
-      case NULL:
+    return switch (nextToken) {
+      case BOOLEAN -> reader.nextBoolean();
+      case NULL -> {
         reader.nextNull();
-        return null;
-      case NUMBER:
-        // Json's only numeric type is number, using Double to accommodate all types
-        return reader.nextDouble();
-      case STRING:
-        return reader.nextString();
-      case BEGIN_OBJECT:
-        return parseMap(reader);
-      case BEGIN_ARRAY:
-        return parseArray(reader);
-      default:
-        throw new IOException("Unexpected token " + nextToken.name());
-    }
+        yield null;
+      }
+      case NUMBER ->
+          // Json's only numeric type is number, using Double to accommodate all types
+          reader.nextDouble();
+      case STRING -> reader.nextString();
+      case BEGIN_OBJECT -> parseMap(reader);
+      case BEGIN_ARRAY -> parseArray(reader);
+      default -> throw new IOException("Unexpected token " + nextToken.name());
+    };
   }
 
   public static List<TraceEvent> parseTraceEvents(JsonReader reader) throws IOException {

@@ -22,17 +22,21 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
+import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcConfigurationApi;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
 @Immutable
-@RequiresOptions(options = {CppOptions.class, ObjcCommandLineOptions.class})
-public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<PlatformType> {
+@RequiresOptions(options = {ObjcCommandLineOptions.class})
+public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi {
   @VisibleForTesting
   static final ImmutableList<String> DBG_COPTS =
       ImmutableList.of("-O0", "-DDEBUG=1", "-fstack-protector", "-fstack-protector-all", "-g");
@@ -49,46 +53,36 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
 
   private final DottedVersion iosSimulatorVersion;
   private final String iosSimulatorDevice;
-  private final DottedVersion watchosSimulatorVersion;
-  private final String watchosSimulatorDevice;
-  private final DottedVersion tvosSimulatorVersion;
-  private final String tvosSimulatorDevice;
-  // TODO(b/236152224): Delete after Starlark uses are migrated to CppConfiguration.
-  private final boolean generateLinkmap;
   private final boolean runMemleaks;
-  // TODO(b/236152224): Delete after Starlark uses are migrated to CppConfiguration.
-  private final ImmutableList<String> copts;
   private final CompilationMode compilationMode;
   private final ImmutableList<String> fastbuildOptions;
-  // TODO(b/236152224): Delete after Starlark uses are migrated to CppConfiguration.
-  private final boolean enableBinaryStripping;
   @Nullable private final String signingCertName;
   private final boolean debugWithGlibcxx;
   private final boolean deviceDebugEntitlements;
   private final boolean avoidHardcodedCompilationFlags;
+  private final boolean disallowSdkFrameworksAttributes;
+  private final boolean alwayslinkByDefault;
+  private final boolean stripExecutableSafely;
+  private final boolean builtinObjcStripAction;
 
   public ObjcConfiguration(BuildOptions buildOptions) {
     CoreOptions options = buildOptions.get(CoreOptions.class);
     ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
-    CppOptions cppOptions = buildOptions.get(CppOptions.class);
 
     this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
     this.iosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion);
-    this.watchosSimulatorDevice = objcOptions.watchosSimulatorDevice;
-    this.watchosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.watchosSimulatorVersion);
-    this.tvosSimulatorDevice = objcOptions.tvosSimulatorDevice;
-    this.tvosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.tvosSimulatorVersion);
-    this.generateLinkmap = cppOptions.objcGenerateLinkmap;
     this.runMemleaks = objcOptions.runMemleaks;
-    this.copts = ImmutableList.copyOf(cppOptions.objcoptList);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
-    this.enableBinaryStripping = cppOptions.objcEnableBinaryStripping;
     this.signingCertName = objcOptions.iosSigningCertName;
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
     this.avoidHardcodedCompilationFlags =
         objcOptions.incompatibleAvoidHardcodedObjcCompilationFlags;
+    this.disallowSdkFrameworksAttributes = objcOptions.incompatibleDisallowSdkFrameworksAttributes;
+    this.alwayslinkByDefault = objcOptions.incompatibleObjcAlwayslinkByDefault;
+    this.stripExecutableSafely = objcOptions.incompatibleStripExecutableSafely;
+    this.builtinObjcStripAction = objcOptions.incompatibleBuiltinObjcStripAction;
   }
 
   /**
@@ -104,44 +98,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   public DottedVersion getIosSimulatorVersion() {
     // TODO(bazel-team): Deprecate in favor of getSimulatorVersionForPlatformType(IOS).
     return iosSimulatorVersion;
-  }
-
-  @Override
-  public String getSimulatorDeviceForPlatformType(PlatformType platformType) {
-    switch (platformType) {
-      case IOS:
-        return iosSimulatorDevice;
-      case TVOS:
-        return tvosSimulatorDevice;
-      case WATCHOS:
-        return watchosSimulatorDevice;
-      default:
-        throw new IllegalArgumentException(
-            "ApplePlatform type " + platformType + " does not support " + "simulators.");
-    }
-  }
-
-  @Override
-  public DottedVersion getSimulatorVersionForPlatformType(PlatformType platformType) {
-    switch (platformType) {
-      case IOS:
-        return iosSimulatorVersion;
-      case TVOS:
-        return tvosSimulatorVersion;
-      case WATCHOS:
-        return watchosSimulatorVersion;
-      default:
-        throw new IllegalArgumentException(
-            "ApplePlatform type " + platformType + " does not support " + "simulators.");
-    }
-  }
-
-  /**
-   * Returns whether linkmap generation is enabled.
-   */
-  @Override
-  public boolean generateLinkmap() {
-    return generateLinkmap;
   }
 
   @Override
@@ -181,24 +137,6 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   }
 
   /**
-   * Returns options passed to (Apple) clang when compiling Objective C. These options should be
-   * applied after any default options but before options specified in the attributes of the rule.
-   */
-  @Override
-  public ImmutableList<String> getCopts() {
-    return copts;
-  }
-
-  /**
-   * Returns whether to perform symbol and dead-code strippings on linked binaries. The strippings
-   * are performed iff --compilation_mode=opt and --objc_enable_binary_stripping are specified.
-   */
-  @Override
-  public boolean shouldStripBinary() {
-    return this.enableBinaryStripping && getCompilationMode() == CompilationMode.OPT;
-  }
-
-  /**
    * Returns the flag-supplied certificate name to be used in signing or {@code null} if no such
    * certificate was specified.
    */
@@ -216,5 +154,49 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Override
   public boolean useDeviceDebugEntitlements() {
     return deviceDebugEntitlements && compilationMode != CompilationMode.OPT;
+  }
+
+  /** Returns whether sdk_frameworks and weak_sdk_frameworks attributes are disallowed. */
+  @Override
+  public boolean disallowSdkFrameworksAttributes() {
+    return disallowSdkFrameworksAttributes;
+  }
+
+  /** Returns whether objc_library and objc_import should default to alwayslink=True. */
+  @Override
+  public boolean alwayslinkByDefault() {
+    return alwayslinkByDefault;
+  }
+
+  /**
+   * Looks at any explicit value for alwayslink on ctx and then falls back to the value of
+   * alwayslink_by_default.
+   */
+  @Override
+  public boolean targetShouldAlwayslink(StarlarkRuleContext ruleContext, StarlarkThread thread)
+      throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
+
+    AttributeMap attributes = ruleContext.getRuleContext().attributes();
+    if (attributes.isAttributeValueExplicitlySpecified("alwayslink")) {
+      return attributes.get("alwayslink", Type.BOOLEAN);
+    }
+
+    return alwayslinkByDefault;
+  }
+
+  /**
+   * Returns whether executable strip action should use flag -x, which does not break dynamic symbol
+   * resolution.
+   */
+  @Override
+  public boolean stripExecutableSafely() {
+    return stripExecutableSafely;
+  }
+
+  /** Returns whether to emit a strip action as part of objc linking. */
+  @Override
+  public boolean builtinObjcStripAction() {
+    return builtinObjcStripAction;
   }
 }

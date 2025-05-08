@@ -14,16 +14,27 @@
 
 package com.google.devtools.build.lib.cmdline;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
+
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.regex.Pattern;
@@ -39,10 +50,12 @@ public final class RepositoryName {
 
   @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("");
 
-  private static final Pattern VALID_REPO_NAME = Pattern.compile("[\\w\\-.~]*");
+  @SerializationConstant static final RepositoryName BUILTINS = new RepositoryName("_builtins");
+
+  private static final Pattern VALID_REPO_NAME = Pattern.compile("[\\w\\-.+]*");
 
   // Must start with a letter. Can contain ASCII letters and digits, underscore, dash, and dot.
-  private static final Pattern VALID_USER_PROVIDED_NAME = Pattern.compile("[a-zA-Z][-.\\w]*$");
+  private static final Pattern VALID_USER_PROVIDED_NAME = Pattern.compile("[a-zA-Z0-9][-.\\w]*$");
 
   /**
    * A valid module name must: 1) begin with a lowercase letter; 2) end with a lowercase letter or a
@@ -56,7 +69,7 @@ public final class RepositoryName {
           .build(
               name -> {
                 validate(name);
-                return new RepositoryName(StringCanonicalizer.intern(name));
+                return new RepositoryName(name.intern());
               });
 
   /**
@@ -68,10 +81,14 @@ public final class RepositoryName {
     if (name.isEmpty()) {
       return MAIN;
     }
+    if (name.equals(BUILTINS.name)) {
+      return BUILTINS;
+    }
     try {
       return repositoryNameCache.get(name);
     } catch (CompletionException e) {
-      Throwables.propagateIfPossible(e.getCause(), LabelSyntaxException.class);
+      throwIfInstanceOf(e.getCause(), LabelSyntaxException.class);
+      throwIfUnchecked(e.getCause());
       throw e;
     }
   }
@@ -83,6 +100,9 @@ public final class RepositoryName {
       //   failing. This suggests to me that something is comparing RepositoryName objects using
       //   reference equality instead of #equals().
       return MAIN;
+    }
+    if (name.equals(BUILTINS.name)) {
+      return BUILTINS;
     }
     return repositoryNameCache.get(name);
   }
@@ -127,15 +147,29 @@ public final class RepositoryName {
    * not visible from the owner repository and should fail in {@code RepositoryDelegatorFunction}
    * when fetching the repository.
    */
-  private final RepositoryName ownerRepoIfNotVisible;
+  @Nullable private final RepositoryName ownerRepoIfNotVisible;
 
-  private RepositoryName(String name, RepositoryName ownerRepoIfNotVisible) {
+  /**
+   * If ownerRepoIfNotVisible is not null, this field stores the suffix to be appended to the error
+   */
+  @Nullable private final String didYouMeanSuffix;
+
+  private final int hashCode;
+
+  private RepositoryName(
+      String name,
+      @Nullable RepositoryName ownerRepoIfNotVisible,
+      @Nullable String didYouMeanSuffix) {
     this.name = name;
     this.ownerRepoIfNotVisible = ownerRepoIfNotVisible;
+    this.didYouMeanSuffix = didYouMeanSuffix;
+    this.hashCode =
+        31 * OsPathPolicy.getFilePathOs().hash(name)
+            + HashCodes.hashObjects(ownerRepoIfNotVisible, didYouMeanSuffix);
   }
 
   private RepositoryName(String name) {
-    this(name, null);
+    this(name, /* ownerRepoIfNotVisible= */ null, /* didYouMeanSuffix= */ null);
   }
 
   /**
@@ -143,33 +177,33 @@ public final class RepositoryName {
    * message is sanitized.
    */
   static void validate(String name) throws LabelSyntaxException {
-    if (name.isEmpty()) {
+    if (name.isEmpty() || name.equals(BUILTINS.name)) {
       return;
     }
 
     // Some special cases for more user-friendly error messages.
     if (name.equals(".") || name.equals("..")) {
       throw LabelParser.syntaxErrorf(
-          "invalid repository name '@%s': repo names are not allowed to be '@%s'", name, name);
+          "invalid repository name '%s': repo names are not allowed to be '%s'", name, name);
     }
 
     if (!VALID_REPO_NAME.matcher(name).matches()) {
       throw LabelParser.syntaxErrorf(
-          "invalid repository name '@%s': repo names may contain only A-Z, a-z, 0-9, '-', '_', '.'"
-              + " and '~'",
+          "invalid repository name '%s': repo names may contain only A-Z, a-z, 0-9, '-', '_', '.'"
+              + " and '+'",
           StringUtilities.sanitizeControlChars(name));
     }
   }
 
   /**
    * Validates a repo name provided by the user. Such names have tighter restrictions; for example,
-   * they can only start with a letter, and cannot contain a tilde (~).
+   * they can only start with a letter, and cannot contain a plus (+).
    */
   public static void validateUserProvidedRepoName(String name) throws EvalException {
     if (!VALID_USER_PROVIDED_NAME.matcher(name).matches()) {
       throw Starlark.errorf(
           "invalid user-provided repo name '%s': valid names may contain only A-Z, a-z, 0-9, '-',"
-              + " '_', '.', and must start with a letter",
+              + " '_', '.', and must start with a letter or a number",
           StringUtilities.sanitizeControlChars(name));
     }
   }
@@ -179,24 +213,44 @@ public final class RepositoryName {
     return name;
   }
 
+  /** Returns the marker file name for this repository. */
+  public String getMarkerFileName() {
+    return "@" + name + ".marker";
+  }
+
   /**
    * Create a {@link RepositoryName} instance that indicates the requested repository name is
    * actually not visible from the owner repository and should fail in {@code
    * RepositoryDelegatorFunction} when fetching with this {@link RepositoryName} instance.
    */
-  public RepositoryName toNonVisible(RepositoryName ownerRepo) {
+  public RepositoryName toNonVisible(RepositoryName ownerRepo, String didYouMeanSuffix) {
     Preconditions.checkNotNull(ownerRepo);
     Preconditions.checkArgument(ownerRepo.isVisible());
-    return new RepositoryName(name, ownerRepo);
+    Preconditions.checkNotNull(didYouMeanSuffix);
+    return new RepositoryName(name, ownerRepo, didYouMeanSuffix);
+  }
+
+  @VisibleForTesting
+  public RepositoryName toNonVisible(RepositoryName ownerRepo) {
+    return toNonVisible(ownerRepo, "");
   }
 
   public boolean isVisible() {
     return ownerRepoIfNotVisible == null;
   }
 
-  @Nullable
-  public RepositoryName getOwnerRepoIfNotVisible() {
-    return ownerRepoIfNotVisible;
+  public boolean isOwnerRepoMainRepo() {
+    return !isVisible() && ownerRepoIfNotVisible.isMain();
+  }
+
+  // Must only be called if isVisible() returns true.
+  public String getOwnerRepoDisplayString() {
+    Preconditions.checkNotNull(ownerRepoIfNotVisible);
+    if (ownerRepoIfNotVisible.isMain()) {
+      return "main repository";
+    } else {
+      return String.format("repository '%s'", ownerRepoIfNotVisible);
+    }
   }
 
   /** Returns if this is the main repository. */
@@ -204,22 +258,74 @@ public final class RepositoryName {
     return equals(MAIN);
   }
 
-  /** Returns the repository name, with leading "{@literal @}". */
+  /**
+   * Returns the repository name, with two leading "{@literal @}"s, indicating that this is a
+   * canonical repo name.
+   */
+  // TODO(bazel-team): Rename to "getCanonicalForm".
   public String getNameWithAt() {
     if (!isVisible()) {
       return String.format(
-          "@[unknown repo '%s' requested from %s]", name, ownerRepoIfNotVisible.getNameWithAt());
+          "@@[unknown repo '%s' requested from %s%s]",
+          name, ownerRepoIfNotVisible, didYouMeanSuffix);
     }
-    return '@' + name;
+    return "@@" + name;
   }
 
   /**
-   * Returns the repository name with leading "{@literal @}" except for the main repo, which is just
-   * the empty string.
+   * Returns the repository name with leading "{@literal @}"s except for the main repo, which is
+   * just the empty string.
    */
-  // TODO(bazel-team): Consider renaming to "getDefaultForm".
+  // TODO(bazel-team): Rename to "getDefaultForm".
   public String getCanonicalForm() {
     return isMain() ? "" : getNameWithAt();
+  }
+
+  /**
+   * Returns the repository part of a {@link Label}'s string representation suitable for display.
+   * The returned string is as simple as possible in the context of the main repo whose repository
+   * mapping is provided: an empty string for the main repo, or a string prefixed with a leading
+   * "{@literal @}" or "{@literal @@}" otherwise.
+   *
+   * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
+   * @return
+   *     <dl>
+   *       <dt>the empty string
+   *       <dd>if this is the main repository
+   *       <dt><code>@protobuf</code>
+   *       <dd>if this repository is a WORKSPACE dependency and its <code>name</code> is "protobuf",
+   *           or if this repository is a Bzlmod dependency of the main module and its apparent name
+   *           is "protobuf" (in both cases only if mainRepositoryMapping is not null)
+   *       <dt><code>@@protobuf+</code>
+   *       <dd>only with Bzlmod, if this a repository that is not visible from the main module
+   */
+  public String getDisplayForm(@Nullable RepositoryMapping mainRepositoryMapping) {
+    Preconditions.checkArgument(
+        mainRepositoryMapping == null
+            || mainRepositoryMapping.ownerRepo() == null
+            || mainRepositoryMapping.ownerRepo().isMain());
+    if (!isVisible()) {
+      return getNameWithAt();
+    }
+    if (isMain()) {
+      // Packages in the main repository can always use repo-relative form.
+      return "";
+    }
+    if (mainRepositoryMapping == null) {
+      return getNameWithAt();
+    }
+    if (!mainRepositoryMapping.usesStrictDeps()) {
+      // If the main repository mapping is not using strict visibility, then Bzlmod is certainly
+      // disabled, which means that canonical and apparent names can be used interchangeably from
+      // the context of the main repository.
+      return '@' + getName();
+    }
+    // If possible, represent the repository with a non-canonical label using the apparent name the
+    // main repository has for it, otherwise fall back to a canonical label.
+    return mainRepositoryMapping
+        .getInverse(this)
+        .map(apparentName -> "@" + apparentName)
+        .orElse(getNameWithAt());
   }
 
   /**
@@ -250,7 +356,7 @@ public final class RepositoryName {
         : PathFragment.create("..").getRelative(getName());
   }
 
-  /** Returns the repository name, with leading "{@literal @}". */
+  /** Same as {@link #getNameWithAt}. */
   @Override
   public String toString() {
     return getNameWithAt();
@@ -261,16 +367,47 @@ public final class RepositoryName {
     if (this == object) {
       return true;
     }
-    if (!(object instanceof RepositoryName)) {
+    if (!(object instanceof RepositoryName other)) {
       return false;
     }
-    RepositoryName other = (RepositoryName) object;
     return OsPathPolicy.getFilePathOs().equals(name, other.name)
-        && Objects.equals(ownerRepoIfNotVisible, other.ownerRepoIfNotVisible);
+        && Objects.equals(ownerRepoIfNotVisible, other.ownerRepoIfNotVisible)
+        && Objects.equals(didYouMeanSuffix, other.didYouMeanSuffix);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(OsPathPolicy.getFilePathOs().hash(name), ownerRepoIfNotVisible);
+    return hashCode;
+  }
+
+  public static Codec repositoryNameCodec() {
+    return Codec.INSTANCE;
+  }
+
+  private static final class Codec extends LeafObjectCodec<RepositoryName> {
+    private static final Codec INSTANCE = new Codec();
+
+    @Override
+    public Class<RepositoryName> getEncodedClass() {
+      return RepositoryName.class;
+    }
+
+    @Override
+    public void serialize(
+        LeafSerializationContext context, RepositoryName obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serializeLeaf(obj.getName(), stringCodec(), codedOut);
+      context.serializeLeaf(obj.ownerRepoIfNotVisible, this, codedOut);
+      context.serializeLeaf(obj.didYouMeanSuffix, stringCodec(), codedOut);
+    }
+
+    @Override
+    public RepositoryName deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      return new RepositoryName(
+          context.deserializeLeaf(codedIn, stringCodec()),
+          context.deserializeLeaf(codedIn, this),
+          context.deserializeLeaf(codedIn, stringCodec()));
+    }
   }
 }

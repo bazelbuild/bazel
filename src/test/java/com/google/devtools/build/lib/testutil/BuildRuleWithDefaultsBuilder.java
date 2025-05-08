@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.ListType;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
@@ -112,7 +113,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
       }
       label = getDummyFileLabel(rulePkg, filePkg, extension, attrType);
     } else {
-      Predicate<RuleClass> allowedRuleClasses = attribute.getAllowedRuleClassesPredicate();
+      Predicate<RuleClass> allowedRuleClasses = attribute.getAllowedRuleClassObjectPredicate();
       if (allowedRuleClasses != Predicates.<RuleClass>alwaysFalse()) {
         // See if there is an applicable rule among the already enqueued rules
         BuildRuleBuilder referencedRuleBuilder = getFirstApplicableRule(attribute);
@@ -140,7 +141,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
 
   private boolean doesRuleClassMatch(Attribute attribute, RuleClass ruleClass) {
     // The rule class isn't in the allowed list.
-    if (!attribute.getAllowedRuleClassesPredicate().apply(ruleClass)) {
+    if (!attribute.getAllowedRuleClassObjectPredicate().apply(ruleClass)) {
       return false;
     }
 
@@ -206,7 +207,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
 
   @CanIgnoreReturnValue
   public BuildRuleWithDefaultsBuilder populateAttributes(String rulePkg, boolean heuristics) {
-    for (Attribute attribute : ruleClass.getAttributes()) {
+    for (Attribute attribute : ruleClass.getAttributeProvider().getAttributes()) {
       if (attribute.isMandatory()) {
         if (BuildType.isLabelType(attribute.getType())) {
           // TODO(bazel-team): actually an empty list would be fine in the case where
@@ -225,7 +226,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
             populateBooleanAttribute(attribute);
           } else if (attribute.getType() == Type.INTEGER) {
             populateIntegerAttribute(attribute);
-          } else if (attribute.getType() == Type.STRING_LIST) {
+          } else if (attribute.getType() == Types.STRING_LIST) {
             populateStringListAttribute(attribute);
           }
         }

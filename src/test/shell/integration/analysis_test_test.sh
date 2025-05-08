@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -51,11 +51,6 @@ msys*|mingw*|cygwin*)
   declare -r is_windows=false
   ;;
 esac
-
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
 
 function test_passing_test() {
   mkdir -p package

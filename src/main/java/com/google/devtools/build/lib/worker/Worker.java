@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.sandbox.Cgroup;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.Path;
@@ -25,6 +27,7 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
+import javax.annotation.Nullable;
 
 /**
  * An abstract superclass for persistent workers. Workers execute actions in long-running processes
@@ -34,22 +37,29 @@ public abstract class Worker {
 
   /** An unique identifier of the work process. */
   protected final WorkerKey workerKey;
+
   /** An unique ID of the worker. It will be used in WorkRequest and WorkResponse as well. */
   protected final int workerId;
+
   /** The path of the log file for this worker. */
   protected final Path logFile;
 
-  public Worker(WorkerKey workerKey, int workerId, Path logFile) {
+  public Worker(WorkerKey workerKey, int workerId, Path logFile, WorkerProcessStatus status) {
     this.workerKey = workerKey;
     this.workerId = workerId;
     this.logFile = logFile;
+    this.status = status;
   }
+
+  protected final WorkerProcessStatus status;
+
+  @Nullable protected Cgroup cgroup = null;
 
   /**
    * Returns a unique id for this worker. This is used to distinguish different worker processes in
    * logs and messages.
    */
-  int getWorkerId() {
+  public int getWorkerId() {
     return this.workerId;
   }
 
@@ -61,6 +71,14 @@ public abstract class Worker {
   /** Returns the worker key of this worker */
   public WorkerKey getWorkerKey() {
     return workerKey;
+  }
+
+  public WorkerProcessStatus getStatus() {
+    return status;
+  }
+
+  public Cgroup getCgroup() {
+    return cgroup;
   }
 
   HashCode getWorkerFilesCombinedHash() {
@@ -86,7 +104,7 @@ public abstract class Worker {
    */
   public abstract void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
-      throws IOException;
+      throws IOException, InterruptedException, UserExecException;
 
   /**
    * Sends a WorkRequest to the worker.
@@ -114,7 +132,10 @@ public abstract class Worker {
    * @param execRoot The global execRoot, where outputs must go.
    * @param outputs The expected outputs.
    */
-  public abstract void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException;
+  public void finishExecution(Path execRoot, SandboxOutputs outputs)
+      throws IOException, InterruptedException {
+    status.maybeUpdateStatus(WorkerProcessStatus.Status.ALIVE);
+  }
 
   /**
    * Destroys this worker. Once this has been called, we assume it's safe to clean up related
@@ -134,6 +155,6 @@ public abstract class Worker {
    */
   abstract String getRecordingStreamMessage();
 
-  /** Returns process id pf worker, if process started. Otherwise returns -1. */
+  /** Returns process id of the worker, if the process already started. Otherwise returns -1. */
   abstract long getProcessId();
 }

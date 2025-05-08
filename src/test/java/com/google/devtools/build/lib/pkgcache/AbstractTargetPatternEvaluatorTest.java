@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.util.Pair;
@@ -103,7 +103,7 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
 
   @Before
   public final void initializeParser() throws Exception {
-    setUpSkyframe(ConstantRuleVisibility.PRIVATE);
+    setUpSkyframe(RuleVisibility.PRIVATE);
     parser = skyframeExecutor.newTargetPatternPreloader();
     parsingListener = new RecordingParsingListener(reporter);
   }
@@ -134,8 +134,7 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
     @Override
     public void post(Postable post) {
       super.post(post);
-      if (post instanceof ParsingFailedEvent) {
-        ParsingFailedEvent e = (ParsingFailedEvent) post;
+      if (post instanceof ParsingFailedEvent e) {
         events.add(Pair.of(e.getPattern(), e.getMessage()));
       }
     }

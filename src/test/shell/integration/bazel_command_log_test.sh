@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -36,15 +36,20 @@ function strip_lines_from_bazel_cc() {
   clean_log=$(\
     sed \
     -e "/^INFO: Reading 'startup' options from /d" \
-    -e '/^\$TEST_TMPDIR defined: output root default is/d' \
+    -e '/^\$TEST_TMPDIR defined, some defaults will be overridden/d' \
     -e '/^OpenJDK 64-Bit Server VM warning: ignoring option UseSeparateVSpacesInYoungGen; support was removed in 8.0/d' \
-    -e '/^Starting local B[azel]* server and connecting to it\.\.\.\.*$/d' \
-    -e '/^\.\.\. still trying to connect to local B[azel]* server ([0-9]+) after [1-9][0-9]* seconds \.\.\.\.*$/d' \
+    -e '/^Starting local B[azel]* server (.*) and connecting to it\.\.\.\.*$/d' \
+    -e '/^\.\.\. still trying to connect to local B[azel]* server ([1-9][0-9]*) after [1-9][0-9]* seconds \.\.\.\.*$/d' \
     -e '/^Killed non-responsive server process/d' \
     -e '/server needs to be killed, because the startup options are different/d' \
     -e '/^WARNING: Waiting for server process to terminate (waited 5 seconds, waiting at most 60)$/d' \
     -e '/^WARNING: The startup option --host_javabase is deprecated; prefer --server_javabase.$/d' \
     -e '/^WARNING: The home directory is not defined, no home_rc will be looked for.$/d' \
+    -e '/^WARNING: ignoring JAVA_TOOL_OPTIONS in environment.$/d' \
+    -e '/^WARNING: The following rc files are no longer being read, please transfer their contents or import their path into one of the standard rc files:$/d' \
+    -e '/^\/etc\/bazel.bazelrc$/d' \
+    -e '/Options -Xverify:none and -noverify were deprecated in JDK 13 and will likely be removed in a future release/d' \
+    -e '/^E[0-9]* /d' \
     $TEST_log)
 
   echo "$clean_log" > $TEST_log
@@ -68,7 +73,7 @@ function strip_protobuf_unsafe_warning() {
 
 function test_batch_mode() {
   # capture stdout/stderr in $TEST_log
-  bazel --batch info >&$TEST_log || fail "Expected success"
+  bazel --batch info --write_command_log >&$TEST_log || fail "Expected success"
 
   # strip extra lines printed by bazel.cc
   strip_lines_from_bazel_cc
@@ -79,7 +84,8 @@ function test_batch_mode() {
 }
 
 function test_batch_mode_with_logging_flag() {
-  bazel --batch info --logging 6 >&$TEST_log || fail "Expected success"
+  bazel --batch info --write_command_log --logging 6 >&$TEST_log \
+    || fail "Expected success"
   LOG_FILE="$(grep -E "^server_log: .*" "${TEST_log}" \
       | sed -e "s/server_log: //")" \
       || fail "grep for server_log path failed"
@@ -97,7 +103,7 @@ function test_batch_mode_with_logging_flag() {
 
 function test_client_server_mode() {
   # capture stdout/stderr in $TEST_log
-  bazel info >&$TEST_log || fail "Expected success"
+  bazel info --write_command_log >&$TEST_log || fail "Expected success"
 
   # strip extra lines printed by bazel.cc
   strip_lines_from_bazel_cc
@@ -108,13 +114,25 @@ function test_client_server_mode() {
 
 function test_client_server_mode_with_logging_flag() {
   # capture stdout/stderr in $TEST_log
-  bazel info --logging 6 >&$TEST_log || fail "Expected success"
+  bazel info --write_command_log --logging 6 >&$TEST_log \
+    || fail "Expected success"
 
   # strip extra lines printed by bazel.cc
   strip_lines_from_bazel_cc
 
   # compare $TEST_log with command.log
   assert_equals "" "$(diff $TEST_log $log 2>&1)"
+}
+
+# TODO: b/231429363 - Remove this test once the startup --write_command_log flag
+# is removed from the cpp launcher.
+function test_write_command_log_startup_options_ignored() {
+  possible_command_log_path="$(bazel --write_command_log info command_log)" \
+    || fail "Expected success"
+
+  if [[ -e "${possible_command_log_path}" ]]; then
+    fail "Expected command log path to be empty"
+  fi
 }
 
 run_suite "Integration tests of ${PRODUCT_NAME} command log."

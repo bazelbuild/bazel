@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfoWithMessage;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
@@ -36,12 +38,13 @@ public final class StarlarkInfoCodecTest {
         ImmutableMap.of("a", StarlarkInt.of(1), "b", StarlarkInt.of(2), "c", StarlarkInt.of(3));
     StarlarkProvider provider = makeProvider();
     new SerializationTester(
-            StarlarkInfo.create(provider, map, /*loc=*/ null),
+            StarlarkInfo.create(provider, map, /* loc= */ null),
             // empty
-            StarlarkInfo.create(provider, ImmutableMap.of(), /*loc=*/ null),
+            StarlarkInfo.create(provider, ImmutableMap.of(), /* loc= */ null),
             // with an error message
-            StarlarkInfo.createWithCustomMessage(provider, map, "Dummy error: %s"),
-            StarlarkInfo.createWithCustomMessage(StructProvider.STRUCT, map, "Dummy error: %s"))
+            StarlarkInfoWithMessage.createWithCustomMessage(provider, map, "Dummy error: %s"),
+            StarlarkInfoWithMessage.createWithCustomMessage(
+                StructProvider.STRUCT, map, "Dummy error: %s"))
         .addDependency(StructProvider.class, StructProvider.STRUCT)
         .makeMemoizing()
         .setVerificationFunction(StarlarkInfoCodecTest::verificationFunction)
@@ -54,12 +57,12 @@ public final class StarlarkInfoCodecTest {
         .containsExactlyElementsIn(original.getFieldNames())
         .inOrder();
   }
-  ;
 
   /** Returns an exported, schemaless provider. */
   private static StarlarkProvider makeProvider() {
     return StarlarkProvider.builder(Location.BUILTIN)
-        .setExported(new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//foo:bar.bzl"), "foo"))
-        .build();
+        .buildExported(
+            new StarlarkProvider.Key(
+                keyForBuild(Label.parseCanonicalUnchecked("//foo:bar.bzl")), "foo"));
   }
 }

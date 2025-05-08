@@ -36,17 +36,24 @@ public class VersionTest {
   }
 
   @Test
+  public void testNormalized() throws Exception {
+    assertThat(Version.parse("1.0").getNormalized()).isEqualTo("1.0");
+    assertThat(Version.parse("1.0+build").getNormalized()).isEqualTo("1.0");
+    assertThat(Version.parse("1.0-pre").getNormalized()).isEqualTo("1.0-pre");
+    assertThat(Version.parse("1.0-pre+build-kek.lol").getNormalized()).isEqualTo("1.0-pre");
+    assertThat(Version.parse("1.0+build-notpre").getNormalized()).isEqualTo("1.0");
+  }
+
+  @Test
   public void testReleaseVersion() throws Exception {
     assertThat(Version.parse("2.0")).isGreaterThan(Version.parse("1.0"));
     assertThat(Version.parse("2.0")).isGreaterThan(Version.parse("1.9"));
     assertThat(Version.parse("11.0")).isGreaterThan(Version.parse("3.0"));
     assertThat(Version.parse("1.0.1")).isGreaterThan(Version.parse("1.0"));
     assertThat(Version.parse("1.0.0")).isGreaterThan(Version.parse("1.0"));
-    assertThat(Version.parse("1.0+build2"))
-        .isEquivalentAccordingToCompareTo(Version.parse("1.0+build3"));
+    assertThat(Version.parse("1.0+build2")).isEqualTo(Version.parse("1.0+build3"));
     assertThat(Version.parse("1.0")).isGreaterThan(Version.parse("1.0-pre"));
-    assertThat(Version.parse("1.0"))
-        .isEquivalentAccordingToCompareTo(Version.parse("1.0+build-notpre"));
+    assertThat(Version.parse("1.0")).isEqualTo(Version.parse("1.0+build-notpre"));
   }
 
   @Test
@@ -70,14 +77,18 @@ public class VersionTest {
     assertThat(Version.parse("1.0-pre.99")).isLessThan(Version.parse("1.0-pre.2a"));
     assertThat(Version.parse("1.0-pre.patch.3")).isLessThan(Version.parse("1.0-pre.patch.4"));
     assertThat(Version.parse("1.0--")).isLessThan(Version.parse("1.0----"));
+    assertThat(Version.parse("2.1.1-develop.bcr.20250113215904"))
+        .isGreaterThan(Version.parse("2.1.1-develop.bcr.20250113215903"));
   }
 
   @Test
-  public void testParseException() throws Exception {
+  public void testParseException() {
     assertThrows(ParseException.class, () -> Version.parse("-abc"));
     assertThrows(ParseException.class, () -> Version.parse("1_2"));
     assertThrows(ParseException.class, () -> Version.parse("ßážëł"));
     assertThrows(ParseException.class, () -> Version.parse("1.0-pre?"));
+    assertThrows(
+        ParseException.class, () -> Version.parse("1.0-11111111111111111111111111111111111111111"));
     assertThrows(ParseException.class, () -> Version.parse("1.0-pre///"));
     assertThrows(ParseException.class, () -> Version.parse("1..0"));
     assertThrows(ParseException.class, () -> Version.parse("1.0-pre..erp"));

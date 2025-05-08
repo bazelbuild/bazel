@@ -3,19 +3,37 @@ Book: /_book.yaml
 
 # Labels
 
+{% include "_buttons.html" %}
 
-All targets belong to exactly one package. The name of a target is
-called its _label_.  Every label uniquely identifies a target. A
-typical label in canonical form looks like:
+A **label** is an identifier for a target. A typical label in its full canonical
+form looks like:
+
+```none
+@@myrepo//my/app/main:app_binary
+```
+
+The first part of the label is the repository name, `@@myrepo`. The double-`@`
+syntax signifies that this is a [*canonical* repo
+name](/external/overview#canonical-repo-name), which is unique within
+the workspace. Labels with canonical repo names unambiguously identify a target
+no matter which context they appear in.
+
+Often the canonical repo name is an arcane string that looks like
+`@@rules_java++toolchains+local_jdk`. What is much more commonly seen is
+labels with an [*apparent* repo name](/external/overview#apparent-repo-name),
+which looks like:
 
 ```
 @myrepo//my/app/main:app_binary
 ```
 
-The first part of the label is the repository name, `@myrepo//`.
+The only difference is the repo name being prefixed with one `@` instead of two.
+This refers to a repo with the apparent name `myrepo`, which could be different
+based on the context this label appears in.
+
 In the typical case that a label refers to the same repository from which
-it is used, the repository identifier may be abbreviated as `//`.
-So, inside `@myrepo` this label is usually written as
+it is used, the repo name part may be omitted.  So, inside `@@myrepo` the first
+label is usually written as
 
 ```
 //my/app/main:app_binary
@@ -25,9 +43,9 @@ The second part of the label is the un-qualified package name
 `my/app/main`, the path to the package
 relative to the repository root.  Together, the repository name and the
 un-qualified package name form the fully-qualified package name
-`@myrepo//my/app/main`. When the label refers to the same
+`@@myrepo//my/app/main`. When the label refers to the same
 package it is used in, the package name (and optionally, the colon)
-may be omitted.  So, inside `@myrepo//my/app/main`,
+may be omitted.  So, inside `@@myrepo//my/app/main`,
 this label may be written either of the following ways:
 
 ```
@@ -55,15 +73,21 @@ this file is in the `my/app/main/testdata` subdirectory of the repository:
 //my/app/main:testdata/input.txt
 ```
 
-Don't confuse labels like `//my/app` with package names. Labels _always_ start
-with a repository identifier (often abbreviated `//`), but package names never
-do. Thus, `my/app` is the package containing `//my/app/lib` (which can also be
-written as `//my/app/lib:lib`).
+Strings like `//my/app` and `@@some_repo//my/app` have two meanings depending on
+the context in which they are used: when Bazel expects a label, they mean
+`//my/app:app` and `@@some_repo//my/app:app`, respectively. But, when Bazel
+expects a package (e.g. in `package_group` specifications), they reference the
+package that contains that label.
 
-A common misconception is that `//my/app` refers to a package, or to _all_ the
-targets in a package; neither is true.  Remember, it is equivalent to
-`//my/app:app`, so it names the `app` target in the `my/app` package of the
-current repository).
+A common mistake in `BUILD` files is using `//my/app` to refer to a package, or
+to *all* targets in a package--it does not.  Remember, it is
+equivalent to `//my/app:app`, so it names the `app` target in the `my/app`
+package of the current repository.
+
+However, the use of `//my/app` to refer to a package is encouraged in the
+specification of a `package_group` or in `.bzl` files, because it clearly
+communicates that the package name is absolute and rooted in the top-level
+directory of the workspace.
 
 Relative labels cannot be used to refer to targets in other packages; the
 repository identifier and package name must always be specified in this case.
@@ -82,9 +106,9 @@ are two ways (one wrong, one correct) to refer to this file within
 
 
 
-Labels starting with `@//` are references to the main
+Labels starting with `@@//` are references to the main
 repository, which will still work even from external repositories.
-Therefore `@//a/b/c` is different from
+Therefore `@@//a/b/c` is different from
 `//a/b/c` when referenced from an external repository.
 The former refers back to the main repository, while the latter
 looks for `//a/b/c` in the external repository itself.
@@ -93,14 +117,14 @@ repository that refer to targets in the main repository, and will be
 used from external repositories.
 
 For information about the different ways you can refer to targets, see
-[target patterns](/docs/build#specifying-build-targets).
+[target patterns](/run/build#specifying-build-targets).
 
 ### Lexical specification of a label {:#labels-lexical-specification}
 
 Label syntax discourages use of metacharacters that have special meaning to the
 shell. This helps to avoid inadvertent quoting problems, and makes it easier to
 construct tools and scripts that manipulate labels, such as the
-[Bazel Query Language](/reference/query).
+[Bazel Query Language](/query/language).
 
 The precise details of allowed target names are below.
 
@@ -120,10 +144,10 @@ forbidden) nor contain multiple consecutive slashes as path separators
 (for example, `foo//bar`). Similarly, up-level references (`..`) and
 current-directory references (`./`) are forbidden.
 
-<p><span class="compare-worse">Wrong</span> — Do not use `..` to refer to files in other packages</p>
+<p><span class="compare-worse">Wrong</span> — Do not use <code>..</code> to refer to files in other packages</p>
 
 <p><span class="compare-better">Correct</span> — Use
-  `//{{ "<var>" }}package-name{{ "</var>" }}:{{ "<var>" }}filename{{ "</var>" }}`</p>
+  <code>//{{ "<var>" }}package-name{{ "</var>" }}:{{ "<var>" }}filename{{ "</var>" }}</code></p>
 
 
 While it is common to use `/` in the name of a file target, avoid the use of
@@ -142,19 +166,30 @@ The name of a package is the name of the directory containing its `BUILD` file,
 relative to the top-level directory of the containing repository.
 For example: `my/app`.
 
-Package names must be composed entirely of characters drawn from the set
-`A`-`Z`, `a`–`z`, `0`–`9`, '`/`', '`-`', '`.`', '`@`', and '`_`', and cannot
-start with a slash.
+On a technical level, Bazel enforces the following:
 
-For a language with a directory structure that is significant to its module
-system (for example, Java), it's important to choose directory names that are
-valid identifiers in the language.
+* Allowed characters in package names are the lowercase letters `a` through `z`,
+  the uppercase letters `A` through `Z`, the digits `0` through `9`, the
+  characters ``! \"#$%&'()*+,-.;<=>?@[]^_`{|}`` (yes, there's a space character
+  in there!), and of course forward slash `/` (since it's the directory
+  separator).
+* Package names may not start or end with a forward slash character `/`.
+* Package names may not contain the substring `//`. This wouldn't make
+  sense---what would the corresponding directory path be?
+* Package names may not contain the substring `/./` or `/../` or `/.../` etc.
+  This enforcement is done to avoid confusion when translating between a logical
+  package name and a physical directory name, given the semantic meaning of the
+  dot character in path strings.
 
-Although Bazel supports targets in the workspace's root package (for example,
-`//:foo`), it's best to leave that package empty so all meaningful packages
-have descriptive names.
+On a practical level:
 
-Package names may not contain the substring `//`, nor end with a slash.
+* For a language with a directory structure that is significant to its module
+  system (for example, Java), it's important to choose directory names that are
+  valid identifiers in the language. For example, don't start with a leading
+  digit and avoid special characters, especially underscores and hyphens.
+* Although Bazel supports targets in the workspace's root package (for example,
+  `//:foo`), it's best to leave that package empty so all meaningful packages
+  have descriptive names.
 
 ## Rules {:#rules}
 
@@ -208,7 +243,7 @@ the build.
 
 This directed acyclic graph over targets is called the _target graph_ or
 _build dependency graph_, and is the domain over which the
-[Bazel Query tool](/docs/query-how-to) operates.
+[Bazel Query tool](/query/guide) operates.
 
 <table class="columns">
   <tr>

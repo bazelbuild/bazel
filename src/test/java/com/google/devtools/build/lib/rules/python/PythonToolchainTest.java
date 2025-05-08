@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 import static net.starlark.java.eval.Starlark.NONE;
 
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -34,8 +35,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PythonToolchainTest extends BuildViewTestCase {
 
-  private static final String TOOLCHAIN_BZL =
-      TestConstants.TOOLS_REPOSITORY + "//tools/python:toolchain.bzl";
 
   private static final String TOOLCHAIN_TYPE =
       TestConstants.TOOLS_REPOSITORY + "//tools/python:toolchain_type";
@@ -68,23 +67,17 @@ public class PythonToolchainTest extends BuildViewTestCase {
         "pkg/rules.bzl",
         "def _myrule_impl(ctx):",
         "    info = ctx.toolchains['" + TOOLCHAIN_TYPE + "']",
-        "    print('PY2 path: ' + info.py2_runtime.interpreter_path)",
         "    print('PY3 path: ' + info.py3_runtime.interpreter_path)",
         "myrule = rule(",
         "    implementation = _myrule_impl,",
         "    toolchains = ['" + TOOLCHAIN_TYPE + "'],",
-        "    incompatible_use_toolchain_transition = True,",
         ")");
     // A toolchain implementation and an instance of the rule that will use it.
     scratch.file(
         "pkg/BUILD",
-        "load('" + TOOLCHAIN_BZL + "', 'py_runtime_pair')",
+        getPyLoad("py_runtime"),
+        getPyLoad("py_runtime_pair"),
         "load(':rules.bzl', 'myrule')",
-        "py_runtime(",
-        "    name = 'my_py2_runtime',",
-        "    interpreter_path = '/system/python2',",
-        "    python_version = 'PY2',",
-        ")",
         "py_runtime(",
         "    name = 'my_py3_runtime',",
         "    interpreter_path = '/system/python3',",
@@ -92,7 +85,6 @@ public class PythonToolchainTest extends BuildViewTestCase {
         ")",
         "py_runtime_pair(",
         "    name = 'my_py_runtime_pair',",
-        "    py2_runtime = ':my_py2_runtime',",
         "    py3_runtime = ':my_py3_runtime',",
         ")",
         "toolchain(",
@@ -109,7 +101,6 @@ public class PythonToolchainTest extends BuildViewTestCase {
         "--platforms=//platforms:my_platform", "--extra_toolchains=//pkg:my_toolchain");
 
     getConfiguredTarget("//pkg:mytarget");
-    assertContainsEvent("PY2 path: /system/python2");
     assertContainsEvent("PY3 path: /system/python3");
   }
 
@@ -117,7 +108,7 @@ public class PythonToolchainTest extends BuildViewTestCase {
   public void okToOmitRuntimes() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "load('" + TOOLCHAIN_BZL + "', 'py_runtime_pair')",
+        getPyLoad("py_runtime_pair"),
         "py_runtime_pair(",
         "    name = 'my_py_runtime_pair',",
         ")");
@@ -128,50 +119,18 @@ public class PythonToolchainTest extends BuildViewTestCase {
   }
 
   @Test
-  public void wrongVersionInToolchainAttribute() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    scratch.file(
-        "pkg/BUILD",
-        "load('" + TOOLCHAIN_BZL + "', 'py_runtime_pair')",
-        "py_runtime(",
-        "    name = 'bad_py2_runtime',",
-        "    interpreter_path = '/system/python2',",
-        "    python_version = 'PY3',",
-        ")",
-        "py_runtime(",
-        "    name = 'bad_py3_runtime',",
-        "    interpreter_path = '/system/python3',",
-        "    python_version = 'PY2',",
-        ")",
-        "py_runtime_pair(",
-        "    name = 'with_bad_py2_runtime',",
-        "    py2_runtime = ':bad_py2_runtime',",
-        ")",
-        "py_runtime_pair(",
-        "    name = 'with_bad_py3_runtime',",
-        "    py3_runtime = ':bad_py3_runtime',",
-        ")");
-    getConfiguredTarget("//pkg:with_bad_py2_runtime");
-    getConfiguredTarget("//pkg:with_bad_py3_runtime");
-    assertContainsEvent(
-        "The Python runtime in the 'py2_runtime' attribute did not have version 'PY2'");
-    assertContainsEvent(
-        "The Python runtime in the 'py3_runtime' attribute did not have version 'PY3'");
-  }
-
-  @Test
   public void missingProviderInToolchainAttribute() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "pkg/BUILD",
-        "load('" + TOOLCHAIN_BZL + "', 'py_runtime_pair')",
-        "sh_binary(",
+        getPyLoad("py_runtime_pair"),
+        "filegroup(",
         "    name = 'not_a_runtime',",
         "    srcs = ['not_a_runtime.sh'],",
         ")",
         "py_runtime_pair(",
         "    name = 'bad_py_runtime_pair',",
-        "    py2_runtime = ':not_a_runtime',",
+        "    py3_runtime = ':not_a_runtime',",
         ")");
     getConfiguredTarget("//pkg:bad_py_runtime_pair");
     assertContainsEvent("'//pkg:not_a_runtime' does not have mandatory providers: 'PyRuntimeInfo'");

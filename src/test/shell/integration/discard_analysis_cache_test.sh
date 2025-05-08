@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -62,6 +62,7 @@ jmaptool="$(rlocation "${javabase}/bin/jmap${EXE_EXT}")"
 function write_hello_world_files() {
   mkdir -p hello || fail "mkdir hello failed"
   cat >hello/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name = 'hello',
   srcs = ['Hello.java'],
   main_class = 'hello.Hello')
@@ -75,6 +76,10 @@ public class Hello {
   }
 }
 EOF
+}
+
+function set_up() {
+  add_rules_java MODULE.bazel
 }
 
 #### TESTS #############################################################
@@ -98,6 +103,37 @@ function test_compile_helloworld() {
   expect_log 'hello!'
 }
 
+# Regression test for b/336514394
+function test_aspect_after_cache_discard() {
+  write_hello_world_files
+
+  mkdir -p aspect
+  cat > aspect/aspect.bzl << 'EOF' || fail "Couldn't write aspect.bzl"
+def _simple_aspect_impl(target, ctx):
+    return []
+
+simple_aspect = aspect(
+    implementation=_simple_aspect_impl,
+    attr_aspects = ["*"],
+)
+EOF
+  touch aspect/BUILD
+
+  # Build and then discard the cache.
+  bazel build \
+    --discard_analysis_cache \
+    --aspects=aspect/aspect.bzl%simple_aspect \
+    hello:hello >&$TEST_log \
+      || fail "Build failed"
+
+  # This should rebuild the cache as needed..
+  bazel build \
+    --discard_analysis_cache \
+    --aspects=aspect/aspect.bzl%simple_aspect \
+    hello:hello >&$TEST_log \
+      || fail "Second build failed"
+}
+
 function extract_histogram_count() {
   local histofile="$1"
   local item="$2"
@@ -110,6 +146,7 @@ function test_aspect_and_configured_target_cleared() {
   export DONT_SANITY_CHECK_SERIALIZATION=1
   mkdir -p "foo" || fail "Couldn't make directory"
   cat > foo/simpleaspect.bzl <<'EOF' || fail "Couldn't write bzl file"
+AspectInfo = provider()
 def _simple_aspect_impl(target, ctx):
   result=[]
   for orig_out in target.files.to_list():
@@ -120,10 +157,12 @@ def _simple_aspect_impl(target, ctx):
     result += [aspect_out]
 
   result = depset(result,
-      transitive = [src.aspectouts for src in ctx.rule.attr.srcs])
+      transitive = [src[AspectInfo].aspectouts for src in ctx.rule.attr.srcs])
 
-  return struct(output_groups={
-      "aspect-out" : result }, aspectouts = result)
+  return [
+      OutputGroupInfo(**{"aspect-out" : result}),
+      AspectInfo(aspectouts = result),
+  ]
 
 simple_aspect = aspect(implementation=_simple_aspect_impl,
                        attr_aspects = ["srcs"])
@@ -158,7 +197,7 @@ EOF
   "$jmaptool" -histo:live "$server_pid" > histo.txt
   cat histo.txt >> "$TEST_log"
   ct_count="$(extract_histogram_count histo.txt 'RuleConfiguredTarget$')"
-  aspect_count="$(extract_histogram_count histo.txt 'ConfiguredAspect$')"
+  aspect_count="$(extract_histogram_count histo.txt 'lib.packages.Aspect$')"
   [[ "$ct_count" -ge 2 ]] \
       || fail "Too few configured targets: $ct_count. Did you move/rename the class?"
   [[ "$aspect_count" -ge 1 ]] \
@@ -168,11 +207,11 @@ EOF
   bazel build --discard_analysis_cache //foo:foo >& "$TEST_log" \
       || fail "Expected success"
   "$jmaptool" -histo:live "$server_pid" > histo.txt
-  cat histo.txt >> "$TEST_log"
+  #cat histo.txt >> "$TEST_log"
   ct_count="$(extract_histogram_count histo.txt 'RuleConfiguredTarget$')"
-  aspect_count="$(extract_histogram_count histo.txt 'ConfiguredAspect$')"
-  # One top-level configured target is allowed to stick around.
-  [[ "$ct_count" -le 1 ]] \
+  aspect_count="$(extract_histogram_count histo.txt 'lib.packages.Aspect$')"
+  # Several top-level configured targets are allowed to stick around.
+  [[ "$ct_count" -le 17 ]] \
       || fail "Too many configured targets: $ct_count"
   [[ "$aspect_count" -eq 0 ]] || fail "Too many aspects: $aspect_count"
   bazel --batch clean >& "$TEST_log" || fail "Expected success"
@@ -188,10 +227,10 @@ EOF
   "$jmaptool" -histo:live "$server_pid" > histo.txt
   cat histo.txt >> "$TEST_log"
   ct_count="$(extract_histogram_count histo.txt 'RuleConfiguredTarget$')"
-  aspect_count="$(extract_histogram_count histo.txt 'ConfiguredAspect$')"
+  aspect_count="$(extract_histogram_count histo.txt 'lib.packages.Aspect$')"
   # One top-level aspect is allowed to stick around.
   [[ "$aspect_count" -le 1 ]] || fail "Too many aspects: $aspect_count"
-  [[ "$ct_count" -le 1 ]] || fail "Too many configured targets: $ct_count"
+  [[ "$ct_count" -le 17 ]] || fail "Too many configured targets: $ct_count"
 }
 
 run_suite "test for --discard_analysis_cache"

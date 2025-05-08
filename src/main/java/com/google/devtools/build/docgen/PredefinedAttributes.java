@@ -60,10 +60,11 @@ public class PredefinedAttributes {
       ImmutableList.of(
           "templates/attributes/common/compatible_with.html",
           "templates/attributes/common/deprecation.html",
-          "templates/attributes/common/distribs.html",
           "templates/attributes/common/exec_compatible_with.html",
+          "templates/attributes/common/exec_group_compatible_with.html",
           "templates/attributes/common/exec_properties.html",
           "templates/attributes/common/features.html",
+          "templates/attributes/common/package_metadata.html",
           "templates/attributes/common/restricted_to.html",
           "templates/attributes/common/tags.html",
           "templates/attributes/common/target_compatible_with.html",
@@ -92,7 +93,7 @@ public class PredefinedAttributes {
           throw new IllegalStateException("Resource " + filename + " not found");
         }
         String content = new String(ByteStreams.toByteArray(stream), StandardCharsets.UTF_8);
-        builder.put(name, RuleDocumentationAttribute.create(name, commonType, content));
+        builder.put(name, RuleDocumentationAttribute.createCommon(name, commonType, content));
       } catch (IOException e) {
         throw new IllegalStateException("Exception while reading " + filename, e);
       }

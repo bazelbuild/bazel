@@ -14,10 +14,14 @@
 
 package com.google.devtools.build.lib.profiler;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Splitter;
+import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.util.HeapOffsetHelper;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -25,8 +29,10 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.time.Duration;
-import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -56,10 +62,13 @@ public final class MemoryProfiler {
   private ProfilePhase currentPhase;
   private long heapUsedMemoryAtFinish;
   @Nullable private MemoryProfileStableHeapParameters memoryProfileStableHeapParameters;
+  private Pattern internalJvmObjectPattern;
 
   public synchronized void setStableMemoryParameters(
-      MemoryProfileStableHeapParameters memoryProfileStableHeapParameters) {
+      MemoryProfileStableHeapParameters memoryProfileStableHeapParameters,
+      Pattern internalJvmObjectPattern) {
     this.memoryProfileStableHeapParameters = memoryProfileStableHeapParameters;
+    this.internalJvmObjectPattern = internalJvmObjectPattern;
   }
 
   public synchronized void start(OutputStream out) {
@@ -87,16 +96,21 @@ public final class MemoryProfiler {
           prepareBeanAndGetLocalMinUsage(
               nextPhase, bean, (duration) -> Thread.sleep(duration.toMillis()));
       String name = currentPhase.description;
-      MemoryUsage memoryUsage = memoryUsages.getHeap();
+      MemoryUsage memoryUsage = memoryUsages.heap();
+      var usedMemory = memoryUsage.getUsed();
+      // TODO(b/311665999) Remove the subtraction of FillerArray once we figure out an alternative.
+      if (nextPhase == ProfilePhase.FINISH) {
+        usedMemory -=
+            HeapOffsetHelper.getSizeOfFillerArrayOnHeap(
+                internalJvmObjectPattern, BugReporter.defaultInstance());
+        heapUsedMemoryAtFinish = usedMemory;
+      }
       memoryProfile.println(name + ":heap:init:" + memoryUsage.getInit());
-      memoryProfile.println(name + ":heap:used:" + memoryUsage.getUsed());
+      memoryProfile.println(name + ":heap:used:" + usedMemory);
       memoryProfile.println(name + ":heap:commited:" + memoryUsage.getCommitted());
       memoryProfile.println(name + ":heap:max:" + memoryUsage.getMax());
-      if (nextPhase == ProfilePhase.FINISH) {
-        heapUsedMemoryAtFinish = memoryUsage.getUsed();
-      }
 
-      memoryUsage = memoryUsages.getNonHeap();
+      memoryUsage = memoryUsages.nonHeap();
       memoryProfile.println(name + ":non-heap:init:" + memoryUsage.getInit());
       memoryProfile.println(name + ":non-heap:used:" + memoryUsage.getUsed());
       memoryProfile.println(name + ":non-heap:commited:" + memoryUsage.getCommitted());
@@ -111,14 +125,29 @@ public final class MemoryProfiler {
     bean.gc();
     MemoryUsage minHeapUsed = bean.getHeapMemoryUsage();
     MemoryUsage minNonHeapUsed = bean.getNonHeapMemoryUsage();
+
     if (nextPhase == ProfilePhase.FINISH && memoryProfileStableHeapParameters != null) {
-      for (int i = 1; i < memoryProfileStableHeapParameters.numTimesToDoGc; i++) {
-        sleeper.sleep(memoryProfileStableHeapParameters.timeToSleepBetweenGcs);
-        bean.gc();
-        MemoryUsage currentHeapUsed = bean.getHeapMemoryUsage();
-        if (currentHeapUsed.getUsed() < minHeapUsed.getUsed()) {
-          minHeapUsed = currentHeapUsed;
-          minNonHeapUsed = bean.getNonHeapMemoryUsage();
+      for (int j = 0; j < memoryProfileStableHeapParameters.gcSpecs.size(); j++) {
+        Pair<Integer, Duration> spec = memoryProfileStableHeapParameters.gcSpecs.get(j);
+
+        int numTimesToDoGc = spec.first;
+        Duration timeToSleepBetweenGcs = spec.second;
+
+        for (int i = 0; i < numTimesToDoGc; i++) {
+          // We want to skip the first cycle for the first spec, since we ran a
+          // GC at the top of this function, but all the rest should get their
+          // proper runs
+          if (j == 0 && i == 0) {
+            continue;
+          }
+
+          sleeper.sleep(timeToSleepBetweenGcs);
+          bean.gc();
+          MemoryUsage currentHeapUsed = bean.getHeapMemoryUsage();
+          if (currentHeapUsed.getUsed() < minHeapUsed.getUsed()) {
+            minHeapUsed = currentHeapUsed;
+            minNonHeapUsed = bean.getNonHeapMemoryUsage();
+          }
         }
       }
     }
@@ -130,12 +159,10 @@ public final class MemoryProfiler {
    * build.
    */
   public static class MemoryProfileStableHeapParameters {
-    private final int numTimesToDoGc;
-    private final Duration timeToSleepBetweenGcs;
+    private final ArrayList<Pair<Integer, Duration>> gcSpecs;
 
-    private MemoryProfileStableHeapParameters(int numTimesToDoGc, Duration timeToSleepBetweenGcs) {
-      this.numTimesToDoGc = numTimesToDoGc;
-      this.timeToSleepBetweenGcs = timeToSleepBetweenGcs;
+    private MemoryProfileStableHeapParameters(ArrayList<Pair<Integer, Duration>> gcSpecs) {
+      this.gcSpecs = gcSpecs;
     }
 
     /** Converter for {@code MemoryProfileStableHeapParameters} option. */
@@ -147,40 +174,48 @@ public final class MemoryProfiler {
       @Override
       public MemoryProfileStableHeapParameters convert(String input)
           throws OptionsParsingException {
-        Iterator<String> values = SPLITTER.split(input).iterator();
+        List<String> values = SPLITTER.splitToList(input);
+
+        if (values.size() % 2 != 0) {
+          throw new OptionsParsingException(
+              "Expected even number of comma-separated integer values");
+        }
+
+        ArrayList<Pair<Integer, Duration>> gcSpecs = new ArrayList<>(values.size() / 2);
+
         try {
-          int numTimesToDoGc = Integer.parseInt(values.next());
-          int numSecondsToSleepBetweenGcs = Integer.parseInt(values.next());
-          if (values.hasNext()) {
-            throw new OptionsParsingException("Expected exactly 2 comma-separated integer values");
+          for (int i = 0; i < values.size(); i += 2) {
+            int numTimesToDoGc = Integer.parseInt(values.get(i));
+            int numSecondsToSleepBetweenGcs = Integer.parseInt(values.get(i + 1));
+
+            if (numTimesToDoGc <= 0) {
+              throw new OptionsParsingException("Number of times to GC must be positive");
+            }
+            if (numSecondsToSleepBetweenGcs < 0) {
+              throw new OptionsParsingException(
+                  "Number of seconds to sleep between GC's must be non-negative");
+            }
+            gcSpecs.add(Pair.of(numTimesToDoGc, Duration.ofSeconds(numSecondsToSleepBetweenGcs)));
           }
-          if (numTimesToDoGc <= 0) {
-            throw new OptionsParsingException("Number of times to GC must be positive");
-          }
-          if (numSecondsToSleepBetweenGcs < 0) {
-            throw new OptionsParsingException(
-                "Number of seconds to sleep between GC's must be non-negative");
-          }
-          return new MemoryProfileStableHeapParameters(
-              numTimesToDoGc, Duration.ofSeconds(numSecondsToSleepBetweenGcs));
+
+          return new MemoryProfileStableHeapParameters(gcSpecs);
         } catch (NumberFormatException | NoSuchElementException nfe) {
           throw new OptionsParsingException(
-              "Expected exactly 2 comma-separated integer values", nfe);
+              "Expected even number of comma-separated integer values, could not parse integer in"
+                  + " list",
+              nfe);
         }
       }
 
       @Override
       public String getTypeDescription() {
-        return "two integers, separated by a comma";
+        return "integers, separated by a comma expected in pairs";
       }
     }
 
     @Override
     public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("numTimesToDoGc", numTimesToDoGc)
-          .add("timeToSleepBetweenGcs", timeToSleepBetweenGcs)
-          .toString();
+      return MoreObjects.toStringHelper(this).add("gcSpecs", gcSpecs).toString();
     }
   }
 
@@ -190,14 +225,14 @@ public final class MemoryProfiler {
   }
 
   @VisibleForTesting
-  @AutoValue
-  abstract static class HeapAndNonHeap {
-    abstract MemoryUsage getHeap();
-
-    abstract MemoryUsage getNonHeap();
+  record HeapAndNonHeap(MemoryUsage heap, MemoryUsage nonHeap) {
+    HeapAndNonHeap {
+      requireNonNull(heap, "heap");
+      requireNonNull(nonHeap, "nonHeap");
+    }
 
     static HeapAndNonHeap create(MemoryUsage heap, MemoryUsage nonHeap) {
-      return new AutoValue_MemoryProfiler_HeapAndNonHeap(heap, nonHeap);
+      return new HeapAndNonHeap(heap, nonHeap);
     }
   }
 }

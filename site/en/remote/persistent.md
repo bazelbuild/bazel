@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Persistent Workers
 
+{% include "_buttons.html" %}
+
 This page covers how to use persistent workers, the benefits, requirements, and
 how workers affect sandboxing.
 
@@ -124,13 +126,6 @@ flags is combined into a `WorkerKey`, and for each `WorkerKey` up to
 `worker_max_instances` workers may be created. See the next section for how the
 action configuration can also specify set-up flags.
 
-You can use the
-[`--high_priority_workers`](/reference/command-line-reference#flag--high_priority_workers)
-flag to specify a mnemonic that should be run in preference to normal-priority
-mnemonics. This can help prioritize actions that are always in the critical
-path. If there are two or more high priority workers executing requests, all
-other workers are prevented from running. This flag can be used multiple times.
-
 Passing the
 [`--worker_sandboxing`](/reference/command-line-reference#flag--worker_sandboxing)
 flag makes each worker request use a separate sandbox directory for all its
@@ -158,7 +153,7 @@ For Android builds, see details at the
 
 ## Implementing persistent workers {:#implementation}
 
-See the [creating persistent workers](/docs/creating-workers) page for more
+See the [creating persistent workers](/remote/creating) page for more
 information on how to make a worker.
 
 This example shows a Starlark configuration for a worker that uses JSON:
@@ -222,7 +217,7 @@ be spawned for each value used. This can lead to excessive memory consumption if
 too many variations are used.
 
 Each worker can currently only process one request at a time. The experimental
-[multiplex workers](/docs/multiplex-worker) feature allows using multiple
+[multiplex workers](/remote/multiplex) feature allows using multiple
 threads, if the underlying tool is multithreaded and the wrapper is set up to
 understand this.
 
@@ -263,13 +258,9 @@ and this sandboxing must be separately enabled with the
 For more information on persistent workers, see:
 
 *   [Original persistent workers blog post](https://blog.bazel.build/2015/12/10/java-workers.html)
-*   [Haskell implementation description](https://www.tweag.io/blog/2019-09-25-bazel-ghc-persistent-worker-internship/)
-    {: .external}
-*   [Blog post by Mike Morearty](https://medium.com/@mmorearty/how-to-create-a-persistent-worker-for-bazel-7738bba2cabb)
-    {: .external}
+*   [Haskell implementation description](https://www.tweag.io/blog/2019-09-25-bazel-ghc-persistent-worker-internship/){: .external}
+*   [Blog post by Mike Morearty](https://medium.com/@mmorearty/how-to-create-a-persistent-worker-for-bazel-7738bba2cabb){: .external}
 *   [Front End Development with Bazel: Angular/TypeScript and Persistent Workers
-    w/ Asana](https://www.youtube.com/watch?v=0pgERydGyqo) {: .external}
-*   [Bazel strategies explained](https://jmmv.dev/2019/12/bazel-strategies.html)
-    {: .external}
-*   [Informative worker strategy discussion on the bazel-discuss mailing list](https://groups.google.com/forum/#!msg/bazel-discuss/oAEnuhYOPm8/ol7hf4KWJgAJ)
-    {: .external}
+    w/ Asana](https://www.youtube.com/watch?v=0pgERydGyqo){: .external}
+*   [Bazel strategies explained](https://jmmv.dev/2019/12/bazel-strategies.html){: .external}
+*   [Informative worker strategy discussion on the bazel-discuss mailing list](https://groups.google.com/forum/#!msg/bazel-discuss/oAEnuhYOPm8/ol7hf4KWJgAJ){: .external}

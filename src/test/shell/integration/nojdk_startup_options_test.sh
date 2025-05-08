@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -54,11 +54,6 @@ msys*|mingw*|cygwin*)
   declare -r is_windows=false
   ;;
 esac
-
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
 
 # Test that nojdk bazel works with --autodetect_server_javabase
 function test_autodetect_server_javabase() {

@@ -405,7 +405,7 @@ final class CpuProfiler {
         Location loc = fn.getLocation();
         String filename = loc.file(); // TODO(adonovan): make WORKSPACE-relative
         String name = fn.getName();
-        if (name.equals("<toplevel>")) {
+        if (name.equals(StarlarkThread.TOP_LEVEL)) {
           name = filename;
         }
 

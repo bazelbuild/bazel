@@ -21,16 +21,19 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
+import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.NonconfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import java.util.Map;
 
 /**
@@ -39,9 +42,10 @@ import java.util.Map;
  *
  * <p>Currently, this is only intended for use by android_binary and other Android top-level rules.
  */
-public class ConfigFeatureFlagTransitionFactory implements StarlarkExposedRuleTransitionFactory {
+public class ConfigFeatureFlagTransitionFactory
+    implements StarlarkExposedRuleTransitionFactory, ConfigurationTransitionApi {
   @Override
-  public void addToStarlarkRule(RuleDefinitionEnvironment ctx, RuleClass.Builder builder) {
+  public void addToRuleFromStarlark(RuleDefinitionEnvironment ctx, RuleClass.Builder builder) {
     builder.add(ConfigFeatureFlag.getAllowlistAttribute(ctx, attributeName));
     builder.addAllowlistChecker(
         AllowlistChecker.builder()
@@ -86,13 +90,24 @@ public class ConfigFeatureFlagTransitionFactory implements StarlarkExposedRuleTr
       if (!options.contains(ConfigFeatureFlagOptions.class)) {
         return options.underlying();
       }
-      return FeatureFlagValue.replaceFlagValues(options.underlying(), flagValues);
+      BuildOptions toOptions = FeatureFlagValue.replaceFlagValues(options.underlying(), flagValues);
+      // In legacy mode, need to update `affected by Starlark transition` to include changed flags.
+      if (toOptions
+          .get(CoreOptions.class)
+          .outputDirectoryNamingScheme
+          .equals(CoreOptions.OutputDirectoryNamingScheme.LEGACY)) {
+        FunctionTransitionUtil.updateAffectedByStarlarkTransition(
+            toOptions.get(CoreOptions.class),
+            FunctionTransitionUtil.getAffectedByStarlarkTransitionViaDiff(
+                toOptions, options.underlying()));
+      }
+      return toOptions;
     }
 
     @Override
     public boolean equals(Object other) {
-      return other instanceof ConfigFeatureFlagValuesTransition
-          && this.flagValues.equals(((ConfigFeatureFlagValuesTransition) other).flagValues);
+      return other instanceof ConfigFeatureFlagValuesTransition configFeatureFlagValuesTransition
+          && this.flagValues.equals(configFeatureFlagValuesTransition.flagValues);
     }
 
     @Override
@@ -144,8 +159,8 @@ public class ConfigFeatureFlagTransitionFactory implements StarlarkExposedRuleTr
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof ConfigFeatureFlagTransitionFactory
-        && this.attributeName.equals(((ConfigFeatureFlagTransitionFactory) other).attributeName);
+    return other instanceof ConfigFeatureFlagTransitionFactory configFeatureFlagTransitionFactory
+        && this.attributeName.equals(configFeatureFlagTransitionFactory.attributeName);
   }
 
   @Override

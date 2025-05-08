@@ -13,15 +13,21 @@
 # limitations under the License.
 """Defines a repository rule that generates an archive consisting of the specified files to fetch"""
 
-load("//:distdir_deps.bzl", "DEPS_BY_NAME")
-load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
+load("//src/tools/bzlmod:utils.bzl", "parse_http_artifacts", "parse_registry_files")
 
 _BUILD = """
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
+filegroup(
+  name="files",
+  srcs = {srcs},
+  visibility = ["//visibility:public"],
+)
+
 pkg_tar(
   name="archives",
-  srcs = {srcs},
+  srcs = [":files"],
+  strip_prefix = "{strip_prefix}",
   package_dir = "{dirname}",
   visibility = ["//visibility:public"],
 )
@@ -34,7 +40,7 @@ def _distdir_tar_impl(ctx):
     ctx.file("WORKSPACE", "")
     ctx.file(
         "BUILD",
-        _BUILD.format(srcs = ctx.attr.archives, dirname = ctx.attr.dirname),
+        _BUILD.format(srcs = ctx.attr.archives, strip_prefix = "", dirname = ctx.attr.dirname),
     )
 
 _distdir_tar_attrs = {
@@ -49,69 +55,78 @@ _distdir_tar = repository_rule(
     attrs = _distdir_tar_attrs,
 )
 
-def distdir_tar(name, archives, sha256, urls, dirname, dist_deps = None):
+def distdir_tar(name, dist_deps):
     """Creates a repository whose content is a set of tar files.
 
     Args:
       name: repo name.
-      archives: list of tar file names.
-      sha256: map of tar file names to SHAs.
-      urls: map of tar file names to URL lists.
-      dirname: output directory in repo.
       dist_deps: map of repo names to dict of archive, sha256, and urls.
     """
-    if dist_deps:
-        for dep, info in dist_deps.items():
-            archive_file = info["archive"]
-            archives.append(archive_file)
-            sha256[archive_file] = info["sha256"]
-            urls[archive_file] = info["urls"]
+    archives = []
+    sha256 = {}
+    urls = {}
+    for _, info in dist_deps.items():
+        archive_file = info["archive"]
+        archives.append(archive_file)
+        sha256[archive_file] = info["sha256"]
+        urls[archive_file] = info["urls"]
     _distdir_tar(
         name = name,
         archives = archives,
         sha256 = sha256,
         urls = urls,
-        dirname = dirname,
     )
 
-def dist_http_archive(name, **kwargs):
-    """Wraps http_archive, providing attributes like sha and urls from the central list.
+def _repo_cache_tar_impl(ctx):
+    """Generate a repository cache as a tar file.
 
-    dist_http_archive wraps an http_archive invocation, but looks up relevant attributes
-    from distdir_deps.bzl so the user does not have to specify them.
-
-    Args:
-      name: repo name
-      **kwargs: see http_archive for allowed args.
+    This repository rule does the following:
+        1. parse all http artifacts required for generating the given list of repositories from the lock file.
+        2. downloads all http artifacts to create a repository cache directory structure.
+        3. creates a pkg_tar target which packages the repository cache directory structure.
     """
-    info = DEPS_BY_NAME[name]
-    if "patch_args" not in kwargs:
-        kwargs["patch_args"] = info.get("patch_args")
-    if "patches" not in kwargs:
-        kwargs["patches"] = info.get("patches")
-    if "strip_prefix" not in kwargs:
-        kwargs["strip_prefix"] = info.get("strip_prefix")
-    http_archive(
-        name = name,
-        sha256 = info["sha256"],
-        urls = info["urls"],
-        **kwargs
+    lockfile_path = ctx.path(ctx.attr.lockfile)
+    http_artifacts = parse_http_artifacts(ctx, lockfile_path, ctx.attr.repos)
+    registry_files = parse_registry_files(ctx, lockfile_path, ctx.attr.module_files)
+
+    archive_files = []
+    readme_content = "This directory contains repository cache artifacts for the following URLs:\n\n"
+    for artifact in http_artifacts + registry_files:
+        url = artifact["url"]
+        if "integrity" in artifact:
+            # ./tempfile could be a hard link if --experimental_repository_cache_hardlinks is used,
+            # therefore we must delete it before creating or writing it again.
+            ctx.delete("./tempfile")
+            checksum = ctx.download(url, "./tempfile", executable = False, integrity = artifact["integrity"])
+            artifact["sha256"] = checksum.sha256
+
+        if "sha256" in artifact:
+            sha256 = artifact["sha256"]
+            output_file = "content_addressable/sha256/%s/file" % sha256
+            ctx.download(url, output_file, sha256, executable = False)
+            archive_files.append(output_file)
+            readme_content += "- %s (SHA256: %s)\n" % (url, sha256)
+        else:
+            fail("Could not find integrity or sha256 hash for artifact %s" % url)
+
+    ctx.file("README.md", readme_content)
+    ctx.file(
+        "BUILD",
+        _BUILD.format(
+            srcs = archive_files + ["README.md"],
+            strip_prefix = "external/" + ctx.attr.name,
+            dirname = ctx.attr.dirname,
+        ),
     )
 
-def dist_http_file(name, **kwargs):
-    """Wraps http_file, providing attributes like sha and urls from the central list.
+_repo_cache_tar_attrs = {
+    "lockfile": attr.label(default = Label("//:MODULE.bazel.lock")),
+    "dirname": attr.string(default = "repository_cache"),
+    "repos": attr.string_list(),
+    "module_files": attr.label_list(),
+}
 
-    dist_http_file wraps an http_file invocation, but looks up relevant attributes
-    from distdir_deps.bzl so the user does not have to specify them.
-
-    Args:
-      name: repo name
-      **kwargs: see http_file for allowed args.
-    """
-    info = DEPS_BY_NAME[name]
-    http_file(
-        name = name,
-        sha256 = info["sha256"],
-        urls = info["urls"],
-        **kwargs
-    )
+repo_cache_tar = repository_rule(
+    implementation = _repo_cache_tar_impl,
+    attrs = _repo_cache_tar_attrs,
+)

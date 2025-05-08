@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBitcodeModeApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -39,24 +38,6 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       documented = false,
       useStarlarkThread = true)
   boolean getExperimentalLinkStaticLibrariesOnce(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "experimental_enable_target_export_check",
-      documented = false,
-      useStarlarkThread = true)
-  boolean getExperimentalEnableTargetExportCheck(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "experimental_cc_shared_library_debug",
-      documented = false,
-      useStarlarkThread = true)
-  boolean getExperimentalCcSharedLibraryDebug(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "experimental_platform_cc_test",
-      documented = false,
-      useStarlarkThread = true)
-  boolean getExperimentalPlatformCcTest(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "copts",
@@ -105,7 +86,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       doc =
           "Returns label pointed to by <a href=\"${link user-manual#flag--custom_malloc}\">"
               + "<code>--custom_malloc</code></a> option. Can be accessed with"
-              + " <a href=\"globals.html#configuration_field\"><code>configuration_field"
+              + " <a href=\"../globals/bzl.html#configuration_field\"><code>configuration_field"
               + "</code></a>:<br/>"
               + "<pre>attr.label(<br/>"
               + "    default = configuration_field(<br/>"
@@ -121,7 +102,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       structField = true,
       // Only for migration purposes. Intentionally not documented.
       documented = false,
-      doc = "Accessor for <code>--incompatible_macos_set_install_name</code>.")
+      doc = "Deprecated, always true")
   boolean macosSetInstallName();
 
   @StarlarkMethod(name = "force_pic", documented = false, useStarlarkThread = true)
@@ -130,8 +111,21 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
   @StarlarkMethod(name = "generate_llvm_lcov", documented = false, useStarlarkThread = true)
   boolean generateLlvmLcovStarlark(StarlarkThread thread) throws EvalException;
 
-  @StarlarkMethod(name = "fdo_instrument", documented = false, useStarlarkThread = true)
+  @Nullable
+  @StarlarkMethod(
+      name = "fdo_instrument",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
   String fdoInstrumentStarlark(StarlarkThread thread) throws EvalException;
+
+  @Nullable
+  @StarlarkMethod(
+      name = "cs_fdo_instrument",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  String csFdoInstrumentStarlark(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "process_headers_in_dependencies",
@@ -148,15 +142,6 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       useStarlarkThread = true)
   boolean fissionActiveForCurrentCompilationModeStarlark(StarlarkThread thread)
       throws EvalException;
-
-  @StarlarkMethod(
-      name = "apple_bitcode_mode",
-      doc =
-          "Returns the Bitcode mode to use for compilation steps.<p>This field is only valid for"
-              + " Apple, and only for device builds; for simulator builds, it always returns "
-              + "<code>'none'</code>.",
-      structField = true)
-  AppleBitcodeModeApi getAppleBitcodeMode();
 
   @StarlarkMethod(
       name = "apple_generate_dsym",
@@ -179,11 +164,8 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
   @StarlarkMethod(name = "strip_opts", documented = false, useStarlarkThread = true)
   Sequence<String> getStripOptsStarlark(StarlarkThread thread) throws EvalException;
 
-  @StarlarkMethod(
-      name = "incompatible_enable_cc_test_feature",
-      documented = false,
-      useStarlarkThread = true)
-  boolean useCcTestFeatureStarlark(StarlarkThread thread) throws EvalException;
+  @StarlarkMethod(name = "should_strip_binaries", useStarlarkThread = true, documented = false)
+  boolean shouldStripBinariesForStarlark(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(name = "build_test_dwp", documented = false, useStarlarkThread = true)
   boolean buildTestDwpIsActivatedStarlark(StarlarkThread thread) throws EvalException;
@@ -198,4 +180,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
 
   @StarlarkMethod(name = "share_native_deps", documented = false, useStarlarkThread = true)
   boolean shareNativeDepsStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "disable_nocopts", documented = false, useStarlarkThread = true)
+  boolean disableNocoptsStarlark(StarlarkThread thread) throws EvalException;
 }

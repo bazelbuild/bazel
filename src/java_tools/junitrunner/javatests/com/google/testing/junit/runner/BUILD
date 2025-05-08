@@ -1,8 +1,12 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
-package(default_visibility = [
-    "//src/java_tools/junitrunner:junitrunner_package_group",
-])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = [
+        "//src/java_tools/junitrunner:junitrunner_package_group",
+    ],
+)
 
 # Libraries
 # =========================================================
@@ -14,11 +18,11 @@ java_library(
         exclude = ["testbed/*.java"],
     ),
     javacopts = [
-        "-XepOpt:CheckReturnValue:CheckAllConstructors=false",  # b/226969262
     ],
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal:junit4",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal:system_exit_detecting_shutdown_hook",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/junit4",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/model",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding",
@@ -129,6 +133,39 @@ sh_test(
         "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+java_binary(
+    name = "ProgramThatCallsSystemExit",
+    srcs = ["ProgramThatCallsSystemExit.java"],
+    deps = [
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal:system_exit_detecting_shutdown_hook",
+    ],
+)
+
+sh_test(
+    name = "system_exit_detecting_test",
+    srcs = ["system_exit_detecting_test.sh"],
+    args = [
+        "$(location //src/test/shell:unittest.bash)",
+        "$(location :ProgramThatCallsSystemExit_deploy.jar)",
+        "$(JAVABASE)",
+        "$(location :testdata/system_exit_detecting_test_stack.txt)",
+    ],
+    data = [
+        ":ProgramThatCallsSystemExit_deploy.jar",
+        ":testdata/system_exit_detecting_test_stack.txt",
+        "//src/test/shell:bashunit",
+        "//src/test/shell:unittest.bash",
+        "@bazel_tools//tools/jdk:current_java_runtime",
+    ],
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 exports_files([
@@ -136,4 +173,5 @@ exports_files([
     "junit4_testbridge_integration_tests.sh",
     "utf8_test_log_test.sh",
     "deploy_jar_integration_tests.sh",
+    "system_exit_detecting_test.sh",
 ])

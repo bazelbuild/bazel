@@ -14,8 +14,10 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -66,6 +68,15 @@ public class QueryExpressionContext<T> {
     }
     newContextBuilder.put(name, value);
     return newContextBuilder.buildOrThrow();
+  }
+
+  /**
+   * A globally defined map of extra dependency edges. If `//a -> //b` is an entry in this map, then
+   * any dependency evaluation of the graph should behave as if `//a` depends on `//b`.
+   */
+  public ImmutableSetMultimap<SkyKey, SkyKey> extraGlobalDeps() {
+    // Only subclasses of this class support extra global deps.
+    return ImmutableSetMultimap.<SkyKey, SkyKey>of();
   }
 
   @Override

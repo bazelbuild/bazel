@@ -14,8 +14,14 @@
 
 package net.starlark.java.eval;
 
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
+
 /** Base interface for all Starlark values besides boxed Java primitives. */
 public interface StarlarkValue {
+  default StarlarkType getStarlarkType() {
+    return Types.ANY;
+  }
 
   /**
    * Prints an official representation of object x.
@@ -57,8 +63,8 @@ public interface StarlarkValue {
    *
    * @param printer a printer to be used for formatting nested values.
    */
-  default void debugPrint(Printer printer, StarlarkSemantics semantics) {
-    str(printer, semantics);
+  default void debugPrint(Printer printer, StarlarkThread thread) {
+    str(printer, thread.getSemantics());
   }
 
   /** Returns the truth-value of this Starlark value. */

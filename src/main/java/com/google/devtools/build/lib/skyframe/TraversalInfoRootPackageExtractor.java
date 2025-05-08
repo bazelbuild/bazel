@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ParallelVisitor;
 import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
@@ -59,7 +60,7 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> forbiddenSubdirectories,
+      IgnoredSubdirectories forbiddenSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
     TreeSet<TraversalInfo> dirsToCheckForPackages = new TreeSet<>(TRAVERSAL_INFO_COMPARATOR);
@@ -175,10 +176,8 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
           for (RootedPath subdirectory : subdirectoryTransitivelyContainsPackages.keySet()) {
             if (subdirectoryTransitivelyContainsPackages.get(subdirectory)) {
               PathFragment subdirectoryRelativePath = subdirectory.getRootRelativePath();
-              ImmutableSet<PathFragment> forbiddenSubdirectoriesBeneathThisSubdirectory =
-                  info.forbiddenSubdirectories.stream()
-                      .filter(pathFragment -> pathFragment.startsWith(subdirectoryRelativePath))
-                      .collect(toImmutableSet());
+              IgnoredSubdirectories forbiddenSubdirectoriesBeneathThisSubdirectory =
+                  info.forbiddenSubdirectories.filterForDirectory(subdirectoryRelativePath);
               ImmutableSet<PathFragment> excludedSubdirectoriesBeneathThisSubdirectory =
                   info.excludedSubdirectories.stream()
                       .filter(pathFragment -> pathFragment.startsWith(subdirectoryRelativePath))
@@ -218,7 +217,7 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
     // CollectPackagesUnderDirectoryValue nodes whose keys have forbidden packages embedded in
     // them. Therefore, we need to be careful to request and use the same sort of keys here in our
     // traversal.
-    final ImmutableSet<PathFragment> forbiddenSubdirectories;
+    final IgnoredSubdirectories forbiddenSubdirectories;
     // Set of directories, targets under which should be excluded from the traversal results.
     // Excluded directory information isn't part of the graph keys in the prepopulated graph, so we
     // need to perform the filtering ourselves.
@@ -226,7 +225,7 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
 
     private TraversalInfo(
         RootedPath rootedDir,
-        ImmutableSet<PathFragment> forbiddenSubdirectories,
+        IgnoredSubdirectories forbiddenSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories) {
       this.rootedDir = rootedDir;
       this.forbiddenSubdirectories = forbiddenSubdirectories;
@@ -243,8 +242,7 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
       if (this == obj) {
         return true;
       }
-      if (obj instanceof TraversalInfo) {
-        TraversalInfo otherTraversal = (TraversalInfo) obj;
+      if (obj instanceof TraversalInfo otherTraversal) {
         return Objects.equal(rootedDir, otherTraversal.rootedDir)
             && Objects.equal(forbiddenSubdirectories, otherTraversal.forbiddenSubdirectories)
             && Objects.equal(excludedSubdirectories, otherTraversal.excludedSubdirectories);

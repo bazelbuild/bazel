@@ -17,6 +17,7 @@ import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.FormatUtils.TargetOrdering;
@@ -40,9 +41,9 @@ class GraphOutputFormatter extends OutputFormatter {
         private final TargetOrdering targetOrdering = new FormatUtils.TargetOrdering();
 
         @Override
-        public String getLabel(Node<Target> node) {
+        public String getLabel(Node<Target> node, LabelPrinter labelPrinter) {
           // Node payloads are Targets. Output node labels are target labels.
-          return node.getLabel().getLabel().toString();
+          return labelPrinter.toString(node.getLabel().getLabel());
         }
 
         @Override
@@ -58,7 +59,8 @@ class GraphOutputFormatter extends OutputFormatter {
       OutputStream out,
       AspectResolver aspectProvider,
       EventHandler eventHandler,
-      HashFunction hashFunction) {
+      HashFunction hashFunction,
+      LabelPrinter labelPrinter) {
     boolean sortLabels = options.orderOutput == OrderOutput.FULL;
     GraphOutputWriter<Target> graphWriter =
         new GraphOutputWriter<>(
@@ -67,7 +69,8 @@ class GraphOutputFormatter extends OutputFormatter {
             sortLabels,
             options.graphNodeStringLimit,
             options.graphConditionalEdgesLimit,
-            options.graphFactored);
+            options.graphFactored,
+            labelPrinter);
     graphWriter.write(result, new ConditionalEdges(result), out);
   }
 }

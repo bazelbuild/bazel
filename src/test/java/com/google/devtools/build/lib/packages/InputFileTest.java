@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.packages.util.TargetDataSubject.assertThat;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
@@ -35,7 +36,7 @@ public class InputFileTest extends PackageLoadingTestCase {
   @Before
   public final void writeFiles() throws Exception  {
     scratch.file("pkg/BUILD", "genrule(name='dummy', cmd='', outs=[], srcs=['x', 'subdir/y'])");
-    pkg = getTarget("//pkg:BUILD").getPackage();
+    pkg = getPackage("pkg");
     assertNoEvents();
 
     this.pathX = scratch.file("pkg/x", "blah");
@@ -86,5 +87,13 @@ public class InputFileTest extends PackageLoadingTestCase {
         .addEqualityGroup(inputFileX)
         .addEqualityGroup(inputFileY)
         .testEquals();
+  }
+
+  @Test
+  public void testReduceForSerialization() throws NoSuchTargetException {
+    var inputFileX = pkg.getTarget("x");
+    assertThat(inputFileX).hasSamePropertiesAs(inputFileX.reduceForSerialization());
+    var inputFileY = pkg.getTarget("subdir/y");
+    assertThat(inputFileY).hasSamePropertiesAs(inputFileY.reduceForSerialization());
   }
 }

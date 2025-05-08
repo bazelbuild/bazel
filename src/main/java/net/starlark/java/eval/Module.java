@@ -16,6 +16,7 @@ package net.starlark.java.eval;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -50,8 +51,9 @@ import net.starlark.java.syntax.Resolver;
  */
 public final class Module implements Resolver.Module {
 
-  // The module's predeclared environment. Excludes UNIVERSE bindings.
-  private ImmutableMap<String, Object> predeclared;
+  // The module's predeclared environment. Excludes UNIVERSE bindings. Values that are conditionally
+  // present are stored as GuardedValues regardless of whether they are actually enabled.
+  private final ImmutableMap<String, Object> predeclared;
 
   // The module's global variables, in order of creation.
   private final LinkedHashMap<String, Integer> globalIndex = new LinkedHashMap<>();
@@ -61,12 +63,18 @@ public final class Module implements Resolver.Module {
   // Its toString appears to Starlark in str(function): "<function f from ...>".
   @Nullable private final Object clientData;
 
+  private final StarlarkSemantics semantics;
+
   // An optional doc string for the module. Set after construction when evaluating a .bzl file.
   @Nullable private String documentation;
 
-  private Module(ImmutableMap<String, Object> predeclared, Object clientData) {
+  private Module(
+      ImmutableMap<String, Object> predeclared,
+      @Nullable Object clientData,
+      StarlarkSemantics semantics) {
     this.predeclared = predeclared;
     this.clientData = clientData;
+    this.semantics = semantics;
   }
 
   /**
@@ -85,7 +93,7 @@ public final class Module implements Resolver.Module {
    */
   public static Module withPredeclaredAndData(
       StarlarkSemantics semantics, Map<String, Object> predeclared, @Nullable Object clientData) {
-    return new Module(filter(predeclared, semantics, clientData), clientData);
+    return new Module(ImmutableMap.copyOf(predeclared), clientData, semantics);
   }
 
   /**
@@ -93,7 +101,28 @@ public final class Module implements Resolver.Module {
    * Starlark#UNIVERSE}, and with no client data.
    */
   public static Module create() {
-    return new Module(/*predeclared=*/ ImmutableMap.of(), null);
+    return new Module(
+        /* predeclared= */ ImmutableMap.of(), /* clientData= */ null, StarlarkSemantics.DEFAULT);
+  }
+
+  /**
+   * Returns the module (file) of the {@code depth}-th innermost enclosing Starlark function on the
+   * call stack, or null if number of the active calls that are functions defined in Starlark is
+   * less than or equal to {@code depth}.
+   *
+   * <p>This method is a temporary workaround for Starlarkification, to check {@code _builtin}
+   * restriction and should not be used anywhere else.
+   *
+   * @param depth the depth for the callstack.
+   * @throws IllegalArgumentException if {@code depth} is negative.
+   */
+  @Nullable
+  public static Module ofInnermostEnclosingStarlarkFunction(StarlarkThread thread, int depth) {
+    StarlarkFunction fn = thread.getInnermostEnclosingStarlarkFunction(depth);
+    if (fn != null) {
+      return fn.getModule();
+    }
+    return null;
   }
 
   /**
@@ -104,35 +133,22 @@ public final class Module implements Resolver.Module {
    */
   @Nullable
   public static Module ofInnermostEnclosingStarlarkFunction(StarlarkThread thread) {
-    for (Debug.Frame fr : thread.getDebugCallStack().reverse()) {
-      if (fr.getFunction() instanceof StarlarkFunction) {
-        return ((StarlarkFunction) fr.getFunction()).getModule();
-      }
-    }
-    return null;
+    return ofInnermostEnclosingStarlarkFunction(thread, 0);
   }
 
   /**
-   * Returns a map in which each {@link GuardedValue} that is enabled has been replaced by the value
-   * it guards. Disabled {@code GuardedValues} are left in place for error reporting upon access,
-   * and should be treated as unavailable.
+   * Replaces an enabled {@link GuardedValue} with the value it guards.
    *
-   * <p>The iteration order is unchanged.
+   * <p>A disabled {@link GuardedValue} is left in place for error reporting upon access, and should
+   * be treated as unavailable.
    */
-  private static ImmutableMap<String, Object> filter(
-      Map<String, Object> predeclared, StarlarkSemantics semantics, @Nullable Object clientData) {
-    ImmutableMap.Builder<String, Object> filtered = ImmutableMap.builder();
-    for (Map.Entry<String, Object> bind : predeclared.entrySet()) {
-      Object v = bind.getValue();
-      if (v instanceof GuardedValue) {
-        GuardedValue gv = (GuardedValue) bind.getValue();
-        if (gv.isObjectAccessibleUsingSemantics(semantics, clientData)) {
-          v = gv.getObject();
-        }
-      }
-      filtered.put(bind.getKey(), v);
+  private Object filterGuardedValue(Object v) {
+    Preconditions.checkNotNull(v);
+    if (!(v instanceof GuardedValue)) {
+      return v;
     }
-    return filtered.build();
+    GuardedValue gv = (GuardedValue) v;
+    return gv.isObjectAccessibleUsingSemantics(semantics, clientData) ? gv.getObject() : gv;
   }
 
   /** Returns the client data associated with this module. */
@@ -160,9 +176,19 @@ public final class Module implements Resolver.Module {
     return documentation;
   }
 
-  /** Returns the value of a predeclared (not universal) binding in this module. */
-  Object getPredeclared(String name) {
-    return predeclared.get(name);
+  /**
+   * Returns the value of a predeclared (not universal) binding in this module.
+   *
+   * <p>In the case that the predeclared is a {@link GuardedValue}: If it is enabled, the underlying
+   * value is returned, otherwise the {@code GuardedValue} itself is returned for error reporting.
+   */
+  @Nullable
+  public Object getPredeclared(String name) {
+    Object value = predeclared.get(name);
+    if (value == null) {
+      return null;
+    }
+    return filterGuardedValue(value);
   }
 
   /**
@@ -171,8 +197,8 @@ public final class Module implements Resolver.Module {
    * <p>The map reflects any filtering of {@link GuardedValue}: enabled ones are replaced by the
    * underlying values that they guard, while disabled ones are left in place for error reporting.
    */
-  public ImmutableMap<String, Object> getPredeclaredBindings() {
-    return predeclared;
+  public Map<String, Object> getPredeclaredBindings() {
+    return Maps.transformValues(predeclared, this::filterGuardedValue);
   }
 
   /**
@@ -190,7 +216,7 @@ public final class Module implements Resolver.Module {
         m.put(e.getKey(), v);
       }
     }
-    return m.build();
+    return m.buildOrThrow();
   }
 
   /** Implements the resolver's module interface. */
@@ -202,7 +228,7 @@ public final class Module implements Resolver.Module {
     }
 
     // predeclared?
-    Object v = predeclared.get(name);
+    Object v = getPredeclared(name);
     if (v != null) {
       if (v instanceof GuardedValue) {
         // Name is correctly spelled, but access is disabled by a flag or by client data.
@@ -272,9 +298,14 @@ public final class Module implements Resolver.Module {
     return i;
   }
 
+  private static final int[] EMPTY_INDICES = new int[0];
+
   /** Returns a list of indices of a list of globals; {@see getIndexOfGlobal}. */
   int[] getIndicesOfGlobals(List<String> globals) {
     int n = globals.size();
+    if (n == 0) {
+      return EMPTY_INDICES;
+    }
     int[] array = new int[n];
     for (int i = 0; i < n; i++) {
       array[i] = getIndexOfGlobal(globals.get(i));

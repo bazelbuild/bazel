@@ -1,6 +1,9 @@
 # Description:
 #   Run JUnit tests in a controlled environment.
-package(default_visibility = ["//visibility:private"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//visibility:private"],
+)
 
 filegroup(
     name = "srcs",

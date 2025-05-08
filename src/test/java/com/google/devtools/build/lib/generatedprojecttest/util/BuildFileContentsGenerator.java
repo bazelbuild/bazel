@@ -93,32 +93,14 @@ public final class BuildFileContentsGenerator implements FileContentsGenerator {
       current = new BuildRuleBuilder(ruleClass, uniqueRuleName());
       if (ruleClass.equals("java_library") || ruleClass.equals("android_library")) {
         current.dependsVia("exports").on(previous);
+      } else if (ruleClass.equals("filegroup")) {
+        current.dependsVia("srcs").on(previous);
       } else {
         current.dependsVia("deps").on(previous);
       }
       contents.append(current.build());
       chainLength--;
     }
-    return this;
-  }
-
-  /**
-   * Appends a chain of ruleClass rules, and one master rule which depends on all the other rules.
-   *
-   * @param ruleClass Name of the rule class to instantiate.
-   * @param noOfDeps Number of rules to create as dependencies for the first rule.
-   * @return this
-   */
-  @CanIgnoreReturnValue
-  public FileContentsGenerator addRuleWithDependencies(String ruleClass, int noOfDeps) {
-    BuildRuleBuilder masterRule = new BuildRuleBuilder(ruleClass, uniqueRuleName());
-    String dependingAttr = ruleClass.equals("android_library") ? "exports" : "deps";
-    for (int i = 0; i < noOfDeps; i++) {
-      BuildRuleBuilder dependentRule = new BuildRuleBuilder(ruleClass, uniqueRuleName());
-      masterRule.dependsVia(dependingAttr).on(dependentRule);
-      contents.append(dependentRule.build());
-    }
-    contents.append(masterRule.build());
     return this;
   }
 

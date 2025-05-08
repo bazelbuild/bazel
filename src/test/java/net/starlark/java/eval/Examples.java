@@ -51,7 +51,7 @@ final class Examples {
     // The try-with-resources statement ensures that all values become frozen
     // after execution.
     try (Mutability mu = Mutability.create(input.getFile())) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
     }
 
@@ -73,7 +73,7 @@ final class Examples {
 
     // Resolve, compile, and execute the expression.
     try (Mutability mu = Mutability.create(input.getFile())) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       return Starlark.eval(input, FileOptions.DEFAULT, module, thread);
     }
   }
@@ -103,7 +103,7 @@ final class Examples {
     // names provided during compilation.
     Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, makeEnvironment());
     try (Mutability mu = Mutability.create(prog.getFilename())) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       Starlark.execFileProgram(prog, module, thread);
     }
     return module;

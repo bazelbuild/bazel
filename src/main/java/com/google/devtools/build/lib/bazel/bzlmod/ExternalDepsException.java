@@ -28,7 +28,7 @@ public class ExternalDepsException extends Exception implements DetailedExceptio
 
   private final DetailedExitCode detailedExitCode;
 
-  public ExternalDepsException(String message, @Nullable Throwable cause, ExternalDeps.Code code) {
+  private ExternalDepsException(String message, @Nullable Throwable cause, ExternalDeps.Code code) {
     super(message, cause);
     detailedExitCode =
         DetailedExitCode.of(
@@ -49,6 +49,10 @@ public class ExternalDepsException extends Exception implements DetailedExceptio
       ExternalDeps.Code code, Throwable cause, @FormatString String format, Object... args) {
     return new ExternalDepsException(
         String.format(format, args) + ": " + cause.getMessage(), cause, code);
+  }
+
+  public static ExternalDepsException withCause(ExternalDeps.Code code, Throwable cause) {
+    return new ExternalDepsException(cause.getMessage(), cause, code);
   }
 
   @Override

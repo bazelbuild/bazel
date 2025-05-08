@@ -14,18 +14,15 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -66,7 +63,7 @@ public class JavaTargetAttributes {
     private ImmutableList<Artifact> sourcePath = ImmutableList.of();
     private final ImmutableList.Builder<Artifact> nativeLibraries = ImmutableList.builder();
 
-    private JavaPluginInfo plugins = JavaPluginInfo.empty();
+    private JavaPluginInfo plugins = JavaPluginInfo.empty(JavaPluginInfo.PROVIDER);
 
     private final Map<PathFragment, Artifact> resources = new LinkedHashMap<>();
     private final NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();
@@ -88,34 +85,11 @@ public class JavaTargetAttributes {
 
     private final NestedSetBuilder<Artifact> excludedArtifacts = NestedSetBuilder.naiveLinkOrder();
 
+    private boolean prependDirectJars = true;
+
     private boolean built = false;
 
-    private final JavaSemantics semantics;
-
-    public Builder(JavaSemantics semantics) {
-      this.semantics = semantics;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addSourceArtifacts(Iterable<Artifact> sourceArtifacts) {
-      Preconditions.checkArgument(!built);
-      for (Artifact srcArtifact : sourceArtifacts) {
-        String srcFilename = srcArtifact.getExecPathString();
-        if (JavaSemantics.SOURCE_JAR.matches(srcFilename)) {
-          sourceJars.add(srcArtifact);
-        } else if (JavaSemantics.PROPERTIES.matches(srcFilename)) {
-          // output files of the message compiler
-          resources.put(
-              semantics.getDefaultJavaResourcePath(srcArtifact.getRootRelativePath()), srcArtifact);
-        } else if (JavaSemantics.JAVA_SOURCE.matches(srcFilename)) {
-          sourceFiles.add(srcArtifact);
-        } else {
-          // try specific cases from the semantics.
-          semantics.addArtifactToJavaTargetAttribute(this, srcArtifact);
-        }
-      }
-      return this;
-    }
+    public Builder() {}
 
     @CanIgnoreReturnValue
     public Builder addSourceFiles(Iterable<Artifact> sourceFiles) {
@@ -131,8 +105,8 @@ public class JavaTargetAttributes {
     @CanIgnoreReturnValue
     public Builder merge(JavaCompilationArgsProvider context) {
       Preconditions.checkArgument(!built);
-      addCompileTimeClassPathEntries(context.getTransitiveCompileTimeJars());
-      addRuntimeClassPathEntries(context.getRuntimeJars());
+      addCompileTimeClassPathEntries(context.transitiveCompileTimeJars());
+      addRuntimeClassPathEntries(context.runtimeJars());
       return this;
     }
 
@@ -140,13 +114,6 @@ public class JavaTargetAttributes {
     public Builder addSourceJars(Collection<Artifact> sourceJars) {
       Preconditions.checkArgument(!built);
       this.sourceJars.addAll(sourceJars);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addSourceJar(Artifact sourceJar) {
-      Preconditions.checkArgument(!built);
-      this.sourceJars.add(sourceJar);
       return this;
     }
 
@@ -166,15 +133,25 @@ public class JavaTargetAttributes {
     }
 
     @CanIgnoreReturnValue
-    public Builder addCompileTimeClassPathEntry(Artifact entry) {
+    public Builder addCompileTimeClassPathEntries(NestedSet<Artifact> entries) {
       Preconditions.checkArgument(!built);
-      compileTimeClassPathBuilder.add(entry);
+      compileTimeClassPathBuilder.addTransitive(entries);
       return this;
     }
 
+    /**
+     * Avoids prepending the direct jars to the compile-time classpath when building the attributes,
+     * assuming that they have already been prepended. This avoids creating a new {@link NestedSet}
+     * instance.
+     *
+     * <p>After this method is called, {@link #addDirectJars(NestedSet)} will throw an exception.
+     */
     @CanIgnoreReturnValue
-    public Builder addCompileTimeClassPathEntries(NestedSet<Artifact> entries) {
+    public Builder setCompileTimeClassPathEntriesWithPrependedDirectJars(
+        NestedSet<Artifact> entries) {
       Preconditions.checkArgument(!built);
+      Preconditions.checkArgument(compileTimeClassPathBuilder.isEmpty());
+      prependDirectJars = false;
       compileTimeClassPathBuilder.addTransitive(entries);
       return this;
     }
@@ -200,7 +177,7 @@ public class JavaTargetAttributes {
      * instance overrides the default bootclasspath.
      */
     @CanIgnoreReturnValue
-    public Builder setBootClassPath(BootClassPathInfo bootClassPath) {
+    public Builder setBootClassPath(BootClassPathInfo bootClassPath) throws RuleErrorException {
       Preconditions.checkArgument(!built);
       Preconditions.checkArgument(!bootClassPath.isEmpty());
       Preconditions.checkState(this.bootClassPath.isEmpty());
@@ -214,13 +191,6 @@ public class JavaTargetAttributes {
       Preconditions.checkArgument(!built);
       Preconditions.checkArgument(sourcePath.isEmpty());
       this.sourcePath = artifacts;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addExcludedArtifacts(NestedSet<Artifact> toExclude) {
-      Preconditions.checkArgument(!built);
-      excludedArtifacts.addTransitive(toExclude);
       return this;
     }
 
@@ -251,14 +221,8 @@ public class JavaTargetAttributes {
     @CanIgnoreReturnValue
     public Builder addDirectJars(NestedSet<Artifact> directJars) {
       Preconditions.checkArgument(!built);
+      Preconditions.checkArgument(prependDirectJars);
       this.directJarsBuilder.addTransitive(directJars);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addDirectJar(Artifact directJar) {
-      Preconditions.checkArgument(!built);
-      this.directJarsBuilder.add(directJar);
       return this;
     }
 
@@ -270,40 +234,9 @@ public class JavaTargetAttributes {
     }
 
     @CanIgnoreReturnValue
-    public Builder addNativeLibrary(Artifact nativeLibrary) {
-      Preconditions.checkArgument(!built);
-      String name = nativeLibrary.getFilename();
-      if (CppFileTypes.INTERFACE_SHARED_LIBRARY.matches(name)) {
-        return this;
-      }
-      if (!(CppFileTypes.SHARED_LIBRARY.matches(name)
-          || CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name))) {
-        throw new IllegalArgumentException("not a shared library :" + nativeLibrary.prettyPrint());
-      }
-      nativeLibraries.add(nativeLibrary);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addNativeLibraries(Iterable<Artifact> nativeLibraries) {
-      Preconditions.checkArgument(!built);
-      for (Artifact nativeLibrary : nativeLibraries) {
-        addNativeLibrary(nativeLibrary);
-      }
-      return this;
-    }
-
-    @CanIgnoreReturnValue
     public Builder addMessages(Collection<Artifact> messages) {
       Preconditions.checkArgument(!built);
       this.messages.addAll(messages);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addMessage(Artifact messagesArtifact) {
-      Preconditions.checkArgument(!built);
-      this.messages.add(messagesArtifact);
       return this;
     }
 
@@ -335,13 +268,6 @@ public class JavaTargetAttributes {
       return this;
     }
 
-    @CanIgnoreReturnValue
-    public Builder addClassPathResource(Artifact classPathResource) {
-      Preconditions.checkArgument(!built);
-      this.classPathResources.add(classPathResource);
-      return this;
-    }
-
     /** Adds additional outputs to this target's compile action. */
     @CanIgnoreReturnValue
     public Builder addAdditionalOutputs(Iterable<Artifact> outputs) {
@@ -354,10 +280,12 @@ public class JavaTargetAttributes {
       built = true;
       NestedSet<Artifact> directJars = directJarsBuilder.build();
       NestedSet<Artifact> compileTimeClassPath =
-          NestedSetBuilder.<Artifact>naiveLinkOrder()
-              .addTransitive(directJars)
-              .addTransitive(compileTimeClassPathBuilder.build())
-              .build();
+          prependDirectJars
+              ? NestedSetBuilder.<Artifact>naiveLinkOrder()
+                  .addTransitive(directJars)
+                  .addTransitive(compileTimeClassPathBuilder.build())
+                  .build()
+              : compileTimeClassPathBuilder.build();
       return new JavaTargetAttributes(
           ImmutableSet.copyOf(sourceFiles),
           runtimeClassPath.build(),
@@ -382,11 +310,6 @@ public class JavaTargetAttributes {
 
     // TODO(bazel-team): delete the following method - users should use the built
     // JavaTargetAttributes instead of accessing mutable state in the Builder.
-    /** @deprecated prefer {@link JavaTargetAttributes#hasSources} */
-    @Deprecated
-    public boolean hasSources() {
-      return !sourceFiles.isEmpty() || !sourceJars.isEmpty();
-    }
 
     /** @deprecated prefer {@link JavaTargetAttributes#getSourceFiles} */
     @Deprecated
@@ -530,38 +453,6 @@ public class JavaTargetAttributes {
     return additionalOutputs;
   }
 
-  private NestedSet<Artifact> getExcludedArtifacts() {
-    return excludedArtifacts;
-  }
-
-  /**
-   * Returns the artifacts needed on the runtime classpath of this target.
-   *
-   * <p>See also {@link #getRuntimeClassPathForArchive()}.
-   */
-  public NestedSet<Artifact> getRuntimeClassPath() {
-    return runtimeClassPath;
-  }
-
-  /**
-   * Returns the classpath artifacts needed in a deploy jar for this target.
-   *
-   * <p>This excludes the artifacts made available by jars in the deployment environment.
-   */
-  public NestedSet<Artifact> getRuntimeClassPathForArchive() {
-    NestedSet<Artifact> runtimeClasspath = getRuntimeClassPath();
-
-    if (getExcludedArtifacts().isEmpty()) {
-      return runtimeClasspath;
-    } else {
-      return NestedSetBuilder.wrap(
-          Order.STABLE_ORDER,
-          Iterables.filter(
-              runtimeClasspath.toList(),
-              Predicates.not(Predicates.in(getExcludedArtifacts().toSet()))));
-    }
-  }
-
   public NestedSet<Artifact> getCompileTimeClassPath() {
     return compileTimeClassPath;
   }
@@ -582,23 +473,11 @@ public class JavaTargetAttributes {
     return sourceFiles;
   }
 
-  public List<Artifact> getNativeLibraries() {
-    return nativeLibraries;
-  }
-
-  public boolean hasSources() {
-    return !sourceFiles.isEmpty() || !sourceJars.isEmpty();
-  }
-
   public boolean hasResources() {
     return !resources.isEmpty()
         || !messages.isEmpty()
         || !classPathResources.isEmpty()
         || !resourceJars.isEmpty();
-  }
-
-  public boolean hasMessages() {
-    return !messages.isEmpty();
   }
 
   public Label getTargetLabel() {

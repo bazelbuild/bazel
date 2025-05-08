@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -256,8 +258,11 @@ public final class ActionExecutionValueTransformSharedTreeArtifactsTest {
   private static ActionExecutionValue createActionExecutionValue(
       ImmutableMap<Artifact, FileArtifactValue> fileArtifacts,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifacts) {
-    return ActionExecutionValue.createForTesting(
-        fileArtifacts, treeArtifacts, /*outputSymlinks=*/ null);
+    return ActionExecutionValue.create(
+        fileArtifacts,
+        treeArtifacts,
+        /* richArtifactData= */ null,
+        /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   private static void createFile(Path file) throws IOException {

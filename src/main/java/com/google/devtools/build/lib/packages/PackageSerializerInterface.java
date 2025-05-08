@@ -34,6 +34,5 @@ public interface PackageSerializerInterface {
 
   /** Deserializes a package. */
   Package deserialize(DeserializationContext context, CodedInputStream codedIn)
-      throws IOException, InterruptedException, SerializationException;
-
+      throws IOException, SerializationException;
 }

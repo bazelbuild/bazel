@@ -21,14 +21,42 @@ import java.io.IOException;
 /** Prefetches files to local disk. */
 public interface ActionInputPrefetcher {
   public static final ActionInputPrefetcher NONE =
-      new ActionInputPrefetcher() {
-        @Override
-        public ListenableFuture<Void> prefetchFiles(
-            Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider) {
+      (action, inputs, metadataProvider, priority, reason) ->
           // Do nothing.
-          return immediateVoidFuture();
-        }
-      };
+          immediateVoidFuture();
+
+  /** Priority for the staging task. */
+  public enum Priority {
+    /**
+     * Critical priority tasks are tasks that are critical to the execution time e.g. staging files
+     * for in-process actions.
+     */
+    CRITICAL,
+    /**
+     * High priority tasks are tasks that may have impact on the execution time e.g. staging outputs
+     * that are inputs to local actions which will be executed later.
+     */
+    HIGH,
+    /**
+     * Medium priority tasks are tasks that may or may not have the impact on the execution time
+     * e.g. staging inputs for local branch of dynamically scheduled actions.
+     */
+    MEDIUM,
+    /**
+     * Low priority tasks are tasks that don't have impact on the execution time e.g. staging
+     * outputs of toplevel targets/aspects.
+     */
+    LOW,
+  }
+
+  /** The reason for prefetching. */
+  enum Reason {
+    /** The requested files are needed as inputs to the given action. */
+    INPUTS,
+
+    /** The requested files are requested as outputs of the given action. */
+    OUTPUTS,
+  }
 
   /**
    * Initiates best-effort prefetching of all given inputs.
@@ -38,5 +66,9 @@ public interface ActionInputPrefetcher {
    * @return future success if prefetch is finished or {@link IOException}.
    */
   ListenableFuture<Void> prefetchFiles(
-      Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider);
+      ActionExecutionMetadata action,
+      Iterable<? extends ActionInput> inputs,
+      InputMetadataProvider metadataProvider,
+      Priority priority,
+      Reason reason);
 }

@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -83,7 +84,7 @@ public class CommandTest {
   public void testSimpleCommand() throws Exception {
     Command command = new Command(new String[] {"ls"});
     CommandResult result = command.execute();
-    assertThat(result.getTerminationStatus().success()).isTrue();
+    assertThat(result.terminationStatus().success()).isTrue();
     assertThat(result.getStderr()).isEmpty();
     assertThat(result.getStdout().length).isGreaterThan(0);
   }
@@ -95,10 +96,27 @@ public class CommandTest {
   }
 
   @Test
-  public void testEnvironment() throws Exception {
-    Map<String, String> env = Collections.singletonMap("FOO", "BAR");
-    Command command = new Command(new String[] {"/bin/sh", "-c", "echo $FOO"}, env, null);
-    checkSuccess(command.execute(), "BAR\n");
+  public void testNonEmptyEnvironment() throws Exception {
+    ImmutableMap<String, String> env = ImmutableMap.of("FOO", "abc", "BAR", "def");
+    Command command = new Command(new String[] {"/bin/sh", "-c", "echo $FOO $BAR"}, env, null);
+    checkSuccess(command.execute(), "abc def\n");
+  }
+
+  @Test
+  public void testEmptyEnvironment() throws Exception {
+    // Check only that TZ was not inherited instead of verifying the entire environment.
+    assertThat(Strings.nullToEmpty(System.getenv("TZ"))).isNotEmpty();
+    Command command =
+        new Command(new String[] {"/bin/sh", "-c", "echo $TZ"}, ImmutableMap.of(), null);
+    checkSuccess(command.execute(), "\n");
+  }
+
+  @Test
+  public void testInheritedEnvironment() throws Exception {
+    // Check only that TZ was inherited instead of verifying the entire environment.
+    assertThat(Strings.nullToEmpty(System.getenv("TZ"))).isNotEmpty();
+    Command command = new Command(new String[] {"/bin/sh", "-c", "echo $TZ"}, null, null);
+    checkSuccess(command.execute(), System.getenv("TZ") + "\n");
   }
 
   @Test
@@ -120,7 +138,7 @@ public class CommandTest {
   public void testRawCommand() throws Exception {
     Command command = new Command(new String[] { "perl", "-e", "print 'a'x100000" });
     CommandResult result = command.execute();
-    assertThat(result.getTerminationStatus().success()).isTrue();
+    assertThat(result.terminationStatus().success()).isTrue();
     assertThat(result.getStderr()).isEmpty();
     assertThat(result.getStdout().length).isGreaterThan(0);
   }
@@ -136,7 +154,7 @@ public class CommandTest {
   public void testHugeOutput() throws Exception {
     Command command = new Command(new String[] {"perl", "-e", "print 'a'x100000"});
     CommandResult result = command.execute();
-    assertThat(result.getTerminationStatus().success()).isTrue();
+    assertThat(result.terminationStatus().success()).isTrue();
     assertThat(result.getStderr()).isEmpty();
     assertThat(result.getStdout()).hasLength(100000);
   }
@@ -150,7 +168,7 @@ public class CommandTest {
     CommandResult result = command
         .executeAsync(emptyInput, out, err, Command.KILL_SUBPROCESS_ON_INTERRUPT)
         .get();
-    assertThat(result.getTerminationStatus().success()).isTrue();
+    assertThat(result.terminationStatus().success()).isTrue();
     assertThat(out.toString("UTF-8")).isEmpty();
     assertThat(err.toString("UTF-8")).isEmpty();
   }
@@ -159,7 +177,7 @@ public class CommandTest {
   public void testNoInputForCat() throws Exception {
     Command command = new Command(new String[]{"/bin/cat"});
     CommandResult result = command.execute();
-    assertThat(result.getTerminationStatus().success()).isTrue();
+    assertThat(result.terminationStatus().success()).isTrue();
     assertThat(new String(result.getStdout(), "UTF-8")).isEmpty();
     assertThat(new String(result.getStderr(), "UTF-8")).isEmpty();
   }
@@ -237,7 +255,7 @@ public class CommandTest {
     {
       String[] args = { "/bin/sh", "-c", "exit 0" };
       CommandResult result = new Command(args).execute();
-      TerminationStatus status = result.getTerminationStatus();
+      TerminationStatus status = result.terminationStatus();
       assertThat(status.success()).isTrue();
       assertThat(status.exited()).isTrue();
       assertThat(status.getExitCode()).isEqualTo(0);
@@ -254,7 +272,7 @@ public class CommandTest {
               () -> new Command(args).execute());
       assertThat(e).hasMessageThat().isEqualTo("Process exited with status " + exit);
         checkCommandElements(e, "/bin/sh", "-c", "exit " + exit);
-        TerminationStatus status = e.getResult().getTerminationStatus();
+      TerminationStatus status = e.getResult().terminationStatus();
         assertThat(status.success()).isFalse();
         assertThat(status.exited()).isTrue();
         assertThat(status.getExitCode()).isEqualTo(exit);
@@ -272,7 +290,7 @@ public class CommandTest {
               () -> new Command(args).execute());
       assertThat(e).hasMessageThat().isEqualTo("Process exited with status " + expected);
         checkCommandElements(e, "/bin/bash", "-c", "exit " + exit);
-        TerminationStatus status = e.getResult().getTerminationStatus();
+      TerminationStatus status = e.getResult().terminationStatus();
         assertThat(status.success()).isFalse();
         assertThat(status.exited()).isTrue();
         assertThat(status.getExitCode()).isEqualTo(expected);
@@ -297,7 +315,7 @@ public class CommandTest {
               () -> new Command(args).execute());
       assertThat(e).hasMessageThat().isEqualTo("Process terminated by signal " + signal);
         checkCommandElements(e, killmyself, "" + signal);
-        TerminationStatus status = e.getResult().getTerminationStatus();
+      TerminationStatus status = e.getResult().terminationStatus();
         assertThat(status.success()).isFalse();
         assertThat(status.exited()).isFalse();
         assertThat(status.getTerminatingSignal()).isEqualTo(signal);
@@ -326,7 +344,7 @@ public class CommandTest {
 
     CommandResult result =
         command.executeAsync(in, out, out, Command.KILL_SUBPROCESS_ON_INTERRUPT).get();
-    TerminationStatus status = result.getTerminationStatus();
+    TerminationStatus status = result.terminationStatus();
     assertThat(status.success()).isTrue();
   }
 
@@ -388,7 +406,7 @@ public class CommandTest {
     AbnormalTerminationException e =
         assertThrows(AbnormalTerminationException.class, () -> command.execute(out, out));
     checkCommandElements(e, "cat", "/dev/thisisnotreal");
-      TerminationStatus status = e.getResult().getTerminationStatus();
+    TerminationStatus status = e.getResult().terminationStatus();
       // Subprocess either gets a SIGPIPE trying to write to our output stream,
       // or it exits with failure.  Both are observed, nondetermistically.
       assertThat(status.exited() ? status.getExitCode() == 1 : status.getTerminatingSignal() == 13)
@@ -407,12 +425,12 @@ public class CommandTest {
 
   private static void checkATE(final AbnormalTerminationException ate) {
     final CommandResult result = ate.getResult();
-    assertThat(result.getTerminationStatus().success()).isFalse();
+    assertThat(result.terminationStatus().success()).isFalse();
   }
 
   private static void checkSuccess(final CommandResult result,
                                    final String expectedOutput) {
-    assertThat(result.getTerminationStatus().success()).isTrue();
+    assertThat(result.terminationStatus().success()).isTrue();
     assertThat(result.getStderr()).isEmpty();
     assertThat(new String(result.getStdout())).isEqualTo(expectedOutput);
   }

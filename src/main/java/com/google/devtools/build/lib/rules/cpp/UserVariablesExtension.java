@@ -46,8 +46,7 @@ public class UserVariablesExtension implements VariablesExtension {
           throw new EvalException(
               "Trying to build UserVariableExtension, found non-string type in sequence.");
         }
-      } else if (entry.getValue() instanceof Depset) {
-        Depset depset = (Depset) entry.getValue();
+      } else if (entry.getValue() instanceof Depset depset) {
         if (depset.isEmpty()) {
           continue;
         }
@@ -82,8 +81,7 @@ public class UserVariablesExtension implements VariablesExtension {
         } catch (EvalException e) {
           // Cannot throw, cast already checked in constructor.
         }
-      } else if (entry.getValue() instanceof String) {
-        String value = (String) entry.getValue();
+      } else if (entry.getValue() instanceof String value) {
         builder.addStringVariable(entry.getKey(), value);
       } else {
         // If it's any other type we should have thrown an EvalException in the constructor already.

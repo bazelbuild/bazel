@@ -19,6 +19,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -36,8 +37,10 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -50,10 +53,28 @@ import net.starlark.java.eval.Structure;
  * <p>Transitive info providers may also be overridden. At a minimum, {@link #getProvider} provides
  * {@link AliasProvider} and an explicit {@link VisibilityProvider} which takes precedent over the
  * actual target's visibility.
+ *
+ * <p>The {@link ConfiguredTarget#getConfigurationKey} returns the configuration of the alias itself
+ * and not the configuration of {@link AliasConfiguredTarget#actual} for the following reasons.
+ *
+ * <ul>
+ *   <li>{@code actual} might be an input file, in which case its configuration key is null, and we
+ *       don't want to have rules with a null configuration key.
+ *   <li>{@code actual} has a self transition. Self transitions don't get applied to the alias rule,
+ *       and so the configuration keys actually differ.
+ * </ul>
+ *
+ * <p>An {@code alias} target may not be used to redirect a {@code package_group} target in a {@code
+ * visibility} declaration or a {@code package_group}'s {@code includes} attribute.
  */
 @Immutable
+@AutoCodec
 public final class AliasConfiguredTarget implements ConfiguredTarget, Structure {
 
+  /**
+   * Convenience wrapper for {@link #createWithOverrides} that does not specify any additional
+   * overrides.
+   */
   public static AliasConfiguredTarget create(
       RuleContext ruleContext,
       ConfiguredTarget actual,
@@ -62,6 +83,21 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
         ruleContext, actual, visibility, /*overrides=*/ ImmutableClassToInstanceMap.of());
   }
 
+  /**
+   * Constructs an {@code AliasConfiguredTarget} that forwards most of the providers of {@code
+   * actual}, with certain providers shadowed.
+   *
+   * <p>The shadowed providers are anything given in {@code overrides}, plus the following built-in
+   * changes which take priority above both {@code actual} and {@code overrides}:
+   *
+   * <ul>
+   *   <li>{@link AliasProvider} is set to indicate that this is an alias configured target.
+   *   <li>{@link VisibilityProvider} has the information describing this alias target (as passed
+   *       here in the {@code visibility} parameter), not the information describing the {@code
+   *       actual} underlying target.
+   *   <li>{@link RequiredConfigFragmentsProvider} may be set}
+   * </ul>
+   */
   public static AliasConfiguredTarget createWithOverrides(
       RuleContext ruleContext,
       ConfiguredTarget actual,
@@ -71,7 +107,13 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
         ImmutableClassToInstanceMap.<TransitiveInfoProvider>builder()
             .putAll(overrides)
             .put(AliasProvider.class, AliasProvider.fromAliasRule(ruleContext.getRule(), actual))
-            .put(VisibilityProvider.class, new VisibilityProviderImpl(visibility));
+            .put(
+                VisibilityProvider.class,
+                new VisibilityProviderImpl(
+                    visibility,
+                    /* isCreatedInSymbolicMacro= */ ruleContext
+                        .getRule()
+                        .isCreatedInSymbolicMacro()));
     if (ruleContext.getRequiredConfigFragments() != null) {
       // This causes "blaze cquery --show_config_fragments=direct" to only show the
       // fragments/options the alias directly uses, not those of its actual target. Since alias
@@ -80,30 +122,34 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
           RequiredConfigFragmentsProvider.class, ruleContext.getRequiredConfigFragments());
     }
     return new AliasConfiguredTarget(
-        ruleContext.getLabel(),
-        ruleContext.getConfigurationKey(),
-        actual,
-        allOverrides.build(),
-        ruleContext.getConfigConditions());
+        ruleContext.getOwner(), actual, allOverrides.build(), ruleContext.getConfigConditions());
   }
 
-  private final Label label;
-  private final BuildConfigurationKey configurationKey;
+  private final ActionLookupKey actionLookupKey;
   private final ConfiguredTarget actual;
   private final ImmutableClassToInstanceMap<TransitiveInfoProvider> overrides;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
 
-  private AliasConfiguredTarget(
-      Label label,
-      BuildConfigurationKey configurationKey,
+  @VisibleForSerialization
+  AliasConfiguredTarget(
+      ActionLookupKey actionLookupKey,
       ConfiguredTarget actual,
       ImmutableClassToInstanceMap<TransitiveInfoProvider> overrides,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
-    this.label = checkNotNull(label);
-    this.configurationKey = checkNotNull(configurationKey);
+    this.actionLookupKey = actionLookupKey;
     this.actual = checkNotNull(actual);
     this.overrides = checkNotNull(overrides);
     this.configConditions = checkNotNull(configConditions);
+  }
+
+  @Override
+  public ConfiguredTarget getActualNoFollow() {
+    return actual;
+  }
+
+  @Override
+  public ActionLookupKey getLookupKey() {
+    return this.actionLookupKey;
   }
 
   @Override
@@ -122,6 +168,11 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
     return p != null ? p : actual.getProvider(provider);
   }
 
+  // TODO(bazel-team): It's a bit confusing that we're returning the label of the target we directly
+  // point to, rather than our own label, or the label of the eventual endpoint of the alias chain.
+  // Is there a reason we need to put that behavior in this override rather than having this return
+  // our own label and making a separate method to get the actual's label? (If so, update this
+  // comment.)
   @Override
   public Label getLabel() {
     return actual.getLabel();
@@ -148,16 +199,6 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
     return actual.containsKey(semantics, key);
   }
 
-  @Override
-  public BuildConfigurationKey getConfigurationKey() {
-    // It would be incorrect to return actual.getConfigurationKey() because of two cases:
-    // 1) actual might be an input file, in which case its configuration key is null, and we don't
-    //    want to have rules with a null configuration key.
-    // 2) actual has a self transition. Self transitions don't get applied to the alias rule, and so
-    //    the configuration keys actually differ.
-    return configurationKey;
-  }
-
   /* Structure methods */
 
   @Override
@@ -168,7 +209,7 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
       // A shortcut for files to build in Starlark. FileConfiguredTarget and RuleConfiguredTarget
       // always has FileProvider and Error- and PackageGroupConfiguredTarget-s shouldn't be
       // accessible in Starlark.
-      return Depset.of(Artifact.TYPE, getProvider(FileProvider.class).getFilesToBuild());
+      return Depset.of(Artifact.class, getProvider(FileProvider.class).getFilesToBuild());
     }
     return actual.getValue(name);
   }
@@ -193,19 +234,25 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
 
   @Override
   public Label getOriginalLabel() {
-    return label;
+    return actionLookupKey.getLabel();
+  }
+
+  @Override
+  public Dict<String, Object> getProvidersDictForQuery() {
+    return actual.getProvidersDictForQuery();
   }
 
   @Override
   public void repr(Printer printer) {
-    printer.append("<alias target " + label + " of " + actual.getLabel() + ">");
+    printer.append(
+        "<alias target " + actionLookupKey.getLabel() + " of " + actual.getLabel() + ">");
   }
 
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-        .add("label", label)
-        .add("configurationKey", configurationKey)
+        .add("label", actionLookupKey.getLabel())
+        .add("configurationKey", getConfigurationKey())
         .add("actual", actual)
         .add("overrides", overrides)
         .add("configConditions", configConditions)

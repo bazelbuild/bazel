@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -52,10 +52,9 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
+function set_up() {
+  add_rules_java MODULE.bazel
+}
 
 function test_output_filter_cc() {
   # "test warning filter for C compilation"
@@ -85,10 +84,10 @@ int main(void)
 #ifdef _WIN32
   // MSVC does not support the #warning directive.
   int unused_variable__triggers_a_warning;  // triggers C4101
-#else  // not COMPILER_MSVC
+#else  // not _WIN32
   // GCC/Clang support #warning.
 #warning("triggers_a_warning")
-#endif  // COMPILER_MSVC
+#endif  // _WIN32
   printf("%s", "Hello, World!\n");
   return 0;
 }
@@ -110,6 +109,7 @@ function test_output_filter_java() {
 
   mkdir -p $pkg/java/main
   cat >$pkg/java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(name = 'main',
     deps = ['//$pkg/java/hello_library'],
     srcs = ['Main.java'],
@@ -130,6 +130,7 @@ EOF
 
   mkdir -p $pkg/java/hello_library
   cat >$pkg/java/hello_library/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
 package(default_visibility=['//visibility:public'])
 java_library(name = 'hello_library',
              srcs = ['HelloLibrary.java'],
@@ -186,83 +187,6 @@ EOF
   bazel test --experimental_ui_debug_all_events --output_filter="dummy" \
       $pkg/foo/bar:test >&"$TEST_log" || fail
   expect_log "PASS.*: //$pkg/foo/bar:test"
-}
-
-function test_output_filter_build() {
-  # "test output filter for BUILD files"
-  local -r pkg=$FUNCNAME
-
-  mkdir -p $pkg/foo/bar
-  cat >$pkg/foo/bar/BUILD <<EOF
-# Trigger sh_binary in deps of sh_binary warning.
-sh_binary(name='red',
-          srcs=['tomato.skin'])
-sh_binary(name='tomato',
-          srcs=['tomato.pulp'],
-          deps=[':red'])
-EOF
-
-  touch $pkg/foo/bar/tomato.{skin,pulp}
-  chmod +x $pkg/foo/bar/tomato.{skin,pulp}
-
-  # check that we do get a deprecation warning
-  bazel build //$pkg/foo/bar:tomato >&"$TEST_log" || fail "build failed"
-  expect_log "is unexpected here"
-
-  # check that we do get a deprecation warning if we select the target
-
-  echo "# add comment to trigger rebuild" >> $pkg/foo/bar/tomato.skin
-  echo "# add comment to trigger rebuild" >> $pkg/foo/bar/tomato.pulp
-  bazel build --output_filter=$pkg/foo/bar:tomato //$pkg/foo/bar:tomato >&"$TEST_log" \
-    || fail "build failed"
-  expect_log "is unexpected here"
-
-  # check that we do not get a deprecation warning if we select another target
-  echo "# add another comment" >> $pkg/foo/bar/tomato.skin
-  echo "# add another comment" >> $pkg/foo/bar/tomato.pulp
-  bazel build --output_filter=$pkg/foo/bar/:red //$pkg/foo/bar:tomato >&"$TEST_log" \
-    || fail "build failed"
-  expect_not_log "is unexpected here"
-}
-
-function test_output_filter_build_hostattribute() {
-  # "test that output filter also applies to host attributes"
-  local -r pkg=$FUNCNAME
-
-  # What do you get in bars?
-  mkdir -p $pkg/bar
-
-  cat >$pkg/bar/BUILD <<EOF
-# Trigger sh_binary in deps of sh_binary warning.
-sh_binary(name='red',
-          srcs=['tomato.skin'])
-sh_binary(name='tomato',
-          srcs=['tomato.pulp'],
-          deps=[':red'])
-
-# Booze, obviously.
-genrule(name='bloody_mary',
-        srcs=['vodka'],
-        outs=['fun'],
-        tools=[':tomato'],
-        cmd='cp \$< \$@')
-EOF
-
-  touch $pkg/bar/tomato.{skin,pulp}
-  chmod +x $pkg/bar/tomato.{skin,pulp}
-  echo Moskowskaya > $pkg/bar/vodka
-
-  # Check that we do get a deprecation warning
-  bazel build //$pkg/bar:bloody_mary >&"$TEST_log" || fail "build failed"
-  expect_log "is unexpected here"
-
-  # Check that the warning is disabled if we do not want to see it
-  echo "# add comment to trigger rebuild" >> $pkg/bar/tomato.skin
-  echo "# add comment to trigger rebuild" >> $pkg/bar/tomato.pulp
-
-  bazel build //$pkg/bar:bloody_mary --output_filter='nothing' >&"$TEST_log" \
-    || fail "build failed"
-  expect_not_log "is unexpected here"
 }
 
 function test_output_filter_does_not_apply_to_test_output() {
@@ -336,11 +260,17 @@ EOF
   local status_cmd="$TEST_TMPDIR/status_cmd.sh"
 
   cat >"$status_cmd" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo 'STATUS_COMMAND_RAN' >&2
 EOF
   chmod +x "$status_cmd" || fail "Failed to mark $status_cmd executable"
+
+  bazel build --workspace_status_command="$status_cmd" \
+      --auto_output_filter=none \
+      "//$pkg:foo" >&"$TEST_log" \
+      || fail "Expected success"
+  expect_log STATUS_COMMAND_RAN
 
   bazel build --workspace_status_command="$status_cmd" \
       --auto_output_filter=packages \

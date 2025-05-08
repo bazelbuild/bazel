@@ -25,6 +25,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
@@ -38,39 +39,45 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @StarlarkBuiltin(
     name = "attr",
-    category = DocCategory.TOP_LEVEL_TYPE,
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc =
-        "This is a top-level module for defining the attribute schemas of a rule or aspect. Each"
-            + " function returns an object representing the schema of a single attribute. These"
-            + " objects are used as the values of the <code>attrs</code> dictionary argument of <a"
-            + " href=\"globals.html#rule\"><code>rule()</code></a> and <a"
-            + " href=\"globals.html#aspect\"><code>aspect()</code></a>.<p>See the Rules page for"
-            + " more on <a href='https://bazel.build/rules/rules#attributes'>defining</a> and <a"
-            + " href='https://bazel.build/rules/rules#implementation_function'>using</a>"
-            + " attributes.")
+        """
+        This is a top-level module for defining the attribute schemas of a rule or aspect. Each \
+        function returns an object representing the schema of a single attribute. These objects \
+        are used as the values of the <code>attrs</code> dictionary argument of \
+        <a href="../globals/bzl.html#rule"><code>rule()</code></a>, \
+        <a href="../globals/bzl.html#aspect"><code>aspect()</code></a>, \
+        <a href="../globals/bzl.html#repository_rule"><code>repository_rule()</code></a> and \
+        <a href="../globals/bzl.html#tag_class"><code>tag_class()</code></a>. \
+        <p>See the Rules page \
+        for more on <a href="https://bazel.build/extending/rules#attributes">defining</a>
+        and <a href="https://bazel.build/extending/rules#implementation_function">using</a> \
+        attributes.</p>
+        """)
 public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   // dependency and output attributes
   String LABEL_PARAGRAPH =
-      "<p>This attribute contains unique <a href='Label.html'><code>Label</code></a> values. If a "
-          + "string is supplied in place of a <code>Label</code>, it will be converted using the "
-          + "<a href='Label.html#Label'>label constructor</a>. The relative parts of the label "
-          + "path, including the (possibly renamed) repository, are resolved with respect to the "
-          + "instantiated target's package.";
+      "<p>This attribute contains unique <a href='../builtins/Label.html'><code>Label</code></a>"
+          + " values. If a string is supplied in place of a <code>Label</code>, it will be"
+          + " converted using the <a href='../builtins/Label.html#Label'>label constructor</a>. The"
+          + " relative parts of the label path, including the (possibly renamed) repository, are"
+          + " resolved with respect to the instantiated target's package.";
 
   // attr.label, attr.label_list, attr.label_keyed_string_dict
   String DEPENDENCY_ATTR_TEXT =
       LABEL_PARAGRAPH
-          + "<p>At analysis time (within the rule's implementation function), when retrieving the "
-          + "attribute value from <code>ctx.attr</code>, labels are replaced by the corresponding "
-          + "<a href='Target.html'><code>Target</code></a>s. This allows you to access the "
-          + "providers of the currrent target's dependencies.";
+          + "<p>At analysis time (within the rule's implementation function), when retrieving the"
+          + " attribute value from <code>ctx.attr</code>, labels are replaced by the corresponding"
+          + " <a href='../builtins/Target.html'><code>Target</code></a>s. This allows you to access"
+          + " the providers of the current target's dependencies.";
 
   // attr.output, attr.output_list
   String OUTPUT_ATTR_TEXT =
       LABEL_PARAGRAPH
-          + "<p>At analysis time, the corresponding <a href='File.html'><code>File</code></a> can "
-          + "be retrieved using <code>ctx.outputs</code>.";
+          + "<p>At analysis time, the corresponding <a"
+          + " href='../builtins/File.html'><code>File</code></a> can be retrieved using <a"
+          + " href='../builtins/ctx.html#outputs'><code>ctx.outputs</code></a>.";
 
   String ALLOW_FILES_ARG = "allow_files";
   String ALLOW_FILES_DOC =
@@ -88,10 +95,33 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       "Aspects that should be applied to the dependency or dependencies specified by this "
           + "attribute.";
 
+  String SKIP_VALIDATIONS_ARG = "skip_validations";
+  String SKIP_VALIDATIONS_ARG_DOC =
+      "If true, validation actions of transitive dependencies from "
+          + "this attribute will not run. This is a temporary mitigation and WILL be removed in "
+          + "the future.";
+
+  String CONFIGURABLE_ARG = "configurable";
+  String CONFIGURABLE_ARG_DOC =
+      "This argument can only be specified for an attribute of a symbolic macro." //
+          + "<p>If <code>"
+          + CONFIGURABLE_ARG
+          + "</code> is explicitly set to <code>False</code>, the symbolic macro attribute is"
+          + " non-configurable - in other words, it cannot take a <code>select()</code> value. If"
+          + " the <code>"
+          + CONFIGURABLE_ARG
+          + "</code> is either unbound or explicitly set to <code>True</code>, the attribute is"
+          + " configurable and can take a <code>select()</code> value." //
+          + "<p>For an attribute of a rule or aspect, <code>"
+          + CONFIGURABLE_ARG
+          + "</code> must be left unbound. Most Starlark rule attributes are always configurable,"
+          + " with the exception of <code>attr.output()</code>, <code>attr.output_list()</code>,"
+          + " and <code>attr.license()</code> rule attributes, which are always non-configurable.";
+
   String CONFIGURATION_ARG = "cfg";
   // TODO(b/151742236): Update when new Starlark-based configuration framework is implemented.
   String CONFIGURATION_DOC =
-      "<a href=\"https://bazel.build/rules/rules#configurations\">"
+      "<a href=\"https://bazel.build/extending/rules#configurations\">"
           + "Configuration</a> of the attribute. It can be either <code>\"exec\"</code>, which "
           + "indicates that the dependency is built for the <code>execution platform</code>, or "
           + "<code>\"target\"</code>, which indicates that the dependency is build for the "
@@ -122,19 +152,33 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   String MANDATORY_DOC =
       "If true, the value must be specified explicitly (even if it has a <code>default</code>).";
 
+  String MATERIALIZER_ARG = "materializer";
+  String MATERALIZER_DOC =
+      "If set, the attribute materializes dormant dependencies from the transitive closure. The "
+          + "value of this parameter must be a functon that gets access to the values of the "
+          + "attributes of the rule that either are not dependencies or are marked as available "
+          + "for dependency resolution. It must return either a dormant dependency or a list of "
+          + "them depending on the type of the attribute";
+
   String ALLOW_EMPTY_ARG = "allow_empty";
   String ALLOW_EMPTY_DOC = "True if the attribute can be empty.";
 
+  String FOR_DEPENDENCY_RESOLUTION_ARG = "for_dependency_resolution";
+  String FOR_DEPENDENCY_RESOLUTION_DOC =
+      "If this is set, the attribute is available for materializers. Only rules marked with the"
+          + " flag of the same name are allowed to be referenced through such attributes.";
+
   String PROVIDERS_ARG = "providers";
   String PROVIDERS_DOC =
-      "The providers that must be given by any dependency appearing in this attribute."
-          + ""
-          + "<p>The format of this argument is a list of lists of providers -- <code>*Info</code> "
-          + "objects returned by <a href='globals.html#provider'><code>provider()</code></a> (or "
-          + "in the case of a legacy provider, its string name). The dependency must return ALL "
-          + "providers mentioned in at least ONE of the inner lists. As a convenience, this "
-          + "argument may also be a single-level list of providers, in which case it is wrapped in "
-          + "an outer list with one element.";
+      "The providers that must be given by any dependency appearing in this attribute.<p>The format"
+          + " of this argument is a list of lists of providers -- <code>*Info</code> objects"
+          + " returned by <a href='../globals/bzl.html#provider'><code>provider()</code></a> (or in"
+          + " the case of a legacy provider, its string name). The dependency must return ALL"
+          + " providers mentioned in at least ONE of the inner lists. As a convenience, this"
+          + " argument may also be a single-level list of providers, in which case it is wrapped in"
+          + " an outer list with one element. It is NOT required that the rule of the dependency"
+          + " advertises those providers in its <code>provides</code> parameter, however, it is"
+          + " considered best practice.";
 
   String ALLOW_SINGLE_FILE_ARG = "allow_single_file";
 
@@ -146,9 +190,20 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "int",
       doc =
-          "Creates a schema for an integer attribute. The value must be in the signed 32-bit"
-              + " range.",
+          "Creates a schema for an integer attribute. The value must be in the signed 32-bit range."
+              + " The corresponding <a href='../builtins/ctx.html#attr'><code>ctx.attr</code></a>"
+              + " attribute will be of type <a href='../core/int.html'><code>int</code></a>.",
       parameters = {
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             defaultValue = "0",
@@ -157,7 +212,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -177,8 +233,9 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor intAttribute(
+      Object configurable,
       StarlarkInt defaultValue,
-      String doc,
+      Object doc,
       Boolean mandatory,
       Sequence<?> values,
       StarlarkThread thread)
@@ -186,8 +243,18 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "string",
-      doc = "Creates a schema for a string attribute.",
+      doc = "Creates a schema for a <a href='../core/string.html#attr'>string</a> attribute.",
       parameters = {
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             defaultValue = "''",
@@ -200,7 +267,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -222,7 +290,12 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor stringAttribute(
-      Object defaultValue, String doc, Boolean mandatory, Sequence<?> values, StarlarkThread thread)
+      Object configurable,
+      Object defaultValue,
+      Object doc,
+      Boolean mandatory,
+      Sequence<?> values,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -238,9 +311,19 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               + " attribute. If you also want to prevent users from overriding this default, you"
               + " can make the attribute private by giving it a name that starts with an"
               + " underscore. See the <a"
-              + " href='https://bazel.build/rules/rules#private-attributes'>Rules</a> page for more"
-              + " information.",
+              + " href='https://bazel.build/extending/rules#private-attributes'>Rules</a> page"
+              + " for more information.",
       parameters = {
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
@@ -261,12 +344,22 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc =
                 DEFAULT_DOC
-                    + "Use a string or the <a href=\"globals.html#Label\"><code>Label</code></a> "
-                    + "function to specify a default value, for example, "
-                    + "<code>attr.label(default = \"//a:b\")</code>."),
+                    + "Use a string or the <a"
+                    + " href=\"../builtins/Label.html#Label\"><code>Label</code></a> function to"
+                    + " specify a default value, for example, <code>attr.label(default ="
+                    + " \"//a:b\")</code>."),
+        @Param(
+            name = MATERIALIZER_ARG,
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_DORMANT_DEPS,
+            allowedTypes = {@ParamType(type = StarlarkFunction.class)},
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = MATERALIZER_DOC),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -294,7 +387,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc =
                 "This is similar to <code>allow_files</code>, with the restriction that the label "
-                    + "must correspond to a single <a href=\"File.html\">File</a>. "
+                    + "must correspond to a single <a href=\"../builtins/File.html\">File</a>. "
                     + "Access it through <code>ctx.file.&lt;attribute_name&gt;</code>."),
         @Param(
             name = MANDATORY_ARG,
@@ -303,11 +396,23 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc = MANDATORY_DOC),
         @Param(
+            name = SKIP_VALIDATIONS_ARG,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = SKIP_VALIDATIONS_ARG_DOC),
+        @Param(
             name = PROVIDERS_ARG,
             defaultValue = "[]",
             named = true,
             positional = false,
             doc = PROVIDERS_DOC),
+        @Param(
+            name = FOR_DEPENDENCY_RESOLUTION_ARG,
+            defaultValue = "unbound",
+            named = true,
+            positional = false,
+            doc = FOR_DEPENDENCY_RESOLUTION_DOC),
         @Param(
             name = ALLOW_RULES_ARG,
             allowedTypes = {
@@ -339,27 +444,70 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = ASPECTS_ARG_DOC),
         @Param(
             name = FLAGS_ARG,
-            defaultValue = "unbound",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
             named = true,
             positional = false,
-            documented = false,
             doc = FLAGS_DOC)
       },
       useStarlarkThread = true)
   Descriptor labelAttribute(
+      Object configurable,
       Object defaultValue,
-      String doc,
+      Object materializer,
+      Object doc,
       Boolean executable,
       Object allowFiles,
       Object allowSingleFile,
       Boolean mandatory,
+      Boolean skipValidations,
       Sequence<?> providers,
+      Object forDependencyResolution,
       Object allowRules,
       Object cfg,
       Sequence<?> aspects,
-      Object flags, // Sequence<String> expected
+      Sequence<?> flags,
       StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "dormant_label",
+      documented = false,
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_DORMANT_DEPS,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = DEFAULT_ARG,
+            allowedTypes = {
+              @ParamType(type = Label.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                DEFAULT_DOC
+                    + "Use a string or the <a"
+                    + " href=\"../builtins/Label.html#Label\"><code>Label</code></a> function to"
+                    + " specify a default value, for example, <code>attr.label(default ="
+                    + " \"//a:b\")</code>."),
+        @Param(
+            name = DOC_ARG,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
+            doc = DOC_DOC,
+            named = true,
+            positional = false),
+        @Param(
+            name = MANDATORY_ARG,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = MANDATORY_DOC),
+      })
+  Descriptor dormantLabelAttribute(
+      Object defaultValue, Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -368,6 +516,16 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       parameters = {
         @Param(name = MANDATORY_ARG, defaultValue = "False", doc = MANDATORY_DOC, named = true),
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
@@ -378,11 +536,22 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = DEFAULT_DOC,
             named = true,
             positional = false),
-        @Param(name = DOC_ARG, defaultValue = "''", doc = DOC_DOC, named = true, positional = false)
+        @Param(
+            name = DOC_ARG,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
+            doc = DOC_DOC,
+            named = true,
+            positional = false)
       },
       useStarlarkThread = true)
   Descriptor stringListAttribute(
-      Boolean mandatory, Boolean allowEmpty, Object defaultValue, String doc, StarlarkThread thread)
+      Boolean mandatory,
+      Boolean allowEmpty,
+      Object configurable,
+      Object defaultValue,
+      Object doc,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -394,30 +563,60 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
         @Param(name = MANDATORY_ARG, defaultValue = "False", doc = MANDATORY_DOC, named = true),
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
         @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
+        @Param(
             name = DEFAULT_ARG,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = StarlarkInt.class)},
             defaultValue = "[]",
             doc = DEFAULT_DOC,
             named = true,
             positional = false),
-        @Param(name = DOC_ARG, defaultValue = "''", doc = DOC_DOC, named = true, positional = false)
+        @Param(
+            name = DOC_ARG,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
+            doc = DOC_DOC,
+            named = true,
+            positional = false)
       },
       useStarlarkThread = true)
   Descriptor intListAttribute(
       Boolean mandatory,
       Boolean allowEmpty,
+      Object configurable,
       Sequence<?> defaultValue,
-      String doc,
+      Object doc,
       StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
       name = "label_list",
       doc =
-          "<p>Creates a schema for a list-of-labels attribute. This is a dependency attribute.</p>"
+          "<p>Creates a schema for a list-of-labels attribute. This is a dependency attribute. "
+              + "The corresponding <a href='../builtins/ctx.html#attr'><code>ctx.attr</code></a> "
+              + "attribute will be of type <a href='../core/list.html'>list</a> of "
+              + "<a href='../builtins/Target.html'><code>Target</code>s</a>.</p>"
               + DEPENDENCY_ATTR_TEXT,
       parameters = {
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
@@ -429,12 +628,22 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc =
                 DEFAULT_DOC
-                    + "Use strings or the <a href=\"globals.html#Label\"><code>Label</code></a> "
-                    + "function to specify default values, for example, "
-                    + "<code>attr.label_list(default = [\"//a:b\", \"//a:c\"])</code>."),
+                    + "Use strings or the <a"
+                    + " href=\"../builtins/Label.html#Label\"><code>Label</code></a> function to"
+                    + " specify default values, for example, <code>attr.label_list(default ="
+                    + " [\"//a:b\", \"//a:c\"])</code>."),
+        @Param(
+            name = MATERIALIZER_ARG,
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_DORMANT_DEPS,
+            allowedTypes = {@ParamType(type = StarlarkFunction.class)},
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = MATERALIZER_DOC),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -466,6 +675,12 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc = PROVIDERS_DOC),
         @Param(
+            name = FOR_DEPENDENCY_RESOLUTION_ARG,
+            defaultValue = "unbound",
+            named = true,
+            positional = false,
+            doc = FOR_DEPENDENCY_RESOLUTION_DOC),
+        @Param(
             name = FLAGS_ARG,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             defaultValue = "[]",
@@ -478,6 +693,12 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             named = true,
             positional = false,
             doc = MANDATORY_DOC),
+        @Param(
+            name = SKIP_VALIDATIONS_ARG,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = SKIP_VALIDATIONS_ARG_DOC),
         @Param(
             name = CONFIGURATION_ARG,
             defaultValue = "None",
@@ -495,26 +716,74 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       useStarlarkThread = true)
   Descriptor labelListAttribute(
       Boolean allowEmpty,
+      Object configurable,
       Object defaultValue,
-      String doc,
+      Object materializer,
+      Object doc,
       Object allowFiles,
       Object allowRules,
       Sequence<?> providers,
+      Object forDependencyResolution,
       Sequence<?> flags,
       Boolean mandatory,
+      Boolean skipValidations,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
-      name = "label_keyed_string_dict",
+      name = "dormant_label_list",
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_DORMANT_DEPS,
+      useStarlarkThread = true,
+      documented = false,
+      parameters = {
+        @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
+        @Param(
+            name = DEFAULT_ARG,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = Label.class),
+            },
+            defaultValue = "[]",
+            named = true,
+            positional = false,
+            doc = DEFAULT_DOC),
+        @Param(
+            name = DOC_ARG,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
+            doc = DOC_DOC,
+            named = true,
+            positional = false),
+        @Param(
+            name = MANDATORY_ARG,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = MANDATORY_DOC),
+      })
+  Descriptor dormantLabelListAttribute(
+      Boolean allowEmpty, Object defaultValue, Object doc, Boolean mandatory, StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "string_keyed_label_dict",
       doc =
-          "<p>Creates a schema for an attribute holding a dictionary, where the keys are labels "
-              + "and the values are strings. This is a dependency attribute.</p>"
+          "<p>Creates a schema for an attribute whose value is a dictionary where the keys are "
+              + "strings and the values are labels. This is a dependency attribute.</p>"
               + DEPENDENCY_ATTR_TEXT,
       parameters = {
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
@@ -526,13 +795,15 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc =
                 DEFAULT_DOC
-                    + "Use strings or the <a href=\"globals.html#Label\"><code>Label</code></a> "
-                    + "function to specify default values, for example, "
-                    + "<code>attr.label_keyed_string_dict(default = "
-                    + "{\"//a:b\": \"value\", \"//a:c\": \"string\"})</code>."),
+                    + "Use strings or the <a"
+                    + " href=\"../builtins/Label.html#Label\"><code>Label</code></a> function to"
+                    + " specify default values, for example,"
+                    + " <code>attr.string_keyed_label_dict(default = {\"foo\": \"//a:b\","
+                    + " \"bar\": \"//a:c\"})</code>."),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -563,6 +834,12 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             named = true,
             positional = false,
             doc = PROVIDERS_DOC),
+        @Param(
+            name = FOR_DEPENDENCY_RESOLUTION_ARG,
+            defaultValue = "unbound",
+            named = true,
+            positional = false,
+            doc = FOR_DEPENDENCY_RESOLUTION_DOC),
         @Param(
             name = FLAGS_ARG,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
@@ -591,13 +868,15 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = ASPECTS_ARG_DOC)
       },
       useStarlarkThread = true)
-  Descriptor labelKeyedStringDictAttribute(
+  Descriptor stringKeyedLabelDictAttribute(
       Boolean allowEmpty,
+      Object configurable,
       Object defaultValue,
-      String doc,
+      Object doc,
       Object allowFiles,
       Object allowRules,
       Sequence<?> providers,
+      Object forDependencyResolution,
       Sequence<?> flags,
       Boolean mandatory,
       Object cfg,
@@ -606,9 +885,147 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       throws EvalException;
 
   @StarlarkMethod(
-      name = "bool",
-      doc = "Creates a schema for a boolean attribute.",
+      name = "label_keyed_string_dict",
+      doc =
+          "<p>Creates a schema for an attribute holding a dictionary, where the keys are labels "
+              + "and the values are strings. This is a dependency attribute.</p>"
+              + DEPENDENCY_ATTR_TEXT,
       parameters = {
+        @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
+        @Param(
+            name = DEFAULT_ARG,
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = StarlarkFunction.class)
+            },
+            defaultValue = "{}",
+            named = true,
+            positional = false,
+            doc =
+                DEFAULT_DOC
+                    + "Use strings or the <a"
+                    + " href=\"../builtins/Label.html#Label\"><code>Label</code></a> function to"
+                    + " specify default values, for example,"
+                    + " <code>attr.label_keyed_string_dict(default = {\"//a:b\": \"value\","
+                    + " \"//a:c\": \"string\"})</code>."),
+        @Param(
+            name = DOC_ARG,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
+            doc = DOC_DOC,
+            named = true,
+            positional = false),
+        @Param(
+            name = ALLOW_FILES_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = ALLOW_FILES_DOC),
+        @Param(
+            name = ALLOW_RULES_ARG,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = ALLOW_RULES_DOC),
+        @Param(
+            name = PROVIDERS_ARG,
+            defaultValue = "[]",
+            named = true,
+            positional = false,
+            doc = PROVIDERS_DOC),
+        @Param(
+            name = FOR_DEPENDENCY_RESOLUTION_ARG,
+            defaultValue = "unbound",
+            named = true,
+            positional = false,
+            doc = FOR_DEPENDENCY_RESOLUTION_DOC),
+        @Param(
+            name = FLAGS_ARG,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
+            named = true,
+            positional = false,
+            doc = FLAGS_DOC),
+        @Param(
+            name = MANDATORY_ARG,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = MANDATORY_DOC),
+        @Param(
+            name = SKIP_VALIDATIONS_ARG,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = SKIP_VALIDATIONS_ARG_DOC),
+        @Param(
+            name = CONFIGURATION_ARG,
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = CONFIGURATION_DOC),
+        @Param(
+            name = ASPECTS_ARG,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = StarlarkAspectApi.class)},
+            defaultValue = "[]",
+            named = true,
+            positional = false,
+            doc = ASPECTS_ARG_DOC)
+      },
+      useStarlarkThread = true)
+  Descriptor labelKeyedStringDictAttribute(
+      Boolean allowEmpty,
+      Object configurable,
+      Object defaultValue,
+      Object doc,
+      Object allowFiles,
+      Object allowRules,
+      Sequence<?> providers,
+      Object forDependencyResolution,
+      Sequence<?> flags,
+      Boolean mandatory,
+      Boolean skipValidations,
+      Object cfg,
+      Sequence<?> aspects,
+      StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "bool",
+      doc =
+          "Creates a schema for a boolean attribute. The corresponding <a"
+              + " href='../builtins/ctx.html#attr'><code>ctx.attr</code></a> attribute will be of"
+              + " type <a href='../core/bool.html'><code>bool</code></a>.",
+      parameters = {
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             defaultValue = "False",
@@ -617,7 +1034,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -630,7 +1048,11 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor boolAttribute(
-      Boolean defaultValue, String doc, Boolean mandatory, StarlarkThread thread)
+      Object configurable,
+      Boolean defaultValue,
+      Object doc,
+      Boolean mandatory,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -639,7 +1061,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       parameters = {
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -651,7 +1074,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = MANDATORY_DOC)
       },
       useStarlarkThread = true)
-  Descriptor outputAttribute(String doc, Boolean mandatory, StarlarkThread thread)
+  Descriptor outputAttribute(Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -659,13 +1082,14 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       doc = "Creates a schema for a list-of-outputs attribute." + OUTPUT_ATTR_TEXT,
       parameters = {
         @Param(
-            name = ALLOW_EMPTY_ARG,
+            name = ALLOW_EMPTY_ARG, //
             defaultValue = "True",
             doc = ALLOW_EMPTY_DOC,
             named = true),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -678,7 +1102,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor outputListAttribute(
-      Boolean allowEmpty, String doc, Boolean mandatory, StarlarkThread thread)
+      Boolean allowEmpty, Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -688,10 +1112,20 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               + "strings.",
       parameters = {
         @Param(
-            name = ALLOW_EMPTY_ARG,
+            name = ALLOW_EMPTY_ARG, //
             defaultValue = "True",
             doc = ALLOW_EMPTY_DOC,
             named = true),
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             named = true,
@@ -700,7 +1134,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -714,8 +1149,9 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       useStarlarkThread = true)
   Descriptor stringDictAttribute(
       Boolean allowEmpty,
+      Object configurable,
       Dict<?, ?> defaultValue,
-      String doc,
+      Object doc,
       Boolean mandatory,
       StarlarkThread thread)
       throws EvalException;
@@ -727,10 +1163,20 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               + "the values are lists of strings.",
       parameters = {
         @Param(
-            name = ALLOW_EMPTY_ARG,
+            name = ALLOW_EMPTY_ARG, //
             defaultValue = "True",
             doc = ALLOW_EMPTY_DOC,
             named = true),
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             defaultValue = "{}",
@@ -739,7 +1185,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -753,8 +1200,9 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       useStarlarkThread = true)
   Descriptor stringListDictAttribute(
       Boolean allowEmpty,
+      Object configurable,
       Dict<?, ?> defaultValue,
-      String doc,
+      Object doc,
       Boolean mandatory,
       StarlarkThread thread)
       throws EvalException;
@@ -773,7 +1221,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = DEFAULT_DOC),
         @Param(
             name = DOC_ARG,
-            defaultValue = "''",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
             doc = DOC_DOC,
             named = true,
             positional = false),
@@ -787,7 +1236,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_NO_ATTR_LICENSE,
       useStarlarkThread = true)
   Descriptor licenseAttribute(
-      Object defaultValue, String doc, Boolean mandatory, StarlarkThread thread)
+      Object defaultValue, Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException;
 
   /** An attribute descriptor. */
@@ -795,9 +1244,9 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       name = "Attribute",
       category = DocCategory.BUILTIN,
       doc =
-          "Representation of a definition of an attribute. Use the <a href=\"attr.html\">attr</a> "
-              + "module to create an Attribute. They are only for use with a "
-              + "<a href=\"globals.html#rule\">rule</a> or an "
-              + "<a href=\"globals.html#aspect\">aspect</a>.")
+          "Representation of a definition of an attribute. Use the <a"
+              + " href=\"../toplevel/attr.html\">attr</a> module to create an Attribute. They are"
+              + " only for use with a <a href=\"../globals/bzl.html#rule\">rule</a> or an <a"
+              + " href=\"../globals/bzl.html#aspect\">aspect</a>.")
   interface Descriptor extends StarlarkValue {}
 }

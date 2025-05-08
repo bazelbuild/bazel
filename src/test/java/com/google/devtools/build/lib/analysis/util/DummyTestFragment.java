@@ -13,20 +13,25 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.Converters.OptionalAssignmentConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Expose a set of options that can be added to {@link BuildViewTestCase} and friends in order to
@@ -105,12 +110,34 @@ public final class DummyTestFragment extends Fragment {
         help = "This cannot be used as an input to a Starlark transition")
     public UnreadableStringBox unreadableByStarlark;
 
-    @AutoValue
-    public abstract static class UnreadableStringBox {
-      public abstract String value();
+    @Option(
+        name = "allow_multiple_with_optional_assignment_converter",
+        defaultValue = "null",
+        allowMultiple = true,
+        converter = OptionalAssignmentConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "allowMultiple flag with OptionalAssignmentConverter")
+    public List<Map.Entry<String, String>> allowMultipleWithOptionalAssignmentConverter;
+
+    @Option(
+        name = "allow_multiple_with_list_converter",
+        defaultValue = "null",
+        allowMultiple = true,
+        converter = CommaSeparatedOptionListConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "allowMultiple flag where the converter returns a list")
+    public List<String> allowMultipleWithListConverter;
+
+    @AutoCodec
+    public record UnreadableStringBox(String value) {
+      public UnreadableStringBox {
+        requireNonNull(value, "value");
+      }
 
       public static UnreadableStringBox create(String value) {
-        return new AutoValue_DummyTestFragment_DummyTestOptions_UnreadableStringBox(value);
+        return new UnreadableStringBox(value);
       }
     }
 

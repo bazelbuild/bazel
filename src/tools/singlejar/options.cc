@@ -44,6 +44,7 @@ bool Options::ParseToken(ArgTokenStream *tokens) {
       tokens->MatchAndSet("--classpath_resources", &classpath_resources) ||
       tokens->MatchAndSet("--include_prefixes", &include_prefixes) ||
       tokens->MatchAndSet("--exclude_build_data", &exclude_build_data) ||
+      tokens->MatchAndSet("--build_target", &build_target) ||
       tokens->MatchAndSet("--compression", &force_compression) ||
       tokens->MatchAndSet("--dont_change_compression", &preserve_compression) ||
       tokens->MatchAndSet("--normalize", &normalize_timestamps) ||
@@ -59,7 +60,8 @@ bool Options::ParseToken(ArgTokenStream *tokens) {
       tokens->MatchAndSet("--hermetic_java_home", &hermetic_java_home) ||
       tokens->MatchAndSet("--add_exports", &add_exports) ||
       tokens->MatchAndSet("--add_opens", &add_opens) ||
-      tokens->MatchAndSet("--output_jar_creator", &output_jar_creator)) {
+      tokens->MatchAndSet("--output_jar_creator", &output_jar_creator) ||
+      tokens->MatchAndSet("--no_strip_module_info", &no_strip_module_info)) {
     return true;
   } else if (tokens->MatchAndSet("--build_info_file", &optarg)) {
     build_info_files.push_back(optarg);

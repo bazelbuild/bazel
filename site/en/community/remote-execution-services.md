@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Remote Execution Services
 
+{% include "_buttons.html" %}
+
 Use the following services to run Bazel with remote execution:
 
 *   Manual
@@ -15,14 +17,14 @@ Use the following services to run Bazel with remote execution:
     * [Buildbarn](https://github.com/buildbarn){: .external}
     * [Buildfarm](https://github.com/bazelbuild/bazel-buildfarm){: .external}
     * [BuildGrid](https://gitlab.com/BuildGrid/buildgrid){: .external}
-    * [Scoot](https://github.com/twitter/scoot){: .external}
+    * [NativeLink](https://github.com/TraceMachina/nativelink){: .external}
 
 *   Commercial
 
-    * [EngFlow Remote Execution](https://www.engflow.com){: .external} - Remote execution
-      and remote caching service. Can be self-hosted or hosted.
+    * [Aspect Build](https://www.aspect.build/){: .external} – Self-hosted remote cache and remote execution services.
+    * [Bitrise](https://bitrise.io/why/features/mobile-build-caching-for-better-build-test-performance){: .external} - Providing the world's leading mobile-first CI/CD and remote build caching platform.
     * [BuildBuddy](https://www.buildbuddy.io){: .external} - Remote build execution,
       caching, and results UI.
-    * [Flare](https://www.flare.build){: .external} - Providing a cache + CDN for Bazel
-      artifacts and Apple-focused remote builds in addition to build & test
-      analytics.
+    * [EngFlow Remote Execution](https://www.engflow.com){: .external} - Remote execution
+      and remote caching service with Build and Test UI. Can be self-hosted or hosted.
+    * [NativeLink](https://github.com/TraceMachina/nativelink){: .external} - Remote build execution, caching, analytics, and simulation.

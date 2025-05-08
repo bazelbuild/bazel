@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -28,7 +27,6 @@ import java.util.Optional;
 public class PackageRootsNoSymlinkCreation implements PackageRoots {
   private final Root sourceRoot;
 
-  @VisibleForTesting
   public PackageRootsNoSymlinkCreation(Root sourcePath) {
     this.sourceRoot = sourcePath;
   }

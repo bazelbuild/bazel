@@ -14,12 +14,13 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -44,8 +45,10 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   final SandboxInputs inputs;
   final SandboxOutputs outputs;
   private final Set<Path> writableDirs;
-  private final TreeDeleter treeDeleter;
-  private final Path statisticsPath;
+  protected final TreeDeleter treeDeleter;
+  @Nullable private final Path sandboxDebugPath;
+  @Nullable private final Path statisticsPath;
+  private final String mnemonic;
 
   public AbstractContainerizingSandboxedSpawn(
       Path sandboxPath,
@@ -56,7 +59,9 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
       SandboxOutputs outputs,
       Set<Path> writableDirs,
       TreeDeleter treeDeleter,
-      @Nullable Path statisticsPath) {
+      @Nullable Path sandboxDebugPath,
+      @Nullable Path statisticsPath,
+      String mnemonic) {
     this.sandboxPath = sandboxPath;
     this.sandboxExecRoot = sandboxExecRoot;
     this.arguments = arguments;
@@ -65,7 +70,9 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     this.outputs = outputs;
     this.writableDirs = writableDirs;
     this.treeDeleter = treeDeleter;
+    this.sandboxDebugPath = sandboxDebugPath;
     this.statisticsPath = statisticsPath;
+    this.mnemonic = mnemonic;
   }
 
   @Override
@@ -85,41 +92,60 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
 
   @Override
   @Nullable
+  public Path getSandboxDebugPath() {
+    return sandboxDebugPath;
+  }
+
+  @Override
+  @Nullable
   public Path getStatisticsPath() {
     return statisticsPath;
   }
 
   @Override
-  public void createFileSystem() throws IOException {
+  public String getMnemonic() {
+    return mnemonic;
+  }
+
+  @Override
+  public void createFileSystem() throws IOException, InterruptedException {
     // First compute all the inputs and directories that we need. This is based only on
     // `workerFiles`, `inputs` and `outputs` and won't do any I/O.
     Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
-    LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
+    Set<PathFragment> dirsToCreate = new LinkedHashSet<>();
     Set<PathFragment> writableSandboxDirs =
         writableDirs.stream()
             .filter(p -> p.startsWith(sandboxExecRoot))
             .map(p -> p.relativeTo(sandboxExecRoot))
             .collect(Collectors.toSet());
-    SandboxHelpers.populateInputsAndDirsToCreate(
-        writableSandboxDirs,
-        inputsToCreate,
-        dirsToCreate,
-        Iterables.concat(
-            ImmutableSet.of(), inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
-        outputs.files(),
-        outputs.dirs());
+    try (SilentCloseable c = Profiler.instance().profile("sandbox.populateInputsAndDirsToCreate")) {
+      SandboxHelpers.populateInputsAndDirsToCreate(
+          writableSandboxDirs,
+          inputsToCreate,
+          dirsToCreate,
+          Iterables.concat(
+              ImmutableSet.of(), inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
+          outputs);
+    }
 
-    // Allow subclasses to filter out inputs and dirs that don't need to be created.
-    filterInputsAndDirsToCreate(inputsToCreate, dirsToCreate);
+    try (SilentCloseable c = Profiler.instance().profile("sandbox.filterInputsAndDirsToCreate")) {
+      // Allow subclasses to filter out inputs and dirs that don't need to be created.
+      filterInputsAndDirsToCreate(inputsToCreate, dirsToCreate);
+    }
 
     // Finally create what needs creating.
-    SandboxHelpers.createDirectories(dirsToCreate, sandboxExecRoot, /* strict=*/ true);
-    createInputs(inputsToCreate, inputs);
+    try (SilentCloseable c = Profiler.instance().profile("sandbox.createDirectories")) {
+      SandboxHelpers.createDirectories(dirsToCreate, sandboxExecRoot, /* strict= */ true);
+    }
+    try (SilentCloseable c = Profiler.instance().profile("sandbox.createInputs")) {
+      createInputs(inputsToCreate, inputs);
+    }
+    SandboxStash.setLastModified(sandboxPath, System.currentTimeMillis());
   }
 
   protected void filterInputsAndDirsToCreate(
-      Set<PathFragment> inputsToCreate, LinkedHashSet<PathFragment> dirsToCreate)
-      throws IOException {}
+      Set<PathFragment> inputsToCreate, Set<PathFragment> dirsToCreate)
+      throws IOException, InterruptedException {}
 
   /**
    * Creates all inputs needed for this spawn's sandbox.
@@ -129,8 +155,11 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
    * @param inputs All the inputs for this spawn.
    */
   void createInputs(Iterable<PathFragment> inputsToCreate, SandboxInputs inputs)
-      throws IOException {
+      throws IOException, InterruptedException {
     for (PathFragment fragment : inputsToCreate) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException("Interrupted creating inputs");
+      }
       Path key = sandboxExecRoot.getRelative(fragment);
       if (inputs.getFiles().containsKey(fragment)) {
         Path fileDest = inputs.getFiles().get(fragment);
@@ -151,7 +180,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   protected abstract void copyFile(Path source, Path target) throws IOException;
 
   @Override
-  public void copyOutputs(Path execRoot) throws IOException {
+  public void copyOutputs(Path execRoot) throws IOException, InterruptedException {
     SandboxHelpers.moveOutputs(outputs, sandboxExecRoot, execRoot);
   }
 

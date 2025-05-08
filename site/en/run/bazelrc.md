@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Write bazelrc configuration files
 
+{% include "_buttons.html" %}
 
 Bazel accepts many options. Some options are varied frequently (for example,
 `--subcommands`) while others stay the same across several builds (such as
@@ -37,7 +38,7 @@ before the command (`build`, `test`, etc).
 2.  **The workspace RC file**, unless `--noworkspace_rc` is present.
 
     Path: `.bazelrc` in your workspace directory (next to the main
-    `WORKSPACE` file).
+    `MODULE.bazel` file).
 
     It is not an error if this file does not exist.
 
@@ -56,7 +57,8 @@ before the command (`build`, `test`, etc).
     This flag is optional but can also be specified multiple times.
 
     `/dev/null` indicates that all further `--bazelrc`s will be ignored, which
-     is useful to disable the search for a user rc file, such as in release builds.
+     is useful to disable the search for a user rc file, such as in release
+     builds.
 
     For example:
 
@@ -103,7 +105,14 @@ line specifies when these defaults are applied:
 
 -   `startup`: startup options, which go before the command, and are described
     in `bazel help startup_options`.
--   `common`: options that apply to all Bazel commands.
+-   `common`: options that should be applied to all Bazel commands that support
+    them. If a command does not support an option specified in this way, the
+    option is ignored so long as it is valid for *some* other Bazel command.
+    Note that this only applies to option names: If the current command accepts
+    an option with the specified name, but doesn't support the specified value,
+    it will fail.
+-   `always`: options that apply to all Bazel commands. If a command does not
+    support an option specified in this way, it will fail.
 -   _`command`_: Bazel command, such as `build` or `query` to which the options
     apply. These options also apply to all commands that inherit from the
     specified command. (For example, `test` inherits from `build`.)
@@ -157,7 +166,7 @@ Option precedence:
     *   The following commands inherit from (and are more specific than)
         `build`: `test`, `run`, `clean`, `mobile-install`, `info`,
         `print_action`, `config`, `cquery`, and `aquery`
-    *   `coverage` inherits from `test`
+    *   `coverage`, `fetch`, and `vendor` inherit from `test`
 
 -   Two lines specifying options for the same command at equal specificity are
     parsed in the order in which they appear within the file.
@@ -199,6 +208,17 @@ This syntax does not extend to the use of `startup` to set
 [startup options](#option-defaults). Setting
 `startup:config-name --some_startup_option` in the .bazelrc will be ignored.
 
+#### `--enable_platform_specific_config` {:#enable_platform_specific_config}
+
+Platform specific configs in the `.bazelrc` can be automatically enabled using
+`--enable_platform_specific_config`. For example, if the host OS is Linux and
+the `build` command is run, the `build:linux` configuration will be
+automatically enabled. Supported OS identifiers are `linux`, `macos`, `windows`,
+`freebsd`, and `openbsd`. Enabling this flag is equivalent to using
+`--config=linux` on Linux, `--config=windows` on Windows, and so on.
+
+See [--enable_platform_specific_config](/reference/command-line-reference#flag--enable_platform_specific_config).
+
 #### Example {:#bazelrc-example}
 
 Here's an example `~/.bazelrc` file:
@@ -230,8 +250,12 @@ line. Entries are relative to the workspace root.
 ### The global bazelrc file {:#global-bazelrc}
 
 Bazel reads optional bazelrc files in this order:
-- System rc-file located at `etc/bazel.bazelrc`.
-- Workspace rc-file located at `$workspace/tools/bazel.rc`.
-- Home rc-file localted at `$HOME/.bazelrc`
 
-Each bazelrc file listed here has a corresponding flag which can be used to disable them (e.g. `--nosystem_rc`, `--noworkspace_rc`, `--nohome_rc`). You can also make Bazel ignore all bazelrcs by passing the `--ignore_all_rc_files` startup option.
+1.  System rc-file located at `etc/bazel.bazelrc`.
+2.  Workspace rc-file located at `$workspace/tools/bazel.rc`.
+3.  Home rc-file located at `$HOME/.bazelrc`
+
+Each bazelrc file listed here has a corresponding flag which can be used to
+disable them (e.g. `--nosystem_rc`, `--noworkspace_rc`, `--nohome_rc`). You can
+also make Bazel ignore all bazelrcs by passing the `--ignore_all_rc_files`
+startup option.

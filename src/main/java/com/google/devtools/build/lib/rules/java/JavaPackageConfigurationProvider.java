@@ -14,54 +14,83 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.devtools.build.lib.rules.java.JavaStarlarkCommon.checkPrivateAccess;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
-import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
-import net.starlark.java.annot.Param;
-import net.starlark.java.annot.ParamType;
-import net.starlark.java.annot.StarlarkMethod;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
+import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A provider for Java per-package configuration. */
-@AutoValue
 @Immutable
-public abstract class JavaPackageConfigurationProvider
-    implements TransitiveInfoProvider, StarlarkValue {
+public final class JavaPackageConfigurationProvider implements StarlarkValue {
 
-  /** Creates a {@link JavaPackageConfigurationProvider}. */
-  public static JavaPackageConfigurationProvider create(
-      ImmutableList<PackageSpecificationProvider> packageSpecifications,
-      ImmutableList<String> javacopts,
-      NestedSet<Artifact> data) {
-    return new AutoValue_JavaPackageConfigurationProvider(packageSpecifications, javacopts, data);
+  private static final StarlarkProviderWrapper<JavaPackageConfigurationProvider> PROVIDER =
+      new Provider();
+
+  private final StructImpl underlying;
+
+  private JavaPackageConfigurationProvider(StructImpl underlying) {
+    this.underlying = underlying;
+  }
+
+  @VisibleForTesting
+  public static JavaPackageConfigurationProvider get(ConfiguredTarget target)
+      throws RuleErrorException {
+    return target.get(PROVIDER);
   }
 
   /** Package specifications for which the configuration should be applied. */
-  abstract ImmutableList<PackageSpecificationProvider> packageSpecifications();
+  private ImmutableList<PackageSpecificationProvider> packageSpecifications()
+      throws RuleErrorException {
+    try {
+      return Sequence.noneableCast(
+              underlying.getValue("package_specs"),
+              PackageSpecificationProvider.class,
+              "package_specs")
+          .getImmutableList();
+    } catch (EvalException e) {
+      throw new RuleErrorException(e);
+    }
+  }
 
-  /** The javacopts for this configuration. */
-  abstract ImmutableList<String> javacopts();
+  ImmutableList<String> javacoptsAsList() throws RuleErrorException {
+    try {
+      return JavaHelper.tokenizeJavaOptions(
+          Depset.noneableCast(underlying.getValue("javac_opts"), String.class, "javac_opts"));
+    } catch (EvalException e) {
+      throw new RuleErrorException(e);
+    }
+  }
 
-  abstract NestedSet<Artifact> data();
+  NestedSet<Artifact> data() throws RuleErrorException {
+    try {
+      return Depset.noneableCast(underlying.getValue("data"), Artifact.class, "data");
+    } catch (EvalException e) {
+      throw new RuleErrorException(e);
+    }
+  }
 
   /**
    * Returns true if this configuration matches the current label: that is, if the label's package
    * is contained by any of the {@link #packageSpecifications}.
    */
-  public boolean matches(Label label) {
+  public boolean matches(Label label) throws RuleErrorException {
     // Do not use streams here as they create excessive garbage.
     for (PackageSpecificationProvider provider : packageSpecifications()) {
       for (PackageGroupContents specifications : provider.getPackageSpecifications().toList()) {
@@ -73,30 +102,39 @@ public abstract class JavaPackageConfigurationProvider
     return false;
   }
 
-  @StarlarkMethod(
-      name = "matches",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "label",
-            allowedTypes = {@ParamType(type = Label.class)})
-      },
-      useStarlarkThread = true)
-  public boolean starlarkMatches(Label label, StarlarkThread starlarkThread) throws EvalException {
-    checkPrivateAccess(starlarkThread);
-    return matches(label);
+  private static class Provider extends StarlarkProviderWrapper<JavaPackageConfigurationProvider> {
+
+    private Provider() {
+      this(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  JavaSemantics.RULES_JAVA_PROVIDER_LABELS_PREFIX
+                      + "java/common/rules:java_package_configuration.bzl")));
+    }
+
+    private Provider(BzlLoadValue.Key key) {
+      super(key, "JavaPackageConfigurationInfo");
+    }
+
+    @Override
+    public JavaPackageConfigurationProvider wrap(Info value) throws RuleErrorException {
+      if (value instanceof StructImpl structImpl) {
+        return new JavaPackageConfigurationProvider(structImpl);
+      } else {
+        throw new RuleErrorException(
+            "expected an instance of JavaPackageConfigurationProvider, got: "
+                + Starlark.type(value));
+      }
+    }
   }
 
-  @StarlarkMethod(name = "javac_opts", documented = false, useStarlarkThread = true)
-  public Sequence<String> starlarkJavacOpts(StarlarkThread starlarkThread) throws EvalException {
-    checkPrivateAccess(starlarkThread);
-    return StarlarkList.immutableCopyOf(javacopts());
+  static ImmutableList<JavaPackageConfigurationProvider> wrapSequence(Sequence<StructImpl> sequence)
+      throws RuleErrorException {
+    ImmutableList.Builder<JavaPackageConfigurationProvider> builder = ImmutableList.builder();
+    for (StructImpl struct : sequence) {
+      // this result isn't propagated back to Starlark so we just need any type
+      builder.add(PROVIDER.wrap(struct));
+    }
+    return builder.build();
   }
-
-  @StarlarkMethod(name = "data", documented = false, useStarlarkThread = true)
-  public Depset starlarkData(StarlarkThread starlarkThread) throws EvalException {
-    checkPrivateAccess(starlarkThread);
-    return Depset.of(Artifact.TYPE, data());
-  }
-
 }

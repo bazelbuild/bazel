@@ -17,21 +17,26 @@ landing_page:
     items_across: 2
     items:
     # Item 1
-    - image_path: /community/images/aspect-dev-logo.png
-      heading: Aspect
+    - image_path: /community/images/aspect-logo-2.png
+      heading: Aspect Build
       description: >
-        Aspect is a Bazel consulting company. For years our experts have contributed to Bazel at
-        Google and maintained official Bazel rules. We offer clients this firsthand, comprehensive
-        technical experience both with Bazel itself and with the ways it integrates with the
-        surrounding toolchain, developer workflow, and business processes. With decades of combined
-        industry experience, our experts have championed the benefits of Bazel since its initial
-        release in 2015. We're passionate about helping companies optimize the way they build and
-        test software with this innovative build tool.
+        Leveraging the insights we gathered from helping over 50 companies to navigate Bazel, we developed Aspect Workflows, our Developer Platform for Bazel Monorepos.
+        Our platform is designed to enhance the developer experience with Bazel, notably accelerating build times on CI while reducing compute costs. Aspect Workflows seamlessly integrates with your existing CI and cloud infrastructure, while aligning with your current configuration. This approach empowers users to concentrate on innovating and delivering exceptional products, while we manage the underlying infrastructure and ensure CI stays fast.
+        Aspect offers consulting, support, and training to help your team succeed with Bazel and we are the authors and maintainers of the canonical open-source rulesets for JavaScript and OCI images.
       buttons:
       - label: Learn more
-        path: https://www.aspect.dev/
+        path: https://www.aspect.build/services
         classname: button
     # Item 2
+    - image_path: /community/images/bitrise-logo.png
+      heading: Bitrise
+      description: >
+        Bitrise is the world’s leading mobile-first CI/CD Platform. Our Bitrise Build Cache & CDN product enables enterprises and high-growth organizations to optimize and elevate their Bazel projects. Bitrise brings to market an uncontested build and test caching solution available nowhere else. The first of its kind, fully managed by Bitrise requiring no setup or maintenance, you can use our out-of-the-box cache Steps to enjoy a deeply integrated CI/CD & Bazel experience or integrate our cache directly into your builds on any other platform.
+      buttons:
+      - label: Learn more
+        path: https://bitrise.io/why/features/mobile-build-caching-for-better-build-test-performance
+        classname: button
+    # Item 3
     - image_path: /community/images/buildbuddy-logo.svg
       heading: BuildBuddy
       description: >
@@ -45,7 +50,7 @@ landing_page:
       - label: Learn more
         path: https://www.buildbuddy.io/
         classname: button
-    # Item 3
+    # Item 4
     - image_path: /community/images/codethink-logo.svg
       heading: Codethink
       description: >
@@ -58,7 +63,7 @@ landing_page:
       - label: Learn more
         path: https://www.codethink.co.uk/
         classname: button
-    # Item 4
+    # Item 5
     - image_path: /community/images/engflow-logo.svg
       heading: EngFlow
       description: >
@@ -71,7 +76,7 @@ landing_page:
       - label: Learn more
         path: https://www.engflow.com/
         classname: button
-    # Item 5
+    # Item 6
     - image_path: /community/images/epam-logo.png
       heading: EPAM
       description: >
@@ -85,33 +90,7 @@ landing_page:
       - label: Learn more
         path: https://www.epam.com/
         classname: button
-    # Item 6
-    - image_path: /community/images/flare-logo.png
-      heading: Flare
-      description: >
-        Flare Build Systems, Inc. is the world’s first Bazel-focused SaaS & consulting company.
-        We’ve made a name for ourselves by assisting enterprises and high-growth, high-value
-        startups migrate their build & test systems into Bazel, interacting with almost every major
-        language and ruleset along the way, but we didn’t stop there—we also have launched a build
-        CI & engineering productivity-focused product line, and offer advanced Bazel training.
-      buttons:
-      - label: Learn more
-        path: https://flare.build/
-        classname: button
     # Item 7
-    - image_path: /community/images/oasis-logo.png
-      heading: Oasis Digital
-      description: >
-        Whether you are considering Bazel or are underway in a complex migration, Oasis Digital can
-        train your build engineers and app developers, assist with build migration, and enhance
-        Bazel rules for your use cases. More broadly, we can assist with the related complexities
-        teams experience while adopting a monorepo approach, cross-project continuous integration,
-        dev-ops, single-version policy, and other technical-organizational challenges.
-      buttons:
-      - label: Learn more
-        path: https://oasisdigital.com/
-        classname: button
-    # Item 8
     - image_path: /community/images/sumglobal-logo.png
       heading: SUM Global
       description: >
@@ -124,7 +103,7 @@ landing_page:
       - label: Learn more
         path: http://sumglobal.com/bazel-build
         classname: button
-    # Item 9
+    # Item 8
     - image_path: /community/images/tweag-logo.png
       heading: Tweag
       description: >

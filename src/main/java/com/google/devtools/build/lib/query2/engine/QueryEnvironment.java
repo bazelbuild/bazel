@@ -18,8 +18,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext.LoadGraphVisitor;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Collection;
@@ -36,8 +39,8 @@ import javax.annotation.Nullable;
  * However, query assumes a certain graph model, and the {@link TargetAccessor} class is used to
  * access properties of these nodes. Also, the query engine doesn't assume T's {@link
  * Object#hashCode} and {@link Object#equals} are meaningful and instead uses {@link
- * QueryEnvironment#createUniquifier}, {@link QueryEnvironment#createThreadSafeMutableSet()}, and
- * {@link QueryEnvironment#createMutableMap()} when appropriate.
+ * QueryEnvironment#createUniquifier} and {@link QueryEnvironment#createThreadSafeMutableSet()} when
+ * appropriate.
  *
  * @param <T> the node type of the dependency graph
  */
@@ -93,15 +96,11 @@ public interface QueryEnvironment<T> {
 
     @Override
     public String toString() {
-      switch (type) {
-        case WORD:
-          return "'" + word + "'";
-        case EXPRESSION:
-          return expression.toString();
-        case INTEGER:
-          return Integer.toString(integer);
-      }
-      throw new IllegalStateException();
+      return switch (type) {
+        case WORD -> "'" + word + "'";
+        case EXPRESSION -> expression.toString();
+        case INTEGER -> Integer.toString(integer);
+      };
     }
   }
 
@@ -306,6 +305,61 @@ public interface QueryEnvironment<T> {
       QueryExpression expr, QueryExpressionContext<T> context, Callback<T> callback);
 
   /**
+   * A wrapper for evaluating query expression. User does not need to provide callback at object
+   * instantiation, and could manipulate the future in the callback implementation in some derived
+   * classes.
+   *
+   * <p>It replaces directly calling {@link #eval(QueryExpression, QueryExpressionContext,
+   * Callback)} method in {@link SomeFunction#eval(QueryEnvironment, QueryExpressionContext,
+   * QueryExpression, List, Callback)}.
+   *
+   * <p>For SkyQueryEnvironment-descended environments which feature streaming support, in {@code
+   * SomeFunction#eval(...)} method, we want to cancel the {@link QueryTaskFuture} immediately after
+   * targeted number of results are reached, which would significantly improve the performance of
+   * {@link SomeFunction} evaluation. So client will call {@link #gracefullyCancel()} to cancel the
+   * underlying {@code QueryTaskFuture}.
+   *
+   * <p>Users should use {@link #createEvaluateExpression(QueryExpression, QueryExpressionContext)}
+   * to create the {@code EvaluateExpression} instance.
+   */
+  interface EvaluateExpression<T> {
+    /**
+     * Returns a {@link QueryTaskFuture} representing the asynchronous evaluation of the expression
+     * provided by the constructor of the inherited classes. See {@code
+     * AbstractBlazeQueryEvaluateExpressionImpl} and {@code SkyQueryEvaluateExpressionImpl};
+     *
+     * <p>Requires the user to provide a {@code callback} to be associated with the {@link
+     * QueryTaskFuture}. Results of the asynchronous evaluation of the expression are passed to the
+     * given {@code callback}.
+     */
+    QueryTaskFuture<Void> eval(Callback<T> callback);
+
+    /**
+     * Attempts to cancel execution of expression evaluation task.
+     *
+     * <p>Please note that {@link #gracefullyCancel()} is a no-op implementation for
+     * non-SkyQueryEnvironment-descended environments.
+     */
+    boolean gracefullyCancel();
+
+    /**
+     * Returns {@code true} if the underlying future is cancelled but not via {@link
+     * #gracefullyCancel}. Clients are advised to propagate such cancellations instead of recovering
+     * from them, because they probably indicate that query evaluation was interrupted.
+     */
+    boolean isUngracefullyCancelled();
+  }
+
+  /**
+   * Creates an {@link EvaluateExpression} instance based on {@link QueryEnvironment} type.
+   *
+   * @param expr the expression to evaluate
+   * @param context the context relevant to the expression being evaluated.
+   */
+  EvaluateExpression<T> createEvaluateExpression(
+      QueryExpression expr, QueryExpressionContext<T> context);
+
+  /**
    * An asynchronous computation of part of a query evaluation.
    *
    * <p>A {@link QueryTaskFuture} can only be produced from scratch via {@link #eval}, {@link
@@ -436,12 +490,24 @@ public interface QueryEnvironment<T> {
       Iterable<? extends QueryTaskFuture<?>> futures, QueryTaskCallable<R> callable);
 
   /**
+   * Returns a {@link QueryTaskFuture} representing the given computation {@code callable} being
+   * performed after the successful completion or cancellation of the computations encapsulated by
+   * the given {@code future}.
+   *
+   * <p>The returned {@link QueryTaskFuture} is considered "successful" iff {@code future} is
+   * "successful" or only throws a {@link java.util.concurrent.CancellationException} and {@code
+   * callable#call} does not throw an exception.
+   */
+  <R> QueryTaskFuture<R> whenSucceedsOrIsCancelledCall(
+      QueryTaskFuture<?> future, QueryTaskCallable<R> callable);
+
+  /**
    * Returns a {@link QueryTaskFuture} representing the asynchronous application of the given {@code
    * function} to the value produced by the computation encapsulated by the given {@code future}.
    *
    * <p>The returned {@link QueryTaskFuture} is considered "successful" for purposes of {@link
    * #whenSucceedsCall}, {@link #whenAllSucceed}, and {@link QueryTaskFuture#getIfSuccessful} iff
-   * {@code} future is "successful".
+   * {@code future} is "successful".
    */
   <T1, T2> QueryTaskFuture<T2> transformAsync(
       QueryTaskFuture<T1> future, Function<T1, QueryTaskFuture<T2>> function);
@@ -470,29 +536,6 @@ public interface QueryEnvironment<T> {
   ThreadSafeMutableSet<T> createThreadSafeMutableSet();
 
   /**
-   * A simple map-like interface that uses proper equality semantics for the key type. {@link
-   * QueryExpression}/{@link QueryFunction} implementations should use {@code
-   * ThreadSafeMutableSet<T, V>} they need a map-like data structure for {@code T}.
-   */
-  interface MutableMap<K, V> {
-    /**
-     * Returns the value {@code value} associated with the given key by the most recent call to
-     * {@code put(key, value)}, or {@code null} if there was no such call.
-     */
-    @Nullable
-    V get(K key);
-
-    /**
-     * Associates the given key with the given value and returns the previous value associated with
-     * the key, or {@code null} if there wasn't one.
-     */
-    V put(K key, V value);
-  }
-
-  /** Returns a fresh {@link MutableMap} instance with key type {@code T}. */
-  <V> MutableMap<T, V> createMutableMap();
-
-  /**
    * Creates a Uniquifier for use in a {@code QueryExpression}. Note that the usage of this
    * uniquifier should not be used for returning unique results to the parent callback. It should
    * only be used to avoid processing the same elements multiple times within this QueryExpression.
@@ -517,15 +560,42 @@ public interface QueryEnvironment<T> {
       throws QueryException;
 
   /**
-   * Returns the set of BUILD, and optionally Starlark files that define the given set of targets.
-   * Each such file is itself represented as a target in the result.
+   * Helper for {@link #transitiveLoadFiles}. Encapsulates the differences between the different
+   * {@link QueryEnvironment} implementations.
    */
-  ThreadSafeMutableSet<T> getBuildFiles(
-      QueryExpression caller,
-      ThreadSafeMutableSet<T> nodes,
-      boolean buildFiles,
-      boolean loads,
-      QueryExpressionContext<T> context)
+  interface TransitiveLoadFilesHelper<T> {
+    PackageIdentifier getPkgId(T target);
+
+    void visitLoads(
+        T originalTarget, LoadGraphVisitor<QueryException, InterruptedException> visitor)
+        throws QueryException, InterruptedException;
+
+    T getBuildFileTarget(T originalTarget);
+
+    T getLoadFileTarget(T originalTarget, Label bzlLabel);
+
+    @Nullable
+    T maybeGetBuildFileTargetForLoadFileTarget(T originalTarget, Label bzlLabel)
+        throws QueryException, InterruptedException;
+  }
+
+  TransitiveLoadFilesHelper<T> getTransitiveLoadFilesHelper() throws QueryException;
+
+  /**
+   * Feeds to the given {@code callback} the transitive bzl files loaded (and BUILD files too, if
+   * {@code alsoAddBuildFiles} says to), represented as make-believe targets corresponding to their
+   * load labels, across all unique packages in {@code targets}, using {@code seenPackages} and
+   * {@code seenBzlLabels} to avoid duplicate work and using {@code uniquifier} to avoid feeding
+   * duplicate results.
+   */
+  void transitiveLoadFiles(
+      Iterable<T> targets,
+      boolean alsoAddBuildFiles,
+      Set<PackageIdentifier> seenPackages,
+      Set<Label> seenBzlLabels,
+      Uniquifier<T> uniquifier,
+      TransitiveLoadFilesHelper<T> helper,
+      Callback<T> callback)
       throws QueryException, InterruptedException;
 
   /**
@@ -535,6 +605,8 @@ public interface QueryEnvironment<T> {
    * returns {@code this}.
    */
   TargetAccessor<T> getAccessor();
+
+  LabelPrinter getLabelPrinter();
 
   /**
    * Whether the given setting is enabled. The code should default to return {@code false} for all
@@ -571,7 +643,10 @@ public interface QueryEnvironment<T> {
     NO_NODEP_DEPS,
 
     /** Include aspect-generated output. No-op for query, which always follows aspects. */
-    INCLUDE_ASPECTS;
+    INCLUDE_ASPECTS,
+
+    /** Include configured aspect targets in cquery output. */
+    EXPLICIT_ASPECTS;
   }
 
   /**

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -73,8 +73,10 @@ EOF
 }
 
 function test_cc_binary_http_cache() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 cc_binary(
 name = 'test',
@@ -106,8 +108,11 @@ EOF
 }
 
 function test_cc_binary_http_cache_bad_server() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 package(default_visibility = ["//visibility:public"])
 cc_binary(
 name = 'test',
@@ -139,6 +144,7 @@ EOF
 }
 
 function set_directory_artifact_starlark_testfixtures() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/rule.bzl <<'EOF'
 def _gen_output_dir_impl(ctx):
@@ -169,6 +175,7 @@ gen_output_dir = rule(
 )
 EOF
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 package(default_visibility = ["//visibility:public"])
 load("//a:rule.bzl", "gen_output_dir")
 
@@ -181,7 +188,7 @@ genrule(
     name = "test",
     srcs = [":output_dir"],
     outs = ["qux"],
-    cmd = "mkdir $@ && paste -d\"\n\" $(location :output_dir)/foo.txt $(location :output_dir)/sub1/bar.txt > $@/out.txt",
+    cmd = "paste -d\"\n\" $(location :output_dir)/foo.txt $(location :output_dir)/sub1/bar.txt > $@",
 )
 
 sh_binary(
@@ -200,7 +207,7 @@ EOF
 
   cat > a/a-tool.sh <<'EOF'
 #!/bin/sh -eu
-cat "$0".runfiles/main/a/dir/foo.txt "$0".runfiles/main/a/dir/sub1/bar.txt
+cat "$0".runfiles/_main/a/dir/foo.txt "$0".runfiles/_main/a/dir/sub1/bar.txt
 EOF
   chmod u+x a/a-tool.sh
 
@@ -215,7 +222,7 @@ function test_directory_artifact_starlark_local() {
 
   bazel build //a:test >& $TEST_log \
     || fail "Failed to build //a:test without remote execution"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+  diff bazel-genfiles/a/qux a/test_expected \
       || fail "Local execution generated different result"
 }
 
@@ -227,7 +234,7 @@ function test_directory_artifact_starlark() {
       --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+  diff bazel-genfiles/a/qux a/test_expected \
       || fail "Remote execution generated different result"
   bazel clean
   bazel build \
@@ -236,7 +243,7 @@ function test_directory_artifact_starlark() {
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
   expect_log "remote cache hit"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+  diff bazel-genfiles/a/qux a/test_expected \
       || fail "Remote cache hit generated different result"
 }
 
@@ -247,7 +254,7 @@ function test_directory_artifact_starlark_grpc_cache() {
       --remote_cache=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote gRPC cache"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+  diff bazel-genfiles/a/qux a/test_expected \
       || fail "Remote cache miss generated different result"
   bazel clean
   bazel build \
@@ -255,7 +262,7 @@ function test_directory_artifact_starlark_grpc_cache() {
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote gRPC cache"
   expect_log "remote cache hit"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+  diff bazel-genfiles/a/qux a/test_expected \
       || fail "Remote cache hit generated different result"
 }
 
@@ -266,7 +273,7 @@ function test_directory_artifact_starlark_http_cache() {
       --remote_cache=http://localhost:${http_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote HTTP cache"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+  diff bazel-genfiles/a/qux a/test_expected \
       || fail "Remote cache miss generated different result"
   bazel clean
   bazel build \
@@ -274,7 +281,7 @@ function test_directory_artifact_starlark_http_cache() {
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote HTTP cache"
   expect_log "remote cache hit"
-  diff bazel-genfiles/a/qux/out.txt a/test_expected \
+  diff bazel-genfiles/a/qux a/test_expected \
       || fail "Remote cache hit generated different result"
 }
 
@@ -349,13 +356,13 @@ EOF
   mkdir $cache
 
   # Build and push to disk cache but not http cache
-  bazel build $disk_flags $http_flags --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results //a:test \
+  bazel build $disk_flags $http_flags --noremote_upload_local_results //a:test \
     || fail "Failed to build //a:test with combined disk http cache"
   cp -f bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected
 
   # Fetch from disk cache
   bazel clean
-  bazel build $disk_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results &> $TEST_log \
+  bazel build $disk_flags //a:test --noremote_upload_local_results &> $TEST_log \
     || fail "Failed to fetch //a:test from disk cache"
   expect_log "1 disk cache hit" "Fetch from disk cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
@@ -363,7 +370,7 @@ EOF
 
   # No cache result from http cache, rebuild target
   bazel clean
-  bazel build $http_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results &> $TEST_log \
+  bazel build $http_flags //a:test --noremote_upload_local_results &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_not_log "1 remote cache hit" "Should not get cache hit from http cache"
   expect_log "1 .*-sandbox" "Rebuild target failed"
@@ -375,7 +382,7 @@ EOF
 
   # No cache result from http cache, rebuild target, and upload result to http cache
   bazel clean
-  bazel build $http_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+  bazel build $http_flags //a:test --noremote_accept_cached &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_not_log "1 remote cache hit" "Should not get cache hit from http cache"
   expect_log "1 .*-sandbox" "Rebuild target failed"
@@ -384,7 +391,7 @@ EOF
 
   # No cache result from http cache, rebuild target, and upload result to disk cache
   bazel clean
-  bazel build $disk_flags $http_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+  bazel build $disk_flags $http_flags //a:test --noremote_accept_cached &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_not_log "1 remote cache hit" "Should not get cache hit from http cache"
   expect_log "1 .*-sandbox" "Rebuild target failed"
@@ -393,7 +400,7 @@ EOF
 
   # Fetch from disk cache
   bazel clean
-  bazel build $disk_flags $http_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+  bazel build $disk_flags $http_flags //a:test --noremote_accept_cached &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_log "1 disk cache hit" "Fetch from disk cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
@@ -534,6 +541,49 @@ EOF
       //a:foo &> $TEST_log \
       || fail "Failed to build //a:foo"
   expect_log "WARNING: Credentials are transmitted in plaintext"
+}
+
+function test_remote_http_cache_with_missing_cas_referenced_by_ac() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'bar',
+  outs = ["bar.txt"],
+  cmd = "echo \"bar\" > \$@",
+)
+genrule(
+  name = 'foo',
+  srcs = [":bar"],
+  outs = ["foo.txt"],
+  cmd = "echo \"foo\" > \$@",
+  tags = ["local"],
+)
+EOF
+
+  # Populate the cache
+  bazel build \
+      --remote_cache=http://localhost:${http_port} \
+      //a:foo \
+      || fail "Failed to build //a:foo with remote cache"
+  remote_cas_files="$(count_remote_cas_files)"
+  # bar.txt, stdout and stderr for action 'bar'
+  [[ "$remote_cas_files" == 3 ]] || fail "Expected 3 remote cas entries, not $remote_cas_files"
+
+  # Delete blobs from CAS
+  delete_remote_cas_files
+
+  bazel clean
+  bazel build \
+      --remote_cache=http://localhost:${http_port} \
+      --experimental_remote_cache_eviction_retries=1 \
+      //a:foo &> $TEST_log \
+      || fail "Failed to build //a:foo with remote cache"
+
+  # Assert that AC is ignored because blobs are missing from CAS, and new output
+  # is uploaded to CAS.
+  expect_log '3 processes: 1 internal, 1 \(local\|.*-sandbox\), 1 \(local\|.*-sandbox\)'
+  remote_cas_files="$(count_remote_cas_files)"
+  [[ "$remote_cas_files" == 3 ]] || fail "Expected 3 remote cas entries, not $remote_cas_files"
 }
 
 run_suite "Remote execution and remote cache tests"

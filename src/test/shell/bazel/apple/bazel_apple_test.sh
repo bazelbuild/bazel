@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -27,9 +27,6 @@ if [ "${PLATFORM}" != "darwin" ]; then
   exit 0
 fi
 
-source "${CURRENT_DIR}/apple_common.sh" \
-  || { echo "apple_common.sh not found!" >&2; exit 1; }
-
 function set_up() {
   copy_examples
   setup_objc_test_support
@@ -38,101 +35,11 @@ function set_up() {
   XCODE_VERSION=$(xcodebuild -version | grep ^Xcode | cut -d' ' -f2)
 
   create_new_workspace
-}
 
-function test_fat_binary_no_srcs() {
-  rm -rf package
-  mkdir -p package
-  make_starlark_apple_binary_rule_in package
-
-  cat > package/BUILD <<EOF
-load("//package:starlark_apple_binary.bzl", "starlark_apple_binary")
-objc_library(
-    name = "lib_a",
-    srcs = ["a.m"],
-)
-objc_library(
-    name = "lib_b",
-    srcs = ["b.m"],
-)
-starlark_apple_binary(
-    name = "main_binary",
-    deps = [":lib_a", ":lib_b"],
-    platform_type = "ios",
-    minimum_os_version = "10.0",
-)
-genrule(
-  name = "lipo_run",
-  srcs = [":main_binary_lipobin"],
-  outs = ["lipo_out"],
-  cmd =
-      "set -e && " +
-      "lipo -info \$(location :main_binary_lipobin) > \$(@)",
-  tags = ["requires-darwin"],
-)
+  cat > $(setup_module_dot_bazel) <<EOF
+xcode_configure = use_extension("@bazel_tools//tools/osx:xcode_configure.bzl", "xcode_configure_extension")
+use_repo(xcode_configure, "local_config_xcode")
 EOF
-  touch package/a.m
-  cat > package/b.m <<EOF
-int main() {
-  return 0;
-}
-EOF
-
-  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
-      //package:lipo_out --ios_multi_cpus=i386,x86_64 \
-      --noincompatible_enable_cc_toolchain_resolution \
-      || fail "should build starlark_apple_binary and obtain info via lipo"
-
-  cat bazel-genfiles/package/lipo_out | grep "i386 x86_64" \
-    || fail "expected output binary to contain 2 architectures"
-}
-
-function test_additive_cpus_flag() {
-  rm -rf package
-  mkdir -p package
-  make_starlark_apple_binary_rule_in package
-
-  cat > package/BUILD <<EOF
-load("//package:starlark_apple_binary.bzl", "starlark_apple_binary")
-objc_library(
-    name = "lib_a",
-    srcs = ["a.m"],
-)
-objc_library(
-    name = "lib_b",
-    srcs = ["b.m"],
-)
-starlark_apple_binary(
-    name = "main_binary",
-    deps = [":lib_a", ":lib_b"],
-    platform_type = "ios",
-    minimum_os_version = "10.0",
-)
-genrule(
-  name = "lipo_run",
-  srcs = [":main_binary_lipobin"],
-  outs = ["lipo_out"],
-  cmd =
-      "set -e && " +
-      "lipo -info \$(location :main_binary_lipobin) > \$(@)",
-  tags = ["requires-darwin"],
-)
-EOF
-  touch package/a.m
-  cat > package/b.m <<EOF
-int main() {
-  return 0;
-}
-EOF
-
-  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
-      //package:lipo_out \
-      --noincompatible_enable_cc_toolchain_resolution \
-      --ios_multi_cpus=i386 --ios_multi_cpus=x86_64 \
-      || fail "should build starlark_apple_binary and obtain info via lipo"
-
-  cat bazel-genfiles/package/lipo_out | grep "i386 x86_64" \
-    || fail "expected output binary to contain 2 architectures"
 }
 
 function test_host_xcodes() {
@@ -140,7 +47,7 @@ function test_host_xcodes() {
       | sed -E "s/Xcode (([0-9]|.)+).*/\1/")
   XCODE_BUILD_VERSION=$(env -i xcodebuild -version | grep "Build version" \
       | sed -E "s/Build version (([0-9]|.)+).*/\1/")
-  IOS_SDK=$(env -i xcodebuild -version -sdk | grep iphoneos \
+  IOS_SDK=$(env -i xcodebuild -version -sdk | grep iphoneos -m 1 \
       | sed -E "s/.*\(iphoneos(([0-9]|.)+)\).*/\1/")
   MACOSX_SDK=$(env -i xcodebuild -version -sdk | grep "(macosx" \
       | sed -E "s/.*\(macosx(([0-9]|.)+)\).*/\1/" | head -n 1)
@@ -175,7 +82,7 @@ function test_host_available_xcodes() {
 
   XCODE_VERSION=$(env -i xcodebuild -version | grep "Xcode" \
       | sed -E "s/Xcode (([0-9]|.)+).*/\1/")
-  IOS_SDK=$(env -i xcodebuild -version -sdk | grep iphoneos \
+  IOS_SDK=$(env -i xcodebuild -version -sdk | grep iphoneos -m 1 \
       | sed -E "s/.*\(iphoneos(([0-9]|.)+)\).*/\1/")
   MACOSX_SDK=$(env -i xcodebuild -version -sdk | grep "(macosx" \
       | sed -E "s/.*\(macosx(([0-9]|.)+)\).*/\1/" | head -n 1)
@@ -202,157 +109,6 @@ function test_host_available_xcodes() {
       "labels('default', '@local_config_xcode//:host_available_xcodes')")
 
   assert_equals "$DEFAULT_LABEL" "$(cat xcode_version_target)"
-}
-
-function test_apple_binary_crosstool_ios() {
-  rm -rf package
-  mkdir -p package
-  make_starlark_apple_binary_rule_in package
-
-  cat > package/BUILD <<EOF
-load("//package:starlark_apple_binary.bzl", "starlark_apple_binary")
-objc_library(
-    name = "lib_a",
-    srcs = ["a.m"],
-)
-objc_library(
-    name = "lib_b",
-    srcs = ["b.m"],
-    deps = [":cc_lib"],
-)
-cc_library(
-    name = "cc_lib",
-    srcs = ["cc_lib.cc"],
-)
-starlark_apple_binary(
-    name = "main_binary",
-    deps = [":main_lib"],
-    platform_type = "ios",
-    minimum_os_version = "10.0",
-)
-objc_library(
-    name = "main_lib",
-    deps = [":lib_a", ":lib_b"],
-    srcs = ["main.m"],
-)
-genrule(
-  name = "lipo_run",
-  srcs = [":main_binary_lipobin"],
-  outs = ["lipo_out"],
-  cmd =
-      "set -e && " +
-      "lipo -info \$(location :main_binary_lipobin) > \$(@)",
-  tags = ["requires-darwin"],
-)
-EOF
-  touch package/a.m
-  touch package/b.m
-  cat > package/main.m <<EOF
-int main() {
-  return 0;
-}
-EOF
-  cat > package/cc_lib.cc << EOF
-#include <string>
-
-std::string GetString() { return "h3ll0"; }
-EOF
-
-  bazel build --verbose_failures //package:lipo_out \
-    --noincompatible_enable_cc_toolchain_resolution \
-    --ios_multi_cpus=i386,x86_64 \
-    --xcode_version=$XCODE_VERSION \
-    || fail "should build starlark_apple_binary and obtain info via lipo"
-
-  cat bazel-genfiles/package/lipo_out | grep "i386 x86_64" \
-    || fail "expected output binary to be for x86_64 architecture"
-}
-
-function test_apple_binary_crosstool_watchos() {
-  rm -rf package
-  mkdir -p package
-  make_starlark_apple_binary_rule_in package
-
-  cat > package/BUILD <<EOF
-load("//package:starlark_apple_binary.bzl", "starlark_apple_binary")
-genrule(
-  name = "lipo_run",
-  srcs = [":main_binary_lipobin"],
-  outs = ["lipo_out"],
-  cmd =
-      "set -e && " +
-      "lipo -info \$(location :main_binary_lipobin) > \$(@)",
-  tags = ["requires-darwin"],
-)
-
-starlark_apple_binary(
-    name = "main_binary",
-    deps = [":main_lib"],
-    platform_type = "watchos",
-)
-objc_library(
-    name = "main_lib",
-    srcs = ["main.m"],
-    deps = [":lib_a"],
-)
-cc_library(
-    name = "cc_lib",
-    srcs = ["cc_lib.cc"],
-)
-# By depending on a library which requires it is built for watchos, this test
-# verifies that dependencies of starlark_apple_binary are compiled for the
-# specified platform_type.
-objc_library(
-    name = "lib_a",
-    srcs = ["a.m"],
-    deps = [":cc_lib"],
-)
-EOF
-  cat > package/main.m <<EOF
-#import <WatchKit/WatchKit.h>
-
-// Note that WKExtensionDelegate is only available in Watch SDK.
-@interface TestInterfaceMain : NSObject <WKExtensionDelegate>
-@end
-
-int main() {
-  return 0;
-}
-EOF
-  cat > package/a.m <<EOF
-#import <WatchKit/WatchKit.h>
-
-// Note that WKExtensionDelegate is only available in Watch SDK.
-@interface TestInterfaceA : NSObject <WKExtensionDelegate>
-@end
-
-int aFunction() {
-  return 0;
-}
-EOF
-  cat > package/cc_lib.cc << EOF
-#include <string>
-
-std::string GetString() { return "h3ll0"; }
-EOF
-
-  bazel build --verbose_failures //package:lipo_out \
-      --noincompatible_enable_cc_toolchain_resolution \
-      --watchos_cpus=armv7k \
-      --xcode_version=$XCODE_VERSION \
-      || fail "should build watch binary"
-
-  cat bazel-genfiles/package/lipo_out | grep "armv7k" \
-      || fail "expected output binary to be for armv7k architecture"
-
-  bazel build --verbose_failures //package:lipo_out \
-      --noincompatible_enable_cc_toolchain_resolution \
-      --watchos_cpus=i386 \
-      --xcode_version=$XCODE_VERSION \
-      || fail "should build watch binary"
-
-  cat bazel-genfiles/package/lipo_out | grep "i386" \
-      || fail "expected output binary to be for i386 architecture"
 }
 
 function test_xcode_config_select() {
@@ -447,104 +203,6 @@ EOF
       --xcode_version=3.0 || fail "build failed"
   assert_contains "XCODE UNKNOWN" bazel-genfiles/a/xcodeo
   assert_contains "IOS UNKNOWN" bazel-genfiles/a/ioso
-}
-
-function test_apple_binary_dsym_builds() {
-  rm -rf package
-  mkdir -p package
-  make_starlark_apple_binary_rule_in package
-
-  cat > package/BUILD <<EOF
-load("//package:starlark_apple_binary.bzl", "starlark_apple_binary")
-starlark_apple_binary(
-    name = "main_binary",
-    deps = [":main_lib"],
-    platform_type = "ios",
-    minimum_os_version = "10.0",
-)
-objc_library(
-    name = "main_lib",
-    srcs = ["main.m"],
-)
-EOF
-  cat > package/main.m <<EOF
-int main() {
-  return 0;
-}
-EOF
-
-  bazel build --verbose_failures //package:main_binary \
-      --noincompatible_enable_cc_toolchain_resolution \
-      --ios_multi_cpus=i386,x86_64 \
-      --xcode_version=$XCODE_VERSION \
-      --apple_generate_dsym=true \
-      || fail "should build starlark_apple_binary with dSYMs"
-}
-
-function test_apple_binary_spaces() {
-  rm -rf package
-  mkdir -p package
-  make_starlark_apple_binary_rule_in package
-
-  cat > package/BUILD <<EOF
-load("//package:starlark_apple_binary.bzl", "starlark_apple_binary")
-starlark_apple_binary(
-    name = "main_binary",
-    deps = [":main_lib"],
-    platform_type = "ios",
-    minimum_os_version = "10.0",
-)
-objc_library(
-    name = "main_lib",
-    srcs = ["the main.m"],
-)
-EOF
-  cat > "package/the main.m" <<EOF
-int main() {
-  return 0;
-}
-EOF
-
-  bazel build --verbose_failures //package:main_binary \
-      --noincompatible_enable_cc_toolchain_resolution \
-      --ios_multi_cpus=i386,x86_64 \
-      --xcode_version=$XCODE_VERSION \
-      --apple_generate_dsym=true \
-      || fail "should build starlark_apple_binary with dSYMs"
-}
-
-
-function test_apple_static_library() {
-  rm -rf package
-  mkdir -p package
-  make_starlark_apple_static_library_rule_in package
-
-  cat > package/BUILD <<EOF
-load(
-    "//package:starlark_apple_static_library.bzl",
-    "starlark_apple_static_library",
-)
-starlark_apple_static_library(
-    name = "static_lib",
-    deps = [":dummy_lib"],
-    platform_type = "ios",
-    minimum_os_version = "10.0",
-)
-objc_library(
-    name = "dummy_lib",
-    srcs = ["dummy.m"],
-)
-EOF
-  cat > "package/dummy.m" <<EOF
-static int dummy __attribute__((unused,used)) = 0;
-EOF
-
-  bazel build --verbose_failures //package:static_lib \
-      --noincompatible_enable_cc_toolchain_resolution \
-      --ios_multi_cpus=i386,x86_64 \
-      --ios_minimum_os=8.0 \
-      --xcode_version=$XCODE_VERSION \
-      || fail "should build starlark_apple_static_library"
 }
 
 run_suite "apple_tests"

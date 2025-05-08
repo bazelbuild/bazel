@@ -1,4 +1,4 @@
-load("//tools/python:private/defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_test")
 
 licenses(["notice"])  # Apache 2.0
 

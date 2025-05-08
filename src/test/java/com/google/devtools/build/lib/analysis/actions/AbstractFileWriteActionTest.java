@@ -21,17 +21,14 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionResult;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -40,8 +37,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -50,21 +47,6 @@ import org.junit.runner.RunWith;
 /** Unit tests for {@link AbstractFileWriteAction}. */
 @RunWith(TestParameterInjector.class)
 public final class AbstractFileWriteActionTest {
-  @Test
-  public void beginExecution_delegatesToFileWriteActionContext(
-      @TestParameter boolean executable, @TestParameter boolean isRemotable) throws Exception {
-    DeterministicWriter writer = ignored -> {};
-    AbstractFileWriteAction action = new TestFileWriteAction(writer, executable, isRemotable);
-    FileWriteActionContext fileWriteContext = mock(FileWriteActionContext.class);
-    ActionExecutionContext actionExecutionContext =
-        createMockActionExecutionContext(fileWriteContext);
-
-    action.beginExecution(actionExecutionContext);
-
-    verify(fileWriteContext)
-        .beginWriteOutputToFile(action, actionExecutionContext, writer, executable, isRemotable);
-  }
-
   @Test
   public void executeAction_successfulWrite_callsAfterWrite() throws Exception {
     DeterministicWriter writer = ignored -> {};
@@ -75,15 +57,15 @@ public final class AbstractFileWriteActionTest {
         createMockActionExecutionContext(fileWriteContext);
     SpawnResult success =
         new SpawnResult.Builder().setRunnerName("test").setStatus(Status.SUCCESS).build();
-    when(fileWriteContext.beginWriteOutputToFile(
+    when(fileWriteContext.writeOutputToFile(
             action,
             actionExecutionContext,
             writer,
-            /*makeExecutable=*/ false,
-            /*isRemotable=*/ false))
-        .thenReturn(SpawnContinuation.immediate(success));
+            /* makeExecutable= */ false,
+            /* isRemotable= */ false))
+        .thenReturn(ImmutableList.of(success));
 
-    ActionResult result = action.beginExecution(actionExecutionContext).execute().get();
+    ActionResult result = action.execute(actionExecutionContext);
 
     assertThat(result.spawnResults()).containsExactly(success);
     verify(action).afterWrite(actionExecutionContext);
@@ -102,28 +84,16 @@ public final class AbstractFileWriteActionTest {
             FailureDetail.newBuilder()
                 .setExecution(Execution.newBuilder().setCode(Code.FILE_WRITE_IO_EXCEPTION).build())
                 .build());
-    when(fileWriteContext.beginWriteOutputToFile(
+    when(fileWriteContext.writeOutputToFile(
             action,
             actionExecutionContext,
             writer,
-            /*makeExecutable=*/ false,
-            /*isRemotable=*/ false))
-        .thenReturn(
-            new SpawnContinuation() {
-              @Override
-              public ListenableFuture<?> getFuture() {
-                return Futures.immediateFuture("hello");
-              }
+            /* makeExecutable= */ false,
+            /* isRemotable= */ false))
+        .thenThrow(failure);
 
-              @Override
-              public SpawnContinuation execute() throws ExecException {
-                throw failure;
-              }
-            });
-
-    ActionContinuationOrResult continuation = action.beginExecution(actionExecutionContext);
     ActionExecutionException exception =
-        assertThrows(ActionExecutionException.class, continuation::execute);
+        assertThrows(ActionExecutionException.class, () -> action.execute(actionExecutionContext));
 
     assertThat(exception).hasCauseThat().isSameInstanceAs(failure);
     verify(action, never()).afterWrite(actionExecutionContext);
@@ -139,16 +109,22 @@ public final class AbstractFileWriteActionTest {
   private static class TestFileWriteAction extends AbstractFileWriteAction {
     private final DeterministicWriter deterministicWriter;
     private final boolean isRemotable;
+    private final boolean makeExecutable;
 
     TestFileWriteAction(
         DeterministicWriter deterministicWriter, boolean executable, boolean isRemotable) {
       super(
           ActionsTestUtil.NULL_ACTION_OWNER,
-          /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /*output=*/ ActionsTestUtil.DUMMY_ARTIFACT,
-          executable);
+          /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* output= */ ActionsTestUtil.DUMMY_ARTIFACT);
       this.deterministicWriter = deterministicWriter;
+      this.makeExecutable = executable;
       this.isRemotable = isRemotable;
+    }
+
+    @Override
+    public boolean makeExecutable() {
+      return makeExecutable;
     }
 
     @Override
@@ -164,7 +140,7 @@ public final class AbstractFileWriteActionTest {
     @Override
     protected void computeKey(
         ActionKeyContext actionKeyContext,
-        @Nullable ArtifactExpander artifactExpander,
+        @Nullable InputMetadataProvider inputMetadataProvider,
         Fingerprint fp) {
       throw new UnsupportedOperationException();
     }

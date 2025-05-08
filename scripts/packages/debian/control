@@ -1,7 +1,7 @@
 Source: bazel
 Section: contrib/devel
 Priority: optional
-Maintainer: The Bazel Authors <bazel-dev@googlegroups.com>
+Maintainer: The Bazel Authors <bazel-discuss@googlegroups.com>
 Build-Depends: dpkg-dev, devscripts
 Standards-Version: 3.9.6
 

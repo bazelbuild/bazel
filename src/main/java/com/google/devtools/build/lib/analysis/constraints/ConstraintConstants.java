@@ -13,10 +13,68 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.constraints;
 
+import com.google.common.collect.ImmutableBiMap;
+import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
+import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.OS;
+
 /** Constants needed for use of the constraints system. */
 public final class ConstraintConstants {
 
   public static final String ENVIRONMENT_RULE = "environment";
+
+  private static final ConstraintSettingInfo OS_CONSTRAINT_SETTING =
+      ConstraintSettingInfo.create(
+          Label.parseCanonicalUnchecked("@platforms//os:os"));
+
+  // Standard mapping between OS and the corresponding platform constraints.
+  public static final ImmutableBiMap<OS, ConstraintValueInfo> OS_TO_CONSTRAINTS =
+      ImmutableBiMap.<OS, ConstraintValueInfo>builder()
+          .put(
+              OS.LINUX,
+              ConstraintValueInfo.create(
+                  OS_CONSTRAINT_SETTING, Label.parseCanonicalUnchecked("@platforms//os:linux")))
+          .put(
+              OS.DARWIN,
+              ConstraintValueInfo.create(
+                  OS_CONSTRAINT_SETTING,
+                  Label.parseCanonicalUnchecked("@platforms//os:osx")))
+          .put(
+              OS.WINDOWS,
+              ConstraintValueInfo.create(
+                  OS_CONSTRAINT_SETTING,
+                  Label.parseCanonicalUnchecked("@platforms//os:windows")))
+          .put(
+              OS.FREEBSD,
+              ConstraintValueInfo.create(
+                  OS_CONSTRAINT_SETTING,
+                  Label.parseCanonicalUnchecked("@platforms//os:freebsd")))
+          .put(
+              OS.OPENBSD,
+              ConstraintValueInfo.create(
+                  OS_CONSTRAINT_SETTING,
+                  Label.parseCanonicalUnchecked("@platforms//os:openbsd")))
+          .put(
+              OS.UNKNOWN,
+              ConstraintValueInfo.create(
+                  OS_CONSTRAINT_SETTING,
+                  Label.parseCanonicalUnchecked("@platforms//os:none")))
+          .buildOrThrow();
+
+  /**
+   * Returns the OS corresponding to the given constraint collection based on the contained platform
+   * constraint.
+   */
+  public static OS getOsFromConstraints(ConstraintCollection constraintCollection) {
+    if (!constraintCollection.has(OS_CONSTRAINT_SETTING)) {
+      return OS.getCurrent();
+    }
+    return OS_TO_CONSTRAINTS
+        .inverse()
+        .getOrDefault(constraintCollection.get(OS_CONSTRAINT_SETTING), OS.getCurrent());
+  }
 
   // No-op constructor to keep this from being instantiated.
   private ConstraintConstants() {}

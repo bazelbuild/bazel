@@ -13,13 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
+import static com.google.devtools.build.lib.packages.BuildType.DORMANT_LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.DORMANT_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.GENQUERY_SCOPE_TYPE;
 import static com.google.devtools.build.lib.packages.BuildType.GENQUERY_SCOPE_TYPE_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_DICT_UNARY;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
@@ -28,11 +30,13 @@ import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
-import static com.google.devtools.build.lib.packages.Type.INTEGER_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST_DICT;
+import static com.google.devtools.build.lib.packages.Type.STRING_NO_INTERN;
+import static com.google.devtools.build.lib.packages.Types.INTEGER_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_DICT;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST_DICT;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -59,14 +63,14 @@ public class AttributeFormatter {
   private static final ImmutableSet<Type<?>> depTypes =
       ImmutableSet.of(
           STRING,
+          STRING_NO_INTERN,
           LABEL,
           OUTPUT,
           STRING_LIST,
           LABEL_LIST,
           LABEL_DICT_UNARY,
           LABEL_KEYED_STRING_DICT,
-          OUTPUT_LIST,
-          DISTRIBUTIONS);
+          OUTPUT_LIST);
 
   private static final ImmutableSet<Type<?>> noDepTypes =
       ImmutableSet.of(NODEP_LABEL_LIST, NODEP_LABEL);
@@ -92,7 +96,29 @@ public class AttributeFormatter {
         attr.getType(),
         value,
         explicitlySpecified,
-        encodeBooleanAndTriStateAsIntegerAndString);
+        encodeBooleanAndTriStateAsIntegerAndString,
+        /* sourceAspect= */ null,
+        /* includeAttributeSourceAspects */ false,
+        LabelPrinter.legacy());
+  }
+
+  public static Build.Attribute getAttributeProto(
+      Attribute attr,
+      @Nullable Object value,
+      boolean explicitlySpecified,
+      boolean encodeBooleanAndTriStateAsIntegerAndString,
+      @Nullable Aspect sourceAspect,
+      boolean includeAttributeSourceAspects,
+      LabelPrinter labelPrinter) {
+    return getAttributeProto(
+        attr.getName(),
+        attr.getType(),
+        value,
+        explicitlySpecified,
+        encodeBooleanAndTriStateAsIntegerAndString,
+        sourceAspect,
+        includeAttributeSourceAspects,
+        labelPrinter);
   }
 
   private static Build.Attribute getAttributeProto(
@@ -100,22 +126,30 @@ public class AttributeFormatter {
       Type<?> type,
       @Nullable Object value,
       boolean explicitlySpecified,
-      boolean encodeBooleanAndTriStateAsIntegerAndString) {
+      boolean encodeBooleanAndTriStateAsIntegerAndString,
+      @Nullable Aspect sourceAspect,
+      boolean includeAttributeSourceAspects,
+      LabelPrinter labelPrinter) {
     Build.Attribute.Builder attrPb = Build.Attribute.newBuilder();
-    attrPb.setName(name);
+    attrPb.setName(internalToUnicode(name));
     attrPb.setExplicitlySpecified(explicitlySpecified);
     maybeSetNoDep(type, attrPb);
 
     if (value instanceof SelectorList<?>) {
       attrPb.setType(Discriminator.SELECTOR_LIST);
-      writeSelectorListToBuilder(attrPb, type, (SelectorList<?>) value);
+      writeSelectorListToBuilder(attrPb, type, (SelectorList<?>) value, labelPrinter);
     } else {
       attrPb.setType(ProtoUtils.getDiscriminatorFromType(type));
       if (value != null) {
         AttributeBuilderAdapter adapter =
             new AttributeBuilderAdapter(attrPb, encodeBooleanAndTriStateAsIntegerAndString);
-        writeAttributeValueToBuilder(adapter, type, value);
+        writeAttributeValueToBuilder(adapter, type, value, labelPrinter);
       }
+    }
+
+    if (includeAttributeSourceAspects) {
+      attrPb.setSourceAspectName(
+          sourceAspect != null ? internalToUnicode(sourceAspect.getAspectClass().getName()) : "");
     }
 
     return attrPb.build();
@@ -130,33 +164,38 @@ public class AttributeFormatter {
   }
 
   private static void writeSelectorListToBuilder(
-      Build.Attribute.Builder attrPb, Type<?> type, SelectorList<?> selectorList) {
+      Build.Attribute.Builder attrPb,
+      Type<?> type,
+      SelectorList<?> selectorList,
+      LabelPrinter labelPrinter) {
     Build.Attribute.SelectorList.Builder selectorListBuilder =
         Build.Attribute.SelectorList.newBuilder();
     selectorListBuilder.setType(ProtoUtils.getDiscriminatorFromType(type));
     for (Selector<?> selector : selectorList.getSelectors()) {
       Build.Attribute.Selector.Builder selectorBuilder =
           Build.Attribute.Selector.newBuilder()
-              .setNoMatchError(selector.getNoMatchError())
+              .setNoMatchError(internalToUnicode(selector.getNoMatchError()))
               .setHasDefaultValue(selector.hasDefault());
 
       // Note that the order of entries returned by selector.getEntries is stable. The map's
       // entries' order is preserved from the fact that Starlark dictionary entry order is stable
       // (it's determined by insertion order).
-      for (Map.Entry<Label, ?> entry : selector.getEntries().entrySet()) {
-        Label condition = entry.getKey();
-        SelectorEntry.Builder selectorEntryBuilder =
-            SelectorEntry.newBuilder()
-                .setLabel(condition.toString())
-                .setIsDefaultValue(!selector.isValueSet(condition));
+      selector.forEach(
+          (condition, conditionValue) -> {
+            SelectorEntry.Builder selectorEntryBuilder =
+                SelectorEntry.newBuilder()
+                    .setLabel(internalToUnicode(labelPrinter.toString(condition)))
+                    .setIsDefaultValue(!selector.isValueSet(condition));
 
-        Object conditionValue = entry.getValue();
-        if (conditionValue != null) {
-          writeAttributeValueToBuilder(
-              new SelectorEntryBuilderAdapter(selectorEntryBuilder), type, conditionValue);
-        }
-        selectorBuilder.addEntries(selectorEntryBuilder);
-      }
+            if (conditionValue != null) {
+              writeAttributeValueToBuilder(
+                  new SelectorEntryBuilderAdapter(selectorEntryBuilder),
+                  type,
+                  conditionValue,
+                  labelPrinter);
+            }
+            selectorBuilder.addEntries(selectorEntryBuilder);
+          });
       selectorListBuilder.addElements(selectorBuilder);
     }
     attrPb.setSelectorList(selectorListBuilder);
@@ -166,25 +205,30 @@ public class AttributeFormatter {
    * Set the appropriate type and value. Since string and string list store values for multiple
    * types, use the toString() method on the objects instead of casting them.
    */
+  @SuppressWarnings("unchecked")
   private static void writeAttributeValueToBuilder(
-      AttributeValueBuilderAdapter builder, Type<?> type, Object value) {
+      AttributeValueBuilderAdapter builder, Type<?> type, Object value, LabelPrinter labelPrinter) {
     if (type == INTEGER) {
       builder.setIntValue(((StarlarkInt) value).toIntUnchecked());
-    } else if (type == STRING
-        || type == LABEL
+    } else if (type == STRING || type == STRING_NO_INTERN) {
+      builder.setStringValue(internalToUnicode(value.toString()));
+    } else if (type == LABEL
         || type == NODEP_LABEL
         || type == OUTPUT
-        || type == GENQUERY_SCOPE_TYPE) {
-
-      builder.setStringValue(value.toString());
-    } else if (type == STRING_LIST
-        || type == LABEL_LIST
+        || type == GENQUERY_SCOPE_TYPE
+        || type == DORMANT_LABEL) {
+      builder.setStringValue(internalToUnicode(labelPrinter.toString((Label) value)));
+    } else if (type == STRING_LIST) {
+      for (Object entry : (Collection<?>) value) {
+        builder.addStringListValue(internalToUnicode(entry.toString()));
+      }
+    } else if (type == LABEL_LIST
         || type == NODEP_LABEL_LIST
         || type == OUTPUT_LIST
-        || type == DISTRIBUTIONS
-        || type == GENQUERY_SCOPE_TYPE_LIST) {
-      for (Object entry : (Collection<?>) value) {
-        builder.addStringListValue(entry.toString());
+        || type == GENQUERY_SCOPE_TYPE_LIST
+        || type == DORMANT_LABEL_LIST) {
+      for (Label entry : (Collection<Label>) value) {
+        builder.addStringListValue(internalToUnicode(labelPrinter.toString(entry)));
       }
     } else if (type == INTEGER_LIST) {
       for (Object elem : (Collection<?>) value) {
@@ -198,51 +242,47 @@ public class AttributeFormatter {
       License license = (License) value;
       Build.License.Builder licensePb = Build.License.newBuilder();
       for (License.LicenseType licenseType : license.getLicenseTypes()) {
-        licensePb.addLicenseType(licenseType.toString());
+        licensePb.addLicenseType(internalToUnicode(licenseType.toString()));
       }
       for (Label exception : license.getExceptions()) {
-        licensePb.addException(exception.toString());
+        licensePb.addException(internalToUnicode(exception.toString()));
       }
       builder.setLicense(licensePb);
     } else if (type == STRING_DICT) {
-      @SuppressWarnings("unchecked")
       Map<String, String> dict = (Map<String, String>) value;
       for (Map.Entry<String, String> keyValueList : dict.entrySet()) {
         StringDictEntry.Builder entry =
             StringDictEntry.newBuilder()
-                .setKey(keyValueList.getKey())
-                .setValue(keyValueList.getValue());
+                .setKey(internalToUnicode(keyValueList.getKey()))
+                .setValue(internalToUnicode(keyValueList.getValue()));
         builder.addStringDictValue(entry);
       }
-    } else if (type == STRING_LIST_DICT) {
-      @SuppressWarnings("unchecked")
-      Map<String, List<String>> dict = (Map<String, List<String>>) value;
-      for (Map.Entry<String, List<String>> dictEntry : dict.entrySet()) {
+    } else if (type == STRING_LIST_DICT || type == LABEL_LIST_DICT) {
+      Map<String, List<Object>> dict = (Map<String, List<Object>>) value;
+      for (Map.Entry<String, List<Object>> dictEntry : dict.entrySet()) {
         StringListDictEntry.Builder entry =
-            StringListDictEntry.newBuilder().setKey(dictEntry.getKey());
+            StringListDictEntry.newBuilder().setKey(internalToUnicode(dictEntry.getKey()));
         for (Object dictEntryValue : dictEntry.getValue()) {
-          entry.addValue(dictEntryValue.toString());
+          entry.addValue(internalToUnicode(dictEntryValue.toString()));
         }
         builder.addStringListDictValue(entry);
       }
     } else if (type == LABEL_DICT_UNARY) {
-      @SuppressWarnings("unchecked")
       Map<String, Label> dict = (Map<String, Label>) value;
       for (Map.Entry<String, Label> dictEntry : dict.entrySet()) {
         LabelDictUnaryEntry.Builder entry =
             LabelDictUnaryEntry.newBuilder()
-                .setKey(dictEntry.getKey())
-                .setValue(dictEntry.getValue().toString());
+                .setKey(internalToUnicode(dictEntry.getKey()))
+                .setValue(internalToUnicode(labelPrinter.toString(dictEntry.getValue())));
         builder.addLabelDictUnaryValue(entry);
       }
     } else if (type == LABEL_KEYED_STRING_DICT) {
-      @SuppressWarnings("unchecked")
       Map<Label, String> dict = (Map<Label, String>) value;
       for (Map.Entry<Label, String> dictEntry : dict.entrySet()) {
         LabelKeyedStringDictEntry.Builder entry =
             LabelKeyedStringDictEntry.newBuilder()
-                .setKey(dictEntry.getKey().toString())
-                .setValue(dictEntry.getValue());
+                .setKey(internalToUnicode(labelPrinter.toString(dictEntry.getKey())))
+                .setValue(internalToUnicode(dictEntry.getValue()));
         builder.addLabelKeyedStringDictValue(entry);
       }
     } else {
@@ -251,16 +291,11 @@ public class AttributeFormatter {
   }
 
   private static Tristate triStateToProto(TriState value) {
-    switch (value) {
-      case AUTO:
-        return Tristate.AUTO;
-      case NO:
-        return Tristate.NO;
-      case YES:
-        return Tristate.YES;
-      default:
-        throw new AssertionError("Expected AUTO/NO/YES to cover all possible cases");
-    }
+    return switch (value) {
+      case AUTO -> Tristate.AUTO;
+      case NO -> Tristate.NO;
+      case YES -> Tristate.YES;
+    };
   }
 
   /**
@@ -375,29 +410,27 @@ public class AttributeFormatter {
     @Override
     public void setTristateValue(Tristate tristate) {
       switch (tristate) {
-        case AUTO:
+        case AUTO -> {
           attributeBuilder.setTristateValue(Tristate.AUTO);
           if (encodeBooleanAndTriStateAsIntegerAndString) {
             attributeBuilder.setIntValue(-1);
             attributeBuilder.setStringValue("auto");
           }
-          break;
-        case NO:
+        }
+        case NO -> {
           attributeBuilder.setTristateValue(Tristate.NO);
           if (encodeBooleanAndTriStateAsIntegerAndString) {
             attributeBuilder.setIntValue(0);
             attributeBuilder.setStringValue("no");
           }
-          break;
-        case YES:
+        }
+        case YES -> {
           attributeBuilder.setTristateValue(Tristate.YES);
           if (encodeBooleanAndTriStateAsIntegerAndString) {
             attributeBuilder.setIntValue(1);
             attributeBuilder.setStringValue("yes");
           }
-          break;
-        default:
-          throw new AssertionError("Expected AUTO/NO/YES to cover all possible cases");
+        }
       }
     }
   }

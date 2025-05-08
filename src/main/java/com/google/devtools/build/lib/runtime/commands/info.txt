@@ -1,5 +1,5 @@
 
-Usage: %{product} info <options> [key]
+Usage: %{product} info <options> [keys]
 
 Displays information about the state of the %{product} process in the
 form of several "key: value" pairs.  This includes the locations of
@@ -7,8 +7,8 @@ several output directories.  Because some of the
 values are affected by the options passed to '%{product} build', the
 info command accepts the same set of options.
 
-A single non-option argument may be specified (e.g. "%{product}-bin"), in
-which case only the value for that key will be printed.
+If arguments are specified, each should be one of the keys (e.g. "%{product}-bin").
+In this case only the value(s) for those keys will be printed.
 
 If --show_make_env is specified, the output includes the set of key/value
 pairs in the "Make" environment, accessible within BUILD files.

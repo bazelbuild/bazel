@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -35,8 +35,7 @@ example_worker=$(find $BAZEL_RUNFILES -name ExampleWorkerMultiplexer_deploy.jar)
 add_to_bazelrc "build -s"
 add_to_bazelrc "build --spawn_strategy=worker,standalone"
 add_to_bazelrc "build --worker_verbose --worker_max_instances=3"
-add_to_bazelrc "build --debug_print_action_contexts"
-add_to_bazelrc "build --experimental_worker_multiplex"
+add_to_bazelrc "build --worker_multiplex"
 add_to_bazelrc "build ${ADDITIONAL_BUILD_FLAGS}"
 
 function set_up() {
@@ -44,6 +43,8 @@ function set_up() {
   WORKSPACE_SUBDIR=$(basename $(mktemp -d ${WORKSPACE_DIR}/testXXXXXX))
   cd ${WORKSPACE_SUBDIR}
   BINS=$(bazel info $PRODUCT_NAME-bin)/${WORKSPACE_SUBDIR}
+
+  add_rules_java ${WORKSPACE_DIR}/MODULE.bazel
 
   # This causes Bazel to shut down all running workers.
   bazel build --worker_quit_after_build &> $TEST_log \
@@ -90,14 +91,18 @@ def _impl(ctx):
       executable=worker,
       progress_message="Working on %s" % ctx.label.name,
       mnemonic="Work",
-      execution_requirements={"supports-multiplex-workers": "1", "supports-multiplex-sandboxing": "1"},
+      execution_requirements={
+        "supports-multiplex-workers": "1",
+        "supports-multiplex-sandboxing": "1",
+        "requires-worker-protocol": "proto",
+      },
       arguments=ctx.attr.worker_args + argfile_arguments,
   )
 
 work = rule(
     implementation=_impl,
     attrs={
-        "worker": attr.label(cfg="host", mandatory=True, allow_files=True, executable=True),
+        "worker": attr.label(cfg="exec", mandatory=True, allow_files=True, executable=True),
         "worker_args": attr.string_list(),
         "args": attr.string_list(),
         "srcs": attr.label_list(allow_files=True),
@@ -107,6 +112,8 @@ work = rule(
 )
 EOF
   cat >BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_import.bzl", "java_import")
 load(":work.bzl", "work")
 
 java_import(
@@ -303,8 +310,7 @@ EOF
 
 # When a worker does not conform to the protocol and returns a response that is not a parseable
 # protobuf, it must be killed and a helpful error message should be printed.
-# TODO(philwo) causes Bazel to crash with NullPointerException.
-function DISABLED_test_build_fails_when_worker_returns_junk() {
+function test_build_fails_when_worker_returns_junk() {
   prepare_example_worker
   cat >>BUILD <<'EOF'
 [work(
@@ -325,7 +331,7 @@ EOF
   # Check that a helpful error message was printed.
   expect_log "Worker process returned an unparseable WorkResponse!"
   expect_log "Did you try to print something to stdout"
-  expect_log "I'm a poisoned worker and this is not a protobuf."
+  expect_log "I'm a  poisone"  # Hexdump
 }
 
 function test_input_digests() {
@@ -376,8 +382,8 @@ EOF
 
   bazel build --worker_quit_after_build :hello_world_1 &> $TEST_log \
     || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work multiplex-worker (id [0-9]\+)"
-  expect_log "Destroying Work multiplex-worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} multiplex Work multiplex-worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Destroying Work multiplex-worker (id [0-9]\+, key hash -\?[0-9]\+)"
   expect_log "Build completed, shutting down worker pool..."
 }
 
@@ -394,7 +400,7 @@ EOF
   bazel build --worker_quit_after_build :hello_world_1 &> $TEST_log \
     || fail "build failed"
 
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work multiplex-worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} multiplex Work multiplex-worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
   worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/multiplex-worker-[0-9]-Work.log' "$TEST_log" | sed 's/^logging to //')
 
@@ -419,14 +425,15 @@ work(
 )
 EOF
 
-  sed -i.bak '/execution_requirements/d' work.bzl
+  # Delete entire execution_requirements block
+  sed -i.bak '/execution_requirements/,+4d' work.bzl
   rm -f work.bzl.bak
 
   bazel build --worker_quit_after_build :hello_world &> $TEST_log \
     || fail "build failed"
 
-  expect_not_log "Created new ${WORKER_TYPE_LOG_STRING} Work multiplex-worker (id [0-9]\+)"
-  expect_not_log "Destroying Work multiplex-worker (id [0-9]\+)"
+  expect_not_log "Created new ${WORKER_TYPE_LOG_STRING} multiplex Work multiplex-worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_not_log "Destroying Work multiplex-worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
   # WorkerSpawnStrategy falls back to standalone strategy, so we still expect the output to be generated.
   [ -e "$BINS/hello_world.out" ] \
@@ -465,12 +472,12 @@ EOF
   bazel build :hello_clean &> $TEST_log \
     || fail "build failed"
   assert_equals "hello clean" "$(cat $BINS/hello_clean.out)"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work multiplex-worker (id [0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} multiplex Work multiplex-worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
   bazel clean &> $TEST_log \
     || fail "clean failed"
   expect_log "Clean command is running, shutting down worker pool..."
-  expect_log "Destroying Work multiplex-worker (id [0-9]\+)"
+  expect_log "Destroying Work multiplex-worker (id [0-9]\+, key hash -\?[0-9]\+)"
 }
 
 function test_crashed_worker_causes_log_dump() {
@@ -492,7 +499,7 @@ EOF
   bazel build :${func_name}_2 &> $TEST_log \
     && fail "expected build to fail" || true
 
-  expect_log "Worker process did not return a WorkResponse:"
+  expect_log "Worker process returned an unparseable WorkResponse!"
   expect_log "^---8<---8<--- Start of log, file at /"
   expect_log "I'm a very poisoned worker and will just crash."
   expect_log "^---8<---8<--- End of log ---8<---8<---"

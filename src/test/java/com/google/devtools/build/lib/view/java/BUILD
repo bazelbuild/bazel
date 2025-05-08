@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -30,27 +31,13 @@ java_test(
     srcs = ["JavaConfigurationTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "JavaCompilationArtifactsTest",
-    srcs = ["JavaCompilationArtifactsTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -69,56 +56,21 @@ java_test(
 )
 
 java_test(
-    name = "JavaImportConfiguredTargetTest",
-    srcs = ["JavaImportConfiguredTargetTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
-        "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/rules/java:java_compile_action_test_helper",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "JavaPluginConfiguredTargetTest",
     srcs = ["JavaPluginConfiguredTargetTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/rules/java:java_compile_action_test_helper",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
-    name = "SingleJarCommandLineTest",
-    srcs = ["SingleJarCommandLineTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
-        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

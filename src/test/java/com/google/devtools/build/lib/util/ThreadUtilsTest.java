@@ -56,7 +56,7 @@ public class ThreadUtilsTest {
           }
 
           @Override
-          public void sendNonFatalBugReport(Exception exception) {
+          public void sendNonFatalBugReport(Throwable exception) {
             throw new UnsupportedOperationException();
           }
 
@@ -74,10 +74,21 @@ public class ThreadUtilsTest {
         .hasCauseThat()
         .hasMessageThat()
         .isEqualTo("(Wrapper exception for longest stack trace) interrupt message");
-    assertThat(reportedException.get().getCause().getStackTrace()[0].getMethodName())
-        .isEqualTo("sleep");
-    assertThat(reportedException.get().getCause().getStackTrace()[1].getMethodName())
-        .isEqualTo("recursiveMethodNoPark");
+    // The topmost method is either "sleep" or "sleep0" or "sleepNanos0". For example, in JDK 21,
+    // "Thread.sleep" calls "sleepNanos" which then calls a "sleepNanos0" native method.
+    StackTraceElement[] stackTrace = reportedException.get().getCause().getStackTrace();
+    if (stackTrace[0].getMethodName().equals("sleepNanos0")) {
+      assertThat(stackTrace[1].getMethodName()).isEqualTo("sleepNanos");
+      assertThat(stackTrace[2].getMethodName()).isEqualTo("sleep");
+      assertThat(stackTrace[3].getMethodName()).isEqualTo("recursiveMethodNoPark");
+    } else if (stackTrace[0].getMethodName().equals("sleep0")) {
+      assertThat(stackTrace[1].getMethodName()).isEqualTo("sleep");
+      assertThat(stackTrace[2].getMethodName()).isEqualTo("recursiveMethodNoPark");
+    } else {
+      assertThat(stackTrace[0].getMethodName()).isEqualTo("sleep");
+      assertThat(stackTrace[1].getMethodName()).isEqualTo("recursiveMethodNoPark");
+    }
+
     future.set(1);
     for (Thread thread : parkThreads) {
       thread.join();

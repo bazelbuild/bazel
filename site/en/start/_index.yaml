@@ -48,10 +48,6 @@ landing_page:
       path: /install/windows
       custom_image:
         path: /install/images/windows.svg
-    - description: Fedora and CentOS
-      path: /install/redhat
-      custom_image:
-        path: /install/images/redhat.svg
     - description: Ubuntu
       path: /install/ubuntu
       custom_image:
@@ -112,6 +108,12 @@ landing_page:
       icon:
         name: grid_view
         position: left
+    - heading: Go
+      classname: fully-clickable
+      path: /start/go
+      icon:
+        name: grid_view
+        position: left
 
   # Concepts Row
   - options:
@@ -149,6 +151,6 @@ landing_page:
         Defines whether a target can be depended upon by other targets.
     - heading: Hermeticity
       classname: fully-clickable
-      path: /concepts/hermeticity
+      path: /basics/hermeticity
       description: >
         Builds with no external influences for deterministic and correct results.

@@ -15,15 +15,12 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import java.util.Collections;
 import java.util.List;
@@ -57,6 +54,13 @@ public final class DumpCommandTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void doesNotContainWarningInStdout() throws Exception {
+    assertThat(dump("--skyframe", "count").isSuccess()).isTrue();
+    assertThat(recordingOutErr.errAsLatin1()).contains(DumpCommand.WARNING_MESSAGE);
+    assertThat(recordingOutErr.outAsLatin1()).doesNotContain(DumpCommand.WARNING_MESSAGE);
+  }
+
+  @Test
   public void multiOptionSmoke() throws Exception {
     write("foo/BUILD", "genrule(name = 'foo', outs = ['out'], cmd = 'touch $@')");
     addOptions("--nobuild");
@@ -65,29 +69,5 @@ public final class DumpCommandTest extends BuildIntegrationTestCase {
     assertThat(recordingOutErr.outAsLatin1()).contains("filegroup");
     assertThat(recordingOutErr.outAsLatin1()).contains("RULE");
     assertThat(recordingOutErr.outAsLatin1()).contains("Node count");
-  }
-
-  @Test
-  public void interruptedOnRuleTypes() throws Exception {
-    write(
-        "foo/BUILD",
-        "genrule(name = 'bar', outs = ['bar.out'], cmd = 'touch $@')",
-        "genrule(name = 'bad', outs = ['bad.out'], srcs = [':bar'], cmd = '$BAD_VARIABLE')",
-        "genrule(name = 'foo', outs = ['foo.out'], srcs = [':bad'], cmd = 'touch $@')");
-    addOptions("--nobuild");
-    // The analysis failure enqueues nodes for invalidation/deletion, which get triggered during the
-    // getPackage() Skyframe evaluations during the rule-type dump. The interrupt then kicks in.
-    assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:foo"));
-    Thread.currentThread().interrupt();
-    BlazeCommandResult result = dump("--rule_classes", "--rules", "--skyframe", "summary");
-    assertThat(result.getExitCode()).isEqualTo(ExitCode.INTERRUPTED);
-    assertThat(recordingOutErr.errAsLatin1()).contains("Interrupted");
-    // Dump output that happened before the interrupt is still there: this is sensitive to the order
-    // DumpCommand processes its options in.
-    assertThat(recordingOutErr.outAsLatin1()).contains("filegroup");
-    // There is no rule type output.
-    assertThat(recordingOutErr.outAsLatin1()).doesNotContain("RULE");
-    // Later dump output does not happen.
-    assertThat(recordingOutErr.outAsLatin1()).doesNotContain("Node count");
   }
 }

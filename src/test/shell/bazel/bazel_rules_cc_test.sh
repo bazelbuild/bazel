@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -50,43 +50,18 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
-function test_rules_cc_can_be_overridden() {
-  # The bazelrc file might contain an --override_repository flag for rules_cc,
-  # which would cause this test to fail to override the repo via a WORKSPACE file.
-  sed -i.bak '/override_repository=rules_cc/d' $TEST_TMPDIR/bazelrc
-
-  # We test that a custom repository can override @rules_cc in their
-  # WORKSPACE file.
-  mkdir -p rules_cc_can_be_overridden || fail "couldn't create directory"
-  touch rules_cc_can_be_overridden/BUILD || \ fail "couldn't touch BUILD file"
-  cat > rules_cc_can_be_overridden/WORKSPACE <<EOF
-local_repository(
-  name = 'rules_cc',
-  path = '../override',
-)
-EOF
-
-  mkdir -p override || fail "couldn't create override directory"
-  touch override/WORKSPACE || fail "couldn't touch override/WORKSPACE"
-  cat > override/BUILD <<EOF
-filegroup(name = 'yolo')
-EOF
-
-  cd rules_cc_can_be_overridden || fail "couldn't cd into workspace"
-  bazel build @rules_cc//:yolo &> $TEST_log || \
-    fail "Bazel failed to build @rules_cc"
-}
-
 function test_rules_cc_repository_builds_itself() {
+  add_rules_cc "MODULE.bazel"
+  add_protobuf "MODULE.bazel"
   write_default_bazelrc
-
+  # can be removed with protobuf v28.x onwards
+  if $is_windows; then
+    CXXOPTS=""
+  else
+    CXXOPTS="--cxxopt=-Wno-deprecated-declarations --host_cxxopt=-Wno-deprecated-declarations"
+  fi
   # We test that a built-in @rules_cc repository is buildable.
-  bazel build @rules_cc//cc/... &> $TEST_log \
+  bazel build $CXXOPTS @rules_cc//cc/... &> $TEST_log \
       || fail "Build failed unexpectedly"
 }
 

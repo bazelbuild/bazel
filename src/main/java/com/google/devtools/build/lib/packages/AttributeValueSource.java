@@ -24,6 +24,7 @@ public enum AttributeValueSource {
   NATIVE_COMPUTED_DEFAULT("$", false),
   COMPUTED_DEFAULT("$", true),
   LATE_BOUND(":", true),
+  MATERIALIZER(":", true),
   DIRECT("$", false);
 
   private static final String STARLARK_PREFIX = "_";

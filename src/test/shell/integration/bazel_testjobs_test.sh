@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -49,11 +49,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 add_to_bazelrc "test --nocache_test_results"
 
 # End of preamble.
@@ -94,7 +89,11 @@ EOF
 
   chmod +x dir/test.sh
 
+  add_rules_shell "MODULE.bazel"
+
   cat <<EOF > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "test",
   srcs = [ "test.sh" ],

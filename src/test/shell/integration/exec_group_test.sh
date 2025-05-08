@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -57,7 +57,7 @@ msys*)
   ;;
 esac
 
-# NOTE: All tests need to delcare targets in a custom package, which is why they
+# NOTE: All tests need to declare targets in a custom package, which is why they
 # all use the pkg=${FUNCNAME[0]} variable.
 
 function test_target_exec_properties_starlark() {
@@ -229,14 +229,16 @@ EOF
 }
 
 function test_target_test_properties_sh_test() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo hello
 EOF
   chmod u+x ${pkg}/a.sh
   cat > ${pkg}/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
 sh_test(
@@ -263,12 +265,14 @@ EOF
 }
 
 function test_platform_execgroup_properties_cc_test() {
+  add_rules_cc "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
 int main() {}
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
 cc_test(
@@ -400,14 +404,17 @@ EOF
 }
 
 function test_platform_execgroup_properties_nongroup_override_cc_test() {
+  add_rules_cc "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
 int main() {}
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
+cc_library(name = "empty_lib")
 cc_test(
   name = "a",
   srcs = ["a.cc"],
@@ -415,6 +422,7 @@ cc_test(
     "platform_key": "override_value",
   },
   exec_compatible_with = [":local"],
+  link_extra_lib = ":empty_lib",
 )
 
 platform(
@@ -430,7 +438,18 @@ EOF
   bazel build --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Build failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "override_value" out.txt || fail "Did not find the overriding value"
-  grep "default_value" out.txt && fail "Used the default value"
+  # If we could do json parsing, we would check that override_value is used for
+  # the cc_test and default_value is used for all other targets.
+  # Instead, just check that the number of grep matches is the same.
+  assert_equals \
+    "$(grep -c override_value out.txt)" \
+    "$(grep -c "targetLabel.*${pkg}:a" out.txt)" \
+    "Used override_value the wrong number of times"
+  # Note: `grep -c` should not fail if there are no matches.
+  assert_equals \
+    "$(grep -c default_value out.txt || true)" \
+    "$(grep targetLabel out.txt | (grep -cv "${pkg}:a" || true))" \
+    "Used default_value the wrong number of times"
 
   bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Test failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
@@ -438,12 +457,14 @@ EOF
 }
 
 function test_platform_execgroup_properties_group_override_cc_test() {
+  add_rules_cc "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
 int main() {}
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
 cc_test(
@@ -475,14 +496,19 @@ EOF
 }
 
 function test_platform_execgroup_properties_override_group_and_default_cc_test() {
+  add_rules_cc "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
 int main() {}
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
+cc_library(name = "empty_lib")
 cc_test(
   name = "a",
   srcs = ["a.cc"],
@@ -491,6 +517,7 @@ cc_test(
     "test.platform_key": "test_override",
   },
   exec_compatible_with = [":local"],
+  link_extra_lib = ":empty_lib",
 )
 
 platform(
@@ -506,7 +533,18 @@ EOF
   bazel build --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Build failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
   grep "override_value" out.txt || fail "Did not find the overriding value"
-  grep "default_value" out.txt && fail "Used the default value"
+  # If we could do json parsing, we would check that override_value is used for
+  # the cc_test and default_value is used for all other targets.
+  # Instead, just check that the number of grep matches is the same.
+  assert_equals \
+    "$(grep -c override_value out.txt)" \
+    "$(grep -c "targetLabel.*${pkg}:a" out.txt)" \
+    "Used override_value the wrong number of times"
+  # Note: `grep -c` should not fail if there are no matches.
+  assert_equals \
+    "$(grep -c default_value out.txt || true)" \
+    "$(grep targetLabel out.txt | (grep -cv "${pkg}:a" || true))" \
+    "Used default_value the wrong number of times"
 
   bazel test --extra_execution_platforms="${pkg}:my_platform" ${pkg}:a --execution_log_json_file out.txt || fail "Test failed"
   grep "platform_key" out.txt || fail "Did not find the platform key"
@@ -514,18 +552,22 @@ EOF
 }
 
 function test_platform_execgroup_properties_test_inherits_default() {
+  add_rules_cc "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
 int main() {}
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
+cc_library(name = "empty_lib")
 cc_test(
   name = "a",
   srcs = ["a.cc"],
   exec_compatible_with = [":local"],
+  link_extra_lib = ":empty_lib",
 )
 
 # This platform should be first in --extra_execution_platforms.
@@ -554,17 +596,18 @@ EOF
 
   bazel test --extra_execution_platforms="${pkg}:platform_no_constraint,${pkg}:platform_with_constraint" ${pkg}:a --execution_log_json_file out.txt || fail "Test failed"
   grep --after=4 "platform" out.txt | grep "exec_property" || fail "Did not find the property key"
-  grep --after=4 "platform" out.txt | grep "no_constraint" && fail "Found the wrong property."
   grep --after=4 "platform" out.txt | grep "requires_test_constraint" || fail "Did not find the property value"
 }
 
 function test_platform_properties_only_applied_for_relevant_execgroups_cc_test() {
+  add_rules_cc "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
 int main() {}
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 constraint_setting(name = "setting")
 constraint_value(name = "local", constraint_setting = ":setting")
 cc_test(
@@ -589,12 +632,14 @@ EOF
 }
 
 function test_cannot_set_properties_for_irrelevant_execgroup_on_target_cc_test() {
+  add_rules_cc "MODULE.bazel"
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.cc <<EOF
 int main() {}
 EOF
   cat > ${pkg}/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_test(
   name = "a",
   srcs = ["a.cc"],
@@ -605,7 +650,7 @@ cc_test(
 )
 EOF
   bazel test ${pkg}:a &> $TEST_log && fail "Build passed when we expected an error"
-  grep "Tried to set properties for non-existent exec group" $TEST_log || fail "Did not complain about unknown exec group"
+  grep "Tried to set exec_properties for non-existent exec groups on //${pkg}:a: unknown" $TEST_log || fail "Did not complain about unknown exec group"
 }
 
 function write_toolchains_for_exec_group_tests() {
@@ -675,7 +720,7 @@ platform(
 )
 EOF
 
-  cat >> WORKSPACE <<EOF
+  cat >> ${TOOLCHAIN_REGISTRATION_FILE} <<EOF
 register_toolchains('//${pkg}/platform:all')
 register_execution_platforms('//${pkg}/platform:all')
 EOF
@@ -703,8 +748,10 @@ def _impl(target, ctx):
 sample_aspect = aspect(
     implementation = _impl,
     exec_groups = {
-        # extra should inherit both the exec constraint and the toolchain.
-        'extra': exec_group(copy_from_rule = True),
+        'extra': exec_group(
+            exec_compatible_with = ['//${pkg}/platform:value_foo'],
+            toolchains = ['//${pkg}/platform:toolchain_type']
+        ),
     },
     exec_compatible_with = ['//${pkg}/platform:value_foo'],
     toolchains = ['//${pkg}/platform:toolchain_type'],
@@ -767,7 +814,7 @@ toolchain(
 )
 EOF
 
-  cat >> WORKSPACE <<EOF
+  cat >> ${TOOLCHAIN_REGISTRATION_FILE} <<EOF
 register_toolchains('//${pkg}/other:all')
 EOF
 
@@ -856,8 +903,11 @@ def _impl(ctx):
 sample_rule = rule(
     implementation = _impl,
     exec_groups = {
-        # extra should inherit both the exec constraint and the toolchain.
-        'extra': exec_group(copy_from_rule = True),
+        # extra should contain both the exec constraint and the toolchain.
+        'extra': exec_group(
+            exec_compatible_with = ['//${pkg}/platform:value_foo'],
+            toolchains = ['//${pkg}/platform:toolchain_type']
+        ),
     },
     exec_compatible_with = ['//${pkg}/platform:value_foo'],
     toolchains = ['//${pkg}/platform:toolchain_type'],
@@ -913,8 +963,8 @@ def _impl(ctx):
 sample_rule = rule(
     implementation = _impl,
     exec_groups = {
-        # extra should inherit the toolchain, and the exec constraint from the target.
-        'extra': exec_group(copy_from_rule = True),
+        # extra should contain the toolchain, and the exec constraint from the target.
+        'extra': exec_group(toolchains = ['//${pkg}/platform:toolchain_type']),
     },
     toolchains = ['//${pkg}/platform:toolchain_type'],
 )

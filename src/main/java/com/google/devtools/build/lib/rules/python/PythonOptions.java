@@ -16,18 +16,16 @@ package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
-import java.util.Map;
 
 /**
  * Python-related command-line options.
@@ -120,6 +118,18 @@ public class PythonOptions extends FragmentOptions {
   public boolean incompatiblePy3IsDefault;
 
   @Option(
+      name = "incompatible_python_disable_py2",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, using Python 2 settings will cause an error. This includes "
+              + "python_version=PY2, srcs_version=PY2, and srcs_version=PY2ONLY. See "
+              + "https://github.com/bazelbuild/bazel/issues/15684 for more information.")
+  public boolean disablePy2;
+
+  @Option(
       name = "incompatible_py2_outputs_are_suffixed",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
@@ -151,15 +161,11 @@ public class PythonOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS,
         OptionEffectTag.AFFECTS_OUTPUTS // because of "-py2"/"-py3" output root
       },
-      metadataTags = {OptionMetadataTag.EXPLICIT_IN_OUTPUT_PATH},
       help =
           "The Python major version mode, either `PY2` or `PY3`. Note that this is overridden by "
               + "`py_binary` and `py_test` targets (even if they don't explicitly specify a "
               + "version) so there is usually not much reason to supply this flag.")
   public PythonVersion pythonVersion;
-
-  private static final OptionDefinition PYTHON_VERSION_DEFINITION =
-      OptionsParser.getOptionDefinitionByName(PythonOptions.class, "python_version");
 
   /**
    * Deprecated machinery for setting the Python version; will be removed soon.
@@ -175,16 +181,13 @@ public class PythonOptions extends FragmentOptions {
       help = "No-op, will be removed soon.")
   public PythonVersion forcePython;
 
-  private static final OptionDefinition FORCE_PYTHON_DEFINITION =
-      OptionsParser.getOptionDefinitionByName(PythonOptions.class, "force_python");
-
   /**
    * This field should be either null (unset), {@code PY2}, or {@code PY3}. Other {@code
    * PythonVersion} values do not represent distinct Python versions and are not allowed.
    *
    * <p>Null means to use the default ({@link #getDefaultPythonVersion}).
    *
-   * <p>This option is only read by {@link #getHost}. It should not be read by other native code or
+   * <p>This option is only read by {@link #getExec}. It should not be read by other native code or
    * by {@code select()}s in user code.
    */
   @Option(
@@ -193,11 +196,8 @@ public class PythonOptions extends FragmentOptions {
       converter = TargetPythonVersionConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Overrides the Python version for the host configuration. Can be \"PY2\" or \"PY3\".")
+      help = "Overrides the Python version for the exec configuration. Can be \"PY2\" or \"PY3\".")
   public PythonVersion hostForcePython;
-
-  private static final OptionDefinition HOST_FORCE_PYTHON_DEFINITION =
-      OptionsParser.getOptionDefinitionByName(PythonOptions.class, "host_force_python");
 
   // TODO(b/230490091): Delete this flag (see also bazelbuild issue #7741)
   @Option(
@@ -223,18 +223,6 @@ public class PythonOptions extends FragmentOptions {
   public boolean incompatibleUsePythonToolchains;
 
   @Option(
-      name = "experimental_build_transitive_python_runfiles",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Build the runfiles trees of py_binary targets that appear in the transitive "
-              + "data runfiles of another binary.",
-      oldName = "incompatible_build_transitive_python_runfiles")
-  public boolean buildTransitiveRunfilesTrees;
-
-  @Option(
       name = "incompatible_default_to_explicit_init_py",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
@@ -248,34 +236,49 @@ public class PythonOptions extends FragmentOptions {
               + "https://github.com/bazelbuild/bazel/issues/10076.")
   public boolean incompatibleDefaultToExplicitInitPy;
 
-  @Override
-  public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
-    // TODO(brandjon): Instead of referencing the python_version target, whose path depends on the
-    // tools repo name, reference a standalone documentation page instead.
-    ImmutableMap.Builder<OptionDefinition, SelectRestriction> restrictions = ImmutableMap.builder();
-    restrictions.put(
-        PYTHON_VERSION_DEFINITION,
-        new SelectRestriction(
-            /*visibleWithinToolsPackage=*/ true,
-            "Use @bazel_tools//python/tools:python_version instead."));
-    restrictions.put(
-        FORCE_PYTHON_DEFINITION,
-        new SelectRestriction(
-            /*visibleWithinToolsPackage=*/ true,
-            "Use @bazel_tools//python/tools:python_version instead."));
-    restrictions.put(
-        HOST_FORCE_PYTHON_DEFINITION,
-        new SelectRestriction(
-            /*visibleWithinToolsPackage=*/ false,
-            "Use @bazel_tools//python/tools:python_version instead."));
-    return restrictions.buildOrThrow();
-  }
+  @Option(
+      name = "python_native_rules_allowlist",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      defaultValue = "null",
+      converter = LabelConverter.class,
+      help =
+          "An allowlist (package_group target) to use when enforcing "
+              + "--incompatible_python_disallow_native_rules.")
+  public Label nativeRulesAllowlist;
+
+  @Option(
+      name = "incompatible_python_disallow_native_rules",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      defaultValue = "false",
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When true, an error occurs when using the builtin py_* rules; instead the rule_python"
+              + " rules should be used. See https://github.com/bazelbuild/bazel/issues/17773 for"
+              + " more information and migration instructions.")
+  public boolean disallowNativeRules;
+
+  @Option(
+      name = "experimental_py_binaries_include_label",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "py_binary targets include their label even when stamping is disabled.")
+  public boolean includeLabelInPyBinariesLinkstamp;
+
+  // Helper field to store hostForcePython in exec configuration
+  private PythonVersion defaultPythonVersion = null;
 
   /**
    * Returns the Python major version ({@code PY2} or {@code PY3}) that targets that do not specify
    * a version should be built for.
    */
   public PythonVersion getDefaultPythonVersion() {
+    if (defaultPythonVersion != null) {
+      return defaultPythonVersion;
+    }
     return incompatiblePy3IsDefault ? PythonVersion.PY3 : PythonVersion.PY2;
   }
 
@@ -315,23 +318,6 @@ public class PythonOptions extends FragmentOptions {
   public void setPythonVersion(PythonVersion version) {
     Preconditions.checkArgument(version.isTargetValue());
     this.pythonVersion = version;
-  }
-
-  @Override
-  public FragmentOptions getHost() {
-    PythonOptions hostPythonOptions = (PythonOptions) getDefault();
-    PythonVersion hostVersion =
-        (hostForcePython != null) ? hostForcePython : getDefaultPythonVersion();
-    hostPythonOptions.setPythonVersion(hostVersion);
-    hostPythonOptions.incompatiblePy3IsDefault = incompatiblePy3IsDefault;
-    hostPythonOptions.incompatiblePy2OutputsAreSuffixed = incompatiblePy2OutputsAreSuffixed;
-    hostPythonOptions.buildPythonZip = buildPythonZip;
-    hostPythonOptions.incompatibleUsePythonToolchains = incompatibleUsePythonToolchains;
-
-    // Save host options in case of a further exec->host transition.
-    hostPythonOptions.hostForcePython = hostForcePython;
-
-    return hostPythonOptions;
   }
 
   @Override

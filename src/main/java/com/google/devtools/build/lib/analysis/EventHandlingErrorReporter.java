@@ -41,8 +41,9 @@ public abstract class EventHandlingErrorReporter implements RuleErrorConsumer {
     // the other way round.
     if (!hasErrors()) {
       // We must not report duplicate events, so we only report the first one for now.
+      BuildConfigurationValue configuration = getConfiguration();
       env.getEventHandler()
-          .post(new AnalysisRootCauseEvent(getConfiguration(), getLabel(), message));
+          .post(AnalysisRootCauseEvent.withConfigurationValue(configuration, getLabel(), message));
     }
     env.getEventHandler().handle(Event.error(location, message));
   }

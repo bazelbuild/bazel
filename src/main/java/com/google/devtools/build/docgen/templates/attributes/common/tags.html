@@ -1,5 +1,6 @@
 <p>
-  <code>List of strings; optional; <a href="#configurable-attributes">nonconfigurable</a></code>
+  List of strings; <a href="#configurable-attributes">nonconfigurable</a>;
+  default is <code>[]</code>
 </p>
 
 <p>
@@ -25,13 +26,17 @@
     or <code>no-remote</code> to prevent either or both of those.
   </li>
   <li><code>no-cache</code> keyword results in the action or test never being
-    cached (remotely or locally)
+    cached (locally or remotely). Note: for the purposes of this tag, the disk cache
+    is considered a local cache, whereas the HTTP and gRPC caches are considered
+    remote. Other caches, such as Skyframe or the persistent action cache, are not
+    affected.
   </li>
     <li><code>no-remote-cache</code> keyword results in the action or test never being
     cached remotely (but it may be cached locally; it may also be executed remotely).
-    Note: for the purposes of this tag, the disk-cache is considered a local cache, whereas
-    the http and gRPC caches are considered remote.
-    If a combined cache is specified (i.e. a cache with local and remote components),
+    Note: for the purposes of this tag, the disk cache is considered a local cache,
+    whereas the HTTP and gRPC caches are considered remote. Other caches, such as
+    Skyframe or the persistent action cache, are not affected.
+    If a combination of local disk cache and remote cache are used (combined cache),
     it's treated as a remote cache and disabled entirely unless <code>--incompatible_remote_results_ignore_disk</code>
     is set in which case the local components will be used.
   </li>
@@ -113,7 +118,8 @@
     executed (regardless of <code class='flag'>--cache_test_results</code>
     value).
   </li>
-</ul>
+
+  </ul>
 
 See
 <a href="${link test-encyclopedia#tag-conventions}">Tag Conventions</a>

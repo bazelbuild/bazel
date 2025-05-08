@@ -13,40 +13,83 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
-import com.google.devtools.build.lib.actions.Artifact;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyCcLinkParamsProviderApi;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import net.starlark.java.eval.EvalException;
 
 /** A target that provides C++ libraries to be linked into Python targets. */
+@VisibleForTesting
 @Immutable
-public final class PyCcLinkParamsProvider extends NativeInfo
-    implements PyCcLinkParamsProviderApi<Artifact> {
-  public static final Provider PROVIDER = new Provider();
+public final class PyCcLinkParamsProvider {
+  private static final BuiltinProvider BUILTIN_PROVIDER = new BuiltinProvider();
+  private static final RulesPythonProvider RULES_PYTHON_PROVIDER = new RulesPythonProvider();
 
   private final CcInfo ccInfo;
 
-  public PyCcLinkParamsProvider(CcInfo ccInfo) {
-    this.ccInfo = CcInfo.builder().setCcLinkingContext(ccInfo.getCcLinkingContext()).build();
+  public PyCcLinkParamsProvider(StarlarkInfo info) throws EvalException {
+    this.ccInfo = info.getValue("cc_info", CcInfo.class);
   }
 
-  @Override
-  public Provider getProvider() {
-    return PROVIDER;
+  public static PyCcLinkParamsProvider fromTarget(ConfiguredTarget target)
+      throws RuleErrorException {
+    PyCcLinkParamsProvider provider = target.get(RULES_PYTHON_PROVIDER);
+    if (provider != null) {
+      return provider;
+    }
+    provider = target.get(BUILTIN_PROVIDER);
+    if (provider != null) {
+      return provider;
+    }
+    throw new IllegalStateException(
+        String.format("Unable to find PyCcLinkParamsProvider provider in %s", target));
   }
 
-  @Override
   public CcInfo getCcInfo() {
     return ccInfo;
   }
 
-  /** Provider class for {@link PyCcLinkParamsProvider} objects. */
-  public static class Provider extends BuiltinProvider<PyCcLinkParamsProvider>
-      implements PyCcLinkParamsProviderApi.Provider {
-    private Provider() {
-      super("PyCcLinkParamsProvider", PyCcLinkParamsProvider.class);
+  private static class BaseProvider extends StarlarkProviderWrapper<PyCcLinkParamsProvider> {
+    private BaseProvider(BzlLoadValue.Key loadKey) {
+      super(loadKey, "PyCcLinkParamsProvider");
+    }
+
+    @Override
+    public PyCcLinkParamsProvider wrap(Info value) throws RuleErrorException {
+      try {
+        return new PyCcLinkParamsProvider((StarlarkInfo) value);
+      } catch (EvalException e) {
+        throw new RuleErrorException(e.getMessageWithStack());
+      }
+    }
+  }
+
+  /** Provider class for builtin PyWrapCcLinkParamsProvider. */
+  public static class BuiltinProvider extends BaseProvider {
+    private BuiltinProvider() {
+      super(
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/python/providers.bzl")));
+    }
+  }
+
+  /** Provider class for rules_python PyWrapCcLinkParamsProvider. */
+  public static class RulesPythonProvider extends BaseProvider {
+    private RulesPythonProvider() {
+      super(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  "//third_party/bazel_rules/rules_python/python/private/common:providers.bzl")));
     }
   }
 }

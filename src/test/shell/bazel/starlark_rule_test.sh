@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -86,7 +86,7 @@ EOF
   ! bazel build //test:test &> $TEST_log \
       || fail "Should have resulted in an execution error"
 
-  expect_log "error executing command.*not_a_command"
+  expect_log "error executing Action command.*not_a_command"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/13189
@@ -127,13 +127,13 @@ foo = rule(
 EOF
 
   cat >bin.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo hello $0 > $1
 EOF
   chmod +x bin.sh
 
   # //:x would fail without the bugfix of https://github.com/bazelbuild/bazel/issues/13189
-  bazel build //:x &> $TEST_log || fail "Expected sucesss"
+  bazel build //:x &> $TEST_log || fail "Expected success"
   bazel build //:y &> $TEST_log || fail "Expected success"
   rm BUILD bin.sh foo.bzl
 }

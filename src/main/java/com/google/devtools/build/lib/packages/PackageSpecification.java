@@ -13,19 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Streams;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -46,11 +44,16 @@ import net.starlark.java.eval.Starlark;
  * <p>A package specification is specific to a single {@link RepositoryName} unless it is the "all
  * packages" specification.
  */
+// TODO(b/279784354): Delete PackageSpecification; reimplement bzl visibility using something else.
 public abstract class PackageSpecification {
-  private static final String PACKAGE_LABEL = "__pkg__";
-  private static final String SUBTREE_LABEL = "__subpackages__";
+  private static final String PUBLIC_VISIBILITY = "public";
+  private static final String PRIVATE_VISIBILITY = "private";
   private static final String ALL_BENEATH_SUFFIX = "/...";
   private static final String NEGATIVE_PREFIX = "-";
+
+  // Used for interpreting `visibility` labels.
+  private static final String PACKAGE_LABEL = "__pkg__";
+  private static final String SUBTREE_LABEL = "__subpackages__";
 
   /** Returns {@code true} if the package spec includes the provided {@code packageName}. */
   protected abstract boolean containsPackage(PackageIdentifier packageName);
@@ -72,106 +75,152 @@ public abstract class PackageSpecification {
   // TODO(b/77598306): Remove the parameter after switching all callers to pass true.
   protected abstract String asString(boolean includeDoubleSlash);
 
-  /**
-   * Returns a string representation of this package spec without the repository, and which is
-   * round-trippable through {@link #fromString}.
-   *
-   * <p>For instance, {@code @somerepo//pkg/subpkg/...} turns into {@code "//pkg/subpkg/..."}.
-   *
-   * <p>Omitting the repository means that the returned strings are ambiguous in the absence of
-   * additional context. But, for instance, if interpreted with respect to a {@code package_group}'s
-   * {@code packages} attribute, the strings always have the same repository as the package group.
-   */
-  // TODO(brandjon): This method's main benefit is that it's round-trippable. We could eliminate
-  // it in favor of asString() if we provided a public variant of fromString() that tolerates
-  // repositories.
-  protected abstract String asStringWithoutRepository();
-
   @Override
   public String toString() {
     return asString(/*includeDoubleSlash=*/ false);
   }
 
   /**
-   * Parses the provided {@link String} into a {@link PackageSpecification}.
+   * Parses the string {@code spec} into a {@link PackageSpecification}, within the context of the
+   * given repository name.
    *
-   * <p>The {@link String} must have one of the following forms:
+   * <p>{@code spec} may have the following forms:
    *
-   * <ul>
-   * <li>The full name of a single package, without repository qualification, prefixed with "//"
-   *     (e.g. "//foo/bar"). This results in a {@link PackageSpecification} that contains exactly
-   *     the named package.
-   * <li>The full name of a single package, without repository qualification, prefixed with "//",
-   *     and suffixed with "/..." (e.g. "//foo/bar/...") This results in a {@link
-   *     PackageSpecification} that contains all transitive subpackages of that package, inclusive.
-   * <li>Exactly "//...". This results in a {@link PackageSpecification} that contains all packages.
-   * </ul>
+   * <ol>
+   *   <li>The full name of a single package, without repository qualification, prefixed with "//"
+   *       (e.g. "//foo/bar"). The resulting specification contains exactly that package.
+   *   <li>The same, but suffixed with "/..." for a non-root package ("//foo/bar/...") or "..." for
+   *       the root package ("//..."). The resulting specification contains that package and all its
+   *       subpackages.
+   *   <li>The string constants "public" or "private". The resulting specification contains either
+   *       all packages or no packages, respectively.
+   * </ol>
    *
-   * <p>If and only if the {@link String} is one of the first two forms, the returned {@link
-   * PackageSpecification} is specific to the provided {@link RepositoryName}. Note that it is not
-   * possible to construct a repository-specific {@link PackageSpecification} for all transitive
-   * subpackages of the root package (i.e. a repository-specific "//...").
+   * In the first two cases, the repository of the given package name is taken to be {@code
+   * repositoryName}. In the third case the repository name is ignored.
    *
-   * <p>Throws {@link InvalidPackageSpecificationException} if the {@link String} cannot be parsed.
+   * <p>In the first two cases, {@code spec} may also be prefixed by a "-". The resulting
+   * specification contains the same set of packages but is marked as being negated. (Negation logic
+   * is applied at the level of {@link PackageGroupContents}.)
+   *
+   * <p>Setting {@code allowPublicPrivate} to false disallows the string constants "public" and
+   * "private". Note that if {@link #asString} is called with {@code includeDoubleSlash} set to
+   * false, the stringification of "public" and "//public" is ambiguous (likewise for private),
+   * hence why it might be appropriate to prohibit these forms.
+   *
+   * <p>Setting {@code repoRootMeansCurrentRepo} to false restores the following legacy behavior: In
+   * the specific case where {@code spec} is "//..." (or its negation), the package specification
+   * contains <i>all</i> packages (possibly marked as negated) rather than just those packages in
+   * {@code repositoryName}. In other words, "//..." behaves the same as "public". However, "//"
+   * still represents just the root package of {@code repositoryName}.
+   *
+   * <p>To protect against requiring users to update to a disallowed syntax, it is illegal to
+   * specify {@code repoRootMeansCurrentRepo} without also specifying {@code allowPublicPrivate}.
+   *
+   * @throws InvalidPackageSpecificationException if the string does not fit one of these forms
    */
-  public static PackageSpecification fromString(RepositoryName repositoryName, String spec)
+  // TODO(#16365): Remove allowPublicPrivate.
+  // TODO(#16324): Remove legacy behavior and repoRootMeansCurrentRepo param.
+  public static PackageSpecification fromString(
+      RepositoryName repositoryName,
+      String spec,
+      boolean allowPublicPrivate,
+      boolean repoRootMeansCurrentRepo)
       throws InvalidPackageSpecificationException {
-    String result = spec;
-    boolean negative = false;
-    if (result.startsWith(NEGATIVE_PREFIX)) {
-      negative = true;
-      result = result.substring(NEGATIVE_PREFIX.length());
+    if (repoRootMeansCurrentRepo && !allowPublicPrivate) {
+      throw new InvalidPackageSpecificationException(
+          "Cannot use new \"//...\" meaning without allowing new \"public\" syntax. Try enabling"
+              + " --incompatible_package_group_has_public_syntax or disabling"
+              + " --incompatible_fix_package_group_reporoot_syntax.");
     }
-    PackageSpecification packageSpecification = fromStringPositive(repositoryName, result);
+    if (!allowPublicPrivate
+        && (spec.equals(PUBLIC_VISIBILITY) || spec.equals(PRIVATE_VISIBILITY))) {
+      throw new InvalidPackageSpecificationException(
+          String.format(
+              "Use of \"%s\" package specification requires enabling"
+                  + " --incompatible_package_group_has_public_syntax",
+              spec));
+    }
+    boolean negative = false;
+    if (spec.startsWith(NEGATIVE_PREFIX)) {
+      negative = true;
+      spec = spec.substring(NEGATIVE_PREFIX.length());
+      if (spec.equals(PUBLIC_VISIBILITY) || spec.equals(PRIVATE_VISIBILITY)) {
+        throw new InvalidPackageSpecificationException(
+            String.format("Cannot negate \"%s\" package specification", spec));
+      }
+    }
+    PackageSpecification packageSpecification =
+        fromStringPositive(repositoryName, spec, repoRootMeansCurrentRepo);
     return negative ? new NegativePackageSpecification(packageSpecification) : packageSpecification;
   }
 
-  private static PackageSpecification fromStringPositive(RepositoryName repositoryName, String spec)
+  private static PackageSpecification fromStringPositive(
+      RepositoryName repositoryName, String spec, boolean repoRootMeansCurrentRepo)
       throws InvalidPackageSpecificationException {
-    String result = spec;
-    boolean allBeneath = false;
-    if (result.endsWith(ALL_BENEATH_SUFFIX)) {
-      allBeneath = true;
-      result = result.substring(0, result.length() - ALL_BENEATH_SUFFIX.length());
-      if (result.equals("/")) {
-        // spec was "//...".
-        return AllPackages.EVERYTHING;
-      }
+    if (spec.equals(PUBLIC_VISIBILITY)) {
+      return AllPackages.INSTANCE;
+    } else if (spec.equals(PRIVATE_VISIBILITY)) {
+      return NoPackages.INSTANCE;
     }
-
     if (!spec.startsWith("//")) {
       throw new InvalidPackageSpecificationException(
-          String.format("invalid package name '%s': must start with '//'", spec));
+          String.format(
+              "invalid package name '%s': must start with '//' or be 'public' or 'private'", spec));
     }
 
-    PackageIdentifier packageId;
+    String pkgPath;
+    boolean allBeneath = false;
+    if (spec.endsWith(ALL_BENEATH_SUFFIX)) {
+      allBeneath = true;
+      pkgPath = spec.substring(0, spec.length() - ALL_BENEATH_SUFFIX.length());
+      if (pkgPath.equals("/")) {
+        // spec was "//...".
+        if (repoRootMeansCurrentRepo) {
+          pkgPath = "//";
+        } else {
+          // Legacy behavior: //... is "public".
+          return AllPackages.INSTANCE;
+        }
+      }
+    } else {
+      pkgPath = spec;
+    }
+
+    PackageIdentifier unqualifiedPkgId;
     try {
-      packageId = PackageIdentifier.parse(result);
+      unqualifiedPkgId = PackageIdentifier.parse(pkgPath);
     } catch (LabelSyntaxException e) {
       throw new InvalidPackageSpecificationException(
           String.format("invalid package name '%s': %s", spec, e.getMessage()));
     }
-    Verify.verify(packageId.getRepository().isMain());
+    Verify.verify(unqualifiedPkgId.getRepository().isMain());
 
-    PackageIdentifier packageIdForSpecifiedRepository =
-        PackageIdentifier.create(repositoryName, packageId.getPackageFragment());
-    return allBeneath
-        ? new AllPackagesBeneath(packageIdForSpecifiedRepository)
-        : new SinglePackage(packageIdForSpecifiedRepository);
+    PackageIdentifier pkgId =
+        PackageIdentifier.create(repositoryName, unqualifiedPkgId.getPackageFragment());
+    return allBeneath ? new AllPackagesBeneath(pkgId) : new SinglePackage(pkgId);
   }
 
   /**
-   * Parses a string to a {@code PackageSpecification} for use with .bzl visibility.
+   * Parses a string to a {@code PackageSpecification} for use with .bzl load visibility.
    *
    * <p>This rejects negative package patterns, and translates the exception type into {@code
    * EvalException}.
+   *
+   * <p>Note that load visibility package specifications always behave as if {@code
+   * --incompatible_package_group_has_public_syntax} and {@code
+   * --incompatible_fix_package_group_reporoot_syntax} are enabled.
    */
-  // TODO(b/22193153): Support negatives too.
   public static PackageSpecification fromStringForBzlVisibility(
       RepositoryName repositoryName, String spec) throws EvalException {
     PackageSpecification result;
     try {
-      result = fromString(repositoryName, spec);
+      result =
+          fromString(
+              repositoryName,
+              spec,
+              /*allowPublicPrivate=*/ true,
+              /*repoRootMeansCurrentRepo=*/ true);
     } catch (InvalidPackageSpecificationException e) {
       throw new EvalException(e.getMessage());
     }
@@ -193,8 +242,8 @@ public abstract class PackageSpecification {
    *
    * <p>If the label's name is neither "__pkg__" nor "__subpackages__", this returns {@code null}.
    *
-   * <p>Note that there is no {@link Label} associated with the {@link RepositoryName}-agnostic "all
-   * packages" specification (corresponding to {@code #fromString(null, "//...")}).
+   * <p>Note that there is no {@link Label} associated with the {@link RepositoryName}-agnostic
+   * "public" specification ("//..." under legacy semantics).
    */
   @Nullable
   static PackageSpecification fromLabel(Label label) {
@@ -208,7 +257,11 @@ public abstract class PackageSpecification {
   }
 
   public static PackageSpecification everything() {
-    return AllPackages.EVERYTHING;
+    return AllPackages.INSTANCE;
+  }
+
+  public static PackageSpecification nothing() {
+    return NoPackages.INSTANCE;
   }
 
   private static final class SinglePackage extends PackageSpecification {
@@ -225,18 +278,7 @@ public abstract class PackageSpecification {
 
     @Override
     protected String asString(boolean includeDoubleSlash) {
-      if (includeDoubleSlash) {
-        return singlePackageName.getCanonicalForm();
-      } else {
-        // PackageIdentifier#toString implements the legacy behavior of omitting the double slash
-        // for the main repo.
-        return singlePackageName.toString();
-      }
-    }
-
-    @Override
-    protected String asStringWithoutRepository() {
-      return "//" + singlePackageName.getPackageFragment().getPathString();
+      return PackageGroupContents.stringForSinglePackage(singlePackageName, includeDoubleSlash);
     }
 
     @Override
@@ -272,26 +314,7 @@ public abstract class PackageSpecification {
 
     @Override
     protected String asString(boolean includeDoubleSlash) {
-      if (prefix.getPackageFragment().equals(PathFragment.EMPTY_FRAGMENT)) {
-        // Special case: Emit "//..." rather than suffixing "/...", which would yield "/...".
-        // Make sure not to strip the repo in the case of "@repo//...".
-        //
-        // Note that "//..." is the desired result, not "...", even under the legacy behavior of
-        // includeDoubleSlash=false.
-        return prefix.getCanonicalForm() + "...";
-      }
-      if (includeDoubleSlash) {
-        return prefix.getCanonicalForm() + ALL_BENEATH_SUFFIX;
-      } else {
-        // PackageIdentifier#toString implements the legacy behavior of omitting the double slash
-        // for the main repo.
-        return prefix.toString() + ALL_BENEATH_SUFFIX;
-      }
-    }
-
-    @Override
-    protected String asStringWithoutRepository() {
-      return "//" + prefix.getPackageFragment().getPathString() + ALL_BENEATH_SUFFIX;
+      return PackageGroupContents.stringForAllPackagesBeneath(prefix, includeDoubleSlash);
     }
 
     @Override
@@ -331,16 +354,6 @@ public abstract class PackageSpecification {
     }
 
     @Override
-    protected String asStringWithoutRepository() {
-      return "-" + delegate.asStringWithoutRepository();
-    }
-
-    @Override
-    public int hashCode() {
-      return delegate.hashCode();
-    }
-
-    @Override
     public boolean equals(Object obj) {
       if (this == obj) {
         return true;
@@ -348,12 +361,17 @@ public abstract class PackageSpecification {
       return obj instanceof NegativePackageSpecification
           && delegate.equals(((NegativePackageSpecification) obj).delegate);
     }
+
+    @Override
+    public int hashCode() {
+      return NegativePackageSpecification.class.hashCode() ^ delegate.hashCode();
+    }
   }
 
   @VisibleForSerialization
   static final class AllPackages extends PackageSpecification {
     @SerializationConstant @VisibleForSerialization
-    static final PackageSpecification EVERYTHING = new AllPackages();
+    static final PackageSpecification INSTANCE = new AllPackages();
 
     @Override
     protected boolean containsPackage(PackageIdentifier packageName) {
@@ -362,14 +380,7 @@ public abstract class PackageSpecification {
 
     @Override
     protected String asString(boolean includeDoubleSlash) {
-      // Note that "//..." is the desired result, not "...", even under the legacy behavior of
-      // includeDoubleSlash=false.
-      return "//...";
-    }
-
-    @Override
-    protected String asStringWithoutRepository() {
-      return "//...";
+      return PackageGroupContents.stringForAllPackages(includeDoubleSlash);
     }
 
     @Override
@@ -379,7 +390,33 @@ public abstract class PackageSpecification {
 
     @Override
     public int hashCode() {
-      return "//...".hashCode();
+      return AllPackages.class.hashCode();
+    }
+  }
+
+  @VisibleForSerialization
+  static final class NoPackages extends PackageSpecification {
+    @SerializationConstant @VisibleForSerialization
+    static final PackageSpecification INSTANCE = new NoPackages();
+
+    @Override
+    protected boolean containsPackage(PackageIdentifier packageName) {
+      return false;
+    }
+
+    @Override
+    protected String asString(boolean includeDoubleSlash) {
+      return "private";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      return o instanceof NoPackages;
+    }
+
+    @Override
+    public int hashCode() {
+      return NoPackages.class.hashCode();
     }
   }
 
@@ -391,8 +428,8 @@ public abstract class PackageSpecification {
   }
 
   /**
-   * A collection of {@link PackageSpecification}s logically corresponding to a single {@code
-   * package_group}'s {@code packages} attribute.
+   * Represents a collection of {@link PackageSpecification}s logically corresponding to a single
+   * {@code package_group}'s {@code packages} attribute.
    *
    * <p>Supports testing whether a given package is contained, taking into account negative specs.
    *
@@ -402,26 +439,34 @@ public abstract class PackageSpecification {
    * <p>For modeling a {@code package_group}'s transitive contents (i.e., via the {@code includes}
    * attribute), see {@link PackageSpecificationProvider}.
    */
-  @Immutable
-  public static final class PackageGroupContents {
-    // We separate PackageSpecifications by type.
-    //   - Single positive specs are separate so that we can look them up quickly by package name,
-    //     without requiring a linear search for a satisfying containsPackage().
-    //   - Negative specs need to be separate because their semantics are different (they overrule
-    //     any positive spec).
-    // We don't bother separating out single negative specs. Negatives are pretty rare anyway.
-    private final ImmutableMap<PackageIdentifier, PackageSpecification> singlePositives;
-    private final ImmutableList<PackageSpecification> otherPositives;
-    private final ImmutableList<PackageSpecification> negatives;
+  @AutoValue
+  public abstract static class PackageGroupContents {
+    // This class is optimized for memory and cpu.
+    // TODO(b/279784354): Further improvements are possible.
+    //
+    // PackageGroupContents instances are retained through and after the analysis phase. Therefore,
+    // in order to save memory, we don't retain PackageSpecification instances but instead unroll
+    // them, storing just lists and sets of PackageIdentifier instances.
+    //
+    // To save cpu, we store the PackageIdentifier instances corresponding to positive/negative
+    // single package specifications in sets so we get a fast-path hit on them. Also, we check
+    // negatives first since package_group semantics require we check all negatives no matter what.
+    // Both of these cpu optimizations combine well in practice since there are some package_group
+    // targets with very large lists of negative single package specifications.
 
-    private PackageGroupContents(
-        ImmutableMap<PackageIdentifier, PackageSpecification> singlePositives,
-        ImmutableList<PackageSpecification> otherPositives,
-        ImmutableList<PackageSpecification> negatives) {
-      this.singlePositives = singlePositives;
-      this.otherPositives = otherPositives;
-      this.negatives = negatives;
-    }
+    abstract ImmutableSet<PackageIdentifier> singlePackagePositives();
+
+    abstract ImmutableList<PackageIdentifier> allPackagesBeneathPositives();
+
+    abstract boolean hasPositiveAllPackages();
+
+    abstract ImmutableSet<PackageIdentifier> singlePackageNegatives();
+
+    abstract ImmutableList<PackageIdentifier> allPackagesBeneathNegatives();
+
+    abstract boolean hasPrivate();
+
+    abstract boolean hasNegativeAllPackages();
 
     /**
      * Creates a {@link PackageGroupContents} representing a collection of {@link
@@ -429,77 +474,232 @@ public abstract class PackageSpecification {
      */
     public static PackageGroupContents create(
         ImmutableList<PackageSpecification> packageSpecifications) {
-      ImmutableMap.Builder<PackageIdentifier, PackageSpecification> singlePositives =
-          ImmutableMap.builder();
-      ImmutableList.Builder<PackageSpecification> otherPositives = ImmutableList.builder();
-      ImmutableList.Builder<PackageSpecification> negatives = ImmutableList.builder();
+      var singlePackagePositivesBuilder = ImmutableSet.<PackageIdentifier>builder();
+      var allPackagesBeneathPositivesBuilder = ImmutableList.<PackageIdentifier>builder();
+      boolean hasPositiveAllPackages = false;
+      var singlePackageNegativesBuilder = ImmutableSet.<PackageIdentifier>builder();
+      var allPackagesBeneathNegativesBuilder = ImmutableList.<PackageIdentifier>builder();
+      boolean hasPrivate = false;
+      boolean hasNegativeAllPackages = false;
 
       for (PackageSpecification spec : packageSpecifications) {
         if (spec instanceof SinglePackage) {
-          singlePositives.put(((SinglePackage) spec).singlePackageName, spec);
-        } else if (spec instanceof AllPackages || spec instanceof AllPackagesBeneath) {
-          otherPositives.add(spec);
-        } else if (spec instanceof NegativePackageSpecification) {
-          negatives.add(spec);
-        } else {
-          throw new IllegalStateException(
-              "Unhandled PackageSpecification subclass " + spec.getClass());
+          singlePackagePositivesBuilder.add(((SinglePackage) spec).singlePackageName);
+          continue;
         }
+
+        if (spec instanceof AllPackagesBeneath) {
+          allPackagesBeneathPositivesBuilder.add(((AllPackagesBeneath) spec).prefix);
+          continue;
+        }
+
+        if (spec instanceof AllPackages) {
+          hasPositiveAllPackages = true;
+          continue;
+        }
+
+        if (spec instanceof NoPackages) {
+          // We can't drop NoPackages because it still needs to be serialized, e.g. in bazel query
+          // output.
+          hasPrivate = true;
+          continue;
+        }
+
+        PackageSpecification delegate = ((NegativePackageSpecification) spec).delegate;
+        if (delegate instanceof SinglePackage) {
+          singlePackageNegativesBuilder.add(((SinglePackage) delegate).singlePackageName);
+          continue;
+        }
+
+        if (delegate instanceof AllPackagesBeneath) {
+          allPackagesBeneathNegativesBuilder.add(((AllPackagesBeneath) delegate).prefix);
+          continue;
+        }
+
+        if (delegate instanceof AllPackages) {
+          hasNegativeAllPackages = true;
+          continue;
+        }
+
+        throw new IllegalStateException(spec.toString());
       }
-      return new PackageGroupContents(
-          singlePositives.buildKeepingLast(), otherPositives.build(), negatives.build());
+
+      return new AutoValue_PackageSpecification_PackageGroupContents(
+          singlePackagePositivesBuilder.build(),
+          allPackagesBeneathPositivesBuilder.build(),
+          hasPositiveAllPackages,
+          singlePackageNegativesBuilder.build(),
+          allPackagesBeneathNegativesBuilder.build(),
+          hasPrivate,
+          hasNegativeAllPackages);
     }
 
     /**
      * Returns true if the given package matches at least one of this {@code PackageGroupContents}'
      * positive specifications and none of its negative specifications.
      */
-    public boolean containsPackage(PackageIdentifier packageIdentifier) {
+    public final boolean containsPackage(PackageIdentifier packageIdentifier) {
       // DO NOT use streams or iterators here as they create excessive garbage.
-
-      // Check negatives first. If there's a match we get to bail out early. If not, we'd still have
-      // to check all the negatives anyway.
-      for (int i = 0; i < negatives.size(); i++) {
-        if (negatives.get(i).containsPackage(packageIdentifier)) {
+      if (hasNegativeAllPackages()) {
+        return false;
+      }
+      if (singlePackageNegatives().contains(packageIdentifier)) {
+        return false;
+      }
+      // The following line is just so that we don't call the method inside the loop (which may or
+      // may not be optimized away... better be on the safe side).
+      var allPackagesBeneathNegatives = allPackagesBeneathNegatives();
+      for (int i = 0; i < allPackagesBeneathNegatives.size(); i++) {
+        if (matchesAllPackagesBeneath(packageIdentifier, allPackagesBeneathNegatives.get(i))) {
           return false;
         }
       }
-      // Check the map in hopes of passing without having to do a linear scan over all other
-      // positive specs.
-      if (singlePositives.containsKey(packageIdentifier)) {
+      if (hasPositiveAllPackages()) {
         return true;
       }
-      // Oh well.
-      for (int i = 0; i < otherPositives.size(); i++) {
-        if (otherPositives.get(i).containsPackage(packageIdentifier)) {
+      if (singlePackagePositives().contains(packageIdentifier)) {
+        return true;
+      }
+      var allPackagesBeneathPositives = allPackagesBeneathPositives();
+      for (int i = 0; i < allPackagesBeneathPositives.size(); i++) {
+        if (matchesAllPackagesBeneath(packageIdentifier, allPackagesBeneathPositives.get(i))) {
           return true;
         }
       }
       return false;
     }
 
+    private static boolean matchesAllPackagesBeneath(
+        PackageIdentifier pkgId, PackageIdentifier prefix) {
+      return pkgId.getRepository().equals(prefix.getRepository())
+          && pkgId.getPackageFragment().startsWith(prefix.getPackageFragment());
+    }
+
     /**
-     * Maps {@link PackageSpecification#asString} to the component package specs.
+     * Does the equivalent of mapping {@link PackageSpecification#asString} to the component package
+     * specs.
      *
      * <p>Note that strings for specs that cross repositories can't be reparsed using {@link
      * PackageSpecification#fromString}.
+     *
+     * <p>The special public constant will serialize as {@code "public"} if {@code
+     * includeDoubleSlash} is true, and {@code "//..."} otherwise. The private constant will always
+     * serialize as {@code "private"},
      */
-    public Stream<String> streamPackageStrings(boolean includeDoubleSlash) {
-      return streamSpecs().map(spec -> spec.asString(includeDoubleSlash));
+    public final ImmutableList<String> packageStrings(boolean includeDoubleSlash) {
+      ImmutableList.Builder<String> resultBuilder = ImmutableList.builder();
+      for (PackageIdentifier pkgId : singlePackagePositives()) {
+        resultBuilder.add(stringForSinglePackage(pkgId, includeDoubleSlash));
+      }
+      for (PackageIdentifier pkgId : allPackagesBeneathPositives()) {
+        resultBuilder.add(stringForAllPackagesBeneath(pkgId, includeDoubleSlash));
+      }
+      for (PackageIdentifier pkgId : singlePackageNegatives()) {
+        resultBuilder.add("-" + stringForSinglePackage(pkgId, includeDoubleSlash));
+      }
+      for (PackageIdentifier pkgId : allPackagesBeneathNegatives()) {
+        resultBuilder.add("-" + stringForAllPackagesBeneath(pkgId, includeDoubleSlash));
+      }
+      if (hasPositiveAllPackages()) {
+        resultBuilder.add(stringForAllPackages(includeDoubleSlash));
+      }
+      if (hasPrivate()) {
+        resultBuilder.add("private");
+      }
+      if (hasNegativeAllPackages()) {
+        resultBuilder.add("-" + stringForAllPackages(includeDoubleSlash));
+      }
+      return resultBuilder.build();
+    }
+
+    private static String stringForAllPackages(boolean includeDoubleSlash) {
+      // Under legacy formatting rules, use legacy syntax. This avoids ambiguity between "public"
+      // and "//public", and ensures that AllPackages is round-trippable when the value of
+      // includeDoubleSlash matches allowPublicPrivate.
+      return includeDoubleSlash ? "public" : "//...";
+    }
+
+    private static String stringForSinglePackage(
+        PackageIdentifier pkgId, boolean includeDoubleSlash) {
+      if (includeDoubleSlash) {
+        return pkgId.getCanonicalForm();
+      } else {
+        // PackageIdentifier#toString implements the legacy behavior of omitting the double slash
+        // for the main repo.
+        return pkgId.toString();
+      }
+    }
+
+    private static String stringForAllPackagesBeneath(
+        PackageIdentifier pkgId, boolean includeDoubleSlash) {
+      if (pkgId.getPackageFragment().equals(PathFragment.EMPTY_FRAGMENT)) {
+        // Special case: Emit "//..." rather than suffixing "/...", which would yield "/...".
+        // Make sure not to strip the repo in the case of "@repo//...".
+        //
+        // Note that "//..." is the desired result, not "...", even under the legacy behavior of
+        // includeDoubleSlash=false.
+        return pkgId.getCanonicalForm() + "...";
+      }
+      if (includeDoubleSlash) {
+        return pkgId.getCanonicalForm() + ALL_BENEATH_SUFFIX;
+      } else {
+        // PackageIdentifier#toString implements the legacy behavior of omitting the double slash
+        // for the main repo.
+        return pkgId.toString() + ALL_BENEATH_SUFFIX;
+      }
     }
 
     /**
-     * Maps {@link PackageSpecification#asStringWithoutRepository} to the component package specs.
+     * /** Returns a string representation of this package spec without the repository, and which is
+     * round-trippable through {@link #fromString}.
+     *
+     * <p>For instance, {@code @somerepo//pkg/subpkg/...} turns into {@code "//pkg/subpkg/..."}.
+     *
+     * <p>Omitting the repository means that the returned strings are ambiguous in the absence of
+     * additional context. But, for instance, if interpreted with respect to a {@code
+     * package_group}'s {@code packages} attribute, the strings always have the same repository as
+     * the package group.
      *
      * <p>Note that this is ambiguous w.r.t. specs that reference other repositories.
+     *
+     * <p>The special public and private constants will serialize as {@code "public"} and {@code
+     * "private"} respectively.
      */
-    public Stream<String> streamPackageStringsWithoutRepository() {
-      return streamSpecs().map(PackageSpecification::asStringWithoutRepository);
+    public final ImmutableList<String> packageStringsWithDoubleSlashAndWithoutRepository() {
+      ImmutableList.Builder<String> resultBuilder = ImmutableList.builder();
+      for (PackageIdentifier pkgId : singlePackagePositives()) {
+        resultBuilder.add(stringForSinglePackageWithDoubleSlashAndWithoutRepository(pkgId));
+      }
+      for (PackageIdentifier pkgId : allPackagesBeneathPositives()) {
+        resultBuilder.add(stringForAllPackagesBeneathWithDoubleSlashAndWithoutRepository(pkgId));
+      }
+      for (PackageIdentifier pkgId : singlePackageNegatives()) {
+        resultBuilder.add("-" + stringForSinglePackageWithDoubleSlashAndWithoutRepository(pkgId));
+      }
+      for (PackageIdentifier pkgId : allPackagesBeneathNegatives()) {
+        resultBuilder.add(
+            "-" + stringForAllPackagesBeneathWithDoubleSlashAndWithoutRepository(pkgId));
+      }
+      if (hasPositiveAllPackages()) {
+        resultBuilder.add("public");
+      }
+      if (hasPrivate()) {
+        resultBuilder.add("private");
+      }
+      return resultBuilder.build();
     }
 
-    private Stream<PackageSpecification> streamSpecs() {
-      return Streams.concat(
-          otherPositives.stream(), negatives.stream(), singlePositives.values().stream());
+    private static String stringForSinglePackageWithDoubleSlashAndWithoutRepository(
+        PackageIdentifier pkgId) {
+      return "//" + pkgId.getPackageFragment().getPathString();
+    }
+
+    private static String stringForAllPackagesBeneathWithDoubleSlashAndWithoutRepository(
+        PackageIdentifier pkgId) {
+      PathFragment pathFragment = pkgId.getPackageFragment();
+      return pathFragment.equals(PathFragment.EMPTY_FRAGMENT)
+          ? "//..."
+          : "//" + pathFragment.getPathString() + ALL_BENEATH_SUFFIX;
     }
   }
 }

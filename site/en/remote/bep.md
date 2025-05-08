@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Build Event Protocol
 
+{% include "_buttons.html" %}
 
 The [Build Event
 Protocol](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto){: .external}
@@ -23,15 +24,15 @@ a set of child event identifiers, and a payload.
 
 *  __Build Event Identifier:__ Depending on the kind of build event, it might be
 an [opaque
-string](https://github.com/bazelbuild/bazel/blob/16a107d/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L91){: .external}
+string](https://github.com/bazelbuild/bazel/blob/7.1.0/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L131-L140){: .external}
 or [structured
-information](https://github.com/bazelbuild/bazel/blob/16a107d/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L123){: .external}
+information](https://github.com/bazelbuild/bazel/blob/7.1.0/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L194-L205){: .external}
 revealing more about the build event. A build event identifier is unique within
 a build.
 
 *  __Children:__ A build event may announce other build events, by including
 their build event identifiers in its [children
-field](https://github.com/bazelbuild/bazel/blob/16a107d/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L469){: .external}.
+field](https://github.com/bazelbuild/bazel/blob/7.1.0/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L1276){: .external}.
 For example, the `PatternExpanded` build event announces the targets it expands
 to as children. The protocol guarantees that all events, except for the first
 event, are announced by a previous event.
@@ -53,14 +54,14 @@ network transport, some announced build events may never be posted.
 The event graph's structure reflects the lifecycle of a command. Every BEP
 graph has the following characteristic shape:
 
-1. The root event is always a [`BuildStarted`](/docs/bep-glossary#buildstarted)
+1. The root event is always a [`BuildStarted`](/remote/bep-glossary#buildstarted)
    event. All other events are its descendants.
 1. Immediate children of the BuildStarted event contain metadata about the
    command.
 1. Events containing data produced by the command, such as files built and test
-   results, appear before the [`BuildFinished`](/docs/bep-glossary#buildfinished)
+   results, appear before the [`BuildFinished`](/remote/bep-glossary#buildfinished)
    event.
-1. The [`BuildFinished`](/docs/bep-glossary#buildfinished) event *may* be followed
+1. The [`BuildFinished`](/remote/bep-glossary#buildfinished) event *may* be followed
    by events containing summary information about the build (for example, metric
    or profiling data).
 
@@ -108,11 +109,10 @@ gRPC and `grpcs://` for gRPC with TLS enabled.
 Bazel has several flags related to the Build Event Service protocol, including:
 
 *  `--bes_backend`
-*  `--[no]bes_best_effort`
 *  `--[no]bes_lifecycle_events`
 *  `--bes_results_url`
 *  `--bes_timeout`
-*  `--project_id`
+*  `--bes_instance_name`
 
 For a description of each of these flags, see the
 [Command-Line Reference](/reference/command-line-reference).
@@ -140,7 +140,7 @@ The BEP typically contains many references to log files (test.log, test.xml,
 etc. ) stored on the machine where Bazel is running. A remote BES server
 typically can't access these files as they are on different machines. A way to
 work around this issue is to use Bazel with [remote
-caching](/docs/remote-caching).
+caching](/remote/caching).
 Bazel will upload all output files to the remote cache (including files
 referenced in the BEP) and the BES server can then fetch the referenced files
 from the cache.

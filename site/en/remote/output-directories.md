@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Output Directory Layout
 
+{% include "_buttons.html" %}
+
 This page covers requirements and layout for output directories.
 
 ## Requirements {:#requirements}
@@ -24,15 +26,18 @@ Requirements for an output directory layout:
 
 The solution that's currently implemented:
 
-* Bazel must be invoked from a directory containing a WORKSPACE file (the
-  "_workspace directory_"), or a subdirectory thereof. It reports an error if it
-  is not.
+* Bazel must be invoked from a directory containing a repo boundary file, or a
+  subdirectory thereof. In other words, Bazel must be invoked from inside a
+  [repository](../external/overview#repository). Otherwise, an error is
+  reported.
 * The _outputRoot_ directory defaults to `~/.cache/bazel` on Linux,
-  `/private/var/tmp` on macOS, and on Windows it defaults to `%HOME%` if set,
-  else `%USERPROFILE%` if set, else the result of calling
+  `/private/var/tmp` on macOS, and on Windows it defaults to `%HOME%` if
+  set, else `%USERPROFILE%` if set, else the result of calling
   `SHGetKnownFolderPath()` with the `FOLDERID_Profile` flag set. If the
-  environment variable `$TEST_TMPDIR` is set, as in a test of Bazel itself,
-  then that value overrides the default.
+  environment variable `$XDG_CACHE_HOME` is set on either Linux or
+  macOS, the value `${XDG_CACHE_HOME}/bazel` will override the default.
+  If the environment variable `$TEST_TMPDIR` is set, as in a test of Bazel
+  itself, then that value overrides any defaults.
 * The Bazel user's build state is located beneath `outputRoot/_bazel_$USER`.
   This is called the _outputUserRoot_ directory.
 * Beneath the `outputUserRoot` directory there is an `install` directory, and in
@@ -40,10 +45,11 @@ The solution that's currently implemented:
   installation manifest.
 * Beneath the `outputUserRoot` directory, an `outputBase` directory
   is also created whose name is the MD5 hash of the path name of the workspace
-  directory. So, for example, if Bazel is running in the workspace directory
+  root. So, for example, if Bazel is running in the workspace root
   `/home/user/src/my-project` (or in a directory symlinked to that one), then
   an output base directory is created called:
-  `/home/user/.cache/bazel/_bazel_user/7ffd56a6e4cb724ea575aba15733d113`.
+  `/home/user/.cache/bazel/_bazel_user/7ffd56a6e4cb724ea575aba15733d113`. You
+  can also run `echo -n $(pwd) | md5sum` in the workspace root to get the MD5.
 * You can use Bazel's `--output_base` startup option to override the default
   output base directory. For example,
   `bazel --output_base=/tmp/bazel/output build x/y:z`.
@@ -55,16 +61,16 @@ The symlinks for "bazel-&lt;workspace-name&gt;", "bazel-out", "bazel-testlogs",
 and "bazel-bin" are put in the workspace directory; these symlinks point to some
 directories inside a target-specific directory inside the output directory.
 These symlinks are only for the user's convenience, as Bazel itself does not
-use them. Also, this is done only if the workspace directory is writable.
+use them. Also, this is done only if the workspace root is writable.
 
 ## Layout diagram {:#layout-diagram}
 
 The directories are laid out as follows:
 
 <pre>
-&lt;workspace-name&gt;/                         <== The workspace directory
-  bazel-my-project => <...my-project>     <== Symlink to execRoot
-  bazel-out => <...bin>                   <== Convenience symlink to outputPath
+&lt;workspace-name&gt;/                         <== The workspace root
+  bazel-my-project => <..._main>          <== Symlink to execRoot
+  bazel-out => <...bazel-out>             <== Convenience symlink to outputPath
   bazel-bin => <...bin>                   <== Convenience symlink to most recent written bin dir $(BINDIR)
   bazel-testlogs => <...testlogs>         <== Convenience symlink to the test logs directory
 
@@ -76,15 +82,12 @@ The directories are laid out as follows:
         _embedded_binaries/               <== Contains binaries and scripts unpacked from the data section of
                                               the bazel executable on first run (such as helper scripts and the
                                               main Java file BazelServer_deploy.jar)
-    7ffd56a6e4cb724ea575aba15733d113/     <== Hash of the client's workspace directory (such as
-                                              /home/some-user/src/my-project): outputBase
+    7ffd56a6e4cb724ea575aba15733d113/     <== Hash of the client's workspace root (such as
+                                              /home/user/src/my-project): outputBase
       action_cache/                       <== Action cache directory hierarchy
                                               This contains the persistent record of the file
                                               metadata (timestamps, and perhaps eventually also MD5
                                               sums) used by the FilesystemValueChecker.
-      action_outs/                        <== Action output directory. This contains a file with the
-                                              stdout/stderr for every action from the most recent
-                                              bazel run that produced output.
       command.log                         <== A copy of the stdout/stderr output from the most
                                               recent bazel command.
       external/                           <== The directory that remote repositories are
@@ -97,12 +100,15 @@ The directories are laid out as follows:
                                               actions run in a directory that mimics execroot.
                                               Implementation details, such as where the directories
                                               are created, are intentionally hidden from the action.
-                                              All actions can access its inputs and outputs relative
+                                              Every action can access its inputs and outputs relative
                                               to the execroot directory.
-        &lt;workspace-name&gt;/                 <== Working tree for the Bazel build & root of symlink forest: execRoot
+        _main/                            <== Working tree for the Bazel build & root of symlink forest: execRoot
           _bin/                           <== Helper tools are linked from or copied to here.
 
           bazel-out/                      <== All actual output of the build is under here: outputPath
+            _tmp/actions/                 <== Action output directory. This contains a file with the
+                                              stdout/stderr for every action from the most recent
+                                              bazel run that produced output.
             local_linux-fastbuild/        <== one subdirectory per unique target BuildConfiguration instance;
                                               this is currently encoded
               bin/                        <== Bazel outputs binaries for target configuration here: $(BINDIR)
@@ -113,7 +119,7 @@ The directories are laid out as follows:
                                               //foo/bar:baz
                 foo/bar/baz.runfiles/     <== The runfiles symlink farm for the //foo/bar:baz executable.
                   MANIFEST
-                  &lt;workspace-name&gt;/
+                  _main/
                     ...
               genfiles/                   <== Bazel puts generated source for the target configuration here:
                                               $(GENDIR)
@@ -122,9 +128,6 @@ The directories are laid out as follows:
                 foo/bartest.log               such as foo/bar.log might be an output of the //foo:bartest test with
                 foo/bartest.status            foo/bartest.status containing exit status of the test (such as
                                               PASSED or FAILED (Exit 1), etc)
-              include/                    <== a tree with include symlinks, generated as needed. The
-                                              bazel-include symlinks point to here. This is used for
-                                              linkstamp stuff, etc.
             host/                         <== BuildConfiguration for build host (user's workstation), for
                                               building prerequisite tools, that will be used in later stages
                                               of the build (ex: Protocol Compiler)

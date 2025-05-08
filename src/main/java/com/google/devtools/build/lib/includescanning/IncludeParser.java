@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupValue;
 import com.google.devtools.build.lib.skyframe.GlobDescriptor;
 import com.google.devtools.build.lib.skyframe.GlobValue;
-import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
+import com.google.devtools.build.lib.skyframe.InvalidGlobPatternException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -56,7 +56,7 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -65,6 +65,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -305,10 +306,8 @@ class IncludeParser {
             ContainingPackageLookupValue.key(PackageIdentifier.createInMainRepo(relativePath)));
         findFilters.add(rule.findFilter);
       }
-      SkyframeIterableResult containingPackageLookupValues =
-          env.getOrderedValuesAndExceptions(rulePaths);
-      if (env.valuesMissing()
-          && !env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+      SkyframeLookupResult containingPackageLookupValues = env.getValuesAndExceptions(rulePaths);
+      if (env.valuesMissing() && !env.inErrorBubbling()) {
         return null;
       }
       List<GlobDescriptor> globKeys = new ArrayList<>(rulePaths.size());
@@ -319,9 +318,10 @@ class IncludeParser {
         try {
           containingPackageLookupValue =
               (ContainingPackageLookupValue)
-                  containingPackageLookupValues.nextOrThrow(NoSuchPackageException.class);
+                  containingPackageLookupValues.getOrThrow(
+                      relativePathKey, NoSuchPackageException.class);
         } catch (NoSuchPackageException e) {
-          if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+          if (env.inErrorBubbling()) {
             throw e;
           }
           logger.atWarning().withCause(e).log(
@@ -338,6 +338,7 @@ class IncludeParser {
             containingPackageLookupValue.getContainingPackageName().getPackageFragment();
         String pattern = findFilters.get(i);
         try {
+          // TODO: b/290998109#comment60 - Convert to create GLOBS node in IncludeParser.
           globKeys.add(
               GlobValue.key(
                   containingPackageLookupValue.getContainingPackageName(),
@@ -353,22 +354,20 @@ class IncludeParser {
       if (env.valuesMissing()) {
         return null;
       }
-      SkyframeIterableResult globResults = env.getOrderedValuesAndExceptions(globKeys);
-      if (env.valuesMissing()
-          && !env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+      SkyframeLookupResult globResults = env.getValuesAndExceptions(globKeys);
+      if (env.valuesMissing() && !env.inErrorBubbling()) {
         return null;
       }
-      int i = 0;
-      while (globResults.hasNext()) {
-        GlobDescriptor globKey = globKeys.get(i++);
+      for (GlobDescriptor globKey : globKeys) {
         PathFragment packageFragment = globKey.getPackageId().getPackageFragment();
         GlobValue globValue;
         try {
           globValue =
               (GlobValue)
-                  globResults.nextOrThrow(IOException.class, BuildFileNotFoundException.class);
+                  globResults.getOrThrow(
+                      globKey, IOException.class, BuildFileNotFoundException.class);
         } catch (IOException | BuildFileNotFoundException e) {
-          if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+          if (env.inErrorBubbling()) {
             throw e;
           }
           logger.atWarning().withCause(e).log(
@@ -376,7 +375,7 @@ class IncludeParser {
               globKey);
           continue;
         }
-        for (PathFragment file : globValue.getMatches().toList()) {
+        for (PathFragment file : globValue.getMatches()) {
           hints.add(
               artifactFactory.getSourceArtifact(
                   packageFragment.getRelative(file), globKey.getPackageRoot()));
@@ -544,10 +543,9 @@ class IncludeParser {
       if (o == this) {
         return true;
       }
-      if (!(o instanceof Inclusion)) {
+      if (!(o instanceof Inclusion that)) {
         return false;
       }
-      Inclusion that = (Inclusion) o;
       return kind == that.kind && pathFragment.equals(that.pathFragment);
     }
 
@@ -868,9 +866,6 @@ class IncludeParser {
       boolean isOutputFile)
       throws IOException, ExecException, InterruptedException {
     Collection<Inclusion> inclusions;
-
-    // TODO(ulfjack): grepIncludes may be null if the corresponding attribute on the rule is missing
-    //  (see CppHelper.getGrepIncludes) or misspelled. It would be better to disallow this case.
     if (remoteIncludeScanner != null
         && grepIncludes != null
         && remoteIncludeScanner.shouldParseRemotely(file)) {
@@ -890,8 +885,9 @@ class IncludeParser {
                 FileSystemUtils.readContent(actionExecutionContext.getInputPath(file)));
       } catch (IOException e) {
         if (remoteIncludeScanner != null && grepIncludes != null) {
-          logger.atWarning().withCause(e).log(
-              "Falling back on remote parsing of %s", actionExecutionContext.getInputPath(file));
+          logger.atWarning().atMostEvery(1, TimeUnit.SECONDS).log(
+              "Falling back on remote parsing of %s (cause %s)",
+              actionExecutionContext.getInputPath(file), e.getMessage());
           inclusions =
               remoteIncludeScanner.extractInclusions(
                   file,

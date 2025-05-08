@@ -1,8 +1,15 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 package(default_visibility = ["//src:__subpackages__"])
 
 cc_binary(
     name = "daemonize",
-    srcs = ["daemonize.c"],
+    srcs = ["daemonize.cc"],
+    deps = [
+        ":logging",
+        ":process-tools",
+    ],
 )
 
 cc_library(
@@ -50,21 +57,9 @@ cc_binary(
     deps = select({
         "//src/conditions:windows": [],
         "//conditions:default": [
-            ":process-tools",
             ":logging",
+            ":process-tools",
         ],
-    }),
-)
-
-cc_binary(
-    name = "build-runfiles",
-    srcs = select({
-        "//src/conditions:windows": ["build-runfiles-windows.cc"],
-        "//conditions:default": ["build-runfiles.cc"],
-    }),
-    deps = ["//src/main/cpp/util:filesystem"] + select({
-        "//src/conditions:windows": ["//src/main/native/windows:lib-file"],
-        "//conditions:default": [],
     }),
 )
 
@@ -102,6 +97,7 @@ cc_binary(
         "//conditions:default": [
             ":logging",
             ":process-tools",
+            "//src/main/cpp/util",
         ],
     }),
 )

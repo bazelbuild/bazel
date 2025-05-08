@@ -18,8 +18,8 @@ import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.PACKAGE_GROUP;
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.RULE;
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.SOURCE_FILE;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -34,21 +34,22 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.graph.Digraph;
-import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
+import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
@@ -61,7 +62,10 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.GeneratedFile;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
-import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
+import com.google.devtools.build.lib.starlarkdocextract.ExtractorContext;
+import com.google.devtools.build.lib.starlarkdocextract.LabelRenderer;
+import com.google.devtools.build.lib.starlarkdocextract.RuleInfoExtractor;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -69,6 +73,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -94,6 +99,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           Type.STRING,
           BuildType.LABEL,
           BuildType.NODEP_LABEL,
+          BuildType.DORMANT_LABEL,
           BuildType.OUTPUT,
           Type.BOOLEAN,
           BuildType.TRISTATE,
@@ -101,8 +107,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   private AspectResolver aspectResolver;
   private DependencyFilter dependencyFilter;
+  private boolean packageGroupIncludesDoubleSlash;
   private boolean relativeLocations;
-  private boolean displaySourceFileLocation;
   private boolean includeDefaultValues = true;
   private Predicate<String> ruleAttributePredicate = Predicates.alwaysTrue();
   private boolean flattenSelects = true;
@@ -111,7 +117,14 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   private boolean includeSyntheticAttributeHash = false;
   private boolean includeInstantiationStack = false;
   private boolean includeDefinitionStack = false;
+  private boolean includeStarlarkRuleEnv = true;
+  protected boolean includeAttributeSourceAspects = false;
   private HashFunction hashFunction = null;
+
+  /** Non-null if and only if --proto:rule_classes option is set. */
+  @Nullable private RuleClassInfoFormatter ruleClassInfoFormatter;
+
+  @Nullable private PathFragment overrideSourceRoot;
 
   @Nullable private EventHandler eventHandler;
 
@@ -126,8 +139,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     super.setOptions(options, aspectResolver, hashFunction);
     this.aspectResolver = aspectResolver;
     this.dependencyFilter = FormatUtils.getDependencyFilter(options);
+    this.packageGroupIncludesDoubleSlash = options.incompatiblePackageGroupIncludesDoubleSlash;
     this.relativeLocations = options.relativeLocations;
-    this.displaySourceFileLocation = options.displaySourceFileLocation;
     this.includeDefaultValues = options.protoIncludeDefaultValues;
     this.ruleAttributePredicate = newAttributePredicate(options.protoOutputRuleAttributes);
     this.flattenSelects = options.protoFlattenSelects;
@@ -136,7 +149,15 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.includeSyntheticAttributeHash = options.protoIncludeSyntheticAttributeHash;
     this.includeInstantiationStack = options.protoIncludeInstantiationStack;
     this.includeDefinitionStack = options.protoIncludeDefinitionStack;
+    this.includeAttributeSourceAspects = options.protoIncludeAttributeSourceAspects;
+    this.includeStarlarkRuleEnv = options.protoIncludeStarlarkRuleEnv;
     this.hashFunction = hashFunction;
+    this.ruleClassInfoFormatter = options.protoRuleClasses ? new RuleClassInfoFormatter() : null;
+  }
+
+  @Override
+  public void setOverrideSourceRoot(PathFragment overrideSourceRoot) {
+    this.overrideSourceRoot = overrideSourceRoot;
   }
 
   @Override
@@ -156,53 +177,40 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, QueryOptions options) {
-    return new StreamedQueryResultFormatter(out);
+      OutputStream out, QueryOptions options, LabelPrinter labelPrinter) {
+    return new StreamedQueryResultFormatter(out, labelPrinter);
   }
 
   @Override
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-    return createStreamCallback(out, options);
-  }
-
-  @VisibleForTesting
-  public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
-      OutputStream out, QueryOptions options) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options));
-  }
-
-  private static Iterable<Target> getSortedLabels(Digraph<Target> result) {
-    return Iterables.transform(
-        result.getTopologicalOrder(new FormatUtils.TargetOrdering()), Node::getLabel);
-  }
-
-  @Override
-  protected Iterable<Target> getOrderedTargets(Digraph<Target> result, QueryOptions options) {
-    return options.orderOutput == OrderOutput.FULL ? getSortedLabels(result) : result.getLabels();
+        createPostFactoStreamCallback(out, options, env.getLabelPrinter()));
   }
 
   /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
-  public Build.Target toTargetProtoBuffer(Target target) throws InterruptedException {
-    return toTargetProtoBuffer(target, /*extraDataForAttrHash=*/ "");
+  public Build.Target toTargetProtoBuffer(Target target, LabelPrinter labelPrinter)
+      throws InterruptedException {
+    return toTargetProtoBuffer(target, labelPrinter, /* extraDataForAttrHash= */ "");
   }
 
   /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
-  public Build.Target toTargetProtoBuffer(Target target, Object extraDataForAttrHash)
+  public Build.Target toTargetProtoBuffer(
+      Target target, LabelPrinter labelPrinter, Object extraDataForAttrHash)
       throws InterruptedException {
     Build.Target.Builder targetPb = Build.Target.newBuilder();
 
-    if (target instanceof Rule) {
-      Rule rule = (Rule) target;
+    if (target instanceof Rule rule) {
       Build.Rule.Builder rulePb =
           Build.Rule.newBuilder()
-              .setName(rule.getLabel().toString())
-              .setRuleClass(rule.getRuleClass());
+              .setName(internalToUnicode(labelPrinter.toString(rule.getLabel())))
+              .setRuleClass(internalToUnicode(rule.getRuleClass()));
       if (includeLocations) {
-        rulePb.setLocation(FormatUtils.getLocation(target, relativeLocations));
+        rulePb.setLocation(
+            internalToUnicode(
+                FormatUtils.getLocation(target, relativeLocations, overrideSourceRoot)));
       }
-      addAttributes(rulePb, rule, extraDataForAttrHash);
+      addAttributes(rulePb, rule, extraDataForAttrHash, labelPrinter);
       byte[] transitiveDigest = rule.getRuleClassObject().getRuleDefinitionEnvironmentDigest();
       if (transitiveDigest != null && includeRuleDefinitionEnvironment()) {
         // The RuleDefinitionEnvironment is always defined for Starlark rules and
@@ -215,27 +223,35 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                     BaseEncoding.base16().lowerCase().encode(transitiveDigest))); // hexify
       }
 
-      ImmutableMultimap<Attribute, Label> aspectsDependencies =
+      ImmutableMap<Aspect, ImmutableMultimap<Attribute, Label>> aspectsDependencies =
           aspectResolver.computeAspectDependencies(target, dependencyFilter);
       if (!aspectsDependencies.isEmpty()) {
         // Add information about additional attributes from aspects.
-        List<Build.Attribute> attributes = new ArrayList<>(aspectsDependencies.asMap().size());
-        for (Map.Entry<Attribute, Collection<Label>> entry :
-            aspectsDependencies.asMap().entrySet()) {
-          Attribute attribute = entry.getKey();
-          Collection<Label> labels = entry.getValue();
-          if (!includeAspectAttribute(attribute, labels)) {
-            continue;
+        List<Build.Attribute> attributes = new ArrayList<>();
+        for (Map.Entry<Aspect, ImmutableMultimap<Attribute, Label>> aspectAttributes :
+            aspectsDependencies.entrySet()) {
+          Aspect aspect = aspectAttributes.getKey();
+          for (Map.Entry<Attribute, Collection<Label>> entry :
+              aspectAttributes.getValue().asMap().entrySet()) {
+            Attribute attribute = entry.getKey();
+            Collection<Label> labels = entry.getValue();
+            if (!includeAspectAttribute(attribute, labels)) {
+              continue;
+            }
+            Object attributeValue = getAspectAttributeValue(target, attribute, labels);
+            Build.Attribute serializedAttribute =
+                AttributeFormatter.getAttributeProto(
+                    attribute,
+                    attributeValue,
+                    /* explicitlySpecified= */ false,
+                    /* encodeBooleanAndTriStateAsIntegerAndString= */ true,
+                    /* sourceAspect= */ aspect,
+                    includeAttributeSourceAspects,
+                    labelPrinter);
+            attributes.add(serializedAttribute);
           }
-          Object attributeValue = getAspectAttributeValue(target, attribute, labels);
-          Build.Attribute serializedAttribute =
-              AttributeFormatter.getAttributeProto(
-                  attribute,
-                  attributeValue,
-                  /*explicitlySpecified=*/ false,
-                  /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
-          attributes.add(serializedAttribute);
         }
+
         rulePb.addAllAttribute(
             attributes.stream().distinct().sorted(ATTRIBUTE_NAME).collect(Collectors.toList()));
       }
@@ -243,28 +259,36 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         // Add all deps from aspects as rule inputs of current target.
         if (!aspectsDependencies.isEmpty()) {
           aspectsDependencies.values().stream()
+              .flatMap(m -> m.values().stream())
               .distinct()
-              .forEach(dep -> rulePb.addRuleInput(dep.toString()));
+              .forEach(dep -> rulePb.addRuleInput(internalToUnicode(labelPrinter.toString(dep))));
         }
         // Include explicit elements for all direct inputs and outputs of a rule; this goes beyond
         // what is available from the attributes above, since it may also (depending on options)
-        // include implicit outputs, host-configuration outputs, and default values.
+        // include implicit outputs, exec-configuration outputs, and default values.
         rule.getSortedLabels(dependencyFilter)
-            .forEach(input -> rulePb.addRuleInput(input.toString()));
+            .forEach(input -> rulePb.addRuleInput(internalToUnicode(labelPrinter.toString(input))));
         rule.getOutputFiles().stream()
             .distinct()
-            .forEach(output -> rulePb.addRuleOutput(output.getLabel().toString()));
+            .forEach(
+                output ->
+                    rulePb.addRuleOutput(
+                        internalToUnicode(labelPrinter.toString(output.getLabel()))));
       }
-      for (String feature : rule.getPackage().getFeatures()) {
-        rulePb.addDefaultSetting(feature);
+      for (String feature :
+          rule.getPackageDeclarations().getPackageArgs().features().toStringList()) {
+        rulePb.addDefaultSetting(internalToUnicode(feature));
       }
 
       if (includeInstantiationStack) {
-        for (StarlarkThread.CallStackEntry fr : rule.getCallStack().toList()) {
+        for (StarlarkThread.CallStackEntry fr : rule.reconstructCallStack()) {
           // Always report relative locations.
           // (New fields needn't honor relativeLocations.)
           rulePb.addInstantiationStack(
-              FormatUtils.getRootRelativeLocation(fr.location, rule.getPackage()) + ": " + fr.name);
+              internalToUnicode(
+                  FormatUtils.getRootRelativeLocation(fr.location, rule.getPackageMetadata())
+                      + ": "
+                      + fr.name));
         }
       }
 
@@ -273,97 +297,114 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           // Always report relative locations.
           // (New fields needn't honor relativeLocations.)
           rulePb.addDefinitionStack(
-              FormatUtils.getRootRelativeLocation(fr.location, rule.getPackage()) + ": " + fr.name);
+              internalToUnicode(
+                  FormatUtils.getRootRelativeLocation(fr.location, rule.getPackageMetadata())
+                      + ": "
+                      + fr.name));
         }
+      }
+
+      if (ruleClassInfoFormatter != null) {
+        ruleClassInfoFormatter.addRuleClassKeyAndInfoIfNeeded(rulePb, rule);
       }
       targetPb.setType(RULE);
       targetPb.setRule(rulePb);
-    } else if (target instanceof OutputFile) {
-      OutputFile outputFile = (OutputFile) target;
+    } else if (target instanceof OutputFile outputFile) {
       Label label = outputFile.getLabel();
 
       Rule generatingRule = outputFile.getGeneratingRule();
       GeneratedFile.Builder output =
           GeneratedFile.newBuilder()
-              .setGeneratingRule(generatingRule.getLabel().toString())
-              .setName(label.toString());
+              .setGeneratingRule(
+                  internalToUnicode(labelPrinter.toString(generatingRule.getLabel())))
+              .setName(internalToUnicode(labelPrinter.toString(label)));
 
       if (includeLocations) {
-        output.setLocation(FormatUtils.getLocation(target, relativeLocations));
+        output.setLocation(
+            internalToUnicode(
+                FormatUtils.getLocation(target, relativeLocations, overrideSourceRoot)));
       }
       targetPb.setType(GENERATED_FILE);
       targetPb.setGeneratedFile(output.build());
-    } else if (target instanceof InputFile) {
-      InputFile inputFile = (InputFile) target;
+    } else if (target instanceof InputFile inputFile) {
       Label label = inputFile.getLabel();
 
-      Build.SourceFile.Builder input = Build.SourceFile.newBuilder().setName(label.toString());
+      Build.SourceFile.Builder input =
+          Build.SourceFile.newBuilder().setName(internalToUnicode(labelPrinter.toString(label)));
 
       if (includeLocations) {
         input.setLocation(
-            FormatUtils.getLocation(target, relativeLocations, displaySourceFileLocation));
+            internalToUnicode(
+                FormatUtils.getLocation(target, relativeLocations, overrideSourceRoot)));
       }
 
       if (inputFile.getName().equals("BUILD")) {
+        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion.
         Iterable<Label> starlarkLoadLabels =
             aspectResolver == null
-                ? inputFile.getPackage().getStarlarkFileDependencies()
+                ? inputFile.getPackageDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles()
                 : aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
 
         for (Label starlarkLoadLabel : starlarkLoadLabels) {
-          input.addSubinclude(starlarkLoadLabel.toString());
+          input.addSubinclude(internalToUnicode(labelPrinter.toString(starlarkLoadLabel)));
         }
 
-        for (String feature : inputFile.getPackage().getFeatures()) {
-          input.addFeature(feature);
+        for (String feature :
+            inputFile.getPackageDeclarations().getPackageArgs().features().toStringList()) {
+          input.addFeature(internalToUnicode(feature));
         }
 
-        input.setPackageContainsErrors(inputFile.getPackage().containsErrors());
+        input.setPackageContainsErrors(inputFile.getPackageoid().containsErrors());
       }
 
-      for (Label visibilityDependency : target.getVisibility().getDependencyLabels()) {
-        input.addPackageGroup(visibilityDependency.toString());
+      // TODO(bazel-team): We're being inconsistent about whether we include the package's
+      // default_visibility in the target. For files we do, but for rules we don't.
+
+      for (Label visibilityDependency : target.getVisibilityDependencyLabels()) {
+        input.addPackageGroup(internalToUnicode(labelPrinter.toString(visibilityDependency)));
       }
 
-      for (Label visibilityDeclaration : target.getVisibility().getDeclaredLabels()) {
-        input.addVisibilityLabel(visibilityDeclaration.toString());
+      for (Label visibilityDeclaration : target.getVisibilityDeclaredLabels()) {
+        input.addVisibilityLabel(internalToUnicode(labelPrinter.toString(visibilityDeclaration)));
       }
 
       targetPb.setType(SOURCE_FILE);
       targetPb.setSourceFile(input);
     } else if (target instanceof FakeLoadTarget) {
       Label label = target.getLabel();
-      SourceFile.Builder input = SourceFile.newBuilder().setName(label.toString());
+      SourceFile.Builder input =
+          SourceFile.newBuilder().setName(internalToUnicode(labelPrinter.toString(label)));
 
       if (includeLocations) {
-        input.setLocation(FormatUtils.getLocation(target, relativeLocations));
+        input.setLocation(
+            internalToUnicode(
+                FormatUtils.getLocation(target, relativeLocations, overrideSourceRoot)));
       }
       targetPb.setType(SOURCE_FILE);
       targetPb.setSourceFile(input.build());
-    } else if (target instanceof PackageGroup) {
-      PackageGroup packageGroup = (PackageGroup) target;
+    } else if (target instanceof PackageGroup packageGroup) {
       Build.PackageGroup.Builder packageGroupPb =
-          Build.PackageGroup.newBuilder().setName(packageGroup.getLabel().toString());
-      // TODO(b/77598306): Migrate to format with leading double slash
+          Build.PackageGroup.newBuilder()
+              .setName(internalToUnicode(labelPrinter.toString(packageGroup.getLabel())));
       for (String containedPackage :
-          packageGroup.getContainedPackages(/*includeDoubleSlash=*/ false)) {
-        packageGroupPb.addContainedPackage(containedPackage);
+          packageGroup.getContainedPackages(packageGroupIncludesDoubleSlash)) {
+        packageGroupPb.addContainedPackage(internalToUnicode(containedPackage));
       }
       for (Label include : packageGroup.getIncludes()) {
-        packageGroupPb.addIncludedPackageGroup(include.toString());
+        packageGroupPb.addIncludedPackageGroup(internalToUnicode(labelPrinter.toString(include)));
       }
 
       targetPb.setType(PACKAGE_GROUP);
       targetPb.setPackageGroup(packageGroupPb);
-    } else if (target instanceof EnvironmentGroup) {
-      EnvironmentGroup envGroup = (EnvironmentGroup) target;
+    } else if (target instanceof EnvironmentGroup envGroup) {
       Build.EnvironmentGroup.Builder envGroupPb =
-          Build.EnvironmentGroup.newBuilder().setName(envGroup.getLabel().toString());
+          Build.EnvironmentGroup.newBuilder()
+              .setName(internalToUnicode(labelPrinter.toString(envGroup.getLabel())));
       for (Label env : envGroup.getEnvironments()) {
-        envGroupPb.addEnvironment(env.toString());
+        envGroupPb.addEnvironment(internalToUnicode(labelPrinter.toString(env)));
       }
       for (Label defaultEnv : envGroup.getDefaults()) {
-        envGroupPb.addDefault(defaultEnv.toString());
+        envGroupPb.addDefault(internalToUnicode(labelPrinter.toString(defaultEnv)));
       }
       targetPb.setType(ENVIRONMENT_GROUP);
       targetPb.setEnvironmentGroup(envGroupPb);
@@ -374,7 +415,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     return targetPb.build();
   }
 
-  protected void addAttributes(Build.Rule.Builder rulePb, Rule rule, Object extraDataForAttrHash) {
+  protected void addAttributes(
+      Build.Rule.Builder rulePb,
+      Rule rule,
+      Object extraDataForAttrHash,
+      LabelPrinter labelPrinter) {
     Map<Attribute, Build.Attribute> serializedAttributes = Maps.newHashMap();
     AggregatingAttributeMapper attributeMapper = AggregatingAttributeMapper.of(rule);
     for (Attribute attr : rule.getAttributes()) {
@@ -392,7 +437,10 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
               attr,
               attributeValue,
               rule.isAttributeValueExplicitlySpecified(attr),
-              /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
+              /* encodeBooleanAndTriStateAsIntegerAndString= */ true,
+              /* sourceAspect= */ null,
+              includeAttributeSourceAspects,
+              labelPrinter);
       serializedAttributes.put(attr, serializedAttribute);
     }
     rulePb.addAllAttribute(
@@ -407,7 +455,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
               .setName("$internal_attr_hash")
               .setStringValue(
                   SyntheticAttributeHashCalculator.compute(
-                      rule, serializedAttributes, extraDataForAttrHash, hashFunction))
+                      rule,
+                      serializedAttributes,
+                      extraDataForAttrHash,
+                      hashFunction,
+                      includeAttributeSourceAspects,
+                      includeStarlarkRuleEnv))
               .setType(Discriminator.STRING));
     }
   }
@@ -504,12 +557,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     // collection. This is a sensible solution for query output's clients, which are happy to get
     // the union of possible values.
     // TODO(bazel-team): replace below with "is ListType" check (or some variant)
-    if (attrType == Type.STRING_LIST
+    if (attrType == Types.STRING_LIST
         || attrType == BuildType.LABEL_LIST
         || attrType == BuildType.NODEP_LABEL_LIST
+        || attrType == BuildType.DORMANT_LABEL_LIST
         || attrType == BuildType.OUTPUT_LIST
-        || attrType == BuildType.DISTRIBUTIONS
-        || attrType == Type.INTEGER_LIST) {
+        || attrType == Types.INTEGER_LIST) {
       ImmutableList.Builder<Object> builder = ImmutableList.builder();
       for (Object possibleValue : possibleValues) {
         Collection<Object> collection = (Collection<Object>) possibleValue;
@@ -521,8 +574,9 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     }
 
     // Same for maps as for collections.
-    if (attrType == Type.STRING_DICT
-        || attrType == Type.STRING_LIST_DICT
+    if (attrType == Types.STRING_DICT
+        || attrType == Types.STRING_LIST_DICT
+        || attrType == BuildType.LABEL_LIST_DICT
         || attrType == BuildType.LABEL_DICT_UNARY
         || attrType == BuildType.LABEL_KEYED_STRING_DICT) {
       Map<Object, Object> mergedDict = new HashMap<>();
@@ -536,6 +590,33 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     }
 
     throw new AssertionError("Unknown type: " + attrType);
+  }
+
+  private static class RuleClassInfoFormatter {
+    private final HashSet<String> ruleClassKeys = new HashSet<>();
+    private final ExtractorContext extractorContext =
+        ExtractorContext.builder()
+            .labelRenderer(LabelRenderer.DEFAULT)
+            .extractNativelyDefinedAttrs(true)
+            .build();
+
+    /**
+     * Sets the rule_class_key field, and if the rule class key has not been seen before, also sets
+     * the rule_class_info field.
+     */
+    public void addRuleClassKeyAndInfoIfNeeded(Build.Rule.Builder rulePb, Rule rule) {
+      String ruleClassKey = rule.getRuleClassObject().getKey();
+      rulePb.setRuleClassKey(internalToUnicode(ruleClassKey));
+      if (ruleClassKeys.add(ruleClassKey)) {
+        // TODO(b/368091415): instead of rule.getRuleClass(), we should be using the rule's public
+        // name. But to find the public name, we would need access to the globals dictionary of
+        // the compiled Starlark module in which the rule class was defined, which would have to
+        // be retrieved from skyframe.
+        rulePb.setRuleClassInfo(
+            RuleInfoExtractor.buildRuleInfo(
+                extractorContext, rule.getRuleClass(), rule.getRuleClassObject()));
+      }
+    }
   }
 
   /**
@@ -553,9 +634,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     private static final int OUTPUT_BUFFER_SIZE = 16384;
 
     private final CodedOutputStream codedOut;
+    private final LabelPrinter labelPrinter;
 
-    private StreamedQueryResultFormatter(OutputStream out) {
+    private StreamedQueryResultFormatter(OutputStream out, LabelPrinter labelPrinter) {
       this.codedOut = CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE);
+      this.labelPrinter = labelPrinter;
     }
 
     @Override
@@ -566,7 +649,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       // constructing and serializing a QueryResult proto are protected by test coverage and proto
       // best practices.
       for (Target target : partialResult) {
-        codedOut.writeMessage(QueryResult.TARGET_FIELD_NUMBER, toTargetProtoBuffer(target));
+        codedOut.writeMessage(
+            QueryResult.TARGET_FIELD_NUMBER, toTargetProtoBuffer(target, labelPrinter));
       }
     }
 

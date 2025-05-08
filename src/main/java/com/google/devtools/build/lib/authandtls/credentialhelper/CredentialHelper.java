@@ -67,21 +67,47 @@ public final class CredentialHelper {
    * @return The response from the subprocess.
    */
   public GetCredentialsResponse getCredentials(CredentialHelperEnvironment environment, URI uri)
-      throws InterruptedException, IOException {
+      throws IOException {
     Preconditions.checkNotNull(environment);
     Preconditions.checkNotNull(uri);
 
     Profiler prof = Profiler.instance();
 
     try (SilentCloseable c = prof.profile(CREDENTIAL_HELPER, "calling credential helper")) {
-      Subprocess process = spawnSubprocess(environment, "get");
+      Subprocess process;
+
+      try {
+        process = spawnSubprocess(environment, "get");
+      } catch (IOException e) {
+        throw new CredentialHelperException(
+            String.format(
+                Locale.US,
+                "Failed to get credentials for '%s' from helper '%s': %s",
+                uri,
+                path,
+                e.getMessage()));
+      }
+
       try (Reader stdout = new InputStreamReader(process.getInputStream(), UTF_8);
           Reader stderr = new InputStreamReader(process.getErrorStream(), UTF_8)) {
         try (Writer stdin = new OutputStreamWriter(process.getOutputStream(), UTF_8)) {
           GSON.toJson(GetCredentialsRequest.newBuilder().setUri(uri).build(), stdin);
+        } catch (IOException e) {
+          // This can happen if the helper prints a static set of credentials without reading from
+          // stdin (e.g., with a simple shell script running `echo "{...}"`). This is fine to
+          // ignore.
         }
 
-        process.waitFor();
+        try {
+          process.waitFor();
+        } catch (InterruptedException e) {
+          throw new CredentialHelperException(
+              String.format(
+                  Locale.US,
+                  "Failed to get credentials for '%s' from helper '%s': process was interrupted",
+                  uri,
+                  path));
+        }
 
         if (process.timedout()) {
           throw new CredentialHelperException(
@@ -138,16 +164,16 @@ public final class CredentialHelper {
 
     return new SubprocessBuilder()
         .setArgv(ImmutableList.<String>builder().add(path.getPathString()).add(args).build())
-        .setWorkingDirectory(environment.getWorkspacePath().getPathFile())
-        .setEnv(environment.getClientEnvironment())
-        .setTimeoutMillis(environment.getHelperExecutionTimeout().toMillis())
+        .setWorkingDirectory(
+            environment.workspacePath() != null ? environment.workspacePath().getPathFile() : null)
+        .setEnv(environment.clientEnvironment())
+        .setTimeoutMillis(environment.helperExecutionTimeout().toMillis())
         .start();
   }
 
   @Override
   public boolean equals(Object o) {
-    if (o instanceof CredentialHelper) {
-      CredentialHelper that = (CredentialHelper) o;
+    if (o instanceof CredentialHelper that) {
       return Objects.equals(this.getPath(), that.getPath());
     }
 

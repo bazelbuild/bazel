@@ -27,9 +27,9 @@ def IsWindows():
 
 def ChildBinaryName(lang):
   if IsWindows():
-    return "foo_ws/bar/bar-%s.exe" % lang
+    return "_main/bar/bar-%s.exe" % lang
   else:
-    return "foo_ws/bar/bar-%s" % lang
+    return "_main/bar/bar-%s" % lang
 
 
 def SplitToLines(stdouterr):
@@ -44,7 +44,7 @@ def SplitToLines(stdouterr):
 def main():
   print("Hello Python Foo!")
   r = runfiles.Create()
-  print("rloc=%s" % r.Rlocation("foo_ws/foo/datadep/hello.txt"))
+  print("rloc=%s" % r.Rlocation("_main/foo/datadep/hello.txt"))
 
   # Run a subprocess, propagate the runfiles envvar to it. The subprocess will
   # use this process's runfiles manifest or runfiles directory.
@@ -63,7 +63,7 @@ def main():
     out = SplitToLines(out)
     if len(out) >= 2:
       print(out[0])  # e.g. "Hello Python Bar!"
-      print(out[1])  # e.g. "rloc=/tmp/foo_ws/bar/bar-py-data.txt"
+      print(out[1])  # e.g. "rloc=/tmp/_main/bar/bar-py-data.txt"
     else:
       raise Exception(
           "ERROR: error running bar-%s: %s" % (lang, SplitToLines(err)))

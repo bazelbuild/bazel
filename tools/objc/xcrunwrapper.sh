@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -33,7 +33,7 @@ if [[ -z "${WRAPPER_DEVDIR}" ]] ; then
   WRAPPER_DEVDIR="$(xcode-select -p)"
 fi
 
-# Subsitute toolkit path placeholders.
+# Substitute toolkit path placeholders.
 UPDATEDARGS=()
 for ARG in "$@" ; do
   ARG="${ARG//__BAZEL_XCODE_DEVELOPER_DIR__/${WRAPPER_DEVDIR}}"

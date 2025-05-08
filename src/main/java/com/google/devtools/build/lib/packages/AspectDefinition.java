@@ -14,27 +14,24 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.LabelVisitor;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -67,15 +64,14 @@ public final class AspectDefinition {
   private final ImmutableMap<String, Attribute> attributes;
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
 
+  /** A supplier of the attributes to which the aspect will propagate. */
+  private final AspectPropagationEdgesSupplier<String> restrictToAttributes;
+
   /**
-   * Which attributes aspect should propagate along:
-   *
-   * <ul>
-   *   <li>A {@code null} value means propagate along all attributes
-   *   <li>A (possibly empty) set means to propagate only along the attributes in a set
-   * </ul>
+   * A supplier of the toolchains types for which the aspect will propagate to matching resolved
+   * toolchains.
    */
-  @Nullable private final ImmutableSet<String> restrictToAttributes;
+  private final AspectPropagationEdgesSupplier<Label> propagateToToolchainsTypes;
 
   @Nullable private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final boolean applyToFiles;
@@ -83,8 +79,11 @@ public final class AspectDefinition {
 
   private final ImmutableSet<AspectClass> requiredAspectClasses;
 
+  @Nullable private final AspectPropagationPredicate propagationPredicate;
+
   private final ImmutableSet<Label> execCompatibleWith;
-  private final ImmutableMap<String, ExecGroup> execGroups;
+  private final ImmutableMap<String, DeclaredExecGroup> execGroups;
+  private final ImmutableSet<? extends StarlarkSubruleApi> subrules;
 
   public AdvertisedProviderSet getAdvertisedProviders() {
     return advertisedProviders;
@@ -97,13 +96,16 @@ public final class AspectDefinition {
       RequiredProviders requiredProvidersForAspects,
       ImmutableMap<String, Attribute> attributes,
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
-      @Nullable ImmutableSet<String> restrictToAttributes,
+      AspectPropagationEdgesSupplier<String> restrictToAttributes,
+      AspectPropagationEdgesSupplier<Label> propagateToToolchainsTypes,
       @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean applyToFiles,
       boolean applyToGeneratingRules,
       ImmutableSet<AspectClass> requiredAspectClasses,
+      @Nullable AspectPropagationPredicate propagationPredicate,
       ImmutableSet<Label> execCompatibleWith,
-      ImmutableMap<String, ExecGroup> execGroups) {
+      ImmutableMap<String, DeclaredExecGroup> execGroups,
+      ImmutableSet<? extends StarlarkSubruleApi> subrules) {
     this.aspectClass = aspectClass;
     this.advertisedProviders = advertisedProviders;
     this.requiredProviders = requiredProviders;
@@ -111,12 +113,15 @@ public final class AspectDefinition {
     this.attributes = attributes;
     this.toolchainTypes = toolchainTypes;
     this.restrictToAttributes = restrictToAttributes;
+    this.propagateToToolchainsTypes = propagateToToolchainsTypes;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.applyToFiles = applyToFiles;
     this.applyToGeneratingRules = applyToGeneratingRules;
     this.requiredAspectClasses = requiredAspectClasses;
+    this.propagationPredicate = propagationPredicate;
     this.execCompatibleWith = execCompatibleWith;
     this.execGroups = execGroups;
+    this.subrules = subrules;
   }
 
   public String getName() {
@@ -145,8 +150,13 @@ public final class AspectDefinition {
   }
 
   /** Returns the execution groups that this aspect can use when creating actions. */
-  public ImmutableMap<String, ExecGroup> execGroups() {
+  public ImmutableMap<String, DeclaredExecGroup> execGroups() {
     return execGroups;
+  }
+
+  /** Returns the subrules declared by this aspect. */
+  public ImmutableSet<? extends StarlarkSubruleApi> getSubrules() {
+    return subrules;
   }
 
   /**
@@ -168,18 +178,17 @@ public final class AspectDefinition {
     return requiredProvidersForAspects;
   }
 
-  /** Returns whether the aspect propagates along the give {@code attributeName} or not. */
-  public boolean propagateAlong(String attributeName) {
-    if (restrictToAttributes != null) {
-      return restrictToAttributes.contains(attributeName);
-    }
-    return true;
+  /** Returns the supplier of the attributes to which the aspect will propagate. */
+  public AspectPropagationEdgesSupplier<String> getAttributeAspects() {
+    return restrictToAttributes;
   }
 
-  /** Returns the set of attributes along which the aspect propagates. */
-  @VisibleForTesting
-  public ImmutableSet<String> getRestrictToAttributes() {
-    return restrictToAttributes;
+  /**
+   * Returns the supplier of the toolchains types for which the aspect will propagate to matching
+   * resolved toolchains.
+   */
+  public AspectPropagationEdgesSupplier<Label> getToolchainsAspects() {
+    return propagateToToolchainsTypes;
   }
 
   /** Returns the set of configuration fragments required by this Aspect. */
@@ -213,17 +222,18 @@ public final class AspectDefinition {
     return requiredAspectClasses.contains(maybeRequiredAspect.getAspectClass());
   }
 
+  @Nullable
+  public AspectPropagationPredicate getPropagationPredicate() {
+    return propagationPredicate;
+  }
+
   /** Collects all attribute labels from the specified aspectDefinition. */
   public static void addAllAttributesOfAspect(
-      final Rule from,
-      final Multimap<Attribute, Label> labelBuilder,
-      Aspect aspect,
-      DependencyFilter dependencyFilter) {
-    forEachLabelDepFromAllAttributesOfAspect(from, aspect, dependencyFilter, labelBuilder::put);
+      Multimap<Attribute, Label> labelBuilder, Aspect aspect, DependencyFilter dependencyFilter) {
+    forEachLabelDepFromAllAttributesOfAspect(aspect, dependencyFilter, labelBuilder::put);
   }
 
   public static void forEachLabelDepFromAllAttributesOfAspect(
-      Rule from,
       Aspect aspect,
       DependencyFilter dependencyFilter,
       BiConsumer<Attribute, Label> consumer) {
@@ -242,13 +252,13 @@ public final class AspectDefinition {
       if (type.getLabelClass() != LabelClass.DEPENDENCY) {
         continue;
       }
-      visitSingleAttribute(from, aspectAttribute, aspectAttribute.getType(), labelVisitor);
+      visitSingleAttribute(aspectAttribute, aspectAttribute.getType(), labelVisitor);
     }
   }
 
   private static <T> void visitSingleAttribute(
-      Rule from, Attribute attribute, Type<T> type, LabelVisitor labelVisitor) {
-    type.visitLabels(labelVisitor, type.cast(attribute.getDefaultValue(from)), attribute);
+      Attribute attribute, Type<T> type, LabelVisitor labelVisitor) {
+    type.visitLabels(labelVisitor, type.cast(attribute.getDefaultValue(null)), attribute);
   }
 
   public static Builder builder(AspectClass aspectClass) {
@@ -265,40 +275,28 @@ public final class AspectDefinition {
         RequiredProviders.acceptAnyBuilder();
     private final RequiredProviders.Builder requiredAspectProviders =
         RequiredProviders.acceptNoneBuilder();
-    @Nullable private LinkedHashSet<String> propagateAlongAttributes = new LinkedHashSet<>();
+    private AspectPropagationEdgesSupplier<String> propagateAlongAttributes =
+        AspectPropagationEdgesSupplier.DEFAULT_ATTR_ASPECTS_SUPPLIER;
+    private AspectPropagationEdgesSupplier<Label> propagateToToolchainsTypes =
+        AspectPropagationEdgesSupplier.DEFAULT_TOOLCHAINS_ASPECTS_SUPPLIER;
     private final ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
         new ConfigurationFragmentPolicy.Builder();
     private boolean applyToFiles = false;
     private boolean applyToGeneratingRules = false;
     private final Set<ToolchainTypeRequirement> toolchainTypes = new HashSet<>();
     private ImmutableSet<AspectClass> requiredAspectClasses = ImmutableSet.of();
+    private AspectPropagationPredicate propagationPredicate = null;
     private ImmutableSet<Label> execCompatibleWith = ImmutableSet.of();
-    private ImmutableMap<String, ExecGroup> execGroups = ImmutableMap.of();
+    private ImmutableMap<String, DeclaredExecGroup> execGroups = ImmutableMap.of();
+    private ImmutableSet<? extends StarlarkSubruleApi> subrules = ImmutableSet.of();
 
     public Builder(AspectClass aspectClass) {
       this.aspectClass = aspectClass;
     }
 
-    /**
-     * Asserts that this aspect can only be evaluated for rules that supply all of the providers
-     * from at least one set of required providers.
-     */
     @CanIgnoreReturnValue
-    public Builder requireProviderSets(
-        Iterable<ImmutableSet<Class<? extends TransitiveInfoProvider>>> providerSets) {
-      for (ImmutableSet<Class<? extends TransitiveInfoProvider>> providerSet : providerSets) {
-        requiredProviders.addBuiltinSet(providerSet);
-      }
-      return this;
-    }
-
-    /**
-     * Asserts that this aspect can only be evaluated for rules that supply all of the specified
-     * providers.
-     */
-    @CanIgnoreReturnValue
-    public Builder requireProviders(Class<? extends TransitiveInfoProvider>... providers) {
-      requiredProviders.addBuiltinSet(ImmutableSet.copyOf(providers));
+    public Builder requireProviders(RequiredProviders requiredProviders) {
+      this.requireStarlarkProviderSets(requiredProviders.getStarlarkProviders());
       return this;
     }
 
@@ -338,28 +336,18 @@ public final class AspectDefinition {
     }
 
     @CanIgnoreReturnValue
+    public Builder propagationPredicate(AspectPropagationPredicate propagationPredicate) {
+      this.propagationPredicate = propagationPredicate;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public Builder requireAspectsWithProviders(
         Iterable<ImmutableSet<StarlarkProviderIdentifier>> providerSets) {
       for (ImmutableSet<StarlarkProviderIdentifier> providerSet : providerSets) {
         if (!providerSet.isEmpty()) {
           requiredAspectProviders.addStarlarkSet(providerSet);
         }
-      }
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder requireAspectsWithBuiltinProviders(
-        Class<? extends TransitiveInfoProvider>... providers) {
-      requiredAspectProviders.addBuiltinSet(ImmutableSet.copyOf(providers));
-      return this;
-    }
-
-    /** State that the aspect being built provides given providers. */
-    @CanIgnoreReturnValue
-    public Builder advertiseProvider(Class<?>... providers) {
-      for (Class<?> provider : providers) {
-        advertisedProviders.addBuiltin(provider);
       }
       return this;
     }
@@ -373,43 +361,21 @@ public final class AspectDefinition {
       return this;
     }
 
-    /**
-     * Declares that this aspect propagates along an {@code attribute} on the target associated with
-     * this aspect.
-     *
-     * <p>Specify multiple attributes by calling this method repeatedly.
-     *
-     * <p>Aspect can also declare to propagate along all attributes with {@link
-     * #propagateAlongAttributes}.
-     */
+    /** Sets the supplier of the attributes to which the aspect will propagate. */
     @CanIgnoreReturnValue
-    public Builder propagateAlongAttribute(String attribute) {
-      Preconditions.checkNotNull(attribute);
-      Preconditions.checkState(
-          this.propagateAlongAttributes != null,
-          "Either propagate along all attributes, or along specific attributes, not both");
-
-      this.propagateAlongAttributes.add(attribute);
-
+    public Builder propagateToAttributes(AspectPropagationEdgesSupplier<String> attributes) {
+      this.propagateAlongAttributes = attributes;
       return this;
     }
 
     /**
-     * Declares that this aspect propagates along all attributes on the target associated with this
-     * aspect.
-     *
-     * <p>Specify either this or {@link #propagateAlongAttribute(String)}, not both.
+     * Sets the supplier of the toolchains types for which the aspect will propagate to matching
+     * resolved toolchains.
      */
     @CanIgnoreReturnValue
-    public Builder propagateAlongAllAttributes() {
-      Preconditions.checkState(
-          this.propagateAlongAttributes != null,
-          "Aspects for all attributes must only be specified once");
-
-      Preconditions.checkState(
-          this.propagateAlongAttributes.isEmpty(),
-          "Specify either aspects for all attributes, or for specific attributes, not both");
-      this.propagateAlongAttributes = null;
+    public Builder propagateToToolchainsTypes(
+        AspectPropagationEdgesSupplier<Label> toolchainsTypes) {
+      this.propagateToToolchainsTypes = toolchainsTypes;
       return this;
     }
 
@@ -469,7 +435,7 @@ public final class AspectDefinition {
 
     /**
      * Declares that the implementation of the associated aspect definition requires the given
-     * fragments to be present in this rule's host and target configurations.
+     * fragments to be present in this rule's exec and target configurations.
      *
      * <p>The value is inherited by subclasses.
      */
@@ -478,25 +444,6 @@ public final class AspectDefinition {
         Class<? extends Fragment>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(
           ImmutableSet.copyOf(configurationFragments));
-      return this;
-    }
-
-    /**
-     * Declares that the implementation of the associated aspect definition requires the given
-     * fragments to be present in the given configuration that isn't the aspect's configuration but
-     * is also readable by the aspect.
-     *
-     * <p>You probably don't want to use this, because aspects generally shouldn't read
-     * configurations other than their own. If you want to declare host config fragments, see {@link
-     * com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder}.
-     *
-     * <p>The value is inherited by subclasses.
-     */
-    @CanIgnoreReturnValue
-    public Builder requiresConfigurationFragments(
-        ConfigurationTransition transition, Class<? extends Fragment>... configurationFragments) {
-      configurationFragmentPolicy.requiresConfigurationFragments(
-          transition, ImmutableSet.copyOf(configurationFragments));
       return this;
     }
 
@@ -512,26 +459,6 @@ public final class AspectDefinition {
         Collection<String> configurationFragmentNames) {
       configurationFragmentPolicy.requiresConfigurationFragmentsByStarlarkBuiltinName(
           configurationFragmentNames);
-      return this;
-    }
-
-    /**
-     * Declares that the implementation of the associated aspect definition requires the given
-     * fragments to be present in the given configuration that isn't the aspect's configuration but
-     * is also readable by the aspect.
-     *
-     * <p>In contrast to {@link #requiresConfigurationFragments(ConfigurationTransition, Class...)},
-     * this method takes the Starlark module names of fragments instead of their classes.
-     *
-     * <p>You probably don't want to use this, because aspects generally shouldn't read
-     * configurations other than their own. If you want to declare host config fragments, see {@link
-     * com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder}.
-     */
-    @CanIgnoreReturnValue
-    public Builder requiresConfigurationFragmentsByStarlarkBuiltinName(
-        ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
-      configurationFragmentPolicy.requiresConfigurationFragmentsByStarlarkBuiltinName(
-          transition, configurationFragmentNames);
       return this;
     }
 
@@ -594,10 +521,16 @@ public final class AspectDefinition {
 
     /** Sets the execution groups that are available for actions created by this aspect. */
     @CanIgnoreReturnValue
-    public Builder execGroups(ImmutableMap<String, ExecGroup> execGroups) {
+    public Builder execGroups(ImmutableMap<String, DeclaredExecGroup> execGroups) {
       // TODO(b/230337573): validate names
       // TODO(b/230337573): handle copy_from_default
       this.execGroups = execGroups;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder subrules(ImmutableSet<? extends StarlarkSubruleApi> subrules) {
+      this.subrules = subrules;
       return this;
     }
 
@@ -608,10 +541,34 @@ public final class AspectDefinition {
      */
     public AspectDefinition build() {
       RequiredProviders requiredProviders = this.requiredProviders.build();
-      if (applyToGeneratingRules && !requiredProviders.acceptsAny()) {
+      if (applyToGeneratingRules) {
+        if (!requiredProviders.acceptsAny()) {
+          throw new IllegalStateException(
+              "An aspect cannot simultaneously have required providers "
+                  + "and apply to generating rules.");
+        }
+
+        if (propagationPredicate != null) {
+          throw new IllegalStateException(
+              "An aspect cannot simultaneously have a propagation predicate and apply to generating"
+                  + " rules.");
+        }
+      }
+
+      if (applyToFiles) {
+        if (!requiredProviders.acceptsAny()) {
+          throw new IllegalStateException(
+              "An aspect cannot simultaneously have required providers and apply to files.");
+        }
+        if (propagationPredicate != null) {
+          throw new IllegalStateException(
+              "An aspect cannot simultaneously have a propagation predicate and apply to files.");
+        }
+      }
+
+      if (applyToFiles && !requiredProviders.acceptsAny()) {
         throw new IllegalStateException(
-            "An aspect cannot simultaneously have required providers "
-                + "and apply to generating rules.");
+            "An aspect cannot simultaneously have required providers and apply to files.");
       }
 
       return new AspectDefinition(
@@ -621,13 +578,16 @@ public final class AspectDefinition {
           requiredAspectProviders.build(),
           ImmutableMap.copyOf(attributes),
           ImmutableSet.copyOf(toolchainTypes),
-          propagateAlongAttributes == null ? null : ImmutableSet.copyOf(propagateAlongAttributes),
+          propagateAlongAttributes,
+          propagateToToolchainsTypes,
           configurationFragmentPolicy.build(),
           applyToFiles,
           applyToGeneratingRules,
           requiredAspectClasses,
+          propagationPredicate,
           execCompatibleWith,
-          execGroups);
+          execGroups,
+          subrules);
     }
   }
 }

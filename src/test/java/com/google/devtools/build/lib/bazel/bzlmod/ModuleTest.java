@@ -14,11 +14,15 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.buildModule;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createRepositoryMapping;
 
-import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.ModuleBuilder;
+import com.google.devtools.build.lib.windows.WindowsPathOperations;
+import java.util.stream.Stream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -28,57 +32,48 @@ import org.junit.runners.JUnit4;
 public class ModuleTest {
 
   @Test
-  public void withDepKeysTransformed() throws Exception {
-    assertThat(
-            ModuleBuilder.create("", "")
-                .addDep("dep_foo", createModuleKey("foo", "1.0"))
-                .addDep("dep_bar", createModuleKey("bar", "2.0"))
-                .build()
-                .withDepKeysTransformed(
-                    key ->
-                        createModuleKey(
-                            key.getName() + "_new", key.getVersion().getOriginal() + ".1")))
-        .isEqualTo(
-            ModuleBuilder.create("", "")
-                .addDep("dep_foo", createModuleKey("foo_new", "1.0.1"))
-                .addOriginalDep("dep_foo", createModuleKey("foo", "1.0"))
-                .addDep("dep_bar", createModuleKey("bar_new", "2.0.1"))
-                .addOriginalDep("dep_bar", createModuleKey("bar", "2.0"))
-                .build());
-  }
-
-  @Test
   public void getRepoMapping() throws Exception {
     ModuleKey key = createModuleKey("test_module", "1.0");
+    ModuleKey fooKey = createModuleKey("foo", "1.0");
+    ModuleKey barKey = createModuleKey("bar", "2.0");
     Module module =
-        ModuleBuilder.create(key.getName(), key.getVersion())
-            .addDep("my_foo", createModuleKey("foo", "1.0"))
-            .addDep("my_bar", createModuleKey("bar", "2.0"))
+        buildModule("test_module", "1.0")
+            .addDep("my_foo", fooKey)
+            .addDep("my_bar", barKey)
             .addDep("my_root", ModuleKey.ROOT)
             .build();
-    assertThat(module.getRepoMappingWithBazelDepsOnly())
+    assertThat(
+            module.getRepoMappingWithBazelDepsOnly(
+                Stream.of(key, fooKey, barKey, ModuleKey.ROOT)
+                    .collect(
+                        toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithoutVersion))))
         .isEqualTo(
             createRepositoryMapping(
                 key,
                 "test_module",
-                "test_module~1.0",
+                "test_module+",
                 "my_foo",
-                "foo~1.0",
+                "foo+",
                 "my_bar",
-                "bar~2.0",
+                "bar+",
                 "my_root",
                 ""));
   }
 
   @Test
   public void getRepoMapping_asMainModule() throws Exception {
+    ModuleKey fooKey = createModuleKey("foo", "1.0");
+    ModuleKey barKey = createModuleKey("bar", "2.0");
     Module module =
-        ModuleBuilder.create("test_module", "1.0")
+        buildModule("test_module", "1.0")
             .setKey(ModuleKey.ROOT)
             .addDep("my_foo", createModuleKey("foo", "1.0"))
             .addDep("my_bar", createModuleKey("bar", "2.0"))
             .build();
-    assertThat(module.getRepoMappingWithBazelDepsOnly())
+    assertThat(
+            module.getRepoMappingWithBazelDepsOnly(
+                Stream.of(ModuleKey.ROOT, fooKey, barKey)
+                    .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersion))))
         .isEqualTo(
             createRepositoryMapping(
                 ModuleKey.ROOT,
@@ -87,8 +82,21 @@ public class ModuleTest {
                 "test_module",
                 "",
                 "my_foo",
-                "foo~1.0",
+                "foo+1.0",
                 "my_bar",
-                "bar~2.0"));
+                "bar+2.0"));
+  }
+
+  @Test
+  public void getCanonicalRepoName_isNotAWindowsShortPath() {
+    assertNotAShortPath(createModuleKey("foo", "").getCanonicalRepoNameWithoutVersion().getName());
+    assertNotAShortPath(createModuleKey("foo", "1").getCanonicalRepoNameWithVersion().getName());
+    assertNotAShortPath(createModuleKey("foo", "1.2").getCanonicalRepoNameWithVersion().getName());
+    assertNotAShortPath(
+        createModuleKey("foo", "1.2.3").getCanonicalRepoNameWithVersion().getName());
+  }
+
+  private static void assertNotAShortPath(String name) {
+    assertWithMessage("For %s", name).that(WindowsPathOperations.isShortPath(name)).isFalse();
   }
 }

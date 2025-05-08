@@ -3,6 +3,24 @@ Book: /_book.yaml
 
 # BUILD Style Guide
 
+{% include "_buttons.html" %}
+
+## Prefer DAMP BUILD files over DRY {:#prefer-damp-build-files-over-dry}
+
+The DRY principle — "Don't Repeat Yourself" — encourages uniqueness by
+introducing abstractions such as variables and functions to avoid redundancy in
+code.
+
+In contrast, the DAMP principle — "Descriptive and Meaningful Phrases" —
+encourages readability over uniqueness to make files easier to understand and
+maintain.
+
+`BUILD` files aren't code, they are configurations. They aren't tested like
+code, but do need to be maintained by people and tools. That makes DAMP better
+for them than DRY.
+
+## BUILD.bazel file formatting {:#formatting}
+
 `BUILD` file formatting follows the same approach as Go, where a standardized
 tool takes care of most formatting issues.
 [Buildifier](https://github.com/bazelbuild/buildifier){: .external} is a tool that parses and
@@ -13,7 +31,7 @@ generate `BUILD` files.
 
 `BUILD` file formatting must match the output of `buildifier`.
 
-## Formatting example {:#formatting-example}
+### Formatting example {:#formatting-example}
 
 ```python
 # Test code implementing the Foo controller.
@@ -101,7 +119,7 @@ Prefer using the short name when referring to an eponymous target (`//x`
 instead of `//x:x`). If you are in the same package, prefer the local
 reference (`:x` instead of `//x`).
 
-Avoid using "reserved" target names which have special meaning.  This includes
+Avoid using "reserved" target names which have special meaning. This includes
 `all`, `__pkg__`, and `__subpackages__`, these names have special
 semantics and can cause confusion and unexpected behaviors when they are used.
 
@@ -179,6 +197,161 @@ dependency graph between them.
 ### Non-recursive {:#non-recursive}
 
 Non-recursive globs are generally acceptable.
+
+## Avoid list comprehensions {:#list-comprehensions}
+
+Avoid using list comprehensions at the top level of a `BUILD.bazel` file.
+Automate repetitive calls by creating each named target with a separate
+top-level rule or macro call. Give each a short `name` parameter for clarity.
+
+List comprehension reduces the following:
+
+*   Maintainability. It's difficult or impossible for human maintainers and
+    large scale automated changes to update list comprehensions correctly.
+*   Discoverability. Since the pattern doesn't have `name` parameters,
+    it's hard to find the rule by name.
+
+A common application of the list comprehension pattern is to generate tests. For
+example:
+
+```build {.bad}
+[[java_test(
+    name = "test_%s_%s" % (backend, count),
+    srcs = [ ... ],
+    deps = [ ... ],
+    ...
+) for backend in [
+    "fake",
+    "mock",
+]] for count in [
+    1,
+    10,
+]]
+```
+
+We recommend using simpler alternatives. For example, define a macro that
+generates one test and invoke it for each top-level `name`:
+
+```build
+my_java_test(name = "test_fake_1",
+    ...)
+my_java_test(name = "test_fake_10",
+    ...)
+...
+```
+
+## Don't use deps variables {:#no-dep-vars}
+
+Don't use list variables to encapsulate common dependencies:
+
+```build {.bad}
+COMMON_DEPS = [
+  "//d:e",
+  "//x/y:z",
+]
+
+cc_library(name = "a",
+    srcs = ["a.cc"],
+    deps = COMMON_DEPS + [ ... ],
+)
+
+cc_library(name = "b",
+    srcs = ["b.cc"],
+    deps = COMMON_DEPS + [ ... ],
+)
+```
+
+Similarly, don't use a library target with
+[`exports`](/reference/be/java#java_library.exports) to group dependencies.
+
+Instead, list the dependencies separately for each target:
+
+```build {.good}
+cc_library(name = "a",
+    srcs = ["a.cc"],
+    deps = [
+      "//a:b",
+      "//x/y:z",
+      ...
+    ],
+)
+
+cc_library(name = "b",
+    srcs = ["b.cc"],
+    deps = [
+      "//a:b",
+      "//x/y:z",
+      ...
+    ],
+)
+```
+
+Let [Gazelle](https://github.com/bazel-contrib/bazel-gazelle) and other tools
+maintain them. There will be repetition, but you won't have to think about how
+to manage the dependencies.
+
+## Prefer literal strings {:#literal-strings}
+
+Although Starlark provides string operators for concatenation (`+`) and
+formatting (`%`), use them with caution. It is tempting to factor out common
+string parts to make expressions more concise or break long lines. However,
+
+*   It is harder to read broken-up string values at a glance.
+
+*   Automated tools such as
+    [buildozer][buildozer] and Code Search have trouble finding values and
+    updating them correctly when the values broken up.
+
+*   In `BUILD` files, readability is more important than avoiding repetition
+    (see [DAMP versus DRY](#prefer-damp-build-files-over-dry)).
+
+*   This Style Guide
+    [warns against splitting label-valued strings](#other-conventions)
+    and
+    [explicitly permits long lines](#differences-python-style-guide).
+
+*   Buildifier automatically fuses concatenated strings when it detects that
+    they are labels.
+
+Therefore, prefer explicit, literal strings over concatenated or formatted
+strings, especially in label-type attributes such as `name` and `deps`. For
+example, this `BUILD` fragment:
+
+```build {.bad}
+NAME = "foo"
+PACKAGE = "//a/b"
+
+proto_library(
+  name = "%s_proto" % NAME,
+  deps = [PACKAGE + ":other_proto"],
+  alt_dep = "//surprisingly/long/chain/of/package/names:" +
+            "extravagantly_long_target_name",
+)
+```
+
+would be better rewritten as
+
+```build {.good}
+proto_library(
+  name = "foo_proto",
+  deps = ["//a/b:other_proto"],
+  alt_dep = "//surprisingly/long/chain/of/package/names:extravagantly_long_target_name",
+)
+```
+
+[buildozer]: https://github.com/bazelbuild/buildtools/blob/main/buildozer/README.md
+
+## Limit the symbols exported by each `.bzl` file {:#limit-symbols}
+
+Minimize the number of symbols (rules, macros, constants, functions) exported by
+each public `.bzl` (Starlark) file. We recommend that a file should export
+multiple symbols only if they are certain to be used together. Otherwise, split
+it into multiple `.bzl` files, each with its own [bzl_library][bzl_library].
+
+Excessive symbols can cause `.bzl` files to grow into broad "libraries" of
+symbols, causing changes to single files to force Bazel to rebuild many targets.
+
+[bzl_library]: https://github.com/bazelbuild/bazel-skylib/blob/main/README.md#bzl_library
 
 ## Other conventions {:#other-conventions}
 

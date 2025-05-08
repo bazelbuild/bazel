@@ -22,14 +22,27 @@ package com.google.devtools.build.lib.util;
  * tests, and can thread a {@code TestType} object to the necessary libraries to indicate that.
  */
 public enum TestType {
-  PRODUCTION,
-  JAVA_INTEGRATION,
-  SHELL_INTEGRATION;
+  PRODUCTION(false),
+  UNKNOWN_TEST(true),
+  JAVA_INTEGRATION(true),
+  SHELL_INTEGRATION(true);
 
-  private static final boolean IN_TEST = System.getenv("TEST_TMPDIR") != null;
+  private static final TestType TEST_TYPE = getTestTypeFromEnvVars();
+
+  private final boolean inTest;
+
+  TestType(boolean inTest) {
+    this.inTest = inTest;
+  }
+
+  private static TestType getTestTypeFromEnvVars() {
+    boolean inTest = System.getenv("TEST_TMPDIR") != null;
+    boolean inShellIntegrationTest = System.getenv("BAZEL_SHELL_TEST") != null;
+    return inShellIntegrationTest ? SHELL_INTEGRATION : inTest ? UNKNOWN_TEST : PRODUCTION;
+  }
 
   public static TestType getTestType() {
-    return IN_TEST ? SHELL_INTEGRATION : PRODUCTION;
+    return TEST_TYPE;
   }
 
   public static boolean isInTest() {
@@ -37,6 +50,6 @@ public enum TestType {
   }
 
   public boolean inTest() {
-    return !PRODUCTION.equals(this);
+    return inTest;
   }
 }

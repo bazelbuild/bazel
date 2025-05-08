@@ -12,6 +12,9 @@
 
 <h1 class="page-title">Functions</h1>
 
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/docgen/templates/be/functions.vm" %}
+{% include "_buttons.html" %}
+
 #if (!$singlePage)
 <h2>Contents</h2>
 <ul>
@@ -31,11 +34,15 @@
 <h2 id="package">package</h2>
 
 <pre>
-package(default_deprecation, default_testonly, default_visibility, features)
+package(default_deprecation, default_package_metadata, default_testonly, default_visibility, features)
 </pre>
-<p>This function declares metadata that applies to every subsequent rule in the
+<p>This function declares metadata that applies to every rule in the
 package. It is used at most once within a package (BUILD file).</p>
 
+<p>For the counterpart that declares metadata applying to every rule in the whole
+<em>repository</em>, use the <code>repo()</code> function in the
+<a href="/external/overview#repo.bazel"><code>REPO.bazel</code> file</a> at the root of your repo.
+The <code>repo()</code> function takes exactly the same arguments as <code>package()</code>.</p>
 <p>The package() function should be called right after all the load() statements at the top of the
 file, before any rule.</p>
 
@@ -54,40 +61,57 @@ file, before any rule.</p>
   </thead>
   <tbody>
     <tr>
+      <td id="package.default_applicable_licenses"><code>default_applicable_licenses</code></td>
+      <td>
+        <p>Alias for <a href="#package.default_package_metadata"><code>default_package_metadata</code></a>.
+      </td>
+    </tr>
+    <tr>
       <td id="package.default_visibility"><code>default_visibility</code></td>
       <td>
-        <p><code>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; optional</code></p>
-        <p>The default visibility of the rules in this package.</p>
-        <p>Every rule in this package has the visibility specified in this
-        attribute, unless otherwise specified in the <code>visibility</code>
-        attribute of the rule. For detailed information about the syntax of this
-        attribute, see the documentation of <a href="$expander.expandRef("visibility")">visibility</a>.
-        The package default visibility does not apply to
-        <a href="#exports_files">exports_files</a>, which is
-        public by default.</p>
+        <p>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; default is <code>[]</code></p>
+        <p>The default visibility of the top-level rule targets and symbolic
+        macros in this package &mdash; that is, the targets and symbolic macros
+        that are not themselves declared inside a symbolic macro. This attribute
+        is ignored if the target or macro specifies a <code>visibility</code>
+        value.</p>
+        <p>For detailed information about the syntax of this attribute, see the
+        documentation of <a href="$expander.expandRef("visibility")">
+        visibility</a>. The package default visibility does not apply to
+        <a href="#exports_files">exports_files</a>, which is public by default.
+        </p>
       </td>
     </tr>
     <tr>
       <td id="package.default_deprecation"><code>default_deprecation</code></td>
       <td>
-        <p><code>String; optional</code></p>
+        <p>String; default is <code>""</code></p>
         <p>Sets the default <a href="common-definitions.html#common.deprecation">
         <code>deprecation</code></a> message for all rules in this package.</p>
       </td>
     </tr>
     <tr>
+      <td id="package.default_package_metadata"><code>default_package_metadata</code></td>
+      <td>
+        <p>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; default is <code>[]</code></p>
+        <p>Sets a default list of metadata targets which apply to all other targets in the package.
+        These are typically targets related to OSS package and license declarations.
+        See <a href="https://github.com/bazelbuild/rules_license">rules_license</a> for examples.</p>
+      </td>
+    </tr>
+    <tr>
       <td id="package.default_testonly"><code>default_testonly</code></td>
       <td>
-        <p><code>Boolean; optional; default is False except as noted</code></p>
+        <p>Boolean; default is <code>False</code> except as noted</p>
         <p>Sets the default <a href="common-definitions.html#common.testonly">
         <code>testonly</code></a> property for all rules in this package.</p>
-        <p>In packages under <code>javatests</code> the default value is 1.</p>
+        <p>In packages under <code>javatests</code> the default value is <code>True</code>.</p>
       </td>
     </tr>
     <tr>
       <td id="package.features"><code>features</code></td>
       <td>
-        <p><code>List strings; optional</code></p>
+        <p>List strings; default is <code>[]</code></p>
         <p>Sets various flags that affect the semantics of this BUILD file.</p>
         <p>This feature is mainly used by the people working on the build system to
         tag packages that need some kind of special handling. Do not use this unless
@@ -156,14 +180,14 @@ not themselves have any visibility protection.</p>
     <tr>
       <td id="package_group.name"><code>name</code></td>
       <td>
-        <p><code><a href="$expander.expandRef("build-ref#name")">Name</a>; required</code></p>
+        <p><a href="$expander.expandRef("build-ref#name")">Name</a>; required</p>
         <p>A unique name for this target.</p>
       </td>
     </tr>
     <tr>
       <td id="package_group.packages"><code>packages</code></td>
       <td>
-        <p><code>List of strings; optional</code></p>
+        <p>List of strings; default is <code>[]</code></p>
         <p>A list of zero or more package specifications.</p>
 
         <p>Each package specification string can have one of the following
@@ -178,13 +202,18 @@ not themselves have any visibility protection.</p>
 
         <li>As above, but with a trailing <code>/...</code>. For example, <code>
         //foo/...</code> specifies the set of <code>//foo</code> and all its
-        subpackages. As a special case, <code>//...</code> specifies all
-        packages in any repository (in other words, public).
+        subpackages. <code>//...</code> specifies all packages in the current
+        repository.
+
+        <li>The strings <code>public</code> or <code>private</code>, which
+        respectively specify every package or no package. (This form requires
+        the flag <code>--incompatible_package_group_has_public_syntax</code> to
+        be set.)
 
         </ol>
 
-        <p>In addition, a package specification may also be prefixed with
-        <code>-</code> to indicate that it is negated.</p>
+        <p>In addition, the first two kinds of package specifications may also
+        be prefixed with <code>-</code> to indicate that they are negated.</p>
 
         <p>The package group contains any package that matches at least one of
         its positive specifications and none of its negative specifications
@@ -193,17 +222,32 @@ not themselves have any visibility protection.</p>
         subpackages of <code>//foo/tests</code>. (<code>//foo</code> itself is
         included while </code>//foo/tests</code> itself is not.)</p>
 
-        <p>Aside from <code>//...</code>, there is no way to directly specify
+        <p>Aside from public visibility, there is no way to directly specify
         packages outside the current repository.</p>
 
         <p>If this attribute is missing, it is the same as setting it to an
-        empty list (in other words, private).
+        empty list, which is also the same as setting it to a list containing
+        only <code>private</code>.
+
+        <p><i>Note:</i> Prior to Bazel 6.0, the specification <code>//...</code>
+        had a legacy behavior of being the same as <code>public</code>. This
+        behavior is fixed when
+        <code>--incompatible_fix_package_group_reporoot_syntax</code> is
+        enabled, which is the default after Bazel 6.0.</p>
+
+        <p><i>Note:</i> Prior to Bazel 6.0, when this attribute is serialized as
+        part of <code>bazel query --output=proto</code> (or
+        <code>--output=xml</code>), the leading slashes are omitted. For
+        instance, <code>//pkg/foo/...</code> will output as
+        <code>\"pkg/foo/...\"</code>. This behavior is fixed when
+        <code>--incompatible_package_group_includes_double_slash</code> is
+        enabled, which is the default after Bazel 6.0.</p>
       </td>
     </tr>
     <tr>
       <td id="package_group.includes"><code>includes</code></td>
       <td>
-        <p><code>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; optional</code></p>
+        <p>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; default is <code>[]</code></p>
         <p>Other package groups that are included in this one.</p>
 
         <p>The labels in this attribute must refer to other package groups.
@@ -289,7 +333,7 @@ package_group(
   The BUILD file for a package may only refer directly to source files belonging
   to another package if they are explicitly exported with an
   <code>exports_files()</code> statement. Read more about
-  <a href="$expander.expandRef("visibility#visibility-of-a-file")">visibility of files</a>.
+  <a href="$expander.expandRef("visibility#source-file-target-visibility")">visibility of files</a>.
 </p>
    <p>
   As a legacy behaviour, also files mentioned as input to a rule are exported
@@ -352,7 +396,8 @@ path matches any of the <code>include</code> patterns and none of the
 The <code>include</code> and <code>exclude</code> lists contain path patterns
 that are relative to the current package. Every pattern may consist of one or
 more path segments. As usual with Unix paths, these segments are separated by
-<code>/</code>. Segments may contain the <code>*</code> wildcard: this matches
+<code>/</code>. The segments in the pattern are matched against the segments of
+the path. Segments may contain the <code>*</code> wildcard: this matches
 any substring in the path segment (even the empty substring), excluding the
 directory separator <code>/</code>. This wildcard can be used multiple times
 within one path segment. Additionally, the <code>**</code> wildcard can match
@@ -363,26 +408,37 @@ path segment.
 Examples:
 <ul>
 <li><code>foo/bar.txt</code> matches exactly the <code>foo/bar.txt</code> file
-in this package</li>
+in this package (unless <code>foo/</code> is a subpackage)</li>
 <li><code>foo/*.txt</code> matches every file in the <code>foo/</code> directory
-if the file ends with
-<code>.txt</code> (unless <code>foo/</code> is a subpackage)</li>
+if the file ends with <code>.txt</code> (unless <code>foo/</code> is a
+subpackage)</li>
 <li><code>foo/a*.htm*</code> matches every file in the <code>foo/</code>
 directory that starts with <code>a</code>, then has an arbitrary string (could
-be empty), then has <code>.htm</code>, and ends with another arbitrary string;
-such as <code>foo/axx.htm</code> and <code>foo/a.html</code> or
-<code>foo/axxx.html</code></li>
-<li><code>**/a.txt</code> matches every <code>a.txt</code> file in every
-subdirectory of this package</li>
+be empty), then has <code>.htm</code>, and ends with another arbitrary string
+(unless <code>foo/</code> is a subpackage); such as <code>foo/axx.htm</code>
+and <code>foo/a.html</code> or <code>foo/axxx.html</code></li>
+<li><code>foo/*</code> matches every file in the <code>foo/</code> directory,
+(unless <code>foo/</code> is a subpackage); it does not match <code>foo</code>
+directory itself even if <code>exclude_directories</code> is set to
+</code>0</code></li>
+<li><code>foo/**</code> matches every file in every non-subpackage subdirectory
+under package's first level subdirectory <code>foo/</code>; if
+<code>exclude_directories</code> is set to </code>0</code>, <code>foo</code>
+directory itself also matches the pattern; in this case, <code>**</code> is
+considered to match zero path segments</li>
+<li><code>**/a.txt</code> matches <code>a.txt</code> files in this package's
+directory plus non-subpackage subdirectories.</li>
 <li><code>**/bar/**/*.txt</code> matches every <code>.txt</code> file in every
-subdirectory of this package, if at least one directory on the resulting path is
-called <code>bar</code>, such as <code>xxx/bar/yyy/zzz/a.txt</code> or
-<code>bar/a.txt</code> (remember that <code>**</code> also matches zero
-segments) or <code>bar/zzz/a.txt</code></li>
-<li><code>**</code> matches every file in every subdirectory of this
-package</li>
+non-subpackage subdirectory of this package, if at least one directory on the
+resulting path is called <code>bar</code>, such as
+<code>xxx/bar/yyy/zzz/a.txt</code> or <code>bar/a.txt</code> (remember that
+<code>**</code> also matches zero segments) or <code>bar/zzz/a.txt</code></li>
+<li><code>**</code> matches every file in every non-subpackage subdirectory of
+this package</li>
 <li><code>foo**/a.txt</code> is an invalid pattern, because <code>**</code> must
 stand on its own as a segment</li>
+<li><code>foo/</code> is an invalid pattern, because the second segment defined
+after <code>/</code> is an empty string</li>
 </ul>
 
 <p>
@@ -475,7 +531,7 @@ There are several important limitations and caveats:
   <li>
     The "**" wildcard has one corner case: the pattern
     <code>"**"</code> doesn't match the package's directory path. That is to
-    say, <code>glob(["**"], exclude_directories = 0)</code> matches all files
+    say, <code>glob(["**"], exclude_directories = False)</code> matches all files
     and directories transitively strictly under the current package's directory
     (but of course not going into directories of subpackages - see the previous
     note about that).
@@ -633,7 +689,7 @@ sh_binary(
   configuration conditions to matching values. Each condition is a label
   reference to
   a <code><a href="general.html#config_setting">config_setting</a></code> or
-  <code><a href="platform.html#constraint_value">constraint_value</a></code>,
+  <code><a href="platforms-and-toolchains.html#constraint_value">constraint_value</a></code>,
   which "matches" if the target's configuration matches an expected set of
   values. The value of <code>mytarget#srcs</code> then becomes whichever
   label list matches the current invocation.
@@ -652,7 +708,7 @@ sh_binary(
     demonstrated in Example 2 below.
   </li>
   <li>If multiple conditions match and one is not a specialization of all the
-    others, Bazel fails with an error.
+    others, Bazel fails with an error, unless all conditions resolve to the same value.
   </li>
   <li>The special pseudo-label <code>//conditions:default</code> is
     considered to match if no other condition matches. If this condition
@@ -699,16 +755,45 @@ sh_binary(
 # The following BUILD files exist:
 # foo/BUILD
 # foo/bar/baz/BUILD
+# foo/bar/but/bad/BUILD
 # foo/sub/BUILD
 # foo/sub/deeper/BUILD
 #
 # In foo/BUILD a call to
-subs = subpackages(include = ["**"])
+subs1 = subpackages(include = ["**"])
 
-# results in subs == ["sub", "bar/baz"]
+# results in subs1 == ["sub", "bar/baz", "bar/but/bad"]
 #
 # 'sub/deeper' is not included because it is a subpackage of 'foo/sub' not of
 # 'foo'
+
+subs2 = subpackages(include = ["bar/*"])
+# results in subs2 = ["bar/baz"]
+#
+# Since 'bar' is not a subpackage itself, this looks for any subpackages under
+# all first level subdirectories of 'bar'.
+
+subs3 = subpackages(include = ["bar/**"])
+# results in subs3 = ["bar/baz", "bar/but/bad"]
+#
+# Since bar is not a subpackage itself, this looks for any subpackages which are
+# (1) under all subdirectories of 'bar' which can be at any level, (2) not a
+# subpackage of another subpackages.
+
+subs4 = subpackages(include = ["sub"])
+subs5 = subpackages(include = ["sub/*"])
+subs6 = subpackages(include = ["sub/**"])
+# results in subs4 and subs6 being ["sub"]
+# results in subs5 = [].
+#
+# In subs4, expression "sub" checks whether 'foo/sub' is a package (i.e. is a
+# subpackage of 'foo').
+# In subs5, "sub/*" looks for subpackages under directory 'foo/sub'. Since
+# 'foo/sub' is already a subpackage itself, the subdirectories will not be
+# traversed anymore.
+# In subs6, 'foo/sub' is a subpackage itself and matches pattern "sub/**", so it
+# is returned. But the subdirectories of 'foo/sub' will not be traversed
+# anymore.
 </pre>
 
     <p>

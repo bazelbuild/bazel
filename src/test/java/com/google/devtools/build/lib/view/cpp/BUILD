@@ -1,5 +1,10 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
+
 filegroup(
     name = "srcs",
     testonly = 0,
@@ -21,6 +26,6 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:junit4",
         "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )

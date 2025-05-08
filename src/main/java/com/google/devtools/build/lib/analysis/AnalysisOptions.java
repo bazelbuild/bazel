@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.util.CpuResourceConverter;
 import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -40,6 +41,17 @@ public class AnalysisOptions extends OptionsBase {
   public boolean discardAnalysisCache;
 
   @Option(
+      name = "allow_analysis_cache_discard",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
+      help =
+          "If discarding the analysis cache due to a change in the build system, setting this"
+              + " option to false will cause bazel to exit, rather than continuing with the build."
+              + " This option has no effect when 'discard_analysis_cache' is also set.")
+  public boolean allowAnalysisCacheDiscards;
+
+  @Option(
     name = "max_config_changes_to_show",
     defaultValue = "3",
     documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -50,6 +62,18 @@ public class AnalysisOptions extends OptionsBase {
         + "If the number given is -1, all changed options will be displayed."
   )
   public int maxConfigChangesToShow;
+
+  @Option(
+      name = "skip_incompatible_explicit_targets",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Skip incompatible targets that are explicitly listed on the command line. "
+              + "By default, building such targets results in an error but they are "
+              + "silently skipped when this option is enabled. See: "
+              + "https://bazel.build/extending/platforms#skipping-incompatible-targets")
+  public boolean skipIncompatibleExplicitTargets;
 
   @Option(
       name = "experimental_extra_action_filter",
@@ -82,27 +106,8 @@ public class AnalysisOptions extends OptionsBase {
   public long versionWindowForDirtyNodeGc;
 
   @Option(
-      name = "experimental_skyframe_prepare_analysis",
-      deprecationWarning = "This flag is a no-op and will be deleted in a future release.",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "Deprecated. No-op.")
-  public boolean skyframePrepareAnalysis;
-
-  @Option(
-      name = "experimental_strict_conflict_checks",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "Check for action prefix file path conflicts, regardless of action-specific overrides.")
-  public boolean strictConflictChecks;
-
-  @Option(
       name = "experimental_skyframe_cpu_heavy_skykeys_thread_pool_size",
-      defaultValue = "HOST_CPUS",
+      defaultValue = ResourceConverter.HOST_CPUS_KEYWORD,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {
@@ -110,16 +115,21 @@ public class AnalysisOptions extends OptionsBase {
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
       },
       help =
-          "If set to a positive value (e.g. \"HOST_CPUS*1.5\"), Skyframe will run the"
-              + " loading/analysis phase with 2 separate thread pools: 1 with <value> threads"
-              + " (ideally close to HOST_CPUS) reserved for CPU-heavy SkyKeys, and 1 \"standard\""
+          "If set to a positive value (e.g. \""
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + "*1.5\"),"
+              + " Skyframe will run the loading/analysis phase with 2 separate thread pools:"
+              + " 1 with <value> threads (ideally close to "
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + ")"
+              + " reserved for CPU-heavy SkyKeys, and 1 \"standard\""
               + " thread pool (whose size is controlled by --loading_phase_threads) for the rest.",
       converter = CpuResourceConverter.class)
   public int cpuHeavySkyKeysThreadPoolSize;
 
   @Option(
       name = "experimental_oom_sensitive_skyfunctions_semaphore_size",
-      defaultValue = "HOST_CPUS",
+      defaultValue = ResourceConverter.HOST_CPUS_KEYWORD,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {
@@ -129,7 +139,9 @@ public class AnalysisOptions extends OptionsBase {
       help =
           "Sets the size of the semaphore used to prevent SkyFunctions with large peak memory"
               + " requirement from OOM-ing blaze. A value of 0 indicates that no semaphore should"
-              + " be used. Example value: \"HOST_CPUS*0.5\".",
+              + " be used. Example value: \""
+              + ResourceConverter.HOST_CPUS_KEYWORD
+              + "*0.5\".",
       converter = CpuResourceConverter.class)
   public int oomSensitiveSkyFunctionsSemaphoreSize;
 }

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateExpander;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import java.util.ArrayList;
 import java.util.List;
@@ -115,10 +116,8 @@ public final class Expander {
    * Expands the given value string, tokenizes it, and then adds it to the given list. The attribute
    * name is only used for error reporting.
    */
-  public void tokenizeAndExpandMakeVars(
-      List<String> result,
-      String attributeName,
-      String value) {
+  public void tokenizeAndExpandMakeVars(List<String> result, String attributeName, String value)
+      throws InterruptedException {
     expandValue(result, attributeName, value, /* shouldTokenize */ true);
   }
 
@@ -138,24 +137,22 @@ public final class Expander {
   }
 
   /**
-   * Returns the string "expression" after expanding all embedded references to
-   * "Make" variables.  If any errors are encountered, they are reported, and
-   * "expression" is returned unchanged.
+   * Returns the string "expression" after expanding all embedded references to "Make" variables. If
+   * any errors are encountered, they are reported, and "expression" is returned unchanged.
    *
    * @param attributeName the name of the attribute
    * @return the expansion of "expression".
    */
-  public String expand(String attributeName) {
+  public String expand(String attributeName) throws InterruptedException {
     return expand(attributeName, ruleContext.attributes().get(attributeName, Type.STRING));
   }
 
   /**
-   * Returns the string "expression" after expanding all embedded references to
-   * "Make" variables.  If any errors are encountered, they are reported, and
-   * "expression" is returned unchanged.
+   * Returns the string "expression" after expanding all embedded references to "Make" variables. If
+   * any errors are encountered, they are reported, and "expression" is returned unchanged.
    *
-   * @param attributeName the name of the attribute from which "expression" comes;
-   *     used for error reporting.
+   * @param attributeName the name of the attribute from which "expression" comes; used for error
+   *     reporting.
    * @param expression the string to expand.
    * @return the expansion of "expression".
    */
@@ -189,11 +186,11 @@ public final class Expander {
 
   /**
    * Obtains the value of the attribute, expands all values, and returns the resulting list. If the
-   * attribute does not exist or is not of type {@link Type#STRING_LIST}, then this method throws
+   * attribute does not exist or is not of type {@link Types.STRING_LIST}, then this method throws
    * an error.
    */
   public ImmutableList<String> list(String attrName) {
-    return list(attrName, ruleContext.attributes().get(attrName, Type.STRING_LIST));
+    return list(attrName, ruleContext.attributes().get(attrName, Types.STRING_LIST));
   }
 
   /**
@@ -205,17 +202,18 @@ public final class Expander {
 
   /**
    * Obtains the value of the attribute, expands, and tokenizes all values. If the attribute does
-   * not exist or is not of type {@link Type#STRING_LIST}, then this method throws an error.
+   * not exist or is not of type {@link Types.STRING_LIST}, then this method throws an error.
    */
-  public ImmutableList<String> tokenized(String attrName) {
-    return tokenized(attrName, ruleContext.attributes().get(attrName, Type.STRING_LIST));
+  public ImmutableList<String> tokenized(String attrName) throws InterruptedException {
+    return tokenized(attrName, ruleContext.attributes().get(attrName, Types.STRING_LIST));
   }
 
   /**
    * Expands all the strings in the given list, and tokenizes them after expansion. The attribute
    * name is only used for error reporting.
    */
-  public ImmutableList<String> tokenized(String attrName, List<String> values) {
+  public ImmutableList<String> tokenized(String attrName, List<String> values)
+      throws InterruptedException {
     return expandAndTokenizeList(attrName, values, /* shouldTokenize */ true);
   }
 
@@ -229,7 +227,8 @@ public final class Expander {
    * @return the expansion of "expression", or null.
    */
   @Nullable
-  public String expandSingleMakeVariable(String attrName, String expression) {
+  public String expandSingleMakeVariable(String attrName, String expression)
+      throws InterruptedException {
     try {
       return TemplateExpander.expandSingleVariable(expression, templateContext);
     } catch (ExpansionException e) {

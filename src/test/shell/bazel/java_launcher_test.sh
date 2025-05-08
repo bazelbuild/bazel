@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -14,10 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if ! type rlocation &> /dev/null; then
-  # rlocation is a function defined in testenv.sh
-  exit 1
-fi
+# --- begin runfiles.bash initialization v3 ---
+# Copy-pasted from the Bazel Bash runfiles library v3.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v3 ---
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
@@ -28,6 +34,7 @@ add_to_bazelrc "build --package_path=%workspace%"
 
 
 function test_java_launcher_classpath_limit() {
+  add_rules_java "MODULE.bazel"
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p $pkg/java/hello || fail "Expected success"
   cat > $pkg/java/hello/HelloLib.java <<EOF
@@ -47,6 +54,9 @@ public class Hello {
 }
 EOF
   cat > $pkg/java/hello/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_library(
     name = "hellolib",
     srcs = ["HelloLib.java"],

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.LOADS;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,10 +32,11 @@ import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
+import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
@@ -67,6 +69,7 @@ import net.starlark.java.eval.Starlark;
 /** Syncs all repositories specified in the workspace file */
 @Command(
     name = SyncCommand.NAME,
+    buildPhase = LOADS,
     options = {
       PackageOptions.class,
       KeepGoingOption.class,
@@ -92,6 +95,14 @@ public final class SyncCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+    if (BuildLanguageOptions.ENABLE_BZLMOD.startsWith("+")) {
+      // TODO: remove dead code.
+      String errorMessage = "The sync command has been removed; use `bazel fetch --all` instead.";
+      env.getReporter().handle(Event.error(errorMessage));
+      return blazeCommandResultWithNoBuildReport(
+          env, ExitCode.ANALYSIS_FAILURE, Code.REPOSITORY_FETCH_ERRORS, errorMessage);
+    }
+
     try {
       env.getReporter()
           .post(
@@ -109,14 +120,13 @@ public final class SyncCommand implements BlazeCommand {
         skyframeExecutor.injectExtraPrecomputedValues(
             ImmutableList.of(
                 PrecomputedValue.injected(
-                    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_CONFIGURING,
+                    RepositoryDelegatorFunction.FORCE_FETCH_CONFIGURE,
                     env.getCommandId().toString())));
       } else {
         skyframeExecutor.injectExtraPrecomputedValues(
             ImmutableList.of(
                 PrecomputedValue.injected(
-                    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
-                    env.getCommandId().toString())));
+                    RepositoryDelegatorFunction.FORCE_FETCH, env.getCommandId().toString())));
       }
 
       // Obtain the key for the top-level WORKSPACE file
@@ -124,7 +134,7 @@ public final class SyncCommand implements BlazeCommand {
       LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
-              .setNumThreads(threadsOption.threads)
+              .setParallelism(threadsOption.threads)
               .setEventHandler(env.getReporter())
               .build();
       EvaluationResult<SkyValue> packageLookupValue =
@@ -218,11 +228,13 @@ public final class SyncCommand implements BlazeCommand {
             "Repository fetch failure.");
       }
     } catch (InterruptedException e) {
+      String errorMessage = "Sync interrupted: " + e.getMessage();
+      env.getReporter().handle(Event.error(errorMessage));
       reportNoBuildRequestFinished(env, ExitCode.INTERRUPTED);
-      BlazeCommandResult.detailedExitCode(
-          InterruptedFailureDetails.detailedExitCode(e.getMessage()));
+      return BlazeCommandResult.detailedExitCode(
+          InterruptedFailureDetails.detailedExitCode(errorMessage));
     } catch (AbruptExitException e) {
-      env.getReporter().handle(Event.error(e.getMessage()));
+      env.getReporter().handle(Event.error("Unknown error: " + e.getMessage()));
       reportNoBuildRequestFinished(env, ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
     }
@@ -268,11 +280,11 @@ public final class SyncCommand implements BlazeCommand {
       @Override
       public Object getResolvedInformation(XattrProvider xattrProvider) {
         return ImmutableMap.<String, Object>builder()
-            .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, "bind")
+            .put(ResolvedFileValue.ORIGINAL_RULE_CLASS, "bind")
             .put(
-                ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
+                ResolvedFileValue.ORIGINAL_ATTRIBUTES,
                 ImmutableMap.<String, Object>of("name", name, "actual", actual))
-            .put(ResolvedHashesFunction.NATIVE, nativeCommand)
+            .put(ResolvedFileValue.NATIVE, nativeCommand)
             .buildOrThrow();
       }
     };
@@ -300,9 +312,9 @@ public final class SyncCommand implements BlazeCommand {
       @Override
       public Object getResolvedInformation(XattrProvider xattrProvider) {
         return ImmutableMap.<String, Object>builder()
-            .put(ResolvedHashesFunction.ORIGINAL_RULE_CLASS, ruleName)
+            .put(ResolvedFileValue.ORIGINAL_RULE_CLASS, ruleName)
             .put(
-                ResolvedHashesFunction.ORIGINAL_ATTRIBUTES,
+                ResolvedFileValue.ORIGINAL_ATTRIBUTES,
                 // The original attributes are a bit of a problem, as the arguments to
                 // the rule do not at all look like those of a repository rule:
                 // they're all positional, and, in particular, there is no keyword argument
@@ -313,7 +325,7 @@ public final class SyncCommand implements BlazeCommand {
                 // that rule. Note that the original arguments are always ignored when bazel uses
                 // a resolved file instead of a workspace file.
                 ImmutableMap.<String, Object>of("name", name, "*args", args))
-            .put(ResolvedHashesFunction.NATIVE, nativeCommand)
+            .put(ResolvedFileValue.NATIVE, nativeCommand)
             .build();
       }
     };

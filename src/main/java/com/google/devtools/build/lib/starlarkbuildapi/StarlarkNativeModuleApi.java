@@ -15,6 +15,12 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -29,7 +35,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Interface for a module with native rule and package helper functions. */
 @StarlarkBuiltin(
     name = "native",
-    category = DocCategory.BUILTIN,
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc =
         "A built-in module to support native rules and other package helper functions. "
             + "All native rules appear as functions in this module, e.g. "
@@ -38,6 +44,8 @@ import net.starlark.java.eval.StarlarkValue;
             + "(i.e. for macros, not for rule implementations). Attributes will ignore "
             + "<code>None</code> values, and treat them as if the attribute was unset.<br>"
             + "The following functions are also available:")
+// Methods in this class are also available at the top level in BUILD files.
+@GlobalMethods(environment = Environment.BUILD)
 public interface StarlarkNativeModuleApi extends StarlarkValue {
 
   @StarlarkMethod(
@@ -99,8 +107,6 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + " <code>x</code> supporting dict-like iteration, <code>len(x)</code>, <code>name in"
               + " x</code>, <code>x[name]</code>, <code>x.get(name)</code>, <code>x.items()</code>,"
               + " <code>x.keys()</code>, and <code>x.values()</code>." //
-              + "<p>If the <code>--noincompatible_existing_rules_immutable_view</code> flag is set,"
-              + " instead returns a new mutable dict with the same content." //
               + "<p>The result contains an entry for each attribute, with the exception of private"
               + " ones (whose names do not start with a letter) and a few unrepresentable legacy"
               + " attribute types. In addition, the dict contains entries for the rule instance's"
@@ -119,10 +125,14 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + " whose default value is computed are excluded from the result. (Computed defaults"
               + " cannot be computed until the analysis phase.).</li>" //
               + "</ul>" //
-              + "<p>If possible, avoid using this function. It makes BUILD files brittle and"
-              + " order-dependent. Also, beware that it differs subtly from the two"
-              + " other conversions of rule attribute values from internal form to Starlark: one"
-              + " used by computed defaults, the other used by <code>ctx.attr.foo</code>.",
+              + "<p>If possible, use this function only in <a"
+              + " href=\"https://bazel.build/extending/macros#finalizers\">implementation functions"
+              + " of rule finalizer symbolic macros</a>. Use of this function in other contexts is"
+              + " not recommened, and will be disabled in a future Bazel release; it makes"
+              + " <code>BUILD</code> files brittle and order-dependent. Also, beware that it"
+              + " differs subtly from the two other conversions of rule attribute values from"
+              + " internal form to Starlark: one used by computed defaults, the other used by"
+              + " <code>ctx.attr.foo</code>.",
       parameters = {@Param(name = "name", doc = "The name of the target.")},
       useStarlarkThread = true)
   Object existingRule(String name, StarlarkThread thread) throws EvalException;
@@ -138,12 +148,11 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + " <code>x</code> supporting dict-like iteration, <code>len(x)</code>, <code>name in"
               + " x</code>, <code>x[name]</code>, <code>x.get(name)</code>, <code>x.items()</code>,"
               + " <code>x.keys()</code>, and <code>x.values()</code>." //
-              + "<p>If the <code>--noincompatible_existing_rules_immutable_view</code> flag is set,"
-              + " instead returns a new mutable dict with the same content." //
-              + "<p><em>Note: If possible, avoid using this function. It makes BUILD files brittle"
-              + " and order-dependent. Furthermore, if the"
-              + " </em><code>--noincompatible_existing_rules_immutable_view</code><em> flag is set,"
-              + " this function may be very expensive, especially if called within a loop.</em>",
+              + "<p>If possible, use this function only in <a"
+              + " href=\"https://bazel.build/extending/macros#finalizers\">implementation functions"
+              + " of rule finalizer symbolic macros</a>. Use of this function in other contexts is"
+              + " not recommened, and will be disabled in a future Bazel release; it makes"
+              + " <code>BUILD</code> files brittle and order-dependent.",
       useStarlarkThread = true)
   Object existingRules(StarlarkThread thread) throws EvalException;
 
@@ -220,26 +229,105 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "package_name",
       doc =
-          "The name of the package being evaluated. "
+          "The name of the package being evaluated, without the repository name. "
               + "For example, in the BUILD file <code>some/package/BUILD</code>, its value "
               + "will be <code>some/package</code>. "
               + "If the BUILD file calls a function defined in a .bzl file, "
-              + "<code>package_name()</code> will match the caller BUILD file package. "
-              + "This function is equivalent to the deprecated variable <code>PACKAGE_NAME</code>.",
+              + "<code>package_name()</code> will match the caller BUILD file package.",
       useStarlarkThread = true)
   String packageName(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
+      name = "package_default_visibility",
+      doc =
+          "Returns the default visibility of the package being evaluated. This is the value of the"
+              + " <code>default_visibility</code> parameter of <code>package()</code>, extended to"
+              + " include the package itself.",
+      useStarlarkThread = true)
+  List<Label> packageDefaultVisibility(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "repository_name",
       doc =
-          "The name of the repository the rule or build extension is called from. "
-              + "For example, in packages that are called into existence by the WORKSPACE stanza "
-              + "<code>local_repository(name='local', path=...)</code> it will be set to "
-              + "<code>@local</code>. In packages in the main repository, it will be set to "
-              + "<code>@</code>. This function is equivalent to the deprecated variable "
-              + "<code>REPOSITORY_NAME</code>.",
+          "<strong>Deprecated.</strong> Prefer to use <a"
+              + " href=\"#repo_name\"><code>repo_name</code></a> instead, which doesn't contain the"
+              + " spurious leading at-sign, but behaves identically otherwise.<p>The canonical name"
+              + " of the repository containing the package currently being evaluated, with a single"
+              + " at-sign (<code>@</code>) prefixed. For example, in packages that are called into"
+              + " existence by the WORKSPACE stanza <code>local_repository(name='local',"
+              + " path=...)</code> it will be set to <code>@local</code>. In packages in the main"
+              + " repository, it will be set to <code>@</code>.",
+      enableOnlyWithFlag = BuildLanguageOptions.INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS,
       useStarlarkThread = true)
+  @Deprecated
   String repositoryName(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "repo_name",
+      doc =
+          "The canonical name of the repository containing the package currently being evaluated,"
+              + " with no leading at-signs.",
+      useStarlarkThread = true)
+  String repoName(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "package_relative_label",
+      doc =
+          "Converts the input string into a <a href='../builtins/Label.html'>Label</a> object, in"
+              + " the context of the package currently being initialized (that is, the"
+              + " <code>BUILD</code> file for which the current macro is executing). If the input"
+              + " is already a <code>Label</code>, it is returned unchanged.<p>This function may"
+              + " only be called while evaluating a BUILD file and the macros it directly or"
+              + " indirectly calls; it may not be called in (for instance) a rule implementation"
+              + " function. <p>The result of this function is the same <code>Label</code> value as"
+              + " would be produced by passing the given string to a label-valued attribute of a"
+              + " target declared in the BUILD file. <p><i>Usage note:</i> The difference between"
+              + " this function and <a href='../builtins/Label.html#Label'>Label()</a></code> is"
+              + " that <code>Label()</code> uses the context of the package of the"
+              + " <code>.bzl</code> file that called it, not the package of the <code>BUILD</code>"
+              + " file. Use <code>Label()</code> when you need to refer to a fixed target that is"
+              + " hardcoded into the macro, such as a compiler. Use"
+              + " <code>package_relative_label()</code> when you need to normalize a label string"
+              + " supplied by the BUILD file to a <code>Label</code> object. (There is no way to"
+              + " convert a string to a <code>Label</code> in the context of a package other than"
+              + " the BUILD file or the calling .bzl file. For that reason, outer macros should"
+              + " always prefer to pass Label objects to inner macros rather than label strings.)",
+      parameters = {
+        @Param(
+            name = "input",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = Label.class)},
+            doc =
+                "The input label string or Label object. If a Label object is passed, it's"
+                    + " returned as is.")
+      },
+      useStarlarkThread = true)
+  Label packageRelativeLabel(Object input, StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "module_name",
+      doc =
+          "The name of the Bazel module associated with the repo this package is in. If this"
+              + " package is from a repo defined in WORKSPACE instead of MODULE.bazel, this is"
+              + " empty. For repos generated by module extensions, this is the name of the module"
+              + " hosting the extension. It's the same as the <code>module.name</code> field seen"
+              + " in <code>module_ctx.modules</code>.",
+      allowReturnNones = true,
+      useStarlarkThread = true)
+  @Nullable
+  String moduleName(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "module_version",
+      doc =
+          "The version of the Bazel module associated with the repo this package is in. If this"
+              + " package is from a repo defined in WORKSPACE instead of MODULE.bazel, this is"
+              + " empty. For repos generated by module extensions, this is the version of the"
+              + " module hosting the extension. It's the same as the <code>module.version</code>"
+              + " field seen in <code>module_ctx.modules</code>.",
+      allowReturnNones = true,
+      useStarlarkThread = true)
+  @Nullable
+  String moduleVersion(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "subpackages",

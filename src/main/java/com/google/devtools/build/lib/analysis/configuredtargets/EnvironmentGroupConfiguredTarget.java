@@ -15,11 +15,12 @@
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.analysis.TargetContext;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
 /**
@@ -27,15 +28,12 @@ import javax.annotation.Nullable;
  * groups are not really first-class Targets.
  */
 @Immutable
+@AutoCodec
 public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTarget {
 
-  private EnvironmentGroupConfiguredTarget(Label label) {
-    super(label, null);
-  }
-
-  public EnvironmentGroupConfiguredTarget(TargetContext targetContext) {
-    this(targetContext.getLabel());
-    Preconditions.checkState(targetContext.getConfiguration() == null, targetContext);
+  public EnvironmentGroupConfiguredTarget(ActionLookupKey actionLookupKey) {
+    super(actionLookupKey, VisibilityProvider.PRIVATE_VISIBILITY);
+    Preconditions.checkState(actionLookupKey.getConfigurationKey() == null, actionLookupKey);
   }
 
   @Override
@@ -48,5 +46,12 @@ public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTa
   @Nullable
   protected Object rawGetStarlarkProvider(String providerKey) {
     return null;
+  }
+
+  @Override
+  public boolean isCreatedInSymbolicMacro() {
+    // Correct, since environment_group isn't allowed in symbolic macros. But that doesn't matter,
+    // since we don't expect this to be called.
+    return false;
   }
 }

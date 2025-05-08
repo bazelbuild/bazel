@@ -13,18 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventstream;
 
-import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileCompression;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 /** Event reporting on statistics about the build. */
@@ -32,19 +30,21 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** These values are posted as byte strings to the BEP. */
-  private final Collection<Pair<String, ByteString>> directValues;
+  private final List<Pair<String, ByteString>> directValues;
+
   /** These values are posted as Future URIs to the BEP. */
-  private final Collection<Pair<String, ListenableFuture<String>>> futureUris;
+  private final List<Pair<String, ListenableFuture<String>>> futureUris;
+
   /**
    * These values are local files that are uploaded if required, and turned into URIs as part of the
    * process.
    */
-  private final Collection<LogFileEntry> logFiles;
+  private final List<LogFileEntry> logFiles;
 
   public BuildToolLogs(
-      Collection<Pair<String, ByteString>> directValues,
-      Collection<Pair<String, ListenableFuture<String>>> futureUris,
-      Collection<LogFileEntry> logFiles) {
+      List<Pair<String, ByteString>> directValues,
+      List<Pair<String, ListenableFuture<String>>> futureUris,
+      List<LogFileEntry> logFiles) {
     this.directValues = directValues;
     this.futureUris = futureUris;
     this.logFiles = logFiles;
@@ -56,26 +56,18 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
   }
 
   @Override
-  public Collection<BuildEventId> getChildrenEvents() {
+  public ImmutableList<BuildEventId> getChildrenEvents() {
     return ImmutableList.of();
   }
 
   @Override
-  public Collection<LocalFile> referencedLocalFiles() {
-    ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
-    for (LogFileEntry logFile : logFiles) {
-      localFiles.add(logFile.toLocalFile());
-    }
-    return localFiles.build();
+  public List<LocalFile> referencedLocalFiles() {
+    return Lists.transform(logFiles, LogFileEntry::localFile);
   }
 
   @Override
-  public Collection<ListenableFuture<String>> remoteUploads() {
-    ImmutableList.Builder<ListenableFuture<String>> remoteUploads = ImmutableList.builder();
-    for (Pair<String, ListenableFuture<String>> uploadPair : futureUris) {
-      remoteUploads.add(uploadPair.getSecond());
-    }
-    return remoteUploads.build();
+  public List<ListenableFuture<String>> remoteUploads() {
+    return Lists.transform(futureUris, Pair::getSecond);
   }
 
   @Override
@@ -108,7 +100,7 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
       }
     }
     for (LogFileEntry logFile : logFiles) {
-      String uri = converters.pathConverter().apply(logFile.localPath);
+      String uri = converters.pathConverter().apply(logFile.localFile.path);
       if (uri != null) {
         toolLogs.addLog(
             BuildEventStreamProtos.File.newBuilder().setName(logFile.name).setUri(uri).build());
@@ -123,44 +115,5 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
   }
 
   /** A local log file. */
-  public static class LogFileEntry {
-    private final String name;
-    private final Path localPath;
-    private final LocalFileType fileType;
-    private final LocalFileCompression compression;
-
-    public LogFileEntry(
-        String name, Path localPath, LocalFileType fileType, LocalFileCompression compression) {
-      this.name = name;
-      this.localPath = localPath;
-      this.fileType = fileType;
-      this.compression = compression;
-    }
-
-    public String getName() {
-      return name;
-    }
-
-    public Path getLocalPath() {
-      return localPath;
-    }
-
-    public LocalFileCompression getCompression() {
-      return compression;
-    }
-
-    LocalFile toLocalFile() {
-      return new LocalFile(
-          localPath, fileType, compression, /*artifact=*/ null, /*artifactMetadata=*/ null);
-    }
-
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("name", name)
-          .add("localPath", localPath)
-          .add("fileType", fileType)
-          .toString();
-    }
-  }
+  public record LogFileEntry(String name, LocalFile localFile) {}
 }

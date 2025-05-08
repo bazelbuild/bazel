@@ -19,15 +19,81 @@ package com.google.devtools.build.lib.actions;
  * <p>This implementation is used in command line item expansions that use formatting. We use a
  * custom implementation to improve performance and avoid GC.
  */
-public class SingleStringArgFormatter {
+public final class SingleStringArgFormatter {
+
+  private SingleStringArgFormatter() {}
 
   /**
-   * Returns true if the format string contains a single '%s'.
+   * Returns true if the format string is a valid single-arg formatter.
    *
-   * <p>%% escape sequences are supported.
+   * <p>Requirements are:
+   *
+   * <ul>
+   *   <li>Contains exactly one '%s'.
+   *   <li>Each occurrence of '%' is either '%s' or '%%' (escape sequence).
+   * </ul>
    */
   public static boolean isValid(String formatStr) {
-    return onlyOccurrence(formatStr, formatStr.length()) != -1;
+    return formattedLengthOrInvalid(formatStr) != -1;
+  }
+
+  /**
+   * Calculates the format specifier's contribution to the length of a string created by calling
+   * {@link #format}, without actually applying any formatting.
+   *
+   * <p>For a typical format specifier with no escape characters, returns {@code formatStr.length()
+   * - 2}, since the {@code %s} gets replaced during formatting. The result may differ if the format
+   * specifier contains escape characters.
+   *
+   * <p>For all valid format specifiers, the following holds:
+   *
+   * <pre>{@code
+   * format(formatStr, subject).length() == formatSpecifierLength(formatStr) + subject.length()
+   * }</pre>
+   *
+   * @throws IllegalArgumentException if the format string is invalid.
+   */
+  public static int formattedLength(String formatStr) {
+    int length = formattedLengthOrInvalid(formatStr);
+    if (length == -1) {
+      throw invalidFormatString(formatStr);
+    }
+    return length;
+  }
+
+  /** Returns the formatted length or {@code -1} if invalid. */
+  private static int formattedLengthOrInvalid(String formatStr) {
+    int length = 0;
+    int n = formatStr.length();
+    int idx = 0;
+    boolean found = false;
+
+    while (idx < n) {
+      int next = formatStr.indexOf('%', idx);
+      if (next == -1) {
+        length += n - idx;
+        break;
+      }
+      if (next == n - 1) {
+        return -1; // Terminating '%'.
+      }
+      switch (formatStr.charAt(next + 1)) {
+        case 's' -> {
+          if (found) {
+            return -1; // Multiple '%s'.
+          }
+          length += next - idx;
+          found = true;
+        }
+        case '%' -> length += next + 1 - idx;
+        default -> {
+          return -1; // Illegal sequence.
+        }
+      }
+      idx = next + 2;
+    }
+
+    return found ? length : -1;
   }
 
   /**
@@ -39,87 +105,42 @@ public class SingleStringArgFormatter {
    * @throws IllegalArgumentException if the format string is invalid.
    */
   public static String format(String formatStr, String subject) {
+    StringBuilder sb = new StringBuilder(formatStr.length() + subject.length() - 2);
     int n = formatStr.length();
-    int idx0 = 0;
-    int subjects = 0;
-    StringBuilder sb = new StringBuilder(n + subject.length() - 2);
+    int idx = 0;
+    boolean found = false;
 
-    while (idx0 < n) {
-      int idx = formatStr.indexOf('%', idx0);
-      if (idx == -1) {
-        break;
-      }
-      if ((idx + 1) < n) {
-        char c = formatStr.charAt(idx + 1);
-        if (c == 's') {
-          sb.append(formatStr, idx0, idx).append(subject);
-          subjects++;
-        } else if (c == '%') {
-          sb.append(formatStr, idx0, idx + 1);
-        } else {
-          // Illegal sequence found
-          throw new IllegalArgumentException(
-              "Expected format string with single '%s', found: " + formatStr);
-        }
-        idx0 = idx + 2;
-      } else {
-        // Terminating '%' found, illegal
-        throw new IllegalArgumentException(
-            "Expected format string with single '%s', found: " + formatStr);
-      }
-    }
-    if (subjects != 1) {
-      throw new IllegalArgumentException(
-          "Expected format string with single '%s', found: " + formatStr);
-    }
-    return sb.append(formatStr, idx0, n).toString();
-  }
-
-  /*
-   * Returns the index of the only occurrence of %s. Skips any %%. Returns -1 if {@code formatStr}
-   * is malformed.
-   */
-  private static int onlyOccurrence(String formatStr, int n) {
-    int idx = nextOccurrence(formatStr, n, 0);
-    if (idx < 0) {
-      return -1;
-    }
-    // Only one occurrence please
-    if (nextOccurrence(formatStr, n, idx + 2) != -1) {
-      return -1;
-    }
-    return idx;
-  }
-
-  /**
-   * Returns next occurrence of %s. Skips any %%.
-   *
-   * @return
-   *     <li>[0-n]: Index of next %s
-   *     <li>-1: No %s found until end of string
-   *     <li>-2: Illegal sequence found, eg. %f
-   */
-  private static int nextOccurrence(String formatStr, int n, int idx) {
     while (idx < n) {
-      idx = formatStr.indexOf('%', idx);
-      if (idx == -1) {
+      int next = formatStr.indexOf('%', idx);
+      if (next == -1) {
+        sb.append(formatStr, idx, n);
         break;
       }
-      if ((idx + 1) < n) {
-        char c = formatStr.charAt(idx + 1);
-        if (c == 's') {
-          return idx;
-        }
-        if (c != '%') {
-          // Illegal sequence found
-          return -2;
-        }
-        idx += 2;
-      } else {
-        // Terminating '%' found, illegal
-        return -2;
+      if (next == n - 1) {
+        throw invalidFormatString(formatStr); // Terminating '%'.
       }
+      switch (formatStr.charAt(next + 1)) {
+        case 's' -> {
+          if (found) {
+            throw invalidFormatString(formatStr); // Multiple '%s'.
+          }
+          sb.append(formatStr, idx, next).append(subject);
+          found = true;
+        }
+        case '%' -> sb.append(formatStr, idx, next + 1);
+        default -> throw invalidFormatString(formatStr); // Illegal sequence.
+      }
+      idx = next + 2;
     }
-    return -1;
+
+    if (!found) {
+      throw invalidFormatString(formatStr); // No '%s'.
+    }
+    return sb.toString();
+  }
+
+  private static IllegalArgumentException invalidFormatString(String formatStr) {
+    return new IllegalArgumentException(
+        "Expected format string with single '%s', found: " + formatStr);
   }
 }

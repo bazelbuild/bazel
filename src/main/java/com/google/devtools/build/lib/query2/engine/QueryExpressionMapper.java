@@ -56,19 +56,15 @@ public abstract class QueryExpressionMapper<C>
     ImmutableList.Builder<Argument> mappedArgumentBuilder = ImmutableList.builder();
     for (Argument argument : functionExpression.getArgs()) {
       switch (argument.getType()) {
-        case EXPRESSION:
-          {
-            QueryExpression expr = argument.getExpression();
-            QueryExpression mappedExpression = expr.accept(this, context);
-            mappedArgumentBuilder.add(Argument.of(mappedExpression));
-            if (expr != mappedExpression) {
-              changed = true;
-            }
-            break;
+        case EXPRESSION -> {
+          QueryExpression expr = argument.getExpression();
+          QueryExpression mappedExpression = expr.accept(this, context);
+          mappedArgumentBuilder.add(Argument.of(mappedExpression));
+          if (expr != mappedExpression) {
+            changed = true;
           }
-        default:
-          mappedArgumentBuilder.add(argument);
-          break;
+        }
+        default -> mappedArgumentBuilder.add(argument);
       }
     }
     return changed

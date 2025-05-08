@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -28,12 +31,55 @@ import com.google.protobuf.TextFormat;
 import java.util.List;
 
 /**
- * Common test code to test that {@code CppLinkAction} is populated with the correct build
- * variables.
- **/
+ * Common test code to test that C++ linking action is populated with the correct build variables.
+ */
 public class LinkBuildVariablesTestCase extends BuildViewTestCase {
+  public enum LinkBuildVariables {
+    /** Entries in the linker search path (usually set by -L flag) */
+    LIBRARY_SEARCH_DIRECTORIES("library_search_directories"),
+    /** Flags providing files to link as inputs in the linker invocation */
+    LIBRARIES_TO_LINK("libraries_to_link"),
+    /** Location of linker param file created by bazel to overcome command line length limit */
+    LINKER_PARAM_FILE("linker_param_file"),
+    /** execpath of the output of the linker. */
+    OUTPUT_EXECPATH("output_execpath"),
+    /** "yes"|"no" depending on whether interface library should be generated. */
+    GENERATE_INTERFACE_LIBRARY("generate_interface_library"),
+    /** Path to the interface library builder tool. */
+    INTERFACE_LIBRARY_BUILDER("interface_library_builder_path"),
+    /** Input for the interface library ifso builder tool. */
+    INTERFACE_LIBRARY_INPUT("interface_library_input_path"),
+    /** Path where to generate interface library using the ifso builder tool. */
+    INTERFACE_LIBRARY_OUTPUT("interface_library_output_path"),
+    /** Linker flags coming from the --linkopt or linkopts attribute. */
+    USER_LINK_FLAGS("user_link_flags"),
+    /** A build variable giving linkstamp paths. */
+    LINKSTAMP_PATHS("linkstamp_paths"),
+    /** Presence of this variable indicates that PIC code should be generated. */
+    FORCE_PIC("force_pic"),
+    /** Presence of this variable indicates that the debug symbols should be stripped. */
+    STRIP_DEBUG_SYMBOLS("strip_debug_symbols"),
+    /** Truthy when current action is a cc_test linking action, falsey otherwise. */
+    IS_CC_TEST("is_cc_test"),
+    /**
+     * Presence of this variable indicates that files were compiled with fission (debug info is in
+     * .dwo files instead of .o files and linker needs to know).
+     */
+    IS_USING_FISSION("is_using_fission");
 
-  protected CppLinkAction getCppLinkAction(ConfiguredTarget target, Link.LinkTargetType type) {
+    /** Path to the fdo instrument. */
+    private final String variableName;
+
+    LinkBuildVariables(String variableName) {
+      this.variableName = variableName;
+    }
+
+    public String getVariableName() {
+      return variableName;
+    }
+  }
+
+  protected SpawnAction getCppLinkAction(ConfiguredTarget target, Link.LinkTargetType type) {
     Artifact linkerOutput = null;
     switch (type) {
       case STATIC_LIBRARY:
@@ -55,15 +101,22 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
         break;
       default:
         throw new IllegalArgumentException(
-            String.format("Cannot get CppLinkAction for link type %s", type));
+            String.format("Cannot get SpawnAction for link type %s", type));
     }
-    return (CppLinkAction) getGeneratingAction(linkerOutput);
+    return (SpawnAction) getGeneratingAction(linkerOutput);
+  }
+
+  protected LinkCommandLine getLinkCommandLine(SpawnAction cppLinkAction) {
+    var commandLines = cppLinkAction.getCommandLines().unpack();
+    assertThat(commandLines).hasSize(2);
+    assertThat(commandLines.get(1).commandLine).isInstanceOf(LinkCommandLine.class);
+    return (LinkCommandLine) commandLines.get(1).commandLine;
   }
 
   /** Returns active build variables for a link action of given type for given target. */
   protected CcToolchainVariables getLinkBuildVariables(
       ConfiguredTarget target, Link.LinkTargetType type) {
-    return getCppLinkAction(target, type).getLinkCommandLine().getBuildVariables();
+    return getLinkCommandLine(getCppLinkAction(target, type)).getBuildVariables();
   }
 
   /** Creates a CcToolchainFeatures from features described in the given toolchain fragment. */

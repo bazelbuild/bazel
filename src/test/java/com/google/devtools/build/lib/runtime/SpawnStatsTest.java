@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.actions.ActionResult;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import java.util.ArrayList;
 import org.junit.Before;
@@ -214,5 +215,27 @@ public final class SpawnStatsTest {
     }
     assertThat(SpawnStats.convertSummaryToString(stats.getSummary()))
         .isEqualTo("11 processes: 1 remote cache hit, 2 internal, 3 a, 2 b, 1 c, 2 z.");
+  }
+
+  private final SpawnResult rC =
+      new SpawnResult.Builder()
+          .setStatus(SpawnResult.Status.SUCCESS)
+          .setSpawnMetrics(SpawnMetrics.Builder.forExec(SpawnMetrics.ExecKind.OTHER).build())
+          .setRunnerName("fgh")
+          .build();
+
+  @Test
+  public void getExecKindDefined() {
+    ArrayList<SpawnResult> spawns = new ArrayList<>();
+    spawns.add(rC);
+    stats.countActionResult(ActionResult.create(spawns));
+    assertThat(stats.getExecKindFor("fgh")).isEqualTo(SpawnMetrics.ExecKind.OTHER.toString());
+  }
+
+  @Test
+  public void getExecKindNotDefined() {
+    var unused = stats.getSummary();
+    assertThat(stats.getExecKindFor("total")).isNull();
+    assertThat(stats.getExecKindFor("internal")).isNull();
   }
 }

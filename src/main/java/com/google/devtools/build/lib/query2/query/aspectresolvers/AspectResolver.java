@@ -13,15 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.aspectresolvers;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
-import java.util.Set;
 
 /** Utility class that determines additional dependencies of a target from its aspects. */
 public interface AspectResolver {
@@ -63,15 +64,15 @@ public interface AspectResolver {
   }
 
   /**
-   * Compute additional dependencies of target from aspects. This method may load the direct deps
-   * of target to determine their types. Returns map of attributes and corresponding label values.
+   * Compute additional dependencies of target from aspects. This method may load the direct deps of
+   * target to determine their types. Returns map of attributes and corresponding label values.
    */
-  ImmutableMultimap<Attribute, Label> computeAspectDependencies(Target target,
-      DependencyFilter dependencyFilter) throws InterruptedException;
+  ImmutableMap<Aspect, ImmutableMultimap<Attribute, Label>> computeAspectDependencies(
+      Target target, DependencyFilter dependencyFilter) throws InterruptedException;
 
   /**
    * Compute the labels of the BUILD Starlark files on which the results of the other two methods
    * depend for a target in the given package.
    */
-  Set<Label> computeBuildFileDependencies(Package pkg) throws InterruptedException;
+  Iterable<Label> computeBuildFileDependencies(Package pkg) throws InterruptedException;
 }

@@ -29,10 +29,7 @@ public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
 
   private ForkJoinQuiescingExecutor(ForkJoinPool forkJoinPool, ErrorClassifier errorClassifier) {
     super(
-        forkJoinPool,
-        /*shutdownOnCompletion=*/ true,
-        /*failFastOnException=*/ true,
-        errorClassifier);
+        forkJoinPool, ExecutorOwnership.PRIVATE, ExceptionHandlingMode.FAIL_FAST, errorClassifier);
   }
 
   /** Builder for {@link ForkJoinQuiescingExecutor}. */

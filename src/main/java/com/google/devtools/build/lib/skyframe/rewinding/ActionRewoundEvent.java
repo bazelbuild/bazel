@@ -22,7 +22,8 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
  */
 public final class ActionRewoundEvent implements Postable {
 
-  private final long relativeActionStartTime;
+  private final long relativeActionStartTimeNanos;
+  private final long relativeActionFinishTimeNanos;
   private final Action failedRewoundAction;
 
   /**
@@ -32,14 +33,23 @@ public final class ActionRewoundEvent implements Postable {
    * @param relativeActionStartTime a nanotime taken before action execution began
    * @param failedRewoundAction the failed action.
    */
-  public ActionRewoundEvent(long relativeActionStartTime, Action failedRewoundAction) {
-    this.relativeActionStartTime = relativeActionStartTime;
+  public ActionRewoundEvent(
+      long relativeActionStartTimeNanos,
+      long relativeActionFinishTimeNanos,
+      Action failedRewoundAction) {
+    this.relativeActionStartTimeNanos = relativeActionStartTimeNanos;
+    this.relativeActionFinishTimeNanos = relativeActionFinishTimeNanos;
     this.failedRewoundAction = failedRewoundAction;
   }
 
   /** Returns a nanotime taken before action execution began. */
-  public long getRelativeActionStartTime() {
-    return relativeActionStartTime;
+  public long getRelativeActionStartTimeNanos() {
+    return relativeActionStartTimeNanos;
+  }
+
+  /** Returns a nanotime taken after action execution finished. */
+  public long getRelativeActionFinishTimeNanos() {
+    return relativeActionFinishTimeNanos;
   }
 
   /** Returns the associated action. */

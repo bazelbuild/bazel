@@ -34,10 +34,13 @@
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
 
+#include "absl/base/log_severity.h"
+#include "absl/log/globals.h"
+#include "absl/log/initialize.h"
+
 namespace blaze {
 
 using std::map;
-using std::min;
 using std::string;
 using std::vector;
 
@@ -109,69 +112,6 @@ std::vector<std::string> GetAllUnaryOptionValues(
   }
 
   return values;
-}
-
-const char* SearchUnaryOption(const vector<string>& args,
-                              const char *key, bool warn_if_dupe) {
-  if (args.empty()) {
-    return nullptr;
-  }
-
-  const char* value = nullptr;
-  bool found_dupe = false;  // true if 'key' was found twice
-  vector<string>::size_type i = 0;
-
-  // Examine the first N-1 arguments. (N-1 because we examine the i'th and
-  // i+1'th together, in case a flag is defined "--name value" style and not
-  // "--name=value" style.)
-  for (; i < args.size() - 1; ++i) {
-    if (args[i] == "--") {
-      // If the current argument is "--", all following args are target names.
-      // If 'key' was not found, 'value' is nullptr and we can return that.
-      // If 'key' was found exactly once, then 'value' has the value and again
-      // we can return that.
-      // If 'key' was found more than once then we could not have reached this
-      // line, because we would have broken out of the loop when 'key' was found
-      // the second time.
-      return value;
-    }
-    const char* result = GetUnaryOption(args[i].c_str(),
-                                        args[i + 1].c_str(),
-                                        key);
-    if (result != nullptr) {
-      // 'key' was found and 'result' has its value.
-      if (value) {
-        // 'key' was found once before, because 'value' is not empty.
-        found_dupe = true;
-        break;
-      } else {
-        // 'key' was not found before, so store the value in 'value'.
-        value = result;
-      }
-    }
-  }
-
-  if (value) {
-    // 'value' is not empty, so 'key' was found at least once in the first N-1
-    // arguments.
-    if (warn_if_dupe) {
-      if (!found_dupe) {
-        // We did not find a duplicate in the first N-1 arguments. Examine the
-        // last argument, it may be a duplicate.
-        found_dupe = (GetUnaryOption(args[i].c_str(), nullptr, key) != nullptr);
-      }
-      if (found_dupe) {
-        BAZEL_LOG(WARNING) << key << " is given more than once, "
-                           << "only the first occurrence is used";
-      }
-    }
-    return value;
-  } else {
-    // 'value' is empty, so 'key' was not yet found in the first N-1 arguments.
-    // If 'key' is in the last argument, we'll parse and return the value from
-    // that, and if it isn't, we'll return NULL.
-    return GetUnaryOption(args[i].c_str(), nullptr, key);
-  }
 }
 
 bool SearchNullaryOption(const vector<string>& args,
@@ -249,20 +189,40 @@ bool AwaitServerProcessTermination(int pid, const blaze_util::Path& output_base,
   return true;
 }
 
-// For now, we don't have the client set up to log to a file. If --client_debug
-// is passed, however, all BAZEL_LOG statements will be output to stderr.
-// If/when we switch to logging these to a file, care will have to be taken to
-// either log to both stderr and the file in the case of --client_debug, or be
-// ok that these log lines will only go to one stream.
-void SetDebugLog(bool enabled) {
-  if (enabled) {
-    blaze_util::SetLoggingOutputStreamToStderr();
+void SetDebugLog(blaze_util::LoggingDetail detail) {
+  if (detail == blaze_util::LOGGINGDETAIL_DEBUG) {
+    blaze_util::SetLoggingDetail(blaze_util::LOGGINGDETAIL_DEBUG, &std::cerr);
+    absl::SetStderrThreshold(absl::LogSeverityAtLeast::kInfo);
   } else {
-    blaze_util::SetLoggingOutputStream(nullptr);
+    blaze_util::SetLoggingDetail(detail, nullptr);
+
+    // Disable absl debug logging, since that gets printed to stderr due to us
+    // not setting up a log file. We don't use absl but one of our dependencies
+    // might (as of 2024Q2, gRPC does).
+    //
+    // Future improvements to this approach:
+    // * Disable absl logging ASAP, not just here after handling
+    //   --client_debug=false.
+    // * Use the same approach for handling --client_debug=true that we do for
+    //   BAZEL_LOG of first redirecting all messages to an inmemory string, and
+    //   then writing that string to stderr. We could use a absl::LogSink to
+    //   achieve this.
+    absl::InitializeLog();
+    absl::SetStderrThreshold(absl::LogSeverityAtLeast::kInfinity);
   }
 }
 
 bool IsRunningWithinTest() { return ExistsEnv("TEST_TMPDIR"); }
+
+blaze_util::Path GetOOMFilePath(const blaze_util::Path& output_base) {
+  return output_base.GetRelative("blaze_oomed");
+}
+
+blaze_util::Path GetAbruptExitFilePath(const blaze_util::Path& output_base) {
+  // It would make more sense for this file to be in the "server" subdirectory,
+  // but changing that would require migrating invokers of Blaze.
+  return output_base.GetRelative("exit_code_to_use_on_abrupt_exit");
+}
 
 void WithEnvVars::SetEnvVars(const map<string, EnvVarValue>& vars) {
   for (const auto& var : vars) {

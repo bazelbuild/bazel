@@ -22,6 +22,7 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/path.h"
 #include "googletest/include/gtest/gtest.h"
+#include "src/main/cpp/util/file_platform.h"
 
 namespace blaze {
 
@@ -34,20 +35,10 @@ class WorkspaceLayoutTest : public ::testing::Test {
 
   void SetUp() override {
     ASSERT_TRUE(blaze_util::MakeDirectories(build_root_, 0755));
-    ASSERT_TRUE(blaze_util::WriteFile(
-        "", blaze_util::JoinPath(build_root_, "WORKSPACE"), 0755));
   }
 
   void TearDown() override {
-    // TODO(bazel-team): The code below deletes all the files in the workspace
-    // but it intentionally skips directories. As a consequence, there may be
-    // empty directories from test to test. Remove this once
-    // blaze_util::DeleteDirectories(path) exists.
-    std::vector<std::string> files_in_workspace;
-    blaze_util::GetAllFilesUnder(build_root_, &files_in_workspace);
-    for (const std::string& file : files_in_workspace) {
-      blaze_util::UnlinkPath(file);
-    }
+    blaze_util::RemoveRecursively(blaze_util::Path(build_root_));
   }
 
   const std::string build_root_;
@@ -55,17 +46,26 @@ class WorkspaceLayoutTest : public ::testing::Test {
 };
 
 TEST_F(WorkspaceLayoutTest, GetWorkspace) {
-  // "" is returned when there's no workspace path.
-  std::string cwd = "foo/bar";
-  ASSERT_EQ("", workspace_layout_->GetWorkspace(cwd));
-  ASSERT_FALSE(workspace_layout_->InWorkspace(cwd));
+  ASSERT_TRUE(blaze_util::WriteFile(
+      "", blaze_util::JoinPath(build_root_, "WORKSPACE"), 0755));
+  const auto foobar = blaze_util::JoinPath(build_root_, "foo/bar");
+  ASSERT_TRUE(blaze_util::MakeDirectories(foobar, 0755));
 
-  cwd = build_root_;
-  ASSERT_EQ(build_root_, workspace_layout_->GetWorkspace(cwd));
+  // "" is returned when there's no workspace path.
+  ASSERT_EQ("", workspace_layout_->GetWorkspace("foo/bar"));
+  ASSERT_FALSE(workspace_layout_->InWorkspace("foo/bar"));
+
+  ASSERT_EQ(build_root_, workspace_layout_->GetWorkspace(build_root_));
   ASSERT_TRUE(workspace_layout_->InWorkspace(build_root_));
 
-  cwd = blaze_util::JoinPath(build_root_, cwd);
-  ASSERT_EQ(build_root_, workspace_layout_->GetWorkspace(cwd));
+  ASSERT_EQ(build_root_, workspace_layout_->GetWorkspace(foobar));
+  ASSERT_FALSE(workspace_layout_->InWorkspace(foobar));
+
+  // Now write a REPO.bazel file in foo/bar. It becomes the new workspace root.
+  ASSERT_TRUE(blaze_util::WriteFile(
+      "", blaze_util::JoinPath(foobar, "REPO.bazel"), 0755));
+  ASSERT_EQ(foobar, workspace_layout_->GetWorkspace(foobar));
+  ASSERT_TRUE(workspace_layout_->InWorkspace(foobar));
 }
 
 }  // namespace blaze

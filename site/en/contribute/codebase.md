@@ -1,26 +1,28 @@
 Project: /_project.yaml
 Book: /_book.yaml
 
-# The Bazel Code Base
+# The Bazel codebase
 
-This document is a description of the code base and how Bazel is structured. It
+{% include "_buttons.html" %}
+
+This document is a description of the codebase and how Bazel is structured. It
 is intended for people willing to contribute to Bazel, not for end-users.
 
 ## Introduction {:#introduction}
 
-The code base of Bazel is large (~350KLOC production code and ~260 KLOC test
+The codebase of Bazel is large (~350KLOC production code and ~260 KLOC test
 code) and no one is familiar with the whole landscape: everyone knows their
 particular valley very well, but few know what lies over the hills in every
 direction.
 
 In order for people midway upon the journey not to find themselves within a
 forest dark with the straightforward pathway being lost, this document tries to
-give an overview of the code base so that it's easier to get started with
+give an overview of the codebase so that it's easier to get started with
 working on it.
 
 The public version of the source code of Bazel lives on GitHub at
 [github.com/bazelbuild/bazel](http://github.com/bazelbuild/bazel). This is not
-the “source of truth”; it’s derived from a Google-internal source tree that
+the "source of truth"; it's derived from a Google-internal source tree that
 contains additional functionality that is not useful outside Google. The
 long-term goal is to make GitHub the source of truth.
 
@@ -45,10 +47,10 @@ and some are after (`-c opt`); the former kind is called a "startup option" and
 affects the server process as a whole, whereas the latter kind, the "command
 option", only affects a single command.
 
-Each server instance has a single associated source tree ("workspace") and each
-workspace usually has a single active server instance. This can be circumvented
-by specifying a custom output base (see the "Directory layout" section for more
-information).
+Each server instance has a single associated workspace (collection of source
+trees known as "repositories") and each workspace usually has a single active
+server instance. This can be circumvented by specifying a custom output base
+(see the "Directory layout" section for more information).
 
 Bazel is distributed as a single ELF executable that is also a valid .zip file.
 When you type `bazel`, the above ELF executable implemented in C++ (the
@@ -77,7 +79,7 @@ At the end of a command, the Bazel server transmits the exit code the client
 should return. An interesting wrinkle is the implementation of `bazel run`: the
 job of this command is to run something Bazel just built, but it can't do that
 from the server process because it doesn't have a terminal. So instead it tells
-the client what binary it should ujexec() and with what arguments.
+the client what binary it should `exec()` and with what arguments.
 
 When one presses Ctrl-C, the client translates it to a Cancel call on the gRPC
 connection, which tries to terminate the command as soon as possible. After the
@@ -94,8 +96,9 @@ from the client are handled by `GrpcServerImpl.run()`.
 Bazel creates a somewhat complicated set of directories during a build. A full
 description is available in [Output directory layout](/remote/output-directories).
 
-The "workspace" is the source tree Bazel is run in. It usually corresponds to
-something you checked out from source control.
+The "main repo" is the source tree Bazel is run in. It usually corresponds to
+something you checked out from source control. The root of this directory is
+known as the "workspace root".
 
 Bazel puts all of its data under the "output user root". This is usually
 `$HOME/.cache/bazel/_bazel_${USER}`, but can be overridden using the
@@ -179,10 +182,10 @@ through `RuleContext.getFragment()` in Java or `ctx.fragments` in Starlark).
 Some of them (for example, whether to do C++ include scanning or not) are read
 in the execution phase, but that always requires explicit plumbing since
 `BuildConfiguration` is not available then. For more information, see the
-section “Configurations”.
+section "Configurations".
 
 **WARNING:** We like to pretend that `OptionsBase` instances are immutable and
-use them that way (such as as part of `SkyKeys`). This is not the case and
+use them that way (such as a part of `SkyKeys`). This is not the case and
 modifying them is a really good way to break Bazel in subtle ways that are hard
 to debug. Unfortunately, making them actually immutable is a large endeavor.
 (Modifying a `FragmentOptions` immediately after construction before anyone else
@@ -192,11 +195,11 @@ called on it is okay.)
 Bazel learns about option classes in the following ways:
 
 1.  Some are hard-wired into Bazel (`CommonCommandOptions`)
-2.  From the @Command annotation on each Bazel command
+2.  From the `@Command` annotation on each Bazel command
 3.  From `ConfiguredRuleClassProvider` (these are command line options related
     to individual programming languages)
 4.  Starlark rules can also define their own options (see
-    [here](/rules/config))
+    [here](/extending/config))
 
 Each option (excluding Starlark-defined options) is a member variable of a
 `FragmentOptions` subclass that has the `@Option` annotation, which specifies
@@ -221,32 +224,29 @@ A "repository" is a source tree on which a developer works; it usually
 represents a single project. Bazel's ancestor, Blaze, operated on a monorepo,
 that is, a single source tree that contains all source code used to run the build.
 Bazel, in contrast, supports projects whose source code spans multiple
-repositories. The repository from which Bazel is invoked is called the “main
-repository”, the others are called “external repositories”.
+repositories. The repository from which Bazel is invoked is called the "main
+repository", the others are called "external repositories".
 
-A repository is marked by a file called `WORKSPACE` (or `WORKSPACE.bazel`) in
-its root directory. This file contains information that is "global" to the whole
-build, for example, the set of available external repositories. It works like a
-regular Starlark file which means that one can `load()` other Starlark files.
-This is commonly used to pull in repositories that are needed by a repository
-that's explicitly referenced (we call this the "`deps.bzl` pattern")
+A repository is marked by a repo boundary file (`MODULE.bazel`, `REPO.bazel`, or
+in legacy contexts, `WORKSPACE` or `WORKSPACE.bazel`) in its root directory. The
+main repo is the source tree where you're invoking Bazel from. External repos
+are defined in various ways; see [external dependencies
+overview](/external/overview) for more information.
 
 Code of external repositories is symlinked or downloaded under
 `$OUTPUT_BASE/external`.
 
 When running the build, the whole source tree needs to be pieced together; this
-is done by SymlinkForest, which symlinks every package in the main repository to
-`$EXECROOT` and every external repository to either `$EXECROOT/external` or
-`$EXECROOT/..` (the former of course makes it impossible to have a package
-called `external` in the main repository; that's why we are migrating away from
-it)
+is done by `SymlinkForest`, which symlinks every package in the main repository
+to `$EXECROOT` and every external repository to either `$EXECROOT/external` or
+`$EXECROOT/..`.
 
 ### Packages {:#packages}
 
 Every repository is composed of packages, a collection of related files and
 a specification of the dependencies. These are specified by a file called
 `BUILD` or `BUILD.bazel`. If both exist, Bazel prefers `BUILD.bazel`; the reason
-why `BUILD` files are still accepted is that Bazel’s ancestor, Blaze, used this
+why `BUILD` files are still accepted is that Bazel's ancestor, Blaze, used this
 file name. However, it turned out to be a commonly used path segment, especially
 on Windows, where file names are case-insensitive.
 
@@ -272,10 +272,11 @@ Globbing is implemented in the following classes:
 
 *   `LegacyGlobber`, a fast and blissfully Skyframe-unaware globber
 *   `SkyframeHybridGlobber`, a version that uses Skyframe and reverts back to
-    the legacy globber in order to avoid “Skyframe restarts” (described below)
+    the legacy globber in order to avoid "Skyframe restarts" (described below)
 
 The `Package` class itself contains some members that are exclusively used to
-parse the WORKSPACE file and which do not make sense for real packages. This is
+parse the "external" package (related to external dependencies) and which do not
+make sense for real packages. This is
 a design flaw because objects describing regular packages should not contain
 fields that describe something else. These include:
 
@@ -283,10 +284,10 @@ fields that describe something else. These include:
 *   The registered toolchains
 *   The registered execution platforms
 
-Ideally, there would be more separation between parsing the WORKSPACE file from
-parsing regular packages so that `Package`does not need to cater for the needs
-of both. This is unfortunately difficult to do because the two are intertwined
-quite deeply.
+Ideally, there would be more separation between parsing the "external" package
+from parsing regular packages so that `Package` does not need to cater for the
+needs of both. This is unfortunately difficult to do because the two are
+intertwined quite deeply.
 
 ### Labels, Targets, and Rules {:#labels-targets-rules}
 
@@ -294,7 +295,7 @@ Packages are composed of targets, which have the following types:
 
 1.  **Files:** things that are either the input or the output of the build. In
     Bazel parlance, we call them _artifacts_ (discussed elsewhere). Not all
-    files created during the build are targets; it’s common for an output of
+    files created during the build are targets; it's common for an output of
     Bazel not to have an associated label.
 2.  **Rules:** these describe steps to derive its outputs from its inputs. They
     are generally associated with a programming language (such as `cc_library`,
@@ -317,7 +318,7 @@ can be omitted:
 
 A kind of a rule (such as "C++ library") is called a "rule class". Rule classes may
 be implemented either in Starlark (the `rule()` function) or in Java (so called
-“native rules”, type `RuleClass`). In the long term, every language-specific
+"native rules", type `RuleClass`). In the long term, every language-specific
 rule will be implemented in Starlark, but some legacy rule families (such as Java
 or C++) are still in Java for the time being.
 
@@ -333,10 +334,10 @@ Rule classes contain information such as:
 3.  The implementation of the rule
 4.  The transitive info providers the rule "usually" creates
 
-**Terminology note:** In the code base, we often use “Rule” to mean the target
+**Terminology note:** In the codebase, we often use "Rule" to mean the target
 created by a rule class. But in Starlark and in user-facing documentation,
-“Rule” should be used exclusively to refer to the rule class itself; the target
-is just a “target”. Also note that despite `RuleClass` having “class” in its
+"Rule" should be used exclusively to refer to the rule class itself; the target
+is just a "target". Also note that despite `RuleClass` having "class" in its
 name, there is no Java inheritance relationship between a rule class and targets
 of that type.
 
@@ -357,7 +358,7 @@ From this it follows that everything that is computed within Skyframe (such as
 configured targets) must also be immutable.
 
 The most convenient way to observe the Skyframe graph is to run `bazel dump
---skyframe=detailed`, which dumps the graph, one `SkyValue` per line. It's best
+--skyframe=deps`, which dumps the graph, one `SkyValue` per line. It's best
 to do it for tiny builds, since it can get pretty large.
 
 Skyframe lives in the `com.google.devtools.build.skyframe` package. The
@@ -393,11 +394,24 @@ around this issue by:
     usage.
 3.  Storing state between restarts, either using
     `SkyFunction.Environment.getState()`, or keeping an ad hoc static cache
-    "behind the back of Skyframe".
+    "behind the back of Skyframe". With complex SkyFunctions, state management
+    between restarts can get tricky, so
+    [`StateMachine`s](/contribute/statemachine-guide) were introduced for a
+    structured approach to logical concurrency, including hooks to suspend and
+    resume hierarchical computations within a `SkyFunction`. Example:
+    [`DependencyResolver#computeDependencies`][statemachine_example]
+    uses a `StateMachine` with `getState()` to compute the potentially huge set
+    of direct dependencies of a configured target, which otherwise can result in
+    expensive restarts.
 
-Fundamentally, we need these types of workarounds because we routinely have
-hundreds of thousands of in-flight Skyframe nodes, and Java doesn't support
-lightweight threads.
+[statemachine_example]: https://developers.google.com/devsite/reference/markdown/links#reference_links
+
+Fundamentally, Bazel need these types of workarounds because hundreds of
+thousands of in-flight Skyframe nodes is common, and Java's support of
+lightweight threads [does not outperform][virtual_threads] the
+`StateMachine` implementation as of 2023.
+
+[virtual_threads]: /contribute/statemachine-guide#epilogue_eventually_removing_callbacks
 
 ## Starlark {:#starlark}
 
@@ -415,25 +429,21 @@ implementation used in Bazel is currently an interpreter.
 
 Starlark is used in several contexts, including:
 
-1.  **The `BUILD` language.** This is where new rules are defined. Starlark code
-    running in this context only has access to the contents of the `BUILD` file
-    itself and `.bzl` files loaded by it.
-2.  **Rule definitions.** This is how new rules (such as support for a new
-    language) are defined. Starlark code running in this context has access to
-    the configuration and data provided by its direct dependencies (more on this
-    later).
-3.  **The WORKSPACE file.** This is where external repositories (code that's not
-    in the main source tree) are defined.
-4.  **Repository rule definitions.** This is where new external repository types
-    are defined. Starlark code running in this context can run arbitrary code on
-    the machine where Bazel is running, and reach outside the workspace.
+1.  **`BUILD` files.** This is where new build targets are defined. Starlark
+    code running in this context only has access to the contents of the `BUILD`
+    file itself and `.bzl` files loaded by it.
+2.  **The `MODULE.bazel` file.** This is where external dependencies are
+    defined. Starlark code running in this context only has very limited access
+    to a few predefined directives.
+3.  **`.bzl` files.** This is where new build rules, repo rules, module
+    extensions are defined. Starlark code here can define new functions and load
+    from other `.bzl` files.
 
 The dialects available for `BUILD` and `.bzl` files are slightly different
 because they express different things. A list of differences is available
 [here](/rules/language#differences-between-build-and-bzl-files).
 
-More information about Starlark is available
-[here](/rules/language).
+More information about Starlark is available [here](/rules/language).
 
 ## The loading/analysis phase {:#loading-phase}
 
@@ -537,14 +547,15 @@ If a configuration transition results in multiple configurations, it's called a
 _split transition._
 
 Configuration transitions can also be implemented in Starlark (documentation
-[here](/rules/config))
+[here](/extending/config))
 
 ### Transitive info providers {:#transitive-info-providers}
 
 Transitive info providers are a way (and the _only _way) for configured targets
-to tell things about other configured targets that depend on it. The reason why
-"transitive" is in their name is that this is usually some sort of roll-up of
-the transitive closure of a configured target.
+to learn things about other configured targets that they depend on, and the only
+way to tell things about themselves to other configured targets that depend on
+them. The reason why "transitive" is in their name is that this is usually some
+sort of roll-up of the transitive closure of a configured target.
 
 There is generally a 1:1 correspondence between Java transitive info providers
 and Starlark ones (the exception is `DefaultInfo` which is an amalgamation of
@@ -589,7 +600,7 @@ Some binaries need data files to run. A prominent example is tests that need
 input files. This is represented in Bazel by the concept of "runfiles". A
 "runfiles tree" is a directory tree of the data files for a particular binary.
 It is created in the file system as a symlink tree with individual symlinks
-pointing to the files in the source of output trees.
+pointing to the files in the source or output trees.
 
 A set of runfiles is represented as a `Runfiles` instance. It is conceptually a
 map from the path of a file in the runfiles tree to the `Artifact` instance that
@@ -636,10 +647,10 @@ necessitates the following additional components:
 
 Aspects are a way to "propagate computation down the dependency graph". They are
 described for users of Bazel
-[here](/rules/aspects). A good
+[here](/extending/aspects). A good
 motivating example is protocol buffers: a `proto_library` rule should not know
 about any particular language, but building the implementation of a protocol
-buffer message (the “basic unit” of protocol buffers) in any programming
+buffer message (the "basic unit" of protocol buffers) in any programming
 language should be coupled to the `proto_library` rule so that if two targets in
 the same language depend on the same protocol buffer, it gets built only once.
 
@@ -687,7 +698,7 @@ Bazel supports multi-platform builds, that is, builds where there may be
 multiple architectures where build actions run and multiple architectures for
 which code is built. These architectures are referred to as _platforms_ in Bazel
 parlance (full documentation
-[here](/docs/platforms))
+[here](/extending/platforms))
 
 A platform is described by a key-value mapping from _constraint settings_ (such as
 the concept of "CPU architecture") to _constraint values_ (such as a particular CPU
@@ -700,7 +711,7 @@ different compilers; for example, a particular C++ toolchain may run on a
 specific OS and be able to target some other OSes. Bazel must determine the C++
 compiler that is used based on the set execution and target platform
 (documentation for toolchains
-[here](/docs/toolchains)).
+[here](/extending/toolchains)).
 
 In order to do this, toolchains are annotated with the set of execution and
 target platform constraints they support. In order to do this, the definition of
@@ -719,7 +730,7 @@ time to load.
 
 Execution platforms are specified in one of the following ways:
 
-1.  In the WORKSPACE file using the `register_execution_platforms()` function
+1.  In the MODULE.bazel file using the `register_execution_platforms()` function
 2.  On the command line using the --extra\_execution\_platforms command line
     option
 
@@ -734,7 +745,7 @@ yet.
 The set of toolchains to be used for a configured target is determined by
 `ToolchainResolutionFunction`. It is a function of:
 
-*   The set of registered toolchains (in the WORKSPACE file and the
+*   The set of registered toolchains (in the MODULE.bazel file and the
     configuration)
 *   The desired execution and target platforms (in the configuration)
 *   The set of toolchain types that are required by the configured target (in
@@ -780,14 +791,13 @@ contain references to it. The attribute that governs this is called
 
 These rules are a legacy mechanism and are not widely used.
 
-All build rules can declare which "environments" they can be built for, where a
+All build rules can declare which "environments" they can be built for, where an
 "environment" is an instance of the `environment()` rule.
 
 There are various ways supported environments can be specified for a rule:
 
 1.  Through the `restricted_to=` attribute. This is the most direct form of
-    specification; it declares the exact set of environments the rule supports
-    for this group.
+    specification; it declares the exact set of environments the rule supports.
 2.  Through the `compatible_with=` attribute. This declares environments a rule
     supports in addition to "standard" environments that are supported by
     default.
@@ -823,7 +833,7 @@ The implementation of the constraint check is in
 
 The current "official" way to describe what platforms a target is compatible
 with is by using the same constraints used to describe toolchains and platforms.
-It's under review in pull request
+It was implemented in pull request
 [#10945](https://github.com/bazelbuild/bazel/pull/10945){: .external}.
 
 ### Visibility {:#visibility}
@@ -834,8 +844,8 @@ code. Otherwise, as per [Hyrum's law](https://www.hyrumslaw.com/){: .external},
 people _will_ come to rely on behaviors that you considered to be implementation
 details.
 
-Bazel supports this by the mechanism called _visibility_: you can declare that a
-particular target can only be depended on using the
+Bazel supports this by the mechanism called _visibility_: you can limit which
+targets can depend on a particular target using the
 [visibility](/reference/be/common-definitions#common-attributes) attribute. This
 attribute is a little special because, although it holds a list of labels, these
 labels may encode a pattern over package names rather than a pointer to any
@@ -901,7 +911,7 @@ Artifacts come in two kinds: source artifacts (ones that are available
 before Bazel starts executing) and derived artifacts (ones that need to be
 built). Derived artifacts can themselves be multiple kinds:
 
-1.  **Regular artifacts. **These are checked for up-to-dateness by computing
+1.  **Regular artifacts.** These are checked for up-to-dateness by computing
     their checksum, with mtime as a shortcut; we don't checksum the file if its
     ctime hasn't changed.
 2.  **Unresolved symlink artifacts.** These are checked for up-to-dateness by
@@ -923,15 +933,9 @@ implementation that kind of works which is enabled by the
 `BAZEL_TRACK_SOURCE_DIRECTORIES=1` JVM property)
 
 A notable kind of `Artifact` are middlemen. They are indicated by `Artifact`
-instances that are the outputs of `MiddlemanAction`. They are used to
-special-case some things:
+instances that are the outputs of `MiddlemanAction`. They are used for one
+special case:
 
-*   Aggregating middlemen are used to group artifacts together. This is so that
-    if a lot of actions use the same large set of inputs, we don't have N\*M
-    dependency edges, only N+M (they are being replaced with nested sets)
-*   Scheduling dependency middlemen ensure that an action runs before another.
-    They are mostly used for linting but also for C++ compilation (see
-    `CcCompilationContext.createMiddleman()` for an explanation)
 *   Runfiles middlemen are used to ensure the presence of a runfiles tree so
     that one does not separately need to depend on the output manifest and every
     single artifact referenced by the runfiles tree.
@@ -1053,7 +1057,7 @@ action that emitted it. The action is described as:
     input files (such as for `FileWriteAction`, it's the checksum of the data
     that's written)
 
-There is also a highly experimental “top-down action cache” that is still under
+There is also a highly experimental "top-down action cache" that is still under
 development, which uses transitive hashes to avoid going to the cache as many
 times.
 
@@ -1373,7 +1377,7 @@ attribute of the first test that is executed.
 ## The query engine {:#query-engine}
 
 Bazel has a
-[little language](/docs/query-how-to)
+[little language](/query/guide)
 used to ask it various things about various graphs. The following query kinds
 are provided:
 
@@ -1441,6 +1445,11 @@ This is implemented in the `build.lib.buildeventservice` and
 `build.lib.buildeventstream` Java packages.
 
 ## External repositories {:#external-repos}
+
+Note: The information in this section is out of date, as code in this area has
+undergone extensive change in the past couple of years. Please refer to
+[external dependencies overview](/external/overview) for more up-to-date
+information.
 
 Whereas Bazel was originally designed to be used in a monorepo (a single source
 tree containing everything one needs to build), Bazel lives in a world where
@@ -1513,23 +1522,6 @@ invalidated when the definition of the repository they are in changes. Thus,
 `FileStateValue`s for an artifact in an external repository need to depend on
 their external repository. This is handled by `ExternalFilesHelper`.
 
-### Managed directories {:#managed-directories}
-
-Sometimes, external repositories need to modify files under the workspace root
-(such as a package manager that houses the downloaded packages in a subdirectory of
-the source tree). This is at odds with the assumption Bazel makes that source
-files are only modified by the user and not by itself and allows packages to
-refer to every directory under the workspace root. In order to make this kind of
-external repository work, Bazel does two things:
-
-1.  Allows the user to specify subdirectories of the workspace Bazel is not
-    allowed to reach into. They are listed in a file called `.bazelignore` and
-    the functionality is implemented in `BlacklistedPackagePrefixesFunction`.
-2.  We encode the mapping from the subdirectory of the workspace to the external
-    repository it is handled by into `ManagedDirectoriesKnowledge` and handle
-    `FileStateValue`s referring to them in the same way as those for regular
-    external repositories.
-
 ### Repository mappings {:#repo-mappings}
 
 It can happen that multiple repositories want to depend on the same repository,
@@ -1540,7 +1532,7 @@ starting `@guava//` and expect that to mean different versions of it.
 
 Therefore, Bazel allows one to re-map external repository labels so that the
 string `@guava//` can refer to one Guava repository (such as `@guava1//`) in the
-repository of one binary and another Guava repository (such as `@guava2//`) the the
+repository of one binary and another Guava repository (such as `@guava2//`) the
 repository of the other.
 
 Alternatively, this can also be used to **join** diamonds. If a repository
@@ -1561,7 +1553,7 @@ of individual repository definitions. It then appears in Skyframe as a member of
 
 ## JNI bits {:#jni-bits}
 
-The server of Bazel is_ mostly _written in Java. The exception is the parts that
+The server of Bazel is _mostly_ written in Java. The exception is the parts that
 Java cannot do by itself or couldn't do by itself when we implemented it. This
 is mostly limited to interaction with the file system, process control and
 various other low-level things.

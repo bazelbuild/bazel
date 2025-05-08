@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.BuildSettingProvider;
@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -52,8 +53,14 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
       return createEmptyConfiguredTarget(ruleContext);
     }
 
+    ImmutableClassToInstanceMap.Builder<TransitiveInfoProvider> overrides =
+        ImmutableClassToInstanceMap.builder();
+    overrides.put(
+        AliasProvider.LateBoundAliasProvider.class, AliasProvider.LATE_BOUND_ALIAS_PROVIDER);
+
     if (!ruleContext.getRule().isBuildSetting()) {
-      return AliasConfiguredTarget.create(ruleContext, actual, ruleContext.getVisibility());
+      return AliasConfiguredTarget.createWithOverrides(
+          ruleContext, actual, ruleContext.getVisibility(), overrides.build());
     }
 
     // This makes label_setting and label_flag work with select().
@@ -66,15 +73,19 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
         ruleContext,
         actual,
         ruleContext.getVisibility(),
-        ImmutableClassToInstanceMap.of(
-            BuildSettingProvider.class,
-            new BuildSettingProvider(buildSetting, defaultValue, ruleContext.getLabel())));
+        overrides
+            .put(
+                BuildSettingProvider.class,
+                new BuildSettingProvider(buildSetting, defaultValue, ruleContext.getLabel()))
+            .build());
   }
 
   private static ConfiguredTarget createEmptyConfiguredTarget(RuleContext ruleContext)
       throws ActionConflictException, InterruptedException {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
+        .addProvider(
+            AliasProvider.LateBoundAliasProvider.class, AliasProvider.LATE_BOUND_ALIAS_PROVIDER)
         .build();
   }
 
@@ -110,7 +121,7 @@ public final class LateBoundAlias implements RuleConfiguredTargetFactory {
           .requiresConfigurationFragments(fragmentClass)
           .removeAttribute("licenses")
           .removeAttribute("distribs")
-          .advertiseProvider(AliasProvider.class)
+          .advertiseProvider(AliasProvider.LateBoundAliasProvider.class)
           .addAttribute(attribute)
           .build();
     }

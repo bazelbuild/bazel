@@ -63,6 +63,8 @@ public abstract class BlazeJavacStatistics {
 
   public abstract Optional<Duration> totalErrorProneTime();
 
+  public abstract Optional<Duration> errorProneInitializationTime();
+
   public abstract ImmutableMap<String, Duration> bugpatternTiming();
 
   public abstract Optional<Duration> totalProcessorTime();
@@ -103,6 +105,8 @@ public abstract class BlazeJavacStatistics {
   public abstract static class Builder {
 
     public abstract Builder totalErrorProneTime(Duration totalErrorProneTime);
+
+    public abstract Builder errorProneInitializationTime(Duration errorProneInitializationTime);
 
     public abstract Builder totalProcessorTime(Duration totalProcessorTime);
 

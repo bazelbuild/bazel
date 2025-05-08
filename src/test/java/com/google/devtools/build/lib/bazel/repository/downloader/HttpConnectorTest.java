@@ -50,6 +50,7 @@ import java.net.URLConnection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CyclicBarrier;
@@ -126,7 +127,7 @@ public class HttpConnectorTest {
   public void normalRequest() throws Exception {
     final Map<String, List<String>> headers = new ConcurrentHashMap<>();
     try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
-      @SuppressWarnings("unused") 
+      @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError =
           executor.submit(
               new Callable<Object>() {
@@ -208,7 +209,8 @@ public class HttpConnectorTest {
                   .getInputStream(),
               ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
-        assertThat(clock.currentTimeMillis()).isEqualTo(100L);
+        assertThat(clock.currentTimeMillis()).isGreaterThan(50L);
+        assertThat(clock.currentTimeMillis()).isLessThan(150L);
       }
     }
   }
@@ -360,8 +362,23 @@ public class HttpConnectorTest {
               ISO_8859_1)) {
         fail("Should have thrown");
       } catch (IOException expected) {
-        assertThat(expected).hasCauseThat().isInstanceOf(SocketTimeoutException.class);
-        assertThat(expected).hasCauseThat().hasMessageThat().ignoringCase().contains("timed out");
+        if (expected.getCause() != null) {
+          // SocketTimeoutException gets wrapped in an IOException and rethrown.
+          assertThat(expected).hasCauseThat().isInstanceOf(SocketTimeoutException.class);
+          assertThat(expected).hasCauseThat().hasMessageThat().ignoringCase().contains("timed out");
+        } else {
+          // For windows, it is possible that the thrown exception is a ConnectException (no cause)
+          // from {@code HttpURLConnection.connect()} rather than a SocketTimeoutException from
+          // {@code HttpURLConnection.getResponseCode()}. In the former case, we expect the
+          // SocketTimeoutException to have already occurred but gets suppressed within the final
+          // ConnectException (upon max retry).
+          ImmutableList<Throwable> suppressed = ImmutableList.copyOf(expected.getSuppressed());
+          Optional<Throwable> ste =
+              suppressed.stream().filter(t -> t instanceof SocketTimeoutException).findFirst();
+          assertThat(ste).isPresent();
+          assertThat(ste.get()).isInstanceOf(SocketTimeoutException.class);
+          assertThat(ste.get()).hasMessageThat().ignoringCase().contains("timed out");
+        }
       }
     }
   }

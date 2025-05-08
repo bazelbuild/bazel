@@ -15,16 +15,14 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -52,8 +50,8 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
 
   /** Create a prepare deps of targets under directory request. */
   @ThreadSafe
-  public static SkyKey key(RepositoryName repository, RootedPath rootedPath,
-      ImmutableSet<PathFragment> excludedPaths) {
+  public static SkyKey key(
+      RepositoryName repository, RootedPath rootedPath, IgnoredSubdirectories excludedPaths) {
     return key(repository, rootedPath, excludedPaths, FilteringPolicies.NO_FILTER);
   }
 
@@ -65,7 +63,7 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
   public static PrepareDepsOfTargetsUnderDirectoryKey key(
       RepositoryName repository,
       RootedPath rootedPath,
-      ImmutableSet<PathFragment> excludedPaths,
+      IgnoredSubdirectories excludedPaths,
       FilteringPolicy filteringPolicy) {
     return PrepareDepsOfTargetsUnderDirectoryKey.create(
         new RecursivePkgKey(repository, rootedPath, excludedPaths), filteringPolicy);
@@ -76,8 +74,8 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
    */
   @AutoCodec
   public static final class PrepareDepsOfTargetsUnderDirectoryKey implements SkyKey {
-    private static final Interner<PrepareDepsOfTargetsUnderDirectoryKey> interners =
-        BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<PrepareDepsOfTargetsUnderDirectoryKey> interner =
+        SkyKey.newInterner();
 
     private final RecursivePkgKey recursivePkgKey;
     private final FilteringPolicy filteringPolicy;
@@ -88,11 +86,16 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
       this.filteringPolicy = Preconditions.checkNotNull(filteringPolicy);
     }
 
-    @AutoCodec.Instantiator
     public static PrepareDepsOfTargetsUnderDirectoryKey create(
         RecursivePkgKey recursivePkgKey, FilteringPolicy filteringPolicy) {
-      return interners.intern(
+      return interner.intern(
           new PrepareDepsOfTargetsUnderDirectoryKey(recursivePkgKey, filteringPolicy));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static PrepareDepsOfTargetsUnderDirectoryKey intern(PrepareDepsOfTargetsUnderDirectoryKey key) {
+      return interner.intern(key);
     }
 
     public RecursivePkgKey getRecursivePkgKey() {
@@ -113,11 +116,10 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof PrepareDepsOfTargetsUnderDirectoryKey)) {
+      if (!(o instanceof PrepareDepsOfTargetsUnderDirectoryKey that)) {
         return false;
       }
 
-      PrepareDepsOfTargetsUnderDirectoryKey that = (PrepareDepsOfTargetsUnderDirectoryKey) o;
       return Objects.equals(recursivePkgKey, that.recursivePkgKey)
           && Objects.equals(filteringPolicy, that.filteringPolicy);
     }
@@ -133,6 +135,11 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
               .add("pkg-key", recursivePkgKey)
               .add("filtering policy", filteringPolicy)
               .toString();
+    }
+
+    @Override
+    public SkyKeyInterner<PrepareDepsOfTargetsUnderDirectoryKey> getSkyKeyInterner() {
+      return interner;
     }
   }
 }

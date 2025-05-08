@@ -21,8 +21,10 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileValue.ResolvedFileKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.StarlarkUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -38,6 +40,7 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
@@ -71,8 +74,21 @@ public class ResolvedFileFunction implements SkyFunction {
                 key.getPath().asPath(), key.getPath().asPath().getFileSize());
 
         // parse
-        StarlarkFile file =
-            StarlarkFile.parse(ParserInput.fromLatin1(bytes, key.getPath().asPath().toString()));
+        ParserInput parserInput;
+        try {
+          parserInput =
+              StarlarkUtil.createParserInput(
+                  bytes,
+                  key.getPath().asPath().toString(),
+                  starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+                  env.getListener());
+        } catch (
+            @SuppressWarnings(
+                "UnusedException") // createParserInput() reports its own error message
+            StarlarkUtil.InvalidUtf8Exception e) {
+          throw resolvedValueError("Failed to read resolved file " + key.getPath());
+        }
+        StarlarkFile file = StarlarkFile.parse(parserInput);
         if (!file.ok()) {
           Event.replayEventsOn(env.getListener(), file.errors());
           throw resolvedValueError("Failed to parse resolved file " + key.getPath());
@@ -91,10 +107,16 @@ public class ResolvedFileFunction implements SkyFunction {
 
         // execute
         try (Mutability mu = Mutability.create("resolved file", key.getPath())) {
-          StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+          StarlarkThread thread =
+              StarlarkThread.create(
+                  mu,
+                  starlarkSemantics,
+                  /* contextDescription= */ "",
+                  SymbolGenerator.create(skyKey));
           Starlark.execFileProgram(prog, module, thread);
         } catch (EvalException ex) {
-          env.getListener().handle(Event.error(null, ex.getMessageWithStack()));
+          env.getListener()
+              .handle(Event.error(ex.getInnermostLocation(), ex.getMessageWithStack()));
           throw resolvedValueError("Failed to evaluate resolved file " + key.getPath());
         }
         Object resolved = module.getGlobal("resolved");

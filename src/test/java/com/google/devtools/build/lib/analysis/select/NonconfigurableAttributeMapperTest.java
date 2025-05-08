@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.analysis.select;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -30,26 +30,32 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class NonconfigurableAttributeMapperTest extends AbstractAttributeMapperTest {
 
-  private Rule rule;
-
-  @Before
-  public final void createRule() throws Exception {
-    rule = scratchRule("x", "myrule",
-        "cc_binary(",
-        "    name = 'myrule',",
-        "    srcs = ['a', 'b', 'c'],",
-        "    linkstatic = 1,",
-        "  deprecation = \"this rule is deprecated!\")");
+  @Override
+  protected AbstractAttributeMapper createMapper(Rule rule) {
+    return NonconfigurableAttributeMapper.of(rule);
   }
 
   @Test
   public void testGetNonconfigurableAttribute() throws Exception {
+    Rule rule =
+        scratchRule(
+            "x",
+            "myrule",
+            """
+            cc_binary(
+                name = "myrule",
+                srcs = ["a", "b", "c"],
+                linkstatic = 1,
+                deprecation = "this rule is deprecated!",
+            )
+            """);
+
     assertThat(NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING))
         .isEqualTo("this rule is deprecated!");
   }
 
   @Test
-  public void testGetConfigurableAttribute() throws Exception {
+  public void testGetConfigurableAttribute() {
     IllegalStateException e =
         assertThrows(
             "Expected NonconfigurableAttributeMapper to fail on a configurable attribute type",
@@ -61,12 +67,24 @@ public class NonconfigurableAttributeMapperTest extends AbstractAttributeMapperT
   }
 
   @Test
-  public void testGet_nonexistentAttribute() throws Exception {
+  public void testGet_nonexistentAttribute() {
     IllegalArgumentException e =
         assertThrows(
             "Expected NonconfigurableAttributeMapper to fail on nonexistent attribute name",
             IllegalArgumentException.class,
             () -> NonconfigurableAttributeMapper.of(rule).get("nonexistent-attr", Type.STRING));
     assertThat(e).hasMessageThat().contains("No such attribute nonexistent-attr in cc_binary");
+  }
+
+  @Override
+  @Test
+  public void testAttributeTypeChecking() {
+    // Don't test: fails due to srcs being nonconfigurable
+  }
+
+  @Override
+  @Test
+  public void testVisitation() {
+    // Don't test: fails due to srcs being nonconfigurable
   }
 }

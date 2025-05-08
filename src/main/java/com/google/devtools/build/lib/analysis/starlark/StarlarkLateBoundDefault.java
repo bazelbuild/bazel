@@ -72,9 +72,10 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
     if (annotation.defaultLabel().isEmpty()) {
       return null;
     }
-    Label defaultLabel = annotation.defaultInToolRepository()
-        ? Label.parseAbsoluteUnchecked(toolsRepository + annotation.defaultLabel())
-        : Label.parseAbsoluteUnchecked(annotation.defaultLabel());
+    Label defaultLabel =
+        annotation.defaultInToolRepository()
+            ? Label.parseCanonicalUnchecked(toolsRepository + annotation.defaultLabel())
+            : Label.parseCanonicalUnchecked(annotation.defaultLabel());
     return defaultLabel;
   }
 
@@ -149,10 +150,9 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
     public boolean equals(Object object) {
       if (object == this) {
         return true;
-      } else if (!(object instanceof CacheKey)) {
+      } else if (!(object instanceof CacheKey cacheKey)) {
         return false;
       } else {
-        CacheKey cacheKey = (CacheKey) object;
         return fragmentClass.equals(cacheKey.fragmentClass)
             && toolsRepository.equals(cacheKey.toolsRepository);
       }

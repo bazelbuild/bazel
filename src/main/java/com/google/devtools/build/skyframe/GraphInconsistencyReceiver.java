@@ -38,10 +38,6 @@ public interface GraphInconsistencyReceiver {
             "Unexpected inconsistency: " + key + ", " + otherKey + ", " + inconsistency);
       };
 
-  default boolean restartPermitted() {
-    return false;
-  }
-
   default InconsistencyStats getInconsistencyStats() {
     return InconsistencyStats.getDefaultInstance();
   }

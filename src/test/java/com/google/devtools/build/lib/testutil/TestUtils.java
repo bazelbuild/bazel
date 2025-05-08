@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.testutil;
 
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -25,14 +26,13 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
-/**
- * Some static utility functions for testing.
- */
-public class TestUtils {
+/** Some static utility functions for testing. */
+public final class TestUtils {
 
   public static final UUID ZERO_UUID = UUID.fromString("00000000-0000-0000-0000-000000000000");
 
@@ -81,7 +81,10 @@ public class TestUtils {
       fileSystem = new JavaIoFileSystem(DigestHashFunction.SHA256);
     }
     File tmpDirRoot = tmpDirRoot();
-    Path path = fileSystem.getPath(tmpDirRoot.getPath()).getRelative(UUID.randomUUID().toString());
+    Path path =
+        fileSystem
+            .getPath(StringEncoding.platformToInternal(tmpDirRoot.getPath()))
+            .getRelative(UUID.randomUUID().toString());
     path.createDirectoryAndParents();
     return path;
   }
@@ -118,7 +121,6 @@ public class TestUtils {
       try {
         randomSeed = Integer.parseInt(value);
       } catch (NumberFormatException e) {
-        // throw new AssertionError("TEST_RANDOM_SEED must be an integer");
         throw new RuntimeException("TEST_RANDOM_SEED must be an integer", e);
       }
     }
@@ -134,6 +136,7 @@ public class TestUtils {
         return SyscallCache.NO_CACHE.readdir(path);
       }
 
+      @Nullable
       @Override
       public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
         return path.asFragment().endsWith(badPath)
@@ -141,7 +144,6 @@ public class TestUtils {
             : SyscallCache.NO_CACHE.statIfFound(path, symlinks);
       }
 
-      @Nullable
       @Override
       public DirentTypeWithSkip getType(Path path, Symlinks symlinks) {
         return path.asFragment().endsWith(badPath)
@@ -154,20 +156,45 @@ public class TestUtils {
     };
   }
 
+  /** Creates the assertion String to match against when a target isn't found. */
+  public static String createMissingTargetAssertionString(
+      String target, String packageStr, String workspaceRoot, String expectedTargets) {
+    if (workspaceRoot == null) {
+      workspaceRoot = "";
+    }
+
+    String buildFilePath = workspaceRoot + "/" + packageStr + "/BUILD";
+
+    String fullTarget = "//" + packageStr + ":" + target;
+
+    final String suggestedTargetsBaseString =
+        "no such target '%s': target '%s' not declared in package '%s' "
+            + "defined by %s"
+            + expectedTargets;
+
+    return String.format(
+        suggestedTargetsBaseString, fullTarget, target, packageStr, buildFilePath, expectedTargets);
+  }
+
   /**
    * Timeouts for asserting that an arbitrary event occurs eventually.
    *
    * <p>In general, it's not appropriate to use a small constant timeout for an arbitrary
    * computation since there is no guarantee that a snippet of code will execute within a given
-   * amount of time - you are at the mercy of the jvm, your machine, and your OS. In theory we
-   * could try to take all of these factors into account but instead we took the simpler and
-   * obviously correct approach of not having timeouts.
+   * amount of time - you are at the mercy of the jvm, your machine, and your OS. In theory we could
+   * try to take all of these factors into account but instead we took the simpler and obviously
+   * correct approach of not having timeouts.
    *
-   * <p>If a test that uses these timeout values is failing due to a "timeout" at the
-   * 'blaze test' level, it could be because of a legitimate deadlock that would have been caught
-   * if the timeout values below were small. So you can rule out such a deadlock by changing these
-   * values to small numbers (also note that the --test_timeout blaze flag may be useful).
+   * <p>If a test that uses these timeout values is failing due to a "timeout" at the 'blaze test'
+   * level, it could be because of a legitimate deadlock that would have been caught if the timeout
+   * values below were small. So you can rule out such a deadlock by changing these values to small
+   * numbers (also note that the --test_timeout blaze flag may be useful).
    */
   public static final long WAIT_TIMEOUT_MILLISECONDS = Long.MAX_VALUE;
+
   public static final long WAIT_TIMEOUT_SECONDS = WAIT_TIMEOUT_MILLISECONDS / 1000;
+
+  public static final Duration WAIT_TIMEOUT_DURATION = Duration.ofMillis(WAIT_TIMEOUT_MILLISECONDS);
+
+  private TestUtils() {}
 }

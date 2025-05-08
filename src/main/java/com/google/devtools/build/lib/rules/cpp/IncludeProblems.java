@@ -16,12 +16,10 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.server.FailureDetails.CppCompile;
 import com.google.devtools.build.lib.server.FailureDetails.CppCompile.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import javax.annotation.Nullable;
 
 /**
  * Accumulator for problems encountered while reading or validating inclusion
@@ -29,36 +27,29 @@ import javax.annotation.Nullable;
  */
 class IncludeProblems {
 
-  private StringBuilder message;  // null when no problems
+  private StringBuilder problems; // null when no problems
 
   void add(String included) {
-    if (message == null) { message = new StringBuilder(); }
-    message.append("\n  '" + included + "'");
-  }
-
-  boolean hasProblems() { return message != null; }
-
-  @Nullable
-  String getMessage(Action action, Artifact sourceFile) {
-    if (message != null) {
-      return "undeclared inclusion(s) in rule '" + action.getOwner().getLabel() + "':\n"
-          + "this rule is missing dependency declarations for the following files "
-          + "included by '" + sourceFile.prettyPrint() + "':"
-          + message;
+    if (problems == null) {
+      problems = new StringBuilder();
     }
-    return null;
+    problems.append("\n  '").append(included).append("'");
   }
 
-  void assertProblemFree(Action action, Artifact sourceFile) throws ActionExecutionException {
+  boolean hasProblems() {
+    return problems != null;
+  }
+
+  void assertProblemFree(String message, Action action) throws ActionExecutionException {
     if (hasProblems()) {
-      String message = getMessage(action, sourceFile);
+      String fullMessage = message + problems;
       DetailedExitCode code =
           DetailedExitCode.of(
               FailureDetail.newBuilder()
-                  .setMessage(message)
+                  .setMessage(fullMessage)
                   .setCppCompile(CppCompile.newBuilder().setCode(Code.UNDECLARED_INCLUSIONS))
                   .build());
-      throw new ActionExecutionException(message, action, false, code);
+      throw new ActionExecutionException(fullMessage, action, false, code);
     }
   }
 }

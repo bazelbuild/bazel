@@ -33,58 +33,30 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.SHARED_LIBRAR
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHARED_LIBRARY;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
-import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolver;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OsUtils;
 
 /** Rule class definitions for C++ rules. */
 public class CppRuleClasses {
-
-  /**
-   * Label of a pseudo-filegroup that contains all crosstool and libcfiles for all configurations,
-   * as specified on the command-line.
-   */
-  public static final String CROSSTOOL_LABEL = "//tools/cpp:toolchain";
-
   public static final LabelLateBoundDefault<?> DEFAULT_MALLOC =
       LabelLateBoundDefault.fromTargetConfiguration(
           CppConfiguration.class, null, (rule, attributes, cppConfig) -> cppConfig.customMalloc());
 
-  public static LabelLateBoundDefault<CppConfiguration> ccToolchainAttribute(
-      RuleDefinitionEnvironment env) {
-    return LabelLateBoundDefault.fromTargetConfiguration(
-        CppConfiguration.class,
-        env.getToolsLabel(CROSSTOOL_LABEL),
-        CC_TOOLCHAIN_CONFIGURATION_RESOLVER);
-  }
-
-  @SerializationConstant
-  static final Resolver<CppConfiguration, Label> CC_TOOLCHAIN_CONFIGURATION_RESOLVER =
-      (rule, attributes, configuration) -> configuration.getRuleProvidingCcToolchainProvider();
-
-  public static Label ccToolchainTypeAttribute(RuleDefinitionEnvironment env) {
-    return env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL);
-  }
-
-  public static ToolchainTypeRequirement ccToolchainTypeRequirement(Label ccToolchainType) {
-    // This is an optional dependency: if a toolchain cannot be found, CppHelper will give an
-    // appropriate error.
-    return ToolchainTypeRequirement.builder(ccToolchainType).mandatory(false).build();
-  }
-
   public static ToolchainTypeRequirement ccToolchainTypeRequirement(RuleDefinitionEnvironment env) {
-    return ccToolchainTypeRequirement(CppRuleClasses.ccToolchainTypeAttribute(env));
+    return ToolchainTypeRequirement.builder(env.getToolsLabel(CppHelper.TOOLCHAIN_TYPE_LABEL))
+        .mandatory(false)
+        .build();
   }
 
   // Artifacts of these types are discarded from the 'hdrs' attribute in cc rules
@@ -135,6 +107,9 @@ public class CppRuleClasses {
    */
   public static final String MODULE_MAPS = "module_maps";
 
+  /** A string constant for the cpp_modules feature. */
+  public static final String CPP_MODULES = "cpp_modules";
+
   /**
    * A string constant for the random_seed feature. This is used by gcc and Clangfor the
    * randomization of symbol names that are in the anonymous namespace but have external linkage.
@@ -167,6 +142,15 @@ public class CppRuleClasses {
 
   /** A string constant for the layering_check feature. */
   public static final String LAYERING_CHECK = "layering_check";
+
+  /**
+   * A string constant that signifies whether the crosstool validates layering_check in
+   * textual_hdrs. We use the compiler's definition of textual_hdrs also for all regular but
+   * non-modular headers. This in turn means that the compiler can check layering in headers of the
+   * same target, irrespective the PARSE_HEADERS feature and we can elide separate header actions.
+   */
+  public static final String VALIDATES_LAYERING_CHECK_IN_TEXTUAL_HDRS =
+      "validates_layering_check_in_textual_hdrs";
 
   /** A string constant for the header_modules feature. */
   public static final String HEADER_MODULES = "header_modules";
@@ -245,6 +229,13 @@ public class CppRuleClasses {
   /** A string constant for a feature that indicates that the toolchain can produce PIC objects. */
   public static final String SUPPORTS_PIC = "supports_pic";
 
+  /**
+   * A string constant for a feature that indicates that PIC compiles are preferred for binaries
+   * even in optimized builds. For configurations that use dynamic linking for tests, this provides
+   * increases sharing of artifacts between tests and binaries at the cost of performance overhead.
+   */
+  public static final String PREFER_PIC_FOR_OPT_BINARIES = "prefer_pic_for_opt_binaries";
+
   /** A string constant for the feature the represents preprocessor defines. */
   public static final String PREPROCESSOR_DEFINES = "preprocessor_defines";
 
@@ -268,6 +259,9 @@ public class CppRuleClasses {
 
   /** A string constant for the LTO indexing bitcode feature. */
   public static final String NO_USE_LTO_INDEXING_BITCODE_FILE = "no_use_lto_indexing_bitcode_file";
+
+  /** A string constant for the LTO separate native object directory feature. */
+  public static final String USE_LTO_NATIVE_OBJECT_DIRECTORY = "use_lto_native_object_directory";
 
   /*
    * A string constant for allowing implicit ThinLTO enablement for AFDO.
@@ -300,6 +294,13 @@ public class CppRuleClasses {
 
   /** A string constant for enabling fsafdo for AutoFDO implicitly. */
   public static final String ENABLE_FSAFDO = "enable_fsafdo";
+
+  /** A string constant for enabling memprof_optimize for AutoFDO implicitly. */
+  public static final String ENABLE_AUTOFDO_MEMPROF_OPTIMIZE = "enable_autofdo_memprof_optimize";
+
+  /** A string constant for allowing memprof_optimize for AutoFDO implicitly. */
+  public static final String AUTOFDO_IMPLICIT_MEMPROF_OPTIMIZE =
+      "autofdo_implicit_memprof_optimize";
 
   /**
    * A string constant for allowing use of shared LTO backend actions for linkstatic tests building
@@ -383,6 +384,9 @@ public class CppRuleClasses {
   /** A string constant for /showIncludes parsing feature, should only be used for MSVC toolchain */
   public static final String PARSE_SHOWINCLUDES = "parse_showincludes";
 
+  /** A string constant for a feature that, if enabled, disables .d file handling. */
+  public static final String NO_DOTD_FILE = "no_dotd_file";
+
   /*
    * A string constant for the fdo_instrument feature.
    */
@@ -402,6 +406,9 @@ public class CppRuleClasses {
 
   /** A string constant for the propeller optimize feature. */
   public static final String PROPELLER_OPTIMIZE = "propeller_optimize";
+
+  /** A string constant for the memprof profile optimization feature. */
+  public static final String MEMPROF_OPTIMIZE = "memprof_optimize";
 
   /**
    * A string constant for the propeller_optimize_thinlto_compile_actions feature.
@@ -445,6 +452,9 @@ public class CppRuleClasses {
   /** A feature marking that the target needs to link its deps in --whole-archive block. */
   public static final String LEGACY_WHOLE_ARCHIVE = "legacy_whole_archive";
 
+  /** A feature for force disabling whole-archive on a per target and per rule type basis. */
+  public static final String FORCE_NO_WHOLE_ARCHIVE = "force_no_whole_archive";
+
   /**
    * A feature marking that the target generates libraries that should not be put in a
    * --whole-archive block.
@@ -463,6 +473,9 @@ public class CppRuleClasses {
   /** A feature to use gcc quoting for linking param files. */
   public static final String GCC_QUOTING_FOR_PARAM_FILES = "gcc_quoting_for_param_files";
 
+  /** A feature to use windows quoting for linking param files. */
+  public static final String WINDOWS_QUOTING_FOR_PARAM_FILES = "windows_quoting_for_param_files";
+
   /**
    * A feature to indicate that this target generates debug symbols for a dSYM file. For Apple
    * platform only.
@@ -479,22 +492,11 @@ public class CppRuleClasses {
    */
   public static final String NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME = "no_generate_debug_symbols";
 
-  /** A feature to indicate whether to generate linkmap. For Apple platform only. */
+  /** A feature to indicate whether to generate linkmap. */
   public static final String GENERATE_LINKMAP_FEATURE_NAME = "generate_linkmap";
 
   /** A feature to indicate whether to do linker deadstrip. For Apple platform only. */
   public static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
-
-  /**
-   * A feature which indicates that this target is a test (rather than a binary). This can be used
-   * to select test-only options.
-   */
-  public static final String IS_CC_TEST_FEATURE_NAME = "is_cc_test";
-
-  /**
-   * A feature which indicates whether we are using the legacy_is_cc_test build variable behavior.
-   */
-  public static final String LEGACY_IS_CC_TEST_FEATURE_NAME = "legacy_is_cc_test";
 
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {
@@ -513,7 +515,7 @@ public class CppRuleClasses {
       if (addGrepIncludes) {
         builder.add(
             attr("$grep_includes", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(env.getToolsLabel("//tools/cpp:grep-includes")));
       }
       return builder.build();
@@ -535,7 +537,14 @@ public class CppRuleClasses {
   public static final class CcLinkingRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder.addExecGroup(CPP_LINK_EXEC_GROUP).build();
+      return builder
+          .addExecGroups(
+              ImmutableMap.of(
+                  CPP_LINK_EXEC_GROUP,
+                  DeclaredExecGroup.builder()
+                      .addToolchainType(ccToolchainTypeRequirement(env))
+                      .build()))
+          .build();
     }
 
     @Override

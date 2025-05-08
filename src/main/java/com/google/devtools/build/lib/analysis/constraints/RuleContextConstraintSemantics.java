@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.constraints;
 
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -592,13 +592,11 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
       Label currentTarget, Label environment, RemovedEnvironmentCulprit reason) {
     LabelAndLocation culprit = reason.culprit();
     Label targetToExplore =
-        currentTarget.equals(culprit.getLabel())
-            ? reason.selectedDepForCulprit()
-            : culprit.getLabel();
+        currentTarget.equals(culprit.label()) ? reason.selectedDepForCulprit() : culprit.label();
 
     return new StringJoiner("\n")
         .add("  environment: " + environment)
-        .add("    removed by: " + culprit.getLabel() + " (" + culprit.getLocation() + ")")
+        .add("    removed by: " + culprit.label() + " (" + culprit.location() + ")")
         .add("    because of a select() that chooses dep: " + reason.selectedDepForCulprit())
         .add("    which lacks: " + environment)
         .add("")
@@ -748,6 +746,14 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
       Set<Label> selectOnlyDepsForThisAttribute =
           getDepsOnlyInSelects(ruleContext, attr, attributes.getAttributeType(attr));
       for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attr)) {
+        // For normal configured targets the target's label is the same label appearing in the
+        // select(). But for AliasConfiguredTargets the label in the select() refers to the alias,
+        // while dep.getLabel() refers to the target the alias points to. So add this quick check
+        // to make sure we're comparing the same labels.
+        Label depLabelInSelect =
+            dep instanceof ConfiguredTarget configuredTarget
+                ? configuredTarget.getOriginalLabel()
+                : dep.getLabel();
         // Output files inherit the environment spec of their generating rule.
         if (dep instanceof OutputFileConfiguredTarget) {
           // Note this reassignment means constraint violation errors reference the generating
@@ -758,14 +764,6 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
         // checking, but for now just pass them by.
         if (dep.getProvider(SupportedEnvironmentsProvider.class) != null) {
           depsToCheck.add(dep);
-          // For normal configured targets the target's label is the same label appearing in the
-          // select(). But for AliasConfiguredTargets the label in the select() refers to the alias,
-          // while dep.getLabel() refers to the target the alias points to. So add this quick check
-          // to make sure we're comparing the same labels.
-          Label depLabelInSelect =
-              (dep instanceof ConfiguredTarget)
-                  ? ((ConfiguredTarget) dep).getOriginalLabel()
-                  : dep.getLabel();
           if (!selectOnlyDepsForThisAttribute.contains(depLabelInSelect)) {
             depsOutsideSelects.add(dep);
           }
@@ -821,9 +819,7 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
   private static <T> void addSelectValuesToSet(BuildType.Selector<T> select, Set<Label> set) {
     Type<T> type = select.getOriginalType();
     LabelVisitor visitor = (label, dummy) -> set.add(label);
-    for (T value : select.getEntries().values()) {
-      type.visitLabels(visitor, value, /*context=*/ null);
-    }
+    select.forEach((label, value) -> type.visitLabels(visitor, value, /* context= */ null));
   }
 
   /**
@@ -836,17 +832,16 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
    * instances like {@link OutputFileConfiguredTarget}, however, the {@code underlyingTarget} is the
    * rule that generated the file.
    */
-  @AutoValue
-  public abstract static class IncompatibleCheckResult {
-    private static IncompatibleCheckResult create(
-        boolean isIncompatible, ConfiguredTarget underlyingTarget) {
-      return new AutoValue_RuleContextConstraintSemantics_IncompatibleCheckResult(
-          isIncompatible, underlyingTarget);
+  public record IncompatibleCheckResult(boolean isIncompatible, ConfiguredTarget underlyingTarget) {
+    public IncompatibleCheckResult {
+      requireNonNull(underlyingTarget, "underlyingTarget");
     }
 
-    public abstract boolean isIncompatible();
+    private static IncompatibleCheckResult create(
+        boolean isIncompatible, ConfiguredTarget underlyingTarget) {
+      return new IncompatibleCheckResult(isIncompatible, underlyingTarget);
+    }
 
-    public abstract ConfiguredTarget underlyingTarget();
   }
 
   /**

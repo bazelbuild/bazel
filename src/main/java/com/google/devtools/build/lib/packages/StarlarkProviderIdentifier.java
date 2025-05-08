@@ -14,100 +14,162 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Objects;
-import javax.annotation.Nullable;
 
 /**
  * A wrapper around Starlark provider identifier, representing either a declared provider ({@see
  * StarlarkProvider}) or a "legacy" string identifier.
  */
-public final class StarlarkProviderIdentifier {
+public abstract class StarlarkProviderIdentifier {
   private static final Interner<StarlarkProviderIdentifier> interner =
       BlazeInterners.newWeakInterner();
 
-  @Nullable
-  private final String legacyId;
-  @Nullable private final Provider.Key key;
-
   /** Creates an id for a declared provider with a given key ({@see StarlarkProvider}). */
   public static StarlarkProviderIdentifier forKey(Provider.Key key) {
-    return interner.intern(new StarlarkProviderIdentifier(key));
+    return interner.intern(new KeyedIdentifier(key));
   }
 
   /** Creates an id for a provider with a given name. */
   public static StarlarkProviderIdentifier forLegacy(String legacyId) {
-    return interner.intern(new StarlarkProviderIdentifier(legacyId));
-  }
-
-  private StarlarkProviderIdentifier(String legacyId) {
-    this.legacyId = legacyId;
-    this.key = null;
-  }
-
-  private StarlarkProviderIdentifier(Provider.Key key) {
-    this.legacyId = null;
-    this.key = key;
+    return interner.intern(new LegacyIdentifier(legacyId));
   }
 
   /**
-   * Returns true if this {@link StarlarkProviderIdentifier} identifies
-   * a legacy provider (with a string name).
+   * Returns true if this {@link StarlarkProviderIdentifier} identifies a legacy provider (with a
+   * string name).
    */
-  public boolean isLegacy() {
-    return legacyId != null;
-  }
+  public abstract boolean isLegacy();
 
-  /**
-   * Returns a string identifying the provider (only for legacy providers).
-   */
-  public String getLegacyId() {
-    Preconditions.checkState(isLegacy(), "Check isLegacy() first");
-    return legacyId;
-  }
+  /** Returns a string identifying the provider (only for legacy providers). */
+  public abstract String getLegacyId();
 
   /** Returns a key identifying the declared provider (only for non-legacy providers). */
-  public Provider.Key getKey() {
-    Preconditions.checkState(!isLegacy(), "Check !isLegacy() first");
-    return key;
-  }
+  public abstract Provider.Key getKey();
 
-  void fingerprint(Fingerprint fp) {
-    if (isLegacy()) {
+  abstract void fingerprint(Fingerprint fp);
+
+  /**
+   * Returns the provider key name for a declared provider, or the legacy ID for a legacy provider.
+   *
+   * <p>Used for rendering human-readable descriptions, such as for a rule attribute's set of
+   * required providers.
+   */
+  @Override
+  public abstract String toString();
+
+  @AutoCodec
+  static final class LegacyIdentifier extends StarlarkProviderIdentifier {
+    private final String legacyId;
+
+    private LegacyIdentifier(String legacyId) {
+      this.legacyId = legacyId;
+    }
+
+    @Override
+    public boolean isLegacy() {
+      return true;
+    }
+
+    @Override
+    public String getLegacyId() {
+      return legacyId;
+    }
+
+    @Override
+    public Provider.Key getKey() {
+      throw new IllegalStateException("Check !isLegacy() first");
+    }
+
+    @Override
+    void fingerprint(Fingerprint fp) {
       fp.addBoolean(true);
       fp.addString(legacyId);
-    } else {
+    }
+
+    @Override
+    public int hashCode() {
+      return legacyId.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof LegacyIdentifier)) {
+        return false;
+      }
+      return Objects.equals(legacyId, ((LegacyIdentifier) obj).legacyId);
+    }
+
+    @Override
+    public String toString() {
+      return legacyId;
+    }
+
+    @AutoCodec.Interner
+    static LegacyIdentifier intern(LegacyIdentifier id) {
+      return (LegacyIdentifier) interner.intern(id);
+    }
+  }
+
+  @AutoCodec
+  static final class KeyedIdentifier extends StarlarkProviderIdentifier {
+    private final Provider.Key key;
+
+    private KeyedIdentifier(Provider.Key key) {
+      this.key = key;
+    }
+
+    @Override
+    public boolean isLegacy() {
+      return false;
+    }
+
+    @Override
+    public String getLegacyId() {
+      throw new IllegalStateException("Check isLegacy() first");
+    }
+
+    @Override
+    public Provider.Key getKey() {
+      return key;
+    }
+
+    @Override
+    void fingerprint(Fingerprint fp) {
       fp.addBoolean(false);
       key.fingerprint(fp);
     }
-  }
 
-  @Override
-  public String toString() {
-    if (isLegacy()) {
-      return legacyId;
+    @Override
+    public int hashCode() {
+      return key.hashCode();
     }
-    return key.toString();
-  }
 
-  @Override
-  public int hashCode() {
-    return legacyId != null ? legacyId.hashCode() * 2 : key.hashCode();
-  }
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof KeyedIdentifier)) {
+        return false;
+      }
+      return Objects.equals(key, ((KeyedIdentifier) obj).key);
+    }
 
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
+    @Override
+    public String toString() {
+      return key.toString();
     }
-    if (!(obj instanceof StarlarkProviderIdentifier)) {
-      return false;
+
+    @AutoCodec.Interner
+    static KeyedIdentifier intern(KeyedIdentifier id) {
+      return (KeyedIdentifier) interner.intern(id);
     }
-    StarlarkProviderIdentifier other = (StarlarkProviderIdentifier) obj;
-    return Objects.equals(legacyId, other.legacyId)
-        && Objects.equals(key, other.key);
   }
 }

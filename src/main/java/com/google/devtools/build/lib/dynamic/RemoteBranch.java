@@ -29,10 +29,10 @@ import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy.StopConcurrentSpawns;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule.IgnoreFailureCheck;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -122,6 +122,17 @@ class RemoteBranch extends Branch {
           if (!future.isCancelled()) {
             localBranch.cancel();
           }
+          if (options.debugSpawnScheduler) {
+            logger.atInfo().log(
+                "In listener callback, the future of the remote branch is %s",
+                future.state().name());
+            try {
+              future.get();
+            } catch (InterruptedException | ExecutionException e) {
+              logger.atInfo().withCause(e).log(
+                  "The future of the remote branch failed with an exception.");
+            }
+          }
         },
         MoreExecutors.directExecutor());
   }
@@ -143,7 +154,9 @@ class RemoteBranch extends Branch {
           spawn,
           context,
           (exitCode, errorMessage, outErr) -> {
-            maybeIgnoreFailure(exitCode, errorMessage, outErr);
+            if (!future.isCancelled()) {
+              maybeIgnoreFailure(exitCode, errorMessage, outErr);
+            }
             DynamicSpawnStrategy.stopBranch(
                 localBranch, this, strategyThatCancelled, options, this.context);
           },

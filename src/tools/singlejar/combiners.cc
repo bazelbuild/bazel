@@ -33,7 +33,7 @@ bool Concatenator::Merge(const CDH *cdh, const LH *lh) {
   }
   CreateBuffer();
   if (Z_NO_COMPRESSION == lh->compression_method()) {
-    buffer_->ReadEntryContents(lh);
+    buffer_->ReadEntryContents(cdh, lh);
   } else if (Z_DEFLATED == lh->compression_method()) {
     if (!inflater_) {
       inflater_.reset(new Inflater());
@@ -138,7 +138,7 @@ bool XmlCombiner::Merge(const CDH *cdh, const LH *lh) {
   // and remove the start and end tags if they are present.
   TransientBytes bytes_;
   if (Z_NO_COMPRESSION == lh->compression_method()) {
-    bytes_.ReadEntryContents(lh);
+    bytes_.ReadEntryContents(cdh, lh);
   } else if (Z_DEFLATED == lh->compression_method()) {
     if (!inflater_) {
       inflater_.reset(new Inflater());

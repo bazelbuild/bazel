@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -24,6 +24,6 @@ function extract_histogram_count() {
   local item="$2"
   # We can't use + here because Macs don't recognize it as a special character
   # by default.
-  (grep "$item" "$histofile" || echo "") \
+  (egrep "$item" "$histofile" || echo "") \
       | sed -e 's/^ *[0-9][0-9]*: *\([0-9][0-9]*\) .*$/\1/'
 }

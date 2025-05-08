@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Integrating Bazel with IDEs
 
+{% include "_buttons.html" %}
+
 This page covers how to integrate Bazel with IDEs, such as IntelliJ, Android
 Studio, and CLion (or build your own IDE plugin). It also includes links to
 installation and plugin details.
@@ -12,8 +14,8 @@ executions from within the IDE, to awareness of Bazel structures such as syntax
 highlighting of the `BUILD` files.
 
 If you are interested in developing an editor or IDE plugin for Bazel, please
-join the `#ide` channel on the [Bazel Slack](https://slack.bazel.build) or email
-the [bazel-dev](https://groups.google.com/forum/#!forum/bazel-dev) mailing list.
+join the `#ide` channel on the [Bazel Slack](https://slack.bazel.build) or start
+a discussion on [GitHub](https://github.com/bazelbuild/bazel/discussions).
 
 ## IDEs and editors {:#ides-editors}
 
@@ -47,9 +49,10 @@ Plugin Repository and install the zip file from the IDE's plugin browser:
 
 ### Xcode {:#xcode}
 
-[Tulsi](https://tulsi.bazel.build){: .external} and
-[XCHammer](https://github.com/pinterest/xchammer){: .external} generate Xcode projects from
-Bazel `BUILD` files.
+[rules_xcodeproj](https://github.com/buildbuddy-io/rules_xcodeproj){: .external},
+[Tulsi](https://tulsi.bazel.build){: .external}, and
+[XCHammer](https://github.com/pinterest/xchammer){: .external} generate Xcode
+projects from Bazel `BUILD` files.
 
 ### Visual Studio Code {:#visual-studio-code}
 
@@ -72,14 +75,20 @@ See also: [Autocomplete for Source Code](#autocomplete-for-source-code)
 Find the [`language-bazel` package](https://atom.io/packages/language-bazel){: .external}
 on the Atom package manager.
 
+See also: [Autocomplete for Source Code](#autocomplete-for-source-code)
+
 ### Vim {:#vim}
 
 See [`bazelbuild/vim-bazel` on GitHub](https://github.com/bazelbuild/vim-bazel){: .external}
+
+See also: [Autocomplete for Source Code](#autocomplete-for-source-code)
 
 ### Emacs {:#emacs}
 
 See [`bazelbuild/bazel-emacs-mode` on
 GitHub](https://github.com/bazelbuild/emacs-bazel-mode){: .external}
+
+See also: [Autocomplete for Source Code](#autocomplete-for-source-code)
 
 ### Visual Studio {:#visual-studio}
 
@@ -96,7 +105,13 @@ Eclipse projects.
 
 ### C Language Family (C++, C, Objective-C, and Objective-C++)
 
-[`hedronvision/bazel-compile-commands-extractor`](https://github.com/hedronvision/bazel-compile-commands-extractor) enables autocomplete in a wide variety of extensible editors, including VSCode, Vim, Emacs, and Sublime. It lets language servers, like clangd and ccls, and other types of tooling, draw upon Bazel's understanding of how `cc` and `objc` code will be compiled, including how it configures cross-compilation for other platforms.
+[`kiron1/bazel-compile-commands`](https://github.com/kiron1/bazel-compile-commands){: .external}
+run `bazel-compile-commands //...` in a Bazel workspace to generate a `compile_commands.json` file.
+The `compile_commands.json` file enables tools like `clang-tidy`, `clangd` (LSP) and other IDEs to
+provide autocomplete, smart navigation, quick fixes, and more. The tool is written in C++ and
+consumes the Protobuf output of Bazel to extract the compile commands.
+
+[`hedronvision/bazel-compile-commands-extractor`](https://github.com/hedronvision/bazel-compile-commands-extractor) enables autocomplete, smart navigation, quick fixes, and more in a wide variety of extensible editors, including VSCode, Vim, Emacs, Atom, and Sublime. It lets language servers, like clangd and ccls, and other types of tooling, draw upon Bazel's understanding of how `cc` and `objc` code will be compiled, including how it configures cross-compilation for other platforms.
 
 ### Java
 

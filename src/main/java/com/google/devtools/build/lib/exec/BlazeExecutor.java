@@ -75,10 +75,8 @@ public final class BlazeExecutor implements Executor {
     this.options = options;
     this.actionContextRegistry = actionContextRegistry;
 
-    if (executionOptions.debugPrintActionContexts) {
-      spawnStrategyRegistry.writeSpawnStrategiesTo(reporter);
-      actionContextRegistry.writeActionContextsTo(reporter);
-    }
+    spawnStrategyRegistry.logSpawnStrategies();
+    actionContextRegistry.logActionContexts();
 
     actionContextRegistry.notifyUsed();
     spawnStrategyRegistry.notifyUsed(actionContextRegistry);

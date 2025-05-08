@@ -18,25 +18,12 @@ We may change the implementation at any moment or even delete this file. Do not
 rely on this. Pass the flag --experimental_starlark_cc_import
 """
 
+load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/objc/semantics.bzl", "semantics")
-
-CcInfo = _builtins.toplevel.CcInfo
-cc_common = _builtins.toplevel.cc_common
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/semantics.bzl", "semantics")
 
 CPP_LINK_STATIC_LIBRARY_ACTION_NAME = "c++-link-static-library"
-
-def _to_list(element):
-    if element == None:
-        return []
-    else:
-        return [element]
-
-def _to_depset(element):
-    if element == None:
-        return depset()
-    else:
-        return depset([element])
 
 def _perform_error_checks(
         system_provided,
@@ -93,6 +80,7 @@ def _create_archive_action(
     # action is created by cc_library
     ctx.actions.run(
         executable = archiver_path,
+        toolchain = cc_helper.CPP_TOOLCHAIN_TYPE,
         arguments = [args],
         env = env,
         inputs = depset(
@@ -145,7 +133,7 @@ def _cc_import_impl(ctx):
         library_to_link = cc_common.create_library_to_link(
             actions = ctx.actions,
             feature_configuration = feature_configuration,
-            cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo],
+            cc_toolchain = cc_toolchain,
             static_library = static_library,
             pic_static_library = pic_static_library,
             interface_library = ctx.file.interface_library,
@@ -165,14 +153,18 @@ def _cc_import_impl(ctx):
             linker_inputs = depset([linker_input]),
         )
 
-    (compilation_context, compilation_outputs) = cc_common.compile(
+    runtimes_deps = semantics.get_cc_runtimes(ctx, True)
+    runtimes_copts = semantics.get_cc_runtimes_copts(ctx)
+    compilation_contexts = cc_helper.get_compilation_contexts_from_deps(runtimes_deps)
+    (compilation_context, _) = cc_common.compile(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
+        user_compile_flags = runtimes_copts,
         cc_toolchain = cc_toolchain,
+        compilation_contexts = compilation_contexts,
         public_hdrs = ctx.files.hdrs,
         includes = ctx.attr.includes,
         name = ctx.label.name,
-        grep_includes = ctx.attr._grep_includes.files_to_run.executable,
     )
 
     this_cc_info = CcInfo(compilation_context = compilation_context, linking_context = linking_context)
@@ -186,41 +178,247 @@ def _cc_import_impl(ctx):
 
 cc_import = rule(
     implementation = _cc_import_impl,
+    doc = """
+<p>
+<code>cc_import</code> rules allows users to import precompiled C/C++ libraries.
+</p>
+
+<p>
+The following are the typical use cases: <br/>
+
+1. Linking a static library
+<pre><code class="lang-starlark">
+cc_import(
+  name = "mylib",
+  hdrs = ["mylib.h"],
+  static_library = "libmylib.a",
+  # If alwayslink is turned on,
+  # libmylib.a will be forcely linked into any binary that depends on it.
+  # alwayslink = True,
+)
+</code></pre>
+
+2. Linking a shared library (Unix)
+<pre><code class="lang-starlark">
+cc_import(
+  name = "mylib",
+  hdrs = ["mylib.h"],
+  shared_library = "libmylib.so",
+)
+</code></pre>
+
+3. Linking a shared library with interface library
+
+<p>On Unix:
+<pre><code class="lang-starlark">
+cc_import(
+  name = "mylib",
+  hdrs = ["mylib.h"],
+  # libmylib.ifso is an interface library for libmylib.so which will be passed to linker
+  interface_library = "libmylib.ifso",
+  # libmylib.so will be available for runtime
+  shared_library = "libmylib.so",
+)
+</code></pre>
+
+<p>On Windows:
+<pre><code class="lang-starlark">
+cc_import(
+  name = "mylib",
+  hdrs = ["mylib.h"],
+  # mylib.lib is an import library for mylib.dll which will be passed to linker
+  interface_library = "mylib.lib",
+  # mylib.dll will be available for runtime
+  shared_library = "mylib.dll",
+)
+</code></pre>
+
+4. Linking a shared library with <code>system_provided=True</code>
+
+<p>On Unix:
+<pre><code class="lang-starlark">
+cc_import(
+  name = "mylib",
+  hdrs = ["mylib.h"],
+  interface_library = "libmylib.ifso", # Or we can also use libmylib.so as its own interface library
+  # libmylib.so is provided by system environment, for example it can be found in LD_LIBRARY_PATH.
+  # This indicates that Bazel is not responsible for making libmylib.so available.
+  system_provided = True,
+)
+</code></pre>
+
+<p>On Windows:
+<pre><code class="lang-starlark">
+cc_import(
+  name = "mylib",
+  hdrs = ["mylib.h"],
+  # mylib.lib is an import library for mylib.dll which will be passed to linker
+  interface_library = "mylib.lib",
+  # mylib.dll is provided by system environment, for example it can be found in PATH.
+  # This indicates that Bazel is not responsible for making mylib.dll available.
+  system_provided = True,
+)
+</code></pre>
+
+5. Linking to static or shared library
+
+<p>On Unix:
+<pre><code class="lang-starlark">
+cc_import(
+  name = "mylib",
+  hdrs = ["mylib.h"],
+  static_library = "libmylib.a",
+  shared_library = "libmylib.so",
+)
+</code></pre>
+
+<p>On Windows:
+<pre><code class="lang-starlark">
+cc_import(
+  name = "mylib",
+  hdrs = ["mylib.h"],
+  static_library = "libmylib.lib", # A normal static library
+  interface_library = "mylib.lib", # An import library for mylib.dll
+  shared_library = "mylib.dll",
+)
+</code></pre>
+
+<p>The remaining is the same on Unix and Windows:
+<pre><code class="lang-starlark">
+# first will link to libmylib.a (or libmylib.lib)
+cc_binary(
+  name = "first",
+  srcs = ["first.cc"],
+  deps = [":mylib"],
+  linkstatic = True, # default value
+)
+
+# second will link to libmylib.so (or libmylib.lib)
+cc_binary(
+  name = "second",
+  srcs = ["second.cc"],
+  deps = [":mylib"],
+  linkstatic = False,
+)
+</code></pre>
+
+<p>
+<code>cc_import</code> supports an include attribute. For example:
+<pre><code class="lang-starlark">
+cc_import(
+  name = "curl_lib",
+  hdrs = glob(["vendor/curl/include/curl/*.h"]),
+  includes = ["vendor/curl/include"],
+  shared_library = "vendor/curl/lib/.libs/libcurl.dylib",
+)
+</code></pre>
+</p>
+""",
     attrs = {
         "hdrs": attr.label_list(
             allow_files = True,
             flags = ["ORDER_INDEPENDENT", "DIRECT_COMPILE_TIME_INPUT"],
+            doc = """
+The list of header files published by
+this precompiled library to be directly included by sources in dependent rules.""",
         ),
-        "static_library": attr.label(allow_single_file = [".a", ".lib"]),
-        "pic_static_library": attr.label(allow_single_file = [".pic.a", ".pic.lib"]),
-        "shared_library": attr.label(allow_single_file = True),
+        "static_library": attr.label(allow_single_file = [".a", ".lib"], doc = """
+A single precompiled static library.
+<p> Permitted file types:
+  <code>.a</code>,
+  <code>.pic.a</code>
+  or <code>.lib</code>
+</p>"""),
+        "pic_static_library": attr.label(allow_single_file = [".pic.a", ".pic.lib"]),  # TODO: b/320462212 - document this attribute
+        "shared_library": attr.label(allow_single_file = True, doc = """
+A single precompiled shared library. Bazel ensures it is available to the
+binary that depends on it during runtime.
+<p> Permitted file types:
+  <code>.so</code>,
+  <code>.dll</code>
+  or <code>.dylib</code>
+</p>"""),
         "interface_library": attr.label(
             allow_single_file = [".ifso", ".tbd", ".lib", ".so", ".dylib"],
+            doc = """
+A single interface library for linking the shared library.
+<p> Permitted file types:
+  <code>.ifso</code>,
+  <code>.tbd</code>,
+  <code>.lib</code>,
+  <code>.so</code>
+  or <code>.dylib</code>
+</p>""",
         ),
         "pic_objects": attr.label_list(
+            # TODO: b/320462212 - document this attribute
             allow_files = [".o", ".pic.o"],
         ),
         "objects": attr.label_list(
+            # TODO: b/320462212 - document this attribute
             allow_files = [".o", ".nopic.o"],
         ),
-        "system_provided": attr.bool(default = False),
-        "alwayslink": attr.bool(default = False),
-        "linkopts": attr.string_list(),
-        "includes": attr.string_list(),
-        "deps": attr.label_list(),
+        "system_provided": attr.bool(default = False, doc = """
+If 1, it indicates the shared library required at runtime is provided by the system. In
+this case, <code>interface_library</code> should be specified and
+<code>shared_library</code> should be empty."""),
+        "alwayslink": attr.bool(default = False, doc = """
+If 1, any binary that depends (directly or indirectly) on this C++
+precompiled library will link in all the object files archived in the static library,
+even if some contain no symbols referenced by the binary.
+This is useful if your code isn't explicitly called by code in
+the binary, e.g., if your code registers to receive some callback
+provided by some service.
+
+<p>If alwayslink doesn't work with VS 2017 on Windows, that is due to a
+<a href="https://github.com/bazelbuild/bazel/issues/3949">known issue</a>,
+please upgrade your VS 2017 to the latest version.</p>"""),
+        "linkopts": attr.string_list(doc = """
+Add these flags to the C++ linker command.
+Subject to <a href="make-variables.html">"Make" variable</a> substitution,
+<a href="common-definitions.html#sh-tokenization">
+Bourne shell tokenization</a> and
+<a href="common-definitions.html#label-expansion">label expansion</a>.
+Each string in this attribute is added to <code>LINKOPTS</code> before
+linking the binary target.
+<p>
+  Each element of this list that does not start with <code>$</code> or <code>-</code> is
+  assumed to be the label of a target in <code>deps</code>. The
+  list of files generated by that target is appended to the linker
+  options.  An error is reported if the label is invalid, or is
+  not declared in <code>deps</code>.
+</p>"""),
+        "includes": attr.string_list(doc = """
+List of include dirs to be added to the compile line.
+Subject to <a href="${link make-variables}">"Make variable"</a> substitution.
+Each string is prepended with the package path and passed to the C++ toolchain for
+expansion via the "include_paths" CROSSTOOL feature. A toolchain running on a POSIX system
+with typical feature definitions will produce
+<code>-isystem path_to_package/include_entry</code>.
+This should only be used for third-party libraries that
+do not conform to the Google style of writing #include statements.
+Unlike <a href="#cc_binary.copts">COPTS</a>, these flags are added for this rule
+and every rule that depends on it. (Note: not the rules it depends upon!) Be
+very careful, since this may have far-reaching effects.  When in doubt, add
+"-I" flags to <a href="#cc_binary.copts">COPTS</a> instead.
+<p>
+The default <code>include</code> path doesn't include generated
+files. If you need to <code>#include</code> a generated header
+file, list it in the <code>srcs</code>.
+</p>
+"""),
+        "deps": attr.label_list(doc = """
+The list of other libraries that the target depends upon.
+See general comments about <code>deps</code>
+at <a href="${link common-definitions#typical-attributes}">Typical attributes defined by
+most build rules</a>."""),
         "data": attr.label_list(
             allow_files = True,
             flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
         ),
-        "_grep_includes": attr.label(
-            allow_files = True,
-            executable = True,
-            cfg = "exec",
-            default = Label("@" + semantics.get_repo() + "//tools/cpp:grep-includes"),
-        ),
-        "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
+        "_use_auto_exec_groups": attr.bool(default = True),
     },
-    toolchains = cc_helper.use_cpp_toolchain(),
+    provides = [CcInfo],
+    toolchains = cc_helper.use_cpp_toolchain() + semantics.get_runtimes_toolchain(),
     fragments = ["cpp"],
-    incompatible_use_toolchain_transition = True,
 )

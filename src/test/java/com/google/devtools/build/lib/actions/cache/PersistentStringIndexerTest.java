@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestThread.TestRunnable;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,22 +34,22 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test for the PersistentStringIndexer class.
- */
+/** Tests for {@link PersistentStringIndexer}. */
 @RunWith(JUnit4.class)
-public class PersistentStringIndexerTest {
+public final class PersistentStringIndexerTest {
 
   private static class ManualClock implements Clock {
     private long currentTime = 0L;
 
-    ManualClock() { }
+    ManualClock() {}
 
-    @Override public long currentTimeMillis() {
+    @Override
+    public long currentTimeMillis() {
       throw new AssertionError("unexpected method call");
     }
 
-    @Override  public long nanoTime() {
+    @Override
+    public long nanoTime() {
       return currentTime;
     }
 
@@ -59,39 +58,39 @@ public class PersistentStringIndexerTest {
     }
   }
 
-  private PersistentStringIndexer psi;
-  private Map<Integer, String> mappings = new ConcurrentHashMap<>();
-  private Scratch scratch = new Scratch();
-  private ManualClock clock = new ManualClock();
+  private final Map<Integer, String> mappings = new ConcurrentHashMap<>();
+  private final Scratch scratch = new Scratch();
+  private final ManualClock clock = new ManualClock();
   private Path dataPath;
   private Path journalPath;
 
+  private PersistentStringIndexer indexer;
 
   @Before
-  public final void createIndexer() throws Exception  {
-    dataPath = scratch.resolve("/cache/test.dat");
-    journalPath = scratch.resolve("/cache/test.journal");
-    psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
+  public void createIndexer() throws Exception {
+    Path cacheRoot = scratch.dir("/cache");
+    dataPath = cacheRoot.getChild("test.dat");
+    journalPath = cacheRoot.getChild("test.journal");
+    indexer = PersistentStringIndexer.create(dataPath, journalPath, clock);
   }
 
   private void assertSize(int expected) {
-    assertThat(psi.size()).isEqualTo(expected);
+    assertThat(indexer.size()).isEqualTo(expected);
   }
 
   private void assertIndex(int expected, String s) {
-    int index = psi.getOrCreateIndex(s);
+    int index = indexer.getOrCreateIndex(s);
     assertThat(index).isEqualTo(expected);
     mappings.put(expected, s);
   }
 
   private void assertContent() {
-    for (int i = 0; i < psi.size(); i++) {
-      if(mappings.get(i) != null) {
-        assertThat(mappings).containsEntry(i, psi.getStringForIndex(i));
+    for (int i = 0; i < indexer.size(); i++) {
+      if (mappings.get(i) != null) {
+        assertThat(mappings).containsEntry(i, indexer.getStringForIndex(i));
       }
     }
   }
-
 
   private void setupTestContent() {
     assertSize(0);
@@ -111,13 +110,12 @@ public class PersistentStringIndexerTest {
   }
 
   /**
-   * Writes lots of entries with labels "fooconcurrent[int]" at the same time.
-   * The set of labels written is deterministic, but the label:index mapping is
-   * not.
+   * Writes lots of entries with labels "fooconcurrent[int]" at the same time. The set of labels
+   * written is deterministic, but the label:index mapping is not.
    */
-  private void writeLotsOfEntriesConcurrently(final int numToWrite) throws InterruptedException {
-    final int NUM_THREADS = 10;
-    final CountDownLatch synchronizerLatch = new CountDownLatch(NUM_THREADS);
+  private void writeLotsOfEntriesConcurrently(int numToWrite) throws InterruptedException {
+    int numThreads = 10;
+    CountDownLatch synchronizerLatch = new CountDownLatch(numThreads);
 
     TestRunnable indexAdder =
         () -> {
@@ -126,12 +124,12 @@ public class PersistentStringIndexerTest {
             synchronizerLatch.await();
 
             String value = "fooconcurrent" + i;
-            mappings.put(psi.getOrCreateIndex(value), value);
+            mappings.put(indexer.getOrCreateIndex(value), value);
           }
         };
 
     Collection<TestThread> threads = new ArrayList<>();
-    for (int i = 0; i < NUM_THREADS; i++) {
+    for (int i = 0; i < numThreads; i++) {
       TestThread thread = new TestThread(indexAdder);
       thread.start();
       threads.add(thread);
@@ -140,6 +138,21 @@ public class PersistentStringIndexerTest {
     for (TestThread thread : threads) {
       thread.joinAndAssertState(0);
     }
+  }
+
+  @Test
+  public void returnsSameIntegerInstance() {
+    int n = 1000; // Greater than the default java.lang.Integer.IntegerCache.high of 127.
+    for (int i = 0; i < n; i++) {
+      String s = "a".repeat(i);
+      Integer index = indexer.getOrCreateIndex(s);
+      assertThat(indexer.getIndex(s)).isSameInstanceAs(index);
+    }
+  }
+
+  @Test
+  public void unindexedStringReturnsNull() {
+    assertThat(indexer.getIndex("absent")).isNull();
   }
 
   @Test
@@ -155,12 +168,12 @@ public class PersistentStringIndexerTest {
     assertThat(dataPath.exists()).isFalse();
     assertThat(journalPath.exists()).isTrue();
 
-    psi.save(); // Successful save will remove journal file.
+    indexer.save(); // Successful save will remove journal file.
     assertThat(dataPath.exists()).isTrue();
     assertThat(journalPath.exists()).isFalse();
 
     // Now restore data from file and verify it.
-    psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
+    indexer = PersistentStringIndexer.create(dataPath, journalPath, clock);
     assertThat(journalPath.exists()).isFalse();
     clock.advance(4);
     assertSize(10);
@@ -182,7 +195,7 @@ public class PersistentStringIndexerTest {
     assertThat(journalPath.exists()).isTrue();
 
     // Now restore data from file and verify it. All data should be restored from journal;
-    psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
+    indexer = PersistentStringIndexer.create(dataPath, journalPath, clock);
     assertThat(dataPath.exists()).isTrue();
     assertThat(journalPath.exists()).isFalse();
     clock.advance(4);
@@ -196,7 +209,7 @@ public class PersistentStringIndexerTest {
     assertThat(dataPath.exists()).isFalse();
     assertThat(journalPath.exists()).isFalse();
     setupTestContent();
-    psi.save();
+    indexer.save();
     assertThat(dataPath.exists()).isTrue();
     assertThat(journalPath.exists()).isFalse();
     long oldDataFileLen = dataPath.getFileSize();
@@ -208,7 +221,7 @@ public class PersistentStringIndexerTest {
     assertThat(journalPath.exists()).isTrue();
 
     // Now restore data from file and verify it. All data should be restored from journal;
-    psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
+    indexer = PersistentStringIndexer.create(dataPath, journalPath, clock);
     assertThat(dataPath.exists()).isTrue();
     assertThat(journalPath.exists()).isFalse();
     assertThat(dataPath.getFileSize())
@@ -224,12 +237,12 @@ public class PersistentStringIndexerTest {
     assertThat(dataPath.exists()).isFalse();
     assertThat(journalPath.exists()).isFalse();
     setupTestContent();
-    psi.save();
+    indexer.save();
     assertThat(dataPath.exists()).isTrue();
     assertThat(journalPath.exists()).isFalse();
     long oldDataFileLen = dataPath.getFileSize();
 
-    int size = psi.size();
+    int size = indexer.size();
     int numToWrite = 50000;
     writeLotsOfEntriesConcurrently(numToWrite);
     assertThat(journalPath.exists()).isFalse();
@@ -240,7 +253,7 @@ public class PersistentStringIndexerTest {
     assertThat(journalPath.exists()).isTrue();
 
     // Now restore data from file and verify it. All data should be restored from journal;
-    psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
+    indexer = PersistentStringIndexer.create(dataPath, journalPath, clock);
     assertThat(dataPath.exists()).isTrue();
     assertThat(journalPath.exists()).isFalse();
     assertThat(dataPath.getFileSize())
@@ -258,8 +271,8 @@ public class PersistentStringIndexerTest {
     IOException e =
         assertThrows(
             IOException.class,
-            () -> psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock));
-    assertThat(e).hasMessageThat().contains("too short: Only 13 bytes");
+            () -> indexer = PersistentStringIndexer.create(dataPath, journalPath, clock));
+    assertThat(e).hasMessageThat().contains("too short: 13 bytes");
 
     journalPath.delete();
     setupTestContent();
@@ -273,36 +286,25 @@ public class PersistentStringIndexerTest {
 
     byte[] journalContent = FileSystemUtils.readContent(journalPath);
 
-    // Now restore data from file and verify it. All data should be restored from journal;
-    psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
+    // Restore data from file and verify it.
+    indexer = PersistentStringIndexer.create(dataPath, journalPath, clock);
+    assertThat(indexer.size()).isEqualTo(10);
     assertThat(dataPath.exists()).isTrue();
     assertThat(journalPath.exists()).isFalse();
 
-    // Now put back truncated journal. We should get an error.
+    // Replace journal with a truncated copy. We should tolerate it and drop the incomplete record.
     assertThat(dataPath.delete()).isTrue();
-    FileSystemUtils.writeContent(journalPath,
-        Arrays.copyOf(journalContent, journalContent.length - 1));
-    assertThrows(
-        EOFException.class,
-        () -> psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock));
+    FileSystemUtils.writeContent(
+        journalPath, Arrays.copyOf(journalContent, journalContent.length - 1));
+    indexer = PersistentStringIndexer.create(dataPath, journalPath, clock);
+    assertThat(indexer.size()).isEqualTo(9);
 
-    // Corrupt the journal with a negative size value.
+    // Replace journal with a corrupted copy. We should tolerate it and drop remaining records.
     byte[] journalCopy = journalContent.clone();
-    // Flip this bit to make the key size negative.
-    journalCopy[95] = -2;
-    FileSystemUtils.writeContent(journalPath,  journalCopy);
-    e =
-        assertThrows(
-            IOException.class,
-            () -> psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock));
-    assertThat(e).hasMessageThat().contains("corrupt key length");
-
-    // Now put back corrupted journal. We should get an error.
-    journalContent[journalContent.length - 13] = 100;
-    FileSystemUtils.writeContent(journalPath,  journalContent);
-    assertThrows(
-        IOException.class,
-        () -> psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock));
+    journalCopy[95] = -2; // make the key size negative
+    FileSystemUtils.writeContent(journalPath, journalCopy);
+    indexer = PersistentStringIndexer.create(dataPath, journalPath, clock);
+    assertThat(indexer.size()).isEqualTo(9);
   }
 
   @Test
@@ -312,7 +314,7 @@ public class PersistentStringIndexerTest {
     assertThat(journalPath.exists()).isFalse();
 
     assertIndex(9, "abc1234"); // This should flush journal to disk.
-    psi.save();
+    indexer.save();
     assertThat(dataPath.exists()).isTrue();
     assertThat(journalPath.exists()).isFalse();
 
@@ -338,7 +340,7 @@ public class PersistentStringIndexerTest {
     IOException e =
         assertThrows(
             IOException.class,
-            () -> psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock));
+            () -> indexer = PersistentStringIndexer.create(dataPath, journalPath, clock));
     assertThat(e).hasMessageThat().contains("Corrupted filename index has duplicate entry");
   }
 
@@ -360,7 +362,7 @@ public class PersistentStringIndexerTest {
     // Subsequent updates should succeed even though journaling is disabled at this point.
     clock.advance(4);
     assertIndex(10, "another record");
-    IOException e = assertThrows(IOException.class, () -> psi.save());
+    IOException e = assertThrows(IOException.class, () -> indexer.save());
     assertThat(e).hasMessageThat().contains(journalPath.getPathString() + " (Is a directory)");
   }
 }

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.common.options.Option;
@@ -45,18 +44,19 @@ public class LoadingPhaseThreadsOption extends OptionsBase {
   /**
    * A converter for loading phase thread count. Takes {@value FLAG_SYNTAX}. Caps at 20 for tests.
    */
-  public static final class LoadingPhaseThreadCountConverter extends ResourceConverter {
+  public static final class LoadingPhaseThreadCountConverter
+      extends ResourceConverter.IntegerConverter {
 
     public LoadingPhaseThreadCountConverter() {
       // TODO(jmmv): Using the number of cores has proven to yield reasonable analysis times on
       // Mac Pros and MacBook Pros but we should probably do better than this. (We haven't made
       // any guarantees that "auto" means number of cores precisely to leave us room to tune this
       // further in the future.)
-      super(() -> (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage()));
+      super(/* auto= */ HOST_CPUS_SUPPLIER, /* minValue= */ 1, /* maxValue= */ Integer.MAX_VALUE);
     }
 
     @Override
-    public int checkAndLimit(int value) throws OptionsParsingException {
+    public Integer checkAndLimit(Integer value) throws OptionsParsingException {
       // Cap thread count while running tests. Test cases are typically small and large thread
       // pools vying for a relatively small number of CPU cores may induce non-optimal
       // performance.

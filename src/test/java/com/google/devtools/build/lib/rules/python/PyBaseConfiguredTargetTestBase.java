@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -26,9 +26,11 @@ import org.junit.Test;
 public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
 
   private final String ruleName;
+  protected final String bzlLoad;
 
   protected PyBaseConfiguredTargetTestBase(String ruleName) {
     this.ruleName = ruleName;
+    bzlLoad = getPyLoad(ruleName);
   }
 
   @Before
@@ -42,26 +44,13 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   }
 
   @Test
-  public void badSrcsVersionValue() throws Exception {
-    checkError(
-        "pkg",
-        "foo",
-        // error:
-        Pattern.compile(".*invalid value.*srcs_version.*"),
-        // build file:
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs_version = 'doesnotexist',",
-        "    srcs = ['foo.py'])");
-  }
-
-  @Test
   public void goodSrcsVersionValue() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        bzlLoad,
         ruleName + "(",
         "    name = 'foo',",
-        "    srcs_version = 'PY2',",
+        "    srcs_version = 'PY3',",
         "    srcs = ['foo.py'])");
     getConfiguredTarget("//pkg:foo");
     assertNoEvents();
@@ -71,6 +60,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   public void versionIs3IfUnspecified() throws Exception {
     scratch.file(
         "pkg/BUILD", //
+        bzlLoad,
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
@@ -81,17 +71,19 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   public void producesProvider() throws Exception {
     scratch.file(
         "pkg/BUILD", //
+        bzlLoad,
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
-    assertThat(target.get(PyInfo.PROVIDER)).isNotNull();
+    assertThat(PyInfo.fromTarget(target)).isNotNull();
   }
 
   @Test
   public void consumesProvider() throws Exception {
     scratch.file(
         "pkg/rules.bzl",
+        getPyLoad("PyInfo"),
         "def _myrule_impl(ctx):",
         "    return [PyInfo(transitive_sources=depset([]))]",
         "myrule = rule(",
@@ -99,6 +91,7 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         ")");
     scratch.file(
         "pkg/BUILD",
+        bzlLoad,
         "load(':rules.bzl', 'myrule')",
         "myrule(",
         "    name = 'dep',",
@@ -117,17 +110,21 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   public void requiresProvider() throws Exception {
     scratch.file(
         "pkg/rules.bzl",
-        "def _myrule_impl(ctx):",
-        "    return []",
-        "myrule = rule(",
-        "    implementation = _myrule_impl,",
-        ")");
+        """
+        def _myrule_impl(ctx):
+            return []
+
+        myrule = rule(
+            implementation = _myrule_impl,
+        )
+        """);
     checkError(
         "pkg",
         "foo",
         // error:
         "'//pkg:dep' does not have mandatory providers",
         // build file:
+        bzlLoad,
         "load(':rules.bzl', 'myrule')",
         "myrule(",
         "    name = 'dep',",
@@ -143,12 +140,15 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   public void dataSetsUsesSharedLibrary() throws Exception {
     scratch.file(
         "pkg/BUILD",
+        bzlLoad,
         ruleName + "(",
         "    name = 'foo',",
         "    srcs = ['foo.py'],",
         "    data = ['lib.so']",
         ")");
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
-    assertThat(target.get(PyInfo.PROVIDER).getUsesSharedLibraries()).isTrue();
+    assertThat(PyInfo.fromTarget(target).getUsesSharedLibraries()).isTrue();
   }
+
+
 }

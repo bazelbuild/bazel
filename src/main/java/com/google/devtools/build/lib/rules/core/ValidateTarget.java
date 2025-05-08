@@ -13,18 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.core;
 
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 
 /**
  * Non-recursive aspect that promotes {@link OutputGroupInfo#VALIDATION} outputs to {@link
@@ -45,12 +46,13 @@ class ValidateTarget extends NativeAspectClass implements ConfiguredAspectFactor
 
   @Override
   public ConfiguredAspect create(
-      ConfiguredTargetAndData ctadBase,
+      Label targetLabel,
+      ConfiguredTarget ct,
       RuleContext context,
       AspectParameters parameters,
       RepositoryName toolsRepository)
       throws ActionConflictException, InterruptedException {
-    OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(ctadBase.getConfiguredTarget());
+    OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(ct);
     if (outputGroupInfo != null) {
       NestedSet<Artifact> validations = outputGroupInfo.getOutputGroup(OutputGroupInfo.VALIDATION);
       if (!validations.isEmpty()) {
@@ -59,6 +61,6 @@ class ValidateTarget extends NativeAspectClass implements ConfiguredAspectFactor
             .build();
       }
     }
-    return ConfiguredAspect.forNonapplicableTarget();
+    return ConfiguredAspect.NonApplicableAspect.INSTANCE;
   }
 }

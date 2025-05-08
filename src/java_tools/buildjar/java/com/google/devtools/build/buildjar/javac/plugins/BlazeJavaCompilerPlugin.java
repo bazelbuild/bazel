@@ -34,7 +34,6 @@ public abstract class BlazeJavaCompilerPlugin {
 
   protected Context context;
   protected Log log;
-  protected JavaCompiler compiler;
   protected BlazeJavacStatistics.Builder statisticsBuilder;
 
   /**
@@ -97,12 +96,16 @@ public abstract class BlazeJavaCompilerPlugin {
       BlazeJavacStatistics.Builder statisticsBuilder) {
     this.context = context;
     this.log = log;
-    this.compiler = compiler;
     this.statisticsBuilder = statisticsBuilder;
   }
 
   /** Returns true if the plugin should run on compilations with attribution errors. */
   public boolean runOnAttributionErrors() {
+    return false;
+  }
+
+  /** Returns true if the plugin should run on compilations with flow errors. */
+  public boolean runOnFlowErrors() {
     return false;
   }
 }

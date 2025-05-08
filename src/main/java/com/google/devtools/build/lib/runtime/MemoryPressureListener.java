@@ -19,63 +19,71 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
-import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.metrics.GarbageCollectionMetricsUtils;
+import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
+import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.annotation.Nullable;
 import javax.management.Notification;
 import javax.management.NotificationEmitter;
 import javax.management.NotificationListener;
 import javax.management.openmbean.CompositeData;
 
 @ThreadSafe
-class MemoryPressureListener implements NotificationListener {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+final class MemoryPressureListener implements NotificationListener {
 
   private final AtomicReference<EventBus> eventBus = new AtomicReference<>();
-  private final RetainedHeapLimiter retainedHeapLimiter;
+  private final AtomicReference<GcThrashingDetector> gcThrashingDetector = new AtomicReference<>();
+  private final AtomicReference<GcChurningDetector> gcChurnDetector = new AtomicReference<>();
+  private final Executor executor;
 
-  private MemoryPressureListener(RetainedHeapLimiter retainedHeapLimiter) {
-    this.retainedHeapLimiter = retainedHeapLimiter;
+  private MemoryPressureListener(Executor executor) {
+    this.executor = executor;
   }
 
-  @Nullable
-  static MemoryPressureListener create(RetainedHeapLimiter retainedHeapLimiter) {
+  static MemoryPressureListener create() {
     return createFromBeans(
-        ImmutableList.copyOf(ManagementFactory.getGarbageCollectorMXBeans()), retainedHeapLimiter);
+        ManagementFactory.getGarbageCollectorMXBeans(),
+        // Use a dedicated thread to broadcast memory pressure events. The service thread that calls
+        // handleNotification for GC events is not a typical Java thread - it doesn't work with
+        // debugger breakpoints and may not show up in thread dumps.
+        Executors.newSingleThreadExecutor(
+            new ThreadFactoryBuilder().setNameFormat("memory-pressure-listener-%d").build()));
   }
 
   @VisibleForTesting
-  @Nullable
   static MemoryPressureListener createFromBeans(
-      ImmutableList<GarbageCollectorMXBean> gcBeans, RetainedHeapLimiter retainedHeapLimiter) {
+      List<GarbageCollectorMXBean> gcBeans, Executor executor) {
     ImmutableList<NotificationEmitter> tenuredGcEmitters = findTenuredCollectorBeans(gcBeans);
     if (tenuredGcEmitters.isEmpty()) {
-      logger.atSevere().log(
-          "Unable to find tenured collector from %s: names were %s.",
-          gcBeans,
+      var names =
           gcBeans.stream()
               .map(GarbageCollectorMXBean::getMemoryPoolNames)
               .map(Arrays::asList)
-              .collect(toImmutableList()));
-      return null;
+              .collect(toImmutableList());
+      throw new IllegalStateException(
+          String.format(
+              "Unable to find tenured collector from %s: names were %s.", gcBeans, names));
     }
 
-    MemoryPressureListener memoryPressureListener = new MemoryPressureListener(retainedHeapLimiter);
+    MemoryPressureListener memoryPressureListener = new MemoryPressureListener(executor);
     tenuredGcEmitters.forEach(e -> e.addNotificationListener(memoryPressureListener, null, null));
     return memoryPressureListener;
   }
 
   @VisibleForTesting
   static ImmutableList<NotificationEmitter> findTenuredCollectorBeans(
-      Iterable<GarbageCollectorMXBean> gcBeans) {
+      List<GarbageCollectorMXBean> gcBeans) {
     ImmutableList.Builder<NotificationEmitter> builder = ImmutableList.builder();
     // Examine all collectors and register for notifications from those which collect the tenured
     // space. Normally there is one such collector.
@@ -123,22 +131,58 @@ class MemoryPressureListener implements NotificationListener {
     MemoryPressureEvent event =
         MemoryPressureEvent.newBuilder()
             .setWasManualGc(gcInfo.getGcCause().equals("System.gc()"))
+            .setWasGcLockerInitiatedGc(gcInfo.getGcCause().equals("GCLocker Initiated GC"))
+            .setWasFullGc(GarbageCollectionMetricsUtils.isFullGc(gcInfo))
             .setTenuredSpaceUsedBytes(tenuredSpaceUsedBytes)
             .setTenuredSpaceMaxBytes(tenuredSpaceMaxBytes)
+            .setDuration(Duration.ofMillis(gcInfo.getGcInfo().getDuration()))
             .build();
+    executor.execute(() -> broadcast(event));
+  }
+
+  private void broadcast(MemoryPressureEvent event) {
+    GcThrashingDetector gcThrashingDetector = this.gcThrashingDetector.get();
+    if (gcThrashingDetector != null) {
+      // Invoke the GcThrashingDetector directly instead of through the EventBus. This is because
+      // the point of GcThrashingDetector is to [conditionally] crash Blaze, but if we crash in a
+      // EventBus subscriber that means that CrashEvent and CommandCompleteEvent posted by
+      // BugReporter#handleCrash never get handled because EventBus defers recursive posts until
+      // after the posting subscriber has returned, but GcThrashingDetector halts the JVM and never
+      // returns.
+      gcThrashingDetector.handle(event);
+    }
+    GcChurningDetector gcChurningDetector = this.gcChurnDetector.get();
+    if (gcChurningDetector != null) {
+      // Same reasoning as above for invoking GcChurningDetector directly.
+      gcChurningDetector.handle(event);
+    }
 
     // A null EventBus implies memory pressure event between commands with no active EventBus.
-    // In such cases, notify RetainedHeapLimiter but do not publish event.
     EventBus eventBus = this.eventBus.get();
     if (eventBus != null) {
       eventBus.post(event);
     }
-    // Post to EventBus first so memory pressure subscribers have a chance to make things
-    // eligible for GC before RetainedHeapLimiter would trigger a full GC.
-    this.retainedHeapLimiter.handle(event);
   }
 
-  void setEventBus(@Nullable EventBus eventBus) {
+  void initForInvocation(
+      EventBus eventBus,
+      GcThrashingDetector gcThrashingDetector,
+      GcChurningDetector gcChurningDetector) {
     this.eventBus.set(eventBus);
+    this.gcThrashingDetector.set(gcThrashingDetector);
+    this.gcChurnDetector.set(gcChurningDetector);
+  }
+
+  void populateStats(MemoryPressureStats.Builder memoryPressureStatsBuilder) {
+    GcChurningDetector gcChurningDetector = gcChurnDetector.get();
+    if (gcChurningDetector != null) {
+      gcChurningDetector.populateStats(memoryPressureStatsBuilder);
+    }
+  }
+
+  void reset() {
+    eventBus.set(null);
+    gcThrashingDetector.set(null);
+    gcChurnDetector.set(null);
   }
 }

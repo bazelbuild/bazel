@@ -57,25 +57,18 @@ int portable_fstatat(int dirfd, char *name, portable_stat_struct *statbuf,
   return fstatat(dirfd, name, statbuf, flags);
 }
 
-int StatSeconds(const portable_stat_struct &statbuf, StatTimes t) {
+uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
+                               StatTimes t) {
   switch (t) {
     case STAT_ATIME:
-      return statbuf.st_atime;
+      return statbuf.st_atimespec.tv_sec * 1000L +
+             statbuf.st_atimespec.tv_nsec / 1000000;
     case STAT_CTIME:
-      return statbuf.st_ctime;
+      return statbuf.st_ctimespec.tv_sec * 1000L +
+             statbuf.st_ctimespec.tv_nsec / 1000000;
     case STAT_MTIME:
-      return statbuf.st_mtime;
-  }
-}
-
-int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t) {
-  switch (t) {
-    case STAT_ATIME:
-      return statbuf.st_atimespec.tv_nsec;
-    case STAT_CTIME:
-      return statbuf.st_ctimespec.tv_nsec;
-    case STAT_MTIME:
-      return statbuf.st_mtimespec.tv_nsec;
+      return statbuf.st_mtime.tv_sec * 1000L +
+             statbuf.st_mtimespec.tv_nsec / 1000000;
   }
 }
 
@@ -101,15 +94,6 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
   return result;
 #else
   *attr_not_found = true;
-  return -1;
-#endif
-}
-
-int portable_sysctlbyname(const char *name_chars, void *mibp, size_t *sizep) {
-#if defined(HAVE_SYSCTLBYNAME)
-  return sysctlbyname(name_chars, mibp, sizep, nullptr, 0);
-#else
-  errno = ENOSYS;
   return -1;
 #endif
 }

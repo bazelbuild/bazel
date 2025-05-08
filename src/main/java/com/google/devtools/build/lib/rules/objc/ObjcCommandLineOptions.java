@@ -49,46 +49,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public String iosSimulatorDevice;
 
   @Option(
-      name = "watchos_simulator_version",
-      defaultValue = "null",
-      converter = DottedVersionConverter.class,
-      documentationCategory = OptionDocumentationCategory.TESTING,
-      effectTags = {OptionEffectTag.TEST_RUNNER},
-      help = "The version of watchOS to run on the simulator when running or testing.")
-  public DottedVersion.Option watchosSimulatorVersion;
-
-  @Option(
-      name = "watchos_simulator_device",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.TESTING,
-      effectTags = {OptionEffectTag.TEST_RUNNER},
-      help =
-          "The device to simulate when running an watchOS application in the simulator, e.g. "
-              + "'Apple Watch - 38mm'. You can get a list of devices by running 'xcrun simctl list "
-              + "devicetypes' on the machine the simulator will be run on.")
-  public String watchosSimulatorDevice;
-
-  @Option(
-      name = "tvos_simulator_version",
-      defaultValue = "null",
-      converter = DottedVersionConverter.class,
-      documentationCategory = OptionDocumentationCategory.TESTING,
-      effectTags = {OptionEffectTag.TEST_RUNNER},
-      help = "The version of tvOS to run on the simulator when running or testing.")
-  public DottedVersion.Option tvosSimulatorVersion;
-
-  @Option(
-      name = "tvos_simulator_device",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.TESTING,
-      effectTags = {OptionEffectTag.TEST_RUNNER},
-      help =
-          "The device to simulate when running an tvOS application in the simulator, e.g. "
-              + "'Apple TV 1080p'. You can get a list of devices by running 'xcrun simctl list "
-              + "devicetypes' on the machine the simulator will be run on.")
-  public String tvosSimulatorDevice;
-
-  @Option(
     name = "ios_memleaks",
     defaultValue = "false",
     documentationCategory = OptionDocumentationCategory.TESTING,
@@ -96,18 +56,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     help = "Enable checking for memory leaks in ios_test targets."
   )
   public boolean runMemleaks;
-
-  @Option(
-    name = "experimental_enable_objc_cc_deps",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-    help =
-        "Allows objc_* rules to depend on cc_library and causes any objc dependencies to be "
-            + "built with --cpu set to \"ios_<--ios_cpu>\" for any values in --ios_multi_cpu."
-  )
-  public boolean enableCcDeps;
 
   @Option(
     name = "experimental_objc_fastbuild_options",
@@ -169,6 +117,28 @@ public class ObjcCommandLineOptions extends FragmentOptions {
               + " set in the crosstool are still applied.")
   public boolean incompatibleAvoidHardcodedObjcCompilationFlags;
 
+  @Option(
+      name = "incompatible_disallow_sdk_frameworks_attributes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, disallow sdk_frameworks and weak_sdk_frameworks attributes in objc_library and"
+              + "objc_import.")
+  public boolean incompatibleDisallowSdkFrameworksAttributes;
+
+  @Option(
+      name = "incompatible_objc_alwayslink_by_default",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, make the default value true for alwayslink attributes in objc_library and"
+              + " objc_import.")
+  public boolean incompatibleObjcAlwayslinkByDefault;
+
   /** @deprecated delete when we are sure it's not used anywhere. */
   @Deprecated
   @Option(
@@ -181,4 +151,24 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "No-op. Kept here for backwards compatibility.")
   public boolean incompatibleDisableNativeAppleBinaryRule;
+
+  @Option(
+      name = "incompatible_strip_executable_safely",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, strip action for executables will use flag -x, which does not break dynamic "
+              + "symbol resolution.")
+  public boolean incompatibleStripExecutableSafely;
+
+  @Option(
+      name = "incompatible_builtin_objc_strip_action",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "Whether to emit a strip action as part of objc linking.")
+  public boolean incompatibleBuiltinObjcStripAction;
 }

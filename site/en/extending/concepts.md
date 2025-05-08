@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Extension Overview
 
+{% include "_buttons.html" %}
+
 <!-- [TOC] -->
 
 This page describes how to extend the BUILD language using macros
@@ -16,27 +18,33 @@ Before learning the more advanced concepts, first:
 * Read about the [Starlark language](/rules/language), used in both the
   `BUILD` and `.bzl` files.
 
-* Learn how you can [share variables](/rules/tutorial-sharing-variables)
+* Learn how you can [share variables](/build/share-variables)
   between two `BUILD` files.
 
-## Macros and rules
+## Macros and rules {:#macros-and-rules}
 
-A [macro](/rules/macros) is a function that instantiates rules. It is useful when a
-`BUILD` file is getting too repetitive or too complex, as it allows you to reuse
-some code. The function is evaluated as soon as the `BUILD` file is read. After
-the evaluation of the `BUILD` file, Bazel has little information about macros:
-if your macro generates a `genrule`, Bazel will behave as if you wrote the
-`genrule`. As a result, `bazel query` will only list the generated `genrule`.
+A macro is a function that instantiates rules. Macros come in two flavors:
+[symbolic macros](/extending/macros) (new in Bazel 8) and [legacy
+macros](/extending/legacy-macros). The two flavors of macros are defined
+differently, but behave almost the same from the point of view of a user. A
+macro is useful when a `BUILD` file is getting too repetitive or too complex, as
+it lets you reuse some code. The function is evaluated as soon as the `BUILD`
+file is read. After the evaluation of the `BUILD` file, Bazel has little
+information about macros. If your macro generates a `genrule`, Bazel will
+behave *almost* as if you declared that `genrule` in the `BUILD` file. (The one
+exception is that targets declared in a symbolic macro have [special visibility
+semantics](/extending/macros#visibility): a symbolic macro can hide its internal
+targets from the rest of the package.)
 
-A [rule](/rules/rules) is more powerful than a macro. It can access Bazel
+A [rule](/extending/rules) is more powerful than a macro. It can access Bazel
 internals and have full control over what is going on. It may for example pass
 information to other rules.
 
-If you want to reuse simple logic, start with a macro. If a macro becomes
+If you want to reuse simple logic, start with a macro; we recommend a symbolic
+macro, unless you need to support older Bazel versions. If a macro becomes
 complex, it is often a good idea to make it a rule. Support for a new language
-is typically done with a rule. Rules are for advanced users, and most
-users will never have to write one; they will only load and call existing
-rules.
+is typically done with a rule. Rules are for advanced users, and most users will
+never have to write one; they will only load and call existing rules.
 
 ## Evaluation model {:#evaluation-model}
 
@@ -71,24 +79,25 @@ they will not be executed.
 
 ## Creating extensions
 
-* [Create your first macro](/rules/tutorial-creating-a-macro) in order to
-  reuse some code. Then [learn more about macros](/rules/macros) and
-  [using them to create "custom verbs"](/rules/tutorial-custom-verbs).
+* [Create your first macro](/rules/macro-tutorial) in order to reuse some code.
+  Then [learn more about macros](/extending/macros) and [using them to create
+  "custom verbs"](/rules/verbs-tutorial).
 
 * [Follow the rules tutorial](/rules/rules-tutorial) to get started with rules.
-  Next, you can read more about the [rules concepts](/rules/rules).
+  Next, you can read more about the [rules concepts](/extending/rules).
 
 The two links below will be very useful when writing your own extensions. Keep
 them within reach:
 
-* The [API reference](/rules/lib/starlark-overview)
+* The [API reference](/rules/lib)
 
 * [Examples](https://github.com/bazelbuild/examples/tree/master/rules)
 
 ## Going further
 
-In addition to [macros](/rules/macros) and [rules](/rules/rules), you may want to write
-[aspects](/rules/aspects) and [repository rules](/rules/repository_rules).
+In addition to [macros](/extending/macros) and [rules](/extending/rules), you
+may want to write [aspects](/extending/aspects) and [repository
+rules](/external/repo).
 
 * Use [Buildifier](https://github.com/bazelbuild/buildtools){: .external}
   consistently to format and lint your code.

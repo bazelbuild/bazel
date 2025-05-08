@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.devtools.build.lib.packages.Rule.ALL_LABELS;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
@@ -24,7 +23,9 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
+import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions;
@@ -57,15 +59,12 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Either;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.TriState;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.function.Function;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * Common methods and utils to set up Blaze Runtime environments for {@link BlazeCommand} which
@@ -125,33 +124,11 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
     }
 
-    String query;
-    if (!options.getResidue().isEmpty()) {
-      if (!queryOptions.queryFile.isEmpty()) {
-        return reportAndCreateFailureResult(
-            env,
-            "Command-line query and --query_file cannot both be specified",
-            Query.Code.QUERY_FILE_WITH_COMMAND_LINE_EXPRESSION);
-      }
-      query = Joiner.on(' ').join(options.getResidue());
-    } else if (!queryOptions.queryFile.isEmpty()) {
-      // Works for absolute or relative query file.
-      Path residuePath = env.getWorkingDirectory().getRelative(queryOptions.queryFile);
-      try {
-        query = new String(FileSystemUtils.readContent(residuePath), StandardCharsets.UTF_8);
-      } catch (IOException e) {
-        return reportAndCreateFailureResult(
-            env,
-            "I/O error reading from " + residuePath.getPathString(),
-            Query.Code.QUERY_FILE_READ_FAILURE);
-      }
-    } else {
-      return reportAndCreateFailureResult(
-          env,
-          String.format(
-              "missing query expression. Type '%s help query' for syntax and help",
-              runtime.getProductName()),
-          Query.Code.COMMAND_LINE_EXPRESSION_MISSING);
+    String query = null;
+    try {
+      query = QueryOptionHelper.readQuery(queryOptions, options, env, /* allowEmptyQuery =*/ false);
+    } catch (QueryException e) {
+      return BlazeCommandResult.failureDetail(e.getFailureDetail());
     }
 
     Iterable<OutputFormatter> formatters = runtime.getQueryOutputFormatters();
@@ -181,8 +158,16 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
           Query.Code.GRAPHLESS_PREREQ_UNMET);
     }
 
+    StarlarkSemantics starlarkSemantics =
+        env.getSkyframeExecutor()
+            .getEffectiveStarlarkSemantics(env.getOptions().getOptions(BuildLanguageOptions.class));
+    LabelPrinter labelPrinter =
+        env.getOptions()
+            .getOptions(QueryOptions.class)
+            .getLabelPrinter(starlarkSemantics, mainRepoTargetParser.getRepoMapping());
+
     try (QueryRuntimeHelper queryRuntimeHelper =
-        env.getRuntime().getQueryRuntimeHelperFactory().create(env)) {
+        env.getRuntime().getQueryRuntimeHelperFactory().create(env, queryOptions)) {
       Either<BlazeCommandResult, QueryEvalResult> result;
       try (AbstractBlazeQueryEnvironment<Target> queryEnv =
           newQueryEnvironment(
@@ -195,7 +180,8 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
               threadsOption.threads,
               settings,
               useGraphlessQuery,
-              mainRepoTargetParser)) {
+              mainRepoTargetParser,
+              labelPrinter)) {
         result =
             doQuery(
                 query, env, queryOptions, streamResults, formatter, queryEnv, queryRuntimeHelper);
@@ -258,7 +244,8 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       int loadingPhaseThreads,
       Set<Setting> settings,
       boolean useGraphlessQuery,
-      TargetPattern.Parser mainRepoTargetParser) {
+      TargetPattern.Parser mainRepoTargetParser,
+      LabelPrinter labelPrinter) {
 
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
@@ -284,17 +271,17 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
             mainRepoTargetParser,
             env.getRelativeWorkingDirectory(),
             keepGoing,
-            /*strictScope=*/ true,
+            /* strictScope= */ true,
             orderedResults,
             universeScope,
             loadingPhaseThreads,
-            /*labelFilter=*/ ALL_LABELS,
+            /* labelFilter= */ ALL_LABELS,
             env.getReporter(),
             settings,
             env.getRuntime().getQueryFunctions(),
             env.getPackageManager().getPackagePath(),
-            /*blockUniverseEvaluationErrors=*/ false,
-            useGraphlessQuery);
+            useGraphlessQuery,
+            labelPrinter);
   }
 
   private static BlazeCommandResult reportAndCreateInterruptResult(

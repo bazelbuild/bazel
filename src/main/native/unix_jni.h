@@ -19,6 +19,7 @@
 
 #include <errno.h>
 #include <jni.h>
+#include <stdint.h>
 #include <sys/stat.h>
 
 #include <string>
@@ -58,18 +59,16 @@ extern std::string ErrorMessage(int error_number);
 int portable_fstatat(int dirfd, char *name, portable_stat_struct *statbuf,
                      int flags);
 
-// Encoding for different timestamps in a struct stat{}.
+// Encoding for different timestamps in a struct stat.
 enum StatTimes {
   STAT_ATIME,  // access
   STAT_MTIME,  // modification
   STAT_CTIME,  // status change
 };
 
-// Returns seconds from a stat buffer.
-int StatSeconds(const portable_stat_struct &statbuf, StatTimes t);
-
-// Returns nanoseconds from a stat buffer.
-int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t);
+// Returns milliseconds since Unix epoch from the given struct stat field.
+uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
+                               StatTimes t);
 
 // Runs getxattr(2). If the attribute is not found, returns -1 and sets
 // attr_not_found to true. For all other errors, returns -1, sets attr_not_found
@@ -82,9 +81,6 @@ ssize_t portable_getxattr(const char *path, const char *name, void *value,
 // to false and leaves errno set to the error code returned by the system.
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
                            size_t size, bool *attr_not_found);
-
-// Run sysctlbyname(3), only available on darwin
-int portable_sysctlbyname(const char *name_chars, void *mibp, size_t *sizep);
 
 // Used to surround an region that we want sleep disabled for.
 // push_disable_sleep to start the area.

@@ -19,10 +19,14 @@ import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionGrpc;
 import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionBlockingStub;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
@@ -87,6 +91,11 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
       return resp;
     }
     return null;
+  }
+
+  @Override
+  public ServerCapabilities getServerCapabilities() throws IOException {
+    return channel.getServerCapabilities();
   }
 
   /* Execute has two components: the Execute call and (optionally) the WaitExecution call.
@@ -159,11 +168,15 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
                                     execBlockingStub(context.getRequestMetadata(), channel)
                                         .waitExecution(wr));
                       } else {
-                        replies =
-                            channel.withChannelBlocking(
-                                channel ->
-                                    execBlockingStub(context.getRequestMetadata(), channel)
-                                        .execute(request));
+                        try (SilentCloseable c =
+                            Profiler.instance()
+                                .profile(ProfilerTask.REMOTE_EXECUTION, "send Execute request")) {
+                          replies =
+                              channel.withChannelBlocking(
+                                  channel ->
+                                      execBlockingStub(context.getRequestMetadata(), channel)
+                                          .execute(request));
+                        }
                       }
                       try {
                         while (replies.hasNext()) {
@@ -242,5 +255,9 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
       return;
     }
     channel.release();
+  }
+
+  RemoteRetrier getRetrier() {
+    return this.retrier;
   }
 }

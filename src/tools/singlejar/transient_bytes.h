@@ -69,8 +69,14 @@ class TransientBytes {
   }
 
   // Appends the contents of the uncompressed Zip entry.
-  void ReadEntryContents(const LH *lh) {
-    Append(lh->data(), lh->uncompressed_file_size());
+  void ReadEntryContents(const CDH *cdh, const LH *lh) {
+    uint64_t uncompressed_file_size;
+    if (cdh->no_size_in_local_header()) {
+      uncompressed_file_size = cdh->uncompressed_file_size();
+    } else {
+      uncompressed_file_size = lh->uncompressed_file_size();
+    }
+    Append(lh->data(), uncompressed_file_size);
   }
 
   // Appends the contents of the compressed Zip entry. Resets the inflater

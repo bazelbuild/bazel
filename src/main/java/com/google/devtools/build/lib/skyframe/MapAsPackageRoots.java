@@ -30,7 +30,7 @@ import java.util.Optional;
 public class MapAsPackageRoots implements PackageRoots {
   private final ImmutableMap<PackageIdentifier, Root> packageRootsMap;
 
-  MapAsPackageRoots(ImmutableMap<PackageIdentifier, Root> packageRootsMap) {
+  public MapAsPackageRoots(ImmutableMap<PackageIdentifier, Root> packageRootsMap) {
     this.packageRootsMap = packageRootsMap;
   }
 

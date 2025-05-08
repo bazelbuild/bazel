@@ -38,7 +38,7 @@ public class StarlarkUtil {
     if (rulesDir.exists() && rulesDir.isDirectory()) {
       for (String fileName : rulesDir.list()) {
         File file = new File(from + "/" + fileName);
-        if (file.isFile() && fileName.endsWith(".bzl")) {
+        if (file.isFile() && (fileName.endsWith(".bzl") || fileName.endsWith(".scl"))) {
           String context = Files.asCharSource(file, Charset.defaultCharset()).read();
           Path path = scratch.resolve(to + "/" + fileName);
           if (path.exists()) {

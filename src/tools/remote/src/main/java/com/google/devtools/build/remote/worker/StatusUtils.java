@@ -19,6 +19,7 @@ import com.google.protobuf.Any;
 import com.google.rpc.BadRequest;
 import com.google.rpc.BadRequest.FieldViolation;
 import com.google.rpc.Code;
+import com.google.rpc.PreconditionFailure;
 import com.google.rpc.Status;
 import io.grpc.StatusException;
 import io.grpc.protobuf.StatusProto;
@@ -44,7 +45,7 @@ final class StatusUtils {
     return StatusProto.toStatusException(notFoundStatus(digest));
   }
 
-  static com.google.rpc.Status notFoundStatus(Digest digest) {
+  static Status notFoundStatus(Digest digest) {
     return Status.newBuilder()
         .setCode(Code.NOT_FOUND.getNumber())
         .setMessage("Digest not found:" + digest)
@@ -55,7 +56,7 @@ final class StatusUtils {
     return StatusProto.toStatusException(interruptedStatus(digest));
   }
 
-  static com.google.rpc.Status interruptedStatus(Digest digest) {
+  static Status interruptedStatus(Digest digest) {
     return Status.newBuilder()
         .setCode(Code.CANCELLED.getNumber())
         .setMessage("Server operation was interrupted for " + digest)
@@ -66,12 +67,42 @@ final class StatusUtils {
     return StatusProto.toStatusException(invalidArgumentStatus(field, desc));
   }
 
-  static com.google.rpc.Status invalidArgumentStatus(String field, String desc) {
+  static Status invalidArgumentStatus(String field, String desc) {
     FieldViolation v = FieldViolation.newBuilder().setField(field).setDescription(desc).build();
     return Status.newBuilder()
         .setCode(Code.INVALID_ARGUMENT.getNumber())
         .setMessage("invalid argument(s): " + field + ": " + desc)
         .addDetails(Any.pack(BadRequest.newBuilder().addFieldViolations(v).build()))
+        .build();
+  }
+
+  static StatusException preconditionError(Exception e) {
+    return StatusProto.toStatusException(preconditionStatus(e));
+  }
+
+  static Status preconditionStatus(Exception e) {
+    return Status.newBuilder()
+        .setCode(Code.FAILED_PRECONDITION.getNumber())
+        .setMessage(e.getMessage())
+        .build();
+  }
+
+  static StatusException missingBlobError(Digest digest) {
+    return StatusProto.toStatusException(missingBlobStatus(digest));
+  }
+
+  static com.google.rpc.Status missingBlobStatus(Digest digest) {
+    return Status.newBuilder()
+        .setCode(Code.FAILED_PRECONDITION.getNumber())
+        .setMessage("Missing Blob: " + digest)
+        .addDetails(
+            Any.pack(
+                PreconditionFailure.newBuilder()
+                    .addViolations(
+                        PreconditionFailure.Violation.newBuilder()
+                            .setType("MISSING")
+                            .setSubject("blobs/" + digest.getHash() + "/" + digest.getSizeBytes()))
+                    .build()))
         .build();
   }
 }

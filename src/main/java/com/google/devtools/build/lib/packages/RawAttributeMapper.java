@@ -25,19 +25,19 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /**
- * {@link AttributeMap} implementation that returns raw attribute information as contained within
- * a {@link Rule} via {@link #getRawAttributeValue}. In particular, configurable attributes
- * of the form { config1: "value1", config2: "value2" } are passed through without being resolved
- * to a final value when obtained via that method.
+ * {@link AttributeMap} implementation that returns raw attribute information as contained within a
+ * {@link RuleOrMacroInstance} via {@link #getRawAttributeValue}. In particular, configurable
+ * attributes of the form { config1: "value1", config2: "value2" } are passed through without being
+ * resolved to a final value when obtained via that method.
  */
 public class RawAttributeMapper extends AbstractAttributeMapper {
 
-  private RawAttributeMapper(Rule rule) {
-    super(rule);
+  private RawAttributeMapper(RuleOrMacroInstance ruleOrMacroInstance) {
+    super(ruleOrMacroInstance);
   }
 
-  public static RawAttributeMapper of(Rule rule) {
-    return new RawAttributeMapper(rule);
+  public static RawAttributeMapper of(RuleOrMacroInstance ruleOrMacroInstance) {
+    return new RawAttributeMapper(ruleOrMacroInstance);
   }
 
   /**
@@ -67,9 +67,12 @@ public class RawAttributeMapper extends AbstractAttributeMapper {
 
     ImmutableSet.Builder<T> mergedValues = ImmutableSet.builder();
     for (Selector<List<T>> selector : getSelectorList(attributeName, type).getSelectors()) {
-      for (List<T> configuredList : selector.getEntries().values()) {
-        mergedValues.addAll(configuredList);
-      }
+      selector.forEach(
+          (label, value) -> {
+            if (value != null) {
+              mergedValues.addAll(value);
+            }
+          });
     }
     return mergedValues.build();
   }
@@ -85,7 +88,7 @@ public class RawAttributeMapper extends AbstractAttributeMapper {
     }
     ImmutableList.Builder<Label> builder = ImmutableList.builder();
     for (Selector<T> selector : selectorList.getSelectors()) {
-      builder.addAll(selector.getEntries().keySet());
+      selector.forEach((label, value) -> builder.add(label));
     }
     return builder.build();
   }
@@ -124,7 +127,7 @@ public class RawAttributeMapper extends AbstractAttributeMapper {
     // with an empty list during package loading if it is public or private in order not to visit
     // the package called 'visibility'.
     if (attr.getName().equals("visibility")) {
-      return rule.getVisibility().getDeclaredLabels();
+      return rule.getVisibilityDeclaredLabels();
     }
 
     // If the attribute value contains one or more select(...) expressions, then return

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.test;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -33,6 +34,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Helper functions for Starlark to access coverage-related infrastructure */
 @StarlarkBuiltin(
     name = "coverage_common",
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Helper functions to access coverage-related infrastructure.")
 public interface CoverageCommonApi<
         ConstraintValueT extends ConstraintValueInfoApi,
@@ -42,10 +44,10 @@ public interface CoverageCommonApi<
   @StarlarkMethod(
       name = "instrumented_files_info",
       doc =
-          "Creates a new "
-              + "<a class=\"anchor\" href=\"InstrumentedFilesInfo.html\">InstrumentedFilesInfo</a> "
-              + "instance. Use this provider to communicate coverage-related attributes of the "
-              + "current build rule.",
+          "Creates a new <a class=\"anchor\""
+              + " href=\"../providers/InstrumentedFilesInfo.html\">InstrumentedFilesInfo</a>"
+              + " instance. Use this provider to communicate coverage-related attributes of the"
+              + " current build rule.",
       parameters = {
         @Param(name = "ctx", positional = true, named = true, doc = "The rule context."),
         @Param(
@@ -65,7 +67,9 @@ public interface CoverageCommonApi<
         @Param(
             name = "coverage_support_files",
             allowedTypes = {
-              @ParamType(type = Sequence.class, generic1 = FileApi.class),
+              // TODO(#13365): improve the @ParamType annotation once it can support multiple
+              // contained types.
+              @ParamType(type = Sequence.class),
               @ParamType(type = Depset.class, generic1 = FileApi.class)
             },
             documented = false,
@@ -93,6 +97,27 @@ public interface CoverageCommonApi<
             positional = false,
             named = true,
             defaultValue = "None"),
+        @Param(
+            name = "metadata_files",
+            doc =
+                "Additional files required to generate coverage LCOV files after code execution."
+                    + " e.g. .gcno files for C++.",
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = FileApi.class),
+            }),
+        @Param(
+            name = "reported_to_actual_sources",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = Depset.class),
+              @ParamType(type = NoneType.class),
+            })
       },
       useStarlarkThread = true)
   InstrumentedFilesInfoApi instrumentedFilesInfo(
@@ -102,6 +127,8 @@ public interface CoverageCommonApi<
       Object supportFiles, // Sequence or Depset of <FileApi> expected
       Dict<?, ?> environment, // <String, String>
       Object extensions,
+      Sequence<?> metadataFiles,
+      Object reportedToActualSourcesObject,
       StarlarkThread thread)
       throws EvalException, TypeException;
 }

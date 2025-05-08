@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -79,37 +78,52 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   // test --@main_workspace//flag=value parses out to //flag=value
   // test --@other_workspace//flag=value parses out to @other_workspace//flag=value
   @Test
-  public void testFlagNameWithWorkspace() throws Exception {
+  public void testFlagNameWithExternalRepo() throws Exception {
     writeBasicIntFlag();
-    scratch.file("test/repo2/WORKSPACE");
+    scratch.file("test/repo2/MODULE.bazel", "module(name = 'repo2')");
     scratch.file(
         "test/repo2/defs.bzl",
-        "def _impl(ctx):",
-        "  pass",
-        "my_flag = rule(",
-        "  implementation = _impl,",
-        "  build_setting = config.int(flag = True),",
-        ")");
+        """
+        def _impl(ctx):
+            pass
+
+        my_flag = rule(
+            implementation = _impl,
+            build_setting = config.int(flag = True),
+        )
+        """);
     scratch.file(
         "test/repo2/BUILD",
-        "load(':defs.bzl', 'my_flag')",
-        "my_flag(name = 'flag2', build_setting_default=2)");
+        """
+        load(":defs.bzl", "my_flag")
 
-    rewriteWorkspace(
-        "workspace(name = 'starlark_options_test')",
-        "local_repository(",
-        "  name = 'repo2',",
-        "  path = 'test/repo2',",
-        ")");
+        my_flag(
+            name = "flag2",
+            build_setting_default = 2,
+        )
+        """);
+
+    rewriteModuleDotBazel(
+        """
+        module(name = "starlark_options_test")
+
+        bazel_dep(name = "repo2")
+
+        local_path_override(
+            module_name = "repo2",
+            path = "test/repo2",
+        )
+        """);
 
     OptionsParsingResult result =
         parseStarlarkOptions(
-            "--@starlark_options_test//test:my_int_setting=666 --@repo2//:flag2=222");
+            "--@starlark_options_test//test:my_int_setting=666 --@repo2//:flag2=222",
+            /* onlyStarlarkParser= */ true);
 
     assertThat(result.getStarlarkOptions()).hasSize(2);
     assertThat(result.getStarlarkOptions().get("//test:my_int_setting"))
         .isEqualTo(StarlarkInt.of(666));
-    assertThat(result.getStarlarkOptions().get("@repo2//:flag2")).isEqualTo(StarlarkInt.of(222));
+    assertThat(result.getStarlarkOptions().get("@@repo2+//:flag2")).isEqualTo(StarlarkInt.of(222));
     assertThat(result.getResidue()).isEmpty();
   }
 
@@ -161,7 +175,8 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     OptionsParsingException e =
         assertThrows(
             OptionsParsingException.class,
-            () -> parseStarlarkOptions("-//test:my_int_setting=666"));
+            () ->
+                parseStarlarkOptions("-//test:my_int_setting=666", /* onlyStarlarkParser= */ true));
     assertThat(e).hasMessageThat().isEqualTo("Invalid options syntax: -//test:my_int_setting=666");
   }
 
@@ -170,16 +185,25 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testNonFlagParsing() throws Exception {
     scratch.file(
         "test/build_setting.bzl",
-        "def _build_setting_impl(ctx):",
-        "  return []",
-        "int_flag = rule(",
-        "  implementation = _build_setting_impl,",
-        "  build_setting = config.int(flag=False)",
-        ")");
+        """
+        def _build_setting_impl(ctx):
+            return []
+
+        int_flag = rule(
+            implementation = _build_setting_impl,
+            build_setting = config.int(flag = False),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_setting.bzl', 'int_flag')",
-        "int_flag(name = 'my_int_setting', build_setting_default = 42)");
+        """
+        load("//test:build_setting.bzl", "int_flag")
+
+        int_flag(
+            name = "my_int_setting",
+            build_setting_default = 42,
+        )
+        """);
 
     OptionsParsingException e =
         assertThrows(
@@ -270,17 +294,30 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testMultipleFlags() throws Exception {
     scratch.file(
         "test/build_setting.bzl",
-        "def _build_setting_impl(ctx):",
-        "  return []",
-        "int_flag = rule(",
-        "  implementation = _build_setting_impl,",
-        "  build_setting = config.int(flag=True)",
-        ")");
+        """
+        def _build_setting_impl(ctx):
+            return []
+
+        int_flag = rule(
+            implementation = _build_setting_impl,
+            build_setting = config.int(flag = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_setting.bzl', 'int_flag')",
-        "int_flag(name = 'my_int_setting', build_setting_default = 42)",
-        "int_flag(name = 'my_other_int_setting', build_setting_default = 77)");
+        """
+        load("//test:build_setting.bzl", "int_flag")
+
+        int_flag(
+            name = "my_int_setting",
+            build_setting_default = 42,
+        )
+
+        int_flag(
+            name = "my_other_int_setting",
+            build_setting_default = 77,
+        )
+        """);
 
     OptionsParsingResult result =
         parseStarlarkOptions("--//test:my_int_setting=0 --//test:my_other_int_setting=0");
@@ -298,12 +335,21 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testNonBuildSetting() throws Exception {
     scratch.file(
         "test/rules.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        ")");
-    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'my_rule')");
+        """
+        def _impl(ctx):
+            return []
+
+        my_rule = rule(
+            implementation = _impl,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule")
+
+        my_rule(name = "my_rule")
+        """);
     OptionsParsingException e =
         assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//test:my_rule"));
     assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: //test:my_rule");
@@ -314,14 +360,17 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testNonRuleConfiguredTarget() throws Exception {
     scratch.file(
         "test/BUILD",
-        "genrule(",
-        "  name = 'my_gen',",
-        "  srcs = ['x.in'],",
-        "  outs = ['x.cc'],",
-        "  cmd = '$(locations :tool) $< >$@',",
-        "  tools = [':tool'],",
-        ")",
-        "cc_library(name = 'tool-dep')");
+        """
+        genrule(
+            name = "my_gen",
+            srcs = ["x.in"],
+            outs = ["x.cc"],
+            cmd = "$(locations :tool) $< >$@",
+            tools = [":tool"],
+        )
+
+        cc_library(name = "tool-dep")
+        """);
     OptionsParsingException e =
         assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//test:x.in"));
     assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: //test:x.in");
@@ -388,7 +437,7 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testExpectedBuildEventOutput_asFlag() throws Exception {
     writeBasicIntFlag();
     scratch.file("blah/BUILD", "cc_library(name = 'mylib')");
-    useConfiguration(ImmutableMap.of("//test:my_int_setting", "15"));
+    useConfiguration("--//test:my_int_setting=15");
     update(
         ImmutableList.of("//blah:mylib"),
         /*keepGoing=*/ false,
@@ -411,7 +460,7 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testExpectedBuildEventOutput_asTarget() throws Exception {
     writeBasicIntFlag();
     scratch.file("blah/BUILD", "cc_library(name = 'mylib')");
-    useConfiguration(ImmutableMap.of("//test:my_int_setting", "15"));
+    useConfiguration("--//test:my_int_setting=15");
     update(
         ImmutableList.of("//blah:mylib", "//test:my_int_setting"),
         /*keepGoing=*/ false,
@@ -431,16 +480,25 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testAllowMultipleStringFlag() throws Exception {
     scratch.file(
         "test/build_setting.bzl",
-        "def _build_setting_impl(ctx):",
-        "  return []",
-        "allow_multiple_flag = rule(",
-        "  implementation = _build_setting_impl,",
-        "  build_setting = config.string(flag=True, allow_multiple=True)",
-        ")");
+        """
+        def _build_setting_impl(ctx):
+            return []
+
+        allow_multiple_flag = rule(
+            implementation = _build_setting_impl,
+            build_setting = config.string(flag = True, allow_multiple = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_setting.bzl', 'allow_multiple_flag')",
-        "allow_multiple_flag(name = 'cats', build_setting_default = 'tabby')");
+        """
+        load("//test:build_setting.bzl", "allow_multiple_flag")
+
+        allow_multiple_flag(
+            name = "cats",
+            build_setting_default = "tabby",
+        )
+        """);
 
     OptionsParsingResult result = parseStarlarkOptions("--//test:cats=calico --//test:cats=bengal");
 
@@ -454,21 +512,215 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
   public void testRepeatedStringListFlag() throws Exception {
     scratch.file(
         "test/build_setting.bzl",
-        "def _build_setting_impl(ctx):",
-        "  return []",
-        "repeated_flag = rule(",
-        "  implementation = _build_setting_impl,",
-        "  build_setting = config.string_list(flag=True, repeatable=True)",
-        ")");
+        """
+        def _build_setting_impl(ctx):
+            return []
+
+        repeated_flag = rule(
+            implementation = _build_setting_impl,
+            build_setting = config.string_list(flag = True, repeatable = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_setting.bzl', 'repeated_flag')",
-        "repeated_flag(name = 'cats', build_setting_default = ['tabby'])");
+        """
+        load("//test:build_setting.bzl", "repeated_flag")
+
+        repeated_flag(
+            name = "cats",
+            build_setting_default = ["tabby"],
+        )
+        """);
 
     OptionsParsingResult result = parseStarlarkOptions("--//test:cats=calico --//test:cats=bengal");
 
     assertThat(result.getStarlarkOptions().keySet()).containsExactly("//test:cats");
     assertThat((List<String>) result.getStarlarkOptions().get("//test:cats"))
         .containsExactly("calico", "bengal");
+  }
+
+  @Test
+  public void flagReferencesExactlyOneTarget() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx, attr: [],
+            build_setting = config.string(flag = True),
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_setting.bzl", "string_flag")
+
+        string_flag(
+            name = "one",
+            build_setting_default = "",
+        )
+
+        string_flag(
+            name = "two",
+            build_setting_default = "",
+        )
+        """);
+
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//test:all"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .contains("//test:all: user-defined flags must reference exactly one target");
+  }
+
+  @Test
+  public void flagIsAlias() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_setting.bzl", "string_flag")
+
+        alias(
+            name = "one",
+            actual = "//test/pkg:two",
+        )
+
+        string_flag(
+            name = "three",
+            build_setting_default = "",
+        )
+        """);
+    scratch.file(
+        "test/pkg/BUILD",
+        """
+        alias(
+            name = "two",
+            actual = "//test:three",
+        )
+        """);
+
+    OptionsParsingResult result = parseStarlarkOptions("--//test:one=one --//test/pkg:two=two");
+
+    assertThat(result.getStarlarkOptions()).containsExactly("//test:three", "two");
+  }
+
+  @Test
+  public void flagIsAlias_cycle() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        alias(
+            name = "one",
+            actual = "//test/pkg:two",
+        )
+
+        alias(
+            name = "three",
+            actual = ":one",
+        )
+        """);
+    scratch.file(
+        "test/pkg/BUILD",
+        """
+        alias(
+            name = "two",
+            actual = "//test:three",
+        )
+        """);
+
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//test:one=one"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "Failed to load build setting '//test:one' due to a cycle in alias chain: //test:one"
+                + " -> //test/pkg:two -> //test:three -> //test:one");
+  }
+
+  @Test
+  public void flagIsAlias_usesSelect() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        alias(
+            name = "one",
+            actual = "//test/pkg:two",
+        )
+
+        alias(
+            name = "three",
+            actual = ":one",
+        )
+        """);
+    scratch.file(
+        "test/pkg/BUILD",
+        """
+        # Needed to avoid select() being eliminated as trivial.
+        config_setting(
+            name = "config",
+            values = {"define": "pi=3"},
+        )
+
+        alias(
+            name = "two",
+            actual = select({
+                ":config": "//test:three",
+                "//conditions:default": "//test:three",
+            }),
+        )
+        """);
+
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//test:one=one"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "Failed to load build setting '//test:one' as it resolves to an alias with an actual"
+                + " value that uses select(): //test:one -> //test/pkg:two. This is not supported"
+                + " as build settings are needed to determine the configuration the select is"
+                + " evaluated in.");
+  }
+
+  @Test
+  public void flagIsAlias_resolvesToNonBuildSettingTarget() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        alias(
+            name = "one",
+            actual = "//test/pkg:two",
+        )
+
+        genrule(
+            name = "three",
+            outs = ["out"],
+            cmd = "echo hello > $@",
+        )
+        """);
+    scratch.file(
+        "test/pkg/BUILD",
+        """
+        alias(
+            name = "two",
+            actual = "//test:three",
+        )
+        """);
+
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//test:one=one"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Unrecognized option: //test:one -> //test/pkg:two -> //test:three");
   }
 }

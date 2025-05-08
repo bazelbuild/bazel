@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -17,7 +18,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",

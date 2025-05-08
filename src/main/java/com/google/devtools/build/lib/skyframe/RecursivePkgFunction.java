@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -66,7 +66,7 @@ public class RecursivePkgFunction implements SkyFunction {
     protected SkyKey getSkyKeyForSubdirectory(
         RepositoryName repository,
         RootedPath subdirectory,
-        ImmutableSet<PathFragment> excludedSubdirectoriesBeneathSubdirectory) {
+        IgnoredSubdirectories excludedSubdirectoriesBeneathSubdirectory) {
       return RecursivePkgValue.key(
           repository, subdirectory, excludedSubdirectoriesBeneathSubdirectory);
     }
@@ -88,7 +88,8 @@ public class RecursivePkgFunction implements SkyFunction {
   private static class MyPackageDirectoryConsumer
       implements RecursiveDirectoryTraversalFunction.PackageDirectoryConsumer {
 
-    private final NestedSetBuilder<String> packages = new NestedSetBuilder<>(Order.STABLE_ORDER);
+    private final NestedSetBuilder<String> packages =
+        NestedSetBuilder.newBuilder(Order.STABLE_ORDER);
     private boolean hasErrors = false;
 
     @Override

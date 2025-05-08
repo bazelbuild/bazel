@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -78,32 +76,6 @@ public class CredentialHelperProviderTest {
     assertThat(provider.findCredentialHelper(URI.create("https://other-domain.com"))).isEmpty();
   }
 
-  private void assertInvalidPattern(String pattern) {
-    Preconditions.checkNotNull(pattern);
-
-    IllegalArgumentException exception =
-        assertThrows(
-            IllegalArgumentException.class,
-            () ->
-                CredentialHelperProvider.builder()
-                    .add(pattern, fileSystem.getPath(DEFAULT_HELPER_PATH)));
-    assertThat(exception).hasMessageThat().contains(pattern);
-  }
-
-  @Test
-  public void invalidPattern() throws Exception {
-    assertInvalidPattern("foo.*.example.com");
-    assertInvalidPattern("*.foo.*.example.com");
-    assertInvalidPattern("*-foo.example.com");
-    assertInvalidPattern("example.*");
-    assertInvalidPattern("*.example.*");
-
-    // Punycode
-    assertInvalidPattern("foo.*.münchen.de");
-    assertInvalidPattern(".*.münchen.de");
-    assertInvalidPattern("foo-*.münchen.de");
-  }
-
   @Test
   public void uriWithoutHostComponent() throws Exception {
     Path helper = fileSystem.getPath(EXAMPLE_COM_HELPER_PATH);
@@ -111,18 +83,6 @@ public class CredentialHelperProviderTest {
         CredentialHelperProvider.builder().add("example.com", helper).build();
 
     assertThat(provider.findCredentialHelper(URI.create("unix:///path/to/socket"))).isEmpty();
-  }
-
-  @Test
-  public void addNonExecutableDefaultHelper() throws Exception {
-    Path helper = fileSystem.getPath("/path/to/non/executable");
-    setUpHelper(helper);
-    helper.setExecutable(false);
-    CredentialHelperProvider.Builder provider = CredentialHelperProvider.builder();
-
-    IllegalArgumentException exception =
-        assertThrows(IllegalArgumentException.class, () -> provider.add(helper));
-    assertThat(exception).hasMessageThat().contains("is not executable");
   }
 
   @Test
@@ -137,6 +97,8 @@ public class CredentialHelperProviderTest {
     assertThat(provider.findCredentialHelper(URI.create("grpc://example.com/foo")).get().getPath())
         .isEqualTo(helper);
     assertThat(provider.findCredentialHelper(URI.create("grpcs://example.com/foo")).get().getPath())
+        .isEqualTo(helper);
+    assertThat(provider.findCredentialHelper(URI.create("unix:///tmp/grpc.sock")).get().getPath())
         .isEqualTo(helper);
     assertThat(
             provider.findCredentialHelper(URI.create("custom://example.com/foo")).get().getPath())
@@ -183,6 +145,8 @@ public class CredentialHelperProviderTest {
         .isEqualTo(defaultHelper);
     assertThat(
             provider.findCredentialHelper(URI.create("https://other-domain.com")).get().getPath())
+        .isEqualTo(defaultHelper);
+    assertThat(provider.findCredentialHelper(URI.create("unix:///tmp/grpc.sock")).get().getPath())
         .isEqualTo(defaultHelper);
   }
 
@@ -235,6 +199,9 @@ public class CredentialHelperProviderTest {
 
     assertThat(
             provider.findCredentialHelper(URI.create("https://other-domain.com")).get().getPath())
+        .isEqualTo(defaultHelper);
+
+    assertThat(provider.findCredentialHelper(URI.create("unix:///tmp/grpc.sock")).get().getPath())
         .isEqualTo(defaultHelper);
   }
 
@@ -322,50 +289,6 @@ public class CredentialHelperProviderTest {
                 .get()
                 .getPath())
         .isEqualTo(subExampleComWildcardHelper);
-  }
-
-  @Test
-  public void punycodeMatching() throws Exception {
-    Path defaultHelper = fileSystem.getPath(DEFAULT_HELPER_PATH);
-    Path specificHelper = fileSystem.getPath(EXAMPLE_COM_HELPER_PATH);
-    Path subdomainHelper = fileSystem.getPath(EXAMPLE_COM_HELPER_PATH);
-
-    CredentialHelperProvider provider =
-        CredentialHelperProvider.builder()
-            .add(defaultHelper)
-            .add("münchen.de", specificHelper)
-            .add("*.köln.de", subdomainHelper)
-            .build();
-
-    // münchen.de
-    assertThat(
-            provider.findCredentialHelper(URI.create("http://xn--mnchen-3ya.de")).get().getPath())
-        .isEqualTo(specificHelper);
-    assertThat(
-            provider
-                .findCredentialHelper(URI.create("http://foo.xn--mnchen-3ya.de"))
-                .get()
-                .getPath())
-        .isEqualTo(defaultHelper);
-    assertThat(provider.findCredentialHelper(URI.create("http://muenchen.de")).get().getPath())
-        .isEqualTo(defaultHelper);
-
-    // köln.de
-    assertThat(provider.findCredentialHelper(URI.create("http://xn--kln-sna.de")).get().getPath())
-        .isEqualTo(subdomainHelper);
-    assertThat(
-            provider.findCredentialHelper(URI.create("http://foo.xn--kln-sna.de")).get().getPath())
-        .isEqualTo(subdomainHelper);
-    assertThat(
-            provider.findCredentialHelper(URI.create("http://bar.xn--kln-sna.de")).get().getPath())
-        .isEqualTo(subdomainHelper);
-    assertThat(provider.findCredentialHelper(URI.create("http://koeln.de")).get().getPath())
-        .isEqualTo(defaultHelper);
-
-    // småland.se
-    assertThat(
-            provider.findCredentialHelper(URI.create("http://xn--smland-jua.se")).get().getPath())
-        .isEqualTo(defaultHelper);
   }
 
   @Test

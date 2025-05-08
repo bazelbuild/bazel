@@ -53,7 +53,7 @@ public class LcovPrinterTest {
     coverage.add(sourceFileCoverage1);
     coverage.add(sourceFileCoverage2);
 
-    assertThat(LcovPrinter.print(byteOutputStream, coverage)).isTrue();
+    LcovPrinter.print(byteOutputStream, coverage);
     byteOutputStream.close();
 
     Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString());
@@ -76,7 +76,7 @@ public class LcovPrinterTest {
   @Test
   public void testPrintOneFile() throws Exception {
     coverage.add(sourceFileCoverage1);
-    assertThat(LcovPrinter.print(byteOutputStream, coverage)).isTrue();
+    LcovPrinter.print(byteOutputStream, coverage);
     byteOutputStream.close();
     Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString());
     // Last line of the file will always be a newline.
@@ -99,7 +99,7 @@ public class LcovPrinterTest {
     sourceFile.addBranch(7, BranchCoverage.createWithBlockAndBranch(7, "0", "1", false, 0));
     coverage.add(sourceFile);
 
-    assertThat(LcovPrinter.print(byteOutputStream, coverage)).isTrue();
+    LcovPrinter.print(byteOutputStream, coverage);
     Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString());
     assertThat(fileLines)
         .containsExactly(

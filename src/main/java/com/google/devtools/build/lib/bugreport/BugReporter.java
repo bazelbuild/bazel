@@ -58,7 +58,7 @@ public interface BugReporter {
   void sendBugReport(Throwable exception, List<String> args, String... values);
 
   /** Reports a non-fatal exception, see {@link BugReport#sendNonFatalBugReport(Throwable)}. */
-  void sendNonFatalBugReport(Exception exception);
+  void sendNonFatalBugReport(Throwable exception);
 
   /** See {@link BugReport#handleCrash}. */
   void handleCrash(Crash crash, CrashContext ctx);

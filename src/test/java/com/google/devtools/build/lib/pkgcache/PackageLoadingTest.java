@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -37,13 +38,15 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
+import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -52,7 +55,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
-import java.util.Optional;
 import java.util.UUID;
 import net.starlark.java.syntax.StarlarkFile;
 import org.junit.Before;
@@ -69,7 +71,25 @@ public class PackageLoadingTest extends FoundationTestCase {
 
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
-    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ true);
+    initializeSkyframeExecutor(/* doPackageLoadingChecks= */ true);
+  }
+
+  @Before
+  public final void fooLibrary() throws Exception {
+    scratch.file("test_defs/BUILD");
+    scratch.file(
+        "test_defs/foo_library.bzl",
+        """
+        def _impl(ctx):
+          pass
+        foo_library = rule(
+          implementation = _impl,
+          attrs = {
+            "srcs": attr.label_list(allow_files=True),
+            "deps": attr.label_list(),
+          },
+        )
+        """);
   }
 
   /**
@@ -77,7 +97,7 @@ public class PackageLoadingTest extends FoundationTestCase {
    *     this test performs, and the results compared to SkyFrame's result.
    */
   private void initializeSkyframeExecutor(boolean doPackageLoadingChecks) throws Exception {
-    AnalysisMock analysisMock = AnalysisMock.get();
+    AnalysisMock analysisMock = AnalysisMock.getAnalysisMockWithoutBuiltinModules();
     ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     BlazeDirectories directories =
         new BlazeDirectories(
@@ -97,7 +117,7 @@ public class PackageLoadingTest extends FoundationTestCase {
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
+            .setSyscallCache(SyscallCache.NO_CACHE)
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     setUpSkyframe(parsePackageOptions(), parseBuildLanguageOptions());
@@ -107,7 +127,7 @@ public class PackageLoadingTest extends FoundationTestCase {
       PackageOptions packageOptions, BuildLanguageOptions buildLanguageOptions) {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
-            /*outputBase=*/ null,
+            /* outputBase= */ null,
             packageOptions.packagePath,
             reporter,
             rootDirectory.asFragment(),
@@ -115,16 +135,14 @@ public class PackageLoadingTest extends FoundationTestCase {
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
-    skyframeExecutor.injectExtraPrecomputedValues(
-        ImmutableList.of(
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
+    skyframeExecutor.injectExtraPrecomputedValues(AnalysisMock.get().getPrecomputedValues());
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
@@ -135,6 +153,7 @@ public class PackageLoadingTest extends FoundationTestCase {
         OptionsParser.builder()
             .optionsClasses(PackageOptions.class, BuildLanguageOptions.class)
             .build();
+    parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     parser.parse("--default_visibility=public");
     parser.parse(options);
 
@@ -234,10 +253,8 @@ public class PackageLoadingTest extends FoundationTestCase {
         assertThrows(NoSuchTargetException.class, () -> getTarget("//pkg1:not-there"));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo(
-            "no such target '//pkg1:not-there': target 'not-there' "
-                + "not declared in package 'pkg1' defined by /workspace/pkg1/BUILD (Tip: use "
-                + "`query //pkg1:*` to see all the targets in that package)");
+        .matches(
+            TestUtils.createMissingTargetAssertionString("not-there", "pkg1", "/workspace", ""));
   }
 
   /**
@@ -303,7 +320,7 @@ public class PackageLoadingTest extends FoundationTestCase {
   @Test
   public void testMovedBuildFileCausesReloadAfterSync() throws Exception {
     // PackageLoader doesn't support --package_path.
-    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ false);
+    initializeSkyframeExecutor(/* doPackageLoadingChecks= */ false);
 
     Path buildFile1 = scratch.file("pkg/BUILD", "cc_library(name = 'foo')");
     Path buildFile2 = scratch.file("/otherroot/pkg/BUILD", "cc_library(name = 'bar')");
@@ -363,10 +380,11 @@ public class PackageLoadingTest extends FoundationTestCase {
 
   protected Path createBuildFile(Path workspace, String packageName, String... targets)
       throws IOException {
-    String[] lines = new String[targets.length];
+    String[] lines = new String[targets.length + 1];
 
+    lines[0] = "load('//test_defs:foo_library.bzl', 'foo_library')";
     for (int i = 0; i < targets.length; i++) {
-      lines[i] = "sh_library(name='" + targets[i] + "')";
+      lines[i + 1] = "foo_library(name='" + targets[i] + "')";
     }
 
     return scratch.file(workspace + "/" + packageName + "/BUILD", lines);
@@ -406,7 +424,15 @@ public class PackageLoadingTest extends FoundationTestCase {
   @Test
   public void testLocationForLabelCrossingSubpackage() throws Exception {
     scratch.file("e/f/BUILD");
-    scratch.file("e/BUILD", "# Whatever", "filegroup(name='fg', srcs=['f/g'])");
+    scratch.file(
+        "e/BUILD",
+        """
+        # Whatever
+        filegroup(
+            name = "fg",
+            srcs = ["f/g"],
+        )
+        """);
     reporter.removeHandler(failFastHandler);
 
     getPackage("e");
@@ -419,7 +445,7 @@ public class PackageLoadingTest extends FoundationTestCase {
   @Test
   public void testLabelValidity() throws Exception {
     // PackageLoader doesn't support --package_path.
-    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ false);
+    initializeSkyframeExecutor(/* doPackageLoadingChecks= */ false);
 
     reporter.removeHandler(failFastHandler);
     setUpCacheWithTwoRootLocator();
@@ -480,10 +506,11 @@ public class PackageLoadingTest extends FoundationTestCase {
   @Test
   public void testDeletedPackages() throws Exception {
     // PackageLoader doesn't support --deleted_packages.
-    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ false);
+    initializeSkyframeExecutor(/* doPackageLoadingChecks= */ false);
     reporter.removeHandler(failFastHandler);
     setUpCacheWithTwoRootLocator();
-    createBuildFile(rootDir1, "c", "d/x");
+    createBuildFile(rootDir1, "c", "d/x", "e/x");
+    createBuildFile(rootDir1, "c/e", "x");
     // Now package c exists in both roots, and c/d exists in only in the second
     // root.  It's as if we've merged c and c/d in the first root.
 
@@ -493,6 +520,7 @@ public class PackageLoadingTest extends FoundationTestCase {
 
     // Subpackage labels are still valid...
     assertLabelValidity(true, "//c/d:foo.txt");
+    assertLabelValidity(true, "//c/e:x");
     // ...and this crosses package boundaries:
     assertLabelValidity(false, "//c:d/x");
     assertPackageLoadingFails(
@@ -503,7 +531,7 @@ public class PackageLoadingTest extends FoundationTestCase {
     assertThat(getPackageManager().isPackage(reporter, PackageIdentifier.createInMainRepo("c/d")))
         .isTrue();
 
-    setOptions("--deleted_packages=c/d");
+    setOptions("--package_path=/workspace:/otherroot", "--deleted_packages=c/d");
     invalidatePackages();
 
     assertThat(getPackageManager().isPackage(reporter, PackageIdentifier.createInMainRepo("c/d")))
@@ -521,15 +549,41 @@ public class PackageLoadingTest extends FoundationTestCase {
     assertLabelValidity(false, "//c/d:x");
     // ...and now d is just a subdirectory of c:
     assertLabelValidity(true, "//c:d/x");
+
+    // Verify that multiple --deleted_packages options are concatenated
+    setOptions(
+        "--package_path=/workspace:/otherroot", "--deleted_packages=c/d", "--deleted_packages=c/e");
+    invalidatePackages();
+
+    assertLabelValidity(false, "//c/d:x");
+    assertLabelValidity(false, "//c/e:x");
+    assertLabelValidity(true, "//c:d/x");
+    assertLabelValidity(true, "//c:e/x");
+
+    // Verify that comma-separated values work, too
+    setOptions("--package_path=/workspace:/otherroot", "--deleted_packages=c/d,c/e");
+    invalidatePackages();
+
+    assertLabelValidity(false, "//c/d:x");
+    assertLabelValidity(false, "//c/e:x");
+    assertLabelValidity(true, "//c:d/x");
+    assertLabelValidity(true, "//c:e/x");
   }
 
   @Test
   public void testPackageFeatures() throws Exception {
     scratch.file(
         "peach/BUILD",
-        "package(features = ['crosstool_default_false'])",
-        "cc_library(name = 'cc', srcs = ['cc.cc'])");
-    assertThat(getPackage("peach").getFeatures()).hasSize(1);
+        """
+        package(features = ["crosstool_default_false"])
+
+        cc_library(
+            name = "cc",
+            srcs = ["cc.cc"],
+        )
+        """);
+    assertThat(getPackage("peach").getPackageArgs().features())
+        .isEqualTo(FeatureSet.parse(ImmutableList.of("crosstool_default_false")));
   }
 
   @Test
@@ -537,7 +591,16 @@ public class PackageLoadingTest extends FoundationTestCase {
     reporter.removeHandler(failFastHandler);
     setOptions("--package_path=.:.");
     scratch.file("x/y/BUILD");
-    scratch.file("x/BUILD", "genrule(name = 'x',", "srcs = [],", "outs = ['y/z.h'],", "cmd  = '')");
+    scratch.file(
+        "x/BUILD",
+        """
+        genrule(
+            name = "x",
+            srcs = [],
+            outs = ["y/z.h"],
+            cmd = "",
+        )
+        """);
     Package p = getPackage("x");
     assertThat(p.containsErrors()).isTrue();
   }
@@ -547,10 +610,43 @@ public class PackageLoadingTest extends FoundationTestCase {
   public void testDeterminismOfInputFileLocation() throws Exception {
     scratch.file(
         "p/BUILD",
-        "sh_library(name = 't1', srcs = ['f.sh'])",
-        "sh_library(name = 't2', srcs = ['f.sh'])");
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+
+        foo_library(
+            name = "t1",
+            srcs = ["f.sh"],
+        )
+
+        foo_library(
+            name = "t2",
+            srcs = ["f.sh"],
+        )
+        """);
     Package p = getPackage("p");
     InputFile f = (InputFile) p.getTarget("f.sh");
-    assertThat(f.getLocation().line()).isEqualTo(1);
+    assertThat(f.getLocation().line()).isEqualTo(3);
+  }
+
+  @Test
+  public void testDeterminismOfFailureDetailOnMultipleLabelCrossingSubpackageBoundaryErrors()
+      throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("p/sub/BUILD");
+    scratch.file(
+        "p/BUILD",
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+
+        foo_library(name = "sub/a")
+
+        foo_library(name = "sub/b")
+        """);
+    Package p = getPackage("p");
+    assertThat(p.getFailureDetail().getPackageLoading().getCode())
+        .isEqualTo(PackageLoading.Code.LABEL_CROSSES_PACKAGE_BOUNDARY);
+    // We used to non-deterministically pick a target whose label crossed a subpackage boundary, but
+    // now we deterministically pick the first one (alphabetically by target name).
+    assertThat(p.getFailureDetail().getMessage()).startsWith("Label '//p:sub/a' is invalid");
   }
 }

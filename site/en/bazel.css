@@ -1,0 +1,138 @@
+/* Hero row - main  */
+.bazel-hero-full-bleed-light {
+  background: linear-gradient(180deg, #0c713a 0%, #1e431e 100%);
+  width: 100vw;
+}
+
+/* Required change to enforce custom above-the-fold dark background. */
+/* Note: dark theme not enabled for Bazel tenant. */
+.bazel-hero {
+  color: #fff !important;
+}
+
+.bazel-hero .devsite-landing-row-item-image {
+  width: 400px;
+}
+
+/* Required change to enforce custom above-the-fold dark background. */
+/* Note: dark theme not enabled for Bazel tenant. */
+.bazel-hero .devsite-landing-row-header-text .devsite-landing-row-description,
+.bazel-hero .devsite-landing-row-inner .devsite-landing-row-item-description h3,
+.bazel-hero .devsite-landing-row-inner .devsite-landing-row-item-description-content,
+.bazel-hero .devsite-landing-row-inner .devsite-landing-row-item-icon-container
+{
+  color: #fff !important;
+}
+
+.bazel-hero .devsite-landing-row-header-text {
+  margin-bottom: 20px;
+}
+
+.bazel-hero h3 a,
+.bazel-hero .devsite-landing-row-header-text h2 {
+  color: #fff;
+  font-size: 48px;
+  font-weight: 500;
+  line-height: 68px;
+}
+
+.bazel-button-light {
+  background: #fff;
+  border-radius: 4px;
+  color: #000;
+  text-transform: none;
+}
+
+/* Hero row - Why Bazel  */
+.bazel-hero-full-bleed-dark {
+  background: linear-gradient(180deg, #1e431e 0%, #1e431e 100%);
+  width: 100vw;
+}
+
+.bazel-hero-full-bleed-dark .devsite-landing-row-item-body h3 {
+  font-size: 24px;
+  padding: 15px 0;
+}
+
+.bazel-hero-full-bleed-dark .devsite-landing-row-item-icon {
+  height: 68px;
+  width: 85px;
+}
+
+.bazel-hero .devsite-landing-row-item-description {
+  padding: 0 15px;
+}
+
+/* Essential Bazel row  */
+
+/* [1] Required change for custom below-the-fold light background. */
+/* Note: dark theme not enabled for Bazel tenant. */
+.bazel-body-light-cards {
+  color: #000 !important; /* [1] */
+  margin-top: 40px;
+}
+
+.bazel-body-light-cards .devsite-landing-row-item img {
+  max-width: 75%;
+}
+
+.bazel-body-light-cards .devsite-landing-row-item-body h3,
+.bazel-body-light-cards .devsite-landing-row-item-body h3 a {
+  color: #000;
+  font-size: 30px;
+  font-weight: 400;
+}
+
+.bazel-button-dark {
+  background: #000;
+  border-radius: 4px;
+  color: #fff;
+  text-transform: none;
+}
+
+/* RELEASE NOTES ROW */
+
+/* [1] Required change for custom below-the-fold light background. */
+/* Note: dark theme not enabled for Bazel tenant. */
+.bazel-body-light-row {
+  background: #f8f9fa !important; /* [1] */
+  color: #000 !important; /* [1] */
+  padding-top: 40px;
+  width: 100vw;
+}
+
+/* Required change to enforce custom Bazel color palette. */
+.bazel-body-cta {
+  background: #1e431e !important;
+}
+
+/* Jumpdown Links */
+.bazel-jumpdown-row {
+  align-items: center;
+  margin-bottom: 40px;
+  margin-top: 40px;
+  padding: 0;
+}
+
+.bazel-jumpdown-row .bazel-jumpdown-row-html {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+}
+
+.bazel-jumpdown-row a {
+  color: var(--tenant-primary-text-color);
+  padding: 20px;
+  text-decoration: none;
+}
+
+.bazel-jumpdown-row a:hover,
+.bazel-jumpdown-row a:focus {
+  color: #0c713a;
+}
+
+.bazel-jumpdown-row .material-icons {
+  font: 400 22px 'Material Icons';
+  margin-inline-start: 8px;
+  vertical-align: text-bottom;
+}

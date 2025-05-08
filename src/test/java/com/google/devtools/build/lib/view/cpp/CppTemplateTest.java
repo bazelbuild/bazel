@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
-import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
@@ -49,9 +48,16 @@ public class CppTemplateTest extends BuildIntegrationTestCase {
         "tree = rule(implementation = _impl)");
     write(
         "tree/BUILD",
-        "load(':tree.bzl', 'tree')",
-        "tree(name = 'lib')",
-        "cc_library(name = 'cc', srcs = [':lib'])");
+        """
+        load(":tree.bzl", "tree")
+
+        tree(name = "lib")
+
+        cc_library(
+            name = "cc",
+            srcs = [":lib"],
+        )
+        """);
     addOptions("--keep_going=" + keepGoing);
     // In addition to testing the specific functionality of erroring out when there is an irrelevant
     // file in the tree, this test also checks that error messages are properly cached in Skyframe.
@@ -66,7 +72,6 @@ public class CppTemplateTest extends BuildIntegrationTestCase {
               "tree/BUILD:[0-9]+:[0-9]+: Compiling all C\\+\\+ files in tree/dir failed: Artifact"
                   + " '.*/tree/dir/other.file' expanded from the directory artifact '.*/tree/dir'"
                   + " is neither header nor source file"));
-      events.clear();
     }
   }
 
@@ -84,17 +89,26 @@ public class CppTemplateTest extends BuildIntegrationTestCase {
   public void badActionName() throws Exception {
     write(
         "tree/tree.bzl",
-        "def _impl(ctx):",
-        "  dir = ctx.actions.declare_directory('dir')",
-        "  ctx.actions.run_shell(outputs = [dir], command = 'touch %s/file.cc' % (dir.path))",
-        "  return [DefaultInfo(files = depset([dir]))]",
-        "",
-        "tree = rule(implementation = _impl)");
+        """
+        def _impl(ctx):
+            dir = ctx.actions.declare_directory("dir")
+            ctx.actions.run_shell(outputs = [dir], command = "touch %s/file.cc" % (dir.path))
+            return [DefaultInfo(files = depset([dir]))]
+
+        tree = rule(implementation = _impl)
+        """);
     write(
         "tree/BUILD",
-        "load(':tree.bzl', 'tree')",
-        "tree(name = 'lib')",
-        "cc_library(name = 'cc', srcs = [':lib'])");
+        """
+        load(":tree.bzl", "tree")
+
+        tree(name = "lib")
+
+        cc_library(
+            name = "cc",
+            srcs = [":lib"],
+        )
+        """);
     // Hack up the workspace to make *.cc files not associated to any C++ action name. Should never
     // happen in practice.
     actionNamesBzl =
@@ -120,34 +134,38 @@ public class CppTemplateTest extends BuildIntegrationTestCase {
   public void warningNotPersisted() throws Exception {
     write(
         "tree/tree.bzl",
-        "def _impl(ctx):",
-        "  dir = ctx.actions.declare_directory('dir')",
-        "  ctx.actions.run_shell(outputs = [dir], command = 'touch %s/file.cc' % (dir.path))",
-        "  return [DefaultInfo(files = depset([dir]))]",
-        "",
-        "tree = rule(implementation = _impl)");
+        """
+        def _impl(ctx):
+            dir = ctx.actions.declare_directory("dir")
+            ctx.actions.run_shell(outputs = [dir], command = "touch %s/file.cc" % (dir.path))
+            return [DefaultInfo(files = depset([dir]))]
+
+        tree = rule(implementation = _impl)
+        """);
     write(
         "tree/BUILD",
-        "load(':tree.bzl', 'tree')",
-        "tree(name = 'lib', deprecation = 'This is a warning')");
+        """
+        load(":tree.bzl", "tree")
+
+        tree(
+            name = "lib",
+            deprecation = "This is a warning",
+        )
+        """);
     write("cc/BUILD", "cc_library(name = 'cc', srcs = ['//tree:lib'])");
     buildTarget("//cc:cc");
-    events.assertContainsEvent(EventKind.WARNING, "This is a warning");
+    assertContainsEvent(EventKind.WARNING, "This is a warning");
     getSkyframeExecutor()
         .getEvaluator()
         .getDoneValues()
         .forEach(
-            (k, v) -> {
-              if (k instanceof ActionLookupData) {
+            (k, v) ->
                 assertWithMessage("Node " + k + " warnings")
                     .that(ValueWithMetadata.getEvents(v).toList())
-                    .isEmpty();
-              }
-            });
+                    .isEmpty());
 
-    // Warning is shown on a no-op incremental build.
-    events.clear();
+    // Warning is not replayed on a no-op incremental build.
     buildTarget("//cc:cc");
-    events.assertContainsEvent(EventKind.WARNING, "This is a warning");
+    assertDoesNotContainEvent("This is a warning");
   }
 }

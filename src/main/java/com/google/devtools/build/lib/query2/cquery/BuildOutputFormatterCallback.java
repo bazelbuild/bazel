@@ -19,8 +19,10 @@ import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfig
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.BuildOutputFormatter.AttributeReader;
@@ -32,13 +34,18 @@ import javax.annotation.Nullable;
 
 /** Cquery implementation of BUILD-style output. */
 class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
+
+  private final LabelPrinter labelPrinter;
+
   BuildOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<KeyedConfiguredTarget> accessor) {
-    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
+      TargetAccessor<CqueryNode> accessor,
+      LabelPrinter labelPrinter) {
+    super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ false);
+    this.labelPrinter = labelPrinter;
   }
 
   @Override
@@ -66,28 +73,27 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Nullable
-  private ConfiguredAttributeMapper getAttributeMap(KeyedConfiguredTarget kct)
-      throws InterruptedException {
+  private ConfiguredAttributeMapper getAttributeMap(CqueryNode kct) throws InterruptedException {
     Rule associatedRule = accessor.getTarget(kct).getAssociatedRule();
     if (associatedRule == null) {
       return null;
-    } else if (kct.getConfiguredTarget() instanceof OutputFileConfiguredTarget) {
+    } else if (kct instanceof OutputFileConfiguredTarget) {
       return ConfiguredAttributeMapper.of(
           associatedRule,
           accessor.getGeneratingConfiguredTarget(kct).getConfigConditions(),
-          kct.getConfigurationChecksum(),
-          /*alwaysSucceed=*/ false);
+          kct.getConfigurationKey().getOptionsChecksum(),
+          /* alwaysSucceed= */ false);
     } else {
       return ConfiguredAttributeMapper.of(
           associatedRule,
           kct.getConfigConditions(),
-          kct.getConfigurationChecksum(),
-          /*alwaysSucceed=*/ false);
+          kct.getConfigurationKey().getOptionsChecksum(),
+          /* alwaysSucceed= */ false);
     }
   }
 
   @Override
-  public void processOutput(Iterable<KeyedConfiguredTarget> partialResult)
+  public void processOutput(Iterable<CqueryNode> partialResult)
       throws InterruptedException, IOException {
     BuildOutputFormatter.TargetOutputter outputter =
         new TargetOutputter(
@@ -97,8 +103,9 @@ class BuildOutputFormatterCallback extends CqueryThreadsafeCallback {
             // selects. Going forward we could expand this to show both the complete select
             // and which path is chosen, which people may find even more informative.
             (rule, attr) -> false,
-            System.lineSeparator());
-    for (KeyedConfiguredTarget configuredTarget : partialResult) {
+            "\n",
+            labelPrinter);
+    for (CqueryNode configuredTarget : partialResult) {
       Target target = accessor.getTarget(configuredTarget);
       outputter.output(target, new CqueryAttributeReader(getAttributeMap(configuredTarget)));
     }

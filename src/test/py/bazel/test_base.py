@@ -14,7 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import locale
+"""Bazel Python integration test framework."""
+
 import os
 import shutil
 import socket
@@ -22,7 +23,8 @@ import stat
 import subprocess
 import sys
 import tempfile
-import unittest
+from absl.testing import absltest
+import runfiles
 
 
 class Error(Exception):
@@ -42,7 +44,8 @@ class EnvVarUndefinedError(Error):
     Error.__init__(self, 'Environment variable "%s" is not defined' % name)
 
 
-class TestBase(unittest.TestCase):
+class TestBase(absltest.TestCase):
+  """Bazel Python integration test base."""
 
   _runfiles = None
   _temp = None
@@ -53,40 +56,17 @@ class TestBase(unittest.TestCase):
   _worker_proc = None
   _cas_path = None
 
-  _SHARED_REPOS = (
-      'rules_license',
-      'rules_cc',
-      'rules_java',
-      'rules_proto',
-      'remotejdk11_linux_for_testing',
-      'remotejdk11_linux_aarch64_for_testing',
-      'remotejdk11_linux_ppc64le_for_testing',
-      'remotejdk11_linux_s390x_for_testing',
-      'remotejdk11_macos_for_testing',
-      'remotejdk11_macos_aarch64_for_testing',
-      'remotejdk11_win_for_testing',
-      'remotejdk11_win_arm64_for_testing',
-      'remotejdk17_linux_for_testing',
-      'remotejdk17_macos_for_testing',
-      'remotejdk17_macos_aarch64_for_testing',
-      'remotejdk17_win_for_testing',
-      'remotejdk17_win_arm64_for_testing',
-      'remotejdk18_linux_for_testing',
-      'remotejdk18_macos_for_testing',
-      'remotejdk18_macos_aarch64_for_testing',
-      'remotejdk18_win_for_testing',
-      'remotejdk18_win_arm64_for_testing',
-      'remote_java_tools_for_testing',
-      'remote_java_tools_darwin_for_testing',
-      'remote_java_tools_linux_for_testing',
-      'remote_java_tools_windows_for_testing',
-      'remote_coverage_tools',
-  )
+  def WorkspaceContent(self):
+    with open(
+        self.Rlocation('io_bazel/src/test/py/bazel/default_repos_stanza.txt'),
+        'r',
+    ) as s:
+      return s.readlines()
 
   def setUp(self):
-    unittest.TestCase.setUp(self)
+    absltest.TestCase.setUp(self)
     if self._runfiles is None:
-      self._runfiles = TestBase._LoadRunfiles()
+      self._runfiles = runfiles.Create()
     test_tmpdir = TestBase._CreateDirs(TestBase.GetEnv('TEST_TMPDIR'))
     self._tests_root = TestBase._CreateDirs(
         os.path.join(test_tmpdir, 'tests_root'))
@@ -94,19 +74,42 @@ class TestBase(unittest.TestCase):
     self._test_cwd = tempfile.mkdtemp(dir=self._tests_root)
     self._test_bazelrc = os.path.join(self._temp, 'test_bazelrc')
     with open(self._test_bazelrc, 'wt') as f:
-      shared_repo_home = os.environ.get('TEST_REPOSITORY_HOME')
-      if shared_repo_home and os.path.exists(shared_repo_home):
-        for repo in self._SHARED_REPOS:
-          f.write('common --override_repository={}={}\n'.format(
-              repo.replace('_for_testing', ''),
-              os.path.join(shared_repo_home, repo).replace('\\', '/')))
+      f.write('common --nolegacy_external_runfiles\n')
       shared_install_base = os.environ.get('TEST_INSTALL_BASE')
       if shared_install_base:
         f.write('startup --install_base={}\n'.format(shared_install_base))
       shared_repo_cache = os.environ.get('REPOSITORY_CACHE')
       if shared_repo_cache:
         f.write('common --repository_cache={}\n'.format(shared_repo_cache))
-        f.write('common --experimental_repository_cache_hardlinks\n')
+        # TODO(pcloudy): Remove this flag once all dependencies are mirrored.
+        # See https://github.com/bazelbuild/bazel/pull/19549 for more context.
+        f.write(
+            'common'
+            ' --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0\n'
+        )
+        if TestBase.IsDarwin():
+          # For reducing SSD usage on our physical Mac machines.
+          f.write('common --experimental_repository_cache_hardlinks\n')
+      if TestBase.IsDarwin():
+        # Prefer ipv6 network on macOS
+        f.write('startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true\n')
+        f.write('build --jvmopt=-Djava.net.preferIPv6Addresses\n')
+
+      if TestBase.IsWindows():
+        # Use a specific Python toolchain on Windows to avoid blowing up the
+        # size of py_binary and py_test which slowed down tests significantly.
+        # Use @@rules_python+//python/runtime_env_toolchains:all when WORKSPACE
+        # is fully removed.
+        # pylint: disable=line-too-long
+        f.write('common --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain\n')
+
+    # An empty MODULE.bazel and a corresponding MODULE.bazel.lock will prevent
+    # tests from accessing BCR
+    self.ScratchFile('MODULE.bazel')
+    self.CopyFile(
+        self.Rlocation('io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock'),
+        'MODULE.bazel.lock',
+    )
     os.chdir(self._test_cwd)
 
   def tearDown(self):
@@ -170,21 +173,14 @@ class TestBase(unittest.TestCase):
       if entry in f.read():
         self.fail('File "%s" does contain "%s"' % (file_path, entry))
 
-  def CreateWorkspaceWithDefaultRepos(self, path, lines=None):
-    rule_definition = [
-        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")'
-    ]
-    rule_definition.extend(self.GetDefaultRepoRules())
-    if lines:
-      rule_definition.extend(lines)
-    self.ScratchFile(path, rule_definition)
-
-  def GetDefaultRepoRules(self):
-    with open(
-        self.Rlocation('io_bazel/src/test/py/bazel/default_repos_stanza.txt'),
-        'r') as repo_rules:
-      return repo_rules.read().split('\n')
-    return []
+  def AssertPathIsSymlink(self, path):
+    if self.IsWindows():
+      self.assertTrue(
+          self.IsReparsePoint(path),
+          "Path '%s' is not a symlink or junction" % path,
+      )
+    else:
+      self.assertTrue(os.path.islink(path), "Path '%s' is not a symlink" % path)
 
   @staticmethod
   def GetEnv(name, default=None):
@@ -213,6 +209,11 @@ class TestBase(unittest.TestCase):
     return os.name == 'nt'
 
   @staticmethod
+  def IsDarwin():
+    """Returns true if the current platform is Darwin/macOS."""
+    return sys.platform == 'darwin'
+
+  @staticmethod
   def IsUnix():
     """Returns true if the current platform is Unix (Linux and Mac included)."""
     return os.name == 'posix'
@@ -221,6 +222,20 @@ class TestBase(unittest.TestCase):
   def IsLinux():
     """Returns true if the current platform is Linux."""
     return sys.platform.startswith('linux')
+
+  def IsReparsePoint(self, path):
+    """Returns whether a path is a reparse point (symlink or junction) on Windows.
+
+    Args:
+      path: string; an absolute path to a folder e.g. "C://foo/bar/aaa"
+    """
+    result = subprocess.run(
+        ['fsutil', 'reparsepoint', 'query', path],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0 and 'Reparse Tag Value' in result.stdout
 
   def Path(self, path):
     """Returns the absolute path of `path` relative to self._test_cwd.
@@ -241,10 +256,7 @@ class TestBase(unittest.TestCase):
 
   def Rlocation(self, runfile):
     """Returns the absolute path to a runfile."""
-    if TestBase.IsWindows():
-      return self._runfiles.get(runfile)
-    else:
-      return os.path.join(self._runfiles, runfile)
+    return self._runfiles.Rlocation(runfile)
 
   def ScratchDir(self, path):
     """Creates directories under the test's scratch directory.
@@ -285,11 +297,13 @@ class TestBase(unittest.TestCase):
     """
     if not path:
       return
+    if lines is not None and not isinstance(lines, list):
+      raise ValueError('expected lines to be a list, got ' + str(type(lines)))
     abspath = self.Path(path)
     if os.path.exists(abspath) and not os.path.isfile(abspath):
       raise IOError('"%s" (%s) exists and is not a file' % (path, abspath))
     self.ScratchDir(os.path.dirname(path))
-    with open(abspath, 'w') as f:
+    with open(abspath, 'w', encoding='utf-8') as f:
       if lines:
         for l in lines:
           f.write(l)
@@ -325,12 +339,15 @@ class TestBase(unittest.TestCase):
       os.chmod(abspath, stat.S_IRWXU)
     return abspath
 
-  def RunBazel(self,
-               args,
-               env_remove=None,
-               env_add=None,
-               cwd=None,
-               allow_failure=True):
+  def RunBazel(
+      self,
+      args,
+      env_remove=None,
+      env_add=None,
+      cwd=None,
+      allow_failure=False,
+      rstrip=False,
+  ):
     """Runs "bazel <args>", waits for it to exit.
 
     Args:
@@ -339,16 +356,27 @@ class TestBase(unittest.TestCase):
         to Bazel
       env_add: {string: string}; optional; environment variables to pass to
         Bazel, won't be removed by env_remove.
-      cwd: string; the working directory of Bazel, will be self._test_cwd if
-        not specified.
+      cwd: string; the working directory of Bazel, will be self._test_cwd if not
+        specified.
       allow_failure: bool; if false, the function checks the return code is 0
+      rstrip: bool; if true, the output is rstripped instead of stripped
+
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
-    return self.RunProgram([
-        self.Rlocation('io_bazel/src/bazel'),
-        '--bazelrc=' + self._test_bazelrc
-    ] + args, env_remove, env_add, False, cwd, allow_failure)
+    return self.RunProgram(
+        [
+            self.Rlocation('io_bazel/src/bazel'),
+            '--bazelrc=' + self._test_bazelrc,
+        ]
+        + args,
+        env_remove,
+        env_add,
+        False,
+        cwd,
+        allow_failure,
+        rstrip,
+    )
 
   def StartRemoteWorker(self):
     """Runs a "local remote worker" to run remote builds and tests on.
@@ -378,13 +406,6 @@ class TestBase(unittest.TestCase):
     port = s.getsockname()[1]
     s.close()
 
-    env_add = {}
-    try:
-      env_add['RUNFILES_MANIFEST_FILE'] = TestBase.GetEnv(
-          'RUNFILES_MANIFEST_FILE')
-    except EnvVarUndefinedError:
-      pass
-
     # Tip: To help debug remote build problems, add the --debug flag below.
     self._worker_proc = subprocess.Popen(
         [
@@ -399,7 +420,8 @@ class TestBase(unittest.TestCase):
         stdout=self._worker_stdout,
         stderr=self._worker_stderr,
         cwd=self._test_cwd,
-        env=self._EnvMap(env_add=env_add))
+        env=self._EnvMap(env_add=self._runfiles.EnvVars()),
+    )
 
     return port
 
@@ -413,8 +435,7 @@ class TestBase(unittest.TestCase):
 
     self._worker_stdout.seek(0)
     stdout_lines = [
-        l.decode(locale.getpreferredencoding()).strip()
-        for l in self._worker_stdout.readlines()
+        l.decode('utf-8').strip() for l in self._worker_stdout.readlines()
     ]
     if stdout_lines:
       print('Local remote worker stdout')
@@ -423,8 +444,7 @@ class TestBase(unittest.TestCase):
 
     self._worker_stderr.seek(0)
     stderr_lines = [
-        l.decode(locale.getpreferredencoding()).strip()
-        for l in self._worker_stderr.readlines()
+        l.decode('utf-8').strip() for l in self._worker_stderr.readlines()
     ]
     if stderr_lines:
       print('Local remote worker stderr')
@@ -433,29 +453,33 @@ class TestBase(unittest.TestCase):
 
     shutil.rmtree(self._cas_path)
 
-  def RunProgram(self,
-                 args,
-                 env_remove=None,
-                 env_add=None,
-                 shell=False,
-                 cwd=None,
-                 allow_failure=True,
-                 executable=None):
+  def RunProgram(
+      self,
+      args,
+      env_remove=None,
+      env_add=None,
+      shell=False,
+      cwd=None,
+      allow_failure=False,
+      rstrip=False,
+      executable=None,
+  ):
     """Runs a program (args[0]), waits for it to exit.
 
     Args:
       args: [string]; the args to run; args[0] should be the program itself
       env_remove: iterable(string); optional; environment variables to NOT pass
         to the program
-      env_add: {string: string}; optional; environment variables to pass to
-        the program, won't be removed by env_remove.
-      shell: {bool: bool}; optional; whether to use the shell as the program
-        to execute
-      cwd: string; the current working dirctory, will be self._test_cwd if not
+      env_add: {string: string}; optional; environment variables to pass to the
+        program, won't be removed by env_remove.
+      shell: {bool: bool}; optional; whether to use the shell as the program to
+        execute
+      cwd: string; the current working directory, will be self._test_cwd if not
         specified.
       allow_failure: bool; if false, the function checks the return code is 0
-      executable: string or None; executable program to run; use args[0]
-        if None
+      rstrip: bool; if true, the output is rstripped instead of stripped
+      executable: string or None; executable program to run; use args[0] if None
+
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
@@ -473,18 +497,18 @@ class TestBase(unittest.TestCase):
 
         stdout.seek(0)
         stdout_lines = [
-            l.decode(locale.getpreferredencoding()).strip()
+            l.decode('utf-8').rstrip() if rstrip else l.decode('utf-8').strip()
             for l in stdout.readlines()
         ]
 
         stderr.seek(0)
         stderr_lines = [
-            l.decode(locale.getpreferredencoding()).strip()
+            l.decode('utf-8').rstrip() if rstrip else l.decode('utf-8').strip()
             for l in stderr.readlines()
         ]
 
         if not allow_failure:
-          self.AssertExitCode(exit_code, 0, stderr_lines)
+          self.AssertExitCode(exit_code, 0, stderr_lines, stdout_lines)
 
         return exit_code, stdout_lines, stderr_lines
 
@@ -519,6 +543,14 @@ class TestBase(unittest.TestCase):
     # that by checking for TEST_TMPDIR.
     env['TEST_TMPDIR'] = TestBase.GetEnv('TEST_TMPDIR')
     env['TMP'] = self._temp
+
+    if TestBase.IsDarwin():
+      # Make sure rules_jvm_external works in ipv6 only environment
+      # https://github.com/bazelbuild/rules_jvm_external?tab=readme-ov-file#ipv6-support
+      env['COURSIER_OPTS'] = TestBase.GetEnv(
+          'COURSIER_OPTS', '-Djava.net.preferIPv6Addresses=true'
+      )
+
     if env_remove:
       for e in env_remove:
         if e in env:
@@ -527,30 +559,6 @@ class TestBase(unittest.TestCase):
       for e in env_add:
         env[e] = env_add[e]
     return env
-
-  @staticmethod
-  def _LoadRunfiles():
-    """Loads the runfiles manifest from ${TEST_SRCDIR}/MANIFEST.
-
-    Only necessary to use on Windows, where runfiles are not symlinked in to the
-    runfiles directory, but are written to a MANIFEST file instead.
-
-    Returns:
-      on Windows: {string: string} dictionary, keys are runfiles-relative paths,
-        values are absolute paths that the runfiles entry is mapped to;
-      on other platforms: string; value of $TEST_SRCDIR
-    """
-    test_srcdir = TestBase.GetEnv('TEST_SRCDIR')
-    if not TestBase.IsWindows():
-      return test_srcdir
-
-    result = {}
-    with open(os.path.join(test_srcdir, 'MANIFEST'), 'r') as f:
-      for l in f:
-        tokens = l.strip().split(' ')
-        if len(tokens) == 2:
-          result[tokens[0]] = tokens[1]
-    return result
 
   @staticmethod
   def _CreateDirs(path):

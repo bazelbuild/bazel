@@ -41,6 +41,11 @@ message FlagInfo {
   repeated string metadata_tags = 8;
   // The documentation category assigned to this flag
   optional string documentation_category = 9;
+  // Whether the flag requires a value.
+  // If false, value-less invocations are acceptable, e.g. --subcommands,
+  // but if true a value must be present for all instantiations of the flag,
+  // e.g. --jobs=100.
+  optional bool requires_value = 10;
 }
 
 message FlagCollection {

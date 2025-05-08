@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
+import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -24,7 +25,9 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -71,7 +74,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
             NULL_ACTION_OWNER,
             inputArtifact,
             outputArtifact,
-            "Symlinking test",
+            "Symlinking test: %{label}: %{input} -> %{output}",
             useExecRootForSources);
   }
 
@@ -89,24 +92,21 @@ public class SymlinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testSymlink() throws Exception {
-    Executor executor = new TestExecutorBuilder(fileSystem, directories, null).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories).build();
     ActionResult actionResult =
         action.execute(
             new ActionExecutionContext(
                 executor,
-                /*actionInputFileCache=*/ null,
+                mock(InputMetadataProvider.class),
                 ActionInputPrefetcher.NONE,
                 actionKeyContext,
-                /*metadataHandler=*/ null,
-                /*rewindingEnabled=*/ false,
+                mock(OutputMetadataStore.class),
+                /* rewindingEnabled= */ false,
                 LostInputsCheck.NONE,
-                /*fileOutErr=*/ null,
+                /* fileOutErr= */ null,
                 new StoredEventHandler(),
-                /*clientEnv=*/ ImmutableMap.of(),
-                /*topLevelFilesets=*/ ImmutableMap.of(),
-                /*artifactExpander=*/ null,
-                /*actionFileSystem=*/ null,
-                /*skyframeDepsResult=*/ null,
+                /* clientEnv= */ ImmutableMap.of(),
+                /* actionFileSystem= */ null,
                 DiscoveredModulesPruner.DEFAULT,
                 SyscallCache.NO_CACHE,
                 ThreadStateReceiver.NULL_INSTANCE));
@@ -115,6 +115,8 @@ public class SymlinkActionTest extends BuildViewTestCase {
     assertThat(output.resolveSymbolicLinks()).isEqualTo(input);
     assertThat(action.getPrimaryInput()).isEqualTo(inputArtifact);
     assertThat(action.getPrimaryOutput()).isEqualTo(outputArtifact);
+    assertThat(action.getProgressMessage())
+        .isEqualTo("Symlinking test: //null/action:owner: input.txt -> destination.txt");
   }
 
   @Test

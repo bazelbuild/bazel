@@ -43,16 +43,15 @@ public class ContainingPackageLookupFunction implements SkyFunction {
 
     // Does the requested package cross into a sub-repository, which we should report via the
     // correct package identifier?
-    if (pkgLookupValue instanceof IncorrectRepositoryReferencePackageLookupValue) {
-      IncorrectRepositoryReferencePackageLookupValue incorrectPackageLookupValue =
-          (IncorrectRepositoryReferencePackageLookupValue) pkgLookupValue;
+    if (pkgLookupValue
+        instanceof IncorrectRepositoryReferencePackageLookupValue incorrectPackageLookupValue) {
       PackageIdentifier correctPackageIdentifier =
           incorrectPackageLookupValue.getCorrectedPackageIdentifier();
       return env.getValue(ContainingPackageLookupValue.key(correctPackageIdentifier));
     }
 
     if (ErrorReason.REPOSITORY_NOT_FOUND.equals(pkgLookupValue.getErrorReason())) {
-      return new ContainingPackageLookupValue.NoContainingPackage(pkgLookupValue.getErrorMsg());
+      return ContainingPackageLookupValue.noContainingPackage(pkgLookupValue.getErrorMsg());
     }
     PathFragment parentDir = dir.getPackageFragment().getParentDirectory();
     if (parentDir == null) {

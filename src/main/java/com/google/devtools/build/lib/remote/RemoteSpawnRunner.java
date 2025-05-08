@@ -15,13 +15,17 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.profiler.ProfilerTask.PROCESS_TIME;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.FETCH;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_DOWNLOAD;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_EXECUTION;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_PROCESS_TIME;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_QUEUE;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_SETUP;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.UPLOAD_TIME;
+import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionForCredentialHelperException;
+import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionFromRemoteExecutionCapabilitiesException;
 import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
+import static java.lang.Math.max;
 
 import build.bazel.remote.execution.v2.ExecuteOperationMetadata;
 import build.bazel.remote.execution.v2.ExecuteResponse;
@@ -30,7 +34,6 @@ import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
@@ -40,7 +43,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.MillisSinceEpochToNanosConverter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -58,18 +61,19 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ServerLogs;
+import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
-import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
@@ -77,9 +81,6 @@ import com.google.protobuf.util.Timestamps;
 import io.grpc.Status.Code;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.SortedMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -105,6 +106,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private final RemoteRetrier retrier;
   private final Path logDir;
   private final RemoteExecutionService remoteExecutionService;
+  private final DigestUtil digestUtil;
 
   // Used to ensure that a warning is reported only once.
   private final AtomicBoolean warningReported = new AtomicBoolean();
@@ -117,7 +119,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
       @Nullable Reporter cmdlineReporter,
       ListeningScheduledExecutorService retryService,
       Path logDir,
-      RemoteExecutionService remoteExecutionService) {
+      RemoteExecutionService remoteExecutionService,
+      DigestUtil digestUtil) {
     this.execRoot = execRoot;
     this.remoteOptions = remoteOptions;
     this.executionOptions = executionOptions;
@@ -126,6 +129,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     this.retrier = createExecuteRetrier(remoteOptions, retryService);
     this.logDir = logDir;
     this.remoteExecutionService = remoteExecutionService;
+    this.digestUtil = digestUtil;
   }
 
   @VisibleForTesting
@@ -188,6 +192,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     RemoteAction action = remoteExecutionService.buildRemoteAction(spawn, context);
 
+    context.setDigest(digestUtil.asSpawnLogProto(action.getActionKey()));
+
     SpawnMetrics.Builder spawnMetrics =
         SpawnMetrics.Builder.forRemoteExec()
             .setInputBytes(action.getInputBytes())
@@ -225,7 +231,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                 () -> action.getNetworkTime().getDuration(),
                 spawnMetrics);
           } catch (BulkTransferException e) {
-            if (!e.onlyCausedByCacheNotFoundException()) {
+            if (!e.allCausedByCacheNotFoundException()) {
               throw e;
             }
             // No cache hit, so we fall through to local or remote execution.
@@ -234,22 +240,48 @@ public class RemoteSpawnRunner implements SpawnRunner {
           }
         }
       }
+    } catch (CredentialHelperException e) {
+      throw createExecExceptionForCredentialHelperException(e);
     } catch (IOException e) {
-      return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
+      return execLocallyAndUploadOrFail(
+          action, spawn, context, uploadLocalResults, e, FailureReason.DOWNLOAD);
+    }
+
+    if (remoteOptions.remoteRequireCached) {
+      return new SpawnResult.Builder()
+          .setStatus(SpawnResult.Status.EXECUTION_DENIED)
+          .setExitCode(1)
+          .setFailureMessage(
+              "Action must be cached due to --experimental_remote_require_cached but it is not")
+          .setFailureDetail(
+              FailureDetail.newBuilder()
+                  .setSpawn(
+                      FailureDetails.Spawn.newBuilder()
+                          .setCode(FailureDetails.Spawn.Code.EXECUTION_DENIED))
+                  .build())
+          .setRunnerName("remote")
+          .build();
     }
 
     AtomicBoolean useCachedResult = new AtomicBoolean(acceptCachedResult);
     AtomicBoolean forceUploadInput = new AtomicBoolean(false);
+    AtomicBoolean ioExceptionCausedByUpload = new AtomicBoolean(false);
     try {
       return retrier.execute(
           () -> {
+            ioExceptionCausedByUpload.set(false);
             // Upload the command and all the inputs into the remote cache.
             try (SilentCloseable c = prof.profile(UPLOAD_TIME, "upload missing inputs")) {
               Duration networkTimeStart = action.getNetworkTime().getDuration();
               Stopwatch uploadTime = Stopwatch.createStarted();
               // Upon retry, we force upload inputs
-              remoteExecutionService.uploadInputsIfNotPresent(
-                  action, forceUploadInput.getAndSet(true));
+              try {
+                remoteExecutionService.uploadInputsIfNotPresent(
+                    action, forceUploadInput.getAndSet(true));
+              } catch (IOException e) {
+                ioExceptionCausedByUpload.set(true);
+                throw e;
+              }
 
               // subtract network time consumed here to ensure wall clock during upload is not
               // double
@@ -263,8 +295,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
             context.report(SPAWN_SCHEDULING_EVENT);
 
             ExecutingStatusReporter reporter = new ExecutingStatusReporter(context);
+            long clampTimeNanos; // See comment in logProfileTask.
             RemoteActionResult result;
             try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
+              clampTimeNanos = Profiler.nanoTimeMaybe();
               result =
                   remoteExecutionService.executeRemotely(action, useCachedResult.get(), reporter);
             }
@@ -275,7 +309,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
             maybePrintExecutionMessages(context, result.getMessage(), result.success());
 
-            profileAccounting(result.getExecutionMetadata());
+            profileAccounting(clampTimeNanos, result.getExecutionMetadata());
             spawnMetricsAccounting(spawnMetrics, result.getExecutionMetadata());
 
             try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download server logs")) {
@@ -293,7 +327,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
                   () -> action.getNetworkTime().getDuration(),
                   spawnMetrics);
             } catch (BulkTransferException e) {
-              if (e.onlyCausedByCacheNotFoundException()) {
+              if (e.allCausedByCacheNotFoundException()) {
                 // No cache hit, so if we retry this execution, we must no longer accept
                 // cached results, it must be reexecuted
                 useCachedResult.set(false);
@@ -301,12 +335,21 @@ public class RemoteSpawnRunner implements SpawnRunner {
               throw e;
             }
           });
+    } catch (CredentialHelperException e) {
+      throw createExecExceptionForCredentialHelperException(e);
     } catch (IOException e) {
-      return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
+      return execLocallyAndUploadOrFail(
+          action,
+          spawn,
+          context,
+          uploadLocalResults,
+          e,
+          ioExceptionCausedByUpload.get() ? FailureReason.UPLOAD : FailureReason.DOWNLOAD);
     }
   }
 
-  private static void profileAccounting(ExecutedActionMetadata executedActionMetadata) {
+  private static void profileAccounting(
+      long clampTimeNanos, ExecutedActionMetadata executedActionMetadata) {
     MillisSinceEpochToNanosConverter converter =
         BlazeClock.createMillisSinceEpochToNanosConverter();
 
@@ -314,24 +357,49 @@ public class RemoteSpawnRunner implements SpawnRunner {
         converter,
         executedActionMetadata.getQueuedTimestamp(),
         executedActionMetadata.getWorkerStartTimestamp(),
+        clampTimeNanos,
         REMOTE_QUEUE,
         "queue");
     logProfileTask(
         converter,
+        executedActionMetadata.getWorkerStartTimestamp(),
+        executedActionMetadata.getInputFetchStartTimestamp(),
+        clampTimeNanos,
+        REMOTE_SETUP,
+        "pre-fetch");
+    logProfileTask(
+        converter,
         executedActionMetadata.getInputFetchStartTimestamp(),
         executedActionMetadata.getInputFetchCompletedTimestamp(),
-        REMOTE_SETUP,
+        clampTimeNanos,
+        FETCH,
         "fetch");
+    logProfileTask(
+        converter,
+        executedActionMetadata.getInputFetchCompletedTimestamp(),
+        executedActionMetadata.getExecutionStartTimestamp(),
+        clampTimeNanos,
+        REMOTE_SETUP,
+        "pre-execute");
     logProfileTask(
         converter,
         executedActionMetadata.getExecutionStartTimestamp(),
         executedActionMetadata.getExecutionCompletedTimestamp(),
-        PROCESS_TIME,
+        clampTimeNanos,
+        REMOTE_PROCESS_TIME,
         "execute");
+    logProfileTask(
+        converter,
+        executedActionMetadata.getExecutionCompletedTimestamp(),
+        executedActionMetadata.getOutputUploadStartTimestamp(),
+        clampTimeNanos,
+        REMOTE_SETUP,
+        "pre-upload");
     logProfileTask(
         converter,
         executedActionMetadata.getOutputUploadStartTimestamp(),
         executedActionMetadata.getOutputUploadCompletedTimestamp(),
+        clampTimeNanos,
         UPLOAD_TIME,
         "upload");
   }
@@ -340,14 +408,20 @@ public class RemoteSpawnRunner implements SpawnRunner {
       MillisSinceEpochToNanosConverter converter,
       Timestamp start,
       Timestamp end,
+      long clampTimeNanos,
       ProfilerTask type,
       String description) {
-    Profiler.instance()
-        .logSimpleTask(
-            converter.toNanos(Timestamps.toMillis(start)),
-            converter.toNanos(Timestamps.toMillis(end)),
-            type,
-            description);
+    // If the remote execution request is deduped against an earlier request for the same action,
+    // the start and end times may predate the start of the execution on our side. To avoid
+    // confusion, clamp them so that they nest inside the parent profile span.
+    long startTimeNanos = converter.toNanos(Timestamps.toMillis(start));
+    long endTimeNanos = converter.toNanos(Timestamps.toMillis(end));
+    if (endTimeNanos <= clampTimeNanos) {
+      // Span lies entirely outside the parent.
+      return;
+    }
+    startTimeNanos = max(startTimeNanos, clampTimeNanos);
+    Profiler.instance().logSimpleTask(startTimeNanos, endTimeNanos, type, description);
   }
 
   /** conversion utility for protobuf Timestamp difference to java.time.Duration */
@@ -366,14 +440,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
     if (!executionMetadata.getWorker().isEmpty()) {
       // Accumulate queueTime from any previous attempts
       Duration remoteQueueTime =
-          spawnMetrics
-              .build()
-              .queueTime()
-              .plus(
-                  between(
-                      executionMetadata.getQueuedTimestamp(),
-                      executionMetadata.getWorkerStartTimestamp()));
-      spawnMetrics.setQueueTime(remoteQueueTime);
+          between(
+              executionMetadata.getQueuedTimestamp(), executionMetadata.getWorkerStartTimestamp());
+      spawnMetrics.addQueueTime(remoteQueueTime);
       // setup time does not include failed attempts
       Duration setupTime =
           between(
@@ -419,17 +488,19 @@ public class RemoteSpawnRunner implements SpawnRunner {
     // subtract network time consumed here to ensure wall clock during fetch is not double
     // counted, and metrics time computation does not exceed total time
     return createSpawnResult(
+        digestUtil,
         action.getActionKey(),
         result.getExitCode(),
         cacheHit,
         cacheName,
         inMemoryOutput,
-        result.getExecutionMetadata().getWorkerStartTimestamp(),
-        result.getExecutionMetadata().getWorkerCompletedTimestamp(),
+        result.getExecutionMetadata().getExecutionStartTimestamp(),
+        result.getExecutionMetadata().getExecutionCompletedTimestamp(),
         spawnMetrics
-            .setFetchTime(fetchTime.elapsed().minus(networkTimeEnd.minus(networkTimeStart)))
-            .setTotalTime(totalTime.elapsed())
-            .setNetworkTime(networkTimeEnd)
+            .setFetchTimeInMs(
+                (int) fetchTime.elapsed().minus(networkTimeEnd.minus(networkTimeStart)).toMillis())
+            .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
+            .setNetworkTimeInMs((int) networkTimeEnd.toMillis())
             .build(),
         spawn.getMnemonic());
   }
@@ -451,7 +522,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
         remoteOptions.remotePrintExecutionMessages.shouldPrintMessages(success)
             && !message.isEmpty();
     if (printMessage) {
-      outErr.printErr(message + "\n");
+      outErr.printErr("Remote server execution message: " + message + "\n");
     }
   }
 
@@ -460,10 +531,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
       return;
     }
     for (ActionInput actionInput : spawn.getInputFiles().toList()) {
-      if (actionInput instanceof ParamFileActionInput) {
-        ParamFileActionInput paramFileActionInput = (ParamFileActionInput) actionInput;
-        Path outputPath = execRoot.getRelative(paramFileActionInput.getExecPath());
-        SandboxHelpers.atomicallyWriteVirtualInput(paramFileActionInput, outputPath, ".remote");
+      if (actionInput instanceof ParamFileActionInput paramFileActionInput) {
+        paramFileActionInput.atomicallyWriteRelativeTo(execRoot);
       }
     }
   }
@@ -475,7 +544,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       if (serverLogs.logCount > 0 && verboseFailures) {
         report(
             Event.info(
-                "Server logs of failing action:\n   "
+                "Remote server log of failing action:\n   "
                     + (serverLogs.logCount > 1 ? serverLogs.directory : serverLogs.lastLogPath)));
       }
     } catch (IOException e) {
@@ -483,7 +552,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
   }
 
-  private SpawnResult execLocally(Spawn spawn, SpawnExecutionContext context)
+  private static SpawnResult execLocally(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
     RemoteLocalFallbackRegistry localFallbackRegistry =
         context.getContext(RemoteLocalFallbackRegistry.class);
@@ -496,17 +565,31 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return remoteLocalFallbackStrategy.getSpawnRunner().exec(spawn, context);
   }
 
+  private enum FailureReason {
+    // The failure occurred during the upload of the action's input for remote execution.
+    UPLOAD,
+    // The failure occurred during the download of the action's output from the remote cache.
+    DOWNLOAD,
+  }
+
   private SpawnResult execLocallyAndUploadOrFail(
       RemoteAction action,
       Spawn spawn,
       SpawnExecutionContext context,
       boolean uploadLocalResults,
-      IOException cause)
+      IOException cause,
+      FailureReason reason)
       throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
     // Regardless of cause, if we are interrupted, we should stop without displaying a user-visible
     // failure/stack trace.
     if (Thread.currentThread().isInterrupted()) {
       throw new InterruptedException();
+    }
+    // If the failure is caused by eviction of inputs to the current action that are only available
+    // remotely, try to regenerate the lost inputs. This doesn't make sense for outputs of the
+    // current action.
+    if (reason == FailureReason.UPLOAD && cause instanceof BulkTransferException e) {
+      e.getLostArtifacts(context.getInputMetadataProvider()::getInput).throwIfNotEmpty();
     }
     if (remoteOptions.remoteLocalFallback && !RemoteRetrierUtils.causedByExecTimeout(cause)) {
       return execLocallyAndUpload(action, spawn, context, uploadLocalResults);
@@ -517,36 +600,52 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private SpawnResult handleError(
       RemoteAction action, IOException exception, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
-    boolean remoteCacheFailed =
-        BulkTransferException.isOnlyCausedByCacheNotFoundException(exception);
-    if (exception.getCause() instanceof ExecutionStatusException) {
-      ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
+    if (exception instanceof RemoteExecutionCapabilitiesException e) {
+      throw createExecExceptionFromRemoteExecutionCapabilitiesException(e);
+    }
+    if (exception.getCause() instanceof ExecutionStatusException e) {
+      RemoteActionResult result = null;
       if (e.getResponse() != null) {
         ExecuteResponse resp = e.getResponse();
         maybeDownloadServerLogs(action, resp);
         if (resp.hasResult()) {
+          result = RemoteActionResult.createFromResponse(resp);
           try {
-            remoteExecutionService.downloadOutputs(
-                action, RemoteActionResult.createFromResponse(resp));
+            remoteExecutionService.downloadOutputs(action, result);
           } catch (BulkTransferException bulkTransferEx) {
             exception.addSuppressed(bulkTransferEx);
           }
         }
       }
       if (e.isExecutionTimeout()) {
-        maybePrintExecutionMessages(context, e.getResponse().getMessage(), /* success = */ false);
-        return new SpawnResult.Builder()
-            .setRunnerName(getName())
-            .setStatus(Status.TIMEOUT)
-            .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
-            .setFailureDetail(
-                FailureDetail.newBuilder()
-                    .setMessage("remote spawn timed out")
-                    .setSpawn(
-                        FailureDetails.Spawn.newBuilder()
-                            .setCode(FailureDetails.Spawn.Code.TIMEOUT))
-                    .build())
-            .build();
+        maybePrintExecutionMessages(context, e.getResponse().getMessage(), /* success= */ false);
+        SpawnResult.Builder resultBuilder =
+            new SpawnResult.Builder()
+                .setRunnerName(getName())
+                .setStatus(Status.TIMEOUT)
+                .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
+                .setFailureDetail(
+                    FailureDetail.newBuilder()
+                        .setMessage("remote spawn timed out")
+                        .setSpawn(
+                            FailureDetails.Spawn.newBuilder()
+                                .setCode(FailureDetails.Spawn.Code.TIMEOUT))
+                        .build());
+        if (result != null) {
+          resultBuilder
+              .setWallTimeInMs(
+                  (int)
+                      Duration.between(
+                              Utils.timestampToInstant(
+                                  result.getExecutionMetadata().getExecutionStartTimestamp()),
+                              Utils.timestampToInstant(
+                                  result.getExecutionMetadata().getExecutionCompletedTimestamp()))
+                          .toMillis())
+              .setStartTime(
+                  Utils.timestampToInstant(
+                      result.getExecutionMetadata().getExecutionStartTimestamp()));
+        }
+        return resultBuilder.build();
       }
     }
     final Status status;
@@ -556,7 +655,11 @@ public class RemoteSpawnRunner implements SpawnRunner {
       status = Status.EXECUTION_FAILED_CATASTROPHICALLY;
       detailedCode = FailureDetails.Spawn.Code.EXECUTION_FAILED;
       catastrophe = true;
-    } else if (remoteCacheFailed) {
+    } else if (BulkTransferException.allCausedByCacheNotFoundException(exception)) {
+      // At this point, cache evictions that affect uploaded inputs have already been handled.
+      // Cache evictions that affect the outputs of the current actions have also been retried with
+      // a request that disallows reusing cached results. This means that there is no point in
+      // retrying the entire build.
       status = Status.REMOTE_CACHE_FAILED;
       detailedCode = FailureDetails.Spawn.Code.REMOTE_CACHE_FAILED;
       catastrophe = false;
@@ -566,14 +669,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
       catastrophe = false;
     }
 
-    String errorMessage = Utils.grpcAwareErrorMessage(exception);
-    if (verboseFailures) {
-      // On --verbose_failures print the whole stack trace
-      errorMessage += "\n" + Throwables.getStackTraceAsString(exception);
-    }
+    String errorMessage = Utils.grpcAwareErrorMessage(exception, verboseFailures);
 
-    if (exception.getCause() instanceof ExecutionStatusException) {
-      ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
+    if (exception.getCause() instanceof ExecutionStatusException e) {
       if (e.getResponse() != null) {
         if (!e.getResponse().getMessage().isEmpty()) {
           errorMessage += "\n" + e.getResponse().getMessage();
@@ -597,47 +695,15 @@ public class RemoteSpawnRunner implements SpawnRunner {
         .build();
   }
 
-  private Map<Path, Long> getInputCtimes(SortedMap<PathFragment, ActionInput> inputMap) {
-    HashMap<Path, Long> ctimes = new HashMap<>();
-    for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
-      ActionInput input = e.getValue();
-      if (input instanceof VirtualActionInput) {
-        continue;
-      }
-      Path path = execRoot.getRelative(input.getExecPathString());
-      try {
-        ctimes.put(path, path.stat().getLastChangeTime());
-      } catch (IOException ex) {
-        // Put a token value indicating an exception; this is used so that if the exception
-        // is raised both before and after the execution, it is ignored, but if it is raised only
-        // one of the times, it triggers a remote cache upload skip.
-        ctimes.put(path, -1L);
-      }
-    }
-    return ctimes;
-  }
-
   @VisibleForTesting
   SpawnResult execLocallyAndUpload(
       RemoteAction action, Spawn spawn, SpawnExecutionContext context, boolean uploadLocalResults)
       throws ExecException, IOException, ForbiddenActionInputException, InterruptedException {
-    Map<Path, Long> ctimesBefore = getInputCtimes(action.getInputMap());
     SpawnResult result = execLocally(spawn, context);
-    Map<Path, Long> ctimesAfter = getInputCtimes(action.getInputMap());
-    uploadLocalResults =
-        uploadLocalResults && Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
-    if (!uploadLocalResults) {
-      return result;
+    if (uploadLocalResults && Status.SUCCESS.equals(result.status()) && result.exitCode() == 0) {
+      remoteExecutionService.uploadOutputs(
+          action, result, () -> {}, remoteOptions.guardAgainstConcurrentChanges);
     }
-
-    for (Map.Entry<Path, Long> e : ctimesBefore.entrySet()) {
-      // Skip uploading to remote cache, because an input was modified during execution.
-      if (!ctimesAfter.get(e.getKey()).equals(e.getValue())) {
-        return result;
-      }
-    }
-
-    remoteExecutionService.uploadOutputs(action, result);
     return result;
   }
 
@@ -656,6 +722,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private static RemoteRetrier createExecuteRetrier(
       RemoteOptions options, ListeningScheduledExecutorService retryService) {
     return new ExecuteRetrier(
-        options.remoteMaxRetryAttempts, retryService, Retrier.ALLOW_ALL_CALLS);
+        options.remoteMaxRetryAttempts,
+        retryService,
+        CircuitBreakerFactory.createCircuitBreaker(options));
   }
 }

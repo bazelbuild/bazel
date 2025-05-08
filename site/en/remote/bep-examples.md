@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Build Event Protocol Examples
 
+{% include "_buttons.html" %}
+
 The full specification of the Build Event Protocol can be found in its protocol
 buffer definition. However, it might be helpful to build up some intuition
 before looking at the specification.
@@ -102,7 +104,7 @@ built.
 ## Aspect Results in BEP {:#aspect-results}
 
 Ordinary builds evaluate actions associated with `(target, configuration)`
-pairs. When building with [aspects](/rules/aspects) enabled, Bazel
+pairs. When building with [aspects](/extending/aspects) enabled, Bazel
 additionally evaluates targets associated with `(target, configuration,
 aspect)` triples, for each target affected by a given enabled aspect.
 
@@ -146,7 +148,7 @@ files by target may conflate target outputs with aspect outputs.
 Determining the artifacts produced by a given target (or aspect) is a common
 BEP use-case that can be done efficiently with some preparation. This section
 discusses the recursive, shared structure offered by the `NamedSetOfFiles`
-event, which matches the structure of a Starlark [Depset](/rules/depsets).
+event, which matches the structure of a Starlark [Depset](/extending/depsets).
 
 Consumers must take care to avoid quadratic algorithms when processing
 `NamedSetOfFiles` events because large builds can contain tens of thousands of

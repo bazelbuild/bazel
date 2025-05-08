@@ -69,6 +69,7 @@ public class ImportDepsCheckerTest extends AbstractClassCacheTest {
             libraryJar, libraryAnnotationsJar, libraryExceptionJar, libraryInterfaceJar));
   }
 
+
   private static final String DUMMY_RULE_LABEL = "empty";
 
   private static void testJdepsProto(

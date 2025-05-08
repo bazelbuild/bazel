@@ -320,7 +320,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
         new Artifact.SourceArtifact(
             ArtifactRoot.asSourceRoot(Root.fromPath(fileSystem.getPath("/src"))),
             PathFragment.create("in/in"),
-            () -> Label.parseAbsoluteUnchecked("//in:in"));
+            () -> Label.parseCanonicalUnchecked("//in:in"));
     Artifact out = createDerivedArtifact("out");
 
     registerAction(new TestAction(TestAction.NO_EFFECT, asNestedSet(in), ImmutableSet.of(out)));

@@ -16,18 +16,22 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.buildModule;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.buildTag;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createTagClass;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import java.util.Optional;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
@@ -43,18 +47,20 @@ public class StarlarkBazelModuleTest {
     return ModuleExtensionUsage.builder()
         .setExtensionBzlFile("//:rje.bzl")
         .setExtensionName("maven")
-        .setLocation(Location.BUILTIN)
-        .setImports(ImmutableBiMap.of());
+        .setIsolationKey(Optional.empty())
+        .setRepoOverrides(ImmutableMap.of());
   }
 
   /** A builder for ModuleExtension that sets all the mandatory but irrelevant fields. */
   private static ModuleExtension.Builder getBaseExtensionBuilder() {
     return ModuleExtension.builder()
-        .setName("maven")
-        .setDoc("")
+        .setDoc(Optional.empty())
+        .setDefiningBzlFileLabel(Label.parseCanonicalUnchecked("//:rje.bzl"))
         .setLocation(Location.BUILTIN)
-        .setDefinitionEnvironmentLabel(Label.parseAbsoluteUnchecked("//:rje.bzl"))
-        .setImplementation(() -> "maven");
+        .setImplementation(() -> "maven")
+        .setEnvVariables(ImmutableList.of())
+        .setOsDependent(false)
+        .setArchDependent(false);
   }
 
   @Test
@@ -73,25 +79,29 @@ public class StarlarkBazelModuleTest {
             .setTagClasses(
                 ImmutableMap.of(
                     "dep", createTagClass(attr("coord", Type.STRING).build()),
-                    "repos", createTagClass(attr("repos", Type.STRING_LIST).build()),
+                    "repos", createTagClass(attr("repos", Types.STRING_LIST).build()),
                     "pom",
                         createTagClass(
                             attr("pom_xmls", BuildType.LABEL_LIST)
                                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                                 .build())))
             .build();
-    Module module =
-        Module.builder()
-            .setName("foo")
-            .setVersion(Version.parse("1.0"))
-            .setKey(createModuleKey("foo", ""))
-            .addDep("bar", createModuleKey("bar", "2.0"))
-            .build();
+    ModuleKey fooKey = createModuleKey("foo", "");
+    ModuleKey barKey = createModuleKey("bar", "2.0");
+    Module module = buildModule("foo", "1.0").setKey(fooKey).addDep("bar", barKey).build();
     AbridgedModule abridgedModule = AbridgedModule.from(module);
 
+    Label.RepoMappingRecorder repoMappingRecorder = new Label.RepoMappingRecorder();
     StarlarkBazelModule moduleProxy =
         StarlarkBazelModule.create(
-            abridgedModule, extension, module.getRepoMappingWithBazelDepsOnly(), usage);
+            abridgedModule,
+            extension,
+            module.getRepoMappingWithBazelDepsOnly(
+                ImmutableMap.of(
+                    fooKey, fooKey.getCanonicalRepoNameWithoutVersion(),
+                    barKey, barKey.getCanonicalRepoNameWithoutVersion())),
+            usage,
+            repoMappingRecorder);
 
     assertThat(moduleProxy.getName()).isEqualTo("foo");
     assertThat(moduleProxy.getVersion()).isEqualTo("1.0");
@@ -116,8 +126,11 @@ public class StarlarkBazelModuleTest {
     assertThat(pomTags.get(0).getValue("pom_xmls"))
         .isEqualTo(
             StarlarkList.immutableOf(
-                Label.parseCanonical("@@foo~override//:pom.xml"),
-                Label.parseCanonical("@@bar~2.0//:pom.xml")));
+                Label.parseCanonical("@@foo+//:pom.xml"),
+                Label.parseCanonical("@@bar+//:pom.xml")));
+
+    assertThat(repoMappingRecorder.recordedEntries())
+        .containsCell(RepositoryName.create("foo+"), "bar", RepositoryName.create("bar+"));
   }
 
   @Test
@@ -125,12 +138,8 @@ public class StarlarkBazelModuleTest {
     ModuleExtensionUsage usage = getBaseUsageBuilder().addTag(buildTag("blep").build()).build();
     ModuleExtension extension =
         getBaseExtensionBuilder().setTagClasses(ImmutableMap.of("dep", createTagClass())).build();
-    Module module =
-        Module.builder()
-            .setName("foo")
-            .setVersion(Version.parse("1.0"))
-            .setKey(createModuleKey("foo", ""))
-            .build();
+    ModuleKey fooKey = createModuleKey("foo", "");
+    Module module = buildModule("foo", "1.0").setKey(fooKey).build();
     AbridgedModule abridgedModule = AbridgedModule.from(module);
 
     ExternalDepsException e =
@@ -138,7 +147,12 @@ public class StarlarkBazelModuleTest {
             ExternalDepsException.class,
             () ->
                 StarlarkBazelModule.create(
-                    abridgedModule, extension, module.getRepoMappingWithBazelDepsOnly(), usage));
+                    abridgedModule,
+                    extension,
+                    module.getRepoMappingWithBazelDepsOnly(
+                        ImmutableMap.of(fooKey, fooKey.getCanonicalRepoNameWithoutVersion())),
+                    usage,
+                    new Label.RepoMappingRecorder()));
     assertThat(e).hasMessageThat().contains("does not have a tag class named blep");
   }
 }

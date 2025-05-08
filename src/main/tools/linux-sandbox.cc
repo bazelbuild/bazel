@@ -59,6 +59,7 @@
 #include <unistd.h>
 
 #include <atomic>
+#include <string>
 #include <vector>
 
 #include "src/main/tools/linux-sandbox-options.h"
@@ -71,6 +72,8 @@ gid_t global_outer_gid;
 
 // The PID of our child process, for use in signal handlers.
 static std::atomic<pid_t> global_child_pid{0};
+// Our parent's pid at the outset, to check if the original parent has exited.
+pid_t initial_ppid;
 
 // Must we politely ask the child to exit before we send it a SIGKILL (once we
 // want it to exit)? Holds only zero or one.
@@ -105,9 +108,11 @@ static void CloseFds() {
       int fd = strtol(dent->d_name, nullptr, 10);
 
       // (1) Skip unparseable entries.
-      // (2) Close everything except stdin, stdout and stderr.
+      // (2) Close everything except stdin, stdout, stderr and debug output.
       // (3) Do not accidentally close our directory handle.
-      if (errno == 0 && fd > STDERR_FILENO && fd != dirfd(fds)) {
+      if (errno == 0 && fd > STDERR_FILENO &&
+          (global_debug == NULL || fd != fileno(global_debug)) &&
+          fd != dirfd(fds)) {
         if (close(fd) < 0) {
           DIE("close");
         }
@@ -117,6 +122,14 @@ static void CloseFds() {
 
   if (closedir(fds) < 0) {
     DIE("closedir");
+  }
+}
+
+static void MaybeAddChildProcessToCgroup(const pid_t pid) {
+  for (const std::string &cgroups_dir : opt.cgroups_dirs) {
+    PRINT_DEBUG("Adding process %d to cgroups dir %s", pid,
+                cgroups_dir.c_str());
+    WriteFile(cgroups_dir + "/cgroup.procs", "%d", pid);
   }
 }
 
@@ -151,14 +164,18 @@ static pid_t SpawnPid1() {
 
   PRINT_DEBUG("calling pipe(2)...");
 
-  int sync_pipe[2];
-  if (pipe(sync_pipe) < 0) {
+  int pipe_from_child[2], pipe_to_child[2];
+  if (pipe(pipe_from_child) < 0) {
     DIE("pipe");
   }
+  if (pipe(pipe_to_child) < 0) {
+      DIE("pipe");
+    }
 
   int clone_flags =
       CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWIPC | CLONE_NEWPID | SIGCHLD;
-  if (opt.create_netns) {
+  PRINT_DEBUG("Netns is %d", opt.create_netns);
+  if (opt.create_netns != NO_NETNS) {
     clone_flags |= CLONE_NEWNET;
   }
   if (opt.fake_hostname) {
@@ -170,29 +187,27 @@ static pid_t SpawnPid1() {
   // https://lkml.org/lkml/2015/7/28/833).
   PRINT_DEBUG("calling clone(2)...");
 
-  const pid_t child_pid =
-      clone(Pid1Main, child_stack.data() + kStackSize, clone_flags, sync_pipe);
+  Pid1Args pid1Args;
+  pid1Args.pipe_to_parent = pipe_from_child;
+  pid1Args.pipe_from_parent = pipe_to_child;
+  const pid_t child_pid = clone(Pid1Main, child_stack.data() + kStackSize,
+                                clone_flags, &pid1Args);
 
   if (child_pid < 0) {
     DIE("clone");
   }
 
+  MaybeAddChildProcessToCgroup(child_pid);
+  // Signal the child that it can now proceed to spawn pid2.
+  SignalPipe(pipe_to_child);
+
   PRINT_DEBUG("linux-sandbox-pid1 has PID %d", child_pid);
 
-  // We close the write end of the sync pipe, read a byte and then close the
-  // pipe. This proves to the linux-sandbox-pid1 process that we still existed
-  // after it ran prctl(PR_SET_PDEATHSIG, SIGKILL), thus preventing a race
-  // condition where the parent is killed before that call was made.
-  char buf;
-  if (close(sync_pipe[1]) < 0) {
-    DIE("close");
-  }
-  if (read(sync_pipe[0], &buf, 1) < 0) {
-    DIE("read");
-  }
-  if (close(sync_pipe[0]) < 0) {
-    DIE("close");
-  }
+  // Wait for a signal from the child linux-sandbox-pid1 process; this proves to
+  // the child process that we still existed after it ran
+  // prctl(PR_SET_PDEATHSIG, SIGKILL), thus preventing a race condition where
+  // the parent is killed before that call was made.
+  WaitPipe(pipe_from_child);
 
   PRINT_DEBUG("done manipulating pipes");
 
@@ -207,6 +222,11 @@ static int WaitForPid1(const pid_t child_pid) {
   while (true) {
     const int ret = wait4(child_pid, &child_status, 0, &child_rusage);
     if (ret > 0) {
+      break;
+    }
+
+    // We've been handed off to a reaper process and should die.
+    if (getppid() != initial_ppid) {
       break;
     }
 
@@ -240,6 +260,18 @@ int main(int argc, char *argv[]) {
     DIE("prctl");
   }
 
+  // Parse our command-line options.
+  ParseOptions(argc, argv);
+
+  // Open the file PRINT_DEBUG writes to.
+  // Must happen early enough so we don't lose any debugging output.
+  if (!opt.debug_path.empty()) {
+    global_debug = fopen(opt.debug_path.c_str(), "w");
+    if (!global_debug) {
+      DIE("fopen(%s)", opt.debug_path.c_str());
+    }
+  }
+
   // Start with default signal actions and a clear signal mask.
   ClearSignalMask();
 
@@ -248,10 +280,15 @@ int main(int argc, char *argv[]) {
   IgnoreSignal(SIGTTIN);
   IgnoreSignal(SIGTTOU);
 
-  // Parse our command-line options and set up a global variable used by
-  // PRINT_DEBUG.
-  ParseOptions(argc, argv);
-  global_debug = opt.debug;
+  // Remember the parent pid so we can exit if the parent has exited.
+  // Doing this before prctl(PR_SET_PDEATHDIG, 0) ensures no race condition.
+  initial_ppid = getppid();
+
+  if (opt.persistent_process) {
+    if (prctl(PR_SET_PDEATHSIG, 0) < 0) {
+      DIE("prctl");
+    }
+  }
 
   // Redirect output as requested.
   Redirect(opt.stdout_path, STDOUT_FILENO);
@@ -261,11 +298,12 @@ int main(int argc, char *argv[]) {
   global_outer_uid = getuid();
   global_outer_gid = getgid();
 
-  // Ensure we don't pass on any FDs from our parent to our child.
+  // Ensure we don't pass on any FDs from our parent to our child other than
+  // stdin, stdout, stderr and global_debug.
   CloseFds();
 
-  // Spawn the child that will fork the sandboxed program with fresh namespaces
-  // etc.
+  // Spawn the child that will fork the sandboxed program with fresh
+  // namespaces etc.
   const pid_t child_pid = SpawnPid1();
 
   // Let the signal handlers installed below know the PID of the child.
@@ -286,13 +324,14 @@ int main(int argc, char *argv[]) {
   // asked politely to terminate) once the timeout expires.
   //
   // Note that it's important to set this up before support for SIGTERM and
-  // SIGINT. Otherwise one of those signals could arrive before we get here, and
-  // then we would reset its opt.kill_delay_secs interval timer.
+  // SIGINT. Otherwise one of those signals could arrive before we get here,
+  // and then we would reset its opt.kill_delay_secs interval timer.
   if (opt.timeout_secs > 0) {
     alarm(opt.timeout_secs);
   }
 
-  // Also ask/tell the child to quit on SIGTERM, and optionally for SIGINT too.
+  // Also ask/tell the child to quit on SIGTERM, and optionally for SIGINT
+  // too.
   InstallSignalHandler(SIGTERM, OnTimeoutOrTerm);
   if (opt.sigint_sends_sigterm) {
     InstallSignalHandler(SIGINT, OnTimeoutOrTerm);

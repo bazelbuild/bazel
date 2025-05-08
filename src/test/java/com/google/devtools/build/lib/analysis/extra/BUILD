@@ -1,4 +1,7 @@
+load("@rules_java//java:defs.bzl", "java_test")
+
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -19,9 +22,16 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:extra/extra_action_info_file_write_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/exec:blaze_executor",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:dumper",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/exec/util",

@@ -30,12 +30,12 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
-import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -68,20 +68,18 @@ public final class FileWriteStrategyTest {
   }
 
   @Test
-  public void beginWriteOutputToFile_writesCorrectOutput(
+  public void writeOutputToFile_writesCorrectOutput(
       @TestParameter({"", "hello", "hello there"}) String content) throws Exception {
     AbstractAction action = createAction("file");
 
-    var spawnContinuation =
-        fileWriteStrategy.beginWriteOutputToFile(
+    var unused =
+        fileWriteStrategy.writeOutputToFile(
             action,
             createActionExecutionContext(),
             out -> out.write(content.getBytes(UTF_8)),
-            /*makeExecutable=*/ false,
-            /*isRemotable=*/ false);
+            /* makeExecutable= */ false,
+            /* isRemotable= */ false);
 
-    assertThat(spawnContinuation.isDone()).isTrue();
-    assertThat(spawnContinuation.get()).isEmpty();
     assertThat(FileSystemUtils.readContent(action.getPrimaryOutput().getPath(), UTF_8))
         .isEqualTo(content);
   }
@@ -90,13 +88,13 @@ public final class FileWriteStrategyTest {
     OPEN_FAILURE {
       @Override
       void setupFileSystem(SpiedFileSystem fileSystem, PathFragment outputPath) throws IOException {
-        when(fileSystem.getOutputStream(outputPath, /*append=*/ false))
+        when(fileSystem.getOutputStream(outputPath, /* append= */ false, /* internal= */ false))
             .thenThrow(INJECTED_EXCEPTION);
       }
     },
     WRITE_FAILURE {
       @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
+      public void writeTo(OutputStream out) throws IOException {
         throw INJECTED_EXCEPTION;
       }
     },
@@ -105,32 +103,35 @@ public final class FileWriteStrategyTest {
       void setupFileSystem(SpiedFileSystem fileSystem, PathFragment outputPath) throws IOException {
         OutputStream outputStream = mock(OutputStream.class);
         doThrow(INJECTED_EXCEPTION).when(outputStream).close();
-        when(fileSystem.getOutputStream(outputPath, /*append=*/ false)).thenReturn(outputStream);
+        when(fileSystem.getOutputStream(outputPath, /* append= */ false, /* internal= */ false))
+            .thenReturn(outputStream);
       }
     };
 
     void setupFileSystem(SpiedFileSystem fileSystem, PathFragment outputPath) throws IOException {}
 
     @Override
-    public void writeOutputFile(OutputStream out) throws IOException {}
+    public void writeTo(OutputStream out) throws IOException {}
   }
 
   @Test
-  public void beginWriteOutputToFile_errorInWriter_returnsContinuationWithFailure(
-      @TestParameter FailureMode failureMode) throws Exception {
+  public void writeOutputToFile_errorInWriter_returnsFailure(@TestParameter FailureMode failureMode)
+      throws Exception {
     AbstractAction action = createAction("file");
     failureMode.setupFileSystem(fileSystem, action.getPrimaryOutput().getPath().asFragment());
 
-    var spawnContinuation =
-        fileWriteStrategy.beginWriteOutputToFile(
-            action,
-            createActionExecutionContext(),
-            failureMode,
-            /*makeExecutable=*/ false,
-            /*isRemotable=*/ false);
+    ExecException e =
+        assertThrows(
+            EnvironmentalExecException.class,
+            () -> {
+              fileWriteStrategy.writeOutputToFile(
+                  action,
+                  createActionExecutionContext(),
+                  failureMode,
+                  /* makeExecutable= */ false,
+                  /* isRemotable= */ false);
+            });
 
-    assertThat(spawnContinuation.isDone()).isFalse();
-    ExecException e = assertThrows(EnvironmentalExecException.class, spawnContinuation::execute);
     assertThat(e).hasCauseThat().isSameInstanceAs(INJECTED_EXCEPTION);
     var detailExitCode = getDetailExitCode(e);
     assertThat(detailExitCode.getExitCode()).isEqualTo(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);

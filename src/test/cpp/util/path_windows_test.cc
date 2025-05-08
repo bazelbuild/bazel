@@ -271,7 +271,7 @@ TEST(PathWindowsTest, TestMsysRootRetrieval) {
   ASSERT_FALSE(AsWindowsPath("/blah", &actual, &error));
   EXPECT_TRUE(error.find("Unix-style") != string::npos);
 
-  SetEnvironmentVariableA("BAZEL_SH", "c:/tools/msys64/usr/bin/bash.exe");
+  SetEnvironmentVariableA("BAZEL_SH", "c:/msys64/usr/bin/bash.exe");
   ASSERT_FALSE(AsWindowsPath("/blah", &actual, &error));
   EXPECT_TRUE(error.find("Unix-style") != string::npos);
 }
@@ -301,7 +301,7 @@ TEST(PathWindowsTest, MakeAbsolute) {
   EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:/foo/bar"));
   EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:\\foo\\bar\\"));
   EXPECT_EQ("c:\\foo\\bar", MakeAbsolute("C:/foo/bar/"));
-  EXPECT_EQ(blaze_util::AsLower(blaze_util::GetCwd()) + "\\foo",
+  EXPECT_EQ(blaze_util::ToLower(blaze_util::GetCwd()) + "\\foo",
             MakeAbsolute("foo"));
 
   EXPECT_EQ("nul", MakeAbsolute("NUL"));

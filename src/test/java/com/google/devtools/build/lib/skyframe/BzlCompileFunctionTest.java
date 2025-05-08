@@ -77,18 +77,20 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
   @Test
   public void testIOExceptionOccursDuringReading() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("/workspace/tools/build_rules/BUILD");
+    scratch.file("/workspace/tools/test_build_rules/BUILD");
     scratch.file(
-        "foo/BUILD", //
-        "genrule(",
-        "    name = 'foo',",
-        "    outs = ['out.txt'],",
-        "    cmd = 'echo hello >@'",
-        ")");
+        "foo/BUILD",
+        """
+        genrule(
+            name = "foo",
+            outs = ["out.txt"],
+            cmd = "echo hello >@",
+        )
+        """);
     mockFS.throwIOExceptionFor = PathFragment.create("/workspace/foo/BUILD");
     invalidatePackages(/*alsoConfigs=*/ false); // We don't want to fail early on config creation.
 
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.createInMainRepo("foo"));
+    SkyKey skyKey = PackageIdentifier.createInMainRepo("foo");
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
@@ -101,14 +103,8 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadFromFileInRemoteRepo() throws Exception {
-    scratch.overwriteFile(
-        "WORKSPACE",
-        "local_repository(",
-        "    name = 'a_remote_repo',",
-        "    path = '/a_remote_repo'",
-        ")");
     Path repoPath = scratch.dir("/a_remote_repo");
-    scratch.file("/a_remote_repo/WORKSPACE");
+    scratch.file("/a_remote_repo/REPO.bazel");
     scratch.file("/a_remote_repo/remote_pkg/BUILD");
     scratch.file("/a_remote_repo/remote_pkg/foo.bzl", "load(':bar.bzl', 'CONST')");
     scratch.file("/a_remote_repo/remote_pkg/bar.bzl", "CONST = 17");
@@ -117,10 +113,10 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     SkyKey skyKey =
         BzlCompileValue.key(
             Root.fromPath(repoPath),
-            Label.parseAbsoluteUnchecked("@a_remote_repo//remote_pkg:foo.bzl"));
+            Label.parseCanonicalUnchecked("@a_remote_repo//remote_pkg:foo.bzl"));
     EvaluationResult<BzlCompileValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
     List<String> loads =
         BzlLoadFunction.getLoadsFromProgram(result.get(skyKey).getProgram()).stream()
             .map(Pair::getFirst)
@@ -130,10 +126,10 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadOfNonexistentFile() throws Exception {
-    SkyKey skyKey = BzlCompileValue.key(root, Label.parseAbsoluteUnchecked("//pkg:foo.bzl"));
+    SkyKey skyKey = BzlCompileValue.key(root, Label.parseCanonicalUnchecked("//pkg:foo.bzl"));
     EvaluationResult<BzlCompileValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
     assertThat(result.get(skyKey).lookupSuccessful()).isFalse();
     assertThat(result.get(skyKey).getError()).contains("cannot load '//pkg:foo.bzl': no such file");
   }
@@ -142,7 +138,7 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
   public void testBigIntegerLiterals() throws Exception {
     // This test ensures that numerical literals with values that can't be expressed as Java longs
     // can be compiled. Regression test for b/217548647.
-    SkyKey skyKey = BzlCompileValue.key(root, Label.parseAbsoluteUnchecked("//pkg:bigint.bzl"));
+    SkyKey skyKey = BzlCompileValue.key(root, Label.parseCanonicalUnchecked("//pkg:bigint.bzl"));
     scratch.file("pkg/BUILD");
     scratch.file(
         "pkg/bigint.bzl",
@@ -162,8 +158,60 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
           Starlark.execFileProgram(
               bzlCompileValue.getProgram(),
               Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of()),
-              new StarlarkThread(mu, StarlarkSemantics.DEFAULT));
+              StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT));
       assertThat(val.toString()).isEqualTo("[-9223372036854775809, 9223372036854775808]");
     }
+  }
+
+  @Test
+  public void testInvalidUtf8_enforcementOff() throws Exception {
+    setBuildLanguageOptions("--noincompatible_enforce_starlark_utf8");
+
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/foo.bzl", new byte[] {'#', ' ', (byte) 0x80});
+
+    SkyKey skyKey = BzlCompileValue.key(root, Label.parseCanonicalUnchecked("//pkg:foo.bzl"));
+    EvaluationResult<BzlCompileValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
+    assertThat(result.get(skyKey).lookupSuccessful()).isTrue();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testInvalidUtf8_enforcementWarning() throws Exception {
+    setBuildLanguageOptions("--incompatible_enforce_starlark_utf8=warning");
+
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/foo.bzl", new byte[] {'#', ' ', (byte) 0x80});
+
+    SkyKey skyKey = BzlCompileValue.key(root, Label.parseCanonicalUnchecked("//pkg:foo.bzl"));
+    EvaluationResult<BzlCompileValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
+    assertThat(result.get(skyKey).lookupSuccessful()).isTrue();
+    assertContainsEvent(
+        "WARNING /workspace/pkg/foo.bzl: not a valid UTF-8 encoded file; this can lead to"
+            + " inconsistent behavior and will be disallowed in a future version of Bazel");
+  }
+
+  @Test
+  public void testInvalidUtf8_enforcementError() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    setBuildLanguageOptions("--incompatible_enforce_starlark_utf8");
+
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/foo.bzl", new byte[] {'#', ' ', (byte) 0x80});
+
+    SkyKey skyKey = BzlCompileValue.key(root, Label.parseCanonicalUnchecked("//pkg:foo.bzl"));
+    EvaluationResult<BzlCompileValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
+    assertThat(result.get(skyKey).lookupSuccessful()).isFalse();
+    assertThat(result.get(skyKey).getError())
+        .isEqualTo("compilation of '/workspace/pkg/foo.bzl' failed");
+    assertContainsEvent(
+        "ERROR /workspace/pkg/foo.bzl: not a valid UTF-8 encoded file; this can lead to"
+            + " inconsistent behavior and will be disallowed in a future version of Bazel");
   }
 }

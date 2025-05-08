@@ -14,18 +14,17 @@
 
 package com.google.devtools.build.lib.metrics;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
@@ -79,17 +78,10 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** The memory use and time of a build's peak post-GC heap. */
-  @AutoValue
-  public abstract static class PeakHeap {
-
-    PeakHeap() {}
-
-    public abstract long bytes();
-
-    public abstract long timestampMillis();
+  public record PeakHeap(long bytes, long timestampMillis) {
 
     static PeakHeap create(long bytes, long timestampMillis) {
-      return new AutoValue_PostGCMemoryUseRecorder_PeakHeap(bytes, timestampMillis);
+      return new PeakHeap(bytes, timestampMillis);
     }
   }
 
@@ -137,7 +129,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
    * Returns the number of bytes garbage collected during this invocation. Broken down by GC space.
    */
   public synchronized ImmutableMap<String, Long> getGarbageStats() {
-    return ImmutableMap.copyOf(garbageStats);
+    return ImmutableSortedMap.copyOf(garbageStats);
   }
 
   public synchronized void reset() {
@@ -202,7 +194,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
               ProfilerTask.HANDLE_GC_NOTIFICATION,
               info.getGcAction().replaceFirst("^end of ", ""));
     }
-    if (!info.getGcAction().equals("end of major GC")) {
+    if (!GarbageCollectionMetricsUtils.isFullGc(info)) {
       return;
     }
 
@@ -225,7 +217,8 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     Map<String, MemoryUsage> mem = info.getGcInfo().getMemoryUsageAfterGc();
     updatePostGCHeapMemoryUsed(usedTotal, usedTenuredSpace, notification.getTimeStamp());
     if (usedTotal > 0) {
-      logger.atInfo().log("Memory use after full GC: %d", usedTotal);
+      logger.atInfo().log(
+          "Memory use after full GC: %d total, %d tenured", usedTotal, usedTenuredSpace);
     } else {
       logger.atInfo().log(
           "Amount of memory used after GC incorrectly reported as %d by JVM with values %s",
@@ -253,8 +246,9 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     PeakMemInfoItem() {
       super(
           "peak-heap-size",
-          "The peak amount of used memory in bytes after any call to System.gc().",
-          /*hidden=*/ true);
+          "The peak amount of used memory in bytes after any full GC during the most recent"
+              + " invocation.",
+          /* hidden= */ true);
     }
 
     @Override
@@ -286,7 +280,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     }
 
     @Override
-    public ImmutableList<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+    public ImmutableList<Class<? extends OptionsBase>> getCommonCommandOptions() {
       return ImmutableList.of(Options.class);
     }
 

@@ -19,15 +19,14 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
@@ -46,7 +45,12 @@ public class WorkerFilesHash {
     Hasher hasher = Hashing.sha256().newHasher();
     workerFilesMap.forEach(
         (execPath, digest) -> {
-          hasher.putString(execPath.getPathString(), Charset.defaultCharset());
+          String execPathString = execPath.getPathString();
+          hasher.putByte(StringUnsafe.getCoder(execPathString));
+          hasher.putInt(execPathString.length());
+          hasher.putBytes(StringUnsafe.getByteArray(execPathString));
+
+          hasher.putInt(digest.length);
           hasher.putBytes(digest);
         });
     return hasher.hash();
@@ -59,37 +63,47 @@ public class WorkerFilesHash {
    * @throws MissingInputException if metadata is missing for any of the worker files.
    */
   public static SortedMap<PathFragment, byte[]> getWorkerFilesWithDigests(
-      Spawn spawn, ArtifactExpander artifactExpander, MetadataProvider actionInputFileCache)
-      throws IOException {
+      Spawn spawn, InputMetadataProvider actionInputFileCache) throws IOException {
     TreeMap<PathFragment, byte[]> workerFilesMap = new TreeMap<>();
 
     List<ActionInput> tools =
-        ActionInputHelper.expandArtifacts(
-            spawn.getToolFiles(), artifactExpander, /* keepEmptyTreeArtifacts= */ false);
+        InputMetadataProvider.expandArtifacts(
+            actionInputFileCache,
+            spawn.getToolFiles(),
+            /* keepEmptyTreeArtifacts= */ false,
+            /* keepRunfilesTrees= */ true);
     for (ActionInput tool : tools) {
-      @Nullable FileArtifactValue metadata = actionInputFileCache.getMetadata(tool);
+      if (tool instanceof Artifact artifact && artifact.isRunfilesTree()) {
+        RunfilesTree runfilesTree =
+            actionInputFileCache.getRunfilesMetadata(tool).getRunfilesTree();
+        PathFragment root = runfilesTree.getExecPath();
+        Preconditions.checkState(!root.isAbsolute(), root);
+        for (Map.Entry<PathFragment, Artifact> mapping : runfilesTree.getMapping().entrySet()) {
+          Artifact localArtifact = mapping.getValue();
+          if (localArtifact != null) {
+            @Nullable
+            FileArtifactValue metadata = actionInputFileCache.getInputMetadata(localArtifact);
+            if (metadata == null) {
+              throw new MissingInputException(localArtifact);
+            }
+            if (metadata.getType().isFile()) {
+              workerFilesMap.put(
+                  spawn.getPathMapper().map(root.getRelative(mapping.getKey())),
+                  metadata.getDigest());
+            }
+          }
+        }
+
+        continue;
+      }
+
+      @Nullable FileArtifactValue metadata = actionInputFileCache.getInputMetadata(tool);
       if (metadata == null) {
         throw new MissingInputException(tool);
       }
-      workerFilesMap.put(tool.getExecPath(), actionInputFileCache.getMetadata(tool).getDigest());
-    }
-
-    for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
-        spawn.getRunfilesSupplier().getMappings().entrySet()) {
-      PathFragment root = rootAndMappings.getKey();
-      Preconditions.checkState(!root.isAbsolute(), root);
-      for (Map.Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
-        Artifact localArtifact = mapping.getValue();
-        if (localArtifact != null) {
-          @Nullable FileArtifactValue metadata = actionInputFileCache.getMetadata(localArtifact);
-          if (metadata == null) {
-            throw new MissingInputException(localArtifact);
-          }
-          if (metadata.getType().isFile()) {
-            workerFilesMap.put(root.getRelative(mapping.getKey()), metadata.getDigest());
-          }
-        }
-      }
+      workerFilesMap.put(
+          spawn.getPathMapper().map(tool.getExecPath()),
+          actionInputFileCache.getInputMetadata(tool).getDigest());
     }
 
     return workerFilesMap;

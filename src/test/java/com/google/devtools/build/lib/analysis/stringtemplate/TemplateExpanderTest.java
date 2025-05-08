@@ -64,15 +64,16 @@ public class TemplateExpanderTest {
     context = new TemplateContextImpl();
   }
 
-  private Expansion expand(String value) throws ExpansionException {
+  private Expansion expand(String value) throws ExpansionException, InterruptedException {
     return TemplateExpander.expand(value, context);
   }
 
-  private String expandSingleVariable(String value) throws ExpansionException {
+  private String expandSingleVariable(String value)
+      throws ExpansionException, InterruptedException {
     return TemplateExpander.expandSingleVariable(value, context);
   }
 
-  private ExpansionException expansionFailure(String cmd) {
+  private ExpansionException expansionFailure(String cmd) throws InterruptedException {
     try {
       expand(cmd);
       fail("Expansion of " + cmd + " didn't fail as expected");

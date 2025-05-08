@@ -301,11 +301,11 @@ public abstract class ParallelVisitor<
     private VisitingTaskExecutor(
         ExecutorService executor, ErrorClassifier errorClassifier, int batchCallbackSize) {
       super(
-          /*executorService=*/ executor,
+          /* executorService= */ executor,
           // Leave the thread pool active for other current and future callers.
-          /*shutdownOnCompletion=*/ false,
-          /*failFastOnException=*/ true,
-          /*errorClassifier=*/ errorClassifier);
+          ExecutorOwnership.SHARED,
+          ExceptionHandlingMode.FAIL_FAST,
+          /* errorClassifier= */ errorClassifier);
       this.batchCallbackSize = batchCallbackSize;
     }
 

@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -34,6 +36,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -164,6 +167,11 @@ public final class UnixGlob {
     return null;
   }
 
+  /** Returns whether {@code pattern} matches {@code path}. */
+  public static boolean matches(String[] pattern, String[] path) {
+    return matchesPattern(pattern, path, 0, 0, null, MatchMode.EXACT);
+  }
+
   /** Calls {@link #matches(String, String, Map) matches(pattern, str, null)} */
   public static boolean matches(String pattern, String str) {
     return matches(pattern, str, null);
@@ -227,7 +235,7 @@ public final class UnixGlob {
     StringBuilder regexp = new StringBuilder();
     for (int i = 0, len = pattern.length(); i < len; i++) {
       char c = pattern.charAt(i);
-      switch(c) {
+      switch (c) {
         case '*':
           int toIncrement = 0;
           if (len > i + 1 && pattern.charAt(i + 1) == '*') {
@@ -477,7 +485,8 @@ public final class UnixGlob {
         return globAsync(base, patterns, pathDiscriminator, syscalls).get();
       } catch (ExecutionException e) {
         Throwable cause = e.getCause();
-        Throwables.propagateIfPossible(cause, IOException.class);
+        throwIfInstanceOf(cause, IOException.class);
+        throwIfUnchecked(cause);
         throw new RuntimeException(e);
       }
     }
@@ -493,8 +502,9 @@ public final class UnixGlob {
             globAsync(base, patterns, pathDiscriminator, syscalls));
       } catch (ExecutionException e) {
         Throwable cause = e.getCause();
-        Throwables.propagateIfPossible(cause, IOException.class);
-        Throwables.propagateIfPossible(cause, BadPattern.class);
+        throwIfInstanceOf(cause, IOException.class);
+        throwIfInstanceOf(cause, BadPattern.class);
+        throwIfUnchecked(cause);
         throw new RuntimeException(e);
       }
     }
@@ -689,10 +699,9 @@ public final class UnixGlob {
 
         @Override
         public boolean equals(Object obj) {
-          if (!(obj instanceof GlobTask)) {
+          if (!(obj instanceof GlobTask other)) {
             return false;
           }
-          GlobTask other = (GlobTask) obj;
           return base.equals(other.base) && patternIdx == other.patternIdx;
         }
 
@@ -737,15 +746,30 @@ public final class UnixGlob {
      */
     private void reallyGlob(Path base, boolean baseIsDir, int idx, GlobTaskContext context)
         throws IOException {
-
-      if (baseIsDir && !context.pathDiscriminator.shouldTraverseDirectory(base)) {
+      if (idx == context.patternParts.length) { // Base case.
         maybeAddResult(context, base, baseIsDir);
         return;
       }
 
-      if (idx == context.patternParts.length) { // Base case.
-        maybeAddResult(context, base, baseIsDir);
+      // Do an early readdir() call here if the pattern contains a wildcard (* or ?). The reason is
+      // that we'll do so later anyway and doing this early avoids an additional stat to determine
+      // the existence of a build file as part of the shouldTraverseDirectory() call below (globs
+      // will no recurse into sub-packages, i.e. directories that contain a build file). This
+      // optimizes for the common case where there is no build file in the sub directory.
+      String pattern = context.patternParts[idx];
+      boolean patternContainsWildcard = pattern.contains("*") || pattern.contains("?");
+      Collection<Dirent> dents = null;
+      if (baseIsDir && patternContainsWildcard) {
+        dents = context.syscalls.readdir(base);
+      }
 
+      if (baseIsDir && !context.pathDiscriminator.shouldTraverseDirectory(base)) {
+        if (areAllRemainingPatternsDoubleStar(context, idx)) {
+          // For SUBPACKAGES, we encounter this when all remaining patterns in the glob expression
+          // are `**`s. In that case we should include the subpackage's PathFragment (relative to
+          // the package fragment) in the matching results.
+          maybeAddResult(context, base, baseIsDir);
+        }
         return;
       }
 
@@ -754,15 +778,13 @@ public final class UnixGlob {
         return;
       }
 
-      String pattern = context.patternParts[idx];
-
       // ** is special: it can match nothing at all.
       // For example, x/** matches x, **/y matches y, and x/**/y matches x/y.
       if (isRecursivePattern(pattern)) {
         context.queueGlob(base, baseIsDir, idx + 1);
       }
 
-      if (!pattern.contains("*") && !pattern.contains("?")) {
+      if (!patternContainsWildcard) {
         // We do not need to do a readdir in this case, just a stat.
         Path child = base.getChild(pattern);
         FileStatus status = context.syscalls.statIfFound(child, Symlinks.FOLLOW);
@@ -775,7 +797,6 @@ public final class UnixGlob {
         return;
       }
 
-      Collection<Dirent> dents = context.syscalls.readdir(base);
       for (Dirent dent : dents) {
         Dirent.Type childType = dent.getType();
         if (childType == Dirent.Type.UNKNOWN) {
@@ -798,6 +819,12 @@ public final class UnixGlob {
       if (context.pathDiscriminator.shouldIncludePathInResult(base, isDirectory)) {
         results.add(base);
       }
+    }
+
+    private static boolean areAllRemainingPatternsDoubleStar(
+        GlobTaskContext context, int startIdx) {
+      return Arrays.stream(context.patternParts, startIdx, context.patternParts.length)
+          .allMatch("**"::equals);
     }
 
     /**
@@ -871,14 +898,15 @@ public final class UnixGlob {
     if (complexPatterns.isEmpty()) {
       return;
     }
-    // TODO(adonovan): validate pattern unconditionally (potentially breaking change).
+    // TODO: b/361409364 - Fully validate exclude patterns. This is a breaking change, so there
+    // needs to first be a depot cleanup.
     List<String[]> splitPatterns = checkAndSplitPatterns(complexPatterns);
     HashMap<String, Pattern> patternCache = new HashMap<>();
     paths.removeIf(
         path -> {
           String[] segments = Iterables.toArray(Splitter.on('/').split(path), String.class);
           for (String[] splitPattern : splitPatterns) {
-            if (matchesPattern(splitPattern, segments, 0, 0, patternCache)) {
+            if (matchesPattern(splitPattern, segments, 0, 0, patternCache, MatchMode.EXACT)) {
               return true;
             }
           }
@@ -886,21 +914,43 @@ public final class UnixGlob {
         });
   }
 
+  /** Returns whether any path under {@code path} can match {@code pattern}. */
+  public static boolean canMatchChild(String[] pattern, String[] path) {
+    return matchesPattern(pattern, path, 0, 0, null, MatchMode.CAN_MATCH_CHILD);
+  }
+
+  /** Returns whether {@code pattern} matches a prefix of {@code path}. */
+  public static boolean matchesPrefix(String[] pattern, String[] path) {
+    return matchesPattern(pattern, path, 0, 0, null, MatchMode.PREFIX);
+  }
+
+  /** How {@code #matchesPattern()} should work */
+  private enum MatchMode {
+    EXACT, // The path should exactly match the pattern
+    PREFIX, // The pattern should match a prefix of the path
+    CAN_MATCH_CHILD, // Whether there can be any path under the prefix that matches the pattern
+  }
+
   /** Returns true if {@code pattern} matches {@code path} starting from the given segments. */
   private static boolean matchesPattern(
-      String[] pattern, String[] path, int i, int j, Map<String, Pattern> patternCache) {
+      String[] pattern,
+      String[] path,
+      int i,
+      int j,
+      Map<String, Pattern> patternCache,
+      MatchMode matchMode) {
     if (i == pattern.length) {
-      return j == path.length;
+      return matchMode == MatchMode.PREFIX || j == path.length;
     }
     if (pattern[i].equals("**")) {
-      return matchesPattern(pattern, path, i + 1, j, patternCache)
-          || (j < path.length && matchesPattern(pattern, path, i, j + 1, patternCache));
+      return matchesPattern(pattern, path, i + 1, j, patternCache, matchMode)
+          || (j < path.length && matchesPattern(pattern, path, i, j + 1, patternCache, matchMode));
     }
     if (j == path.length) {
-      return false;
+      return matchMode == MatchMode.CAN_MATCH_CHILD;
     }
     if (matches(pattern[i], path[j], patternCache)) {
-      return matchesPattern(pattern, path, i + 1, j + 1, patternCache);
+      return matchesPattern(pattern, path, i + 1, j + 1, patternCache, matchMode);
     }
     return false;
   }

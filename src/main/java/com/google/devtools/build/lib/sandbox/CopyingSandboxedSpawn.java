@@ -42,8 +42,10 @@ public class CopyingSandboxedSpawn extends AbstractContainerizingSandboxedSpawn 
       SandboxOutputs outputs,
       Set<Path> writableDirs,
       TreeDeleter treeDeleter,
+      @Nullable Path sandboxDebugPath,
       @Nullable Path statisticsPath,
-      Runnable successCallback) {
+      Runnable successCallback,
+      String mnemonic) {
     super(
         sandboxPath,
         sandboxExecRoot,
@@ -53,12 +55,14 @@ public class CopyingSandboxedSpawn extends AbstractContainerizingSandboxedSpawn 
         outputs,
         writableDirs,
         treeDeleter,
-        statisticsPath);
+        sandboxDebugPath,
+        statisticsPath,
+        mnemonic);
     this.successCallback = successCallback;
   }
 
   @Override
-  public void copyOutputs(Path execRoot) throws IOException {
+  public void copyOutputs(Path execRoot) throws IOException, InterruptedException {
     successCallback.run();
     super.copyOutputs(execRoot);
   }
@@ -70,7 +74,7 @@ public class CopyingSandboxedSpawn extends AbstractContainerizingSandboxedSpawn 
       FileSystemUtils.copyFile(source, target);
     } else if (stat.isDirectory()) {
       target.createDirectory();
-      FileSystemUtils.copyTreesBelow(source, target, Symlinks.NOFOLLOW);
+      FileSystemUtils.copyTreesBelow(source, target);
     }
   }
 }

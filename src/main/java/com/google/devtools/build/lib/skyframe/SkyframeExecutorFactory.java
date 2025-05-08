@@ -50,7 +50,7 @@ public interface SkyframeExecutorFactory {
       Factory workspaceStatusActionFactory,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
-      SyscallCache perCommandSyscallCache,
+      SyscallCache syscallCache,
       SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
       SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver,
       BugReporter bugReporter)

@@ -20,37 +20,42 @@ import build.bazel.remote.asset.v1.FetchGrpc;
 import build.bazel.remote.asset.v1.FetchGrpc.FetchBlockingStub;
 import build.bazel.remote.asset.v1.Qualifier;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.FetchId;
+import com.google.devtools.build.lib.buildeventstream.FetchEvent;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
+import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
+import com.google.protobuf.util.Timestamps;
+import com.google.rpc.Code;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.StatusRuntimeException;
+import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
@@ -70,6 +75,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   private final Optional<CallCredentials> credentials;
   private final RemoteRetrier retrier;
   private final RemoteCacheClient cacheClient;
+  private final DigestFunction.Value digestFunction;
   private final RemoteOptions options;
   private final boolean verboseFailures;
   @Nullable private final Downloader fallbackDownloader;
@@ -81,7 +87,16 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   // supported by Bazel.
   private static final String QUALIFIER_CHECKSUM_SRI = "checksum.sri";
   private static final String QUALIFIER_CANONICAL_ID = "bazel.canonical_id";
-  private static final String QUALIFIER_AUTH_HEADERS = "bazel.auth_headers";
+
+  // The `:` character is not permitted in an HTTP header name. So, we use it to
+  // delimit the qualifier prefix which denotes an HTTP header qualifer from the
+  // header name itself.
+  private static final String QUALIFIER_HTTP_HEADER_PREFIX = "http_header:";
+  // Same as HTTP_HEADER_PREFIX, but only apply for a specific URL.
+  // The index starts from 0 and corresponds to the URL index in the request.
+  // Server should prefer using the URL-specific header value over the generic header
+  // value when both are present.
+  private static final String QUALIFIER_HTTP_HEADER_URL_PREFIX = "http_header_url:";
 
   public GrpcRemoteDownloader(
       String buildRequestId,
@@ -90,6 +105,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       Optional<CallCredentials> credentials,
       RemoteRetrier retrier,
       RemoteCacheClient cacheClient,
+      DigestFunction.Value digestFunction,
       RemoteOptions options,
       boolean verboseFailures,
       @Nullable Downloader fallbackDownloader) {
@@ -99,6 +115,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     this.credentials = credentials;
     this.retrier = retrier;
     this.cacheClient = cacheClient;
+    this.digestFunction = digestFunction;
     this.options = options;
     this.verboseFailures = verboseFailures;
     this.fallbackDownloader = fallbackDownloader;
@@ -116,27 +133,38 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   @Override
   public void download(
       List<URL> urls,
-      Map<URI, Map<String, List<String>>> authHeaders,
-      com.google.common.base.Optional<Checksum> checksum,
+      Map<String, List<String>> headers,
+      Credentials credentials,
+      Optional<Checksum> checksum,
       String canonicalId,
       Path destination,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      com.google.common.base.Optional<String> type)
+      Optional<String> type,
+      String context)
       throws IOException, InterruptedException {
     RequestMetadata metadata =
-        TracingMetadataUtils.buildMetadata(buildRequestId, commandId, "remote_downloader", null);
+        TracingMetadataUtils.buildMetadata(
+            buildRequestId,
+            commandId,
+            "remote_downloader",
+            /* mnemonic= */ null,
+            /* label= */ context,
+            /* configurationId= */ null);
     RemoteActionExecutionContext remoteActionExecutionContext =
         RemoteActionExecutionContext.create(metadata);
 
     final FetchBlobRequest request =
         newFetchBlobRequest(
             options.remoteInstanceName,
+            options.remoteDownloaderPropagateCredentials,
             urls,
-            authHeaders,
             checksum,
             canonicalId,
-            options.remoteDownloaderSendAllHeaders);
+            digestFunction,
+            headers,
+            credentials);
+    String eventUri = urls.getFirst().toString();
     try {
       FetchBlobResponse response =
           retrier.execute(
@@ -145,6 +173,14 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
                       channel ->
                           fetchBlockingStub(remoteActionExecutionContext, channel)
                               .fetchBlob(request)));
+      if (!response.getUri().isEmpty()) {
+        eventUri = response.getUri();
+      }
+      if (response.getStatus().getCode() == Code.OK_VALUE) {
+        eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ true));
+      } else {
+        throw StatusProto.toStatusRuntimeException(response.getStatus());
+      }
       final Digest blobDigest = response.getBlobDigest();
 
       retrier.execute(
@@ -152,11 +188,15 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             try (OutputStream out = newOutputStream(destination, checksum)) {
               Utils.getFromFuture(
                   cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
+            } catch (OutputDigestMismatchException e) {
+              e.setOutputPath(destination.getPathString());
+              throw e;
             }
             return null;
           });
 
     } catch (StatusRuntimeException | IOException e) {
+      eventHandler.post(new FetchEvent(eventUri, FetchId.Downloader.GRPC, /* success= */ false));
       if (fallbackDownloader == null) {
         if (e instanceof StatusRuntimeException) {
           throw new IOException(e);
@@ -166,39 +206,84 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       eventHandler.handle(
           Event.warn("Remote Cache: " + Utils.grpcAwareErrorMessage(e, verboseFailures)));
       fallbackDownloader.download(
-          urls, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv, type);
+          urls,
+          headers,
+          credentials,
+          checksum,
+          canonicalId,
+          destination,
+          eventHandler,
+          clientEnv,
+          type,
+          context);
     }
   }
 
   @VisibleForTesting
   static FetchBlobRequest newFetchBlobRequest(
       String instanceName,
+      boolean remoteDownloaderPropagateCredentials,
       List<URL> urls,
-      Map<URI, Map<String, List<String>>> authHeaders,
-      com.google.common.base.Optional<Checksum> checksum,
+      Optional<Checksum> checksum,
       String canonicalId,
-      boolean includeAllHeaders) {
+      DigestFunction.Value digestFunction,
+      Map<String, List<String>> headers,
+      Credentials credentials)
+      throws IOException {
     FetchBlobRequest.Builder requestBuilder =
-        FetchBlobRequest.newBuilder().setInstanceName(instanceName);
-    for (URL url : urls) {
+        FetchBlobRequest.newBuilder()
+            .setInstanceName(instanceName)
+            .setDigestFunction(digestFunction);
+    for (int i = 0; i < urls.size(); i++) {
+      var url = urls.get(i);
       requestBuilder.addUris(url.toString());
+
+      if (!remoteDownloaderPropagateCredentials) {
+        continue;
+      }
+
+      try {
+        var metadata = credentials.getRequestMetadata(url.toURI());
+        for (var entry : metadata.entrySet()) {
+          for (var value : entry.getValue()) {
+            requestBuilder.addQualifiers(
+                Qualifier.newBuilder()
+                    .setName(QUALIFIER_HTTP_HEADER_URL_PREFIX + i + ":" + entry.getKey())
+                    .setValue(value)
+                    .build());
+          }
+        }
+      } catch (URISyntaxException e) {
+        throw new IOException(e);
+      }
     }
+
     if (checksum.isPresent()) {
       requestBuilder.addQualifiers(
           Qualifier.newBuilder()
               .setName(QUALIFIER_CHECKSUM_SRI)
               .setValue(checksum.get().toSubresourceIntegrity())
               .build());
+    } else {
+      // If no checksum is provided, never accept cached content.
+      // Timestamp is offset by an hour to account for clock skew.
+      requestBuilder.setOldestContentAccepted(
+          Timestamps.fromMillis(
+              BlazeClock.instance().now().plus(Duration.ofHours(1)).toEpochMilli()));
     }
+
     if (!Strings.isNullOrEmpty(canonicalId)) {
       requestBuilder.addQualifiers(
           Qualifier.newBuilder().setName(QUALIFIER_CANONICAL_ID).setValue(canonicalId).build());
     }
-    if (!authHeaders.isEmpty()) {
+
+    for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+      // https://www.rfc-editor.org/rfc/rfc9110.html#name-field-order permits
+      // merging the field-values with a comma.
       requestBuilder.addQualifiers(
           Qualifier.newBuilder()
-              .setName(QUALIFIER_AUTH_HEADERS)
-              .setValue(authHeadersJson(authHeaders, includeAllHeaders))
+              .setName(QUALIFIER_HTTP_HEADER_PREFIX + entry.getKey())
+              .setValue(String.join(",", entry.getValue()))
               .build());
     }
 
@@ -212,11 +297,11 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             TracingMetadataUtils.attachMetadataInterceptor(context.getRequestMetadata()))
         .withInterceptors(TracingMetadataUtils.newDownloaderHeadersInterceptor(options))
         .withCallCredentials(credentials.orElse(null))
-        .withDeadlineAfter(options.remoteTimeout.getSeconds(), TimeUnit.SECONDS);
+        .withDeadlineAfter(options.remoteTimeout.toSeconds(), TimeUnit.SECONDS);
   }
 
-  private OutputStream newOutputStream(
-      Path destination, com.google.common.base.Optional<Checksum> checksum) throws IOException {
+  private OutputStream newOutputStream(Path destination, Optional<Checksum> checksum)
+      throws IOException {
     OutputStream out = destination.getOutputStream();
     if (checksum.isPresent()) {
       out = new HashOutputStream(out, checksum.get());
@@ -224,34 +309,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     return out;
   }
 
-  private static String authHeadersJson(
-      Map<URI, Map<String, List<String>>> authHeaders, boolean includeAllHeaders) {
-    Map<String, JsonObject> subObjects = new TreeMap<>();
-    for (Map.Entry<URI, Map<String, List<String>>> entry : authHeaders.entrySet()) {
-      JsonObject subObject = new JsonObject();
-      Map<String, List<String>> orderedHeaders = new TreeMap<>(entry.getValue());
-      for (Map.Entry<String, List<String>> subEntry : orderedHeaders.entrySet()) {
-        if (includeAllHeaders) {
-          JsonArray values = new JsonArray(subEntry.getValue().size());
-          for (String value : subEntry.getValue()) {
-            values.add(value);
-          }
-          subObject.add(subEntry.getKey(), values);
-        } else {
-          String value = Iterables.getFirst(subEntry.getValue(), null);
-          if (value != null) {
-            subObject.addProperty(subEntry.getKey(), value);
-          }
-        }
-      }
-      subObjects.put(entry.getKey().toString(), subObject);
-    }
-
-    JsonObject authHeadersJson = new JsonObject();
-    for (Map.Entry<String, JsonObject> entry : subObjects.entrySet()) {
-      authHeadersJson.add(entry.getKey(), entry.getValue());
-    }
-
-    return new Gson().toJson(authHeadersJson);
+  @VisibleForTesting
+  public ReferenceCountedChannel getChannel() {
+    return channel;
   }
 }

@@ -17,13 +17,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.HashSet;
 import java.util.List;
@@ -42,11 +41,7 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
   private static final Predicate<Target> ALWAYS_TRUE = (t) -> true;
 
   /** Convert the options into a test filter. */
-  public static TestFilter forOptions(
-      LoadingOptions options, ExtendedEventHandler eventHandler, Set<String> ruleNames) {
-    if (!options.testLangFilterList.isEmpty()) {
-      checkLangFilters(options.testLangFilterList, eventHandler, ruleNames);
-    }
+  public static TestFilter forOptions(LoadingOptions options) {
     return new TestFilter(
         ImmutableSet.copyOf(options.testSizeFilterSet),
         ImmutableSet.copyOf(options.testTimeoutFilterSet),
@@ -60,7 +55,7 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
   private final ImmutableList<String> testLangFilterList;
   private final Predicate<Target> impl;
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   TestFilter(
       ImmutableSet<TestSize> testSizeFilterSet,
       ImmutableSet<TestTimeout> testTimeoutFilterSet,
@@ -102,10 +97,9 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
     if (o == this) {
       return true;
     }
-    if (!(o instanceof TestFilter)) {
+    if (!(o instanceof TestFilter f)) {
       return false;
     }
-    TestFilter f = (TestFilter) o;
     return f.testSizeFilterSet.equals(testSizeFilterSet)
         && f.testTimeoutFilterSet.equals(testTimeoutFilterSet)
         && f.testTagFilterList.equals(testTagFilterList)
@@ -139,22 +133,7 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
   @VisibleForTesting
   public static Predicate<Target> testTimeoutFilter(final Set<TestTimeout> allowedTimeouts) {
     return target ->
-        target instanceof Rule
-            && allowedTimeouts.contains(TestTimeout.getTestTimeout((Rule) target));
-  }
-
-  /** Check languages specified in --test_lang_filters and warn if any of them are unknown. */
-  private static void checkLangFilters(
-      List<String> langFilterList, ExtendedEventHandler reporter, Set<String> allRuleNames) {
-    for (String lang : langFilterList) {
-      if (lang.startsWith("-")) {
-        lang = lang.substring(1);
-      }
-      if (!allRuleNames.contains(lang + "_test")) {
-        reporter.handle(
-            Event.warn("Unknown language '" + lang + "' in --test_lang_filters option"));
-      }
-    }
+        target instanceof Rule rule && allowedTimeouts.contains(TestTimeout.getTestTimeout(rule));
   }
 
   /**

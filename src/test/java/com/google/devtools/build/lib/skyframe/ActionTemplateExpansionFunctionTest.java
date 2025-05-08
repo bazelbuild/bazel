@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -37,13 +38,11 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MiddlemanType;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
@@ -64,6 +63,7 @@ import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -199,13 +199,15 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
             .setOutputPathMapper(mapper)
             .build(ActionsTestUtil.NULL_ACTION_OWNER);
 
-    ArtifactPrefixConflictException e =
-        assertThrows(ArtifactPrefixConflictException.class, () -> evaluate(spawnActionTemplate));
+    ActionConflictException e =
+        assertThrows(ActionConflictException.class, () -> evaluate(spawnActionTemplate));
     assertThat(bugReporter.getExceptions()).hasSize(1);
     assertThat(bugReporter.getFirstCause()).isSameInstanceAs(e);
-    assertThat(bugReporter.getExceptions().get(0))
+    assertThat(e).hasMessageThat().contains("is a prefix of the other");
+    var exception = bugReporter.getExceptions().get(0);
+    assertThat(exception)
         .hasMessageThat()
-        .contains("Unexpected artifact prefix conflict for ActionTemplateExpansionKey{");
+        .contains("Unexpected action conflict for ActionTemplateExpansionKey{");
     bugReporter.clear();
   }
 
@@ -368,12 +370,12 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
   private ImmutableList<Action> evaluate(ActionTemplate<?> actionTemplate) throws Exception {
     ActionLookupValue ctValue = createActionLookupValue(actionTemplate);
 
-    differencer.inject(CTKEY, ctValue);
+    differencer.inject(CTKEY, Delta.justNew(ctValue));
     ActionTemplateExpansionKey templateKey = ActionTemplateExpansionValue.key(CTKEY, 0);
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setParallelism(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     EvaluationResult<ActionTemplateExpansionValue> result =
@@ -383,18 +385,19 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
     ActionTemplateExpansionValue actionTemplateExpansionValue = result.get(templateKey);
     ImmutableList.Builder<Action> actionList = ImmutableList.builder();
-    for (int i = 0; i < actionTemplateExpansionValue.getNumActions(); i++) {
+    for (int i = 0; i < actionTemplateExpansionValue.getActions().size(); i++) {
       actionList.add(actionTemplateExpansionValue.getAction(i));
     }
     return actionList.build();
   }
 
   private static ActionLookupValue createActionLookupValue(ActionTemplate<?> actionTemplate)
-      throws ActionConflictException, InterruptedException,
+      throws ActionConflictException,
+          InterruptedException,
           Actions.ArtifactGeneratedByOtherRuleException {
-    return new BasicActionLookupValue(
-        Actions.assignOwnersAndFindAndThrowActionConflict(
-            new ActionKeyContext(), ImmutableList.of(actionTemplate), CTKEY));
+    ImmutableList<ActionAnalysisMetadata> actions = ImmutableList.of(actionTemplate);
+    Actions.assignOwnersAndThrowIfConflict(new ActionKeyContext(), actions, CTKEY);
+    return new BasicActionLookupValue(actions);
   }
 
   private SpecialArtifact createTreeArtifact(String path) {
@@ -475,7 +478,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
     @Override
     public String getKey(
-        ActionKeyContext actionKeyContext, @Nullable Artifact.ArtifactExpander artifactExpander) {
+        ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider) {
       Fingerprint fp = new Fingerprint();
       fp.addPath(inputTreeArtifact.getPath());
       fp.addPath(outputTreeArtifact.getPath());
@@ -503,6 +506,16 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
 
     @Override
+    public NestedSet<Artifact> getOriginalInputs() {
+      return getInputs();
+    }
+
+    @Override
+    public NestedSet<Artifact> getSchedulingDependencies() {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+
+    @Override
     public Collection<String> getClientEnvironmentVariables() {
       return ImmutableList.of();
     }
@@ -524,16 +537,6 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
 
     @Override
-    public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
-      return false;
-    }
-
-    @Override
-    public MiddlemanType getActionType() {
-      return MiddlemanType.NORMAL;
-    }
-
-    @Override
     public String toString() {
       return prettyPrint();
     }
@@ -551,7 +554,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
 
     @Override
-    public synchronized void sendNonFatalBugReport(Exception exception) {
+    public synchronized void sendNonFatalBugReport(Throwable exception) {
       exceptions.add(exception);
     }
 

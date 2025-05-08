@@ -35,6 +35,7 @@ public final class InMemoryMemoizingEvaluatorTest extends MemoizingEvaluatorTest
         graphInconsistencyReceiver,
         eventFilter,
         emittedEventState,
-        /*keepEdges=*/ true);
+        /* keepEdges= */ true,
+        /* usePooledInterning= */ true);
   }
 }

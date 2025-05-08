@@ -20,6 +20,7 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import java.time.Duration;
 import java.util.Iterator;
@@ -40,11 +41,11 @@ public final class Converters {
    */
   public static final String BLAZE_ALIASING_FLAG = "flag_alias";
 
-  private static final ImmutableList<String> ENABLED_REPS =
-      ImmutableList.of("true", "1", "yes", "t", "y");
+  private static final ImmutableSet<String> ENABLED_REPS =
+      ImmutableSet.of("true", "1", "yes", "t", "y");
 
-  private static final ImmutableList<String> DISABLED_REPS =
-      ImmutableList.of("false", "0", "no", "f", "n");
+  private static final ImmutableSet<String> DISABLED_REPS =
+      ImmutableSet.of("false", "0", "no", "f", "n");
 
   /** Standard converter for booleans. Accepts common shorthands/synonyms. */
   public static class BooleanConverter extends Converter.Contextless<Boolean> {
@@ -180,7 +181,7 @@ public final class Converters {
 
   /** Standard converter for the {@link java.time.Duration} type. */
   public static class DurationConverter extends Converter.Contextless<Duration> {
-    private final Pattern durationRegex = Pattern.compile("^([0-9]+)(d|h|m|s|ms)$");
+    private static final Pattern DURATION_REGEX = Pattern.compile("^([0-9]+)(d|h|m|s|ms|ns)$");
 
     @Override
     public Duration convert(String input) throws OptionsParsingException {
@@ -188,7 +189,7 @@ public final class Converters {
       if ("0".equals(input)) {
         return Duration.ZERO;
       }
-      Matcher m = durationRegex.matcher(input);
+      Matcher m = DURATION_REGEX.matcher(input);
       if (!m.matches()) {
         throw new OptionsParsingException("Illegal duration '" + input + "'.");
       }
@@ -205,6 +206,8 @@ public final class Converters {
           return Duration.ofSeconds(duration);
         case "ms":
           return Duration.ofMillis(duration);
+        case "ns":
+          return Duration.ofNanos(duration);
         default:
           throw new IllegalStateException(
               "This must not happen. Did you update the regex without the switch case?");
@@ -288,12 +291,47 @@ public final class Converters {
     }
   }
 
+  /**
+   * Converter for options separated by some separator character, where order and count do not
+   * matter, i.e. semantically it is a set, not a list.
+   */
+  public static class SeparatedOptionSetConverter extends SeparatedOptionListConverter {
+    private final String separatorDescription;
+
+    protected SeparatedOptionSetConverter(
+        char separator, String separatorDescription, boolean allowEmptyValues) {
+      super(separator, separatorDescription, allowEmptyValues);
+      this.separatorDescription = separatorDescription;
+    }
+
+    @Override
+    public ImmutableList<String> convert(String input) throws OptionsParsingException {
+      ImmutableList<String> result = super.convert(input);
+      return result.stream().distinct().sorted().collect(ImmutableList.toImmutableList());
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return separatorDescription + "-separated set of options";
+    }
+  }
+
+  /**
+   * Converter for comma separated values, where
+   * <li>order and multiplicity preserved
+   * <li>empty values are preserved
+   */
   public static class CommaSeparatedOptionListConverter extends SeparatedOptionListConverter {
     public CommaSeparatedOptionListConverter() {
       super(',', "comma", true);
     }
   }
 
+  /**
+   * Converter for comma separated values, where
+   * <li>order and multiplicity preserved
+   * <li>empty values are filtered out
+   */
   public static class CommaSeparatedNonEmptyOptionListConverter
       extends SeparatedOptionListConverter {
     public CommaSeparatedNonEmptyOptionListConverter() {
@@ -301,9 +339,25 @@ public final class Converters {
     }
   }
 
+  /**
+   * Converter for colon separated values, where
+   * <li>order and multiplicity preserved
+   * <li>empty values are preserved
+   */
   public static class ColonSeparatedOptionListConverter extends SeparatedOptionListConverter {
     public ColonSeparatedOptionListConverter() {
       super(':', "colon", true);
+    }
+  }
+
+  /**
+   * Converter for colon separated values, where
+   * <li>order and multiplicity are assumed to not matter
+   * <li>empty values are preserved
+   */
+  public static class CommaSeparatedOptionSetConverter extends SeparatedOptionSetConverter {
+    public CommaSeparatedOptionSetConverter() {
+      super(',', "comma", true);
     }
   }
 
@@ -341,7 +395,7 @@ public final class Converters {
 
     // TODO(bazel-team): if this class never actually contains duplicates, we could s/List/Set/
     // here.
-    private final List<String> values;
+    private final ImmutableList<String> values;
 
     public StringSetConverter(String... values) {
       this.values = ImmutableList.copyOf(values);
@@ -380,28 +434,6 @@ public final class Converters {
     }
   }
 
-  /** Limits the length of a string argument. */
-  public static class LengthLimitingConverter extends Converter.Contextless<String> {
-    private final int maxSize;
-
-    public LengthLimitingConverter(int maxSize) {
-      this.maxSize = maxSize;
-    }
-
-    @Override
-    public String convert(String input) throws OptionsParsingException {
-      if (input.length() > maxSize) {
-        throw new OptionsParsingException("Input must be " + getTypeDescription());
-      }
-      return input;
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a string <= " + maxSize + " characters";
-    }
-  }
-
   /** Checks whether an integer is in the given range. */
   public static class RangeConverter extends Converter.Contextless<Integer> {
     final int minValue;
@@ -415,7 +447,7 @@ public final class Converters {
     @Override
     public Integer convert(String input) throws OptionsParsingException {
       try {
-        Integer value = Integer.parseInt(input);
+        int value = Integer.parseInt(input);
         if (value < minValue) {
           throw new OptionsParsingException("'" + input + "' should be >= " + minValue);
         } else if (value < minValue || value > maxValue) {
@@ -469,6 +501,24 @@ public final class Converters {
     @Override
     public String getTypeDescription() {
       return "a 'name=value' assignment";
+    }
+  }
+
+  /** A converter for for assignments from a string value to a float value. */
+  public static class StringToDoubleAssignmentConverter
+      extends Converter.Contextless<Map.Entry<String, Double>> {
+    private static final AssignmentConverter baseConverter = new AssignmentConverter();
+
+    @Override
+    public Map.Entry<String, Double> convert(String input)
+        throws OptionsParsingException, NumberFormatException {
+      Map.Entry<String, String> stringEntry = baseConverter.convert(input);
+      return Maps.immutableEntry(stringEntry.getKey(), Double.parseDouble(stringEntry.getValue()));
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a named float, 'name=value'";
     }
   }
 
@@ -581,7 +631,7 @@ public final class Converters {
     }
 
     public Map.Entry<String, List<String>> convert(String input) throws OptionsParsingException {
-      return convert(input, /*conversionContext=*/ null);
+      return convert(input, /* conversionContext= */ null);
     }
 
     @Override
@@ -614,43 +664,22 @@ public final class Converters {
     }
 
     @Override
+    public boolean starlarkConvertible() {
+      return true;
+    }
+
+    @Override
+    public String reverseForStarlark(Object converted) {
+      @SuppressWarnings("unchecked")
+      Map.Entry<String, String> typedValue = (Map.Entry<String, String>) converted;
+      return typedValue.getValue() == null
+          ? typedValue.getKey()
+          : String.format("%s=%s", typedValue.getKey(), typedValue.getValue());
+    }
+
+    @Override
     public String getTypeDescription() {
       return "a 'name=value' assignment with an optional value part";
-    }
-  }
-
-  /**
-   * A converter for named integers of the form "[name=]value". When no name is specified, an empty
-   * string is used for the key.
-   */
-  public static class NamedIntegersConverter
-      extends Converter.Contextless<Map.Entry<String, Integer>> {
-
-    @Override
-    public Map.Entry<String, Integer> convert(String input) throws OptionsParsingException {
-      int pos = input.indexOf('=');
-      if (pos == 0 || input.length() == 0) {
-        throw new OptionsParsingException(
-            "Specify either 'value' or 'name=value', where 'value' is an integer");
-      } else if (pos < 0) {
-        try {
-          return Maps.immutableEntry("", Integer.parseInt(input));
-        } catch (NumberFormatException e) {
-          throw new OptionsParsingException("'" + input + "' is not an int", e);
-        }
-      }
-      String name = input.substring(0, pos);
-      String value = input.substring(pos + 1);
-      try {
-        return Maps.immutableEntry(name, Integer.parseInt(value));
-      } catch (NumberFormatException e) {
-        throw new OptionsParsingException("'" + value + "' is not an int", e);
-      }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "an integer or a named integer, 'name=value'";
     }
   }
 
@@ -686,6 +715,46 @@ public final class Converters {
     @Override
     public String getTypeDescription() {
       return "Converts to a CaffeineSpec, or null if the input is empty";
+    }
+  }
+
+  /** A {@link Converter} for a size in bytes with an optional multiplier suffix. */
+  public static final class ByteSizeConverter extends Converter.Contextless<Long> {
+    private static final Pattern PATTERN =
+        Pattern.compile("(?<value>[0-9]+)(?<multiplier>[KMGT]?)");
+
+    private static final ImmutableMap<String, Long> MULTIPLIER_MAP =
+        ImmutableMap.of(
+            "K",
+            1024L,
+            "M",
+            1024L * 1024L,
+            "G",
+            1024L * 1024L * 1024L,
+            "T",
+            1024L * 1024L * 1024L * 1024L);
+
+    @Override
+    public Long convert(String input) throws OptionsParsingException {
+      Matcher m = PATTERN.matcher(input);
+      if (!m.matches()) {
+        throw new OptionsParsingException("Invalid size: " + input);
+      }
+      try {
+        long value = Long.parseLong(m.group("value"));
+        String mult = m.group("multiplier");
+        if (!mult.isEmpty()) {
+          value = Math.multiplyExact(value, (long) MULTIPLIER_MAP.get(mult));
+        }
+        return value;
+      } catch (NumberFormatException | ArithmeticException e) {
+        throw new OptionsParsingException("Invalid size: " + input, e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a size in bytes, optionally followed by a K, M, G or T multiplier";
     }
   }
 }

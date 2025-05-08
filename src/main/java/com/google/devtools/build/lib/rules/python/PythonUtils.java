@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.rules.python;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Predicate;
 
 /** Various utility methods for Python support. */
@@ -37,19 +39,29 @@ public final class PythonUtils {
    */
   public static class GetInitPyFiles implements Runfiles.EmptyFilesSupplier {
     private final Predicate<PathFragment> isPackageInit;
+    private final UUID guid;
 
     /**
      * The Predicate isPackageInit's .test(source) should be true when a given source is known to be
      * a valid __init__.py file equivalent, meaning no empty __init__.py file need be created.
      * Useful for custom Python runtimes that may have non-standard Python package import logic.
+     *
+     * @param guid a UUID that uniquely identifies the particular isPackageInit predicate for the
+     *     purpose of fingerprinting this {@link Runfiles.EmptyFilesSupplier} instance
      */
-    public GetInitPyFiles(Predicate<PathFragment> isPackageInit) {
+    public GetInitPyFiles(Predicate<PathFragment> isPackageInit, UUID guid) {
       this.isPackageInit = isPackageInit;
+      this.guid = guid;
     }
 
     @Override
     public Set<PathFragment> getExtraPaths(Set<PathFragment> manifestPaths) {
       return getInitPyFiles(manifestPaths);
+    }
+
+    @Override
+    public void fingerprint(Fingerprint fp) {
+      fp.addUUID(guid);
     }
 
     /**

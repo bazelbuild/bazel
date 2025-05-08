@@ -16,11 +16,14 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * {@link SkyFunction} for {@link WorkspaceNameValue}s.
@@ -29,26 +32,54 @@ import javax.annotation.Nullable;
  * file) result in a {@link com.google.devtools.build.lib.packages.NoSuchPackageException}.
  */
 public class WorkspaceNameFunction implements SkyFunction {
+  private final RuleClassProvider ruleClassProvider;
+
+  public WorkspaceNameFunction(RuleClassProvider ruleClassProvider) {
+    this.ruleClassProvider = ruleClassProvider;
+  }
+
   @Override
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, WorkspaceNameFunctionException {
-    SkyKey externalPackageKey = PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
-    PackageValue externalPackageValue = (PackageValue) env.getValue(externalPackageKey);
-    if (externalPackageValue == null) {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
       return null;
     }
-    Package externalPackage = externalPackageValue.getPackage();
-    if (externalPackage.containsErrors()) {
-      throw new WorkspaceNameFunctionException();
+    if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
+      // When Bzlmod is enabled, we don't care what the "workspace name" specified in the WORKSPACE
+      // file is, and always use a fixed string (by default "_main") instead. The workspace name
+      // returned by this SkyFunction is only used as the runfiles/execpath prefix for the main
+      // repo; for other repos, the canonical repo name is used. The canonical name of the main repo
+      // is the empty string, so we can't use that; instead, we just use a static string.
+      //
+      // "_main" was chosen because it's not a valid apparent repo name, which, coupled with the
+      // fact that no Bzlmod-generated canonical repo names are valid apparent repo names, means
+      // that a path passed to rlocation can go through repo mapping multiple times without any
+      // danger (i.e. going through repo mapping is idempotent).
+      return WorkspaceNameValue.withName(ruleClassProvider.getRunfilesPrefix());
     }
-    return WorkspaceNameValue.withName(externalPackage.getWorkspaceName());
+    if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
+      PackageValue externalPackageValue =
+          (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
+      if (externalPackageValue == null) {
+        return null;
+      }
+      Package externalPackage = externalPackageValue.getPackage();
+      if (externalPackage.containsErrors()) {
+        throw new WorkspaceNameFunctionException("Failed to load the WORKSPACE file");
+      }
+      return WorkspaceNameValue.withName(externalPackage.getWorkspaceName());
+    }
+    throw new WorkspaceNameFunctionException(
+        "Both --enable_bzlmod and --enable_workspace are disabled, but one of them must be enabled"
+            + " to fetch external dependencies.");
   }
 
   private static class WorkspaceNameFunctionException extends SkyFunctionException {
-    WorkspaceNameFunctionException() {
+    WorkspaceNameFunctionException(String message) {
       super(
-          new BuildFileContainsErrorsException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER),
+          new BuildFileContainsErrorsException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, message),
           Transience.PERSISTENT);
     }
   }

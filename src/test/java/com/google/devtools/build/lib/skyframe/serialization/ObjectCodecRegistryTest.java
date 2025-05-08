@@ -15,10 +15,17 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry.CodecDescriptor;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException.NoCodecException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -40,16 +47,16 @@ public class ObjectCodecRegistryTest {
             .build();
 
     CodecDescriptor fooDescriptor = underTest.getCodecDescriptorForObject("hello");
-    assertThat(fooDescriptor.getCodec()).isSameInstanceAs(codec1);
-    assertThat(underTest.getCodecDescriptorByTag(fooDescriptor.getTag()))
+    assertThat(fooDescriptor.codec()).isSameInstanceAs(codec1);
+    assertThat(underTest.getCodecDescriptorByTag(fooDescriptor.tag()))
         .isSameInstanceAs(fooDescriptor);
 
     CodecDescriptor barDescriptor = underTest.getCodecDescriptorForObject(1);
-    assertThat(barDescriptor.getCodec()).isSameInstanceAs(codec2);
-    assertThat(underTest.getCodecDescriptorByTag(barDescriptor.getTag()))
+    assertThat(barDescriptor.codec()).isSameInstanceAs(codec2);
+    assertThat(underTest.getCodecDescriptorByTag(barDescriptor.tag()))
         .isSameInstanceAs(barDescriptor);
 
-    assertThat(barDescriptor.getTag()).isNotEqualTo(fooDescriptor.getTag());
+    assertThat(barDescriptor.tag()).isNotEqualTo(fooDescriptor.tag());
 
     assertThrows(NoCodecException.class, () -> underTest.getCodecDescriptorForObject((byte) 1));
     assertThrows(NoCodecException.class, () -> underTest.getCodecDescriptorByTag(42));
@@ -68,16 +75,16 @@ public class ObjectCodecRegistryTest {
             .build();
 
     CodecDescriptor fooDescriptor = underTest.getCodecDescriptorForObject("value1");
-    assertThat(fooDescriptor.getCodec()).isSameInstanceAs(codec);
+    assertThat(fooDescriptor.codec()).isSameInstanceAs(codec);
 
     CodecDescriptor barDefaultDescriptor = underTest.getCodecDescriptorForObject(15);
-    assertThat(barDefaultDescriptor.getCodec()).isNotSameInstanceAs(codec);
-    assertThat(barDefaultDescriptor.getTag()).isNotEqualTo(fooDescriptor.getTag());
-    assertThat(underTest.getCodecDescriptorByTag(barDefaultDescriptor.getTag()))
+    assertThat(barDefaultDescriptor.codec()).isNotSameInstanceAs(codec);
+    assertThat(barDefaultDescriptor.tag()).isNotEqualTo(fooDescriptor.tag());
+    assertThat(underTest.getCodecDescriptorByTag(barDefaultDescriptor.tag()))
         .isSameInstanceAs(barDefaultDescriptor);
 
-    assertThat(underTest.getCodecDescriptorForObject((byte) 9).getCodec().getClass())
-        .isSameInstanceAs(barDefaultDescriptor.getCodec().getClass());
+    assertThat(underTest.getCodecDescriptorForObject((byte) 9).codec().getClass())
+        .isSameInstanceAs(barDefaultDescriptor.codec().getClass());
 
     // Bogus tags still throw.
     assertThrows(NoCodecException.class, () -> underTest.getCodecDescriptorByTag(42));
@@ -104,13 +111,13 @@ public class ObjectCodecRegistryTest {
             .addClassName(Byte.class.getName())
             .build();
 
-    assertThat(underTest1.getCodecDescriptorForObject("value1").getTag())
-        .isEqualTo(underTest2.getCodecDescriptorForObject("value1").getTag());
-    assertThat(underTest1.getCodecDescriptorForObject(5).getTag())
-        .isEqualTo(underTest2.getCodecDescriptorForObject(5).getTag());
+    assertThat(underTest1.getCodecDescriptorForObject("value1").tag())
+        .isEqualTo(underTest2.getCodecDescriptorForObject("value1").tag());
+    assertThat(underTest1.getCodecDescriptorForObject(5).tag())
+        .isEqualTo(underTest2.getCodecDescriptorForObject(5).tag());
     // Default codec.
-    assertThat(underTest1.getCodecDescriptorForObject((byte) 10).getTag())
-        .isEqualTo(underTest2.getCodecDescriptorForObject((byte) 10).getTag());
+    assertThat(underTest1.getCodecDescriptorForObject((byte) 10).tag())
+        .isEqualTo(underTest2.getCodecDescriptorForObject((byte) 10).tag());
   }
 
   @Test
@@ -145,7 +152,7 @@ public class ObjectCodecRegistryTest {
     ObjectCodecRegistry underTest = builderWithThisClass().build();
     CodecDescriptor descriptor = underTest.getCodecDescriptorForObject(this);
     assertThat(descriptor).isNotNull();
-    assertThat(descriptor.getCodec()).isInstanceOf(DynamicCodec.class);
+    assertThat(descriptor.codec()).isInstanceOf(DynamicCodec.class);
     ObjectCodecRegistry underTestWithExcludeList =
         builderWithThisClass()
             .excludeClassNamePrefix(this.getClass().getPackage().getName())
@@ -174,8 +181,8 @@ public class ObjectCodecRegistryTest {
             .build();
 
     ObjectCodecRegistry copy = underTest.getBuilder().build();
-    assertThat(copy.getCodecDescriptorForObject(12).getTag()).isEqualTo(1);
-    assertThat(copy.getCodecDescriptorForObject("value1").getTag()).isEqualTo(2);
+    assertThat(copy.getCodecDescriptorForObject(12).tag()).isEqualTo(1);
+    assertThat(copy.getCodecDescriptorForObject("value1").tag()).isEqualTo(2);
     assertThat(copy.maybeGetTagForConstant(constant)).isNotNull();
     assertThrows(NoCodecException.class, () -> copy.getCodecDescriptorForObject((byte) 5));
   }
@@ -200,6 +207,7 @@ public class ObjectCodecRegistryTest {
       }
     };
 
+    @SuppressWarnings("unused")
     public abstract int val();
   }
 
@@ -223,7 +231,7 @@ public class ObjectCodecRegistryTest {
     CodecDescriptor twoDescriptor = underTest.getCodecDescriptorForObject(TestEnum.TWO);
     assertThat(oneDescriptor).isEqualTo(twoDescriptor);
 
-    assertThat(oneDescriptor.getCodec().getEncodedClass()).isEqualTo(TestEnum.class);
+    assertThat(oneDescriptor.codec().getEncodedClass()).isEqualTo(TestEnum.class);
   }
 
   @Test
@@ -374,5 +382,73 @@ public class ObjectCodecRegistryTest {
     assertThat(checksum1).isNotNull();
     assertThat(checksum2).isNotNull();
     assertThat(checksum1).isNotEqualTo(checksum2);
+  }
+
+  sealed interface TestIntf permits ClassA, ClassB, ClassC {}
+
+  @AutoCodec
+  static final class ClassA implements TestIntf {}
+
+  static final class ClassB implements TestIntf {
+
+    static class Codec extends DeferredObjectCodec<TestIntf> {
+
+      @Override
+      public boolean autoRegister() {
+        // Will be registered by the test explicitly.
+        return false;
+      }
+
+      @Override
+      public Class<? extends TestIntf> getEncodedClass() {
+        return ClassB.class;
+      }
+
+      @Override
+      public ImmutableSet<Class<? extends TestIntf>> additionalEncodedClasses() {
+        return ImmutableSet.of(ClassA.class, ClassC.class);
+      }
+
+      @Override
+      public void serialize(SerializationContext context, TestIntf obj, CodedOutputStream codedOut)
+          throws SerializationException, IOException {
+        // unused
+      }
+
+      @Override
+      public DeferredValue<? extends TestIntf> deserializeDeferred(
+          AsyncDeserializationContext context, CodedInputStream codedIn)
+          throws SerializationException, IOException {
+        return ClassB::new;
+      }
+    }
+  }
+
+  @AutoCodec
+  static final class ClassC implements TestIntf {}
+
+  @Test
+  public void testDescriptorLookups_respectsInsertionOrder() throws Exception {
+    var a = new ClassA();
+    var b = new ClassB();
+    var c = new ClassC();
+    var tester = new SerializationTester(a, b, c);
+
+    // The AutoCodecs for ClassA and ClassC will be added first.
+    tester.addCodec(new ClassB.Codec());
+
+    tester.setVerificationFunction(
+        (in, out) ->
+            // Expect that all three objects use ClassB.Codec() as it's registered as one of the
+            // last.
+            //
+            // If there is implicit alphabetical ordering when processing codec descriptors,
+            // then:
+            // - a will be deserialized as an instance of A.class, or
+            // - c will be deserialized as an instance of C.class.
+            assertWithMessage("incorrect codec look up for %s", in)
+                .that(out)
+                .isInstanceOf(ClassB.class));
+    tester.runTests();
   }
 }

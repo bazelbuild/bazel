@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -30,9 +31,9 @@ import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
@@ -52,19 +53,15 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.MinDepthUniquifierImpl;
-import com.google.devtools.build.lib.query2.engine.QueryUtil.MutableKeyExtractorBackedMapImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -80,7 +77,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private static final int MAX_DEPTH_FULL_SCAN_LIMIT = 20;
   private final Map<String, Collection<Target>> resolvedTargetPatterns = new HashMap<>();
   private final TargetPatternPreloader targetPatternPreloader;
-  private final TargetPattern.Parser mainRepoTargetParser;
+  private final TargetPattern.Parser targetParser;
   @Nullable private final QueryTransitivePackagePreloader queryTransitivePackagePreloader;
   private final TargetProvider targetProvider;
   private final CachingPackageLocator cachingPackageLocator;
@@ -110,17 +107,19 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       TargetProvider targetProvider,
       CachingPackageLocator cachingPackageLocator,
       TargetPatternPreloader targetPatternPreloader,
-      Parser mainRepoTargetParser,
+      Parser targetParser,
       boolean keepGoing,
       boolean strictScope,
       int loadingPhaseThreads,
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions) {
-    super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
+      Iterable<QueryFunction> extraFunctions,
+      LabelPrinter labelPrinter) {
+    super(
+        keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions, labelPrinter);
     this.targetPatternPreloader = targetPatternPreloader;
-    this.mainRepoTargetParser = mainRepoTargetParser;
+    this.targetParser = targetParser;
     this.queryTransitivePackagePreloader = queryTransitivePackagePreloader;
     this.targetProvider = targetProvider;
     this.cachingPackageLocator = cachingPackageLocator;
@@ -150,7 +149,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @Override
   public Collection<Target> getSiblingTargetsInPackage(Target target) {
-    Collection<Target> siblings = target.getPackage().getTargets().values();
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
+    ImmutableCollection<Target> siblings = target.getPackage().getTargets().values();
     // Ensure that the sibling targets are in the graph being built-up.
     siblings.forEach(this::getNode);
     return siblings;
@@ -193,13 +193,11 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       // a wildcard such as p:* are correctly ordered w.r.t. each other, so to
       // ensure this, we add edges between any pair of directly connected
       // targets in this set.
-      if (target instanceof OutputFile) {
-        OutputFile outputFile = (OutputFile) target;
+      if (target instanceof OutputFile outputFile) {
         if (targets.contains(outputFile.getGeneratingRule())) {
           makeEdge(outputFile, outputFile.getGeneratingRule());
         }
-      } else if (target instanceof Rule) {
-        Rule rule = (Rule) target;
+      } else if (target instanceof Rule rule) {
         for (Label label : rule.getSortedLabels(dependencyFilter)) {
           if (!packages.contains(label.getPackageIdentifier())) {
             continue; // don't cause additional package loading
@@ -339,11 +337,6 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public <V> MutableMap<Target, V> createMutableMap() {
-    return new MutableKeyExtractorBackedMapImpl<>(TargetKeyExtractor.INSTANCE);
-  }
-
-  @Override
   public Uniquifier<Target> createUniquifier() {
     return new UniquifierImpl<>(TargetKeyExtractor.INSTANCE);
   }
@@ -351,6 +344,32 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @Override
   public MinDepthUniquifier<Target> createMinDepthUniquifier() {
     return new MinDepthUniquifierImpl<>(TargetKeyExtractor.INSTANCE, /*concurrencyLevel=*/ 1);
+  }
+
+  @Override
+  public TransitiveLoadFilesHelper<Target> getTransitiveLoadFilesHelper() {
+    return new TransitiveLoadFilesHelperForTargets() {
+      @Override
+      public Target getLoadFileTarget(Target originalTarget, Label bzlLabel) {
+        return getNode(new FakeLoadTarget(bzlLabel, originalTarget.getPackageoid())).getLabel();
+      }
+
+      @Nullable
+      @Override
+      public Target maybeGetBuildFileTargetForLoadFileTarget(
+          Target originalTarget, Label bzlLabel) {
+        PackageIdentifier pkgIdOfBzlLabel = bzlLabel.getPackageIdentifier();
+        String baseName = cachingPackageLocator.getBaseNameForLoadedPackage(pkgIdOfBzlLabel);
+        if (baseName == null) {
+          return null;
+        }
+        return getNode(
+                new FakeLoadTarget(
+                    Label.createUnvalidated(pkgIdOfBzlLabel, baseName),
+                    originalTarget.getPackageoid()))
+            .getLabel();
+      }
+    };
   }
 
   private void preloadTransitiveClosure(
@@ -415,60 +434,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return target;
   }
 
-  // TODO(bazel-team): rename this to getDependentFiles when all implementations
-  // of QueryEnvironment is fixed.
-  @Override
-  public ThreadSafeMutableSet<Target> getBuildFiles(
-      final QueryExpression caller,
-      ThreadSafeMutableSet<Target> nodes,
-      boolean buildFiles,
-      boolean loads,
-      QueryExpressionContext<Target> context)
-      throws QueryException {
-    ThreadSafeMutableSet<Target> dependentFiles = createThreadSafeMutableSet();
-    Set<PackageIdentifier> seenPackages = new HashSet<>();
-    // Keep track of seen labels, to avoid adding a fake subinclude label that also exists as a
-    // real target.
-    Set<Label> seenLabels = new HashSet<>();
 
-    // Adds all the package definition files (BUILD files and build
-    // extensions) for package "pkg", to "buildfiles".
-    for (Target x : nodes) {
-      Package pkg = x.getPackage();
-      if (seenPackages.add(pkg.getPackageIdentifier())) {
-        if (buildFiles) {
-          addIfUniqueLabel(getNode(pkg.getBuildFile()), seenLabels, dependentFiles);
-        }
-
-        List<Label> extensions = new ArrayList<>();
-        if (loads) {
-          extensions.addAll(pkg.getStarlarkFileDependencies());
-        }
-
-        for (Label extension : extensions) {
-
-          Node<Target> loadTarget = getLoadTarget(extension, pkg);
-          addIfUniqueLabel(loadTarget, seenLabels, dependentFiles);
-
-          // Also add the BUILD file of the extension.
-          if (buildFiles) {
-            // Can be null in genquery: see http://b/123795023#comment6.
-            String baseName =
-                cachingPackageLocator.getBaseNameForLoadedPackage(
-                    loadTarget.getLabel().getLabel().getPackageIdentifier());
-            if (baseName != null) {
-              Label buildFileLabel =
-                  Label.createUnvalidated(
-                      loadTarget.getLabel().getLabel().getPackageIdentifier(), baseName);
-              addIfUniqueLabel(
-                  getNode(new FakeLoadTarget(buildFileLabel, pkg)), seenLabels, dependentFiles);
-            }
-          }
-        }
-      }
-    }
-    return dependentFiles;
-  }
 
   @Override
   protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns)
@@ -482,17 +448,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // being called from within a SkyFunction.
     resolvedTargetPatterns.putAll(
         targetPatternPreloader.preloadTargetPatterns(
-            eventHandler, mainRepoTargetParser, patterns, keepGoing));
-  }
-
-  private static void addIfUniqueLabel(Node<Target> node, Set<Label> labels, Set<Target> nodes) {
-    if (labels.add(node.getLabel().getLabel())) {
-      nodes.add(node.getLabel());
-    }
-  }
-
-  private Node<Target> getLoadTarget(Label label, Package pkg) {
-    return getNode(new FakeLoadTarget(label, pkg));
+            eventHandler, targetParser, patterns, keepGoing));
   }
 
   @Override

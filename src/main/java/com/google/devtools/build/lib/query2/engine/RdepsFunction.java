@@ -63,8 +63,7 @@ public final class RdepsFunction extends AllRdepsFunction {
         args.size() == 2 ? OptionalInt.empty() : OptionalInt.of(args.get(2).getInteger());
     QueryExpression universeExpression = args.get(0).getExpression();
     QueryExpression argumentExpression = args.get(1).getExpression();
-    if (env instanceof StreamableQueryEnvironment) {
-      StreamableQueryEnvironment<T> streamableEnv = (StreamableQueryEnvironment<T>) env;
+    if (env instanceof StreamableQueryEnvironment<T> streamableEnv) {
       return depth.isPresent()
           ? streamableEnv.getRdepsBoundedParallel(
               argumentExpression, depth.getAsInt(), universeExpression, context, callback)

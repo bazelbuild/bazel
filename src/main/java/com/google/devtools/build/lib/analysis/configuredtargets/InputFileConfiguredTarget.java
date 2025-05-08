@@ -14,19 +14,19 @@
 
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
-import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.actions.Artifact;
+import static com.google.common.base.Preconditions.checkArgument;
+
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.TargetContext;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.InputFile;
-import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
-import java.util.Objects;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
 
@@ -37,59 +37,46 @@ import net.starlark.java.eval.Printer;
  * here and is always set to <b>null</b>.
  */
 @Immutable
+@AutoCodec
 public final class InputFileConfiguredTarget extends FileConfiguredTarget {
-  private final SourceArtifact artifact;
-  private final NestedSet<TargetLicense> licenses;
 
-  private InputFileConfiguredTarget(
-      Label label,
+  private final boolean isCreatedInSymbolicMacro;
+
+  public InputFileConfiguredTarget(TargetContext targetContext, SourceArtifact artifact) {
+    this(
+        targetContext.getAnalysisEnvironment().getOwner(),
+        targetContext.getVisibility(),
+        artifact,
+        targetContext.getTarget().isCreatedInSymbolicMacro());
+    checkArgument(targetContext.getTarget() instanceof InputFile, targetContext.getTarget());
+    checkArgument(getConfigurationKey() == null, getLabel());
+  }
+
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  InputFileConfiguredTarget(
+      ActionLookupKey lookupKey,
       NestedSet<PackageGroupContents> visibility,
       SourceArtifact artifact,
-      NestedSet<TargetLicense> licenses) {
-    super(label, null, visibility, artifact, null, null, null);
-    this.artifact = artifact;
-    this.licenses = licenses;
-  }
-
-  public InputFileConfiguredTarget(
-      TargetContext targetContext, InputFile inputFile, SourceArtifact artifact) {
-    this(inputFile.getLabel(), targetContext.getVisibility(), artifact, makeLicenses(inputFile));
-    Preconditions.checkArgument(getConfigurationKey() == null, getLabel());
-    Preconditions.checkArgument(targetContext.getTarget() == inputFile, getLabel());
-  }
-
-  private static NestedSet<TargetLicense> makeLicenses(InputFile inputFile) {
-    License license = inputFile.getLicense();
-    return Objects.equals(license, License.NO_LICENSE)
-        ? NestedSetBuilder.emptySet(Order.LINK_ORDER)
-        : NestedSetBuilder.create(
-            Order.LINK_ORDER, new TargetLicense(inputFile.getLabel(), license));
+      boolean isCreatedInSymbolicMacro) {
+    super(lookupKey, visibility, artifact);
+    this.isCreatedInSymbolicMacro = isCreatedInSymbolicMacro;
   }
 
   @Override
-  public final Artifact getArtifact() {
-    return artifact;
+  public boolean isCreatedInSymbolicMacro() {
+    return isCreatedInSymbolicMacro;
   }
 
   @Override
-  public String toString() {
-    return "InputFileConfiguredTarget(" + getLabel() + ")";
-  }
-
-  @Override
-  public final NestedSet<TargetLicense> getTransitiveLicenses() {
-    return licenses;
+  public SourceArtifact getArtifact() {
+    return (SourceArtifact) super.getArtifact();
   }
 
   @Override
   @Nullable
-  public TargetLicense getOutputLicenses() {
+  protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     return null;
-  }
-
-  @Override
-  public boolean hasOutputLicenses() {
-    return false;
   }
 
   @Override
@@ -97,7 +84,8 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
     printer.append("<input file target " + getLabel() + ">");
   }
 
-  public SourceArtifact getSourceArtifact() {
-    return artifact;
+  @Override
+  public String toString() {
+    return "InputFileConfiguredTarget(" + getLabel() + ")";
   }
 }

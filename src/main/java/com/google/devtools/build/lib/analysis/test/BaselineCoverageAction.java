@@ -15,39 +15,33 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifacts;
-import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
-import java.io.OutputStream;
 import java.io.PrintWriter;
 import javax.annotation.Nullable;
 
 /** Generates baseline (empty) coverage for the given non-test target. */
 @VisibleForTesting
 @Immutable
-public final class BaselineCoverageAction extends AbstractFileWriteAction
-    implements NotifyOnActionCacheHit {
+public final class BaselineCoverageAction extends AbstractFileWriteAction {
   private final NestedSet<Artifact> instrumentedFiles;
 
   private BaselineCoverageAction(
       ActionOwner owner, NestedSet<Artifact> instrumentedFiles, Artifact primaryOutput) {
-    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput, false);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput);
     this.instrumentedFiles = instrumentedFiles;
   }
 
@@ -59,7 +53,7 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
   @Override
   public void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable Artifact.ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     // TODO(b/150305897): No UUID?
     // TODO(b/150308417): Sort?
@@ -68,43 +62,17 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    return new DeterministicWriter() {
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        PrintWriter writer = new PrintWriter(out);
-        for (Artifact file : instrumentedFiles.toList()) {
-          writer.write("SF:" + file.getExecPathString() + "\n");
-          writer.write("end_of_record\n");
-        }
-        writer.flush();
+    return out -> {
+      PrintWriter writer = new PrintWriter(out);
+      for (Artifact file : instrumentedFiles.toList()) {
+        writer.write("SF:" + file.getExecPathString() + "\n");
+        writer.write("end_of_record\n");
       }
+      writer.flush();
     };
   }
 
-  @Override
-  protected void afterWrite(ActionExecutionContext actionExecutionContext) {
-    notifyAboutBaselineCoverage(actionExecutionContext.getEventHandler());
-  }
-
-  @Override
-  public boolean actionCacheHit(ActionCachedContext context) {
-    notifyAboutBaselineCoverage(context.getEventHandler());
-    return true;
-  }
-
-  /** Notify interested parties about new baseline coverage data. */
-  private boolean notifyAboutBaselineCoverage(ExtendedEventHandler eventHandler) {
-    Artifact output = Iterables.getOnlyElement(getOutputs());
-    String ownerString = Label.print(getOwner().getLabel());
-    eventHandler.post(new BaselineCoverageResult(output, ownerString));
-    return true;
-  }
-
-  /**
-   * Returns collection of baseline coverage artifacts associated with the given target.
-   * Will always return 0 or 1 elements.
-   */
-  static NestedSet<Artifact> create(
+  static BaselineCoverageAction create(
       RuleContext ruleContext, NestedSet<Artifact> instrumentedFiles) {
     // Baseline coverage artifacts will still go into "testlogs" directory.
     Artifact coverageData =
@@ -112,8 +80,7 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
             PathFragment.create(ruleContext.getTarget().getName())
                 .getChild("baseline_coverage.dat"),
             ruleContext.getTestLogsDirectory());
-    ruleContext.registerAction(new BaselineCoverageAction(
-        ruleContext.getActionOwner(), instrumentedFiles, coverageData));
-    return NestedSetBuilder.create(Order.STABLE_ORDER, coverageData);
+    return new BaselineCoverageAction(
+        ruleContext.getActionOwner(), instrumentedFiles, coverageData);
   }
 }

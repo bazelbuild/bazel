@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -51,10 +51,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
 
 add_to_bazelrc "build --package_path=%workspace%"
 
@@ -127,6 +123,7 @@ EOF
 
   cat > package/BUILD <<EOF
 load(":lib.bzl", "flag_per_line")
+load("@rules_python//python:py_binary.bzl", "py_binary")
 
 py_binary(
     name = "flag_copy",

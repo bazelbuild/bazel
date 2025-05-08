@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
@@ -17,11 +18,10 @@ java_test(
     srcs = glob(["*.java"]),
     shard_count = 10,
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:label_printer",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2/common:QueryTransitivePackagePreloader",
@@ -30,6 +30,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/query2/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",

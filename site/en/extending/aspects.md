@@ -3,8 +3,11 @@ Book: /_book.yaml
 
 # Aspects
 
-This page explains the basics and benefits of using aspects and provides
-simple and advanced examples.
+{% include "_buttons.html" %}
+
+This page explains the basics and benefits of using
+[aspects](/rules/lib/globals/bzl#aspect) and provides simple and advanced
+examples.
 
 Aspects allow augmenting build dependency graphs with additional information
 and actions. Some typical scenarios when aspects can be useful:
@@ -45,11 +48,11 @@ This `BUILD` file defines a dependency graph shown in the following figure:
 **Figure 1.** `BUILD` file dependency graph.
 
 Bazel analyzes this dependency graph by calling an implementation function of
-the corresponding [rule](/rules/rules) (in this case "java_library") for every
+the corresponding [rule](/extending/rules) (in this case "java_library") for every
 target in the above example. Rule implementation functions generate actions that
 build artifacts, such as `.jar` files, and pass information, such as locations
 and names of those artifacts, to the reverse dependencies of those targets in
-[providers](/rules/rules#providers).
+[providers](/extending/rules#providers).
 
 Aspects are similar to rules in that they have an implementation function that
 generates actions and returns providers. However, their power comes from
@@ -94,6 +97,7 @@ def _print_aspect_impl(target, ctx):
 print_aspect = aspect(
     implementation = _print_aspect_impl,
     attr_aspects = ['deps'],
+    required_providers = [CcInfo],
 )
 ```
 
@@ -105,10 +109,11 @@ Let's break the example up into its parts and examine each one individually.
 print_aspect = aspect(
     implementation = _print_aspect_impl,
     attr_aspects = ['deps'],
+    required_providers = [CcInfo],
 )
 ```
 Aspect definitions are similar to rule definitions, and defined using
-the [`aspect`](/rules/lib/globals#aspect) function.
+the [`aspect`](/rules/lib/globals/bzl#aspect) function.
 
 Just like a rule, an aspect has an implementation function which in this case is
 ``_print_aspect_impl``.
@@ -119,6 +124,13 @@ rules that it is applied to.
 
 Another common argument for `attr_aspects` is `['*']` which would propagate the
 aspect to all attributes of a rule.
+
+``required_providers`` is a list of providers that allows the aspect to limit
+its propagation to only the targets whose rules advertise its required
+providers. For more details consult
+[the documentation of the aspect function](/rules/lib/globals/bzl#aspect).
+In this case, the aspect will only apply on targets that declare `CcInfo`
+provider.
 
 ### Aspect implementation
 
@@ -135,15 +147,15 @@ def _print_aspect_impl(target, ctx):
 ```
 
 Aspect implementation functions are similar to the rule implementation
-functions. They return [providers](/rules/rules#providers), can generate
-[actions](/rules/rules#actions), and take two arguments:
+functions. They return [providers](/extending/rules#providers), can generate
+[actions](/extending/rules#actions), and take two arguments:
 
-*  `target`: the [target](/rules/lib/Target) the aspect is being applied to.
-*   `ctx`: [`ctx`](/rules/lib/ctx) object that can be used to access attributes
+*  `target`: the [target](/rules/lib/builtins/Target) the aspect is being applied to.
+*   `ctx`: [`ctx`](/rules/lib/builtins/ctx) object that can be used to access attributes
     and generate outputs and actions.
 
 The implementation function can access the attributes of the target rule via
-[`ctx.rule.attr`](/rules/lib/ctx#rule). It can examine providers that are
+[`ctx.rule.attr`](/rules/lib/builtins/ctx#rule). It can examine providers that are
 provided by the target to which it is applied (via the `target` argument).
 
 Aspects are required to return a list of providers. In this example, the aspect
@@ -172,6 +184,10 @@ The following example demonstrates using an aspect from a target rule
 that counts files in targets, potentially filtering them by extension.
 It shows how to use a provider to return values, how to use parameters to pass
 an argument into an aspect implementation, and how to invoke an aspect from a rule.
+
+Note: Aspects added in rules' attributes are called *rule-propagated aspects* as
+opposed to *command-line aspects* that are specified using the ``--aspects``
+flag.
 
 `file_count.bzl` file:
 
@@ -262,14 +278,19 @@ file_count_aspect = aspect(
 This example shows how the aspect propagates through the ``deps`` attribute.
 
 ``attrs`` defines a set of attributes for an aspect. Public aspect attributes
-are of type ``string`` and are called parameters. Parameters must have a``values``
-attribute specified on them. This example has a parameter called ``extension``
+define parameters and can only be of types ``bool``, ``int`` or ``string``.
+For rule-propagated aspects, ``int`` and ``string`` parameters must have
+``values`` specified on them. This example has a parameter called ``extension``
 that is allowed to have '``*``', '``h``', or '``cc``' as a value.
 
-Parameter values for the aspect are taken from the string attribute with the same
-name of the rule requesting the aspect (see the definition of ``file_count_rule``).
-Aspects with parameters cannot be used via the command line because there is no
-syntax to define the parameters.
+For rule-propagated aspects, parameter values are taken from the rule requesting
+the aspect, using the attribute of the rule that has the same name and type.
+(see the definition of ``file_count_rule``).
+
+For command-line aspects, the parameters values can be passed using
+[``--aspects_parameters``](/reference/command-line-reference#flag--aspects_parameters)
+flag. The ``values`` restriction of ``int`` and ``string`` parameters may be
+omitted.
 
 Aspects are also allowed to have private attributes of types ``label`` or
 ``label_list``. Private label attributes can be used to specify dependencies on
@@ -326,12 +347,12 @@ implementation of aspect A. The providers that a rule implementation propagates
 are created and frozen before aspects are applied and cannot be modified from an
 aspect. It is an error if a target and an aspect that is applied to it each
 provide a provider with the same type, with the exceptions of
-[`OutputGroupInfo`](/rules/lib/OutputGroupInfo)
+[`OutputGroupInfo`](/rules/lib/providers/OutputGroupInfo)
 (which is merged, so long as the
 rule and aspect specify different output groups) and
-[`InstrumentedFilesInfo`](/rules/lib/InstrumentedFilesInfo)
+[`InstrumentedFilesInfo`](/rules/lib/providers/InstrumentedFilesInfo)
 (which is taken from the aspect). This means that aspect implementations may
-never return [`DefaultInfo`](/rules/lib/DefaultInfo).
+never return [`DefaultInfo`](/rules/lib/providers/DefaultInfo).
 
 The parameters and private attributes are passed in the attributes of the
 ``ctx``. This example references the ``extension`` parameter and determines
@@ -395,3 +416,7 @@ rule implementation, ``extension`` would be considered an optional parameter.
 
 When the ``file_count`` target is built, our aspect will be evaluated for
 itself, and all of the targets accessible recursively via ``deps``.
+
+## References
+
+* [`aspect` API reference](/rules/lib/globals/bzl#aspect)

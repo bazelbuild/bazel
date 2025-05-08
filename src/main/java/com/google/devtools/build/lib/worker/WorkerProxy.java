@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.sandbox.Cgroup;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.Path;
@@ -31,6 +32,7 @@ import java.util.Set;
 class WorkerProxy extends Worker {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   protected final WorkerMultiplexer workerMultiplexer;
+
   /** The execution root of the worker. This is the CWD of the worker process. */
   protected final Path workDir;
 
@@ -40,9 +42,17 @@ class WorkerProxy extends Worker {
       Path logFile,
       WorkerMultiplexer workerMultiplexer,
       Path workDir) {
-    super(workerKey, workerId, logFile);
+    // Worker proxies of the same multiplexer share a WorkerProcessStatus.
+    super(workerKey, workerId, logFile, workerMultiplexer.getStatus());
     this.workDir = workDir;
     this.workerMultiplexer = workerMultiplexer;
+  }
+
+  @Override
+  public Cgroup getCgroup() {
+    // WorkerProxy does not have a cgroup at the momemnt. Consider adding it to the
+    // multiplexer and returning it here?
+    return null;
   }
 
   @Override
@@ -56,9 +66,10 @@ class WorkerProxy extends Worker {
     workerMultiplexer.setReporter(reporter);
   }
 
+  @Override
   public void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
-      throws IOException {
+      throws IOException, InterruptedException {
     workerMultiplexer.createProcess(workDir);
   }
 
@@ -79,12 +90,9 @@ class WorkerProxy extends Worker {
 
   /** Wait for WorkResponse from multiplexer. */
   @Override
-  WorkResponse getResponse(int requestId) throws InterruptedException {
+  WorkResponse getResponse(int requestId) throws InterruptedException, IOException {
     return workerMultiplexer.getResponse(requestId);
   }
-
-  @Override
-  public void finishExecution(Path execRoot, SandboxOutputs outputs) throws IOException {}
 
   @Override
   boolean diedUnexpectedly() {

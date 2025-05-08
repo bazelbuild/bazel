@@ -135,7 +135,7 @@ void LegacyProcessWrapper::WaitForChild() {
     status = WaitChild(child_pid, child_subreaper_enabled);
   }
 
-#if !defined(__APPLE__)
+#if !defined(__APPLE__) && !defined(__OpenBSD__)
   if (child_subreaper_enabled) {
     // If we enabled the child subreaper feature (on Linux), now that we have
     // collected the status of the PID we were interested in, terminate the

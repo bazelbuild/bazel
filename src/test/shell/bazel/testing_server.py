@@ -17,6 +17,8 @@
 # pylint: disable=g-import-not-at-top,g-importing-member
 import argparse
 import base64
+import json
+
 try:
   from http.server import BaseHTTPRequestHandler
 except ImportError:
@@ -39,16 +41,22 @@ import sys
 import time
 
 
+class TCPServerV6(TCPServer):
+  address_family = socket.AF_INET6
+
+
 class Handler(BaseHTTPRequestHandler):
   """Handlers for testing HTTP server."""
   auth = False
   not_found = False
   simulate_timeout = False
+  dump_headers = None
   filename = None
   redirect = None
   valid_headers = [
       b'Basic ' + base64.b64encode('foo:bar'.encode('ascii')), b'Bearer TOKEN'
   ]
+  unstable_headers = ['Host', 'User-Agent']
 
   def do_HEAD(self):  # pylint: disable=invalid-name
     self.send_response(200)
@@ -66,6 +74,13 @@ class Handler(BaseHTTPRequestHandler):
       # Needed for Unix domain connections as the response functions
       # fail without this being set.
       self.client_address = 'localhost'
+
+    if self.dump_headers:
+      headers = filter(
+          lambda hv: hv[0] not in self.unstable_headers, self.headers.items()
+      )
+      with open(self.dump_headers, 'w') as f:
+        f.write(json.dumps(dict(headers)))
 
     if self.simulate_timeout:
       while True:
@@ -94,7 +109,9 @@ class Handler(BaseHTTPRequestHandler):
       self.serve_file()
     else:
       self.do_AUTHHEAD()
-      self.wfile.write(b'Login required.' + str(auth_header))
+      self.wfile.write(
+          'Bad authorization header: {}'.format(auth_header).encode('ascii')
+      )
 
   def serve_file(self):
     path_to_serve = self.path[1:]
@@ -108,6 +125,8 @@ class Handler(BaseHTTPRequestHandler):
 def main(argv):
   parser = argparse.ArgumentParser()
   parser.add_argument('--unix_socket', action='store')
+  parser.add_argument('--dump_headers', action='store')
+
   parser.add_argument('mode', type=str, nargs='?')
   parser.add_argument('target', type=str, nargs='?')
   args = parser.parse_args(argv)
@@ -126,6 +145,8 @@ def main(argv):
       if args.target:
         Handler.filename = args.target
 
+  Handler.dump_headers = args.dump_headers
+
   httpd = None
   if args.unix_socket:
     httpd = UnixStreamServer(args.unix_socket, Handler)
@@ -135,7 +156,10 @@ def main(argv):
     while port is None:
       try:
         port = random.randrange(32760, 59760)
-        httpd = TCPServer(('', port), Handler)
+        if sys.platform == 'darwin':
+          httpd = TCPServerV6(('', port), Handler)
+        else:
+          httpd = TCPServer(('', port), Handler)
       except socket.error:
         port = None
     sys.stdout.write('%d\nstarted\n' % (port,))

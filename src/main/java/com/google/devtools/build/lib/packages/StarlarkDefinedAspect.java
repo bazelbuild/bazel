@@ -14,8 +14,11 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -23,20 +26,37 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.serialization.AbstractExportedStarlarkSymbolCodec;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
+import com.google.errorprone.annotations.Keep;
+import java.io.Serializable;
 import java.util.Objects;
+import java.util.Optional;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.SymbolGenerator.Symbol;
+import net.starlark.java.syntax.Location;
 
 /** A Starlark value that is a result of an 'aspect(..)' function call. */
 public final class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect {
   private final StarlarkCallable implementation;
-  private final ImmutableList<String> attributeAspects;
+  // @Nullable rather than Optional for the sake of serialization.
+  @Nullable private final String documentation;
+
+  // Supplier of the attributes to which the aspect will propagate.
+  private final AspectPropagationEdgesSupplier<String> attributeAspects;
+
+  // Supplier of the toolchains types for which the aspect will propagate to matching resolved
+  // toolchains.
+  private final AspectPropagationEdgesSupplier<Label> toolchainsAspects;
+
   private final ImmutableList<Attribute> attributes;
   private final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders;
   private final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders;
@@ -46,15 +66,16 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   private final ImmutableSet<String> paramAttributes;
 
   private final ImmutableSet<StarlarkAspect> requiredAspects;
+  @Nullable private final AspectPropagationPredicate propagationPredicate;
   private final ImmutableSet<String> fragments;
-  private final ConfigurationTransition hostTransition;
-  private final ImmutableSet<String> hostFragments;
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
   private final boolean applyToGeneratingRules;
   private final ImmutableSet<Label> execCompatibleWith;
-  private final ImmutableMap<String, ExecGroup> execGroups;
+  private final ImmutableMap<String, DeclaredExecGroup> execGroups;
+  private final ImmutableSet<? extends StarlarkSubruleApi> subrules;
 
-  private StarlarkAspectClass aspectClass;
+  /** {@link Symbol} before {@link #export} and a {@link StarlarkAspectClass} after. */
+  private Object aspectClassOrIdentityToken;
 
   private static final ImmutableSet<String> TRUE_REPS =
       ImmutableSet.of("true", "1", "yes", "t", "y");
@@ -64,44 +85,67 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
 
   public StarlarkDefinedAspect(
       StarlarkCallable implementation,
-      ImmutableList<String> attributeAspects,
+      Optional<String> documentation,
+      AspectPropagationEdgesSupplier<String> attributeAspects,
+      AspectPropagationEdgesSupplier<Label> toolchainsAspects,
       ImmutableList<Attribute> attributes,
       ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders,
       ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders,
       ImmutableSet<StarlarkProviderIdentifier> provides,
       ImmutableSet<String> paramAttributes,
       ImmutableSet<StarlarkAspect> requiredAspects,
+      @Nullable AspectPropagationPredicate propagationPredicate,
       ImmutableSet<String> fragments,
-      // The host transition is in lib.analysis, so we can't reference it directly here.
-      ConfigurationTransition hostTransition,
-      ImmutableSet<String> hostFragments,
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
       boolean applyToGeneratingRules,
       ImmutableSet<Label> execCompatibleWith,
-      ImmutableMap<String, ExecGroup> execGroups) {
+      ImmutableMap<String, DeclaredExecGroup> execGroups,
+      ImmutableSet<? extends StarlarkSubruleApi> subrules,
+      Symbol<BzlLoadValue.Key> identityToken) {
     this.implementation = implementation;
+    this.documentation = documentation.orElse(null);
     this.attributeAspects = attributeAspects;
+    this.toolchainsAspects = toolchainsAspects;
     this.attributes = attributes;
     this.requiredProviders = requiredProviders;
     this.requiredAspectProviders = requiredAspectProviders;
     this.provides = provides;
     this.paramAttributes = paramAttributes;
     this.requiredAspects = requiredAspects;
+    this.propagationPredicate = propagationPredicate;
     this.fragments = fragments;
-    this.hostTransition = hostTransition;
-    this.hostFragments = hostFragments;
     this.toolchainTypes = toolchainTypes;
     this.applyToGeneratingRules = applyToGeneratingRules;
     this.execCompatibleWith = execCompatibleWith;
     this.execGroups = execGroups;
+    this.subrules = subrules;
+    this.aspectClassOrIdentityToken = identityToken;
   }
 
   public StarlarkCallable getImplementation() {
     return implementation;
   }
 
-  public ImmutableList<String> getAttributeAspects() {
+  /**
+   * Returns the value of the doc parameter passed to aspect() Starlark builtin, or an empty
+   * Optional if a doc string was not provided.
+   */
+  public Optional<String> getDocumentation() {
+    return Optional.ofNullable(documentation);
+  }
+
+  /** Returns the supplier of the attributes to which the aspect will propagate. */
+  public AspectPropagationEdgesSupplier<String> getAttributeAspects() {
     return attributeAspects;
+  }
+
+  /**
+   * Returns the supplier of the toolchain types to which resolved toolchains the aspect can
+   * propagate.
+   */
+  @VisibleForTesting
+  public AspectPropagationEdgesSupplier<Label> getToolchainsAspects() {
+    return toolchainsAspects;
   }
 
   public ImmutableList<Attribute> getAttributes() {
@@ -126,7 +170,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   @Override
   public StarlarkAspectClass getAspectClass() {
     Preconditions.checkState(isExported());
-    return aspectClass;
+    return (StarlarkAspectClass) aspectClassOrIdentityToken;
   }
 
   @Override
@@ -134,13 +178,22 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     return paramAttributes;
   }
 
+  // TODO(bazel-team): use exportedLocation as the callable symbol's location.
   @Override
-  public void export(EventHandler handler, Label extensionLabel, String name) {
+  public void export(
+      EventHandler handler, Label extensionLabel, String name, Location exportedLocation) {
     Preconditions.checkArgument(!isExported());
-    this.aspectClass = new StarlarkAspectClass(extensionLabel, name);
+    @SuppressWarnings("unchecked")
+    var identityToken = (Symbol<BzlLoadValue.Key>) aspectClassOrIdentityToken;
+    BzlLoadValue.Key owner = identityToken.getOwner();
+    checkArgument(
+        owner.getLabel().equals(extensionLabel),
+        "Exporting aspect as (%s, %s) but label did not match owner=%s",
+        extensionLabel,
+        name,
+        owner);
+    this.aspectClassOrIdentityToken = new StarlarkAspectClass(owner, name);
   }
-
-  private static final ImmutableList<String> ALL_ATTR_ASPECTS = ImmutableList.of("*");
 
   /**
    * The <code>AspectDefinition</code> is a function of the aspect's parameters, so we can cache
@@ -161,14 +214,10 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   }
 
   private AspectDefinition buildDefinition(AspectParameters aspectParams) {
-    AspectDefinition.Builder builder = new AspectDefinition.Builder(aspectClass);
-    if (ALL_ATTR_ASPECTS.equals(attributeAspects)) {
-      builder.propagateAlongAllAttributes();
-    } else {
-      for (String attributeAspect : attributeAspects) {
-        builder.propagateAlongAttribute(attributeAspect);
-      }
-    }
+    AspectDefinition.Builder builder =
+        new AspectDefinition.Builder((StarlarkAspectClass) aspectClassOrIdentityToken);
+    builder.propagateToAttributes(attributeAspects);
+    builder.propagateToToolchainsTypes(toolchainsAspects);
 
     for (Attribute attribute : attributes) {
       Attribute attr = attribute; // Might be reassigned.
@@ -199,7 +248,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     }
     builder.advertiseProvider(advertisedStarlarkProviders.build());
     builder.requiresConfigurationFragmentsByStarlarkBuiltinName(fragments);
-    builder.requiresConfigurationFragmentsByStarlarkBuiltinName(hostTransition, hostFragments);
     builder.addToolchainTypes(toolchainTypes);
     builder.applyToGeneratingRules(applyToGeneratingRules);
     ImmutableSet.Builder<AspectClass> requiredAspectsClasses = ImmutableSet.builder();
@@ -207,8 +255,10 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       requiredAspectsClasses.add(requiredAspect.getAspectClass());
     }
     builder.requiredAspectClasses(requiredAspectsClasses.build());
+    builder.propagationPredicate(propagationPredicate);
     builder.execCompatibleWith(execCompatibleWith);
     builder.execGroups(execGroups);
+    builder.subrules(subrules);
     return builder.build();
   }
 
@@ -242,57 +292,53 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
 
   @Override
   public boolean isExported() {
-    return aspectClass != null;
+    return aspectClassOrIdentityToken instanceof StarlarkAspectClass;
   }
 
   @Override
   public Function<Rule, AspectParameters> getDefaultParametersExtractor() {
-    // This is serialized along with AspectsListBuilder.StarlarkAspectDetail and should not be
-    // turned into a lambda.
-    return new Function<Rule, AspectParameters>() {
-      @Override
-      public AspectParameters apply(Rule rule) {
-        AttributeMap ruleAttrs = RawAttributeMapper.of(rule);
-        AspectParameters.Builder builder = new AspectParameters.Builder();
-        for (Attribute aspectAttr : attributes) {
-          String param = aspectAttr.getName();
-          if (Attribute.isImplicit(param) || Attribute.isLateBound(param)) {
-            // These attributes are the private matters of the aspect
-            continue;
-          }
+    return (Function<Rule, AspectParameters> & Serializable)
+        rule -> {
+          AttributeMap ruleAttrs = RawAttributeMapper.of(rule);
+          AspectParameters.Builder builder = new AspectParameters.Builder();
+          for (Attribute aspectAttr : attributes) {
+            String param = aspectAttr.getName();
+            if (Attribute.isImplicit(param) || Attribute.isAnalysisDependent(param)) {
+              // These attributes are the private matters of the aspect
+              continue;
+            }
 
-          Attribute ruleAttr = ruleAttrs.getAttributeDefinition(param);
-          if (paramAttributes.contains(aspectAttr.getName())) {
-            // These are preconditions because if they are false, RuleFunction.call() should
-            // already have generated an error.
-            Preconditions.checkArgument(
-                ruleAttr != null,
-                "Cannot apply aspect %s to %s that does not define attribute '%s'.",
-                getName(),
-                rule.getTargetKind(),
-                param);
-            Preconditions.checkArgument(
-                ruleAttr.getType() == Type.STRING
-                    || ruleAttr.getType() == Type.INTEGER
-                    || ruleAttr.getType() == Type.BOOLEAN,
-                "Cannot apply aspect %s to %s since attribute '%s' is not boolean, integer, nor"
-                    + " string.",
-                getName(),
-                rule.getTargetKind(),
-                param);
-          }
+            Attribute ruleAttr = ruleAttrs.getAttributeDefinition(param);
+            if (paramAttributes.contains(aspectAttr.getName())) {
+              // These are preconditions because if they are false, RuleFunction.call() should
+              // already have generated an error.
+              Preconditions.checkArgument(
+                  ruleAttr != null,
+                  "Cannot apply aspect %s to %s that does not define attribute '%s'.",
+                  getName(),
+                  rule.getTargetKind(),
+                  param);
+              Preconditions.checkArgument(
+                  ruleAttr.getType() == Type.STRING
+                      || ruleAttr.getType() == Type.INTEGER
+                      || ruleAttr.getType() == Type.BOOLEAN,
+                  "Cannot apply aspect %s to %s since attribute '%s' is not boolean, integer, nor"
+                      + " string.",
+                  getName(),
+                  rule.getTargetKind(),
+                  param);
+            }
 
-          if (ruleAttr != null && ruleAttr.getType() == aspectAttr.getType()) {
-            // If the attribute has a select() (which aspect attributes don't yet support), the
-            // error gets reported in RuleClass.checkAspectAllowedValues.
-            if (!ruleAttrs.isConfigurable(param)) {
-              builder.addAttribute(param, ruleAttrs.get(param, ruleAttr.getType()).toString());
+            if (ruleAttr != null && ruleAttr.getType() == aspectAttr.getType()) {
+              // If the attribute has a select() (which aspect attributes don't yet support), the
+              // error gets reported in RuleClass.checkAspectAllowedValues.
+              if (!ruleAttrs.isConfigurable(param)) {
+                builder.addAttribute(param, ruleAttrs.get(param, ruleAttr.getType()).toString());
+              }
             }
           }
-        }
-        return builder.build();
-      }
-    };
+          return builder.build();
+        };
   }
 
   public AspectParameters extractTopLevelParameters(ImmutableMap<String, String> parametersValues)
@@ -302,7 +348,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       String parameterName = aspectParameter.getName();
       Type<?> parameterType = aspectParameter.getType();
 
-      if (Attribute.isImplicit(parameterName) || Attribute.isLateBound(parameterName)) {
+      if (Attribute.isImplicit(parameterName) || Attribute.isAnalysisDependent(parameterName)) {
         // These attributes are the private matters of the aspect
         continue;
       }
@@ -371,28 +417,17 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     return toolchainTypes;
   }
 
-  @Override
-  public void attachToAspectsList(String baseAspectName, AspectsListBuilder aspectsList)
-      throws EvalException {
-
-    if (!this.isExported()) {
-      throw Starlark.errorf(
-          "Aspects should be top-level values in extension files that define them.");
-    }
-
-    for (StarlarkAspect requiredAspect : requiredAspects) {
-      requiredAspect.attachToAspectsList(this.getName(), aspectsList);
-    }
-
-    aspectsList.addAspect(this, baseAspectName);
+  public ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> getRequiredProviders() {
+    return requiredProviders;
   }
 
   public ImmutableSet<StarlarkAspect> getRequiredAspects() {
     return requiredAspects;
   }
 
-  public ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> getRequiredProviders() {
-    return requiredProviders;
+  @Nullable
+  public AspectPropagationPredicate getPropagationPredicate() {
+    return propagationPredicate;
   }
 
   @Override
@@ -406,17 +441,17 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     StarlarkDefinedAspect that = (StarlarkDefinedAspect) o;
     return Objects.equals(implementation, that.implementation)
         && Objects.equals(attributeAspects, that.attributeAspects)
+        && Objects.equals(toolchainsAspects, that.toolchainsAspects)
         && Objects.equals(attributes, that.attributes)
         && Objects.equals(requiredProviders, that.requiredProviders)
         && Objects.equals(requiredAspectProviders, that.requiredAspectProviders)
         && Objects.equals(provides, that.provides)
         && Objects.equals(paramAttributes, that.paramAttributes)
         && Objects.equals(requiredAspects, that.requiredAspects)
+        && Objects.equals(propagationPredicate, that.propagationPredicate)
         && Objects.equals(fragments, that.fragments)
-        && Objects.equals(hostTransition, that.hostTransition)
-        && Objects.equals(hostFragments, that.hostFragments)
         && Objects.equals(toolchainTypes, that.toolchainTypes)
-        && Objects.equals(aspectClass, that.aspectClass);
+        && Objects.equals(aspectClassOrIdentityToken, that.aspectClassOrIdentityToken);
   }
 
   @Override
@@ -424,16 +459,34 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     return Objects.hash(
         implementation,
         attributeAspects,
+        toolchainsAspects,
         attributes,
         requiredProviders,
         requiredAspectProviders,
         provides,
         paramAttributes,
         requiredAspects,
+        propagationPredicate,
         fragments,
-        hostTransition,
-        hostFragments,
         toolchainTypes,
-        aspectClass);
+        aspectClassOrIdentityToken);
+  }
+
+  @Keep // used reflectively
+  private static class Codec extends AbstractExportedStarlarkSymbolCodec<StarlarkDefinedAspect> {
+    @Override
+    public Class<StarlarkDefinedAspect> getEncodedClass() {
+      return StarlarkDefinedAspect.class;
+    }
+
+    @Override
+    protected BzlLoadValue.Key getBzlLoadKey(StarlarkDefinedAspect obj) {
+      return obj.getAspectClass().getExtensionKey();
+    }
+
+    @Override
+    protected String getExportedName(StarlarkDefinedAspect obj) {
+      return obj.getAspectClass().getExportedName();
+    }
   }
 }

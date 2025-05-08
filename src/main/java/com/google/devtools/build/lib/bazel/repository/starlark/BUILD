@@ -1,6 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -17,6 +20,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace-rule-event",
@@ -32,18 +36,21 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/repository:repository_events",
         "//src/main/java/com/google/devtools/build/lib/repository:request_repository_information_event",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/resolved_hashes_value",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_file_helper",
         "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_package_prefixes_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_environment_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_tree_digest_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_subdirectories_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -52,6 +59,8 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//third_party:error_prone_annotations",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:java-diff-utils",
         "//third_party:jsr305",

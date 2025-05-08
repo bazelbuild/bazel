@@ -20,6 +20,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -67,18 +68,20 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
                     MockCcSupport.FSAFDO));
 
     List<String> testConfig =
-        Lists.newArrayList("--fdo_optimize=pkg/profile.afdo", "--compilation_mode=opt");
+        Lists.newArrayList("--fdo_optimize=/pkg/profile.afdo", "--compilation_mode=opt");
     Collections.addAll(testConfig, config);
     useConfiguration(Iterables.toArray(testConfig, String.class));
 
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
+    String rootExecPath = binArtifact.getRoot().getExecPathString();
 
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction, "pkg/bin.lto/pkg/_objs/bin/binfile.o");
+            getPredecessorByInputName(
+                linkAction, "pkg/bin.lto/" + rootExecPath + "/pkg/_objs/bin/binfile.o");
 
     // We should have a ThinLTO backend action.
     assertThat(backendAction).isNotNull();
@@ -91,13 +94,16 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
   public void fsafdoEnabledWithImplicit() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
-    scratch.file("pkg/profile.afdo", "");
 
     LtoBackendAction backendAction = setupAndRunToolchainActions("--features=implicit_fsafdo");
 
@@ -109,13 +115,16 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
   public void fsafdoEnabledWithFeatureWithoutImplicit() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
-    scratch.file("pkg/profile.afdo", "");
 
     LtoBackendAction backendAction =
         setupAndRunToolchainActions("--features=-implicit_fsafdo", "--features=fsafdo");
@@ -128,13 +137,16 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
   public void fsafdoEnabledWithExplicitFeature() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
-    scratch.file("pkg/profile.afdo", "");
 
     LtoBackendAction backendAction = setupAndRunToolchainActions("--features=fsafdo");
 
@@ -146,13 +158,16 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
   public void fsafdoDisabledWithFeatureWithoutImplicit() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
-    scratch.file("pkg/profile.afdo", "");
 
     LtoBackendAction backendAction = setupAndRunToolchainActions();
 
@@ -167,13 +182,16 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
   public void fsafdoDisabledWithExplicitFeature() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
-    scratch.file("pkg/profile.afdo", "");
 
     LtoBackendAction backendAction =
         setupAndRunToolchainActions("--features=implicit_fsafdo", "--features=-fsafdo");
@@ -186,11 +204,15 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
   public void fsafdoDisabledForNonAutoFDO() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
 
     AnalysisMock.get()
@@ -211,12 +233,14 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
     useConfiguration(Iterables.toArray(testConfig, String.class));
 
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    String rootExecPath = binArtifact.getRoot().getExecPathString();
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction, "pkg/bin.lto/pkg/_objs/bin/binfile.o");
+            getPredecessorByInputName(
+                linkAction, "pkg/bin.lto/" + rootExecPath + "/pkg/_objs/bin/binfile.o");
 
     // We should have a ThinLTO backend action.
     assertThat(backendAction).isNotNull();
@@ -229,12 +253,20 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
   public void fsafdoDisabledForXFdo() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')",
-        "fdo_profile(name='out.xfdo', profile='profiles.xfdo')");
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+
+        fdo_profile(
+            name = "out.xfdo",
+            profile = "profiles.xfdo",
+        )
+        """);
     scratch.file("pkg/binfile.cc", "int main() {}");
 
     AnalysisMock.get()
@@ -259,12 +291,14 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
     useConfiguration(Iterables.toArray(testConfig, String.class));
 
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
+    String rootExecPath = binArtifact.getRoot().getExecPathString();
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction, "pkg/bin.lto/pkg/_objs/bin/binfile.o");
+            getPredecessorByInputName(
+                linkAction, "pkg/bin.lto/" + rootExecPath + "/pkg/_objs/bin/binfile.o");
 
     // We should have a ThinLTO backend action.
     assertThat(backendAction).isNotNull();

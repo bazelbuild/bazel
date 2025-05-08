@@ -14,27 +14,28 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.config.AutoCpuConverter;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
-import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.util.CPU;
-import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.packages.Types;
+import java.util.List;
 import java.util.Map;
 
 /** Defines a platform for execution contexts. */
@@ -42,9 +43,6 @@ public class Platform implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-
-    PlatformOptions platformOptions =
-        ruleContext.getConfiguration().getOptions().get(PlatformOptions.class);
 
     PlatformInfo.Builder platformBuilder = PlatformInfo.builder().setLabel(ruleContext.getLabel());
 
@@ -60,11 +58,6 @@ public class Platform implements RuleConfiguredTargetFactory {
     PlatformInfo parentPlatform = Iterables.getFirst(parentPlatforms, null);
     platformBuilder.setParent(parentPlatform);
 
-    if (!platformOptions.autoConfigureHostPlatform) {
-      // If the flag is set, the constraints are defaulted by @local_config_platform.
-      setDefaultConstraints(platformBuilder, ruleContext);
-    }
-
     // Add the declared constraints. Because setting the host_platform or target_platform attribute
     // to true on a platform automatically includes the detected CPU and OS constraints, if the
     // constraint_values attribute tries to add those, this will throw an error.
@@ -77,10 +70,33 @@ public class Platform implements RuleConfiguredTargetFactory {
     platformBuilder.setRemoteExecutionProperties(remoteExecutionProperties);
 
     Map<String, String> execProperties =
-        ruleContext.attributes().get(PlatformRule.EXEC_PROPS_ATTR, Type.STRING_DICT);
+        ruleContext.attributes().get(PlatformRule.EXEC_PROPS_ATTR, Types.STRING_DICT);
     if (execProperties != null && !execProperties.isEmpty()) {
       platformBuilder.setExecProperties(ImmutableMap.copyOf(execProperties));
     }
+
+    List<String> flags = ruleContext.attributes().get(PlatformRule.FLAGS_ATTR, Types.STRING_LIST);
+    if (flags != null && !flags.isEmpty()) {
+      platformBuilder.addFlags(flags);
+    }
+    ImmutableList<ConfigMatchingProvider> requiredSettings =
+        ruleContext.getPrerequisites(PlatformRule.REQUIRED_SETTINGS_ATTR).stream()
+            .map(target -> target.getProvider(ConfigMatchingProvider.class))
+            .collect(toImmutableList());
+    platformBuilder.addRequiredSettings(requiredSettings);
+
+    if (ruleContext.attributes().get("check_toolchain_types", Type.BOOLEAN)) {
+      List<Label> allowedToolchainTypes =
+          ruleContext.attributes().get("allowed_toolchain_types", BuildType.NODEP_LABEL_LIST);
+      platformBuilder.checkToolchainTypes(true);
+      platformBuilder.addAllowedToolchainTypes(allowedToolchainTypes);
+    } else {
+      platformBuilder.checkToolchainTypes(false);
+    }
+
+    String missingToolchainErrorMessage =
+        ruleContext.attributes().get(PlatformRule.MISSING_TOOLCHAIN_ERROR_ATTR, Type.STRING);
+    platformBuilder.setMissingToolchainErrorMessage(missingToolchainErrorMessage);
 
     PlatformInfo platformInfo;
     try {
@@ -98,56 +114,5 @@ public class Platform implements RuleConfiguredTargetFactory {
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .addNativeDeclaredProvider(platformInfo)
         .build();
-  }
-
-  private void setDefaultConstraints(PlatformInfo.Builder platformBuilder, RuleContext ruleContext)
-      throws RuleErrorException {
-    Boolean isHostPlatform =
-        ruleContext.attributes().get(PlatformRule.HOST_PLATFORM_ATTR, Type.BOOLEAN);
-    Boolean isTargetPlatform =
-        ruleContext.attributes().get(PlatformRule.TARGET_PLATFORM_ATTR, Type.BOOLEAN);
-    if (isHostPlatform && isTargetPlatform) {
-      throw ruleContext.throwWithAttributeError(
-          PlatformRule.HOST_PLATFORM_ATTR,
-          "A single platform cannot have both host_platform and target_platform set.");
-    } else if (isHostPlatform) {
-      // Create default constraints based on the current host OS and CPU values.
-      String cpuOption = ruleContext.getConfiguration().getHostCpu();
-      autodetectConstraints(cpuOption, ruleContext, platformBuilder);
-    } else if (isTargetPlatform) {
-      // Create default constraints based on the current OS and CPU values.
-      String cpuOption = ruleContext.getConfiguration().getCpu();
-      autodetectConstraints(cpuOption, ruleContext, platformBuilder);
-    }
-  }
-
-  private void autodetectConstraints(
-      String cpuOption, RuleContext ruleContext, PlatformInfo.Builder platformBuilder) {
-
-    Pair<CPU, OS> cpuValues = AutoCpuConverter.reverse(cpuOption);
-
-    // Add the CPU.
-    CPU cpu = cpuValues.getFirst();
-    ImmutableList<ConstraintValueInfo> cpuConstraintValues =
-        PlatformProviderUtils.constraintValues(
-            ruleContext.getPrerequisites(PlatformRule.CPU_CONSTRAINTS_ATTR));
-    for (ConstraintValueInfo constraint : cpuConstraintValues) {
-      if (cpu.getCanonicalName().equals(constraint.label().getName())) {
-        platformBuilder.addConstraint(constraint);
-        break;
-      }
-    }
-
-    // Add the OS.
-    OS os = cpuValues.getSecond();
-    ImmutableList<ConstraintValueInfo> osConstraintValues =
-        PlatformProviderUtils.constraintValues(
-            ruleContext.getPrerequisites(PlatformRule.OS_CONSTRAINTS_ATTR));
-    for (ConstraintValueInfo constraint : osConstraintValues) {
-      if (os.getCanonicalName().equals(constraint.label().getName())) {
-        platformBuilder.addConstraint(constraint);
-        break;
-      }
-    }
   }
 }

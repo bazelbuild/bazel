@@ -35,8 +35,9 @@ def main(input_file, output_file):
       changelog_out.write("bazel (0.1.0~HEAD) unstable; urgency=low\n")
       changelog_out.write("\n    Development version\n")
     changelog_out.write(
-        "\n -- The Bazel Authors <bazel-dev@googlegroups.com>  %s\n\n" %
-        datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0100"))
+        "\n -- The Bazel Authors <bazel-discuss@googlegroups.com>  %s\n\n"
+        % datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0100")
+    )
 
 
 if __name__ == "__main__":

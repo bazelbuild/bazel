@@ -3,10 +3,12 @@ Book: /_book.yaml
 
 # Patch Acceptance Process
 
+{% include "_buttons.html" %}
+
 This page outlines how contributors can propose and make changes to the Bazel
 code base.
 
-1. Read the [Bazel Contribution policy](/contribute/contribution-policy).
+1. Read the [Bazel Contribution policy](/contribute/policy).
 1. Create a [GitHub issue](https://github.com/bazelbuild/bazel/){: .external} to
    discuss your plan and design. Pull requests that change or add behavior
    need a corresponding issue for tracking.
@@ -28,11 +30,13 @@ code base.
 1. A Bazel maintainer should assign you a reviewer within two business days
    (excluding holidays in the USA and Germany). If you aren't assigned a
    reviewer in that time, you can request one by emailing
-   [bazel-dev@googlegroups.com](mailto:bazel-dev@googlegroups.com){: .external}.
+   [bazel-discuss@googlegroups.com]
+   (mailto:bazel-discuss@googlegroups.com){: .external}.
 1. Work with the reviewer to complete a code review. For each change, create a
    new commit and push it to make changes to your pull request. If the review
    takes too long (for instance, if the reviewer is unresponsive), send an email to
-   [bazel-dev@googlegroups.com](mailto:bazel-dev@googlegroups.com){: .external}.
+   [bazel-discuss@googlegroups.com]
+   (mailto:bazel-discuss@googlegroups.com){: .external}.
 1. After your review is complete, a Bazel maintainer applies your patch to
    Google's internal version control system.
 

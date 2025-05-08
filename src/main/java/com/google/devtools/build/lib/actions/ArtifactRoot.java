@@ -17,8 +17,11 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.vfs.Path;
@@ -30,7 +33,7 @@ import net.starlark.java.eval.Printer;
 /**
  * A root for an artifact. The roots are the directories containing artifacts, and they are mapped
  * together into a single directory tree to form the execution environment. There are two kinds of
- * roots, source roots and derived roots. Source roots correspond to entries of the package path,
+ * roots: source roots and derived roots. Source roots correspond to entries of the package path,
  * and they can be anywhere on disk. Derived roots correspond to output directories; there are
  * generally different output directories for different configurations, and different types of
  * output (bin, genfiles, includes, etc.).
@@ -40,8 +43,50 @@ import net.starlark.java.eval.Printer;
  * responsible for determining that mapping. The derived roots, on the other hand, have to be
  * distinct. (It is currently allowed to have a derived root that is the prefix of another one.)
  *
- * <p>The derived roots must have paths that point inside the exec root, i.e. below the directory
+ * <p>Derived roots must have paths that point inside the exec root ({@link
+ * com.google.devtools.build.lib.analysis.BlazeDirectories#getExecRoot}), i.e. below the directory
  * that is the root of the merged directory tree.
+ *
+ * <p>For example, if
+ *
+ * <ul>
+ *   <li>your workspace is {@code /home/my_workspace/}
+ *   <li>your package path is {@code /home/my_workspace/} (the norm unless you're customizing {@link
+ *       com.google.devtools.build.lib.pkgcache.PackageOptions#packagePath}).
+ *   <li>your workspace has a source file at {@code /home/my_workspace/myapp/source.go}
+ *   <li>you build a binary that outputs {@code /home/my_workspace/bazel-out/x86-opt/bin/a/mybinary}
+ * </ul>
+ *
+ * <p>then
+ *
+ * <ul>
+ *   <li>Bazel creates an "output base" directory {@code $OUTPUT_BASE} which it uses for staging
+ *       build work: {@link com.google.devtools.build.lib.analysis.BlazeDirectories#getOutputBase()}
+ *   <li>Bazel creates an exec root at {@code $OUTPUT_BASE/execroot/my_workspace/}. This symlinks
+ *       all files and directories under {@code /home/my_workspace/}. This is the working directory
+ *       where actions run (either directly for local execution or as the base for staging remote
+ *       execution paths). This is also the base directory for writing outputs.
+ *   <li>{@code /home/my_workspace/myapp/source.go} is a {@link SourceArtifact} with source root
+ *       {@code /home/my_workspace/}
+ *   <li>{@code /home/my_workspace/bazel-out/x86-opt/bin/a/mybinary} is a {@link DerivedArtifact}.
+ *       Because derived artifacts are written under the exec root, {@code
+ *       /home/my_workspace/bazel-out} is a symlink to {@code $EXEC_ROOT/bazel-out}. So {@code
+ *       mybinary} is actually at {@code $EXEC_ROOT/bazel-out/x86-opt/bin/mybinary}. Its derived
+ *       root is therefore {@code $EXEC_ROOT/bazel-out/x86-opt/bin/}.
+ * </ul>
+ *
+ * <p>The "exec path" ({@link Artifact#getExecPath()}, {@link #getExecPath()}, etc.) is an entity's
+ * path relative to the exec root. So {@code /home/my_workspace/myapp/source.go}'s exec path is
+ * {@code myapp/source.go} and {@code /home/my_workspace/bazel-out/x86-opt/bin/a/mybinary}'s exec
+ * path is {@code bazel-out/x86-opt/bin/a/mybinary}
+ *
+ * <p>The "root-relative path" ({@link Artifact#getRootRelativePath()}) is a entity's path relative
+ * to its root. So {@code /home/my_workspace/myapp/source.go}'s root-relative path is {@code
+ * myapp/source.go} and {@code /home/my_workspace/bazel-out/x86-opt/bin/a/mybinary}'s root-relative
+ * path is {@code a/mybinary}.
+ *
+ * <p>For concrete examples, run {@code $ bazel info} in your terminal after a build. Also see <a
+ * href="https://bazel.build/remote/output-directories">Bazel's output directory docs</a>.
  */
 @AutoCodec
 @Immutable
@@ -113,14 +158,12 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
         "execPath: %s contains parent directory reference (..)",
         execPath);
     Preconditions.checkArgument(
-        isOutputRootType(rootType) || isMiddlemanRootType(rootType),
-        "%s is not a derived root type",
-        rootType);
+        isOutputRootType(rootType), "%s is not a derived root type", rootType);
     Path root = execRoot.getRelative(execPath);
     return INTERNER.intern(new ArtifactRoot(Root.fromPath(root), execPath, rootType));
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec.Instantiator
   static ArtifactRoot createForSerialization(
       Root rootForSerialization, PathFragment execPath, RootType rootType) {
@@ -138,14 +181,11 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
     MainSource,
     ExternalSource,
     Output,
-    Middleman,
     // Sibling root types are in effect when --experimental_sibling_repository_layout is activated.
-    // These will eventually replace the above Output and Middleman types when the flag becomes
-    // the default option and then removed.
+    // These will eventually replace the above Output types when the flag becomes the default option
+    // and then removed.
     SiblingMainOutput,
-    SiblingMainMiddleman,
     SiblingExternalOutput,
-    SiblingExternalMiddleman,
   }
 
   private final Root root;
@@ -190,20 +230,8 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
         || rootType == RootType.Output;
   }
 
-  private static boolean isMiddlemanRootType(RootType rootType) {
-    return rootType == RootType.SiblingMainMiddleman
-        || rootType == RootType.SiblingExternalMiddleman
-        || rootType == RootType.Middleman;
-  }
-
-  boolean isMiddlemanRoot() {
-    return isMiddlemanRootType(rootType);
-  }
-
   public boolean isExternal() {
-    return rootType == RootType.ExternalSource
-        || rootType == RootType.SiblingExternalOutput
-        || rootType == RootType.SiblingExternalMiddleman;
+    return rootType == RootType.ExternalSource || rootType == RootType.SiblingExternalOutput;
   }
 
   /**
@@ -211,7 +239,7 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
    * created without the --experimental_sibling_repository_layout flag set.
    */
   public boolean isLegacy() {
-    return rootType == RootType.Output || rootType == RootType.Middleman;
+    return rootType == RootType.Output;
   }
 
   @Override
@@ -254,10 +282,9 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
     if (o == this) {
       return true;
     }
-    if (!(o instanceof ArtifactRoot)) {
+    if (!(o instanceof ArtifactRoot r)) {
       return false;
     }
-    ArtifactRoot r = (ArtifactRoot) o;
     return root.equals(r.root) && execPath.equals(r.execPath) && rootType == r.rootType;
   }
 

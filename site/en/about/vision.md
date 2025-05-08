@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Bazel Vision
 
+{% include "_buttons.html" %}
+
 Any software developer can efficiently build, test, and package
 any project, of any size or complexity, with tooling that's easy to adopt and
 extend.
@@ -83,7 +85,7 @@ any language.
     ["Bazel sandwich"](https://github.com/bazelbuild/bazel-website/blob/master/designs/_posts/2016-08-04-extensibility-for-native-rules.md)
     principles.
 1.  The rules need to be **remote-execution ready**. In practice, this means
-    **configurable using the [toolchains](/docs/toolchains) mechanism**.
+    **configurable using the [toolchains](/extending/toolchains) mechanism**.
 1.  The rules (and Bazel) need to interface with a **widely-used IDE** for the
     language, if there is one.
 1.  The rules need to have **thorough, usable documentation,** with introductory

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -38,8 +37,7 @@ import net.starlark.java.eval.StarlarkThread;
     documented = false,
     doc =
         "Provider that signals that rules that use launchers can use this target as "
-            + "the launcher.",
-    category = DocCategory.TOP_LEVEL_TYPE)
+            + "the launcher.")
 public class CcLauncherInfo extends NativeInfo {
   private static final String RESTRICTION_ERROR_MESSAGE =
       "This provider is restricted to native.java_binary, native.py_binary and native.java_test. "

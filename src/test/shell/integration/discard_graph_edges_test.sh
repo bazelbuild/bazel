@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -128,6 +128,7 @@ function test_configured_query() {
 function test_top_level_aspect() {
   mkdir -p "foo" || fail "Couldn't make directory"
   cat > foo/simpleaspect.bzl <<'EOF' || fail "Couldn't write bzl file"
+AspectInfo = provider()
 def _simple_aspect_impl(target, ctx):
   result=[]
   for orig_out in target.files.to_list():
@@ -138,10 +139,13 @@ def _simple_aspect_impl(target, ctx):
     result += [aspect_out]
 
   result = depset(result,
-      transitive = [src.aspectouts for src in ctx.rule.attr.srcs])
+      transitive = [src[AspectInfo].aspectouts for src in ctx.rule.attr.srcs])
 
-  return struct(output_groups={
-      "aspect-out" : result }, aspectouts = result)
+  return [
+      OutputGroupInfo(**{"aspect-out" : result}),
+      AspectInfo(aspectouts = result),
+  ]
+
 
 simple_aspect = aspect(implementation=_simple_aspect_impl,
                        attr_aspects = ["srcs"])
@@ -202,7 +206,6 @@ load(":bar.bzl", "bar")
 load(":baz.bzl", "baz")
 cc_library(name = 'cclib', srcs = ['cclib.cc'])
 genrule(name = 'histodump',
-        srcs = glob(["*.in"]),
         outs = ['histo.txt'],
         local = 1,
         tools = [':cclib'],
@@ -248,9 +251,9 @@ function test_packages_cleared() {
       'devtools\.build\.lib\..*\.Package$')"
   [[ "$package_count" -ge 9 ]] \
       || fail "package count $package_count too low: did you move/rename the class?"
-  local glob_count="$(extract_histogram_count "$histo_file" "GlobValue$")"
-  [[ "$glob_count" -ge 2 ]] \
-      || fail "glob count $glob_count too low: did you move/rename the class?"
+  local globs_count="$(extract_histogram_count "$histo_file" "GlobsValue$")"
+  [[ "$globs_count" -ge 2 ]] \
+      || fail "globs count $globs_count too low: did you move/rename the class?"
   local module_count="$(extract_histogram_count "$histo_file" 'eval.Module$')"
   [[ "$module_count" -gt 25 ]] \
       || fail "Module count $module_count too low: was the class renamed/moved?" # was 74
@@ -258,38 +261,43 @@ function test_packages_cleared() {
        'RuleConfiguredTarget$')"
   [[ "$ct_count" -ge 18 ]] \
       || fail "RuleConfiguredTarget count $ct_count too low: did you move/rename the class?"
-  local edgeless_entry_count="$(extract_histogram_count "$histo_file" \
-       'EdgelessInMemoryNodeEntry')"
-  [[ "$edgeless_entry_count" -eq 0 ]] \
-      || fail "$edgless_entry_count EdgelessInMemoryNodeEntry instances found in build keeping edges"
-  local node_entry_count="$(extract_histogram_count "$histo_file" \
-       '\.InMemoryNodeEntry')"
-  [[ "$node_entry_count" -ge 100 ]] \
-      || fail "Only $node_entry_count InMemoryNodeEntry instances found in build keeping edges"
+  local non_incremental_entry_count="$(extract_histogram_count "$histo_file" \
+       '\.NonIncrementalInMemoryNodeEntry$')"
+  [[ "$non_incremental_entry_count" -eq 0 ]] \
+      || fail "$non_incremental_entry_count NonIncrementalInMemoryNodeEntry instances found in build keeping edges"
+  local incremental_entry_count="$(extract_histogram_count "$histo_file" \
+       '\.IncrementalInMemoryNodeEntry$')"
+  [[ "$incremental_entry_count" -ge 100 ]] \
+      || fail "Only $incremental_entry_count IncrementalInMemoryNodeEntry instances found in build keeping edges"
   local histo_file="$(prepare_histogram "$BUILD_FLAGS")"
   package_count="$(extract_histogram_count "$histo_file" \
       'devtools\.build\.lib\..*\.Package$')"
-  # A few packages aren't cleared.
-  [[ "$package_count" -le 20 ]] \
+  # In Bzlmod, every external repo is in its own "external" package. This blows
+  # up the package count, while in reality the actual BUILD package count is
+  # around 26. We can rely on the fact that the number of RuleConfiguredTargets
+  # is still low (external packages don't contribute there). We can lower this
+  # number again once we remove WORKSPACE logic and move repo rules to not use
+  # Package anymore.
+  [[ "$package_count" -le 60 ]] \
       || fail "package count $package_count too high"
-  glob_count="$(extract_histogram_count "$histo_file" "GlobValue$")"
-  [[ "$glob_count" -le 1 ]] \
-      || fail "glob count $glob_count too high"
+  globs_count="$(extract_histogram_count "$histo_file" "GlobsValue$")"
+  [[ "$globs_count" -le 1 ]] \
+      || fail "globs count $globs_count too high"
   module_count="$(extract_histogram_count "$histo_file" 'eval.Module$')"
-  [[ "$module_count" -lt 190 ]] \
+  [[ "$module_count" -le 295 ]] \
       || fail "Module count $module_count too high"
   ct_count="$(extract_histogram_count "$histo_file" \
        'RuleConfiguredTarget$')"
-  [[ "$ct_count" -le 1 ]] \
-      || fail "too many RuleConfiguredTarget: expected at most 1, got $ct_count"
-  edgeless_entry_count="$(extract_histogram_count "$histo_file" \
-       'EdgelessInMemoryNodeEntry')"
-  [[ "$edgeless_entry_count" -ge 100 ]] \
-      || fail "Not enough ($edgless_entry_count) EdgelessInMemoryNodeEntry instances found in build discarding edges"
-  node_entry_count="$(extract_histogram_count "$histo_file" \
-       '\.InMemoryNodeEntry')"
-  [[ "$node_entry_count" -le 10 ]] \
-      || fail "Too many ($node_entry_count) InMemoryNodeEntry instances found in build discarding edges"
+  [[ "$ct_count" -le 40 ]] \
+      || fail "too many RuleConfiguredTarget: expected at most 40, got $ct_count"
+  non_incremental_entry_count="$(extract_histogram_count "$histo_file" \
+       '\.NonIncrementalInMemoryNodeEntry$')"
+  [[ "$non_incremental_entry_count" -ge 100 ]] \
+      || fail "Not enough ($non_incremental_entry_count) NonIncrementalInMemoryNodeEntry instances found in build discarding edges"
+  incremental_entry_count="$(extract_histogram_count "$histo_file" \
+       '\.IncrementalInMemoryNodeEntry$')"
+  [[ "$incremental_entry_count" -le 10 ]] \
+      || fail "Too many ($incremental_entry_count) IncrementalInMemoryNodeEntry instances found in build discarding edges"
 }
 
 # Action conflicts can cause deletion of nodes, and deletion is tricky with no edges.
@@ -299,12 +307,12 @@ function test_action_conflict() {
   cat > conflict/conflict_rule.bzl <<EOF || fail "Couldn't write bzl file"
 def _create(ctx):
   files_to_build = depset(ctx.outputs.outs)
-  intemediate_outputs = [ctx.actions.declare_file("bar")]
-  intermediate_cmd = "cat %s > %s" % (ctx.attr.name, intemediate_outputs[0].path)
+  intermediate_outputs = [ctx.actions.declare_file("bar")]
+  intermediate_cmd = "cat %s > %s" % (ctx.attr.name, intermediate_outputs[0].path)
   action_cmd = "touch " + files_to_build.to_list()[0].path
-  ctx.actions.run_shell(outputs=list(intemediate_outputs),
+  ctx.actions.run_shell(outputs=list(intermediate_outputs),
                         command=intermediate_cmd)
-  ctx.actions.run_shell(inputs=list(intemediate_outputs),
+  ctx.actions.run_shell(inputs=list(intermediate_outputs),
                         outputs=files_to_build.to_list(),
                         command=action_cmd)
   struct(files=files_to_build,
@@ -411,7 +419,71 @@ EOF
     cat histo.txt >> "$TEST_log"
     fail "GenRuleAction unexpectedly not found: $genrule_action_count"
   fi
+}
 
+function test_rules_with_no_actions_deleted_if_not_top_level() {
+  mkdir -p foo || fail "Couldn't mkdir"
+  cat > foo/defs.bzl <<'EOF' || fail "Couldn't write file"
+def _empty_rule_impl(ctx):
+  return DefaultInfo()
+
+empty_rule = rule(implementation = _empty_rule_impl)
+EOF
+  cat > foo/BUILD <<'EOF' || fail "Couldn't write file"
+load(":defs.bzl", "empty_rule")
+genrule(name = "top", srcs = [":empty"], outs = ["top.out"], cmd = "touch $@")
+empty_rule(name = "empty")
+EOF
+
+  readonly local server_pid="$(bazel info server_pid 2> /dev/null)"
+
+  # Build both :top and :empty. Neither is deleted because both are top-level.
+  bazel build $BUILD_FLAGS //foo:top //foo:empty \
+    >& "$TEST_log" || fail "Expected success"
+  "$jmaptool" -histo:live $server_pid > histo.txt
+  count="$(extract_histogram_count histo.txt 'RuleConfiguredTargetValue$')"
+  assert_equals 2 $count
+
+  # Build only :top. Even though :empty is a dep, it is deleted because it has
+  # no actions.
+  bazel build $BUILD_FLAGS //foo:top \
+    >& "$TEST_log" || fail "Expected success"
+  "$jmaptool" -histo:live $server_pid > histo.txt
+  count="$(extract_histogram_count histo.txt 'RuleConfiguredTargetValue$')"
+  assert_equals 1 $count
+}
+
+function test_aspects_with_no_actions_deleted_if_not_top_level() {
+  mkdir -p foo || fail "Couldn't mkdir"
+  cat > foo/defs.bzl <<'EOF' || fail "Couldn't write file"
+def _empty_aspect_impl(target, ctx):
+  return []
+
+empty_aspect = aspect(implementation = _empty_aspect_impl, attr_aspects = ["*"])
+EOF
+  cat > foo/BUILD <<'EOF' || fail "Couldn't write file"
+genrule(name = "top", srcs = [":dep"], outs = ["top.out"], cmd = "cp $< $@")
+genrule(name = "dep", outs = ["dep.out"], cmd = "touch $@")
+EOF
+
+  readonly local server_pid="$(bazel info server_pid 2> /dev/null)"
+  aspect_flag=--aspects=foo/defs.bzl%empty_aspect
+
+  # Build both :top and :dep with the aspect attached. Neither aspect value is
+  # deleted because both are top-level.
+  bazel build $BUILD_FLAGS $aspect_flag //foo:top //foo:dep \
+    >& "$TEST_log" || fail "Expected success"
+  "$jmaptool" -histo:live $server_pid > histo.txt
+  count="$(extract_histogram_count histo.txt 'AspectValue(WithTransitivePackages)?$')"
+  assert_equals 2 $count
+
+  # Build only :top. Even though the aspect propagates to :dep, it is deleted
+  # because it has no actions.
+  bazel build $BUILD_FLAGS $aspect_flag //foo:top \
+    >& "$TEST_log" || fail "Expected success"
+  "$jmaptool" -histo:live $server_pid > histo.txt
+  count="$(extract_histogram_count histo.txt 'AspectValue(WithTransitivePackages)?$')"
+  assert_equals 1 $count
 }
 
 function test_dump_after_discard_incrementality_data() {

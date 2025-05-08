@@ -19,6 +19,7 @@ import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
@@ -45,19 +46,26 @@ abstract class AbstractUnorderedFormatter extends OutputFormatter implements Str
       OutputStream out,
       AspectResolver aspectResolver,
       @Nullable EventHandler eventHandler,
-      HashFunction hashFunction)
+      HashFunction hashFunction,
+      LabelPrinter labelPrinter)
       throws IOException, InterruptedException {
     setOptions(options, aspectResolver, hashFunction);
     setEventHandler(eventHandler);
     OutputFormatterCallback.processAllTargets(
-        createPostFactoStreamCallback(out, options), getOrderedTargets(result, options));
+        createPostFactoStreamCallback(out, options, labelPrinter),
+        getOrderedTargets(result, options));
   }
 
   protected Iterable<Target> getOrderedTargets(Digraph<Target> result, QueryOptions options) {
-    Iterable<Node<Target>> orderedResult =
-        options.orderOutput == OrderOutput.DEPS
-            ? result.getTopologicalOrder()
-            : result.getTopologicalOrder(new FormatUtils.TargetOrdering());
-    return Iterables.transform(orderedResult, Node::getLabel);
+    if (options.orderOutput == OrderOutput.FULL) {
+      // Get targets in total order, the difference here from topological ordering is the sorting of
+      // nodes before post-order visitation (which ensures determinism at a time cost).
+      return Iterables.transform(
+          result.getTopologicalOrder(new FormatUtils.TargetOrdering()), Node::getLabel);
+    } else if (options.orderOutput == OrderOutput.DEPS) {
+      // Get targets in topological order.
+      return Iterables.transform(result.getTopologicalOrder(), Node::getLabel);
+    }
+    return result.getLabels();
   }
 }

@@ -1,11 +1,14 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 genrule(
     name = "copy_link_jni_md_header",
     srcs = select({
-        "//src/conditions:darwin": ["@bazel_tools//tools/jdk:jni_md_header-darwin"],
-        "//src/conditions:freebsd": ["@bazel_tools//tools/jdk:jni_md_header-freebsd"],
-        "//src/conditions:openbsd": ["@bazel_tools//tools/jdk:jni_md_header-openbsd"],
-        "//src/conditions:windows": ["@bazel_tools//tools/jdk:jni_md_header-windows"],
-        "//conditions:default": ["@bazel_tools//tools/jdk:jni_md_header-linux"],
+        "//src/conditions:darwin": ["@rules_java//toolchains:jni_md_header-darwin"],
+        "//src/conditions:freebsd": ["@rules_java//toolchains:jni_md_header-freebsd"],
+        "//src/conditions:openbsd": ["@rules_java//toolchains:jni_md_header-openbsd"],
+        "//src/conditions:windows": ["@rules_java//toolchains:jni_md_header-windows"],
+        "//conditions:default": ["@rules_java//toolchains:jni_md_header-linux"],
     }),
     outs = ["jni_md.h"],
     cmd = "cp -f $< $@",
@@ -14,7 +17,7 @@ genrule(
 
 genrule(
     name = "copy_link_jni_header",
-    srcs = ["@bazel_tools//tools/jdk:jni_header"],
+    srcs = ["@rules_java//toolchains:jni_header"],
     outs = ["jni.h"],
     cmd = "cp -f $< $@",
     visibility = ["//src/main/native:__subpackages__"],
@@ -24,8 +27,8 @@ filegroup(
     name = "jni_os",
     srcs = select({
         "//src/conditions:darwin": [
-            "darwin/fsevents.cc",
             "darwin/file_jni.cc",
+            "darwin/fsevents.cc",
             "darwin/sleep_prevention_jni.cc",
             "darwin/system_cpu_speed_monitor_jni.cc",
             "darwin/system_disk_space_monitor_jni.cc",
@@ -52,6 +55,36 @@ cc_library(
     ],
     hdrs = ["latin1_jni_path.h"],
     includes = ["."],  # For jni headers.
+    deps = [
+        "//src/main/cpp/util:logging",
+    ],
+)
+
+cc_library(
+    name = "common",
+    srcs = [
+        "common.cc",
+        ":jni.h",
+        ":jni_md.h",
+    ],
+    includes = ["."],  # For jni headers.
+    visibility = ["//src/main/native:__subpackages__"],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "blake3_jni",
+    srcs = [
+        "blake3_jni.cc",
+        ":jni.h",
+        ":jni_md.h",
+    ],
+    includes = ["."],  # For jni headers.
+    visibility = ["//src/main/native:__subpackages__"],
+    deps = [
+        "@blake3",
+    ],
+    alwayslink = 1,
 )
 
 cc_binary(
@@ -71,12 +104,17 @@ cc_binary(
     ],
     includes = ["."],  # For jni headers.
     linkopts = select({
-        "//src/conditions:darwin": ["-framework CoreServices"],
+        "//src/conditions:darwin": [
+            "-Wl,-framework,CoreServices",
+            "-Wl,-framework,IOKit",
+        ],
         "//conditions:default": [],
     }),
     linkshared = 1,
     visibility = ["//src/main/java/com/google/devtools/build/lib/jni:__pkg__"],
     deps = [
+        ":blake3_jni",
+        ":common",
         ":latin1_jni_path",
         "//src/main/cpp/util:logging",
         "//src/main/cpp/util:md5",

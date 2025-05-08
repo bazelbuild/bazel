@@ -71,8 +71,9 @@ class ExtraActionUtils {
     }
 
     // Add extra action artifacts from dependencies
-    for (ExtraActionArtifactsProvider provider : AnalysisUtils.getProviders(
-        ruleContext.getConfiguredTargetMap().values(), ExtraActionArtifactsProvider.class)) {
+    for (ExtraActionArtifactsProvider provider :
+        AnalysisUtils.getProviders(
+            ruleContext.getAllPrerequisites(), ExtraActionArtifactsProvider.class)) {
       builder.addTransitive(provider.getTransitiveExtraActionArtifacts());
     }
 

@@ -15,42 +15,61 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
+import static java.util.Objects.requireNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.hash.HashingOutputStream;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.ErrorClassifier;
+import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
+import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.vfs.Dirent;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
+import com.google.devtools.build.lib.vfs.FileAccessException;
+import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
+import javax.annotation.Nullable;
 
 /**
  * Helper methods that are shared by the different sandboxing strategies.
@@ -58,127 +77,306 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>All sandboxed strategies within a build should share the same instance of this object.
  */
 public final class SandboxHelpers {
+
+  private SandboxHelpers() {}
+
+  public static final String INACCESSIBLE_HELPER_DIR = "inaccessibleHelperDir";
+  public static final String INACCESSIBLE_HELPER_FILE = "inaccessibleHelperFile";
+
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final AtomicBoolean warnedAboutMovesBeingCopies = new AtomicBoolean(false);
 
-  /**
-   * Writes a virtual input file so that the final file is always consistent to all readers.
-   *
-   * <p>This function exists to aid dynamic scheduling. Param files are inputs, so they need to be
-   * written without holding the output lock. When we have competing unsandboxed spawn runners (like
-   * persistent workers), it's possible for them to clash in these writes, either encountering
-   * missing file errors or encountering incomplete data. But given that we can assume both spawn
-   * runners will write the same contents, we can write those as temporary files and then perform a
-   * rename, which has atomic semantics on Unix, and thus keep all readers always seeing consistent
-   * contents.
-   *
-   * @param input the virtual input file to write
-   * @param outputPath final path where the virtual input file ought to live
-   * @param uniqueSuffix a filename extension that is different between the local spawn runners and
-   *     the remote ones
-   * @return digest of written virtual input
-   * @throws IOException if we fail to write the virtual input file
-   */
-  // TODO(b/150963503): We are using atomic file system moves for synchronization... but Bazel
-  // should not be able to reach this state. Which means we should probably be doing some other
-  // form of synchronization in-process before touching the file system.
-  public static byte[] atomicallyWriteVirtualInput(
-      VirtualActionInput input, Path outputPath, String uniqueSuffix) throws IOException {
-    Path tmpPath = outputPath.getFileSystem().getPath(outputPath.getPathString() + uniqueSuffix);
-    tmpPath.getParentDirectory().createDirectoryAndParents();
-    try {
-      byte[] digest = writeVirtualInputTo(input, tmpPath);
-      // We expect the following to replace the params file atomically in case we are using
-      // the dynamic scheduler and we are racing the remote strategy writing this same file.
-      tmpPath.renameTo(outputPath);
-      tmpPath = null; // Avoid unnecessary deletion attempt.
-      return digest;
-    } finally {
+  @SuppressWarnings("AllowVirtualThreads")
+  private static final ExecutorService VISITOR_POOL =
+      Executors.newThreadPerTaskExecutor(
+          Thread.ofVirtual().name("sandbox-directory-visitor-").factory());
+
+  private static class DirectoryCopier extends AbstractQueueVisitor {
+    private final Path sourceRoot;
+    private final Path targetRoot;
+
+    private DirectoryCopier(Path sourceRoot, Path targetRoot) {
+      super(
+          VISITOR_POOL,
+          ExecutorOwnership.SHARED,
+          ExceptionHandlingMode.FAIL_FAST,
+          ErrorClassifier.DEFAULT);
+      this.sourceRoot = checkNotNull(sourceRoot);
+      this.targetRoot = checkNotNull(targetRoot);
+    }
+
+    private void run() throws IOException, InterruptedException {
       try {
-        if (tmpPath != null) {
-          // Make sure we don't leave temp files behind if we are interrupted.
-          tmpPath.delete();
+        visitDirectory(sourceRoot, targetRoot);
+        awaitQuiescence(true);
+      } catch (UncheckedIOException e) {
+        throw e.getCause();
+      }
+    }
+
+    private void visitDirectory(Path sourceDir, Path targetDir) {
+      Collection<Dirent> dirents;
+      try {
+        try {
+          dirents = sourceDir.readdir(Symlinks.NOFOLLOW);
+        } catch (FileAccessException e) {
+          // Make the source directory readable and try again (but only once).
+          // Don't check the permissions upfront to optimize for the typical case.
+          sourceDir.chmod(0755);
+          dirents = sourceDir.readdir(Symlinks.NOFOLLOW);
+        }
+        targetDir.createDirectory();
+        for (Dirent dirent : dirents) {
+          Path sourceChild = sourceDir.getChild(dirent.getName());
+          Path targetChild = targetDir.getChild(dirent.getName());
+          switch (dirent.getType()) {
+            case DIRECTORY -> execute(() -> visitDirectory(sourceChild, targetChild));
+            case FILE -> execute(() -> visitFile(sourceChild, targetChild));
+            case SYMLINK -> execute(() -> visitSymlink(sourceChild, targetChild));
+            case UNKNOWN ->
+                throw new IOException(
+                    "Don't know how to copy %s to %s".formatted(sourceChild, targetChild));
+          }
         }
       } catch (IOException e) {
-        // Ignore.
+        throw new UncheckedIOException(e);
+      }
+    }
+
+    private void visitFile(Path sourceFile, Path targetFile) {
+      try {
+        copyFile(sourceFile, targetFile);
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
+    }
+
+    private void visitSymlink(Path sourceSymlink, Path targetSymlink) {
+      try {
+        copySymlink(sourceSymlink, targetSymlink);
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
       }
     }
   }
 
   /**
-   * Moves all given outputs from a root to another.
+   * Moves or copies all given outputs from a root to another.
    *
-   * <p>This is a support function to help with the implementation of {@link
-   * SandboxfsSandboxedSpawn#copyOutputs(Path)}.
+   * <p>Moves if possible, otherwise makes a copy. It is unspecified whether the source files still
+   * exist after this method returns.
    *
-   * @param outputs outputs to move as relative paths to a root
-   * @param sourceRoot source directory from which to resolve outputs
-   * @param targetRoot target directory to which to move the resolved outputs from the source
-   * @throws IOException if any of the moves fails
+   * @param outputs outputs to move/copy as relative paths to a root
+   * @param sourceRoot root directory to copy from
+   * @param targetRoot root directory to copy to
+   * @throws IOException if moving/copying fails
    */
   public static void moveOutputs(SandboxOutputs outputs, Path sourceRoot, Path targetRoot)
-      throws IOException {
-    for (PathFragment output : Iterables.concat(outputs.files(), outputs.dirs())) {
-      Path source = sourceRoot.getRelative(output);
-      Path target = targetRoot.getRelative(output);
-      if (source.isFile() || source.isSymbolicLink()) {
-        // Ensure the target directory exists in the target. The directories for the action outputs
-        // have already been created, but the spawn outputs may be different from the overall action
-        // outputs. This is the case for test actions.
-        target.getParentDirectory().createDirectoryAndParents();
-        if (FileSystemUtils.moveFile(source, target).equals(MoveResult.FILE_COPIED)) {
-          if (warnedAboutMovesBeingCopies.compareAndSet(false, true)) {
-            logger.atWarning().log(
-                "Moving files out of the sandbox (e.g. from %s to %s"
-                    + ") had to be done with a file copy, which is detrimental to performance; are "
-                    + "the two trees in different file systems?",
-                source, target);
-          }
+      throws IOException, InterruptedException {
+    for (Entry<PathFragment, PathFragment> output :
+        Iterables.concat(outputs.files().entrySet(), outputs.dirs().entrySet())) {
+      Path source = sourceRoot.getRelative(output.getValue());
+      Path target = targetRoot.getRelative(output.getKey());
+
+      FileStatus stat = source.statIfFound(Symlinks.NOFOLLOW);
+      if (stat == null) {
+        // The correct thing to do here would be to delete the target path.
+        // Unfortunately, this breaks streamed test output, which causes the test log to be written
+        // directly to the target path even when sandboxing is enabled. Until we either fix streamed
+        // test output or create a way to reliably detect it, just skip the deletion.
+        continue;
+      }
+
+      // Delete the target if it already exists.
+      // Some test spawn outputs aren't action outputs, so they aren't deleted before action
+      // execution.
+      target.deleteTree();
+
+      // Create the target's parent directory if it doesn't already exist.
+      // Some test spawn outputs aren't action outputs, so their parent directories aren't created
+      // before action execution.
+      target.getParentDirectory().createDirectoryAndParents();
+
+      try {
+        // Prefer to move outputs through a rename, avoiding a more expensive copy.
+        source.renameTo(target);
+      } catch (IOException unused) {
+        // Assume that the rename failed because it was cross-device.
+        // TODO(tjgq): Distinguish a cross-device rename from other errors.
+        if (warnedAboutMovesBeingCopies.compareAndSet(false, true)) {
+          logger.atWarning().log(
+              "Moving files out of the sandbox (e.g. from %s to %s) had to be done with a file"
+                  + " copy, which is detrimental to performance; are the two trees in different"
+                  + " file systems?",
+              source, target);
         }
-      } else if (source.isDirectory()) {
-        try {
-          source.renameTo(target);
-        } catch (IOException e) {
-          // Failed to move directory directly, thus move it recursively.
-          target.createDirectory();
-          FileSystemUtils.moveTreesBelow(source, target);
+
+        // Make a copy.
+        // Do as little work as possible, as any overhead adds up for large trees. In particular,
+        // avoid FileSystemUtils, which spends time deleting preexisting files and preserving
+        // attributes: we know output directories start out empty, and don't care about attributes.
+        // Speed up copying of large directory trees by parallelizing over files.
+        // Don't delete the original; leave it to the sandbox to clean up after itself.
+        if (stat.isFile()) {
+          copyFile(source, target);
+        } else if (stat.isDirectory()) {
+          DirectoryCopier copier = new DirectoryCopier(source, target);
+          copier.run();
+        } else if (stat.isSymbolicLink()) {
+          copySymlink(source, target);
+        } else {
+          throw new IOException(
+              "Don't know how to copy %s into %s because it has an unsupported type"
+                  .formatted(source, target));
         }
-      } else if (!source.exists()) {
-        // This will show up as an error later
-      } else {
-        logger.atWarning().log(
-            "Sandbox file %s for output %s is neither file nor symlink nor directory.",
-            source, target);
       }
     }
+  }
+
+  private static void copyFile(Path source, Path target) throws IOException {
+    try (InputStream in = source.getInputStream();
+        OutputStream out = target.getOutputStream()) {
+      ByteStreams.copy(in, out);
+    } catch (FileAccessException e) {
+      // Make the source file readable and try again (but only once).
+      // Don't check the permissions upfront to optimize for the typical case.
+      source.chmod(0644);
+      try (InputStream in = source.getInputStream();
+          OutputStream out = target.getOutputStream()) {
+        ByteStreams.copy(in, out);
+      }
+    }
+  }
+
+  private static void copySymlink(Path source, Path target) throws IOException {
+    target.createSymbolicLink(source.readSymbolicLink());
   }
 
   /**
    * Cleans the existing sandbox at {@code root} to match the {@code inputs}, updating {@code
    * inputsToCreate} and {@code dirsToCreate} to not contain existing inputs and dir. Existing
    * directories or files that are either not needed {@code inputs} or doesn't have the right
-   * content or symlink destination are removed.
+   * content or symlink target path are removed.
    */
   public static void cleanExisting(
       Path root,
       SandboxInputs inputs,
       Set<PathFragment> inputsToCreate,
       Set<PathFragment> dirsToCreate,
-      Path workDir)
-      throws IOException {
+      Path workDir,
+      TreeDeleter treeDeleter)
+      throws IOException, InterruptedException {
+    cleanExisting(
+        root,
+        inputs,
+        inputsToCreate,
+        dirsToCreate,
+        workDir,
+        treeDeleter,
+        /* sandboxContents= */ null);
+  }
+
+  public static void cleanExisting(
+      Path root,
+      SandboxInputs inputs,
+      Set<PathFragment> inputsToCreate,
+      Set<PathFragment> dirsToCreate,
+      Path workDir,
+      TreeDeleter treeDeleter,
+      @Nullable SandboxContents sandboxContents)
+      throws IOException, InterruptedException {
+    Path inaccessibleHelperDir = workDir.getRelative(INACCESSIBLE_HELPER_DIR);
+    // Setting the permissions is necessary when we are using an asynchronous tree deleter in order
+    // to move the directory first. This is not necessary for a synchronous tree deleter because the
+    // permissions are only needed in the parent directory in that case.
+    if (inaccessibleHelperDir.exists()) {
+      inaccessibleHelperDir.setExecutable(true);
+      inaccessibleHelperDir.setWritable(true);
+      inaccessibleHelperDir.setReadable(true);
+    }
+
     // To avoid excessive scanning of dirsToCreate for prefix dirs, we prepopulate this set of
     // prefixes.
     Set<PathFragment> prefixDirs = new HashSet<>();
     for (PathFragment dir : dirsToCreate) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       PathFragment parent = dir.getParentDirectory();
       while (parent != null && !prefixDirs.contains(parent)) {
         prefixDirs.add(parent);
         parent = parent.getParentDirectory();
       }
     }
+    if (sandboxContents == null) {
+      cleanRecursively(
+          root, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs, treeDeleter);
+    } else {
+      cleanRecursivelyWithInMemoryContents(
+          root,
+          inputs,
+          inputsToCreate,
+          dirsToCreate,
+          workDir,
+          prefixDirs,
+          treeDeleter,
+          sandboxContents);
+    }
+  }
 
-    cleanRecursively(root, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs);
+  /**
+   * Deletes unnecessary files/directories and updates the sets if something on disk is already
+   * correct and doesn't need any changes.
+   */
+  private static void cleanRecursivelyWithInMemoryContents(
+      Path root,
+      SandboxInputs inputs,
+      Set<PathFragment> inputsToCreate,
+      Set<PathFragment> dirsToCreate,
+      Path workDir,
+      Set<PathFragment> prefixDirs,
+      TreeDeleter treeDeleter,
+      SandboxContents stashContents)
+      throws IOException, InterruptedException {
+    Path execroot = workDir.getParentDirectory();
+    Preconditions.checkNotNull(stashContents);
+    for (var dirent : stashContents.symlinkMap().entrySet()) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
+      Path absPath = root.getChild(dirent.getKey());
+      PathFragment pathRelativeToWorkDir = getPathRelativeToWorkDir(absPath, workDir, execroot);
+      Optional<PathFragment> targetPath =
+          getExpectedSymlinkTargetPath(pathRelativeToWorkDir, inputs);
+      if (targetPath.isPresent() && dirent.getValue().equals(targetPath.get())) {
+        Preconditions.checkState(inputsToCreate.remove(pathRelativeToWorkDir));
+      } else {
+        absPath.delete();
+      }
+    }
+    for (var dirent : stashContents.dirMap().entrySet()) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
+      Path absPath = root.getChild(dirent.getKey());
+      PathFragment pathRelativeToWorkDir = getPathRelativeToWorkDir(absPath, workDir, execroot);
+      if (dirsToCreate.contains(pathRelativeToWorkDir)
+          || prefixDirs.contains(pathRelativeToWorkDir)) {
+        cleanRecursivelyWithInMemoryContents(
+            absPath,
+            inputs,
+            inputsToCreate,
+            dirsToCreate,
+            workDir,
+            prefixDirs,
+            treeDeleter,
+            dirent.getValue());
+        dirsToCreate.remove(pathRelativeToWorkDir);
+      } else {
+        treeDeleter.deleteTree(absPath);
+      }
+    }
   }
 
   /**
@@ -191,10 +389,14 @@ public final class SandboxHelpers {
       Set<PathFragment> inputsToCreate,
       Set<PathFragment> dirsToCreate,
       Path workDir,
-      Set<PathFragment> prefixDirs)
-      throws IOException {
+      Set<PathFragment> prefixDirs,
+      @Nullable TreeDeleter treeDeleter)
+      throws IOException, InterruptedException {
     Path execroot = workDir.getParentDirectory();
     for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       Path absPath = root.getChild(dirent.getName());
       PathFragment pathRelativeToWorkDir;
       if (absPath.startsWith(workDir)) {
@@ -208,22 +410,35 @@ public final class SandboxHelpers {
             LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
                 absPath.relativeTo(execroot));
       }
-      Optional<PathFragment> destination =
-          getExpectedSymlinkDestination(pathRelativeToWorkDir, inputs);
-      if (destination.isPresent()) {
+      Optional<PathFragment> targetPath =
+          getExpectedSymlinkTargetPath(pathRelativeToWorkDir, inputs);
+      if (targetPath.isPresent()) {
         if (SYMLINK.equals(dirent.getType())
-            && absPath.readSymbolicLink().equals(destination.get())) {
+            && absPath.readSymbolicLink().equals(targetPath.get())) {
           inputsToCreate.remove(pathRelativeToWorkDir);
+        } else if (DIRECTORY.equals(dirent.getType())) {
+          if (treeDeleter == null) {
+            // TODO(bazel-team): Use async tree deleter for workers too
+            absPath.deleteTree();
+          } else {
+            treeDeleter.deleteTree(absPath);
+          }
         } else {
           absPath.delete();
         }
       } else if (DIRECTORY.equals(dirent.getType())) {
         if (dirsToCreate.contains(pathRelativeToWorkDir)
             || prefixDirs.contains(pathRelativeToWorkDir)) {
-          cleanRecursively(absPath, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs);
+          cleanRecursively(
+              absPath, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs, treeDeleter);
           dirsToCreate.remove(pathRelativeToWorkDir);
         } else {
-          absPath.deleteTree();
+          if (treeDeleter == null) {
+            // TODO(bazel-team): Use async tree deleter for workers too
+            absPath.deleteTree();
+          } else {
+            treeDeleter.deleteTree(absPath);
+          }
         }
       } else if (!inputsToCreate.contains(pathRelativeToWorkDir)) {
         absPath.delete();
@@ -231,27 +446,38 @@ public final class SandboxHelpers {
     }
   }
 
+  private static PathFragment getPathRelativeToWorkDir(Path absPath, Path workDir, Path execroot) {
+    if (absPath.startsWith(workDir)) {
+      // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
+      return absPath.relativeTo(workDir);
+    } else {
+      // path is not under workDir, which means it belongs to one of external repositories
+      // symlinked directly under execroot. Get the relative path based on there and prepend it
+      // with the designated prefix, '../', so that it's still a valid relative path to workDir.
+      return LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
+          absPath.relativeTo(execroot));
+    }
+  }
+
   /**
-   * Returns what the destination of the symlink {@code file} should be, according to {@code
-   * inputs}.
+   * Returns what the target path of the symlink {@code path} should be according to {@code inputs}.
    */
-  static Optional<PathFragment> getExpectedSymlinkDestination(
-      PathFragment fragment, SandboxInputs inputs) {
-    Path file = inputs.getFiles().get(fragment);
+  private static Optional<PathFragment> getExpectedSymlinkTargetPath(
+      PathFragment path, SandboxInputs inputs) {
+    Path file = inputs.getFiles().get(path);
     if (file != null) {
       return Optional.of(file.asFragment());
     }
-    return Optional.ofNullable(inputs.getSymlinks().get(fragment));
+    return Optional.ofNullable(inputs.getSymlinks().get(path));
   }
 
   /** Populates the provided sets with the inputs and directories that need to be created. */
   public static void populateInputsAndDirsToCreate(
       Set<PathFragment> writableDirs,
       Set<PathFragment> inputsToCreate,
-      LinkedHashSet<PathFragment> dirsToCreate,
+      Set<PathFragment> dirsToCreate,
       Iterable<PathFragment> inputFiles,
-      ImmutableSet<PathFragment> outputFiles,
-      ImmutableSet<PathFragment> outputDirs) {
+      SandboxOutputs outputs) {
     // Add all worker files, input files, and the parent directories.
     for (PathFragment input : inputFiles) {
       inputsToCreate.add(input);
@@ -260,12 +486,12 @@ public final class SandboxHelpers {
 
     // And all parent directories of output files. Note that we don't add the files themselves --
     // any pre-existing files that have the same path as an output should get deleted.
-    for (PathFragment file : outputFiles) {
+    for (PathFragment file : outputs.files().values()) {
       dirsToCreate.add(file.getParentDirectory());
     }
 
     // Add all output directories.
-    dirsToCreate.addAll(outputDirs);
+    dirsToCreate.addAll(outputs.dirs().values());
 
     // Add some directories that should be writable, and thus exist.
     dirsToCreate.addAll(writableDirs);
@@ -315,15 +541,20 @@ public final class SandboxHelpers {
    *     are disallowed, for stricter sandboxing.
    */
   public static void createDirectories(
-      Iterable<PathFragment> dirsToCreate, Path dir, boolean strict) throws IOException {
+      Iterable<PathFragment> dirsToCreate, Path dir, boolean strict)
+      throws IOException, InterruptedException {
     Set<Path> knownDirectories = new HashSet<>();
     // Add sandboxExecRoot and it's parent -- all paths must fall under the parent of
     // sandboxExecRoot and we know that sandboxExecRoot exists. This stops the recursion in
     // createDirectoryAndParentsInSandboxRoot.
     knownDirectories.add(dir);
     knownDirectories.add(dir.getParentDirectory());
+    knownDirectories.add(getTmpDirPath(dir));
 
     for (PathFragment path : dirsToCreate) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       if (strict) {
         Preconditions.checkArgument(!path.isAbsolute(), path);
         if (path.containsUplevelReferences() && path.isMultiSegment()) {
@@ -342,12 +573,36 @@ public final class SandboxHelpers {
     }
   }
 
+  static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setSandbox(Sandbox.newBuilder().setCode(detailedCode))
+        .build();
+  }
+
+  /** Adds additional bind mounts entries from {@code paths} to {@code bindMounts}. */
+  public static void mountAdditionalPaths(
+      ImmutableMap<String, String> paths, Path sandboxExecRoot, SortedMap<Path, Path> bindMounts)
+      throws UserExecException {
+    FileSystem fs = sandboxExecRoot.getFileSystem();
+    for (Map.Entry<String, String> additionalMountPath : paths.entrySet()) {
+      try {
+        final Path mountTarget = fs.getPath(additionalMountPath.getValue());
+        // If source path is relative, treat it as a relative path inside the execution root
+        final Path mountSource = sandboxExecRoot.getRelative(additionalMountPath.getKey());
+        // If a target has more than one source path, the latter one will take effect.
+        bindMounts.put(mountTarget, mountSource);
+      } catch (IllegalArgumentException e) {
+        throw new UserExecException(
+            createFailureDetail(
+                String.format("Error occurred when analyzing bind mount pairs. %s", e.getMessage()),
+                Code.BIND_MOUNT_ANALYSIS_FAILURE));
+      }
+    }
+  }
+
   /** Wrapper class for the inputs of a sandbox. */
   public static final class SandboxInputs {
-
-    private static final AtomicInteger tempFileUniquifierForVirtualInputWrites =
-        new AtomicInteger();
-
     private final Map<PathFragment, Path> files;
     private final Map<VirtualActionInput, byte[]> virtualInputs;
     private final Map<PathFragment, PathFragment> symlinks;
@@ -376,42 +631,6 @@ public final class SandboxHelpers {
       return symlinks;
     }
 
-    /**
-     * Materializes a single virtual input inside the given execroot.
-     *
-     * <p>When materializing inputs under a new sandbox exec root, we can expect the input to not
-     * exist, but we cannot make the same assumption for the non-sandboxed exec root therefore, we
-     * may need to delete existing files.
-     *
-     * @param input virtual input to materialize
-     * @param execroot path to the execroot under which to materialize the virtual input
-     * @param isExecRootSandboxed whether the execroot is sandboxed.
-     * @return digest of written virtual input
-     * @throws IOException if the virtual input cannot be materialized
-     */
-    private static byte[] materializeVirtualInput(
-        VirtualActionInput input, Path execroot, boolean isExecRootSandboxed) throws IOException {
-      if (input instanceof EmptyActionInput) {
-        return new byte[0];
-      }
-
-      Path outputPath = execroot.getRelative(input.getExecPath());
-      if (isExecRootSandboxed) {
-        return atomicallyWriteVirtualInput(
-            input,
-            outputPath,
-            // When 2 actions try to atomically create the same virtual input, they need to have a
-            // different suffix for the temporary file in order to avoid racy write to the same one.
-            ".sandbox" + tempFileUniquifierForVirtualInputWrites.incrementAndGet());
-      }
-
-      if (outputPath.exists()) {
-        outputPath.delete();
-      }
-      outputPath.getParentDirectory().createDirectoryAndParents();
-      return writeVirtualInputTo(input, outputPath);
-    }
-
     public ImmutableMap<VirtualActionInput, byte[]> getVirtualInputDigests() {
       return ImmutableMap.copyOf(virtualInputs);
     }
@@ -433,45 +652,31 @@ public final class SandboxHelpers {
     }
   }
 
-  private static byte[] writeVirtualInputTo(VirtualActionInput input, Path target)
-      throws IOException {
-    byte[] digest;
-    try (OutputStream out = target.getOutputStream();
-        HashingOutputStream hashingOut =
-            new HashingOutputStream(
-                target.getFileSystem().getDigestFunction().getHashFunction(), out)) {
-      input.writeTo(hashingOut);
-      digest = hashingOut.hash().asBytes();
-    }
-    // Some of the virtual inputs can be executed, e.g. embedded tools. Setting executable flag for
-    // other is fine since that is only more permissive. Please note that for action outputs (e.g.
-    // file write, where the user can specify executable flag), we will have artifacts which do not
-    // go through this code path.
-    target.setExecutable(true);
-    return digest;
-  }
-
   /**
    * Returns the inputs of a Spawn as a map of PathFragments relative to an execRoot to paths in the
    * host filesystem where the input files can be found.
    *
+   * @param inputMap the map of action inputs and where they should be visible in the action
+   * @param execRoot the exec root
    * @throws IOException if processing symlinks fails
    */
-  public SandboxInputs processInputFiles(Map<PathFragment, ActionInput> inputMap, Path execRoot)
-      throws IOException {
+  @CanIgnoreReturnValue
+  public static SandboxInputs processInputFiles(
+      Map<PathFragment, ActionInput> inputMap, Path execRoot)
+      throws IOException, InterruptedException {
     Map<PathFragment, Path> inputFiles = new TreeMap<>();
     Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
     Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
 
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       PathFragment pathFragment = e.getKey();
       ActionInput actionInput = e.getValue();
-
-      if (actionInput instanceof VirtualActionInput) {
-        byte[] digest =
-            SandboxInputs.materializeVirtualInput(
-                (VirtualActionInput) actionInput, execRoot, /* isExecRootSandboxed=*/ true);
-        virtualInputs.put((VirtualActionInput) actionInput, digest);
+      if (actionInput instanceof VirtualActionInput input) {
+        byte[] digest = input.atomicallyWriteRelativeTo(execRoot);
+        virtualInputs.put(input, digest);
       }
 
       if (actionInput.isSymlink()) {
@@ -488,19 +693,34 @@ public final class SandboxHelpers {
     return new SandboxInputs(inputFiles, virtualInputs, inputSymlinks);
   }
 
-  /** The file and directory outputs of a sandboxed spawn. */
-  @AutoValue
-  public abstract static class SandboxOutputs {
-    public abstract ImmutableSet<PathFragment> files();
-
-    public abstract ImmutableSet<PathFragment> dirs();
+  /**
+   * The file and directory outputs of a sandboxed spawn.
+   *
+   * @param files A map from output file exec paths to paths in the sandbox.
+   * @param dirs A map from output directory exec paths to paths in the sandbox.
+   */
+  public record SandboxOutputs(
+      ImmutableMap<PathFragment, PathFragment> files,
+      ImmutableMap<PathFragment, PathFragment> dirs) {
+    public SandboxOutputs {
+      requireNonNull(files, "files");
+      requireNonNull(dirs, "dirs");
+    }
 
     private static final SandboxOutputs EMPTY_OUTPUTS =
-        SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of());
+        SandboxOutputs.create(ImmutableMap.of(), ImmutableMap.of());
+
+    public static SandboxOutputs create(
+        ImmutableMap<PathFragment, PathFragment> files,
+        ImmutableMap<PathFragment, PathFragment> dirs) {
+      return new SandboxOutputs(files, dirs);
+    }
 
     public static SandboxOutputs create(
         ImmutableSet<PathFragment> files, ImmutableSet<PathFragment> dirs) {
-      return new AutoValue_SandboxHelpers_SandboxOutputs(files, dirs);
+      return new SandboxOutputs(
+          files.stream().collect(toImmutableMap(f -> f, f -> f)),
+          dirs.stream().collect(toImmutableMap(d -> d, d -> d)));
     }
 
     public static SandboxOutputs getEmptyInstance() {
@@ -508,18 +728,31 @@ public final class SandboxHelpers {
     }
   }
 
-  public SandboxOutputs getOutputs(Spawn spawn) {
-    ImmutableSet.Builder<PathFragment> files = ImmutableSet.builder();
-    ImmutableSet.Builder<PathFragment> dirs = ImmutableSet.builder();
+  public static SandboxOutputs getOutputs(Spawn spawn) {
+    ImmutableMap.Builder<PathFragment, PathFragment> files = ImmutableMap.builder();
+    ImmutableMap.Builder<PathFragment, PathFragment> dirs = ImmutableMap.builder();
     for (ActionInput output : spawn.getOutputFiles()) {
-      PathFragment path = PathFragment.create(output.getExecPathString());
+      PathFragment mappedPath = spawn.getPathMapper().map(output.getExecPath());
       if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
-        dirs.add(path);
+        dirs.put(output.getExecPath(), mappedPath);
       } else {
-        files.add(path);
+        files.put(output.getExecPath(), mappedPath);
       }
     }
     return SandboxOutputs.create(files.build(), dirs.build());
+  }
+
+  /**
+   * Returns the path to the tmp directory of the given workDir of worker.
+   *
+   * <p>The structure of the worker directories should look like this: <outputBase>/
+   * |__bazel-workers/ |__worker-<id>-<mnemonic>/ |__worker-<id>-<mnemonic>-tmp/
+   */
+  public static Path getTmpDirPath(Path workDir) {
+    return workDir
+        .getParentDirectory()
+        .getParentDirectory()
+        .getChild(workDir.getParentDirectory().getBaseName() + "-tmp");
   }
 
   /**
@@ -529,7 +762,7 @@ public final class SandboxHelpers {
    * reference to the full set of build options (and also for performance, since this only needs to
    * be checked once-per-build).
    */
-  boolean shouldAllowNetwork(OptionsParsingResult buildOptions) {
+  static boolean shouldAllowNetwork(OptionsParsingResult buildOptions) {
     // Allow network access, when --java_debug is specified, otherwise we can't connect to the
     // remote debug server of the test. This intentionally overrides the "block-network" execution
     // tag.
@@ -537,5 +770,146 @@ public final class SandboxHelpers {
         .getOptions(TestConfiguration.TestOptions.class)
         .testArguments
         .contains("--wrapper_script_flag=--debug");
+  }
+
+  /**
+   * In-memory representation of the set of paths known to be present in a sandbox directory.
+   *
+   * <p>Used to minimize the amount of I/O required to prepare a sandbox for reuse.
+   *
+   * <p>The map keys are individual path segments.
+   *
+   * @param symlinkMap maps names of known symlinks to their target path
+   * @param dirMap maps names of known subdirectories to their contents
+   */
+  public record SandboxContents(
+      Map<String, PathFragment> symlinkMap, Map<String, SandboxContents> dirMap) {
+    public SandboxContents() {
+      this(CompactHashMap.create(), CompactHashMap.create());
+    }
+  }
+
+  /**
+   * Computes a {@link SandboxContents} for the filesystem hierarchy rooted at {@code workDir}'s
+   * parent directory, reflecting the expected inputs and outputs for a spawn.
+   *
+   * <p>This may be used in conjunction with {@link #updateContentMap} to speed up the sandbox setup
+   * for a subsequent execution.
+   */
+  public static SandboxContents createContentMap(
+      Path workDir, SandboxInputs inputs, SandboxOutputs outputs) {
+    Map<PathFragment, SandboxContents> contentsMap = CompactHashMap.create();
+    for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
+      if (entry.getValue() == null) {
+        continue;
+      }
+      PathFragment parent = entry.getKey().getParentDirectory();
+      boolean parentWasPresent = !addParent(contentsMap, parent);
+      contentsMap
+          .get(parent)
+          .symlinkMap()
+          .put(entry.getKey().getBaseName(), entry.getValue().asFragment());
+      addAllParents(contentsMap, parentWasPresent, parent);
+    }
+    for (Map.Entry<PathFragment, PathFragment> entry : inputs.getSymlinks().entrySet()) {
+      if (entry.getValue() == null) {
+        continue;
+      }
+      PathFragment parent = entry.getKey().getParentDirectory();
+      boolean parentWasPresent = !addParent(contentsMap, parent);
+      contentsMap.get(parent).symlinkMap().put(entry.getKey().getBaseName(), entry.getValue());
+      addAllParents(contentsMap, parentWasPresent, parent);
+    }
+
+    for (var outputDir :
+        Stream.concat(
+                outputs.files().values().stream().map(PathFragment::getParentDirectory),
+                outputs.dirs().values().stream())
+            .distinct()
+            .collect(toImmutableList())) {
+      PathFragment parent = outputDir;
+      boolean parentWasPresent = !addParent(contentsMap, parent);
+      addAllParents(contentsMap, parentWasPresent, parent);
+    }
+    // TODO: Handle the sibling repository layout correctly. Currently, the code below assumes that
+    // all paths descend from the main repository.
+    SandboxContents root = new SandboxContents();
+    root.dirMap().put(workDir.getBaseName(), contentsMap.get(PathFragment.EMPTY_FRAGMENT));
+    return root;
+  }
+
+  /**
+   * Updates a {@link SandboxContents} previously created by {@link #createContentMap} to reflect
+   * any filesystem modifications that occurred after the given timestamp.
+   *
+   * <p>This is necessary because an action may delete some of its inputs or create additional
+   * declared outputs. We assume that a ctime check on directories is sufficient to detect such
+   * modifications and avoid a full filesystem traversal.
+   */
+  public static void updateContentMap(Path root, long timestamp, SandboxContents stashContents)
+      throws IOException, InterruptedException {
+    if (root.stat().getLastChangeTime() > timestamp) {
+      Set<String> dirsToKeep = new HashSet<>();
+      Set<String> filesAndSymlinksToKeep = new HashSet<>();
+      for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
+        if (Thread.interrupted()) {
+          throw new InterruptedException();
+        }
+        Path absPath = root.getChild(dirent.getName());
+        if (dirent.getType().equals(SYMLINK)) {
+          if (stashContents.symlinkMap().containsKey(dirent.getName())
+              && absPath.stat().getLastChangeTime() <= timestamp) {
+            filesAndSymlinksToKeep.add(dirent.getName());
+          } else {
+            absPath.delete();
+          }
+        } else if (dirent.getType().equals(DIRECTORY)) {
+          if (stashContents.dirMap().containsKey(dirent.getName())) {
+            dirsToKeep.add(dirent.getName());
+            updateContentMap(absPath, timestamp, stashContents.dirMap().get(dirent.getName()));
+          } else {
+            absPath.deleteTree();
+            stashContents.dirMap().remove(dirent.getName());
+          }
+        } else {
+          absPath.delete();
+        }
+      }
+      stashContents.dirMap().keySet().retainAll(dirsToKeep);
+      stashContents.symlinkMap().keySet().retainAll(filesAndSymlinksToKeep);
+    } else {
+      for (var entry : stashContents.dirMap().entrySet()) {
+        Path absPath = root.getChild(entry.getKey());
+        updateContentMap(absPath, timestamp, entry.getValue());
+      }
+    }
+  }
+
+  private static boolean addParent(
+      Map<PathFragment, SandboxContents> contentsMap, PathFragment parent) {
+    boolean parentWasPresent = true;
+    if (!contentsMap.containsKey(parent)) {
+      contentsMap.put(parent, new SandboxContents());
+      parentWasPresent = false;
+    }
+    return !parentWasPresent;
+  }
+
+  private static void addAllParents(
+      Map<PathFragment, SandboxContents> contentsMap,
+      boolean parentWasPresent,
+      PathFragment parent) {
+    PathFragment grandparent;
+    while (!parentWasPresent && (grandparent = parent.getParentDirectory()) != null) {
+      SandboxContents grandparentContents = contentsMap.get(grandparent);
+      if (grandparentContents != null) {
+        parentWasPresent = true;
+      } else {
+        grandparentContents = new SandboxContents();
+        contentsMap.put(grandparent, grandparentContents);
+      }
+      grandparentContents.dirMap().putIfAbsent(parent.getBaseName(), contentsMap.get(parent));
+      parent = grandparent;
+    }
   }
 }

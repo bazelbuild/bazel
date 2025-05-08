@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.actions;
 
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.Timestamp;
+import java.time.Instant;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -50,8 +52,13 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
   @Nullable private final FileArtifactValue primaryOutputMetadata;
   private final Path stdout;
   private final Path stderr;
-  private final ImmutableList<MetadataLog> actionMetadataLogs;
   private final ErrorTiming timing;
+
+  /** Timestamp of the action starting; if no timestamp is available will be {@code null}. */
+  @Nullable private final Instant startTime;
+
+  /** Timestamp of the action finishing; if no timestamp is available will be {@code null}. */
+  @Nullable private final Instant endTime;
 
   public ActionExecutedEvent(
       PathFragment actionId,
@@ -62,8 +69,9 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
       @Nullable FileArtifactValue primaryOutputMetadata,
       Path stdout,
       Path stderr,
-      ImmutableList<MetadataLog> actionMetadataLogs,
-      ErrorTiming timing) {
+      ErrorTiming timing,
+      @Nullable Instant startTime,
+      @Nullable Instant endTime) {
     this.actionId = actionId;
     this.action = action;
     this.exception = exception;
@@ -73,8 +81,8 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
     this.stdout = stdout;
     this.stderr = stderr;
     this.timing = timing;
-    this.actionMetadataLogs = actionMetadataLogs;
-    Preconditions.checkNotNull(this.actionMetadataLogs, this);
+    this.startTime = startTime;
+    this.endTime = endTime;
     Preconditions.checkState(
         (this.exception == null) == (this.timing == ErrorTiming.NO_ERROR), this);
     Preconditions.checkState(
@@ -110,10 +118,6 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
     return stderr.toString();
   }
 
-  public ImmutableList<MetadataLog> getActionMetadataLogs() {
-    return actionMetadataLogs;
-  }
-
   @Nullable
   public FileArtifactValue getPrimaryOutputMetadata() {
     return primaryOutputMetadata;
@@ -137,9 +141,9 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
   @Override
   public Collection<BuildEvent> getConfigurations() {
     if (action.getOwner() != null) {
-      BuildEvent configuration = action.getOwner().getConfiguration();
+      BuildEvent configuration = action.getOwner().getBuildConfigurationEvent();
       if (configuration == null) {
-        configuration = new NullConfiguration();
+        configuration = NullConfiguration.INSTANCE;
       }
       return ImmutableList.of(configuration);
     } else {
@@ -152,27 +156,17 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
     ImmutableList.Builder<LocalFile> localFiles = ImmutableList.builder();
     // TODO(b/199940216): thread file metadata through here when possible.
     if (stdout != null) {
-      localFiles.add(
-          new LocalFile(
-              stdout, LocalFileType.STDOUT, /*artifact=*/ null, /*artifactMetadata=*/ null));
+      localFiles.add(new LocalFile(stdout, LocalFileType.STDOUT, /* artifactMetadata= */ null));
     }
     if (stderr != null) {
-      localFiles.add(
-          new LocalFile(
-              stderr, LocalFileType.STDERR, /*artifact=*/ null, /*artifactMetadata=*/ null));
-    }
-    for (MetadataLog actionMetadataLog : actionMetadataLogs) {
-      localFiles.add(
-          new LocalFile(
-              actionMetadataLog.getFilePath(),
-              LocalFileType.LOG,
-              /*artifact=*/ null,
-              /*artifactMetadata=*/ null));
+      localFiles.add(new LocalFile(stderr, LocalFileType.STDERR, /* artifactMetadata= */ null));
     }
     if (exception == null) {
       localFiles.add(
           new LocalFile(
-              primaryOutput, LocalFileType.OUTPUT, outputArtifact, primaryOutputMetadata));
+              primaryOutput,
+              LocalFileType.forArtifact(outputArtifact, primaryOutputMetadata),
+              primaryOutputMetadata));
     }
     return localFiles.build();
   }
@@ -185,6 +179,12 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
         BuildEventStreamProtos.ActionExecuted.newBuilder()
             .setSuccess(getException() == null)
             .setType(action.getMnemonic());
+    if (startTime != null) {
+      actionBuilder.setStartTime(timestampProto(startTime));
+      if (endTime != null) {
+        actionBuilder.setEndTime(timestampProto(endTime));
+      }
+    }
 
     if (exception != null) {
       // TODO(b/150405553): This statement seems to be confused. The exit_code field of
@@ -216,21 +216,11 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
       actionBuilder.setLabel(action.getOwner().getLabel().toString());
     }
     if (action.getOwner() != null) {
-      BuildEvent configuration = action.getOwner().getConfiguration();
+      BuildEvent configuration = action.getOwner().getBuildConfigurationEvent();
       if (configuration == null) {
-        configuration = new NullConfiguration();
+        configuration = NullConfiguration.INSTANCE;
       }
       actionBuilder.setConfiguration(configuration.getEventId().getConfiguration());
-    }
-    for (MetadataLog actionMetadataLog : actionMetadataLogs) {
-      String uri = pathConverter.apply(actionMetadataLog.getFilePath());
-      if (uri != null) {
-        actionBuilder.addActionMetadataLogs(
-            BuildEventStreamProtos.File.newBuilder()
-                .setName(actionMetadataLog.getName())
-                .setUri(uri)
-                .build());
-      }
     }
     if (exception == null) {
       String uri = pathConverter.apply(primaryOutput);
@@ -240,8 +230,8 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
       }
     }
     try {
-      if (action instanceof CommandAction) {
-        actionBuilder.addAllCommandLine(((CommandAction) action).getArguments());
+      if (action instanceof CommandAction commandAction) {
+        actionBuilder.addAllCommandLine(commandAction.getArguments());
       }
     } catch (CommandLineExpansionException e) {
       // Command-line not available, so just not report it
@@ -261,6 +251,8 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
         .add("primaryOutput", primaryOutput)
         .add("outputArtifact", outputArtifact)
         .add("primaryOutputMetadata", primaryOutputMetadata)
+        .add("startTime", startTime)
+        .add("endTime", endTime)
         .toString();
   }
 
@@ -269,5 +261,12 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
     NO_ERROR,
     BEFORE_EXECUTION,
     AFTER_EXECUTION
+  }
+
+  private static Timestamp timestampProto(Instant time) {
+    return Timestamp.newBuilder()
+        .setSeconds(time.getEpochSecond())
+        .setNanos(time.getNano())
+        .build();
   }
 }

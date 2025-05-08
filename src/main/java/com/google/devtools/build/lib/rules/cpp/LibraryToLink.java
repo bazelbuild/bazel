@@ -15,24 +15,22 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.auto.value.AutoValue;
-import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LibraryToLinkApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Encapsulates information for linking a library. */
@@ -40,8 +38,6 @@ import net.starlark.java.eval.StarlarkThread;
 // instances have a surprising memory cost.
 @Immutable
 public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBackendArtifacts> {
-
-  public static final Depset.ElementType TYPE = Depset.ElementType.of(LibraryToLink.class);
 
   public static ImmutableList<Artifact> getDynamicLibrariesForRuntime(
       boolean linkingStatically, Iterable<LibraryToLink> libraries) {
@@ -72,6 +68,12 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
   public abstract String getLibraryIdentifier();
 
+  @StarlarkMethod(name = "library_identifier", documented = false, useStarlarkThread = true)
+  public String getLibraryIdentifierForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getLibraryIdentifier();
+  }
+
   @Nullable
   public abstract ImmutableList<Artifact> getObjectFiles();
 
@@ -81,6 +83,18 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
   @Nullable
   public abstract LtoCompilationContext getLtoCompilationContext();
 
+  @StarlarkMethod(
+      name = "lto_compilation_context",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public LtoCompilationContext getLtoCompilationContextForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getLtoCompilationContext();
+  }
+
   @Nullable
   public abstract ImmutableList<Artifact> getPicObjectFiles();
 
@@ -89,6 +103,18 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
   @Nullable
   public abstract LtoCompilationContext getPicLtoCompilationContext();
+
+  @StarlarkMethod(
+      name = "pic_lto_compilation_context",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public LtoCompilationContext getPicLtoCompilationContextForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getPicLtoCompilationContext();
+  }
 
   public abstract AutoLibraryToLink.Builder toBuilder();
 
@@ -114,20 +140,38 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return objectFiles == null ? StarlarkList.empty() : StarlarkList.immutableCopyOf(objectFiles);
   }
 
+  @StarlarkMethod(
+      name = "objects_private",
+      allowReturnNones = true,
+      documented = false,
+      useStarlarkThread = true)
+  @Nullable
+  public final Sequence<Artifact> getObjectFilesForStarlarkPrivate(StarlarkThread thread)
+      throws EvalException {
+    // Returning None here is essential for start-end library functionality. Object files are set
+    // to None when calling cc_common.create_library_to_link with empty object files. This signifies
+    // to start-end that an archive needs to be used.
+    // On the other hand cc_common.link will set object files to exactly what's in the archive.
+    // Start-end library functionality may correctly expand the object files. In case they are
+    // empty,
+    // this means also the archive is empty.
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    ImmutableList<Artifact> objectFiles = getObjectFiles();
+    return objectFiles == null ? null : StarlarkList.immutableCopyOf(objectFiles);
+  }
+
   @Override
   public final Sequence<Artifact> getLtoBitcodeFilesForStarlark() {
     LtoCompilationContext ctx = getLtoCompilationContext();
     return ctx == null ? StarlarkList.empty() : StarlarkList.immutableCopyOf(ctx.getBitcodeFiles());
   }
 
-  @Override
-  public final boolean getMustKeepDebugForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return getMustKeepDebug();
-  }
-
+  @StarlarkMethod(
+      name = "shared_non_lto_backends",
+      documented = false,
+      allowReturnNones = true,
+      useStarlarkThread = true)
   @Nullable
-  @Override
   public final Dict<Artifact, LtoBackendArtifacts> getSharedNonLtoBackendsForStarlark(
       StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
@@ -141,14 +185,32 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return objectFiles == null ? StarlarkList.empty() : StarlarkList.immutableCopyOf(objectFiles);
   }
 
+  @StarlarkMethod(
+      name = "pic_objects_private",
+      allowReturnNones = true,
+      documented = false,
+      useStarlarkThread = true)
+  @Nullable
+  public final Sequence<Artifact> getPicObjectFilesForStarlarkPrivate(StarlarkThread thread)
+      throws EvalException {
+    // See comment on getObjectFilesForStarlarkPrivate also
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    ImmutableList<Artifact> objectFiles = getPicObjectFiles();
+    return objectFiles == null ? null : StarlarkList.immutableCopyOf(objectFiles);
+  }
+
   @Override
   public final Sequence<Artifact> getPicLtoBitcodeFilesForStarlark() {
     LtoCompilationContext ctx = getPicLtoCompilationContext();
     return ctx == null ? StarlarkList.empty() : StarlarkList.immutableCopyOf(ctx.getBitcodeFiles());
   }
 
+  @StarlarkMethod(
+      name = "pic_shared_non_lto_backends",
+      documented = false,
+      allowReturnNones = true,
+      useStarlarkThread = true)
   @Nullable
-  @Override
   public final Dict<Artifact, LtoBackendArtifacts> getPicSharedNonLtoBackendsForStarlark(
       StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
@@ -156,78 +218,33 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return backends != null ? Dict.immutableCopyOf(backends) : null;
   }
 
-  LinkerInputs.LibraryToLink getStaticLibraryToLink() {
-    return LinkerInputs.newInputLibrary(
-        Preconditions.checkNotNull(getStaticLibrary(), this),
-        getAlwayslink()
-            ? ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY
-            : ArtifactCategory.STATIC_LIBRARY,
-        getLibraryIdentifier(),
-        getObjectFiles(),
-        getLtoCompilationContext(),
-        getSharedNonLtoBackends(),
-        getMustKeepDebug(),
-        getDisableWholeArchive());
+  /** Return true if a pic library should effectively be selected */
+  public boolean getEffectivePic(boolean preferPicLibs) {
+    return (preferPicLibs && getPicStaticLibrary() != null) || getStaticLibrary() == null;
   }
 
-  LinkerInputs.LibraryToLink getPicStaticLibraryToLink() {
-    return LinkerInputs.newInputLibrary(
-        Preconditions.checkNotNull(getPicStaticLibrary(), this),
-        getAlwayslink()
-            ? ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY
-            : ArtifactCategory.STATIC_LIBRARY,
-        getLibraryIdentifier(),
-        getPicObjectFiles(),
-        getPicLtoCompilationContext(),
-        getPicSharedNonLtoBackends(),
-        getMustKeepDebug(),
-        getDisableWholeArchive());
-  }
+  abstract boolean getMustKeepDebug();
 
-  LinkerInputs.LibraryToLink getDynamicLibraryToLink() {
-    Artifact dynamicLibrary = Preconditions.checkNotNull(getDynamicLibrary(), this);
-    if (getResolvedSymlinkDynamicLibrary() != null) {
-      return LinkerInputs.solibLibraryToLink(
-          dynamicLibrary, getResolvedSymlinkDynamicLibrary(), getLibraryIdentifier());
-    }
-    return LinkerInputs.newInputLibrary(
-        dynamicLibrary,
-        ArtifactCategory.DYNAMIC_LIBRARY,
-        getLibraryIdentifier(),
-        /*objectFiles=*/ ImmutableSet.of(),
-        LtoCompilationContext.EMPTY,
-        /*sharedNonLtoBackends=*/ ImmutableMap.of(),
-        getMustKeepDebug(),
-        getDisableWholeArchive());
-  }
-
-  LinkerInputs.LibraryToLink getInterfaceLibraryToLink() {
-    Artifact interfaceLibrary = Preconditions.checkNotNull(getInterfaceLibrary(), this);
-    if (getResolvedSymlinkInterfaceLibrary() != null) {
-      return LinkerInputs.solibLibraryToLink(
-          interfaceLibrary, getResolvedSymlinkInterfaceLibrary(), getLibraryIdentifier());
-    }
-    return LinkerInputs.newInputLibrary(
-        interfaceLibrary,
-        ArtifactCategory.INTERFACE_LIBRARY,
-        getLibraryIdentifier(),
-        /*objectFiles=*/ ImmutableSet.of(),
-        LtoCompilationContext.EMPTY,
-        /*sharedNonLtoBackends=*/ ImmutableMap.of(),
-        getMustKeepDebug(),
-        getDisableWholeArchive());
-  }
-
-  // TODO(plf): This is just needed for Go, do not expose to Starlark and try to remove it. This was
-  // introduced to let a linker input declare that it needs debug info in the executable.
+  // TODO(b/338618120): This is just needed for Go, do not expose to Starlark and try to remove it.
+  // This was introduced to let a linker input declare that it needs debug info in the executable.
   // Specifically, this was introduced for linking Go into a C++ binary when using the gccgo
   // compiler.
-  abstract boolean getMustKeepDebug();
+  @StarlarkMethod(name = "must_keep_debug", documented = false, useStarlarkThread = true)
+  public final boolean getMustKeepDebugForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getMustKeepDebug();
+  }
 
   abstract boolean getDisableWholeArchive();
 
+  @StarlarkMethod(name = "disable_whole_archive", documented = false, useStarlarkThread = true)
+  public boolean getDisableWholeArchiveForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getDisableWholeArchive();
+  }
+
   @Override
-  public final void debugPrint(Printer printer, StarlarkSemantics semantics) {
+  public final void debugPrint(Printer printer, StarlarkThread thread) {
     printer.append("<LibraryToLink(");
     printer.append(
         Joiner.on(", ")
@@ -269,6 +286,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
     AutoLibraryToLink.Builder setLtoCompilationContext(LtoCompilationContext ltoCompilationContext);
 
+    @CanIgnoreReturnValue
     AutoLibraryToLink.Builder setSharedNonLtoBackends(
         ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends);
 
@@ -331,30 +349,6 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
     @Override // Remove @StarlarkMethod.
     public abstract boolean getAlwayslink();
-
-    @Memoized
-    @Override
-    LinkerInputs.LibraryToLink getStaticLibraryToLink() {
-      return super.getStaticLibraryToLink();
-    }
-
-    @Memoized
-    @Override
-    LinkerInputs.LibraryToLink getPicStaticLibraryToLink() {
-      return super.getPicStaticLibraryToLink();
-    }
-
-    @Memoized
-    @Override
-    LinkerInputs.LibraryToLink getDynamicLibraryToLink() {
-      return super.getDynamicLibraryToLink();
-    }
-
-    @Memoized
-    @Override
-    LinkerInputs.LibraryToLink getInterfaceLibraryToLink() {
-      return super.getInterfaceLibraryToLink();
-    }
 
     @AutoValue.Builder
     public abstract static class Builder implements LibraryToLink.Builder {

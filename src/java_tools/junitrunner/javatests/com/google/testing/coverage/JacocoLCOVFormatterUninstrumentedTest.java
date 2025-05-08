@@ -191,4 +191,21 @@ public class JacocoLCOVFormatterUninstrumentedTest {
     String coverageOutput = writer.toString();
     assertThat(coverageOutput).isNotEmpty();
   }
+
+  @Test
+  public void testVisitBundleWithExactMatch() throws IOException {
+    // It's possible, albeit unlikely, that the execPath and the package based path match exactly
+    String srcPath = "com/example/Foo.java";
+    ImmutableSet<String> execPaths = ImmutableSet.of(srcPath);
+    JacocoLCOVFormatter formatter = new JacocoLCOVFormatter(execPaths);
+    IReportVisitor visitor =
+        formatter.createVisitor(
+            new PrintWriter(writer), new TreeMap<String, BranchCoverageDetail>());
+
+    visitor.visitBundle(mockBundle, mock(ISourceFileLocator.class));
+    visitor.visitEnd();
+
+    String coverageOutput = writer.toString();
+    assertThat(coverageOutput).contains(srcPath);
+  }
 }

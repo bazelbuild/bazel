@@ -27,7 +27,7 @@ import net.starlark.java.annot.StarlarkMethod;
     name = "ConstraintSettingInfo",
     doc =
         "A specific constraint setting that may be used to define a platform. See "
-            + "<a href='${link platforms#defining-constraints-and-platforms}'>Defining "
+            + "<a href='${link platforms#constraints-platforms}'>Defining "
             + "Constraints and Platforms</a> for more information."
             + PlatformInfoApi.EXPERIMENTAL_WARNING,
     category = DocCategory.PROVIDER)

@@ -15,10 +15,13 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.SubscriberExceptionHandler;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
@@ -43,9 +46,11 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
+import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -79,8 +84,9 @@ public abstract class BlazeModule {
   public void globalInit(OptionsParsingResult startupOptions) throws AbruptExitException {}
 
   /**
-   * Returns the file system implementation used by Bazel. It is an error if more than one module
-   * returns a file system. If all return null, the default unix file system is used.
+   * Returns the file system implementation used by Bazel.
+   *
+   * <p>Exactly one module must return a non-null value from this method, or an error will occur.
    *
    * <p>This method will be called at the beginning of Bazel startup (in-between {@link #globalInit}
    * and {@link #blazeStartup}).
@@ -88,12 +94,26 @@ public abstract class BlazeModule {
    * @param startupOptions the server's startup options
    * @param realExecRootBase absolute path fragment of the actual, underlying execution root
    */
+  @Nullable
   public ModuleFileSystem getFileSystem(
       OptionsParsingResult startupOptions, PathFragment realExecRootBase)
       throws AbruptExitException {
     return null;
   }
 
+  /**
+   * Returns the file system implementation used by Bazel to read or write build artifacts.
+   *
+   * <p>At most one module may return a non-null value from this method, or an error will occur. If
+   * no module returns a non-null value, the file system returned by {@link #getFileSystem} from
+   * this or another module will be used.
+   *
+   * <p>This method will be called at the beginning of Bazel startup (in-between {@link #globalInit}
+   * and {@link #blazeStartup}).
+   *
+   * @param fileSystem the file system returned by {@link #getFileSystem} from this or another
+   *     module
+   */
   @Nullable
   public FileSystem getFileSystemForBuildArtifacts(FileSystem fileSystem) {
     return null;
@@ -104,17 +124,31 @@ public abstract class BlazeModule {
   public abstract static class ModuleFileSystem {
     public abstract FileSystem fileSystem();
 
-    /** Non-null if this filesystem virtualizes the execroot folder. */
-    @Nullable
-    abstract Path virtualExecRootBase();
+    /**
+     * Present if this filesystem virtualizes the source root. See {@link
+     * ServerDirectories#getVirtualSourceRoot}.
+     */
+    abstract Optional<Root> virtualSourceRoot();
 
-    public static ModuleFileSystem create(
-        FileSystem fileSystem, @Nullable Path virtualExecRootBase) {
-      return new AutoValue_BlazeModule_ModuleFileSystem(fileSystem, virtualExecRootBase);
+    /**
+     * Present if this filesystem virtualizes the execroot folder. See {@link
+     * ServerDirectories#getExecRootBase}.
+     */
+    abstract Optional<Path> virtualExecRootBase();
+
+    public static ModuleFileSystem createWithVirtualization(
+        FileSystem fileSystem, PathFragment virtualSourceRoot, PathFragment virtualExecRootBase) {
+      return new AutoValue_BlazeModule_ModuleFileSystem(
+          fileSystem,
+          Optional.of(Root.fromPath(fileSystem.getPath(virtualSourceRoot))),
+          Optional.of(fileSystem.getPath(virtualExecRootBase)));
     }
 
     public static ModuleFileSystem create(FileSystem fileSystem) {
-      return create(fileSystem, /*virtualExecRootBase=*/ null);
+      return new AutoValue_BlazeModule_ModuleFileSystem(
+          fileSystem,
+          /* virtualSourceRoot= */ Optional.empty(),
+          /* virtualExecRootBase= */ Optional.empty());
     }
   }
 
@@ -200,19 +234,20 @@ public abstract class BlazeModule {
    * Returns additional listeners to the console output stream. Called at the beginning of each
    * command (after #beforeCommand).
    */
-  @SuppressWarnings("unused")
   @Nullable
   public OutErr getOutputListener() {
     return null;
   }
 
   /**
-   * Returns the output service to be used. It is an error if more than one module returns an output
-   * service.
+   * Returns the {@link OutputService} to be used.
    *
-   * <p>This method will be called at the beginning of each command (after #beforeCommand).
+   * <p>It is an error if more than one module returns a non-null output service. If all modules
+   * return {@code null}, then {@link com.google.devtools.build.lib.vfs.LocalOutputService} will be
+   * used.
+   *
+   * <p>This method is called at the beginning of each command (after {@link #beforeCommand}).
    */
-  @SuppressWarnings("unused")
   public OutputService getOutputService() throws AbruptExitException {
     return null;
   }
@@ -283,6 +318,12 @@ public abstract class BlazeModule {
       ConfiguredTarget configuredTarget)
       throws InterruptedException, ViewCreationFailedException {}
 
+  public void afterSingleAspectAnalysis(BuildRequest request, ConfiguredAspect configuredTarget) {}
+
+  public void afterSingleTestAnalysis(BuildRequest request, ConfiguredTarget configuredTarget) {}
+
+  public void coverageArtifactsKnown(ImmutableSet<Artifact> coverageArtifacts) {}
+
   /**
    * Called when Bazel initializes the action execution subsystem. This is called once per build if
    * action execution is enabled. Modules can override this method to affect how execution is
@@ -349,6 +390,10 @@ public abstract class BlazeModule {
    *
    * <p>If you are also implementing {@link #blazeShutdownOnCrash}, consider putting the common
    * shutdown code in the latter and calling that other hook from here.
+   *
+   * <p>This is also called after each test case in {@link
+   * com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase} and can be used to avoid
+   * leaking resources when this module instance is thrown away between tests.
    */
   public void blazeShutdown() {}
 

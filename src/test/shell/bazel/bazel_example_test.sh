@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -51,7 +51,13 @@ javabase=${javabase%/bin/java}
 
 function set_up() {
   copy_examples
-  create_workspace_with_default_repos "WORKSPACE" "io_bazel"
+  cat > MODULE.bazel <<EOF
+module(name="io_bazel")
+EOF
+  add_rules_java "MODULE.bazel"
+  add_rules_python "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
+  add_rules_cc "MODULE.bazel"
 }
 
 #

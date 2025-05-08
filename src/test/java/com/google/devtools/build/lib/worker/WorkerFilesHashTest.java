@@ -20,23 +20,30 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerFilesHash.MissingInputException;
 import java.io.IOException;
+import java.util.Map;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -54,7 +61,7 @@ public final class WorkerFilesHashTest {
   public void getWorkerFilesWithDigests_returnsToolsWithCorrectDigests() throws Exception {
     byte[] tool1Digest = "text1".getBytes(UTF_8);
     byte[] tool2Digest = "text2".getBytes(UTF_8);
-    MetadataProvider metadataProvider =
+    InputMetadataProvider inputMetadataProvider =
         createMetadataProvider(
             ImmutableMap.of(
                 "tool1", fileArtifactValue(tool1Digest), "tool2", fileArtifactValue(tool2Digest)));
@@ -65,8 +72,7 @@ public final class WorkerFilesHashTest {
             .build();
 
     SortedMap<PathFragment, byte[]> filesWithDigests =
-        WorkerFilesHash.getWorkerFilesWithDigests(
-            spawn, (ignored1, ignored2) -> {}, metadataProvider);
+        WorkerFilesHash.getWorkerFilesWithDigests(spawn, inputMetadataProvider);
 
     assertThat(filesWithDigests)
         .containsExactly(
@@ -81,24 +87,21 @@ public final class WorkerFilesHashTest {
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
     byte[] child1Digest = "text1".getBytes(UTF_8);
     byte[] child2Digest = "text2".getBytes(UTF_8);
-    MetadataProvider metadataProvider =
-        createMetadataProvider(
-            ImmutableMap.of(
-                child1.getExecPathString(),
-                fileArtifactValue(child1Digest),
-                child2.getExecPathString(),
-                fileArtifactValue(child2Digest)));
-    Spawn spawn = new SpawnBuilder().withTool(tree).build();
-    ArtifactExpander expander =
-        (artifact, output) -> {
-          if (artifact.equals(tree)) {
-            output.add(TreeFileArtifact.createTreeOutput(tree, "child1"));
-            output.add(TreeFileArtifact.createTreeOutput(tree, "child2"));
-          }
-        };
 
+    Spawn spawn = new SpawnBuilder().withTool(tree).build();
+
+    TreeArtifactValue treeArtifactValue =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.createProxy(child1Digest))
+            .putChild(child2, FileArtifactValue.createProxy(child2Digest))
+            .build();
+
+    FakeActionInputFileCache fakeActionInputFileCache = new FakeActionInputFileCache();
+    fakeActionInputFileCache.putTreeArtifact(tree, treeArtifactValue);
+    fakeActionInputFileCache.put(child1, FileArtifactValue.createProxy(child1Digest));
+    fakeActionInputFileCache.put(child2, FileArtifactValue.createProxy(child2Digest));
     SortedMap<PathFragment, byte[]> filesWithDigests =
-        WorkerFilesHash.getWorkerFilesWithDigests(spawn, expander, metadataProvider);
+        WorkerFilesHash.getWorkerFilesWithDigests(spawn, fakeActionInputFileCache);
 
     assertThat(filesWithDigests)
         .containsExactly(child1.getExecPath(), child1Digest, child2.getExecPath(), child2Digest)
@@ -107,62 +110,93 @@ public final class WorkerFilesHashTest {
 
   @Test
   public void getWorkerFilesWithDigests_spawnWithInputsButNoTools_returnsEmpty() throws Exception {
-    MetadataProvider metadataProvider = createMetadataProvider(ImmutableMap.of());
+    InputMetadataProvider inputMetadataProvider = createMetadataProvider(ImmutableMap.of());
     Spawn spawn = new SpawnBuilder().withInputs("file1", "file2").build();
 
     SortedMap<PathFragment, byte[]> filesWithDigests =
-        WorkerFilesHash.getWorkerFilesWithDigests(
-            spawn, (ignored1, ignored2) -> {}, metadataProvider);
+        WorkerFilesHash.getWorkerFilesWithDigests(spawn, inputMetadataProvider);
 
     assertThat(filesWithDigests).isEmpty();
   }
 
   @Test
   public void getWorkerFilesWithDigests_missingDigestForTool_fails() {
-    MetadataProvider metadataProvider = createMetadataProvider(ImmutableMap.of());
+    InputMetadataProvider inputMetadataProvider = createMetadataProvider(ImmutableMap.of());
     Spawn spawn = new SpawnBuilder().withTool(ActionInputHelper.fromPath("tool")).build();
 
     assertThrows(
         MissingInputException.class,
-        () ->
-            WorkerFilesHash.getWorkerFilesWithDigests(
-                spawn, (ignored1, ignored2) -> {}, metadataProvider));
+        () -> WorkerFilesHash.getWorkerFilesWithDigests(spawn, inputMetadataProvider));
   }
 
   @Test
   public void getWorkerFilesWithDigests_ioExceptionForToolMetadata_fails() {
     IOException injected = new IOException("oh no");
-    MetadataProvider metadataProvider = createMetadataProvider(ImmutableMap.of("tool", injected));
+    InputMetadataProvider inputMetadataProvider =
+        createMetadataProvider(ImmutableMap.of("tool", injected));
     Spawn spawn = new SpawnBuilder().withTool(ActionInputHelper.fromPath("tool")).build();
 
     IOException thrown =
         assertThrows(
             IOException.class,
-            () ->
-                WorkerFilesHash.getWorkerFilesWithDigests(
-                    spawn, (ignored1, ignored2) -> {}, metadataProvider));
+            () -> WorkerFilesHash.getWorkerFilesWithDigests(spawn, inputMetadataProvider));
 
     assertThat(thrown).isSameInstanceAs(injected);
   }
 
-  private static MetadataProvider createMetadataProvider(
+  private static InputMetadataProvider createMetadataProvider(
       ImmutableMap<String, Object> inputMetadataOrExceptions) {
-    return new MetadataProvider() {
+    return new InputMetadataProvider() {
+
       @Nullable
       @Override
-      public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+      public FileArtifactValue getInputMetadataChecked(ActionInput input) throws IOException {
         @Nullable
         Object metadataOrException = inputMetadataOrExceptions.get(input.getExecPathString());
         if (metadataOrException == null) {
           return null;
         }
-        if (metadataOrException instanceof IOException) {
-          throw (IOException) metadataOrException;
+        if (metadataOrException instanceof IOException ioException) {
+          throw ioException;
         }
-        if (metadataOrException instanceof FileArtifactValue) {
-          return (FileArtifactValue) metadataOrException;
+        if (metadataOrException instanceof FileArtifactValue fileArtifactValue) {
+          return fileArtifactValue;
         }
         throw new AssertionError("Unexpected value: " + metadataOrException);
+      }
+
+      @Nullable
+      @Override
+      public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+        return null;
+      }
+
+      @Nullable
+      @Override
+      public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
+        return null;
+      }
+
+      @Override
+      @Nullable
+      public FilesetOutputTree getFileset(ActionInput input) {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public Map<Artifact, FilesetOutputTree> getFilesets() {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      @Nullable
+      public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public ImmutableList<RunfilesTree> getRunfilesTrees() {
+        throw new UnsupportedOperationException();
       }
 
       @Nullable

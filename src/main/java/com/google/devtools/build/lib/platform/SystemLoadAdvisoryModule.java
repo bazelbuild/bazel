@@ -73,16 +73,12 @@ public final class SystemLoadAdvisoryModule extends BlazeModule {
   }
 
   private String macOSSystemLoadAdvisoryDescription(int value) {
-    switch (value) {
-      case 0:
-        return "Great";
-      case 25:
-        return "OK";
-      case 75:
-        return "Bad";
-      default:
-        return "Unknown System Load Advisory Value: " + value;
-    }
+    return switch (value) {
+      case 0 -> "Great";
+      case 25 -> "OK";
+      case 75 -> "Bad";
+      default -> "Unknown System Load Advisory Value: " + value;
+    };
   }
 
   private synchronized void reportSystemLoadAdvisoryEvent(boolean isInitialValue, int value) {

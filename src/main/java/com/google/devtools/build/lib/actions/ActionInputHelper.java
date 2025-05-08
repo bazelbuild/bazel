@@ -16,12 +16,8 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
-import java.util.List;
 
 /** Helper utility to create ActionInput instances. */
 public final class ActionInputHelper {
@@ -32,11 +28,16 @@ public final class ActionInputHelper {
    * implement equality via path comparison. Since file caches are keyed by ActionInput, equality
    * checking does come up.
    */
-  private abstract static class BasicActionInput implements ActionInput {
+  public abstract static class BasicActionInput implements ActionInput {
 
     // TODO(lberki): Plumb this flag from InputTree.build() somehow.
     @Override
     public boolean isSymlink() {
+      return false;
+    }
+
+    @Override
+    public boolean isDirectory() {
       return false;
     }
 
@@ -102,34 +103,6 @@ public final class ActionInputHelper {
     };
   }
 
-  /**
-   * Expands middleman and tree artifacts in a sequence of {@link ActionInput}s.
-   *
-   * <p>The constructed list never contains middleman artifacts. If {@code keepEmptyTreeArtifacts}
-   * is true, a tree artifact will be included in the constructed list when it expands into zero
-   * file artifacts. Otherwise, only the file artifacts the tree artifact expands into will be
-   * included.
-   *
-   * <p>Non-middleman, non-tree artifacts are returned untouched.
-   */
-  public static List<ActionInput> expandArtifacts(
-      NestedSet<? extends ActionInput> inputs,
-      ArtifactExpander artifactExpander,
-      boolean keepEmptyTreeArtifacts) {
-    List<ActionInput> result = new ArrayList<>();
-    List<Artifact> containedArtifacts = new ArrayList<>();
-    for (ActionInput input : inputs.toList()) {
-      if (!(input instanceof Artifact)) {
-        result.add(input);
-        continue;
-      }
-      containedArtifacts.add((Artifact) input);
-    }
-    Artifact.addExpandedArtifacts(
-        containedArtifacts, result, artifactExpander, keepEmptyTreeArtifacts);
-    return result;
-  }
-
   public static Iterable<String> toExecPaths(Iterable<? extends ActionInput> artifacts) {
     return Iterables.transform(artifacts, ActionInput::getExecPathString);
   }
@@ -139,8 +112,8 @@ public final class ActionInputHelper {
     Preconditions.checkNotNull(input, "input");
     Preconditions.checkNotNull(execRoot, "execRoot");
 
-    return (input instanceof Artifact)
-        ? ((Artifact) input).getPath()
+    return input instanceof Artifact artifact
+        ? artifact.getPath()
         : execRoot.getRelative(input.getExecPath());
   }
 }

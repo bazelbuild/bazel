@@ -35,6 +35,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "third_party/ijar/common.h"
@@ -53,22 +54,23 @@ std::string ToString(const T& value) {
 
 namespace devtools_ijar {
 
-// See Table 4.3 in JVM Spec.
+// See Table 4.4 in JVM 17 Spec.
 enum CONSTANT {
-  CONSTANT_Class              = 7,
-  CONSTANT_FieldRef           = 9,
-  CONSTANT_Methodref          = 10,
+  CONSTANT_Class = 7,
+  CONSTANT_FieldRef = 9,
+  CONSTANT_Methodref = 10,
   CONSTANT_Interfacemethodref = 11,
-  CONSTANT_String             = 8,
-  CONSTANT_Integer            = 3,
-  CONSTANT_Float              = 4,
-  CONSTANT_Long               = 5,
-  CONSTANT_Double             = 6,
-  CONSTANT_NameAndType        = 12,
-  CONSTANT_Utf8               = 1,
-  CONSTANT_MethodHandle       = 15,
-  CONSTANT_MethodType         = 16,
-  CONSTANT_InvokeDynamic      = 18
+  CONSTANT_String = 8,
+  CONSTANT_Integer = 3,
+  CONSTANT_Float = 4,
+  CONSTANT_Long = 5,
+  CONSTANT_Double = 6,
+  CONSTANT_NameAndType = 12,
+  CONSTANT_Utf8 = 1,
+  CONSTANT_MethodHandle = 15,
+  CONSTANT_MethodType = 16,
+  CONSTANT_Dynamic = 17,
+  CONSTANT_InvokeDynamic = 18
 };
 
 // See Tables 4.1, 4.4, 4.5 in JVM Spec.
@@ -111,10 +113,11 @@ enum TARGET_TYPE {
 struct Constant;
 
 // TODO(adonovan) these globals are unfortunate
-static std::vector<Constant*>        const_pool_in; // input constant pool
-static std::vector<Constant*>        const_pool_out; // output constant_pool
-static std::set<std::string>         used_class_names;
-static Constant *                    class_name;
+static std::vector<Constant *> const_pool_in;   // input constant pool
+static std::vector<Constant *> const_pool_out;  // output constant_pool
+static std::set<std::string> used_class_names;
+static Constant *class_name;
+static std::unordered_set<std::string> unknown_attributes;
 
 // Returns the Constant object, given an index into the input constant pool.
 // Note: constant(0) == NULL; this invariant is exploited by the
@@ -390,12 +393,32 @@ struct Constant_MethodType : Constant
 };
 
 // See sec.4.4.10 of JVM spec.
-struct Constant_InvokeDynamic : Constant
-{
-  Constant_InvokeDynamic(u2 bootstrap_method_attr_index, u2 name_and_type_index) :
-      Constant(CONSTANT_InvokeDynamic),
-      bootstrap_method_attr_index_(bootstrap_method_attr_index),
-      name_and_type_index_(name_and_type_index) {}
+struct Constant_Dynamic : Constant {
+  Constant_Dynamic(u2 bootstrap_method_attr_index, u2 name_and_type_index)
+      : Constant(CONSTANT_Dynamic),
+        bootstrap_method_attr_index_(bootstrap_method_attr_index),
+        name_and_type_index_(name_and_type_index) {}
+
+  void Write(u1 *&p) {
+    put_u1(p, tag_);
+    put_u2be(p, bootstrap_method_attr_index_);
+    put_u2be(p, name_and_type_index_);
+  }
+
+  std::string Display() {
+    return "Constant_Dynamic::" + ToString(bootstrap_method_attr_index_) +
+           "::" + constant(name_and_type_index_)->Display();
+  }
+
+  u2 bootstrap_method_attr_index_;
+  u2 name_and_type_index_;
+};
+
+struct Constant_InvokeDynamic : Constant {
+  Constant_InvokeDynamic(u2 bootstrap_method_attr_index, u2 name_and_type_index)
+      : Constant(CONSTANT_InvokeDynamic),
+        bootstrap_method_attr_index_(bootstrap_method_attr_index),
+        name_and_type_index_(name_and_type_index) {}
 
   void Write(u1 *&p) {
     put_u1(p, tag_);
@@ -1191,7 +1214,8 @@ struct MethodParametersAttribute : Attribute {
     u1 parameters_count = get_u1(p);
     for (int ii = 0; ii < parameters_count; ++ii) {
       MethodParameter* parameter = new MethodParameter;
-      parameter->name_ = constant(get_u2be(p));
+      int name_id = get_u2be(p);
+      parameter->name_ = name_id == 0 ? NULL : constant(name_id);
       parameter->access_flags_ = get_u2be(p);
       attr->parameters_.push_back(parameter);
     }
@@ -1203,7 +1227,7 @@ struct MethodParametersAttribute : Attribute {
     u1 *payload_start = p - 4;
     put_u1(p, parameters_.size());
     for (MethodParameter* parameter : parameters_) {
-      put_u2be(p, parameter->name_->slot());
+      put_u2be(p, parameter->name_ == NULL ? 0 : parameter->name_->slot());
       put_u2be(p, parameter->access_flags_);
     }
     put_u4be(payload_start, p - 4 - payload_start);  // backpatch length
@@ -1249,10 +1273,22 @@ struct NestMembersAttribute : Attribute {
   }
 
   void Write(u1 *&p) {
-    WriteProlog(p, classes_.size() * 2 + 2);
-    put_u2be(p, classes_.size());
+    std::set<int> kept_entries;
     for (size_t ii = 0; ii < classes_.size(); ++ii) {
-      put_u2be(p, classes_[ii]->slot());
+      Constant *class_ = classes_[ii];
+      if (class_->Kept() || (used_class_names.find(class_->Display()) !=
+                             used_class_names.end())) {
+        kept_entries.insert(ii);
+      }
+    }
+    if (kept_entries.empty()) {
+      return;
+    }
+    WriteProlog(p, kept_entries.size() * 2 + 2);
+    put_u2be(p, kept_entries.size());
+    for (std::set<int>::iterator it = kept_entries.begin();
+         it != kept_entries.end(); ++it) {
+      put_u2be(p, classes_[*it]->slot());
     }
   }
 
@@ -1466,6 +1502,20 @@ struct ClassFile : HasAttrs {
       attributes.push_back(inner_classes);
     }
 
+    Attribute* nest_members = NULL;
+
+    for (size_t ii = 0; ii < attributes.size(); ii++) {
+      if (attributes[ii]->attribute_name_->Display() == "NestMembers") {
+        nest_members = attributes[ii];
+        attributes.erase(attributes.begin() + ii);
+        break;
+      }
+    }
+
+    if (nest_members != NULL) {
+      attributes.push_back(nest_members);
+    }
+
     WriteAttrs(p);
   }
 
@@ -1510,9 +1560,8 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
                attr_name == "RuntimeInvisibleParameterAnnotations") {
       attributes.push_back(
           ParameterAnnotationsAttribute::Read(p, attribute_name));
-    } else if (attr_name == "Scala" ||
-               attr_name == "ScalaSig" ||
-               attr_name == "ScalaInlineInfo" ||
+    } else if (attr_name == "Scala" || attr_name == "ScalaSig" ||
+               attr_name == "ScalaInlineInfo" || attr_name == "TASTY" ||
                attr_name == "TurbineTransitiveJar") {
       // These are opaque blobs, so can be handled with a general
       // attribute handler
@@ -1544,8 +1593,11 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
       // not relevant for ijar.
       if (attr_name != "com.android.tools.r8.SynthesizedClass" &&
           attr_name != "com.android.tools.r8.SynthesizedClassV2") {
-        fprintf(stderr, "ijar: skipping unknown attribute: \"%s\".\n",
-                attr_name.c_str());
+        // Only warn about the first occurrence of each unknown attribute.
+        if (unknown_attributes.insert(attr_name).second) {
+          fprintf(stderr, "ijar: skipping unknown attribute: \"%s\".\n",
+                  attr_name.c_str());
+        }
       }
       p += attribute_length;
     }
@@ -1650,6 +1702,13 @@ bool ClassFile::ReadConstantPool(const u1 *&p) {
         const_pool_in.push_back(new Constant_MethodType(descriptor_index));
         break;
       }
+      case CONSTANT_Dynamic: {
+        u2 bootstrap_method_attr = get_u2be(p);
+        u2 name_name_type_index = get_u2be(p);
+        const_pool_in.push_back(
+            new Constant_Dynamic(bootstrap_method_attr, name_name_type_index));
+        break;
+      }
       case CONSTANT_InvokeDynamic: {
         u2 bootstrap_method_attr = get_u2be(p);
         u2 name_name_type_index = get_u2be(p);
@@ -1658,7 +1717,7 @@ bool ClassFile::ReadConstantPool(const u1 *&p) {
         break;
       }
       default: {
-        fprintf(stderr, "Unknown constant: %02x. Passing class through.\n",
+        fprintf(stderr, "Unknown constant: %hhu. Passing class through.\n",
                 tag);
         return false;
       }

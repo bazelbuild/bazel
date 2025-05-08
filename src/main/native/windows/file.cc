@@ -18,10 +18,11 @@
 
 #include "src/main/native/windows/file.h"
 
-#include <WinIoCtl.h>
 #include <stdint.h>  // uint8_t
 #include <versionhelpers.h>
+#include <winbase.h>
 #include <windows.h>
+#include <winioctl.h>
 
 #include <memory>
 #include <sstream>
@@ -117,6 +118,61 @@ int IsSymlinkOrJunction(const WCHAR* path, bool* result, wstring* error) {
     *result = (attrs & FILE_ATTRIBUTE_REPARSE_POINT);
     return IsSymlinkOrJunctionResult::kSuccess;
   }
+}
+
+static int64_t WindowsFileTimeToUnixMillis(LARGE_INTEGER filetime) {
+  // Convert from Windows file time (100ns units since January 1, 1601) to
+  // Unix millis (1ms units since January 1, 1970). For the magic constant, see:
+  // https://learn.microsoft.com/en-us/windows/win32/sysinfo/converting-a-time-t-value-to-a-file-time
+  return (filetime.QuadPart - 116444736000000000LL) / 10000LL;
+}
+
+int GetChangeTime(const WCHAR* path, bool follow_reparse_points,
+                  int64_t* result, wstring* error) {
+  if (!IsAbsoluteNormalizedWindowsPath(path)) {
+    if (error) {
+      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"GetChangeTime",
+                                path, L"expected an absolute Windows path");
+    }
+    return GetChangeTimeResult::kError;
+  }
+
+  AutoHandle handle;
+  DWORD flags = FILE_FLAG_BACKUP_SEMANTICS;
+  if (!follow_reparse_points) {
+    flags |= FILE_FLAG_OPEN_REPARSE_POINT;
+  }
+  handle = CreateFileW(path, 0,
+                       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                       nullptr, OPEN_EXISTING, flags, nullptr);
+
+  if (!handle.IsValid()) {
+    DWORD err = GetLastError();
+    if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+      return GetChangeTimeResult::kDoesNotExist;
+    } else if (err == ERROR_ACCESS_DENIED) {
+      return GetChangeTimeResult::kAccessDenied;
+    }
+    if (error) {
+      *error =
+          MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateFileW", path, err);
+    }
+    return GetChangeTimeResult::kError;
+  }
+
+  FILE_BASIC_INFO info;
+  if (!GetFileInformationByHandleEx(handle, FileBasicInfo, (LPVOID)&info,
+                                    sizeof(FILE_BASIC_INFO))) {
+    DWORD err = GetLastError();
+    if (error) {
+      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                L"GetFileInformationByHandleEx", path, err);
+    }
+    return GetChangeTimeResult::kError;
+  }
+
+  *result = WindowsFileTimeToUnixMillis(info.ChangeTime);
+  return GetChangeTimeResult::kSuccess;
 }
 
 wstring GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
@@ -456,7 +512,8 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
   const wstring target = AddUncPrefixMaybe(symlink_target);
 
   DWORD attrs = GetFileAttributesW(target.c_str());
-  if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
+  if ((attrs != INVALID_FILE_ATTRIBUTES) &&
+      (attrs & FILE_ATTRIBUTE_DIRECTORY)) {
     // Instead of creating a symlink to a directory use a Junction.
     return CreateSymlinkResult::kTargetIsDirectory;
   }
@@ -557,7 +614,10 @@ int ReadSymlinkOrJunction(const wstring& path, wstring* result,
       return ReadSymlinkOrJunctionResult::kNotALink;
     }
     default:
-      return ReadSymlinkOrJunctionResult::kUnknownLinkType;
+      *error =
+          MakeErrorMessage(WSTR(__FILE__), __LINE__, L"ReadSymlinkOrJunction",
+                           path, L"unsupported link type");
+      return ReadSymlinkOrJunctionResult::kError;
   }
 }
 

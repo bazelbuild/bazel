@@ -1,9 +1,12 @@
+load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_java//java:defs.bzl", "java_library")
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
-load("@rules_java//java:defs.bzl", "java_library", "java_proto_library")
 
 # Description:
 #   Debugging helpers and modules
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility =
         ["//src:__subpackages__"],
 )
@@ -50,6 +53,7 @@ java_library(
     deps = [
         ":debugging-options",
         ":workspace-rule-event",
+        ":workspace_log_java_proto",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",

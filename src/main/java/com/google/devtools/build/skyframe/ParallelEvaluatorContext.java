@@ -20,11 +20,13 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Context object holding sufficient information for {@link SkyFunctionEnvironment} to perform its
@@ -40,13 +42,15 @@ class ParallelEvaluatorContext {
   private final Version minimalVersion;
   private final ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions;
   private final ExtendedEventHandler reporter;
+  private final EmittedEventState emittedEventState;
   private final NestedSetVisitor<Reportable> replayingNestedSetEventVisitor;
-  private final boolean keepGoing;
-  private final DirtyTrackingProgressReceiver progressReceiver;
+  private final Predicate<SkyKey> keepGoing;
+
+  private final InflightTrackingProgressReceiver progressReceiver;
   private final EventFilter storedEventFilter;
   private final ErrorInfoManager errorInfoManager;
   private final GraphInconsistencyReceiver graphInconsistencyReceiver;
-  private final boolean mergingSkyframeAnalysisExecutionPhases;
+  private final QuiescingExecutor executor;
   private final Cache<SkyKey, SkyKeyComputeState> stateCache;
 
   /**
@@ -57,17 +61,10 @@ class ParallelEvaluatorContext {
    */
   private final Supplier<NodeEntryVisitor> visitorSupplier;
 
-  /**
-   * Returns a {@link Runnable} given a {@code key} to evaluate and an {@code evaluationPriority}
-   * indicating whether it should be scheduled for evaluation soon (higher is better). The returned
-   * {@link Runnable} is a {@link ComparableRunnable} so that it can be ordered by {@code
-   * evaluationPriority} in a priority queue if needed.
-   */
+  /** * Returns a {@link Runnable} given a {@code key} to evaluate. */
   interface RunnableMaker {
-    ComparableRunnable make(SkyKey key, int evaluationPriority);
+    Runnable make(SkyKey key);
   }
-
-  interface ComparableRunnable extends Runnable, Comparable<ComparableRunnable> {}
 
   public ParallelEvaluatorContext(
       QueryableGraph graph,
@@ -75,30 +72,31 @@ class ParallelEvaluatorContext {
       Version minimalVersion,
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       ExtendedEventHandler reporter,
-      NestedSetVisitor.VisitedState emittedEventState,
-      boolean keepGoing,
-      DirtyTrackingProgressReceiver progressReceiver,
+      EmittedEventState emittedEventState,
+      InflightTrackingProgressReceiver progressReceiver,
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
+      QuiescingExecutor executor,
       Supplier<NodeEntryVisitor> visitorSupplier,
-      boolean mergingSkyframeAnalysisExecutionPhases,
-      Cache<SkyKey, SkyKeyComputeState> stateCache) {
+      Cache<SkyKey, SkyKeyComputeState> stateCache,
+      Predicate<SkyKey> keepGoing) {
     this.graph = graph;
     this.graphVersion = graphVersion;
     this.minimalVersion = minimalVersion;
     this.skyFunctions = skyFunctions;
     this.reporter = reporter;
     this.graphInconsistencyReceiver = graphInconsistencyReceiver;
+    this.emittedEventState = emittedEventState;
     this.replayingNestedSetEventVisitor =
         new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
-    this.keepGoing = keepGoing;
     this.progressReceiver = checkNotNull(progressReceiver);
     this.storedEventFilter = storedEventFilter;
     this.errorInfoManager = errorInfoManager;
+    this.executor = executor;
     this.visitorSupplier = Suppliers.memoize(visitorSupplier);
-    this.mergingSkyframeAnalysisExecutionPhases = mergingSkyframeAnalysisExecutionPhases;
     this.stateCache = stateCache;
+    this.keepGoing = keepGoing;
   }
 
   /**
@@ -118,18 +116,15 @@ class ParallelEvaluatorContext {
     }
   }
 
-  /**
-   * Signals all parents that this node is finished and enqueues any parents that are ready at the
-   * given evaluation priority.
-   */
-  void signalParentsAndEnqueueIfReady(
-      SkyKey skyKey, Set<SkyKey> parents, Version version, int evaluationPriority)
+  /** Signals all parents that this node is finished and enqueues any parents that are ready. */
+  void signalParentsAndEnqueueIfReady(SkyKey skyKey, Set<SkyKey> parents, Version version)
       throws InterruptedException {
     NodeBatch batch = graph.getBatch(skyKey, Reason.SIGNAL_DEP, parents);
     for (SkyKey parent : parents) {
       NodeEntry entry = checkNotNull(batch.get(parent), parent);
-      if (entry.signalDep(version, skyKey)) {
-        getVisitor().enqueueEvaluation(parent, evaluationPriority);
+      boolean evaluationRequired = entry.signalDep(version, skyKey);
+      if (evaluationRequired || parent.supportsPartialReevaluation()) {
+        getVisitor().enqueueEvaluation(parent, skyKey);
       }
     }
   }
@@ -146,20 +141,24 @@ class ParallelEvaluatorContext {
     return minimalVersion;
   }
 
-  boolean keepGoing() {
-    return keepGoing;
+  boolean keepGoing(SkyKey key) {
+    return keepGoing.test(key);
   }
 
   NodeEntryVisitor getVisitor() {
     return visitorSupplier.get();
   }
 
-  DirtyTrackingProgressReceiver getProgressReceiver() {
+  InflightTrackingProgressReceiver getProgressReceiver() {
     return progressReceiver;
   }
 
   GraphInconsistencyReceiver getGraphInconsistencyReceiver() {
     return graphInconsistencyReceiver;
+  }
+
+  EmittedEventState getEmittedEventState() {
+    return emittedEventState;
   }
 
   NestedSetVisitor<Reportable> getReplayingNestedSetEventVisitor() {
@@ -182,12 +181,8 @@ class ParallelEvaluatorContext {
     return errorInfoManager;
   }
 
-  boolean restartPermitted() {
-    return graphInconsistencyReceiver.restartPermitted();
-  }
-
-  boolean mergingSkyframeAnalysisExecutionPhases() {
-    return mergingSkyframeAnalysisExecutionPhases;
+  QuiescingExecutor getExecutor() {
+    return executor;
   }
 
   Cache<SkyKey, SkyKeyComputeState> stateCache() {

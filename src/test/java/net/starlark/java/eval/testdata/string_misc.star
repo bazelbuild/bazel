@@ -95,7 +95,7 @@ assert_eq("a".endswith(()), False)
 assert_eq("".endswith(()), False)
 assert_fails(lambda: "a".endswith(["a"]), "got .* 'list', want 'string or tuple'")
 assert_fails(lambda: "1".endswith((1,)), "at index 0 of sub, got element of type int, want string")
-assert_fails(lambda: "a".endswith(("1", 1)), "at index 0 of sub, got element of type int, want string")
+assert_fails(lambda: "a".endswith(("1", 1)), "at index 1 of sub, got element of type int, want string")
 
 # startswith
 assert_eq("Apricot".startswith("Apr"), True)
@@ -119,7 +119,7 @@ assert_eq("a".startswith(()), False)
 assert_eq("".startswith(()), False)
 assert_fails(lambda: "a".startswith(["a"]), "got .* 'list', want 'string or tuple'")
 assert_fails(lambda: "1".startswith((1,)), "at index 0 of sub, got element of type int, want string")
-assert_fails(lambda: "a".startswith(("1", 1)), "at index 0 of sub, got element of type int, want string")
+assert_fails(lambda: "a".startswith(("1", 1)), "at index 1 of sub, got element of type int, want string")
 
 # substring
 assert_eq("012345678"[0:-1], "01234567")
@@ -187,10 +187,12 @@ assert_eq("".removeprefix(""), "")
 assert_eq("".removeprefix("a"), "")
 assert_eq("Apricot".removeprefix("pr"), "Apricot")
 assert_eq("AprApricot".removeprefix("Apr"), "Apricot")
+
 def removeprefix_self_unmodified():
     original_string = "Apricot"
     assert_eq(original_string.removeprefix("Apr"), "icot")
     assert_eq(original_string, "Apricot")
+
 removeprefix_self_unmodified()
 assert_fails(lambda: "1234".removeprefix(1), "got value of type 'int', want 'string")
 
@@ -203,9 +205,17 @@ assert_eq("".removesuffix(""), "")
 assert_eq("".removesuffix("a"), "")
 assert_eq("Apricot".removesuffix("co"), "Apricot")
 assert_eq("Apricotcot".removesuffix("cot"), "Apricot")
+
 def removesuffix_self_unmodified():
     original_string = "Apricot"
     assert_eq(original_string.removesuffix("cot"), "Apri")
     assert_eq(original_string, "Apricot")
+
 removesuffix_self_unmodified()
 assert_fails(lambda: "1234".removesuffix(4), "got value of type 'int', want 'string")
+
+# strip
+assert_eq("  abc  ".strip(), "abc")
+assert_eq("薠".strip(), "薠")
+assert_eq("薠".lstrip(), "薠")
+assert_eq("薠".rstrip(), "薠")

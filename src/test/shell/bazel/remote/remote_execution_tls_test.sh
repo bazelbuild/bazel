@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -100,7 +100,7 @@ function test_mtls_fails_if_client_has_no_cert() {
   bazel build \
       --remote_cache=grpcs://localhost:${worker_port} \
       --tls_certificate="${cert_path}/ca.crt" \
-      //a:foo 2> $TEST_log \
+      //a:foo &> $TEST_log \
       && fail "Expected bazel to fail without a client cert" || true
   expect_log "Failed to query remote execution capabilities:"
 }
@@ -125,8 +125,9 @@ function test_remote_cache_with_incompatible_tls_enabled_removed_grpc_scheme() {
       --remote_cache=grpc://localhost:${worker_port} \
       --tls_certificate="${cert_path}/ca.crt" \
       ${client_mtls_flags} \
-      //a:foo \
+      //a:foo &> $TEST_log \
       && fail "Expected test failure" || true
+  expect_log "Failed to query remote execution capabilities:"
 }
 
 run_suite "Remote cache TLS tests"

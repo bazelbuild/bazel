@@ -1,4 +1,6 @@
-package(default_visibility = ["//visibility:public"])
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "hello-lib",
@@ -27,4 +29,5 @@ cc_test(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+    visibility = ["//examples:__pkg__"],
 )

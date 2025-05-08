@@ -48,9 +48,13 @@ public class SubcommandEventTest extends BuildIntegrationTestCase {
 
     write(
         "hello/BUILD",
-        "genrule(name = 'hello',",
-        "        outs = ['hello.out'],",
-        "        cmd = 'echo \"Hello, World!\" > $(location hello.out)')");
+        """
+        genrule(
+            name = "hello",
+            outs = ["hello.out"],
+            cmd = 'echo "Hello, World!" > $(location hello.out)',
+        )
+        """);
 
     // (1) Ensure that building the target creates the output:
     buildTarget("//hello");
@@ -73,7 +77,7 @@ public class SubcommandEventTest extends BuildIntegrationTestCase {
     assertThat(
             new Command(new String[] {"/bin/sh", "-c", command})
                 .execute(new ByteArrayOutputStream(), new ByteArrayOutputStream())
-                .getTerminationStatus()
+                .terminationStatus()
                 .success())
         .isTrue();
     assertThat(helloOut.isFile()).isTrue();

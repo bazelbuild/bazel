@@ -41,7 +41,7 @@ import java.util.regex.Pattern;
  * persistent worker process (actions with equal keys are allowed to use the same worker process),
  * and a separate list of flag files. The result is encapsulated as a {@link WorkerConfig}.
  */
-class WorkerParser {
+public class WorkerParser {
   private static final String ERROR_MESSAGE_PREFIX =
       "Worker strategy cannot execute this %s action, ";
   private static final String REASON_NO_FLAGFILE =
@@ -97,8 +97,7 @@ class WorkerParser {
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
     SortedMap<PathFragment, byte[]> workerFiles =
-        WorkerFilesHash.getWorkerFilesWithDigests(
-            spawn, context.getArtifactExpander(), context.getMetadataProvider());
+        WorkerFilesHash.getWorkerFilesWithDigests(spawn, context.getInputMetadataProvider());
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 
@@ -131,6 +130,7 @@ class WorkerParser {
       WorkerOptions options,
       boolean dynamic,
       WorkerProtocolFormat protocolFormat) {
+    String workerKeyMnemonic = Spawns.getWorkerKeyMnemonic(spawn);
     boolean multiplex = options.workerMultiplex && Spawns.supportsMultiplexWorkers(spawn);
     if (dynamic && !(Spawns.supportsMultiplexSandboxing(spawn) && options.multiplexSandboxing)) {
       multiplex = false;
@@ -142,14 +142,20 @@ class WorkerParser {
     } else {
       sandboxed = options.workerSandboxing || dynamic;
     }
+    boolean useInMemoryTracking = false;
+    if (sandboxed) {
+      List<String> mnemonics = options.workerSandboxInMemoryTracking;
+      useInMemoryTracking = mnemonics != null && mnemonics.contains(workerKeyMnemonic);
+    }
     return new WorkerKey(
         workerArgs,
         env,
         execRoot,
-        Spawns.getWorkerKeyMnemonic(spawn),
+        workerKeyMnemonic,
         workerFilesCombinedHash,
         workerFiles,
         sandboxed,
+        useInMemoryTracking,
         multiplex,
         Spawns.supportsWorkerCancellation(spawn),
         protocolFormat);
@@ -204,7 +210,7 @@ class WorkerParser {
     ImmutableList.Builder<String> mnemonicFlags = ImmutableList.builder();
 
     workerOptions.workerExtraFlags.stream()
-        .filter(entry -> entry.getKey().equals(spawn.getMnemonic()))
+        .filter(entry -> entry.getKey().equals(Spawns.getWorkerKeyMnemonic(spawn)))
         .forEach(entry -> mnemonicFlags.add(entry.getValue()));
 
     return workerArgs.add("--persistent_worker").addAll(mnemonicFlags.build()).build();
@@ -241,4 +247,3 @@ class WorkerParser {
     }
   }
 }
-

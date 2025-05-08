@@ -14,24 +14,34 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi;
 import java.util.ArrayList;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.syntax.Location;
 
 /** Provider for users of Java plugins. */
 @Immutable
@@ -40,53 +50,104 @@ public abstract class JavaPluginInfo extends NativeInfo
     implements JavaPluginInfoApi<Artifact, JavaPluginData, JavaOutput> {
   public static final String PROVIDER_NAME = "JavaPluginInfo";
   public static final Provider PROVIDER = new Provider();
+  public static final Provider RULES_JAVA_PROVIDER = new RulesJavaProvider();
+  public static final Provider WORKSPACE_PROVIDER = new WorkspaceProvider();
 
   private static final JavaPluginInfo EMPTY =
       new AutoValue_JavaPluginInfo(
-          ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty());
+          ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty(), PROVIDER);
+
+  private static final JavaPluginInfo EMPTY_RULES_JAVA =
+      new AutoValue_JavaPluginInfo(
+          ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty(), RULES_JAVA_PROVIDER);
+
+  private static final JavaPluginInfo EMPTY_WORKSPACE =
+      new AutoValue_JavaPluginInfo(
+          ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty(), WORKSPACE_PROVIDER);
+
+  public static JavaPluginInfo wrap(Info info) throws RuleErrorException {
+    // this wrapped instance is not propagated back to Starlark, so we don't need every type
+    // we just use the single type that is checked for in tests
+    return PROVIDER.wrap(info);
+  }
+
+  @VisibleForTesting
+  public static JavaPluginInfo get(ConfiguredTarget target) throws RuleErrorException {
+    // we just use the single type that is checked for in tests
+    return target.get(PROVIDER);
+  }
 
   @Override
-  public Provider getProvider() {
-    return PROVIDER;
+  public com.google.devtools.build.lib.packages.Provider getProvider() {
+    return providerType();
+  }
+
+  /** Provider class for {@link JavaPluginInfo} objects in rules_java itself. */
+  public static class RulesJavaProvider extends Provider {
+    private RulesJavaProvider() {
+      super(keyForBuild(Label.parseCanonicalUnchecked("//java/private:java_info.bzl")));
+    }
+  }
+
+  /** Provider class for {@link JavaPluginInfo} objects in WORKSPACE mode. */
+  public static class WorkspaceProvider extends Provider {
+    private WorkspaceProvider() {
+      super(keyForBuild(Label.parseCanonicalUnchecked("@@rules_java//java/private:java_info.bzl")));
+    }
   }
 
   /** Provider class for {@link JavaPluginInfo} objects. */
-  public static class Provider extends BuiltinProvider<JavaPluginInfo>
-      implements JavaPluginInfoApi.Provider<JavaInfo> {
+  public static class Provider extends StarlarkProviderWrapper<JavaPluginInfo>
+      implements com.google.devtools.build.lib.packages.Provider {
     private Provider() {
-      super(PROVIDER_NAME, JavaPluginInfo.class);
+      this(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  JavaSemantics.RULES_JAVA_PROVIDER_LABELS_PREFIX + "java/private:java_info.bzl")));
+    }
+
+    private Provider(BzlLoadValue.Key key) {
+      super(key, PROVIDER_NAME);
     }
 
     @Override
-    public JavaPluginInfoApi<Artifact, JavaPluginData, JavaOutput> javaPluginInfo(
-        Sequence<?> runtimeDeps, Object processorClass, Object processorData, Boolean generatesApi)
-        throws EvalException {
-      NestedSet<String> processorClasses =
-          processorClass == Starlark.NONE
-              ? NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER)
-              : NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, (String) processorClass);
-      JavaInfo javaInfos =
-          JavaInfo.merge(
-              Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
-              /* mergeJavaOutputs= */ true,
-              /* mergeSourceJars= */ true);
+    public boolean isExported() {
+      return true;
+    }
 
-      NestedSet<Artifact> processorClasspath =
-          javaInfos.getProvider(JavaCompilationArgsProvider.class).getRuntimeJars();
+    @Override
+    public String getPrintableName() {
+      return PROVIDER_NAME;
+    }
 
-      final NestedSet<Artifact> data;
-      if (processorData instanceof Depset) {
-        data = Depset.cast(processorData, Artifact.class, "data");
+    @Override
+    public Location getLocation() {
+      return Location.BUILTIN;
+    }
+
+    @Override
+    public JavaPluginInfo wrap(Info value) throws RuleErrorException {
+      if (value instanceof JavaInfo) {
+        // needed because currently native JavaInfo extends JavaPluginInfo
+        throw new RuleErrorException("got element of type JavaInfo, want JavaPluginInfo");
+      } else if (value instanceof JavaPluginInfo javaPluginInfo) {
+        return javaPluginInfo;
+      } else if (value instanceof StructImpl) {
+        try {
+          StructImpl info = (StructImpl) value;
+          return new AutoValue_JavaPluginInfo(
+              JavaOutput.wrapSequence(
+                  Sequence.cast(info.getValue("java_outputs"), Object.class, "java_outputs")),
+              JavaPluginData.wrap(info.getValue("plugins")),
+              JavaPluginData.wrap(info.getValue("api_generating_plugins")),
+              value.getProvider());
+        } catch (EvalException e) {
+          throw new RuleErrorException(e);
+        }
       } else {
-        data =
-            NestedSetBuilder.wrap(
-                Order.NAIVE_LINK_ORDER, Sequence.cast(processorData, Artifact.class, "data"));
+        throw new RuleErrorException(
+            "got element of type " + Starlark.type(value) + ", want JavaPluginInfo");
       }
-
-      return JavaPluginInfo.create(
-          JavaPluginData.create(processorClasses, processorClasspath, data),
-          generatesApi,
-          javaInfos.getJavaOutputs());
     }
   }
 
@@ -95,7 +156,7 @@ public abstract class JavaPluginInfo extends NativeInfo
   @AutoValue
   public abstract static class JavaPluginData implements JavaPluginInfoApi.JavaPluginDataApi {
     private static final JavaPluginData EMPTY =
-        create(
+        new AutoValue_JavaPluginInfo_JavaPluginData(
             NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
             NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
             NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER));
@@ -104,6 +165,9 @@ public abstract class JavaPluginInfo extends NativeInfo
         NestedSet<String> processorClasses,
         NestedSet<Artifact> processorClasspath,
         NestedSet<Artifact> data) {
+      if (processorClasses.isEmpty() && processorClasspath.isEmpty() && data.isEmpty()) {
+        return empty();
+      }
       return new AutoValue_JavaPluginInfo_JavaPluginData(
           processorClasses, processorClasspath, data);
     }
@@ -124,6 +188,18 @@ public abstract class JavaPluginInfo extends NativeInfo
       return create(processorClasses.build(), processorClasspath.build(), data.build());
     }
 
+    public static JavaPluginData wrap(Object obj) throws EvalException, RuleErrorException {
+      if (obj instanceof JavaPluginData javaPluginData) {
+        return javaPluginData;
+      } else if (obj instanceof StructImpl struct) {
+        return JavaPluginData.create(
+            Depset.cast(struct.getValue("processor_classes"), String.class, "processor_classes"),
+            Depset.cast(struct.getValue("processor_jars"), Artifact.class, "processor_jars"),
+            Depset.cast(struct.getValue("processor_data"), Artifact.class, "processor_data"));
+      }
+      throw new RuleErrorException("Should never happen! Got unexpected type: " + obj.getClass());
+    }
+
     /**
      * Returns the class that should be passed to javac in order to run the annotation processor
      * this class represents.
@@ -137,39 +213,33 @@ public abstract class JavaPluginInfo extends NativeInfo
 
     @Override
     public Depset /*<FileApi>*/ getProcessorJarsForStarlark() {
-      return Depset.of(Artifact.TYPE, processorClasspath());
+      return Depset.of(Artifact.class, processorClasspath());
     }
 
     @Override
     public Depset /*<String>*/ getProcessorClassesForStarlark() {
-      return Depset.of(Depset.ElementType.STRING, processorClasses());
+      return Depset.of(String.class, processorClasses());
     }
 
     @Override
     public Depset /*<FileApi>*/ getProcessorDataForStarlark() {
-      return Depset.of(Artifact.TYPE, data());
+      return Depset.of(Artifact.class, data());
     }
 
     public boolean isEmpty() {
       return processorClasses().isEmpty() && processorClasspath().isEmpty() && data().isEmpty();
     }
-
-    private JavaPluginData disableAnnotationProcessing() {
-      return JavaPluginData.create(
-          /* processorClasses= */ NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
-          // Preserve the processor path, since it may contain Error Prone plugins which
-          // will be service-loaded by JavaBuilder.
-          processorClasspath(),
-          // Preserve data, which may be used by Error Prone plugins.
-          data());
-    }
   }
 
   public static JavaPluginInfo mergeWithoutJavaOutputs(JavaPluginInfo a, JavaPluginInfo b) {
-    return a.isEmpty() ? b : b.isEmpty() ? a : mergeWithoutJavaOutputs(ImmutableList.of(a, b));
+    return a.isEmpty()
+        ? b
+        : b.isEmpty() ? a : mergeWithoutJavaOutputs(ImmutableList.of(a, b), a.providerType());
   }
 
-  public static JavaPluginInfo mergeWithoutJavaOutputs(Iterable<JavaPluginInfo> providers) {
+  public static JavaPluginInfo mergeWithoutJavaOutputs(
+      Iterable<JavaPluginInfo> providers,
+      com.google.devtools.build.lib.packages.Provider providerType) {
     List<JavaPluginData> plugins = new ArrayList<>();
     List<JavaPluginData> apiGeneratingPlugins = new ArrayList<>();
     for (JavaPluginInfo provider : providers) {
@@ -181,27 +251,31 @@ public abstract class JavaPluginInfo extends NativeInfo
       }
     }
     if (plugins.isEmpty() && apiGeneratingPlugins.isEmpty()) {
-      return JavaPluginInfo.empty();
+      return JavaPluginInfo.empty(providerType);
     }
     return new AutoValue_JavaPluginInfo(
         ImmutableList.of(),
         JavaPluginData.merge(plugins),
-        JavaPluginData.merge(apiGeneratingPlugins));
+        JavaPluginData.merge(apiGeneratingPlugins),
+        providerType);
   }
 
-  public static JavaPluginInfo create(
-      JavaPluginData javaPluginData, boolean generatesApi, ImmutableList<JavaOutput> javaOutputs) {
-    return new AutoValue_JavaPluginInfo(
-        javaOutputs, javaPluginData, generatesApi ? javaPluginData : JavaPluginData.empty());
-  }
-
-  public static JavaPluginInfo empty() {
+  public static JavaPluginInfo empty(com.google.devtools.build.lib.packages.Provider providerType) {
+    if (providerType.equals(RULES_JAVA_PROVIDER)) {
+      return EMPTY_RULES_JAVA;
+    } else if (providerType.equals(WORKSPACE_PROVIDER)) {
+      return EMPTY_WORKSPACE;
+    }
     return EMPTY;
   }
 
+  @Override
   public abstract JavaPluginData plugins();
 
+  @Override
   public abstract JavaPluginData apiGeneratingPlugins();
+
+  protected abstract com.google.devtools.build.lib.packages.Provider providerType();
 
   /** Returns true if the provider has no associated data. */
   public boolean isEmpty() {
@@ -219,11 +293,24 @@ public abstract class JavaPluginInfo extends NativeInfo
   }
 
   /**
-   * Returns a copy of this {@code JavaPluginInfo} with annotation processors disabled. Does not
-   * remove the processor path or data, which may be needed for Error Prone plugins.
+   * Translates the plugin information from a {@link JavaInfo} instance.
+   *
+   * @param javaInfo the {@link JavaInfo} instance
+   * @return a {@link JavaPluginInfo} instance
+   * @throws EvalException if there are any errors accessing Starlark values
+   * @throws RuleErrorException if the {@code plugins} or {@code api_generating_plugins} fields are
+   *     of an incompatible type
    */
-  public JavaPluginInfo disableAnnotationProcessing() {
-    return JavaPluginInfo.create(
-        plugins().disableAnnotationProcessing(), /* generatesApi= */ false, getJavaOutputs());
+  static JavaPluginInfo fromStarlarkJavaInfo(StructImpl javaInfo)
+      throws EvalException, RuleErrorException {
+    com.google.devtools.build.lib.packages.Provider providerType = javaInfo.getProvider();
+    JavaPluginData plugins = JavaPluginData.wrap(javaInfo.getValue("plugins"));
+    JavaPluginData apiGeneratingPlugins =
+        JavaPluginData.wrap(javaInfo.getValue("api_generating_plugins"));
+    if (plugins.isEmpty() && apiGeneratingPlugins.isEmpty()) {
+      return JavaPluginInfo.empty(providerType);
+    }
+    return new AutoValue_JavaPluginInfo(
+        ImmutableList.of(), plugins, apiGeneratingPlugins, providerType);
   }
 }

@@ -215,10 +215,19 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
         // Don't count test cases that were not run.
         return 0;
       }
-      if (testCase.getStatus() != TestCase.Status.PASSED) {
-        this.summary.failedTestCases.add(testCase);
+      switch (testCase.getStatus()) {
+        case PASSED -> this.summary.passedTestCases.add(testCase);
+        case SKIPPED -> this.summary.skippedTestCases.add(testCase);
+        default -> this.summary.failedTestCases.add(testCase);
       }
+
       return 1;
+    }
+
+    public Builder addPassedTestCases(List<TestCase> testCases) {
+      checkMutation(testCases);
+      summary.passedTestCases.addAll(testCases);
+      return this;
     }
 
     @CanIgnoreReturnValue
@@ -396,6 +405,8 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   private boolean ranRemotely;
   private boolean wasUnreportedWrongSize;
   private List<TestCase> failedTestCases = new ArrayList<>();
+  private final List<TestCase> passedTestCases = new ArrayList<>();
+  private final List<TestCase> skippedTestCases = new ArrayList<>();
   private List<Path> passedLogs = new ArrayList<>();
   private List<Path> failedLogs = new ArrayList<>();
   private List<String> warnings = new ArrayList<>();
@@ -505,6 +516,14 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
 
   public List<TestCase> getFailedTestCases() {
     return failedTestCases;
+  }
+
+  public List<TestCase> getSkippedTestCases() {
+    return skippedTestCases;
+  }
+
+  public List<TestCase> getPassedTestCases() {
+    return passedTestCases;
   }
 
   public List<Path> getCoverageFiles() {
@@ -629,19 +648,11 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     // TODO(b/199940216): Can we populate metadata for these files?
     for (Path path : getFailedLogs()) {
       localFiles.add(
-          new LocalFile(
-              path,
-              LocalFileType.FAILED_TEST_OUTPUT,
-              /*artifact=*/ null,
-              /*artifactMetadata=*/ null));
+          new LocalFile(path, LocalFileType.FAILED_TEST_OUTPUT, /* artifactMetadata= */ null));
     }
     for (Path path : getPassedLogs()) {
       localFiles.add(
-          new LocalFile(
-              path,
-              LocalFileType.SUCCESSFUL_TEST_OUTPUT,
-              /*artifact=*/ null,
-              /*artifactMetadata=*/ null));
+          new LocalFile(path, LocalFileType.SUCCESSFUL_TEST_OUTPUT, /* artifactMetadata= */ null));
     }
     return localFiles.build();
   }

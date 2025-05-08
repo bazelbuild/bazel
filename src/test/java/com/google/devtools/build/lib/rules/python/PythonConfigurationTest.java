@@ -18,7 +18,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.assumesDefaultIsPY2;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -90,44 +93,64 @@ public class PythonConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void getHost_CopiesMostValues() throws Exception {
-    PythonOptions opts =
-        parsePythonOptions(
+  public void getExec_copiesMostValues() throws Exception {
+    BuildOptions options =
+        parseBuildOptions(
+            /* starlarkOptions= */ ImmutableMap.of(),
             "--incompatible_py3_is_default=true",
             "--incompatible_py2_outputs_are_suffixed=true",
             "--build_python_zip=true",
             "--incompatible_use_python_toolchains=true");
-    PythonOptions hostOpts = (PythonOptions) opts.getHost();
-    assertThat(hostOpts.incompatiblePy3IsDefault).isTrue();
-    assertThat(hostOpts.incompatiblePy2OutputsAreSuffixed).isTrue();
-    assertThat(hostOpts.buildPythonZip).isEqualTo(TriState.YES);
-    assertThat(hostOpts.incompatibleUsePythonToolchains).isTrue();
+
+    PythonOptions execOpts =
+        AnalysisTestUtil.execOptions(options, skyframeExecutor, reporter).get(PythonOptions.class);
+
+    assertThat(execOpts.incompatiblePy3IsDefault).isTrue();
+    assertThat(execOpts.incompatiblePy2OutputsAreSuffixed).isTrue();
+    assertThat(execOpts.buildPythonZip).isEqualTo(TriState.YES);
+    assertThat(execOpts.incompatibleUsePythonToolchains).isTrue();
   }
 
   @Test
-  public void getHost_AppliesHostForcePython() throws Exception {
+  public void getExec_appliesHostForcePython() throws Exception {
     assumesDefaultIsPY2();
-    PythonOptions optsWithPythonVersionFlag =
-        parsePythonOptions("--python_version=PY2", "--host_force_python=PY3");
-    PythonOptions optsWithPy3IsDefaultFlag =
-        parsePythonOptions(
+
+    BuildOptions optsWithPythonVersionFlag =
+        parseBuildOptions(
+            /* starlarkOptions= */ ImmutableMap.of(),
+            "--python_version=PY2",
+            "--host_force_python=PY3");
+
+    BuildOptions optsWithPy3IsDefaultFlag =
+        parseBuildOptions(
+            /* starlarkOptions= */ ImmutableMap.of(),
             "--incompatible_py3_is_default=true",
-            // It's more interesting to set the incompatible flag true and force host to PY2, than
-            // it is to set the flag false and force host to PY3.
+            // It's more interesting to set the incompatible flag true and force exec to PY2, than
+            // it is to set the flag false and force exec to PY3.
             "--host_force_python=PY2");
-    PythonOptions hostOptsWithPythonVersionFlag =
-        (PythonOptions) optsWithPythonVersionFlag.getHost();
-    PythonOptions hostOptsWithPy3IsDefaultFlag = (PythonOptions) optsWithPy3IsDefaultFlag.getHost();
-    assertThat(hostOptsWithPythonVersionFlag.getPythonVersion()).isEqualTo(PythonVersion.PY3);
-    assertThat(hostOptsWithPy3IsDefaultFlag.getPythonVersion()).isEqualTo(PythonVersion.PY2);
+
+    PythonOptions execOptsWithPythonVersionFlag =
+        AnalysisTestUtil.execOptions(optsWithPythonVersionFlag, skyframeExecutor, reporter)
+            .get(PythonOptions.class);
+    PythonOptions execOptsWithPy3IsDefaultFlag =
+        AnalysisTestUtil.execOptions(optsWithPy3IsDefaultFlag, skyframeExecutor, reporter)
+            .get(PythonOptions.class);
+
+    assertThat(execOptsWithPythonVersionFlag.getPythonVersion()).isEqualTo(PythonVersion.PY3);
+    assertThat(execOptsWithPy3IsDefaultFlag.getPythonVersion()).isEqualTo(PythonVersion.PY2);
   }
 
   @Test
-  public void getHost_Py3IsDefaultFlagChangesHost() throws Exception {
+  public void getExec_py3IsDefaultFlagChangesExec() throws Exception {
     assumesDefaultIsPY2();
-    PythonOptions opts = parsePythonOptions("--incompatible_py3_is_default=true");
-    PythonOptions hostOpts = (PythonOptions) opts.getHost();
-    assertThat(hostOpts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
+    BuildOptions options =
+        parseBuildOptions(
+            /* starlarkOptions= */ ImmutableMap.of(), "--incompatible_py3_is_default=true");
+
+    PythonOptions execOpts =
+        AnalysisTestUtil.execOptions(options, skyframeExecutor, reporter).get(PythonOptions.class);
+
+    assertThat(execOpts.getPythonVersion()).isEqualTo(PythonVersion.PY3);
   }
 
   @Test

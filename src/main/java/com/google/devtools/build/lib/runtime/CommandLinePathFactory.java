@@ -66,9 +66,14 @@ public final class CommandLinePathFactory {
     ImmutableMap.Builder<String, Path> wellKnownRoots = ImmutableMap.builder();
 
     // This is necessary because some tests don't have a workspace set.
-    Path workspace = directories.getWorkspace();
+    var workspace = directories.getWorkspace();
     if (workspace != null) {
       wellKnownRoots.put("workspace", workspace);
+    }
+
+    var installBase = directories.getInstallBase();
+    if (installBase != null) {
+      wellKnownRoots.put("install_base", installBase);
     }
 
     return new CommandLinePathFactory(fileSystem, wellKnownRoots.buildOrThrow());
@@ -87,7 +92,7 @@ public final class CommandLinePathFactory {
     if (path.containsUplevelReferences()) {
       throw new CommandLinePathFactoryException(
           String.format(
-              Locale.US, "Path must not contain any uplevel references ('..'), got '%s'", value));
+              Locale.US, "Path '%s' must not contain any uplevel references ('..')", value));
     }
 
     // Case 1: `path` is relative to a well-known root.
@@ -113,13 +118,23 @@ public final class CommandLinePathFactory {
     // it as relative to the user's `PATH`.
     if (path.segmentCount() > 1) {
       throw new CommandLinePathFactoryException(
-          "Path must either be absolute or not contain any path separators");
+          String.format(
+              Locale.US,
+              "Path '%s' must either be absolute or not contain any path separators",
+              value));
     }
 
     String pathVariable = env.getOrDefault("PATH", "");
     if (!Strings.isNullOrEmpty(pathVariable)) {
       for (String lookupPath : PATH_SPLITTER.split(pathVariable)) {
-        Path maybePath = fileSystem.getPath(lookupPath).getRelative(path);
+        PathFragment lookupPathFragment = PathFragment.create(lookupPath);
+        if (lookupPathFragment.isEmpty() || !lookupPathFragment.isAbsolute()) {
+          // Ignore empty or relative path components. These are uncommon and may be confusing if
+          // bazel is running in a different directory than the user's current directory.
+          continue;
+        }
+
+        Path maybePath = fileSystem.getPath(lookupPathFragment).getRelative(path);
         if (maybePath.exists(Symlinks.FOLLOW)
             && maybePath.isFile(Symlinks.FOLLOW)
             && maybePath.isExecutable()) {

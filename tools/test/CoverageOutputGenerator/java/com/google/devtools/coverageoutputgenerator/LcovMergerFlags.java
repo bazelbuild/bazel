@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
-@Parameters(separators = "= ", optionPrefixes = "--")
+@Parameters(separators = "= ")
 class LcovMergerFlags {
   private static final Logger logger = Logger.getLogger(LcovMergerFlags.class.getName());
   private static final int DEFAULT_PARSE_FILE_PARALLELISM = 4;

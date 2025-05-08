@@ -93,6 +93,8 @@ final class Parser {
   /** Current lookahead token. May be mutated by the parser. */
   private final Lexer token; // token.kind is a prettier alias for lexer.kind
 
+  private final FileOptions options;
+
   private static final boolean DEBUGGING = false;
 
   private final Lexer lexer;
@@ -150,11 +152,12 @@ final class Parser {
   // lexer can't handle.
   private final Map<String, String> stringInterner = new HashMap<>();
 
-  private Parser(Lexer lexer, List<SyntaxError> errors) {
+  private Parser(Lexer lexer, List<SyntaxError> errors, FileOptions options) {
     this.lexer = lexer;
     this.locs = lexer.locs;
     this.errors = errors;
     this.token = lexer;
+    this.options = options;
     nextToken();
   }
 
@@ -171,19 +174,19 @@ final class Parser {
   }
 
   // Main entry point for parsing a file.
-  static ParseResult parseFile(ParserInput input) {
+  static ParseResult parseFile(ParserInput input, FileOptions options) {
     List<SyntaxError> errors = new ArrayList<>();
-    Lexer lexer = new Lexer(input, errors);
-    Parser parser = new Parser(lexer, errors);
+    Lexer lexer = new Lexer(input, errors, options);
+    Parser parser = new Parser(lexer, errors, options);
 
     StarlarkFile.ParseProfiler profiler = Parser.profiler;
-    Object span = profiler != null ? profiler.start(input.getFile()) : null;
+    long profileStartNanos = profiler != null ? profiler.start() : -1;
     try {
       ImmutableList<Statement> statements = parser.parseFileInput();
       return new ParseResult(lexer.locs, statements, lexer.getComments(), errors);
     } finally {
-      if (profiler != null) {
-        profiler.end(span);
+      if (profileStartNanos != -1) {
+        profiler.end(profileStartNanos, input.getFile());
       }
     }
   }
@@ -207,10 +210,11 @@ final class Parser {
   }
 
   /** Parses an expression, possibly followed by newline tokens. */
-  static Expression parseExpression(ParserInput input) throws SyntaxError.Exception {
+  static Expression parseExpression(ParserInput input, FileOptions options)
+      throws SyntaxError.Exception {
     List<SyntaxError> errors = new ArrayList<>();
-    Lexer lexer = new Lexer(input, errors);
-    Parser parser = new Parser(lexer, errors);
+    Lexer lexer = new Lexer(input, errors, options);
+    Parser parser = new Parser(lexer, errors, options);
     Expression result = null;
     try {
       result = parser.parseExpression();
@@ -248,10 +252,10 @@ final class Parser {
     }
 
     // unparenthesized tuple
-    List<Expression> elems = new ArrayList<>();
+    ImmutableList.Builder<Expression> elems = ImmutableList.builder();
     elems.add(e);
     parseExprList(elems, /*trailingCommaAllowed=*/ false);
-    return new ListExpression(locs, /*isTuple=*/ true, -1, elems, -1);
+    return new ListExpression(locs, /* isTuple= */ true, -1, elems.build(), -1);
   }
 
   @FormatMethod
@@ -417,8 +421,7 @@ final class Parser {
 
     // IDENTIFIER  or  IDENTIFIER = test
     expr = parseTest();
-    if (expr instanceof Identifier) {
-      Identifier id = (Identifier) expr;
+    if (expr instanceof Identifier id) {
       // parse a named argument
       if (token.kind == TokenKind.EQUALS) {
         nextToken();
@@ -431,14 +434,21 @@ final class Parser {
     return new Argument.Positional(locs, expr);
   }
 
-  // arg = IDENTIFIER '=' test
-  //     | IDENTIFIER
-  private Parameter parseParameter() {
+  // arg = IDENTIFIER [':' TypeExpr] [ '=' test ]
+  //     | * [IDENTIFIER [':' TypeExpr]]
+  //     | ** IDENTIFIER [':' TypeExpr]
+  // Type annotations are only available on def statements (not lambdas)
+  private Parameter parseParameter(boolean defStatement) {
+    Expression type = null;
+
     // **kwargs
     if (token.kind == TokenKind.STAR_STAR) {
       int starStarOffset = nextToken();
       Identifier id = parseIdent();
-      return new Parameter.StarStar(locs, starStarOffset, id);
+      if (defStatement) {
+        type = maybeParseTypeAnnotationAfter(TokenKind.COLON);
+      }
+      return new Parameter.StarStar(locs, starStarOffset, id, type);
     }
 
     // * or *args
@@ -446,21 +456,30 @@ final class Parser {
       int starOffset = nextToken();
       if (token.kind == TokenKind.IDENTIFIER) {
         Identifier id = parseIdent();
-        return new Parameter.Star(locs, starOffset, id);
+        if (defStatement) {
+          type = maybeParseTypeAnnotationAfter(TokenKind.COLON);
+        }
+        return new Parameter.Star(locs, starOffset, id, type);
       }
-      return new Parameter.Star(locs, starOffset, null);
-    }
-
-    // name=default
-    Identifier id = parseIdent();
-    if (token.kind == TokenKind.EQUALS) {
-      nextToken(); // TODO: save token pos?
-      Expression expr = parseTest();
-      return new Parameter.Optional(locs, id, expr);
+      return new Parameter.Star(locs, starOffset, null, null);
     }
 
     // name
-    return new Parameter.Mandatory(locs, id);
+    Identifier id = parseIdent();
+
+    // name: type
+    if (defStatement) {
+      type = maybeParseTypeAnnotationAfter(TokenKind.COLON);
+    }
+
+    // name=default
+    if (token.kind == TokenKind.EQUALS) {
+      nextToken(); // TODO: save token pos?
+      Expression expr = parseTest();
+      return new Parameter.Optional(locs, id, type, expr);
+    }
+
+    return new Parameter.Mandatory(locs, id, type);
   }
 
   // call_suffix = '(' arg_list? ')'
@@ -516,7 +535,7 @@ final class Parser {
   // It is used to parse tuples and list elements.
   //
   // expr_list = ( ',' expr )* ','?
-  private void parseExprList(List<Expression> list, boolean trailingCommaAllowed) {
+  private void parseExprList(ImmutableList.Builder<Expression> list, boolean trailingCommaAllowed) {
     //  terminating tokens for an expression list
     while (token.kind == TokenKind.COMMA) {
       expect(TokenKind.COMMA);
@@ -532,7 +551,7 @@ final class Parser {
 
   // dict_entry_list = ( (dict_entry ',')* dict_entry ','? )?
   private List<DictExpression.Entry> parseDictEntryList() {
-    List<DictExpression.Entry> list = new ArrayList<>();
+    ImmutableList.Builder<DictExpression.Entry> list = ImmutableList.builder();
     // the terminating token for a dict entry list
     while (token.kind != TokenKind.RBRACE) {
       list.add(parseDictEntry());
@@ -542,7 +561,7 @@ final class Parser {
         break;
       }
     }
-    return list;
+    return list.build();
   }
 
   // dict_entry = test ':' test
@@ -626,11 +645,12 @@ final class Parser {
 
           // non-empty tuple: (e,) or (e, ..., e)
           if (token.kind == TokenKind.COMMA) {
-            List<Expression> elems = new ArrayList<>();
+            ImmutableList.Builder<Expression> elems = ImmutableList.builder();
             elems.add(e);
             parseExprList(elems, /*trailingCommaAllowed=*/ true);
             int rparenOffset = expect(TokenKind.RPAREN);
-            return new ListExpression(locs, /*isTuple=*/ true, lparenOffset, elems, rparenOffset);
+            return new ListExpression(
+                locs, /* isTuple= */ true, lparenOffset, elems.build(), rparenOffset);
           }
 
           // (expr for vars in expr) -- Python generator expression?
@@ -724,7 +744,7 @@ final class Parser {
     }
 
     // unparenthesized tuple
-    List<Expression> elems = new ArrayList<>();
+    ImmutableList.Builder<Expression> elems = ImmutableList.builder();
     elems.add(e1);
     while (token.kind == TokenKind.COMMA) {
       expect(TokenKind.COMMA);
@@ -733,7 +753,7 @@ final class Parser {
       }
       elems.add(parsePrimaryWithSuffix());
     }
-    return new ListExpression(locs, /*isTuple=*/ true, -1, elems, -1);
+    return new ListExpression(locs, /* isTuple= */ true, -1, elems.build(), -1);
   }
 
   // comprehension_suffix = 'FOR' loop_variables 'IN' expr comprehension_suffix
@@ -803,13 +823,13 @@ final class Parser {
       case COMMA:
         // [e, ...], list expression
         {
-          List<Expression> elems = new ArrayList<>();
+          ImmutableList.Builder<Expression> elems = ImmutableList.builder();
           elems.add(expression);
           parseExprList(elems, /*trailingCommaAllowed=*/ true);
           if (token.kind == TokenKind.RBRACKET) {
             int rbracketOffset = nextToken();
             return new ListExpression(
-                locs, /*isTuple=*/ false, lbracketOffset, elems, rbracketOffset);
+                locs, /* isTuple= */ false, lbracketOffset, elems.build(), rbracketOffset);
           }
 
           expect(TokenKind.RBRACKET);
@@ -842,7 +862,7 @@ final class Parser {
       return parseComprehensionSuffix(lbraceOffset, entry, TokenKind.RBRACE);
     }
 
-    List<DictExpression.Entry> entries = new ArrayList<>();
+    ImmutableList.Builder<DictExpression.Entry> entries = ImmutableList.builder();
     entries.add(entry);
     if (token.kind == TokenKind.COMMA) {
       expect(TokenKind.COMMA);
@@ -850,7 +870,7 @@ final class Parser {
     }
     if (token.kind == TokenKind.RBRACE) {
       int rbraceOffset = nextToken();
-      return new DictExpression(locs, lbraceOffset, entries, rbraceOffset);
+      return new DictExpression(locs, lbraceOffset, entries.build(), rbraceOffset);
     }
 
     expect(TokenKind.RBRACE);
@@ -927,11 +947,134 @@ final class Parser {
     return new BinaryOperatorExpression(locs, x, op, opOffset, y);
   }
 
+  @Nullable
+  private Expression maybeParseTypeAnnotationAfter(TokenKind expectedToken) {
+    if (options.allowTypeAnnotations() && token.kind == expectedToken) {
+      nextToken();
+      return parseTypeExpr();
+    } else if (token.kind == expectedToken) {
+      syntaxError(
+          "type annotations are disallowed. Enable them with --experimental_starlark_types and"
+              + " --experimental_starlark_types_allowed_paths.");
+    }
+    return null;
+  }
+
+  // TypeExpr = TypeAtom {'|' TypeAtom}.
+  // TypeAtom = identifier [TypeArguments].
+  private Expression parseTypeExpr() {
+    if (token.kind != TokenKind.IDENTIFIER) {
+      int start = token.start;
+      syntaxError("expected a type");
+      int end = syncTo(EXPR_TERMINATOR_SET);
+      return makeErrorExpression(start, end);
+    }
+    Identifier typeOrConstructor = parseIdent();
+    Expression expr;
+    if (token.kind == TokenKind.LBRACKET) {
+      expr = parseTypeApplication(typeOrConstructor);
+    } else {
+      expr = typeOrConstructor;
+    }
+    while (token.kind == TokenKind.PIPE) {
+      int opOffset = nextToken();
+      Identifier secondTypeOrConstructor = parseIdent();
+      Expression y;
+      if (token.kind == TokenKind.LBRACKET) {
+        y = parseTypeApplication(secondTypeOrConstructor);
+      } else {
+        y = secondTypeOrConstructor;
+      }
+      expr = new BinaryOperatorExpression(locs, expr, TokenKind.PIPE, opOffset, y);
+    }
+    return expr;
+  }
+
+  // TypeArgument = TypeExpr | ListOfTypes | DictOfTypes | string
+  private Expression parseTypeArgument() {
+    switch (token.kind) {
+      case LBRACKET: // [...]
+        return parseTypeList();
+      case LBRACE: // {...}
+        return parseTypeDict();
+      case STRING:
+        return parseStringLiteral();
+      default:
+    }
+    if (token.kind != TokenKind.IDENTIFIER) {
+      int start = token.start;
+      syntaxError("expected a type argument");
+      int end = syncTo(EXPR_TERMINATOR_SET);
+      return makeErrorExpression(start, end);
+    }
+    return parseTypeExpr();
+  }
+
+  // ListOfTypes = '[' [TypeArgument {',' TypeArgument} [',']] ']'.
+  private Expression parseTypeList() {
+    int lbracketOffset = expect(TokenKind.LBRACKET);
+    ImmutableList.Builder<Expression> elems = ImmutableList.builder();
+    if (token.kind != TokenKind.RBRACKET) {
+      elems.add(parseTypeArgument());
+    }
+    while (token.kind != TokenKind.RBRACKET && token.kind != TokenKind.EOF) {
+      expect(TokenKind.COMMA);
+      if (token.kind == TokenKind.RBRACKET) {
+        break;
+      }
+      elems.add(parseTypeArgument());
+    }
+    int rbracketOffset = nextToken();
+    return new ListExpression(
+        locs, /* isTuple= */ false, lbracketOffset, elems.build(), rbracketOffset);
+  }
+
+  // TypeEntry = string ':' TypeArgument .
+  private DictExpression.Entry parseTypeDictEntry() {
+    Expression key = parseStringLiteral();
+    int colonOffset = expect(TokenKind.COLON);
+    Expression value = parseTypeArgument();
+    return new DictExpression.Entry(locs, key, colonOffset, value);
+  }
+
+  // DictOfTypes = '{' [TypeEntry {',' TypeEntry} [',']] '}' .
+  private Expression parseTypeDict() {
+    int lbraceOffset = expect(TokenKind.LBRACE);
+
+    ImmutableList.Builder<DictExpression.Entry> entries = ImmutableList.builder();
+    if (token.kind != TokenKind.RBRACE) {
+      entries.add(parseTypeDictEntry());
+    }
+    while (token.kind != TokenKind.RBRACE && token.kind != TokenKind.EOF) {
+      expect(TokenKind.COMMA);
+      if (token.kind == TokenKind.RBRACE) {
+        break;
+      }
+      entries.add(parseTypeDictEntry());
+    }
+
+    int rbraceOffset = nextToken();
+    return new DictExpression(locs, lbraceOffset, entries.build(), rbraceOffset);
+  }
+
+  // TypeArguments = '[' TypeArgument {',' TypeArgument} ']'.
+  private Expression parseTypeApplication(Identifier constructor) {
+    expect(TokenKind.LBRACKET);
+    ImmutableList.Builder<Expression> args = ImmutableList.builder();
+    args.add(parseTypeArgument());
+    while (token.kind != TokenKind.RBRACKET && token.kind != TokenKind.EOF) {
+      expect(TokenKind.COMMA);
+      args.add(parseTypeArgument());
+    }
+    int rbracketOffset = expect(TokenKind.RBRACKET);
+    return new TypeApplication(locs, constructor, args.build(), rbracketOffset);
+  }
+
   // Parses a non-tuple expression ("test" in Python terminology).
   private Expression parseTest() {
     int start = token.start;
     if (token.kind == TokenKind.LAMBDA) {
-      return parseLambda(/*allowCond=*/ true);
+      return parseLambda(/* allowCond= */ true);
     }
 
     Expression expr = parseTest(0);
@@ -964,7 +1107,7 @@ final class Parser {
   // The allowCond flag allows the body to be an 'a if b else c' conditional.
   private LambdaExpression parseLambda(boolean allowCond) {
     int lambdaOffset = expect(TokenKind.LAMBDA);
-    ImmutableList<Parameter> params = parseParameters();
+    ImmutableList<Parameter> params = parseParameters(/* defStatement= */ false);
     expect(TokenKind.COLON);
     Expression body = allowCond ? parseTest() : parseTestNoCond();
     return new LambdaExpression(locs, lambdaOffset, params, body);
@@ -1196,16 +1339,17 @@ final class Parser {
     int defOffset = expect(TokenKind.DEF);
     Identifier ident = parseIdent();
     expect(TokenKind.LPAREN);
-    ImmutableList<Parameter> params = parseParameters();
+    ImmutableList<Parameter> params = parseParameters(/* defStatement= */ true);
     expect(TokenKind.RPAREN);
+    Expression returnType = maybeParseTypeAnnotationAfter(TokenKind.RARROW);
     expect(TokenKind.COLON);
     ImmutableList<Statement> block = parseSuite();
-    return new DefStatement(locs, defOffset, ident, params, block);
+    return new DefStatement(locs, defOffset, ident, params, returnType, block);
   }
 
   // Parse a list of function parameters.
   // Validation of parameter ordering and uniqueness is the job of the Resolver.
-  private ImmutableList<Parameter> parseParameters() {
+  private ImmutableList<Parameter> parseParameters(boolean defStatement) {
     boolean hasParam = false;
     ImmutableList.Builder<Parameter> list = ImmutableList.builder();
 
@@ -1219,7 +1363,7 @@ final class Parser {
           break;
         }
       }
-      Parameter param = parseParameter();
+      Parameter param = parseParameter(defStatement);
       hasParam = true;
       list.add(param);
     }

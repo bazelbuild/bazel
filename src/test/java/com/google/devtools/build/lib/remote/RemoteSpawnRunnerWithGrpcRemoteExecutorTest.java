@@ -22,18 +22,21 @@ import static org.junit.Assert.fail;
 import static org.mockito.AdditionalAnswers.answerVoid;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
 import build.bazel.remote.execution.v2.ActionResult;
-import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
+import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionImplBase;
 import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
@@ -42,6 +45,7 @@ import build.bazel.remote.execution.v2.GetActionResultRequest;
 import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.Tree;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
@@ -51,18 +55,26 @@ import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
@@ -74,16 +86,18 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
-import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
-import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
+import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -115,17 +129,25 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentMatchers;
+import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.mockito.stubbing.Answer;
 
 /** Tests for {@link RemoteSpawnRunner} in combination with {@link GrpcRemoteExecutor}. */
 @RunWith(JUnit4.class)
 public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
+
+  @Mock private RemoteOutputChecker remoteOutputChecker; // download nothing by default.
+
   private static final DigestUtil DIGEST_UTIL =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
 
@@ -133,6 +155,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private FileSystem fs;
   private Path execRoot;
+  private ArtifactRoot artifactRoot;
   private TempPathGenerator tempPathGenerator;
   private Path logDir;
   private SimpleSpawn simpleSpawn;
@@ -143,6 +166,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
   private RemoteSpawnRunner client;
   private FileOutErr outErr;
   private RemoteOptions remoteOptions;
+  private RemoteExecutionCache remoteCache;
   private Server fakeServer;
   private ListeningScheduledExecutorService retryService;
 
@@ -190,6 +214,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/execroot/main");
     execRoot.createDirectoryAndParents();
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outputs");
+    artifactRoot.getRoot().asPath().createDirectoryAndParents();
     tempPathGenerator = new TempPathGenerator(fs.getPath("/execroot/_tmp/actions/remote"));
     logDir = fs.getPath("/server-logs");
     fakeFileCache = new FakeActionInputFileCache(execRoot);
@@ -198,17 +224,20 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             new FakeOwner("Mnemonic", "Progress Message", "//dummy:label"),
             ImmutableList.of("/bin/echo", "Hi!"),
             ImmutableMap.of("VARIABLE", "value"),
-            /*executionInfo=*/ ImmutableMap.<String, String>of(),
-            /*runfilesSupplier=*/ null,
-            /*filesetMappings=*/ ImmutableMap.of(),
-            /*inputs=*/ NestedSetBuilder.create(
+            /* executionInfo= */ ImmutableMap.<String, String>of(),
+            /* inputs= */ NestedSetBuilder.create(
                 Order.STABLE_ORDER, ActionInputHelper.fromPath("input")),
-            /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            /*outputs=*/ ImmutableSet.of(
+            /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* outputs= */ ImmutableSet.of(
                 new ActionInput() {
                   @Override
                   public String getExecPathString() {
                     return "foo";
+                  }
+
+                  @Override
+                  public boolean isDirectory() {
+                    return false;
                   }
 
                   @Override
@@ -228,6 +257,11 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                   }
 
                   @Override
+                  public boolean isDirectory() {
+                    return false;
+                  }
+
+                  @Override
                   public boolean isSymlink() {
                     return false;
                   }
@@ -237,7 +271,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                     return PathFragment.create("bar");
                   }
                 }),
-            /*mandatoryOutputs=*/ ImmutableSet.of(),
+            /* mandatoryOutputs= */ ImmutableSet.of(),
             ResourceSet.ZERO);
 
     Path stdout = fs.getPath("/tmp/stdout");
@@ -268,16 +302,23 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
-            new ChannelConnectionFactory() {
+            new ChannelConnectionWithServerCapabilitiesFactory() {
               @Override
-              public Single<? extends ChannelConnection> create() {
+              public Single<ChannelConnectionWithServerCapabilities> create() {
                 ManagedChannel ch =
                     InProcessChannelBuilder.forName(fakeServerName)
                         .intercept(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions))
                         .directExecutor()
                         .build();
-
-                return Single.just(new ChannelConnection(ch));
+                ServerCapabilities caps =
+                    ServerCapabilities.newBuilder()
+                        .setLowApiVersion(ApiVersion.low.toSemVer())
+                        .setHighApiVersion(ApiVersion.high.toSemVer())
+                        .setExecutionCapabilities(
+                            ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
+                        .build();
+                return Single.just(
+                    new ChannelConnectionWithServerCapabilities(ch, Single.just(caps)));
               }
 
               @Override
@@ -285,6 +326,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                 return 100;
               }
             });
+
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(channel.retain(), CallCredentialsProvider.NO_CREDENTIALS, retrier);
     CallCredentialsProvider callCredentialsProvider =
@@ -292,14 +334,14 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     GrpcCacheClient cacheProtocol =
         new GrpcCacheClient(
             channel.retain(), callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL);
-    RemoteExecutionCache remoteCache =
+    remoteCache =
         new RemoteExecutionCache(
-            CacheCapabilities.getDefaultInstance(), cacheProtocol, remoteOptions, DIGEST_UTIL);
+            cacheProtocol, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
             directExecutor(),
             reporter,
-            /*verboseFailures=*/ true,
+            /* verboseFailures= */ true,
             execRoot,
             RemotePathResolver.createDefault(execRoot),
             "build-req-id",
@@ -308,19 +350,22 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             remoteOptions,
             remoteCache,
             executor,
-            ImmutableSet.of(),
             tempPathGenerator,
-            /* captureCorruptedOutputsDir= */ null);
+            /* captureCorruptedOutputsDir= */ null,
+            remoteOutputChecker,
+            mock(OutputService.class),
+            Sets.newConcurrentHashSet());
     client =
         new RemoteSpawnRunner(
             execRoot,
             remoteOptions,
             Options.getDefaults(ExecutionOptions.class),
             /* verboseFailures= */ true,
-            /*cmdlineReporter=*/ null,
+            /* cmdlineReporter= */ null,
             retryService,
             logDir,
-            remoteExecutionService);
+            remoteExecutionService,
+            DIGEST_UTIL);
 
     inputDigest =
         fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().getSingleton(), "xyz");
@@ -332,7 +377,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                     .setName("VARIABLE")
                     .setValue("value")
                     .build())
-            .addAllOutputFiles(ImmutableList.of("bar", "foo"))
+            .addAllOutputPaths(ImmutableList.of("bar", "foo"))
             .build();
     cmdDigest = DIGEST_UTIL.compute(command);
     channel.release();
@@ -360,10 +405,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
 
-    SpawnResult result = client.exec(simpleSpawn, policy);
+    SpawnResult result = client.exec(simpleSpawn, context);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.isCacheHit()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
@@ -406,9 +450,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
-    SpawnResult result = client.exec(simpleSpawn, policy);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
+    SpawnResult result = client.exec(simpleSpawn, context);
     assertThat(result.exitCode()).isEqualTo(1);
   }
 
@@ -447,10 +490,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
-
-    client.exec(simpleSpawn, policy);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
+    client.exec(simpleSpawn, context);
   }
 
   @Test
@@ -474,9 +515,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     serviceRegistry.addService(
         new FakeImmutableCacheByteStreamImpl(stdOutDigest, "stdout", stdErrDigest, "stderr"));
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
-    SpawnResult result = client.exec(simpleSpawn, policy);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
+    SpawnResult result = client.exec(simpleSpawn, context);
+
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isTrue();
@@ -501,9 +542,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
-    SpawnResult result = client.exec(simpleSpawn, policy);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
+    SpawnResult result = client.exec(simpleSpawn, context);
+
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isTrue();
@@ -642,9 +683,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         };
     serviceRegistry.addService(ServerInterceptors.intercept(execService, interceptor));
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
-    client.exec(simpleSpawn, policy);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
+    client.exec(simpleSpawn, context);
   }
 
   @Test
@@ -696,15 +736,14 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         };
     serviceRegistry.addService(ServerInterceptors.intercept(cas, new RequestHeadersValidator()));
 
-    ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
-    when(mockByteStreamImpl.write(ArgumentMatchers.<StreamObserver<WriteResponse>>any()))
-        .thenAnswer(blobWriteAnswer("xyz".getBytes(UTF_8)));
+    ByteStreamImplBase mockByteStreamImpl = spy(ByteStreamImplBase.class);
+    doAnswer(blobWriteAnswer("xyz".getBytes(UTF_8))).when(mockByteStreamImpl).write(any());
     serviceRegistry.addService(
         ServerInterceptors.intercept(mockByteStreamImpl, new RequestHeadersValidator()));
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
-    SpawnResult result = client.exec(simpleSpawn, policy);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
+
+    SpawnResult result = client.exec(simpleSpawn, context);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isFalse();
@@ -732,6 +771,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
   @Test
   public void remotelyExecuteRetries() throws Exception {
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+        .thenReturn(true);
+
     serviceRegistry.addService(
         new ActionCacheImplBase() {
           private int numErrors = 4;
@@ -771,7 +813,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             .setResponse(Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
             .build();
 
-    ExecutionImplBase mockExecutionImpl = Mockito.mock(ExecutionImplBase.class);
+    ExecutionImplBase mockExecutionImpl = spy(ExecutionImplBase.class);
     // Flow of this test:
     // - call execute, get retriable gRPC error
     // - retry: call execute, get retriable Operation error
@@ -779,7 +821,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     // - retry: call waitExecute, get a retriable gRPC error
     // - retry: call waitExecute, get retriable Operation error
     // - retry: call execute, get successful operation, ignore further errors.
-    Mockito.doAnswer(answerWith(null, Status.UNAVAILABLE))
+    doAnswer(answerWith(null, Status.UNAVAILABLE))
         .doAnswer(answerWith(operationWithExecuteError, Status.OK))
         .doAnswer(answerWith(unfinishedOperation, Status.UNAVAILABLE))
         .doAnswer(answerWith(opSuccess, Status.UNAVAILABLE)) // last status should be ignored.
@@ -787,7 +829,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         .execute(
             ArgumentMatchers.<ExecuteRequest>any(),
             ArgumentMatchers.<StreamObserver<Operation>>any());
-    Mockito.doAnswer(answerWith(null, Status.UNAVAILABLE))
+    doAnswer(answerWith(null, Status.UNAVAILABLE))
         .doAnswer(answerWith(operationWithExecuteError, Status.OK))
         .when(mockExecutionImpl)
         .waitExecution(
@@ -817,11 +859,12 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
 
-    ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
-    when(mockByteStreamImpl.write(ArgumentMatchers.<StreamObserver<WriteResponse>>any()))
-        .thenAnswer(blobWriteAnswerError()) // Error on the input file.
-        .thenAnswer(blobWriteAnswerError()) // Error on the input file again.
-        .thenAnswer(blobWriteAnswer("xyz".getBytes(UTF_8))); // Upload input file successfully.
+    ByteStreamImplBase mockByteStreamImpl = spy(ByteStreamImplBase.class);
+    doAnswer(blobWriteAnswerError()) // Error on the input file.
+        .doAnswer(blobWriteAnswerError()) // Error on the input file again.
+        .doAnswer(blobWriteAnswer("xyz".getBytes(UTF_8))) // Upload input file successfully.
+        .when(mockByteStreamImpl)
+        .write(any());
     doAnswer(
             answerVoid(
                 (QueryWriteStatusRequest request,
@@ -835,7 +878,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                 }))
         .when(mockByteStreamImpl)
         .queryWriteStatus(any(), any());
-    Mockito.doAnswer(
+    doAnswer(
             invocationOnMock -> {
               @SuppressWarnings("unchecked")
               StreamObserver<ReadResponse> responseObserver =
@@ -859,9 +902,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             ArgumentMatchers.<StreamObserver<ReadResponse>>any());
     serviceRegistry.addService(mockByteStreamImpl);
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
-    SpawnResult result = client.exec(simpleSpawn, policy);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
+    SpawnResult result = client.exec(simpleSpawn, context);
+
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isFalse();
@@ -885,6 +928,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
   @Test
   public void remotelyExecuteRetriesWaitResult() throws Exception {
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+        .thenReturn(true);
+
     // This test's flow is similar to the previous, except the result
     // will eventually be returned by the waitExecute function.
     serviceRegistry.addService(
@@ -912,26 +958,22 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             .setResponse(Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
             .build();
 
-    ExecutionImplBase mockExecutionImpl = Mockito.mock(ExecutionImplBase.class);
+    ExecutionImplBase mockExecutionImpl = spy(ExecutionImplBase.class);
     // Flow of this test:
     // - call execute, get an Operation, then a retriable gRPC error
     // - retry: call waitExecute, get NOT_FOUND (operation lost)
     // - retry: call execute, get NOT_FOUND (operation lost)
     // - retry: call execute, get an Operation, then a retriable gRPC error
     // - retry: call waitExecute, get successful operation, ignore further errors.
-    Mockito.doAnswer(answerWith(unfinishedOperation, Status.UNAVAILABLE))
+    doAnswer(answerWith(unfinishedOperation, Status.UNAVAILABLE))
         .doAnswer(answerWith(unfinishedOperation, Status.NOT_FOUND))
         .doAnswer(answerWith(unfinishedOperation, Status.UNAVAILABLE))
         .when(mockExecutionImpl)
-        .execute(
-            ArgumentMatchers.<ExecuteRequest>any(),
-            ArgumentMatchers.<StreamObserver<Operation>>any());
-    Mockito.doAnswer(answerWith(unfinishedOperation, Status.NOT_FOUND))
+        .execute(any(), any());
+    doAnswer(answerWith(unfinishedOperation, Status.NOT_FOUND))
         .doAnswer(answerWith(opSuccess, Status.UNAVAILABLE)) // This error is ignored.
         .when(mockExecutionImpl)
-        .waitExecution(
-            ArgumentMatchers.<WaitExecutionRequest>any(),
-            ArgumentMatchers.<StreamObserver<Operation>>any());
+        .waitExecution(any(), any());
     serviceRegistry.addService(mockExecutionImpl);
 
     serviceRegistry.addService(
@@ -950,10 +992,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
 
-    ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
-    when(mockByteStreamImpl.write(ArgumentMatchers.<StreamObserver<WriteResponse>>any()))
-        .thenAnswer(blobWriteAnswer("xyz".getBytes(UTF_8))); // Upload input file successfully.
-    Mockito.doAnswer(
+    ByteStreamImplBase mockByteStreamImpl = spy(ByteStreamImplBase.class);
+    doAnswer(blobWriteAnswer("xyz".getBytes(UTF_8))).when(mockByteStreamImpl).write(any());
+    doAnswer(
             invocationOnMock -> {
               @SuppressWarnings("unchecked")
               StreamObserver<ReadResponse> responseObserver =
@@ -969,9 +1010,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             ArgumentMatchers.<StreamObserver<ReadResponse>>any());
     serviceRegistry.addService(mockByteStreamImpl);
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
-    SpawnResult result = client.exec(simpleSpawn, policy);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
+    SpawnResult result = client.exec(simpleSpawn, context);
+
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isFalse();
@@ -1004,10 +1045,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
+    SpawnResult result = client.exec(simpleSpawn, context);
 
-    SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED_CATASTROPHICALLY);
     // Ensure we also got back the stack trace due to verboseFailures=true
     assertThat(result.getFailureMessage()).contains("com.google.devtools.build.lib.remote");
@@ -1024,9 +1064,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
-    SpawnResult result = client.exec(simpleSpawn, policy);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
+    SpawnResult result = client.exec(simpleSpawn, context);
+
     assertThat(result.getFailureMessage()).contains("whoa"); // Error details.
     // Ensure we also got back the stack trace due to verboseFailures=true
     assertThat(result.getFailureMessage()).contains("com.google.devtools.build.lib.remote");
@@ -1072,7 +1112,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
     String stdOutResourceName =
-        getResourceName(remoteOptions.remoteInstanceName, stdOutDigest, false);
+        getResourceName(
+            remoteOptions.remoteInstanceName, stdOutDigest, false, DigestFunction.Value.SHA256);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -1082,10 +1123,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
+    SpawnResult result = client.exec(simpleSpawn, context);
 
-    SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.status()).isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
     assertThat(result.getFailureMessage()).contains(DigestUtil.toString(stdOutDigest));
     // Ensure we also got back the stack trace.
@@ -1134,7 +1174,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
     String stdOutResourceName =
-        getResourceName(remoteOptions.remoteInstanceName, stdOutDigest, false);
+        getResourceName(
+            remoteOptions.remoteInstanceName, stdOutDigest, false, DigestFunction.Value.SHA256);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -1144,10 +1185,12 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
-    SpawnResult result = client.exec(simpleSpawn, policy);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
+    SpawnResult result = client.exec(simpleSpawn, context);
+
     assertThat(result.status()).isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
+    assertThat(result.failureDetail().getSpawn().getCode())
+        .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_FAILED);
     assertThat(result.getFailureMessage()).contains(DigestUtil.toString(stdOutDigest));
     // Ensure we also got back the stack trace because verboseFailures=true
     assertThat(result.getFailureMessage())
@@ -1235,10 +1278,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
+    SpawnResult result = client.exec(simpleSpawn, context);
 
-    SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isFalse();
@@ -1261,7 +1303,10 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         });
     String dummyTreeResourceName =
         getResourceName(
-            remoteOptions.remoteInstanceName, DUMMY_OUTPUT_DIRECTORY.getTreeDigest(), false);
+            remoteOptions.remoteInstanceName,
+            DUMMY_OUTPUT_DIRECTORY.getTreeDigest(),
+            false,
+            DigestFunction.Value.SHA256);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           private boolean first = true;
@@ -1331,10 +1376,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
+    SpawnResult result = client.exec(simpleSpawn, context);
 
-    SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isFalse();
@@ -1427,10 +1471,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
+    SpawnResult result = client.exec(simpleSpawn, context);
 
-    SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isFalse();
@@ -1474,17 +1517,17 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             .build();
     final WaitExecutionRequest waitExecutionRequest =
         WaitExecutionRequest.newBuilder().setName(opName).build();
-    ExecutionImplBase mockExecutionImpl = Mockito.mock(ExecutionImplBase.class);
+    ExecutionImplBase mockExecutionImpl = spy(ExecutionImplBase.class);
     // Flow of this test:
     // - call execute, get an unfinished Operation, then the stream completes
     // - call waitExecute, get an unfinished Operation, then the stream completes
     // - call waitExecute, get a finished Operation
-    Mockito.doAnswer(answerWith(unfinishedOperation, Status.OK))
+    doAnswer(answerWith(unfinishedOperation, Status.OK))
         .when(mockExecutionImpl)
         .execute(
             ArgumentMatchers.<ExecuteRequest>any(),
             ArgumentMatchers.<StreamObserver<Operation>>any());
-    Mockito.doAnswer(answerWith(unfinishedOperation, Status.OK))
+    doAnswer(answerWith(unfinishedOperation, Status.OK))
         .doAnswer(answerWith(completeOperation, Status.OK))
         .when(mockExecutionImpl)
         .waitExecution(
@@ -1504,10 +1547,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
 
-    FakeSpawnExecutionContext policy =
-        new FakeSpawnExecutionContext(simpleSpawn, fakeFileCache, execRoot, outErr);
+    FakeSpawnExecutionContext context = getSpawnContext(simpleSpawn);
+    SpawnResult result = client.exec(simpleSpawn, context);
 
-    SpawnResult result = client.exec(simpleSpawn, policy);
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.isCacheHit()).isFalse();
@@ -1518,5 +1560,32 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     verify(mockExecutionImpl, Mockito.times(2))
         .waitExecution(
             Mockito.eq(waitExecutionRequest), ArgumentMatchers.<StreamObserver<Operation>>any());
+  }
+
+  private FakeSpawnExecutionContext getSpawnContext(Spawn spawn) {
+    var actionInputFetcher =
+        new RemoteActionInputFetcher(
+            new Reporter(new EventBus()),
+            "none",
+            "none",
+            remoteCache,
+            execRoot,
+            tempPathGenerator,
+            remoteOutputChecker,
+            ActionOutputDirectoryHelper.createForTesting(),
+            OutputPermissions.READONLY);
+
+    var actionFileSystem =
+        new RemoteActionFileSystem(
+            fs,
+            execRoot.asFragment(),
+            artifactRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
+            new ActionInputMap(0),
+            ImmutableList.of(),
+            StaticInputMetadataProvider.empty(),
+            actionInputFetcher);
+
+    return new FakeSpawnExecutionContext(
+        spawn, fakeFileCache, execRoot, outErr, ImmutableClassToInstanceMap.of(), actionFileSystem);
   }
 }

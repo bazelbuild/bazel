@@ -1,14 +1,15 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
-        "//src/test/java/com/google/devtools/common/options/testing:srcs",
         "//src/test/java/com/google/devtools/common/options/processor:srcs",
+        "//src/test/java/com/google/devtools/common/options/testing:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -56,6 +57,6 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "@com_google_testparameterinjector//:testparameterinjector",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )

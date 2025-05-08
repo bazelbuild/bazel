@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.starlarkbuildapi.core;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.BazelCompileContext;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -32,41 +30,30 @@ import net.starlark.java.eval.StarlarkSemantics;
 public final class ContextAndFlagGuardedValue {
   /**
    * Creates a flag guard which only permits access of the given object when the given boolean flag
-   * is false or the requesting .bzl file is in a specific patckage path. If the given flag is true
-   * and the object would be accessed, an error is thrown describing the feature as deprecated, and
-   * describing that the flag may be set to false to re-enable it.
+   * is false or the requesting .bzl file's (repo, path) matches one of the allowed entries (see
+   * ContextGuardedFlag for match criteria). If the given flag is true and the object would be
+   * accessed, an error is thrown describing the feature as deprecated, and describing that the flag
+   * may be set to false to re-enable it.
    *
    * <p>The flag identifier must have a + or - prefix; see StarlarkSemantics.
    */
   public static GuardedValue onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
-      String flag, Object obj, ImmutableSet<PackageIdentifier> allowedPrefixes) {
+      String flag, Object obj, ImmutableSet<PackageIdentifier> allowedEntries) {
     GuardedValue flagGuard = FlagGuardedValue.onlyWhenIncompatibleFlagIsFalse(flag, obj);
+    GuardedValue contextGuard = ContextGuardedValue.onlyInAllowedRepos(obj, allowedEntries);
     return new GuardedValue() {
       @Override
       public boolean isObjectAccessibleUsingSemantics(
           StarlarkSemantics semantics, @Nullable Object clientData) {
-        boolean accessible = flagGuard.isObjectAccessibleUsingSemantics(semantics, clientData);
-        // Filtering of predeclareds is only done at compile time, when the client data is
-        // BazelCompileContext and not BazelModuleContext.
-        if (!accessible && clientData != null && clientData instanceof BazelCompileContext) {
-          BazelCompileContext context = (BazelCompileContext) clientData;
-          Label label = context.label();
-
-          for (PackageIdentifier prefix : allowedPrefixes) {
-            if (label.getRepository().equals(prefix.getRepository())
-                && label.getPackageFragment().startsWith(prefix.getPackageFragment())) {
-              return true;
-            }
-          }
-        }
-        return accessible;
+        return flagGuard.isObjectAccessibleUsingSemantics(semantics, clientData)
+            || contextGuard.isObjectAccessibleUsingSemantics(semantics, clientData);
       }
 
       @Override
       public String getErrorFromAttemptingAccess(String name) {
         return name
             + " may only be used from one of the following repositories or prefixes: "
-            + allowedPrefixes.stream()
+            + allowedEntries.stream()
                 .map(PackageIdentifier::toString)
                 .collect(Collectors.joining(", "))
             + ". It may be temporarily re-enabled for general use by setting --"

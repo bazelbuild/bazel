@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import net.starlark.java.eval.Tuple;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -40,32 +41,28 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
     ConfiguredTarget target =
         scratchConfiguredTarget("a", "b", "cc_library(name = 'b', srcs = [],)");
     RuleContext ruleContext = getRuleContext(target);
-    CcToolchainProvider ccToolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider ccToolchain = CppHelper.getToolchain(ruleContext);
     FdoContext fdoContext = ccToolchain.getFdoContext();
-    Artifact grepIncludes = getBinArtifact("grep_includes", target);
     NullPointerTester tester =
         new NullPointerTester()
             .setDefault(RuleContext.class, ruleContext)
-            .setDefault(CcCommon.class, new CcCommon(ruleContext))
             .setDefault(CppSemantics.class, MockCppSemantics.INSTANCE)
             .setDefault(CcToolchainProvider.class, ccToolchain)
             .setDefault(BuildConfigurationValue.class, ruleContext.getConfiguration())
             .setDefault(FdoContext.class, fdoContext)
             .setDefault(Label.class, ruleContext.getLabel())
-            .setDefault(Artifact.class, grepIncludes)
             .setDefault(CcCompilationOutputs.class, CcCompilationOutputs.builder().build());
     tester.testConstructors(CcCompilationHelper.class, Visibility.PACKAGE);
     tester.testAllPublicInstanceMethods(
         new CcCompilationHelper(
             ruleContext,
-            ruleContext,
             target.getLabel(),
-            /* grepIncludes= */ null,
             MockCppSemantics.INSTANCE,
             FeatureConfiguration.EMPTY,
+            SourceCategory.CC,
             ccToolchain,
             fdoContext,
+            ruleContext.getConfiguration(),
             /* executionInfo= */ ImmutableMap.of(),
             /* shouldProcessHeaders= */ true));
   }
@@ -76,22 +73,21 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
         scratchConfiguredTarget("a", "b", "cc_library(name = 'b', srcs = ['cpp.cc'])");
     Artifact objcSrc = getSourceArtifact("objc.m");
     RuleContext ruleContext = getRuleContext(target);
-    CcToolchainProvider ccToolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(target));
+    CcToolchainProvider ccToolchain = CppHelper.getToolchain(getRuleContext(target));
     FdoContext fdoContext = ccToolchain.getFdoContext();
     CcCompilationHelper helper =
         new CcCompilationHelper(
                 ruleContext,
-                ruleContext,
                 ruleContext.getLabel(),
-                /* grepIncludes= */ null,
                 MockCppSemantics.INSTANCE,
                 FeatureConfiguration.EMPTY,
+                SourceCategory.CC,
                 ccToolchain,
                 fdoContext,
+                ruleContext.getConfiguration(),
                 /* executionInfo= */ ImmutableMap.of(),
                 /* shouldProcessHeaders= */ true)
-            .addSources(objcSrc);
+            .addSources(Tuple.of(objcSrc));
 
     ImmutableList.Builder<Artifact> helperArtifacts = ImmutableList.builder();
     for (CppSource source : helper.getCompilationUnitSources()) {
@@ -107,15 +103,12 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
         scratchConfiguredTarget("a", "b", "cc_library(name = 'b', srcs = ['cpp.cc'])");
     Artifact objcSrc = getSourceArtifact("objc.m");
     RuleContext ruleContext = getRuleContext(target);
-    CcToolchainProvider ccToolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(getRuleContext(target));
+    CcToolchainProvider ccToolchain = CppHelper.getToolchain(getRuleContext(target));
     FdoContext fdoContext = ccToolchain.getFdoContext();
     CcCompilationHelper helper =
         new CcCompilationHelper(
                 ruleContext,
-                ruleContext,
                 ruleContext.getLabel(),
-                /* grepIncludes= */ null,
                 MockCppSemantics.INSTANCE,
                 FeatureConfiguration.EMPTY,
                 SourceCategory.CC_AND_OBJC,
@@ -124,7 +117,7 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
                 ruleContext.getConfiguration(),
                 ImmutableMap.of(),
                 /* shouldProcessHeaders= */ true)
-            .addSources(objcSrc);
+            .addSources(Tuple.of(objcSrc));
 
     ImmutableList.Builder<Artifact> helperArtifacts = ImmutableList.builder();
     for (CppSource source : helper.getCompilationUnitSources()) {

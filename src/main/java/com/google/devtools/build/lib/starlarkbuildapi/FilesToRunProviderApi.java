@@ -39,4 +39,12 @@ public interface FilesToRunProviderApi<FileT extends FileApi> extends StarlarkVa
       allowReturnNones = true)
   @Nullable
   FileT getRunfilesManifest();
+
+  @StarlarkMethod(
+      name = "repo_mapping_manifest",
+      doc = "The repo mapping manifest or None if it does not exist.",
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  FileT getRepoMappingManifest();
 }

@@ -83,7 +83,6 @@ public final class OptionsParser {
 
   private final List<String> processorPath = new ArrayList<>();
   private final List<String> processorNames = new ArrayList<>();
-  private final List<String> builtinProcessorNames = new ArrayList<>();
 
   private String outputJar;
   @Nullable private String nativeHeaderOutput;
@@ -94,8 +93,6 @@ public final class OptionsParser {
 
   private String targetLabel;
   private String injectingRuleKind;
-
-  @Nullable private String profile;
 
   @Nullable private final JavacOptions normalizer;
 
@@ -193,9 +190,6 @@ public final class OptionsParser {
         case "--processors":
           collectProcessorArguments(processorNames, argQueue, "-");
           break;
-        case "--builtin_processors":
-          collectProcessorArguments(builtinProcessorNames, argQueue, "-");
-          break;
         case "--output":
           outputJar = getArgument(argQueue, arg);
           break;
@@ -213,9 +207,6 @@ public final class OptionsParser {
           break;
         case "--injecting_rule_kind":
           injectingRuleKind = getArgument(argQueue, arg);
-          break;
-        case "--profile":
-          profile = getArgument(argQueue, arg);
           break;
         default:
           throw new InvalidCommandLineException("unknown option : '" + arg + "'");
@@ -426,10 +417,6 @@ public final class OptionsParser {
     return processorNames;
   }
 
-  public List<String> getBuiltinProcessorNames() {
-    return builtinProcessorNames;
-  }
-
   public String getOutputJar() {
     return outputJar;
   }
@@ -453,9 +440,5 @@ public final class OptionsParser {
 
   public String getInjectingRuleKind() {
     return injectingRuleKind;
-  }
-
-  public String getProfile() {
-    return profile;
   }
 }

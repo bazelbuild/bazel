@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExceptionHandlingMode;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
@@ -85,7 +86,7 @@ final class LabelVisitor {
     /** Returns true if and only if this visitation attribute is still up-to-date. */
     boolean current(VisitationAttributes lastVisitation) {
       return targetsToVisit.equals(lastVisitation.targetsToVisit)
-          && (!lastVisitation.maxDepth.isPresent()
+          && (lastVisitation.maxDepth.isEmpty()
               || !QueryEnvironment.shouldVisit(maxDepth, lastVisitation.maxDepth.getAsInt()));
     }
   }
@@ -256,7 +257,9 @@ final class LabelVisitor {
       }
       this.executor =
           AbstractQueueVisitor.createWithExecutorService(
-              executorService, /*failFastOnException=*/ !keepGoing, ErrorClassifier.DEFAULT);
+              executorService,
+              keepGoing ? ExceptionHandlingMode.KEEP_GOING : ExceptionHandlingMode.FAIL_FAST,
+              ErrorClassifier.DEFAULT);
       this.eventHandler = eventHandler;
       this.maxDepth = maxDepth;
       this.observer = observer;
@@ -352,16 +355,13 @@ final class LabelVisitor {
       // of *different* attributes. These visitations get culled later, but we still have to pay the
       // overhead for all that.
 
-      if (!(from instanceof Rule) || !(to instanceof Rule)) {
+      if (!(from instanceof Rule fromRule) || !(to instanceof Rule toRule)) {
         return;
       }
-      Rule fromRule = (Rule) from;
-      Rule toRule = (Rule) to;
       for (Aspect aspect : attribute.getAspects(fromRule)) {
         if (AspectDefinition.satisfies(
             aspect, toRule.getRuleClassObject().getAdvertisedProviders())) {
           AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
-              fromRule,
               aspect,
               edgeFilter,
               (aspectAttribute, aspectLabel) ->
@@ -383,7 +383,7 @@ final class LabelVisitor {
         // has already been built, and we can skip it.
         // Also special case no depth bound, where we never want to revisit targets.
         // (This avoids loading phase overhead outside of queries).
-        if (!maxDepth.isPresent() || minTargetDepth <= depth) {
+        if (maxDepth.isEmpty() || minTargetDepth <= depth) {
           return;
         }
         // Check again in case it was overwritten by another thread.
@@ -398,8 +398,8 @@ final class LabelVisitor {
       observeNode(target);
 
       // LabelVisitor has some legacy special handling of OutputFiles.
-      if (target instanceof OutputFile) {
-        Rule rule = ((OutputFile) target).getGeneratingRule();
+      if (target instanceof OutputFile outputFile) {
+        Rule rule = outputFile.getGeneratingRule();
         observeEdge(target, null, rule);
         visit(null, null, rule, depth + 1, count + 1);
       }

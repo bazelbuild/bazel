@@ -76,20 +76,14 @@ public final class SystemThermalModule extends BlazeModule {
   }
 
   private String macOSThermalDescription(int value) {
-    switch (value) {
-      case 0:
-        return "Nominal";
-      case 33:
-        return "Moderate";
-      case 50:
-        return "Heavy";
-      case 90:
-        return "Trapping";
-      case 100:
-        return "Sleeping";
-      default:
-        return "Unknown";
-    }
+    return switch (value) {
+      case 0 -> "Nominal";
+      case 33 -> "Moderate";
+      case 50 -> "Heavy";
+      case 90 -> "Trapping";
+      case 100 -> "Sleeping";
+      default -> "Unknown";
+    };
   }
 
   private synchronized void reportThermalEvent(boolean isInitialValue, int value) {

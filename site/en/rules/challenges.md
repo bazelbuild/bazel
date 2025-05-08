@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Challenges of Writing Rules
 
+{% include "_buttons.html" %}
+
 This page gives a high-level overview of the specific issues and challenges
 of writing efficient Bazel rules.
 

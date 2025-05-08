@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.devtools.build.lib.skyframe.serialization.MapHelpers.deserializeMapEntries;
+import static com.google.devtools.build.lib.skyframe.serialization.MapHelpers.serializeMapEntries;
+
 import com.google.common.collect.ImmutableBiMap;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -37,41 +40,60 @@ import java.io.IOException;
  * include the class name of the entry's value. Errors that occur while serializing an entry key are
  * not affected.
  */
-class ImmutableBiMapCodec<K, V> implements ObjectCodec<ImmutableBiMap<K, V>> {
+@SuppressWarnings({"unchecked", "rawtypes"})
+class ImmutableBiMapCodec extends DeferredObjectCodec<ImmutableBiMap> {
 
-  @SuppressWarnings("unchecked")
   @Override
-  public Class<ImmutableBiMap<K, V>> getEncodedClass() {
-    return (Class<ImmutableBiMap<K, V>>) ((Class<?>) ImmutableBiMap.class);
+  public Class<ImmutableBiMap> getEncodedClass() {
+    return ImmutableBiMap.class;
   }
 
   @Override
   public void serialize(
-      SerializationContext context, ImmutableBiMap<K, V> map, CodedOutputStream codedOut)
+      SerializationContext context, ImmutableBiMap map, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-
     codedOut.writeInt32NoTag(map.size());
-    ImmutableMapCodec.serializeEntries(context, map.entrySet(), codedOut);
+    serializeMapEntries(context, map, codedOut);
   }
 
   @Override
-  public ImmutableBiMap<K, V> deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public DeferredValue<ImmutableBiMap> deserializeDeferred(
+      AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
-
-    int length = codedIn.readInt32();
-    if (length < 0) {
-      throw new SerializationException("Expected non-negative length: " + length);
+    int size = codedIn.readInt32();
+    if (size < 0) {
+      throw new SerializationException("Expected non-negative size: " + size);
     }
 
-    ImmutableBiMap.Builder<K, V> builder =
-        ImmutableMapCodec.deserializeEntries(
-            ImmutableBiMap.builderWithExpectedSize(length), length, context, codedIn);
+    if (size == 0) {
+      return ImmutableBiMap::of;
+    }
 
-    try {
+    EntryBuffer buffer = new EntryBuffer(size);
+    deserializeMapEntries(context, codedIn, buffer.keys, buffer.values);
+    return buffer;
+  }
+
+  private static class EntryBuffer implements DeferredValue<ImmutableBiMap> {
+    final Object[] keys;
+    final Object[] values;
+
+    private EntryBuffer(int size) {
+      this.keys = new Object[size];
+      this.values = new Object[size];
+    }
+
+    int size() {
+      return keys.length;
+    }
+
+    @Override
+    public ImmutableBiMap call() {
+      ImmutableBiMap.Builder builder = ImmutableBiMap.builderWithExpectedSize(size());
+      for (int i = 0; i < size(); i++) {
+        builder.put(keys[i], values[i]);
+      }
       return builder.buildOrThrow();
-    } catch (IllegalArgumentException e) {
-      throw new SerializationException(
-          "Duplicate keys during ImmutableBiMapCodec deserialization", e);
     }
   }
 }

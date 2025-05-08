@@ -17,22 +17,27 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionKeyCacher;
+import com.google.devtools.build.lib.actions.ActionKeyComputer;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.MiddlemanType;
+import com.google.devtools.build.lib.actions.CommandLineLimits;
+import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -45,11 +50,10 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /** An {@link ActionTemplate} that expands into {@link SpawnAction}s at execution time. */
-public final class SpawnActionTemplate extends ActionKeyCacher
+public final class SpawnActionTemplate extends ActionKeyComputer
     implements ActionTemplate<SpawnAction> {
   private final SpecialArtifact inputTreeArtifact;
   private final SpecialArtifact outputTreeArtifact;
-  private final NestedSet<Artifact> commonInputs;
   private final NestedSet<Artifact> allInputs;
   private final NestedSet<Artifact> commonTools;
   private final ActionOwner actionOwner;
@@ -89,14 +93,12 @@ public final class SpawnActionTemplate extends ActionKeyCacher
     this.inputTreeArtifact = inputTreeArtifact;
     this.outputTreeArtifact = outputTreeArtifact;
     this.commonTools = commonTools;
-    this.commonInputs = NestedSetBuilder.<Artifact>stableOrder()
-        .addTransitive(commonInputs)
-        .addTransitive(commonTools)
-        .build();
-    this.allInputs = NestedSetBuilder.<Artifact>stableOrder()
-        .add(inputTreeArtifact)
-        .addTransitive(this.commonInputs)
-        .build();
+    this.allInputs =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .add(inputTreeArtifact)
+            .addTransitive(commonInputs)
+            .addTransitive(commonTools)
+            .build();
     this.outputPathMapper = outputPathMapper;
     this.actionOwner = actionOwner;
     this.mnemonic = mnemonic;
@@ -126,7 +128,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     TreeFileArtifact inputTreeFileArtifact =
@@ -138,7 +140,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
             ActionTemplateExpansionValue.key(
                 outputTreeArtifact.getArtifactOwner(), /*actionIndex=*/ 0));
     SpawnAction dummyAction = createAction(inputTreeFileArtifact, outputTreeFileArtifact);
-    dummyAction.computeKey(actionKeyContext, artifactExpander, fp);
+    dummyAction.computeKey(actionKeyContext, inputMetadataProvider, fp);
   }
 
   /**
@@ -147,7 +149,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
    */
   private SpawnAction createAction(
       TreeFileArtifact inputTreeFileArtifact, TreeFileArtifact outputTreeFileArtifact) {
-    SpawnAction.Builder actionBuilder = new SpawnAction.Builder(spawnActionBuilder);
+    SpawnAction.Builder actionBuilder = new ExpandedSpawnAction.Builder(spawnActionBuilder);
     actionBuilder.addInput(inputTreeFileArtifact);
     actionBuilder.addOutput(outputTreeFileArtifact);
 
@@ -158,7 +160,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
     // Note that we pass in nulls below because SpawnActionTemplate does not support param file, and
     // it does not use any default value for executable or shell environment. They must be set
     // explicitly via builder method #setExecutable and #setEnvironment.
-    return actionBuilder.buildForActionTemplate(getOwner());
+    return actionBuilder.buildForActionTemplate(actionOwner);
   }
 
   /**
@@ -189,7 +191,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public final String getMnemonic() {
+  public String getMnemonic() {
     return mnemonic;
   }
 
@@ -204,8 +206,18 @@ public final class SpawnActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public NestedSet<Artifact> getMandatoryInputs() {
+  public NestedSet<Artifact> getOriginalInputs() {
     return getInputs();
+  }
+
+  @Override
+  public NestedSet<Artifact> getSchedulingDependencies() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  }
+
+  @Override
+  public NestedSet<Artifact> getMandatoryInputs() {
+    return allInputs;
   }
 
   @Override
@@ -221,17 +233,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
 
   @Override
   public Collection<String> getClientEnvironmentVariables() {
-    return spawnActionBuilder.buildForActionTemplate(getOwner()).getClientEnvironmentVariables();
-  }
-
-  @Override
-  public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
-    return this != action;
-  }
-
-  @Override
-  public MiddlemanType getActionType() {
-    return MiddlemanType.NORMAL;
+    return spawnActionBuilder.buildForActionTemplate(actionOwner).getClientEnvironmentVariables();
   }
 
   @Override
@@ -319,17 +321,6 @@ public final class SpawnActionTemplate extends ActionKeyCacher
     public Builder addCommonInputs(Iterable<Artifact> artifacts) {
       inputsBuilder.addAll(artifacts);
       spawnActionBuilder.addInputs(artifacts);
-      return this;
-    }
-
-    /**
-     * Adds transitive common input artifacts. All common input artifacts will be added as input
-     * artifacts for expanded actions.
-     */
-    @CanIgnoreReturnValue
-    public Builder addCommonTransitiveInputs(NestedSet<Artifact> artifacts) {
-      inputsBuilder.addTransitive(artifacts);
-      spawnActionBuilder.addTransitiveInputs(artifacts);
       return this;
     }
 
@@ -434,6 +425,70 @@ public final class SpawnActionTemplate extends ActionKeyCacher
           checkNotNull(commandLineTemplate),
           actionTemplateMnemonic,
           spawnActionBuilder);
+    }
+  }
+
+  private static final class ExpandedSpawnAction extends SpawnAction {
+    ExpandedSpawnAction(
+        ActionOwner owner,
+        NestedSet<Artifact> tools,
+        NestedSet<Artifact> inputs,
+        Iterable<? extends Artifact> outputs,
+        ResourceSetOrBuilder resourceSetOrBuilder,
+        CommandLines commandLines,
+        ActionEnvironment env,
+        ImmutableMap<String, String> executionInfo,
+        CharSequence progressMessage,
+        String mnemonic) {
+      super(
+          owner,
+          tools,
+          inputs,
+          outputs,
+          resourceSetOrBuilder,
+          commandLines,
+          env,
+          executionInfo,
+          progressMessage,
+          mnemonic,
+          /* outputPathsMode= */ OutputPathsMode.OFF);
+    }
+
+    @Override
+    protected CommandLineLimits getCommandLineLimits() {
+      return CommandLineLimits.UNLIMITED;
+    }
+
+    private static final class Builder extends SpawnAction.Builder {
+      Builder(SpawnAction.Builder template) {
+        super(template);
+      }
+
+      @Override
+      protected SpawnAction createSpawnAction(
+          ActionOwner owner,
+          NestedSet<Artifact> tools,
+          NestedSet<Artifact> inputsAndTools,
+          ImmutableSet<Artifact> outputs,
+          ResourceSetOrBuilder resourceSetOrBuilder,
+          CommandLines commandLines,
+          ActionEnvironment env,
+          @Nullable BuildConfigurationValue configuration,
+          ImmutableMap<String, String> executionInfo,
+          CharSequence progressMessage,
+          String mnemonic) {
+        return new ExpandedSpawnAction(
+            owner,
+            tools,
+            inputsAndTools,
+            outputs,
+            resourceSetOrBuilder,
+            commandLines,
+            env,
+            executionInfo,
+            progressMessage,
+            mnemonic);
+      }
     }
   }
 }

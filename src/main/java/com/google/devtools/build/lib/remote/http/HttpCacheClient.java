@@ -13,8 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.http;
 
+import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ServerCapabilities;
+import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -25,13 +29,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -81,8 +85,11 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -129,6 +136,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
   private final boolean useTls;
   private final boolean verifyDownloads;
   private final DigestUtil digestUtil;
+  private final RemoteRetrier retrier;
 
   private final Object closeLock = new Object();
 
@@ -150,6 +158,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
       boolean verifyDownloads,
       ImmutableList<Entry<String, String>> extraHttpHeaders,
       DigestUtil digestUtil,
+      RemoteRetrier retrier,
       @Nullable final Credentials creds,
       AuthAndTLSOptions authAndTlsOptions)
       throws Exception {
@@ -162,6 +171,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
         verifyDownloads,
         extraHttpHeaders,
         digestUtil,
+        retrier,
         creds,
         authAndTlsOptions,
         null);
@@ -175,6 +185,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
       boolean verifyDownloads,
       ImmutableList<Entry<String, String>> extraHttpHeaders,
       DigestUtil digestUtil,
+      RemoteRetrier retrier,
       @Nullable final Credentials creds,
       AuthAndTLSOptions authAndTlsOptions)
       throws Exception {
@@ -189,6 +200,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
           verifyDownloads,
           extraHttpHeaders,
           digestUtil,
+          retrier,
           creds,
           authAndTlsOptions,
           domainSocketAddress);
@@ -202,6 +214,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
           verifyDownloads,
           extraHttpHeaders,
           digestUtil,
+          retrier,
           creds,
           authAndTlsOptions,
           domainSocketAddress);
@@ -219,6 +232,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
       boolean verifyDownloads,
       ImmutableList<Entry<String, String>> extraHttpHeaders,
       DigestUtil digestUtil,
+      RemoteRetrier retrier,
       @Nullable final Credentials creds,
       AuthAndTLSOptions authAndTlsOptions,
       @Nullable SocketAddress socketAddress)
@@ -284,6 +298,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
     this.extraHttpHeaders = extraHttpHeaders;
     this.verifyDownloads = verifyDownloads;
     this.digestUtil = digestUtil;
+    this.retrier = retrier;
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -441,8 +456,11 @@ public final class HttpCacheClient implements RemoteCacheClient {
       RemoteActionExecutionContext context, Digest digest, OutputStream out) {
     final DigestOutputStream digestOut =
         verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
+    final AtomicLong casBytesDownloaded = new AtomicLong();
     return Futures.transformAsync(
-        get(digest, digestOut != null ? digestOut : out, /* casDownload= */ true),
+        retrier.executeAsync(
+            () ->
+                get(digest, digestOut != null ? digestOut : out, Optional.of(casBytesDownloaded))),
         (v) -> {
           try {
             if (digestOut != null) {
@@ -458,7 +476,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
-  private ListenableFuture<Void> get(Digest digest, final OutputStream out, boolean casDownload) {
+  private ListenableFuture<Void> get(
+      Digest digest, final OutputStream out, Optional<AtomicLong> casBytesDownloaded) {
     final AtomicBoolean dataWritten = new AtomicBoolean();
     OutputStream wrappedOut =
         new OutputStream() {
@@ -469,12 +488,18 @@ public final class HttpCacheClient implements RemoteCacheClient {
           @Override
           public void write(byte[] b, int offset, int length) throws IOException {
             dataWritten.set(true);
+            if (casBytesDownloaded.isPresent()) {
+              casBytesDownloaded.get().addAndGet(length);
+            }
             out.write(b, offset, length);
           }
 
           @Override
           public void write(int b) throws IOException {
             dataWritten.set(true);
+            if (casBytesDownloaded.isPresent()) {
+              casBytesDownloaded.get().incrementAndGet();
+            }
             out.write(b);
           }
 
@@ -483,7 +508,12 @@ public final class HttpCacheClient implements RemoteCacheClient {
             out.flush();
           }
         };
-    DownloadCommand downloadCmd = new DownloadCommand(uri, casDownload, digest, wrappedOut);
+    long offset = 0;
+    if (casBytesDownloaded.isPresent()) {
+      offset = casBytesDownloaded.get().get();
+    }
+    DownloadCommand downloadCmd =
+        new DownloadCommand(uri, casBytesDownloaded.isPresent(), digest, wrappedOut, offset);
     SettableFuture<Void> outerF = SettableFuture.create();
     acquireDownloadChannel()
         .addListener(
@@ -506,8 +536,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
                             // Unsafe.throwException to
                             // re-throw a checked exception that hasn't been declared in the method
                             // signature.
-                            if (cause instanceof HttpException) {
-                              HttpResponse response = ((HttpException) cause).response();
+                            if (cause instanceof HttpException httpException) {
+                              HttpResponse response = httpException.response();
                               if (!dataWritten.get() && authTokenExpired(response)) {
                                 // The error is due to an auth token having expired. Let's try
                                 // again.
@@ -555,8 +585,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
                             outerF.set(null);
                           } else {
                             Throwable cause = f.cause();
-                            if (cause instanceof HttpException) {
-                              HttpResponse response = ((HttpException) cause).response();
+                            if (cause instanceof HttpException httpException) {
+                              HttpResponse response = httpException.response();
                               if (cacheMiss(response.status())) {
                                 outerF.setException(new CacheNotFoundException(cmd.digest()));
                                 return;
@@ -572,13 +602,32 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<CachedActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
-    return Futures.transform(
-        Utils.downloadAsActionResult(
-            actionKey, (digest, out) -> get(digest, out, /* casDownload= */ false)),
-        CachedActionResult::remote,
-        MoreExecutors.directExecutor());
+  public ServerCapabilities getServerCapabilities() {
+    var cacheCapabilities =
+        CacheCapabilities.newBuilder()
+            .setActionCacheUpdateCapabilities(
+                ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
+            .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
+            .build();
+    return ServerCapabilities.newBuilder().setCacheCapabilities(cacheCapabilities).build();
+  }
+
+  @Override
+  public ListenableFuture<String> getAuthority() {
+    return Futures.immediateFuture("");
+  }
+
+  @Override
+  public ListenableFuture<ActionResult> downloadActionResult(
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      boolean inlineOutErr,
+      Set<String> inlineOutputFiles) {
+    return retrier.executeAsync(
+        () ->
+            Utils.downloadAsActionResult(
+                actionKey,
+                (digest, out) -> get(digest, out, /* casBytesDownloaded= */ Optional.empty())));
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
@@ -590,7 +639,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
           public void close() {
             // Ensure that the InputStream can't be closed somewhere in the Netty
             // pipeline, so that we can support retries. The InputStream is closed in
-            // the finally block below.
+            // the listener block below.
           }
         };
     UploadCommand upload = new UploadCommand(uri, casUpload, key, wrappedIn, length);
@@ -612,8 +661,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
                           result.set(null);
                         } else {
                           Throwable cause = f.cause();
-                          if (cause instanceof HttpException) {
-                            HttpResponse response = ((HttpException) cause).response();
+                          if (cause instanceof HttpException httpException) {
+                            HttpResponse response = httpException.response();
                             try {
                               // If the error is due to an expired auth token and we can reset
                               // the input stream, then try again.
@@ -668,22 +717,16 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<Void> uploadFile(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
-    try {
-      return uploadAsync(
-          digest.getHash(), digest.getSizeBytes(), file.getInputStream(), /* casUpload= */ true);
-    } catch (IOException e) {
-      // Can be thrown from file.getInputStream.
-      return Futures.immediateFailedFuture(e);
-    }
-  }
-
-  @Override
   public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data) {
-    return uploadAsync(
-        digest.getHash(), digest.getSizeBytes(), data.newInput(), /* casUpload= */ true);
+      RemoteActionExecutionContext context, Digest digest, Blob blob) {
+    return retrier.executeAsync(
+        () -> {
+          var result =
+              uploadAsync(
+                  digest.getHash(), digest.getSizeBytes(), blob.get(), /* casUpload= */ true);
+          result.addListener(blob::close, MoreExecutors.directExecutor());
+          return result;
+        });
   }
 
   @Override
@@ -697,9 +740,9 @@ public final class HttpCacheClient implements RemoteCacheClient {
       in.reset();
       return true;
     }
-    if (in instanceof FileInputStream) {
+    if (in instanceof FileInputStream fileInputStream) {
       // FileInputStream does not support reset().
-      ((FileInputStream) in).getChannel().position(0);
+      fileInputStream.getChannel().position(0);
       return true;
     }
     return false;

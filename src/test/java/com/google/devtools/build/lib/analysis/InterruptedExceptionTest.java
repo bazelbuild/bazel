@@ -52,7 +52,10 @@ public class InterruptedExceptionTest extends AnalysisTestCase {
 
   @Test
   public void testGlobInterruptedException() throws Exception {
-    scratch.file("a/BUILD", "sh_library(name = 'a', srcs = glob(['**/*']))");
+    scratch.file(
+        "a/BUILD",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_library(name = 'a', srcs = glob(['**/*']))");
     scratch.file("a/b/foo.sh", "testfile");
     scratch.file("a/causes_interrupt/bar.sh", "testfile");
     reporter.removeHandler(failFastHandler);
@@ -62,12 +65,19 @@ public class InterruptedExceptionTest extends AnalysisTestCase {
 
   @Test
   public void testStarlarkGlobInterruptedException() throws Exception {
-    scratch.file("a/gen.bzl",
-        "def gen():",
-        "  native.filegroup(name = 'a', srcs = native.glob(['**/*']))");
-    scratch.file("a/BUILD",
-        "load('//a:gen.bzl', 'gen')",
-        "gen()");
+    scratch.file(
+        "a/gen.bzl",
+        """
+        def gen():
+            native.filegroup(name = "a", srcs = native.glob(["**/*"]))
+        """);
+    scratch.file(
+        "a/BUILD",
+        """
+        load("//a:gen.bzl", "gen")
+
+        gen()
+        """);
 
     scratch.file("a/b/foo.sh", "testfile");
     scratch.file("a/causes_interrupt/bar.sh", "testfile");

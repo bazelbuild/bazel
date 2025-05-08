@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -38,9 +38,9 @@ function setup_repository() {
 
   # Test with the extension
   serve_file $repo2_zip
-  rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  rm MODULE.bazel
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = 'endangered',
@@ -49,6 +49,7 @@ http_archive(
     type = 'zip',
 )
 EOF
+  add_rules_shell "MODULE.bazel"
 }
 
 function setup_starlark_repository() {
@@ -58,17 +59,17 @@ function setup_starlark_repository() {
 
   zip_file="${server_dir}/zip_file.zip"
 
-  create_workspace_with_default_repos "${server_dir}"/WORKSPACE
+  setup_module_dot_bazel "${server_dir}"/MODULE.bazel
   echo "some content" > "${server_dir}"/file
-  zip -0 -ry $zip_file "${server_dir}"/WORKSPACE "${server_dir}"/file >& $TEST_log
+  zip -0 -ry $zip_file "${server_dir}"/MODULE.bazel "${server_dir}"/file >& $TEST_log
 
   zip_sha256="$(sha256sum "${zip_file}" | head -c 64)"
 
   # Start HTTP server with Python
   startup_server "${server_dir}"
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load('//:test.bzl', 'repo')
+  cat >> $(setup_module_dot_bazel) <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
 repo(name = 'foo')
 EOF
   touch BUILD
@@ -101,7 +102,7 @@ function http_archive_helper() {
     rm -rf "$repo2"
     mkdir -p "$repo2/fox"
     cd "$repo2"
-    touch WORKSPACE
+    setup_module_dot_bazel
     cat > fox/BUILD <<EOF
 filegroup(
     name = "fox",
@@ -121,9 +122,10 @@ EOF
     # handle breaking a response into chunks.
     dd if=/dev/zero of=fox/padding bs=1024 count=10240 >& $TEST_log
     repo2_zip="$TEST_TMPDIR/fox.zip"
-    zip -0 -ry "$repo2_zip" WORKSPACE fox >& $TEST_log
+    zip -0 -ry "$repo2_zip" MODULE.bazel fox >& $TEST_log
     repo2_name=$(basename "$repo2_zip")
     sha256=$(sha256sum "$repo2_zip" | cut -f 1 -d ' ')
+    integrity="sha256-$(cat "$repo2_zip" | openssl dgst -sha256 -binary | openssl base64 -A)"
   fi
   serve_file "$repo2_zip"
 
@@ -132,8 +134,8 @@ EOF
   mkdir -p zoo
 
   if [[ $write_workspace = 0 ]]; then
-    cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+    cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = 'endangered',
@@ -141,8 +143,10 @@ http_archive(
     sha256 = '$sha256'
 )
 EOF
+    add_rules_shell "MODULE.bazel"
 
     cat > zoo/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
@@ -152,7 +156,7 @@ EOF
 
     cat > zoo/female.sh <<EOF
 #!/bin/sh
-../endangered/fox/male
+../+http_archive+endangered/fox/male
 EOF
     chmod +x zoo/female.sh
 fi
@@ -162,7 +166,7 @@ fi
   shutdown_server
   expect_log "$what_does_the_fox_say"
 
-  base_external_path=bazel-out/../external/endangered/fox
+  base_external_path=bazel-out/../external/+http_archive+endangered/fox
   assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
   assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
 }
@@ -191,7 +195,7 @@ function test_fetch() {
 
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
-  expect_log "All external dependencies fetched successfully"
+  expect_log "All external dependencies for the requested targets fetched successfully."
 }
 
 function test_directory_structure() {
@@ -221,13 +225,16 @@ function test_fetch_value_with_existing_cache_and_no_network() {
   cache_entry="$repo_cache_dir/content_addressable/sha256/$sha256"
   mkdir -p "$cache_entry"
   cp "$repo2_zip" "$cache_entry/file" # Artifacts are named uniformly as "file" in the cache
+  http_archive_url="http://localhost:$nc_port/bleh"
+  canonical_id_hash=$(printf "$http_archive_url" | sha256sum | cut -f 1 -d ' ')
+  touch "$cache_entry/id-$canonical_id_hash"
 
   # Fetch without a server
   shutdown_server
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
       || echo "Expected fetch to succeed"
 
-  expect_log "All external dependencies fetched successfully"
+  expect_log "All external dependencies for the requested targets fetched successfully."
 }
 
 
@@ -245,16 +252,16 @@ function test_load_cached_value() {
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
-  expect_log "All external dependencies fetched successfully"
+  expect_log "All external dependencies for the requested targets fetched successfully."
 }
 
 function test_write_cache_without_hash() {
   setup_repository
 
   # Have a WORKSPACE file without the specified sha256
-  rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  rm MODULE.bazel
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = 'endangered',
@@ -262,6 +269,7 @@ http_archive(
     type = 'zip',
     )
 EOF
+  add_rules_shell "MODULE.bazel"
 
   # Fetch; as we did not specify a hash, we expect bazel to tell us the hash
   # in an info message.
@@ -271,10 +279,11 @@ EOF
   # to do without checksum. But we can safely do so, as the loopback device
   # is reasonably safe against man-in-the-middle attacks.
   bazel fetch --repository_cache="$repo_cache_dir" \
+        --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
         //zoo:breeding-program >& $TEST_log \
     || fail "expected fetch to succeed"
 
-  expect_log "${sha256}"
+  expect_log "${integrity}"
 
   # Shutdown the server; so fetching again won't work
   shutdown_server
@@ -283,12 +292,13 @@ EOF
 
   # As we don't have a predicted cache, we expect fetching to fail now.
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+        --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
     && fail "expected failure" || :
 
   # However, if we add the hash, the value is taken from cache
-  rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  rm MODULE.bazel
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = 'endangered',
@@ -297,7 +307,9 @@ http_archive(
     sha256 = '${sha256}',
 )
 EOF
+  add_rules_shell "MODULE.bazel"
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+        --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
     || fail "expected fetch to succeed"
 }
 
@@ -381,7 +393,7 @@ EOF
   bazel fetch --repository_cache="$repo_cache_dir" @foo//:all >& $TEST_log \
     || echo "Expected fetch to succeed"
 
-  expect_log "All external dependencies fetched successfully"
+  expect_log "All external dependencies for the requested targets fetched successfully."
 }
 
 function test_starlark_download_fail_without_cache() {
@@ -434,7 +446,7 @@ EOF
   bazel fetch --repository_cache="$repo_cache_dir" @foo//:all >& $TEST_log \
     || echo "Expected fetch to succeed"
 
-  expect_log "All external dependencies fetched successfully"
+  expect_log "All external dependencies for the requested targets fetched successfully."
 }
 
 function test_starlark_download_and_extract_fail_without_cache() {
@@ -465,21 +477,25 @@ EOF
   expect_log "Error downloading"
 }
 
-function test_break_url() {
+function test_http_archive_no_default_canonical_id() {
   setup_repository
 
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+  bazel fetch --repository_cache="$repo_cache_dir" \
+    --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
+    //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
   shutdown_server
 
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+  bazel fetch --repository_cache="$repo_cache_dir" \
+    --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
+    //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
-  # Break url in WORKSPACE
-  rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  # Break url in MODULE.bazel
+  rm MODULE.bazel
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = 'endangered',
@@ -488,31 +504,35 @@ http_archive(
     type = 'zip',
 )
 EOF
+  add_rules_shell "MODULE.bazel"
 
-  # By default, cache entry will still match by sha256, even if url is changed.
-  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
+  # Without the default canonical id, cache entry will still match by sha256, even if url is
+  # changed.
+  bazel fetch --repository_cache="$repo_cache_dir" \
+    --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
+    //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 }
 
-function test_experimental_repository_cache_urls_as_default_canonical_id() {
+
+function test_http_archive_urls_as_default_canonical_id() {
+  # TODO: Remove when the integration test setup itself no longer relies on this.
+  add_to_bazelrc "common --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=1"
+
   setup_repository
 
-  bazel fetch --repository_cache="$repo_cache_dir" \
-        --experimental_repository_cache_urls_as_default_canonical_id \
-        //zoo:breeding-program >& $TEST_log \
+  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
   shutdown_server
 
-  bazel fetch --repository_cache="$repo_cache_dir" \
-        --experimental_repository_cache_urls_as_default_canonical_id \
-        //zoo:breeding-program >& $TEST_log \
+  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
-  # Break url in WORKSPACE
-  rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  # Break url in MODULE.bazel
+  rm MODULE.bazel
+  cat >> $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = 'endangered',
@@ -523,9 +543,7 @@ http_archive(
 EOF
 
   # As repository cache key should depend on urls, we expect fetching to fail now.
-  bazel fetch --repository_cache="$repo_cache_dir" \
-        --experimental_repository_cache_urls_as_default_canonical_id \
-        //zoo:breeding-program >& $TEST_log \
+  bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     && fail "expected failure" || :
 }
 

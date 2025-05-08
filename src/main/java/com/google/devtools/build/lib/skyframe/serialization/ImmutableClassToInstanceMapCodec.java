@@ -11,8 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization;
+
+import static com.google.devtools.build.lib.skyframe.serialization.MapHelpers.deserializeMapEntries;
+import static com.google.devtools.build.lib.skyframe.serialization.MapHelpers.serializeMapEntries;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableMap;
@@ -36,48 +38,63 @@ import java.io.IOException;
  * include the class name of the entry's value. Errors that occur while serializing an entry key are
  * not affected.
  */
-class ImmutableClassToInstanceMapCodec<B> implements ObjectCodec<ImmutableClassToInstanceMap<B>> {
+@SuppressWarnings({"unchecked", "rawtypes"})
+class ImmutableClassToInstanceMapCodec extends DeferredObjectCodec<ImmutableClassToInstanceMap> {
 
-  @SuppressWarnings("unchecked")
   @Override
-  public Class<ImmutableClassToInstanceMap<B>> getEncodedClass() {
-    return (Class<ImmutableClassToInstanceMap<B>>) ((Class<?>) ImmutableClassToInstanceMap.class);
+  public Class<ImmutableClassToInstanceMap> getEncodedClass() {
+    return ImmutableClassToInstanceMap.class;
   }
 
   @Override
   public void serialize(
-      SerializationContext context, ImmutableClassToInstanceMap<B> map, CodedOutputStream codedOut)
+      SerializationContext context, ImmutableClassToInstanceMap map, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-
     codedOut.writeInt32NoTag(map.size());
-    ImmutableMapCodec.serializeEntries(context, map.entrySet(), codedOut);
+    serializeMapEntries(context, map, codedOut);
   }
 
   @Override
-  public ImmutableClassToInstanceMap<B> deserialize(
-      DeserializationContext context, CodedInputStream codedIn)
+  public DeferredValue<ImmutableClassToInstanceMap> deserializeDeferred(
+      AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
-
-    int length = codedIn.readInt32();
-    if (length < 0) {
-      throw new SerializationException("Expected non-negative length: " + length);
+    int size = codedIn.readInt32();
+    if (size < 0) {
+      throw new SerializationException("Expected non-negative length: " + size);
+    }
+    if (size == 0) {
+      return ImmutableClassToInstanceMap::of;
     }
 
-    ImmutableMap.Builder<Class<? extends B>, B> classKeyedBuilder =
-        ImmutableMapCodec.deserializeEntries(ImmutableMap.builder(), length, context, codedIn);
+    EntryBuffer buffer = new EntryBuffer(size);
+    deserializeMapEntries(
+        context,
+        codedIn,
+        buffer.keys,
+        buffer.values);
+    return buffer;
+  }
 
-    ImmutableMap<Class<? extends B>, B> classKeyedMap;
-    try {
-      classKeyedMap = classKeyedBuilder.buildOrThrow();
-    } catch (IllegalArgumentException e) {
-      throw new SerializationException(
-          "Duplicate keys during ImmutableClassToInstanceMapCodec deserialization", e);
+  private static class EntryBuffer implements DeferredValue<ImmutableClassToInstanceMap> {
+    final Object[] keys;
+    final Object[] values;
+
+    private EntryBuffer(int size) {
+      this.keys = new Object[size];
+      this.values = new Object[size];
     }
-    try {
-      return ImmutableClassToInstanceMap.copyOf(classKeyedMap);
-    } catch (ClassCastException e) {
-      throw new SerializationException(
-          "Key-value type mismatch during ImmutableClassToInstanceMapCodec deserialization", e);
+
+    @Override
+    public ImmutableClassToInstanceMap call() {
+      ImmutableClassToInstanceMap.Builder builder = ImmutableClassToInstanceMap.builder();
+      for (int i = 0; i < size(); i++) {
+        builder.put((Class) keys[i], values[i]);
+      }
+      return builder.build();
+    }
+
+    private int size() {
+      return keys.length;
     }
   }
 }

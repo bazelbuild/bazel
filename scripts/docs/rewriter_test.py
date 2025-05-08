@@ -34,7 +34,9 @@ class CanRewriteTest(parameterized.TestCase):
 
 def read_data_file(basename, in_or_out_fragment):
   path = os.path.join(
-      os.getenv("TEST_SRCDIR"), "io_bazel/scripts/docs/testdata",
+      os.getenv("TEST_SRCDIR"),
+      os.getenv("TEST_WORKSPACE"),
+      "scripts/docs/testdata",
       in_or_out_fragment, basename)
   with open(path, "rt", encoding="utf-8") as f:
     return path, f.read()
@@ -49,7 +51,7 @@ class RewriteLinksTest(parameterized.TestCase):
     input_path, content = read_data_file(basename, "input")
     _, version = read_data_file("VERSION", "input")
 
-    actual = rewriter.rewrite_links(input_path, content, version)
+    actual = rewriter.rewrite_links(input_path, content, basename, version)
 
     _, expected = read_data_file(basename, "expected_output")
 

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.supplier.MemoizingInterruptibleSupplier;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
@@ -124,11 +123,12 @@ public interface QueryableGraph {
    * @param previouslyRequestedDeps deps that have already been requested during this build and
    *     should not be prefetched because they will be subsequently fetched anyway
    * @return {@code previouslyRequestedDeps} as a set if the implementation called {@link
-   *     GroupedList#toSet} (so that the caller may reuse it), otherwise {@code null}
+   *     GroupedDeps#toSet} (so that the caller may reuse it), otherwise {@code null}
    */
+  @CanIgnoreReturnValue
   @Nullable
   default ImmutableSet<SkyKey> prefetchDeps(
-      SkyKey requestor, Set<SkyKey> oldDeps, GroupedList<SkyKey> previouslyRequestedDeps)
+      SkyKey requestor, Set<SkyKey> oldDeps, GroupedDeps previouslyRequestedDeps)
       throws InterruptedException {
     return null;
   }
@@ -199,10 +199,7 @@ public interface QueryableGraph {
     /** The node is being looked up merely to see if it is done or not. */
     DONE_CHECKING,
 
-    /**
-     * The node is being looked up so that it can be {@linkplain DirtyType#FORCE_REBUILD force
-     * rebuilt} by rewinding.
-     */
+    /** The node is being looked up so that it can be {@linkplain DirtyType#REWIND rewound}. */
     REWINDING,
 
     /**
@@ -223,6 +220,9 @@ public interface QueryableGraph {
 
     /** The node is being looked up to service another "graph lookup" function. */
     WALKABLE_GRAPH_OTHER,
+
+    /** The node is being looked up to vendor external repos from its dependencies. */
+    VENDOR_EXTERNAL_REPOS,
 
     /** Some other reason than one of the above that needs the node's value and deps. */
     OTHER_NEEDING_VALUE_AND_DEPS,

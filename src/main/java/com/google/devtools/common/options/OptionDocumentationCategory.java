@@ -104,8 +104,8 @@ public enum OptionDocumentationCategory {
   /** This option relates to query output and semantics. */
   QUERY,
 
-  /** This option relates to modquery (external dependencies) output and semantics. */
-  MODQUERY,
+  /** This option relates to the `mod` subcommand. */
+  MOD_COMMAND,
 
   /** This option relates to Bzlmod (external dependencies) output and semantics. */
   BZLMOD,

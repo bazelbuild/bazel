@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
@@ -19,6 +20,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_owner",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
+        "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/compression",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -30,10 +33,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_resolver",
+        "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

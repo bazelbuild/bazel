@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -59,13 +59,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function expect_path_in_java_tools() {
   path="$1"; shift
 
@@ -75,10 +68,6 @@ function expect_path_in_java_tools() {
 
 function test_java_tools_has_ijar() {
   expect_path_in_java_tools "third_party/ijar"
-}
-
-function test_java_tools_has_zlib() {
-  expect_path_in_java_tools "third_party/zlib"
 }
 
 function test_java_tools_has_native_windows() {

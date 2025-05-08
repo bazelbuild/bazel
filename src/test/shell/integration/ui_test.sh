@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -67,6 +67,9 @@ function set_up() {
     return
   fi
 
+  add_rules_shell "MODULE.bazel"
+  add_rules_cc "MODULE.bazel"
+
   mkdir -p pkg
   touch remote_file
   cat > pkg/true.sh <<EOF
@@ -103,6 +106,9 @@ echo Ending \$1
 EOF
   chmod 755 pkg/do_output.sh
   cat > pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+
 sh_test(
   name = "true",
   srcs = ["true.sh"],
@@ -156,6 +162,8 @@ genrule(
 EOF
   mkdir -p pkg/errorAfterWarning
   cat > pkg/errorAfterWarning/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 RANGE = range(500)
 
 [ genrule(
@@ -225,6 +233,8 @@ exit 0
 EOF
   chmod 755 $pkg/true.sh
   cat > $pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "true",
   srcs = ["true.sh"],
@@ -235,6 +245,7 @@ EOF
 #### TESTS #############################################################
 
 function test_basic_progress() {
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
   bazel test --curses=yes --color=yes pkg:true 2>$TEST_log \
     || fail "${PRODUCT_NAME} test failed"
   # some progress indicator is shown
@@ -259,6 +270,7 @@ function test_line_wrapping() {
 }
 
 function test_noshow_progress() {
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
   bazel test --noshow_progress --curses=yes --color=yes \
     pkg:true 2>$TEST_log || fail "${PRODUCT_NAME} test failed"
   # Info messages should still go through
@@ -268,7 +280,12 @@ function test_noshow_progress() {
 }
 
 function test_basic_progress_no_curses() {
-  bazel test --curses=no --color=yes pkg:true 2>$TEST_log \
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
+  # --experimental_ui_debug_all_events is necessary so that we don't miss the
+  # progress indicator event which is only shown once a second when curses is
+  # disabled
+  bazel test --curses=no --color=yes --experimental_ui_debug_all_events \
+    pkg:true 2>$TEST_log \
     || fail "${PRODUCT_NAME} test failed"
   # some progress indicator is shown
   expect_log '\[[0-9,]* / [0-9,]*\]'
@@ -281,7 +298,11 @@ function test_basic_progress_no_curses() {
 }
 
 function test_no_curses_no_linebreak() {
-  bazel test --curses=no --color=yes --terminal_columns=9 \
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
+  # --experimental_ui_debug_all_events is necessary so that we don't miss the
+  # progress indicator event which is only shown once a second when curses is
+  # disabled
+  bazel test --curses=no --color=yes --experimental_ui_debug_all_events \
     pkg:true 2>$TEST_log || fail "${PRODUCT_NAME} test failed"
   # expect a long-ish status line
   expect_log '\[[0-9,]* / [0-9,]*\]......'
@@ -309,7 +330,7 @@ function test_timestamp() {
 }
 
 function test_skymeld_ui() {
-  bazel build --experimental_skymeld_ui pkg:true &> "$TEST_log" \
+  bazel build --experimental_merged_skyframe_analysis_execution pkg:true &> "$TEST_log" \
     || fail "${PRODUCT_NAME} test failed."
   expect_log 'Build completed successfully'
 }
@@ -339,7 +360,7 @@ string_flag(
 )
 EOF
 
-  bazel build --experimental_skymeld_ui \
+  bazel build --experimental_merged_skyframe_analysis_execution \
       --//$pkg/flags:flag=a \
       $pkg:true &> "$TEST_log" || fail "${PRODUCT_NAME} test failed."
   expect_log 'Build completed successfully'
@@ -347,7 +368,7 @@ EOF
 
 # Regression test for b/244163231.
 function test_skymeld_ui_works_with_timestamps() {
-  bazel build --experimental_skymeld_ui --show_timestamps \
+  bazel build --experimental_merged_skyframe_analysis_execution --show_timestamps \
     pkg:true &> "$TEST_log" \
     || fail "${PRODUCT_NAME} test failed."
   expect_log 'Build completed successfully'
@@ -493,7 +514,7 @@ function test_experimental_ui_attempt_to_print_relative_paths_failing_action() {
   # unconditionally uses an uppercase drive letter (see
   # WindowsOsPathPolicy#normalize). I want these tests to check for exact
   # string contents (that's the entire goal of the flag being tested), but I
-  # don't want them to be brittle across different Windows enviromments, so
+  # don't want them to be brittle across different Windows environments, so
   # I've disabled them for now.
   # TODO(nharmata): Fix this.
   [[ "$is_windows" == "true" ]] && return 0
@@ -551,10 +572,27 @@ function test_ui_events_filters() {
   expect_not_log "^WARNING: Target pattern parsing failed."
   expect_log "^INFO: Elapsed time"
 
-  bazel build  --ui_event_filters= pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  bazel build --ui_event_filters= pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
   expect_not_log "^ERROR: .*/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
   expect_not_log "^WARNING: Target pattern parsing failed."
   expect_not_log "^INFO: Elapsed time"
+
+  bazel build --ui_event_filters=-error --ui_event_filters=+error \
+      pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: .*bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_log "^WARNING: Target pattern parsing failed."
+  expect_log "^INFO: Elapsed time"
+
+  bazel build --ui_event_filters= --ui_event_filters=+info pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_not_log "^ERROR: .*/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_not_log "^WARNING: Target pattern parsing failed."
+  expect_log "^INFO: Elapsed time"
+
+  bazel build --ui_event_filters=warning --ui_event_filters=info --ui_event_filters=+error \
+      pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: .*/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_not_log "^WARNING: Target pattern parsing failed."
+  expect_log "^INFO: Elapsed time"
 }
 
 function test_max_stdouterr_bytes_capping_behavior() {
@@ -664,14 +702,14 @@ EOF
   while ! grep -q "multiline error message" "$TEST_log" ; do
     sleep 1
   done
-  while ! grep -q '\[2 / 3\] Executing genrule //foo:sleep' "$TEST_log" ; do
+  while ! grep -q 'Executing genrule //foo:sleep' "$TEST_log" ; do
     sleep 1
   done
   kill -SIGINT "$pid"
   wait "$pid" || exit_code="$?"
   [[ "$exit_code" == 8 ]] || fail "Should have been interrupted: $exit_code"
   tr -s <"$TEST_log" '\n' '@' |
-      grep -q 'Executing genrule //foo:fail failed:[^@]*@This@is@a@multiline error message@before@failure@\[2 / 3\] Executing genrule //foo:sleep;' \
+      grep -q 'Executing genrule //foo:fail failed:[^@]*@This@is@a@multiline error message@before@failure@.*Executing genrule //foo:sleep;' \
       || fail "Unified genrule error message not found"
   # Make sure server is still usable.
   bazel info server_pid >& "$TEST_log" || fail "Couldn't use server"
@@ -688,11 +726,51 @@ EOF
   # Build event file needed so UI considers build to continue after failure.
   ! bazel test --build_event_json_file=bep.json --curses=yes --color=yes \
       //foo:foo &> "$TEST_log" || fail "Expected failure"
-  # Expect to see a failure message with an "erase line" control code prepended.
-  expect_log $'\e'"\[K"$'\e'"\[31m"$'\e'"\[1mFAILED:"$'\e'"\[0m Build did NOT complete successfully"
-  # We should not see a build failure message without an "erase line" to start.
-  # TODO(janakr): Fix the excessive printing of this failure message.
-  expect_log_n "^"$'\e'"\[31m"$'\e'"\[1mFAILED:"$'\e'"\[0m Build did NOT complete successfully" 4
+  # Expect to see exactly one failure message.
+  expect_log_n '\[31m\[1mERROR: \[0mBuild did NOT complete successfully' 1
 }
 
+function test_bazel_run_error_visible() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+  name = 'foo',
+  srcs = ['foo.sh'],
+  shard_count = 2,
+)
+EOF
+  touch foo/foo.sh
+  chmod +x foo/foo.sh
+  bazel run --curses=yes //foo &> "$TEST_log" && "Expected failure"
+  expect_log "ERROR: 'run' only works with tests with one shard"
+  # If we would print this again after the run failed, we would overwrite the
+  # error message above.
+  expect_log_n "INFO: Build completed successfully, [4567] total actions" 1
+}
+
+function test_exit_code_reported() {
+  bazel build --curses=yes --color=yes error:failwitherror 2>$TEST_log \
+    && fail "${PRODUCT_NAME} build passed"
+  expect_log '//error:failwitherror failed: (Exit 1): '
+
+  bazel test --curses=yes --color=yes pkg:false 2>$TEST_log \
+    && fail "${PRODUCT_NAME} test passed"
+  expect_log '//pkg:false (Exit 1) (see'
+}
+
+function test_quiet_mode() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+genrule(name="g", srcs=[], outs=["go"], cmd="echo GO > $@")
+EOF
+
+  bazel shutdown
+  bazel --quiet build &> "$TEST_log" || fail "build failed"
+  expect_not_log "and connecting to it"
+  expect_not_log "Analyzed"
+  expect_not_log "Build completed successfully"
+
+}
 run_suite "Integration tests for ${PRODUCT_NAME}'s UI"

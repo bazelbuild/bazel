@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Distributed Builds
 
+{% include "_buttons.html" %}
+
 When you have a large codebase, chains of dependencies can become very deep.
 Even simple binaries can often depend on tens of thousands of build targets. At
 this scale, it’s simply impossible to complete a build in a reasonable amount

@@ -42,18 +42,13 @@ public class SystemSuspensionEvent implements ExtendedEventHandler.Postable {
 
     /** These constants are mapped to enum in third_party/bazel/src/main/native/unix_jni.h. */
     static Reason fromInt(int number) {
-      switch (number) {
-        case 0:
-          return SIGTSTP;
-        case 1:
-          return SIGCONT;
-        case 2:
-          return SLEEP;
-        case 3:
-          return WAKE;
-        default:
-          throw new IllegalStateException("Unknown suspension reason: " + number);
-      }
+      return switch (number) {
+        case 0 -> SIGTSTP;
+        case 1 -> SIGCONT;
+        case 2 -> SLEEP;
+        case 3 -> WAKE;
+        default -> throw new IllegalStateException("Unknown suspension reason: " + number);
+      };
     }
   };
 

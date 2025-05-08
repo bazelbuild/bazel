@@ -16,30 +16,45 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils.profiledAndLogged;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.server.IdleTask;
+import com.google.devtools.build.lib.server.IdleTaskException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
+import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.Any;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -51,7 +66,7 @@ import javax.annotation.Nullable;
  * BlazeWorkspace, but the introduction of this class is a step towards allowing 1:N relationships.
  */
 public final class BlazeWorkspace {
-  public static final String DO_NOT_BUILD_FILE_NAME = "DO_NOT_BUILD_HERE";
+  static final String DO_NOT_BUILD_FILE_NAME = "DO_NOT_BUILD_HERE";
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -63,11 +78,23 @@ public final class BlazeWorkspace {
 
   private final BlazeDirectories directories;
   private final SkyframeExecutor skyframeExecutor;
-  private final SyscallCache perCommandSyscallCache;
+  private final SyscallCache syscallCache;
+  private final QuiescingExecutorsImpl quiescingExecutors;
+  @Nullable private final Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier;
 
   /**
-   * Loaded lazily on the first build command that enables the action cache. Cleared on a build
-   * command with {@code --nouse_action_cache} to save memory.
+   * Null only during tests; should be created by a BlazeModule#workspaceInit hook for regular
+   * operations.
+   */
+  @Nullable
+  private final RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier;
+
+  /**
+   * The action cache, or null if it hasn't been loaded yet.
+   *
+   * <p>Loaded lazily by the first build command that enables the action cache. Cleared by a clean
+   * command or by a build command that disables the action cache. Trimmed and reloaded by the
+   * garbage collection idle task.
    */
   @Nullable private ActionCache actionCache;
 
@@ -75,6 +102,56 @@ public final class BlazeWorkspace {
   @Nullable private Range<Long> lastExecutionRange = null;
 
   private final String outputBaseFilesystemTypeName;
+  private final boolean allowExternalRepositories;
+  @Nullable private final PathPackageLocator virtualPackageLocator;
+
+  /** An {@link IdleTask} to garbage collect the action cache. */
+  @VisibleForTesting
+  final class ActionCacheGarbageCollectorIdleTask implements IdleTask {
+    private final Duration delay;
+    private final float threshold;
+    private final Duration maxAge;
+
+    ActionCacheGarbageCollectorIdleTask(Duration delay, float threshold, Duration maxAge) {
+      this.delay = delay;
+      this.threshold = threshold;
+      this.maxAge = maxAge;
+    }
+
+    @Override
+    public String displayName() {
+      return "Action cache garbage collector";
+    }
+
+    @Override
+    public Duration delay() {
+      return delay;
+    }
+
+    @VisibleForTesting
+    public float getThreshold() {
+      return threshold;
+    }
+
+    @VisibleForTesting
+    public Duration getMaxAge() {
+      return maxAge;
+    }
+
+    @Override
+    public void run() throws IdleTaskException, InterruptedException {
+      try {
+        if (actionCache == null) {
+          // Do not load the action cache just to garbage collect it.
+          return;
+        }
+        // Note that this reads and writes to the field in the outer class.
+        actionCache = actionCache.trim(threshold, maxAge);
+      } catch (IOException e) {
+        throw new IdleTaskException(e);
+      }
+    }
+  }
 
   public BlazeWorkspace(
       BlazeRuntime runtime,
@@ -84,7 +161,10 @@ public final class BlazeWorkspace {
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       BinTools binTools,
       @Nullable AllocationTracker allocationTracker,
-      SyscallCache perCommandSyscallCache) {
+      SyscallCache syscallCache,
+      Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier,
+      @Nullable RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier,
+      boolean allowExternalRepositories) {
     this.runtime = runtime;
     this.eventBusExceptionHandler = Preconditions.checkNotNull(eventBusExceptionHandler);
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
@@ -93,7 +173,12 @@ public final class BlazeWorkspace {
 
     this.directories = directories;
     this.skyframeExecutor = skyframeExecutor;
-    this.perCommandSyscallCache = perCommandSyscallCache;
+    this.syscallCache = syscallCache;
+    this.quiescingExecutors = QuiescingExecutorsImpl.createDefault();
+    this.allowExternalRepositories = allowExternalRepositories;
+    this.virtualPackageLocator = createPackageLocatorIfVirtual(directories, skyframeExecutor);
+    this.analysisCodecRegistrySupplier = analysisCodecRegistrySupplier;
+    this.remoteAnalysisCachingServicesSupplier = remoteAnalysisCachingServicesSupplier;
 
     if (directories.inWorkspace()) {
       writeOutputBaseReadmeFile();
@@ -148,9 +233,9 @@ public final class BlazeWorkspace {
   }
 
   /**
-   * Returns the cached value of
-   * {@code getOutputBase().getFilesystem().getFileSystemType(getOutputBase())}, which is assumed
-   * to be constant for a fixed workspace for the life of the Blaze server.
+   * Returns the cached value of {@code
+   * getOutputBase().getFilesystem().getFileSystemType(getOutputBase())}, which is assumed to be
+   * constant for a fixed workspace for the life of the Blaze server.
    */
   public String getOutputBaseFilesystemTypeName() {
     return outputBaseFilesystemTypeName;
@@ -161,12 +246,38 @@ public final class BlazeWorkspace {
   }
 
   /**
-   * Returns path to the cache directory. Path must be inside output base to ensure that users can
-   * run concurrent instances of blaze in different clients without attempting to concurrently write
-   * to the same action cache on disk, which might not be safe.
+   * Returns the path to the action cache directory.
+   *
+   * <p>This path must be a descendant of the output base, as the action cache cannot be safely
+   * shared between different workspaces.
    */
-  private Path getCacheDirectory() {
+  private Path getActionCacheDirectory() {
     return getOutputBase().getChild("action_cache");
+  }
+
+  /**
+   * Returns the path where an action cache previously determined to be corrupted is stored. *
+   *
+   * <p>This path must be a descendant of the output base, as the action cache cannot be safely
+   * shared between different workspaces.
+   */
+  private Path getCorruptedActionCacheDirectory() {
+    return getOutputBase().getChild("action_cache.bad");
+  }
+
+  /**
+   * Returns the path where the action cache may temporarily store data during garbage collection.
+   *
+   * <p>This path must be a descendant of the output base, as the action cache cannot be safely
+   * shared between different workspaces.
+   */
+  private Path getActionCacheTmpDirectory() {
+    return getOutputBase().getChild("action_cache.tmp");
+  }
+
+  /** Returns an {@link IdleTask} to garbage collect the action cache. */
+  public IdleTask getActionCacheGcIdleTask(Duration delay, float threshold, Duration maxAge) {
+    return new ActionCacheGarbageCollectorIdleTask(delay, threshold, maxAge);
   }
 
   void recordLastExecutionTime(long commandStartTime) {
@@ -198,11 +309,17 @@ public final class BlazeWorkspace {
   public CommandEnvironment initCommand(
       Command command,
       OptionsParsingResult options,
+      InvocationPolicy invocationPolicy,
       List<String> warnings,
       long waitTimeInMs,
       long commandStartTime,
       List<Any> commandExtensions,
-      Consumer<String> shutdownReasonConsumer) {
+      Consumer<String> shutdownReasonConsumer,
+      CommandExtensionReporter commandExtensionReporter,
+      int attemptNumber,
+      @Nullable String buildRequestIdOverride,
+      ConfigFlagDefinitions configFlagDefinitions) {
+    quiescingExecutors.resetParameters(options);
     CommandEnvironment env =
         new CommandEnvironment(
             runtime,
@@ -211,12 +328,20 @@ public final class BlazeWorkspace {
             Thread.currentThread(),
             command,
             options,
-            perCommandSyscallCache,
+            invocationPolicy,
+            getOrCreatePackageLocatorForCommand(options),
+            syscallCache,
+            quiescingExecutors,
             warnings,
             waitTimeInMs,
             commandStartTime,
             commandExtensions,
-            shutdownReasonConsumer);
+            shutdownReasonConsumer,
+            commandExtensionReporter,
+            attemptNumber,
+            buildRequestIdOverride,
+            configFlagDefinitions,
+            new ResourceManager());
     skyframeExecutor.setClientEnv(env.getClientEnv());
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     if (buildRequestOptions != null && !buildRequestOptions.useActionCache) {
@@ -246,21 +371,40 @@ public final class BlazeWorkspace {
       actionCache.clear();
     }
     actionCache = null;
-    getCacheDirectory().deleteTree();
+    getActionCacheDirectory().deleteTree();
+    getCorruptedActionCacheDirectory().deleteTree();
+    getActionCacheTmpDirectory().deleteTree();
   }
 
   /**
-   * Returns reference to the lazily instantiated persistent action cache instance. Note, that
-   * method may recreate instance between different build requests, so return value should not be
-   * cached.
+   * Returns the action cache, loading it from disk if it isn't already loaded.
+   *
+   * <p>The returned reference is only valid for the current build request, as build options may
+   * affect the presence of an action cache.
    */
   public ActionCache getOrLoadPersistentActionCache(Reporter reporter) throws IOException {
     if (actionCache == null) {
       try (AutoProfiler p = profiledAndLogged("Loading action cache", ProfilerTask.INFO)) {
         actionCache =
-            CompactPersistentActionCache.create(getCacheDirectory(), runtime.getClock(), reporter);
+            CompactPersistentActionCache.create(
+                getActionCacheDirectory(),
+                getCorruptedActionCacheDirectory(),
+                getActionCacheTmpDirectory(),
+                runtime.getClock(),
+                reporter);
       }
     }
+    return actionCache;
+  }
+
+  /**
+   * Returns the action cache, or null if it isn't already loaded.
+   *
+   * <p>The returned reference is only valid for the current build request, as build options may
+   * affect the presence of an action cache.
+   */
+  @Nullable
+  public ActionCache getPersistentActionCache() {
     return actionCache;
   }
 
@@ -315,5 +459,49 @@ public final class BlazeWorkspace {
   public AllocationTracker getAllocationTracker() {
     return allocationTracker;
   }
-}
 
+  public boolean doesAllowExternalRepositories() {
+    return allowExternalRepositories;
+  }
+
+  @Nullable
+  public Supplier<ObjectCodecRegistry> getAnalysisObjectCodecRegistrySupplier() {
+    return analysisCodecRegistrySupplier;
+  }
+
+  public RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier() {
+    return remoteAnalysisCachingServicesSupplier;
+  }
+
+  @Nullable
+  private static PathPackageLocator createPackageLocatorIfVirtual(
+      BlazeDirectories directories, SkyframeExecutor skyframeExecutor) {
+    Root virtualSourceRoot = directories.getVirtualSourceRoot();
+    if (virtualSourceRoot == null) {
+      return null;
+    }
+    return PathPackageLocator.createWithoutExistenceCheck(
+        /* outputBase= */ null,
+        ImmutableList.of(virtualSourceRoot),
+        skyframeExecutor.getBuildFilesByPriority());
+  }
+
+  @Nullable
+  private PathPackageLocator getOrCreatePackageLocatorForCommand(OptionsParsingResult options) {
+    var packageOptions = options.getOptions(PackageOptions.class);
+    Path workspace = directories.getWorkspace();
+    if (packageOptions == null || workspace == null) {
+      return null;
+    }
+    if (virtualPackageLocator != null) {
+      return virtualPackageLocator;
+    }
+    return PathPackageLocator.create(
+        directories.getOutputBase(),
+        packageOptions.packagePath,
+        NullEventHandler.INSTANCE,
+        workspace.asFragment(),
+        workspace,
+        skyframeExecutor.getBuildFilesByPriority());
+  }
+}

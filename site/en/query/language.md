@@ -3,11 +3,13 @@ Book: /_book.yaml
 
 # The Bazel Query Reference
 
+{% include "_buttons.html" %}
+
 This page is the reference manual for the _Bazel Query Language_ used
 when you use `bazel query` to analyze build dependencies. It also
 describes the output formats `bazel query` supports.
 
-For practical use cases, see the [Bazel Query How-To](/docs/query-how-to).
+For practical use cases, see the [Bazel Query How-To](/query/guide).
 
 ## Additional query reference
 
@@ -22,7 +24,7 @@ their relationships. `aquery` is useful when you are interested in the
 properties of the Actions/Artifacts generated from the Configured Target Graph.
 For example, the actual commands run and their inputs, outputs, and mnemonics.
 
-For more details, see the [aquery reference](/docs/aquery).
+For more details, see the [aquery reference](/query/aquery).
 
 ### Configurable query {:#cquery}
 
@@ -33,7 +35,7 @@ and instead returns all possible resolutions of selects. However, the
 configurable query environment, `cquery`, properly handles configurations but
 doesn't provide all of the functionality of this original query.
 
-For more details, see the [cquery reference](/docs/cquery).
+For more details, see the [cquery reference](/query/cquery).
 
 
 ## Examples {:#examples}
@@ -83,8 +85,10 @@ tokens:
   and the special characters `*/@.-_:$~[]` (asterisk, forward slash, at, period,
   hyphen, underscore, colon, dollar sign, tilde, left square brace, right square
   brace). However, unquoted words may not start with a hyphen `-` or asterisk `*`
-  even though relative [target names][(/concepts/labels#target-names) may start
-  with those characters.
+  even though relative [target names](/concepts/labels#target-names) may start
+  with those characters. As a special rule meant to simplify the handling of
+  labels referring to external repositories, unquoted words that start with
+  `@@` may contain `+` characters.
 
   Unquoted words also may not include the characters plus sign `+` or equals
   sign `=`, even though those characters are permitted in target names. When
@@ -107,7 +111,7 @@ tokens:
   bazel query ' "//foo:bar=wiz" '   # single-quotes for shell, double-quotes for Bazel.
   ```
 
-  Keywords, when quoted, are treated as ordinary words. For example, `some` is a
+  Keywords and operators, when quoted, are treated as ordinary words. For example, `some` is a
   keyword but "some" is a word. Both `foo` and "foo" are words.
 
   However, be careful when using single or double quotes in target names. When
@@ -161,15 +165,20 @@ cycles are treated are not specified and should not be relied upon.
 ### Implicit dependencies {:#implicit-dependencies}
 
 In addition to build dependencies that are defined explicitly in `BUILD` files,
-Bazel adds additional _implicit_ dependencies to rules. For example
-every Java rule implicitly depends on the JavaBuilder. Implicit dependencies
-are established using attributes that start with `$` and they
-cannot be overridden in `BUILD` files.
+Bazel adds additional _implicit_ dependencies to rules. Implicit dependencies
+may be defined by:
 
-Per default `bazel query` takes implicit dependencies into account
+- [Private attributes](/extending/rules#private_attributes_and_implicit_dependencies)
+- [Toolchain requirements](/extending/toolchains#writing-rules-toolchains)
+
+By default, `bazel query` takes implicit dependencies into account
 when computing the query result. This behavior can be changed with
-the `--[no]implicit_deps` option. Note that, as query does not consider
-configurations, potential toolchains are never considered.
+the `--[no]implicit_deps` option.
+
+Note that, as query does not consider configurations, potential toolchain
+**implementations** are not considered dependencies, only the
+required toolchain types. See
+[toolchain documentation](/extending/toolchains#writing-rules-toolchains).
 
 ### Soundness {:#soundness}
 
@@ -493,7 +502,7 @@ The query language defines several functions. The name of the function
 determines the number and type of arguments it requires. The following
 functions are available:
 
-* [`allpaths`](#path-operators)
+* [`allpaths`](#somepath-allpaths)
 * [`attr`](#attr)
 * [`buildfiles`](#buildfiles)
 * [`rbuildfiles`](#rbuildfiles)
@@ -507,7 +516,7 @@ functions are available:
 * [`same_pkg_direct_rdeps`](#same_pkg_direct_rdeps)
 * [`siblings`](#siblings)
 * [`some`](#some)
-* [`somepath`](#path-operators)
+* [`somepath`](#somepath-allpaths)
 * [`tests`](#tests)
 * [`visible`](#visible)
 
@@ -588,7 +597,7 @@ equivalent to `rdeps(//foo/..., //bar)`.
 expr ::= same_pkg_direct_rdeps({{ '<var>' }}expr{{ '</var>' }})
 ```
 
-The `same_pkg_direct_rdeps({{ '<var>' }}x{{ '</var>' }})` operator evalutes to the full set of targets
+The `same_pkg_direct_rdeps({{ '<var>' }}x{{ '</var>' }})` operator evaluates to the full set of targets
 that are in the same package as a target in the argument set, and which directly depend on it.
 
 ### Dealing with a target's package: siblings {:#siblings}
@@ -597,7 +606,7 @@ that are in the same package as a target in the argument set, and which directly
 expr ::= siblings({{ '<var>' }}expr{{ '</var>' }})
 ```
 
-The `siblings({{ '<var>' }}x{{ '</var>' }})` operator evalutes to the full set of targets that are in
+The `siblings({{ '<var>' }}x{{ '</var>' }})` operator evaluates to the full set of targets that are in
 the same package as a target in the argument set.
 
 ### Arbitrary choice: some {:#some}
@@ -931,6 +940,27 @@ attr("tags", "[\[ ]value[,\]]", deps(//foo))
 This works because the character before `value` will be `[` or a space and the
 character after `value` will be a comma or `]`.
 
+To select all rules among `//foo` dependencies with a particular `key` and
+`value` in a dict-type attribute, use
+
+```
+attr("some_dict_attribute", "[\{ ]key=value[,\}]", deps(//foo))
+```
+
+This would select `//foo` if `//foo` is defined as
+
+```
+some_rule(
+  name = "foo",
+  some_dict_attribute = {
+    "key": "value",
+  },
+)
+```
+
+This works because the character before `key=value` will be `{` or a space and
+the character after `key=value` will be a comma or `}`.
+
 ### Rule visibility filtering: visible {:#visible}
 
 ```
@@ -1030,7 +1060,7 @@ Warning: Bazel pretends each `.bzl` file produced by
 target `//a:b.bzl`), but this isn't necessarily the case. Therefore,
 `buildfiles` doesn't compose well with other query operators and its results can be
 misleading when formatted in a structured way, such as
-`[--output=xml](#output-xml)`.
+[`--output=xml`](#xml).
 
 ### Package definition files: rbuildfiles {:#rbuildfiles}
 
@@ -1079,7 +1109,7 @@ Warning: Bazel pretends each of these .bzl files has a corresponding target
 (for example, file `a/b.bzl` => target `//a:b.bzl`), but this isn't
 necessarily the case. Therefore, `loadfiles` doesn't compose well with other query
 operators and its results can be misleading when formatted in a structured way, such as
-`[--output=xml](#output-xml)`.
+[`--output=xml`](#xml).
 
 ## Output formats {:#output-formats}
 
@@ -1125,8 +1155,9 @@ generally the fastest option**. It is not supported though when
 ordered by the dependency order or rank.
 
 When this flag is `deps`, Bazel prints results in some topological order—that is,
-dependencies first. However, nodes that are unordered by the dependency order
-(because there is no path from either one to the other) may be printed in any order.
+dependents first and dependencies after. However, nodes that are unordered by the
+dependency order (because there is no path from either one to the other) may be
+printed in any order.
 
 When this flag is `full`, Bazel prints nodes in a fully deterministic (total) order.
 First, all nodes are sorted alphabetically. Then, each node in the list is used as the start of a
@@ -1190,6 +1221,52 @@ other kind `source file`.
 Like `label`, this output format prints the labels of
 each target in the resulting graph, in topological order, but it
 additionally precedes the label by the [_kind_](#kind) of the target.
+
+### Print targets in protocol buffer format {:#print-target-proto}
+
+```
+--output proto
+```
+
+Prints the query output as a
+[`QueryResult`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
+protocol buffer.
+
+### Print targets in length-delimited protocol buffer format {:#print-target-length-delimited-proto}
+
+```
+--output streamed_proto
+```
+
+Prints a
+[length-delimited](https://protobuf.dev/programming-guides/encoding/#size-limit)
+stream of
+[`Target`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
+protocol buffers. This is useful to _(i)_ get around
+[size limitations](https://protobuf.dev/programming-guides/encoding/#size-limit)
+of protocol buffers when there are too many targets to fit in a single
+`QueryResult` or _(ii)_ to start processing while Bazel is still outputting.
+
+### Print targets in text proto format {:#print-target-textproto}
+
+```
+--output textproto
+```
+
+Similar to `--output proto`, prints the
+[`QueryResult`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
+protocol buffer but in
+[text format](https://protobuf.dev/reference/protobuf/textformat-spec/).
+
+### Print targets in ndjson format {:#print-target-streamed-jsonproto}
+
+```
+--output streamed_jsonproto
+```
+
+Similar to `--output streamed_proto`, prints a stream of
+[`Target`](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/build.proto)
+protocol buffers but in [ndjson](https://github.com/ndjson/ndjson-spec) format.
 
 ### Print the label of each target, in rank order {:#print-target-label-rank-order}
 
@@ -1454,24 +1531,8 @@ full syntax for
 
 ### Querying with external repositories {:#querying-external-repositories}
 
-If the build depends on rules from external repositories (defined in the
-WORKSPACE file) then query results will include these dependencies. For
-example, if `//foo:bar` depends on `//external:some-lib`
-and `//external:some-lib` is bound to `@other-repo//baz:lib`, then
-`bazel query 'deps(//foo:bar)'` will list both `@other-repo//baz:lib` and
-`//external:some-lib` as dependencies.
-
-External repositories themselves are not dependencies of a build. That is, in
-the example above, `//external:other-repo` is not a dependency. It
-can be queried for as a member of the `//external` package, though,
-for example:
-
-```
-  # Querying over all members of //external returns the repository.
-  bazel query 'kind(http_archive, //external:*)'
-  //external:other-repo
-
-  # ...but the repository is not a dependency.
-  bazel query 'kind(http_archive, deps(//foo:bar))'
-  INFO: Empty results
-```
+If the build depends on rules from [external repositories](/external/overview)
+then query results will include these dependencies. For
+example, if `//foo:bar` depends on `@other-repo//baz:lib`, then
+`bazel query 'deps(//foo:bar)'` will list `@other-repo//baz:lib` as a
+dependency.

@@ -44,19 +44,11 @@ public final class ProguardSpecProvider extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getTransitiveProguardSpecsForStarlark() {
-    return Depset.of(Artifact.TYPE, transitiveProguardSpecs);
+    return Depset.of(Artifact.class, transitiveProguardSpecs);
   }
 
   public NestedSet<Artifact> getTransitiveProguardSpecs() {
     return transitiveProguardSpecs;
-  }
-
-  public static ProguardSpecProvider merge(Iterable<ProguardSpecProvider> providers) {
-    NestedSetBuilder<Artifact> specs = NestedSetBuilder.stableOrder();
-    for (ProguardSpecProvider wrapper : providers) {
-      specs.addTransitive(wrapper.getTransitiveProguardSpecs());
-    }
-    return new ProguardSpecProvider(specs.build());
   }
 
   /** Provider class for {@link ProguardSpecProvider} objects. */

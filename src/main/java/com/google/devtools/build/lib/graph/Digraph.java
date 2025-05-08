@@ -117,17 +117,6 @@ public final class Digraph<T> implements Cloneable {
   }
 
   /**
-   * Returns true iff the graph contains an edge between the
-   * specified nodes, which must exist and belong to this graph.
-   */
-  public boolean containsEdge(Node<T> fromNode, Node<T> toNode) {
-    checkNode(fromNode);
-    checkNode(toNode);
-    // TODO(bazel-team): (2009) iterate only over the shorter of from.succs, to.preds.
-    return fromNode.getSuccessors().contains(toNode);
-  }
-
-  /**
    * Removes the edge between the specified nodes.  Idempotent: attempts to
    * remove non-existent edges have no effect.
    *
@@ -137,13 +126,6 @@ public final class Digraph<T> implements Cloneable {
     checkNode(fromNode);
     checkNode(toNode);
     return fromNode.removeEdge(toNode);
-  }
-
-  /**
-   * Remove all nodes and edges.
-   */
-  public void clear() {
-    nodes.clear();
   }
 
   @Override
@@ -279,19 +261,6 @@ public final class Digraph<T> implements Cloneable {
   }
 
   /**
-   * @return the set of leaf nodes: those with no successors.
-   */
-  public Set<Node<T>> getLeaves() {
-    Set<Node<T>> leaves = new HashSet<>();
-    for (Node<T> node: nodes.values()) {
-      if (!node.hasSuccessors()) {
-        leaves.add(node);
-      }
-    }
-    return leaves;
-  }
-
-  /**
    * @return an immutable view of the set of labels of this graph's nodes.
    */
   public Set<T> getLabels() {
@@ -361,58 +330,6 @@ public final class Digraph<T> implements Cloneable {
   private static <T> Node<T> createNodeNative(T label) {
     Preconditions.checkNotNull(label);
     return new Node<>(label);
-  }
-
-  /******************************************************************
-   *                                                                *
-   *                        Graph Algorithms                        *
-   *                                                                *
-   ******************************************************************/
-
-  /**
-   * These only manipulate the graph through methods defined above.
-   */
-
-  /**
-   * Returns true iff the graph is cyclic.  Time: O(n).
-   */
-  public boolean isCyclic() {
-
-    // To detect cycles, we use a colored depth-first search. All nodes are
-    // initially marked white.  When a node is encountered, it is marked grey,
-    // and when its descendants are completely visited, it is marked black.
-    // If a grey node is ever encountered, then there is a cycle.
-    final Object WHITE = null; // i.e. not present in nodeToColor, the default.
-    final Object GREY  = new Object();
-    final Object BLACK = new Object();
-    final Map<Node<T>, Object> nodeToColor = new HashMap<>(); // empty => all white
-
-    class CycleDetector { /* defining a class gives us lexical scope */
-      boolean visit(Node<T> node) {
-        nodeToColor.put(node, GREY);
-        for (Node<T> succ: node.getSuccessors()) {
-          if (nodeToColor.get(succ) == GREY) {
-            return true;
-          } else if (nodeToColor.get(succ) == WHITE) {
-            if (visit(succ)) {
-              return true;
-            }
-          }
-        }
-        nodeToColor.put(node, BLACK);
-        return false;
-      }
-    }
-
-    CycleDetector detector = new CycleDetector();
-    for (Node<T> node: nodes.values()) {
-      if (nodeToColor.get(node) == WHITE) {
-        if (detector.visit(node)) {
-          return true;
-        }
-      }
-    }
-    return false;
   }
 
   /**
@@ -631,41 +548,12 @@ public final class Digraph<T> implements Cloneable {
   }
 
   /**
-   * Returns the (immutable) set of nodes reachable from node 'n' (reflexive
-   * transitive closure).
-   */
-  public Set<Node<T>> getFwdReachable(Node<T> n) {
-    return getFwdReachable(Collections.singleton(n));
-  }
-
-  /**
    * Returns the (immutable) set of nodes reachable from any node in {@code
    * startNodes} (reflexive transitive closure).
    */
   public Set<Node<T>> getFwdReachable(Collection<Node<T>> startNodes) {
     // This method is intentionally not static, to permit future expansion.
     DFS<T> dfs = new DFS<T>(DFS.Order.PREORDER, false);
-    for (Node<T> n : startNodes) {
-      dfs.visit(n, new AbstractGraphVisitor<>());
-    }
-    return dfs.getMarked();
-  }
-
-  /**
-   * Returns the (immutable) set of nodes that reach node 'n' (reflexive
-   * transitive closure).
-   */
-  public Set<Node<T>> getBackReachable(Node<T> n) {
-    return getBackReachable(Collections.singleton(n));
-  }
-
-  /**
-   * Returns the (immutable) set of nodes that reach some node in {@code
-   * startNodes} (reflexive transitive closure).
-   */
-  public Set<Node<T>> getBackReachable(Collection<Node<T>> startNodes) {
-    // This method is intentionally not static, to permit future expansion.
-    DFS<T> dfs = new DFS<T>(DFS.Order.PREORDER, true);
     for (Node<T> n : startNodes) {
       dfs.visit(n, new AbstractGraphVisitor<>());
     }
@@ -938,27 +826,6 @@ public final class Digraph<T> implements Cloneable {
    */
   public void visitPostorder(GraphVisitor<T> visitor) {
     visitPostorder(visitor, nodes.values());
-  }
-
-  /**
-   * A visitation over all the nodes in the graph that invokes
-   * <code>visitor.visitNode()</code> for each node in a depth-first
-   * pre-order: each node is visited <i>before</i> each of its successors; the
-   * order in which edges are traversed is the order in which they were added
-   * to the graph.  <code>visitor.visitEdge()</code> is not called.
-   *
-   * @param startNodes the set of nodes from which to begin the visitation.
-   */
-  public void visitPreorder(GraphVisitor<T> visitor,
-                            Iterable<Node<T>> startNodes) {
-    visitDepthFirst(visitor, DFS.Order.PREORDER, false, startNodes);
-  }
-
-  /**
-   * Equivalent to {@code visitPreorder(visitor, getNodes())}.
-   */
-  public void visitPreorder(GraphVisitor<T> visitor) {
-    visitPreorder(visitor, nodes.values());
   }
 
   /**

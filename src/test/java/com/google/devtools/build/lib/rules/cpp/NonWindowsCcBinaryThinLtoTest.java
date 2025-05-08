@@ -87,13 +87,15 @@ public final class NonWindowsCcBinaryThinLtoTest extends BuildViewTestCase {
 
   /** Helper method that checks that a .dwp has the expected generating action structure. */
   private void validateDwp(
-      RuleContext ruleContext,
-      Artifact dwpFile,
-      CcToolchainProvider toolchain,
-      List<String> expectedInputs)
+      Artifact dwpFile, CcToolchainProvider toolchain, List<String> expectedInputs)
       throws Exception {
     SpawnAction dwpAction = (SpawnAction) getGeneratingAction(dwpFile);
-    String dwpToolPath = toolchain.getToolPathFragment(Tool.DWP, ruleContext).getPathString();
+    String dwpToolPath =
+        CcToolchainProvider.getToolPathString(
+            toolchain.getToolPaths(),
+            Tool.DWP,
+            toolchain.getCcToolchainLabel(),
+            toolchain.getToolchainIdentifier());
     assertThat(dwpAction.getMnemonic()).isEqualTo("CcGenerateDwp");
     assertThat(dwpToolPath).isEqualTo(dwpAction.getCommandFilename());
     List<String> commandArgs = dwpAction.getArguments();
@@ -129,30 +131,33 @@ public final class NonWindowsCcBinaryThinLtoTest extends BuildViewTestCase {
 
     ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin_test");
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    String rootExecPath = pkgArtifact.getRoot().getExecPathString();
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
 
     // The cc_test source should still get LTO in this case
     LtoBackendAction backendAction =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction, "bin_test.lto/pkg/_objs/bin_test/bin_test.pic.o");
+            getPredecessorByInputName(
+                linkAction, "bin_test.lto/" + rootExecPath + "/pkg/_objs/bin_test/bin_test.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
     assertThat(artifactsToStrings(backendAction.getOutputs()))
         .containsExactly(
-            "bin pkg/bin_test.lto/pkg/_objs/bin_test/bin_test.pic.o",
-            "bin pkg/bin_test.lto/pkg/_objs/bin_test/bin_test.pic.dwo");
+            "bin pkg/bin_test.lto/" + rootExecPath + "/pkg/_objs/bin_test/bin_test.pic.o",
+            "bin pkg/bin_test.lto/" + rootExecPath + "/pkg/_objs/bin_test/bin_test.pic.dwo");
 
     assertThat(backendAction.getArguments()).contains("per_object_debug_info_option");
 
     // The linkstatic cc_library source should get shared non-LTO
     backendAction =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction, "shared.nonlto/pkg/_objs/lib/libfile.pic.o");
+            getPredecessorByInputName(
+                linkAction, "shared.nonlto/" + rootExecPath + "/pkg/_objs/lib/libfile.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
     assertThat(backendAction.getArguments()).contains("-fPIC");
     assertThat(artifactsToStrings(backendAction.getOutputs()))
         .containsExactly(
-            "bin shared.nonlto/pkg/_objs/lib/libfile.pic.o",
-            "bin shared.nonlto/pkg/_objs/lib/libfile.pic.dwo");
+            "bin shared.nonlto/" + rootExecPath + "/pkg/_objs/lib/libfile.pic.o",
+            "bin shared.nonlto/" + rootExecPath + "/pkg/_objs/lib/libfile.pic.dwo");
 
     assertThat(backendAction.getArguments()).contains("per_object_debug_info_option");
 
@@ -160,15 +165,16 @@ public final class NonWindowsCcBinaryThinLtoTest extends BuildViewTestCase {
     Artifact dwpFile = getFileConfiguredTarget(pkg.getLabel() + ".dwp").getArtifact();
     PathFragment rootPrefix = dwpRootPrefix(dwpFile);
     RuleContext ruleContext = getRuleContext(pkg);
-    CcToolchainProvider toolchain =
-        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     validateDwp(
-        ruleContext,
         dwpFile,
         toolchain,
         ImmutableList.of(
-            rootPrefix + "/shared.nonlto/pkg/_objs/lib/libfile.pic.dwo",
-            rootPrefix + "/pkg/bin_test.lto/pkg/_objs/bin_test/bin_test.pic.dwo"));
+            rootPrefix + "/shared.nonlto/" + rootExecPath + "/pkg/_objs/lib/libfile.pic.dwo",
+            rootPrefix
+                + "/pkg/bin_test.lto/"
+                + rootExecPath
+                + "/pkg/_objs/bin_test/bin_test.pic.dwo"));
   }
 
   @Test
@@ -191,29 +197,34 @@ public final class NonWindowsCcBinaryThinLtoTest extends BuildViewTestCase {
 
     ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin_test");
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    String rootExecPath1 = pkgArtifact.getRoot().getExecPathString();
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
 
     ConfiguredTarget pkg2 = getConfiguredTarget("//pkg:bin_test2");
     Artifact pkgArtifact2 = getFilesToBuild(pkg2).getSingleton();
-    CppLinkAction linkAction2 = (CppLinkAction) getGeneratingAction(pkgArtifact2);
+    String rootExecPath2 = pkgArtifact2.getRoot().getExecPathString();
+    SpawnAction linkAction2 = (SpawnAction) getGeneratingAction(pkgArtifact2);
 
     // The cc_test source should still get LTO in this case
     LtoBackendAction backendAction =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction, "bin_test.lto/pkg/_objs/bin_test/bin_test.pic.o");
+            getPredecessorByInputName(
+                linkAction, "bin_test.lto/" + rootExecPath1 + "/pkg/_objs/bin_test/bin_test.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
 
     // The linkstatic cc_library sources should get shared non-LTO
 
     backendAction =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction, "shared.nonlto/pkg/_objs/lib/libfile.pic.o");
+            getPredecessorByInputName(
+                linkAction, "shared.nonlto/" + rootExecPath1 + "/pkg/_objs/lib/libfile.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
     assertThat(backendAction.getArguments()).contains("-fPIC");
 
     LtoBackendAction backendAction2 =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction2, "shared.nonlto/pkg/_objs/lib/libfile.pic.o");
+            getPredecessorByInputName(
+                linkAction2, "shared.nonlto/" + rootExecPath2 + "/pkg/_objs/lib/libfile.pic.o");
     assertThat(backendAction2.getMnemonic()).isEqualTo("CcLtoBackendCompile");
 
     assertThat(backendAction).isEqualTo(backendAction2);

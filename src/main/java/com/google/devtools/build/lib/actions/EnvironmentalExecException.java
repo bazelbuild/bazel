@@ -36,7 +36,7 @@ public class EnvironmentalExecException extends ExecException {
         FailureDetail.newBuilder().setExecution(Execution.newBuilder().setCode(code)).build();
   }
 
-  public EnvironmentalExecException(Exception cause, FailureDetail failureDetail) {
+  public EnvironmentalExecException(Throwable cause, FailureDetail failureDetail) {
     super(failureDetail.getMessage(), cause);
     this.failureDetail = failureDetail;
   }

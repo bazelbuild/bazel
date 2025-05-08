@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -54,14 +54,6 @@ msys*)
   declare -r is_windows=false
   ;;
 esac
-
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 
 function create_pkg() {
   if [[ -d foo ]]; then

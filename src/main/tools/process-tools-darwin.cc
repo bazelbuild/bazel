@@ -24,7 +24,9 @@
 #include "src/main/tools/logging.h"
 #include "src/main/tools/process-tools.h"
 
-int WaitForProcessToTerminate(pid_t pid) {
+namespace {
+
+int WaitForProcessToTerminate(uintptr_t ident) {
   int kq;
   if ((kq = kqueue()) == -1) {
     return -1;
@@ -34,7 +36,7 @@ int WaitForProcessToTerminate(pid_t pid) {
   // reports any pending such events, so this is not racy even if the
   // process happened to exit before we got to installing the kevent.
   struct kevent kc;
-  EV_SET(&kc, pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT, 0, 0);
+  EV_SET(&kc, ident, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT, 0, 0);
 
   int nev;
   struct kevent ke;
@@ -48,15 +50,25 @@ retry:
   if (nev != 1) {
     DIE("Expected only one event from the kevent call; got %d", nev);
   }
-  if (ke.ident != pid) {
+  if (ke.ident != ident) {
     DIE("Expected PID in the kevent to be %" PRIdMAX " but got %" PRIdMAX,
-        (intmax_t)pid, (intmax_t)ke.ident);
+        (intmax_t)ident, (intmax_t)ke.ident);
   }
   if (!(ke.fflags & NOTE_EXIT)) {
     DIE("Expected the kevent to be for an exit condition");
   }
 
   return close(kq);
+}
+
+}  // namespace
+
+int WaitForProcessToTerminate(pid_t pid) {
+  if (pid < 0) {
+    DIE("PID must be >= 0, got %" PRIdMAX, static_cast<intmax_t>(pid));
+  }
+
+  return WaitForProcessToTerminate((uintptr_t)pid);
 }
 
 int WaitForProcessGroupToTerminate(pid_t pgid) {

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # C++ Toolchain Configuration
 
+{% include "_buttons.html" %}
+
 ## Overview {:#overview}
 
 To invoke the compiler with the right options, Bazel needs some knowledge about
@@ -26,14 +28,15 @@ Bazel needs to know the following:
 If the compiler has support for multiple architectures, Bazel needs to configure
 them separately.
 
-[`CcToolchainConfigInfo`](/rules/lib/CcToolchainConfigInfo) is a provider that provides the necessary level of
+[`CcToolchainConfigInfo`](/rules/lib/providers/CcToolchainConfigInfo) is a provider that provides the necessary level of
 granularity for configuring the behavior of Bazel's C++ rules. By default,
 Bazel automatically configures `CcToolchainConfigInfo` for your build, but you
 have the option to configure it manually. For that, you need a Starlark rule
 that provides the `CcToolchainConfigInfo` and you need to point the
-[`toolchain_config`](/reference/be/c-cpp#cc_toolchain.toolchain_config) attribute of the `cc_toolchain` to your rule.
+[`toolchain_config`](/reference/be/c-cpp#cc_toolchain.toolchain_config) attribute of the
+[`cc_toolchain`](/reference/be/c-cpp#cc_toolchain) to your rule.
 You can create the `CcToolchainConfigInfo` by calling
-[`cc_common.create_cc_toolchain_config_info()`](/rules/lib/cc_common#create_cc_toolchain_config_info).
+[`cc_common.create_cc_toolchain_config_info()`](/rules/lib/toplevel/cc_common#create_cc_toolchain_config_info).
 You can find Starlark constructors for all structs you'll need in the process in
 [`@rules_cc//cc:cc_toolchain_config_lib.bzl`](https://github.com/bazelbuild/rules_cc/blob/master/cc/cc_toolchain_config_lib.bzl){: .external}.
 
@@ -441,7 +444,7 @@ The `tool()` constructor takes in the following parameters:
    </td>
   </tr>
   <tr>
-   <td><code>tool_path</code>
+   <td><code>path</code>
    </td>
    <td>Path to the tool in question (relative to the current location).
    </td>
@@ -479,16 +482,15 @@ With Bazel, this process can instead be implemented as follows, with
 
     action_configs = [
         action_config (
-            config_name = ACTION_NAMES.cpp_link_executable,
             action_name = ACTION_NAMES.cpp_link_executable,
             tools = [
                 tool(
                     with_features = [
                         with_feature(features=["generate-debug-symbols"]),
                     ],
-                    tool_path = "toolchain/mac/ld-with-dsym-packaging",
+                    path = "toolchain/mac/ld-with-dsym-packaging",
                 ),
-                tool (tool_path = "toolchain/mac/ld"),
+                tool (path = "toolchain/mac/ld"),
             ],
         ),
     ]
@@ -526,7 +528,7 @@ follows:
             name = ACTION_NAMES.cpp_compile,
             tools = [
                 tool(
-                    tool_path = "toolchain/bin/gcc",
+                    path = "toolchain/bin/gcc",
                 ),
             ],
         ),
@@ -566,7 +568,7 @@ within the flag value, which the compiler expands when adding the flag to the
 build command. For example:
 
     flag_group (
-        flags = ["%{output_file_path}"],
+        flags = ["%{output_execpath}"],
     )
 
 
@@ -699,7 +701,7 @@ Note: The **Action** column indicates the relevant action type, if applicable.
   <tr>
    <td><strong><code>output_file</code></strong>
    </td>
-   <td>compile</td>
+   <td>compile, strip</td>
    <td>Compilation output.
    </td>
   </tr>
@@ -794,7 +796,7 @@ Note: The **Action** column indicates the relevant action type, if applicable.
    </td>
   </tr>
   <tr>
-   <td><strong><code>stripotps</code></strong>
+   <td><strong><code>stripopts</code></strong>
    </td>
    <td>strip</td>
    <td>Sequence of <code>stripopts</code>.
@@ -926,13 +928,6 @@ Note: The **Action** column indicates the relevant action type, if applicable.
    </td>
   </tr>
   <tr>
-   <td><strong><code>symbol_counts_output</code></strong>
-   </td>
-   <td>link</td>
-   <td>Path to which to write symbol counts.
-   </td>
-  </tr>
-  <tr>
    <td><strong><code>linkstamp_paths</code></strong>
    </td>
    <td>link</td>
@@ -994,7 +989,7 @@ Note: The **Action** column indicates the relevant action type, if applicable.
    </td>
   </tr>
   <tr>
-   <td><strong><code>csfdo_instrument_path</code></strong>
+   <td><strong><code>cs_fdo_instrument_path</code></strong>
    </td>
    <td>compile, link</td>
    <td> Path to the directory that stores context sensitive FDO
@@ -1123,7 +1118,6 @@ conditions.
     <li>Adds <code>autofdo</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>build_interface_libraries</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>dynamic_library_linker_tool</code> (if not present) feature to the top of the toolchain</li>
-    <li>Adds <code>symbol_counts</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>shared_flag</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>linkstamps</code> (if not present) feature to the top of the toolchain</li>
     <li>Adds <code>output_execpath_flags</code> (if not present) feature to the top of the toolchain</li>

@@ -28,6 +28,7 @@ import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
@@ -93,6 +94,7 @@ public abstract class GraphTest {
       }
     };
 
+    @CanIgnoreReturnValue
     public abstract NodeBatch get(
         ProcessableGraph graph,
         @Nullable SkyKey requestor,
@@ -110,7 +112,7 @@ public abstract class GraphTest {
   }
 
   protected static SkyKey key(String name) {
-    return GraphTester.toSkyKey(name);
+    return GraphTester.skyKey(name);
   }
 
   @Test
@@ -126,6 +128,14 @@ public abstract class GraphTest {
     assertThat(dogNode).isNotNull();
     assertThat(batch.get(cat)).isSameInstanceAs(catNode);
     assertThat(batch.get(dog)).isSameInstanceAs(dogNode);
+  }
+
+  @Test
+  public void createIfAbsentBatch_interveningCallToRemove() throws Exception {
+    SkyKey key = key("key");
+    NodeBatch batch = graph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(key));
+    graph.remove(key);
+    assertThat(batch.get(key)).isNotNull();
   }
 
   @Test
@@ -252,7 +262,9 @@ public abstract class GraphTest {
               waitForAddedRdep.countDown();
               waitForSetValue.await(TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS);
               for (int k = chunkSize; k <= numIterations; k++) {
-                entry.removeReverseDep(key("rdep" + j));
+                if (shouldTestIncrementality()) {
+                  entry.removeReverseDep(key("rdep" + j));
+                }
                 entry.addReverseDepAndCheckIfDone(key("rdep" + j));
                 if (shouldTestIncrementality()) {
                   entry.getReverseDepsForDoneEntry();
@@ -516,7 +528,7 @@ public abstract class GraphTest {
     }
   }
 
-  private static DependencyState startEvaluation(NodeEntry entry) throws InterruptedException {
+  protected static DependencyState startEvaluation(NodeEntry entry) throws InterruptedException {
     return entry.addReverseDepAndCheckIfDone(null);
   }
 }

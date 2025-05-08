@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Recommended Rules
 
+{% include "_buttons.html" %}
+
 In the documentation, we provide a list of
 [recommended rules](/rules).
 
@@ -16,7 +18,7 @@ If a ruleset meets the requirements below, a rule maintainer can nominate it
 to be part of the _recommended rules_ by filing a
 [GitHub issue](https://github.com/bazelbuild/bazel/){: .external}.
 
-After a review by the [Bazel core team](/contribute/contribution-policy), it
+After a review by the [Bazel core team](/contribute/policy), it
 will be recommended on the Bazel website.
 
 ## Requirements for the rule maintainers {:#requirements-rule-maintainers}

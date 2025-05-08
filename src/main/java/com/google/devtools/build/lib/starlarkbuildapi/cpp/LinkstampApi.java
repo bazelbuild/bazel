@@ -31,7 +31,7 @@ import net.starlark.java.eval.StarlarkValue;
  *
  * <p>See javadoc for {@link com.google.devtools.build.lib.rules.cpp.CcModule}.
  */
-@StarlarkBuiltin(name = "CcLinkstamp", category = DocCategory.TOP_LEVEL_TYPE, documented = false)
+@StarlarkBuiltin(name = "CcLinkstamp", category = DocCategory.TOP_LEVEL_MODULE, documented = false)
 public interface LinkstampApi<FileT extends FileApi> extends StarlarkValue {
   @StarlarkMethod(name = "file", documented = false, useStarlarkThread = true)
   FileT getArtifactForStarlark(StarlarkThread thread) throws EvalException;

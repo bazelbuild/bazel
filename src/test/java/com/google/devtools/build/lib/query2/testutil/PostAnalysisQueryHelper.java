@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.testutil;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.testutil.FoundationTestCase.failFastHandler;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -56,8 +58,10 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import org.junit.After;
 import org.junit.Before;
 
@@ -89,7 +93,8 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     MockObjcSupport.setup(mockToolsConfig);
   }
 
-  public void cleanUp() {
+  @Override
+  public final void cleanUp() {
     for (Method method : getMethodsAnnotatedWith(AnalysisHelper.class, After.class)) {
       try {
         method.invoke(analysisHelper);
@@ -128,15 +133,12 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   }
 
   @Override
-  public void setBlockUniverseEvaluationErrors(boolean blockUniverseEvaluationErrors) {}
-
-  @Override
   public Path getRootDirectory() {
     return analysisHelper.getRootDirectory();
   }
 
   @Override
-  public PathFragment getIgnoredPackagePrefixesFile() {
+  public PathFragment getIgnoredSubdirectoriesFile() {
     return PathFragment.EMPTY_FRAGMENT;
   }
 
@@ -160,7 +162,9 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
 
   @Override
   public void writeFile(String fileName, String... lines) throws IOException {
-    analysisHelper.getScratch().file(fileName, lines);
+    analysisHelper
+        .getScratch()
+        .file(getRootDirectory().getRelative(fileName).getPathString(), lines);
   }
 
   public Scratch getScratch() {
@@ -173,7 +177,9 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
 
   @Override
   public void overwriteFile(String fileName, String... lines) throws IOException {
-    analysisHelper.getScratch().overwriteFile(fileName, lines);
+    analysisHelper
+        .getScratch()
+        .overwriteFile(getRootDirectory().getRelative(fileName).getPathString(), lines);
   }
 
   @Override
@@ -203,11 +209,25 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     analysisResult = analysisHelper.update(universe.toArray(new String[0]));
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(analysisHelper.getSkyframeExecutor());
+    ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations =
+        getTransitiveConfigurations(
+            analysisHelper.getSkyframeExecutor().getTransitiveConfigurationKeys(), walkableGraph);
 
     return getPostAnalysisQueryEnvironment(
         walkableGraph,
         new TopLevelConfigurations(analysisResult.getTopLevelTargetsWithConfigs()),
-        analysisHelper.getSkyframeExecutor().getTransitiveConfigurationKeys());
+        transitiveConfigurations);
+  }
+
+  private static ImmutableMap<String, BuildConfigurationValue> getTransitiveConfigurations(
+      Collection<SkyKey> transitiveConfigurationKeys, WalkableGraph graph)
+      throws InterruptedException {
+    // BuildConfigurationKey and BuildConfigurationValue should be 1:1
+    // so merge function intentionally omitted
+    return graph.getSuccessfulValues(transitiveConfigurationKeys).values().stream()
+        .map(BuildConfigurationValue.class::cast)
+        .sorted(Comparator.comparing(BuildConfigurationValue::checksum))
+        .collect(toImmutableMap(BuildConfigurationValue::checksum, Function.identity()));
   }
 
   /**
@@ -217,13 +237,14 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
    *     search over
    * @param topLevelConfigurations the configurations used to build the top-level targets in a
    *     query's universe scope
-   * @param transitiveConfigurationKeys all configurations available in the build graph (including
-   *     those produced by configuration transitions in the top-level targets' transitive deps)
+   * @param transitiveConfigurations all configurations available in the build graph (including
+   *     those produced by configuration transitions in the top-level targets' transitive deps),
+   *     keyed by the configurations' checksums
    */
   protected abstract PostAnalysisQueryEnvironment<T> getPostAnalysisQueryEnvironment(
       WalkableGraph walkableGraph,
       TopLevelConfigurations topLevelConfigurations,
-      Collection<SkyKey> transitiveConfigurationKeys)
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations)
       throws InterruptedException;
 
   @Override
@@ -311,11 +332,6 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
       return super.update(labels);
     }
 
-    @Override
-    protected FlagBuilder defaultFlags() {
-      return super.defaultFlags().with(Flag.ENABLE_BZLMOD);
-    }
-
     protected SkyframeExecutor getSkyframeExecutor() {
       return skyframeExecutor;
     }
@@ -343,11 +359,6 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     @Override
     protected BuildConfigurationValue getTargetConfiguration() throws InterruptedException {
       return super.getTargetConfiguration();
-    }
-
-    @Override
-    public BuildConfigurationValue getHostConfiguration() {
-      return super.getHostConfiguration();
     }
 
     @Override

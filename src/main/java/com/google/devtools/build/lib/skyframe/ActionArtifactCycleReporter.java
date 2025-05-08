@@ -44,17 +44,21 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
   }
 
   @Override
-  protected String prettyPrint(SkyKey key) {
+  protected String prettyPrint(Object untypedKey) {
+    SkyKey key = (SkyKey) untypedKey;
     return prettyPrint(key.functionName(), key.argument());
   }
 
+  /**
+   * Should be kept consistent with {@link #ACTION_OR_ARTIFACT_OR_TRANSITIVE_RDEP} and {@link
+   * #shouldSkipOnPathToCycle}
+   */
   private static String prettyPrint(SkyFunctionName skyFunctionName, Object arg) {
-    if (arg instanceof Artifact) {
-      return prettyPrintArtifact(((Artifact) arg));
+    if (arg instanceof Artifact artifact) {
+      return prettyPrintArtifact(artifact);
     } else if (arg instanceof ActionLookupData) {
       return "action from: " + arg;
-    } else if (arg instanceof TopLevelActionLookupKey) {
-      TopLevelActionLookupKey key = (TopLevelActionLookupKey) arg;
+    } else if (arg instanceof TopLevelActionLookupKeyWrapper key) {
       if (skyFunctionName.equals(SkyFunctions.TARGET_COMPLETION)) {
         return "configured target: " + key.actionLookupKey().getLabel();
       }
@@ -75,19 +79,21 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
   @Override
   protected boolean shouldSkipOnPathToCycle(SkyKey key) {
     // BuildDriverKeys don't provide any relevant info for the end user.
-    return SkyFunctions.BUILD_DRIVER.equals(key.functionName());
+    return SkyFunctions.BUILD_DRIVER.equals(key.functionName())
+        // ArtifactNestedSetKeys are just an implementation detail.
+        || SkyFunctions.ARTIFACT_NESTED_SET.equals(key.functionName());
   }
 
   @Override
   protected Label getLabel(SkyKey key) {
     Object arg = key.argument();
-    if (arg instanceof Artifact) {
-      return ((Artifact) arg).getOwner();
-    } else if (arg instanceof ActionLookupData) {
-      return ((ActionLookupData) arg).getLabel();
-    } else if (arg instanceof TopLevelActionLookupKey) {
-      return ((TopLevelActionLookupKey) arg).actionLookupKey().getLabel();
-    } else if (arg instanceof TestCompletionKey
+    if (arg instanceof Artifact artifact) {
+      return artifact.getOwner();
+    } else if (arg instanceof ActionLookupData actionLookupData) {
+      return actionLookupData.getLabel();
+    } else if (arg instanceof TopLevelActionLookupKeyWrapper topLevelActionLookupKeyWrapper) {
+      return topLevelActionLookupKeyWrapper.actionLookupKey().getLabel();
+    } else if (arg instanceof TestCompletionKey testCompletionKey
         && key.functionName().equals(SkyFunctions.TEST_COMPLETION)) {
       return ((TestCompletionKey) arg).configuredTargetKey().getLabel();
     }
@@ -106,6 +112,6 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
     // ArtifactNestedSetKey isn't worth reporting to the user - it is just an optimization, and will
     // always be an intermediate member of a cycle. It may contain artifacts irrelevant to the
     // cycle, and may be nested several layers deep.
-    return key instanceof ArtifactNestedSetKey;
+    return SkyFunctions.ARTIFACT_NESTED_SET.equals(key.functionName());
   }
 }

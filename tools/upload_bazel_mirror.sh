@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -16,7 +16,7 @@
 
 # This script fetches
 # `https://github.com/bazelbuild/<rules_xyz>/archive/<version>.tar.gz`
-# and uploads it to the cannonical location on `https://mirror.bazel.build`.
+# and uploads it to the canonical location on `https://mirror.bazel.build`.
 
 set -euo pipefail
 

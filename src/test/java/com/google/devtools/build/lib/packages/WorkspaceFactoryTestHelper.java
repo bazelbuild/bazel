@@ -22,12 +22,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import java.util.List;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.ParserInput;
@@ -41,15 +41,15 @@ final class WorkspaceFactoryTestHelper {
   private Package.Builder builder;
   private StarlarkSemantics starlarkSemantics;
 
-  private final boolean allowOverride;
+  private final boolean allowWorkspace;
 
   WorkspaceFactoryTestHelper(Root root) {
     this(true, root);
   }
 
-  WorkspaceFactoryTestHelper(boolean allowOverride, Root root) {
+  WorkspaceFactoryTestHelper(boolean allowWorkspace, Root root) {
     this.root = root;
-    this.allowOverride = allowOverride;
+    this.allowWorkspace = allowWorkspace;
     this.starlarkSemantics = StarlarkSemantics.DEFAULT;
   }
 
@@ -66,27 +66,29 @@ final class WorkspaceFactoryTestHelper {
     // execute
     builder =
         Package.newExternalPackageBuilder(
-            DefaultPackageSettings.INSTANCE,
-            RootedPath.toRootedPath(root, workspaceFilePath),
-            "",
-            RepositoryMapping.ALWAYS_FALLBACK,
-            StarlarkSemantics.DEFAULT);
+                PackageSettings.DEFAULTS,
+                WorkspaceFileValue.key(RootedPath.toRootedPath(root, workspaceFilePath)),
+                "",
+                RepositoryMapping.ALWAYS_FALLBACK,
+                starlarkSemantics.getBool(
+                    BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
+                starlarkSemantics.getBool(
+                    BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
+                PackageOverheadEstimator.NOOP_ESTIMATOR)
+            .setLoads(ImmutableList.of());
     WorkspaceFactory factory =
         new WorkspaceFactory(
             builder,
             TestRuleClassProvider.getRuleClassProvider(),
-            ImmutableList.<PackageFactory.EnvironmentExtension>of(),
             Mutability.create("test"),
-            allowOverride,
+            /* allowOverride= */ true,
+            allowWorkspace,
             root.asPath(),
             root.asPath(),
             /* defaultSystemJavabaseDir= */ null,
             starlarkSemantics);
     try {
-      factory.execute(
-          file,
-          /* additionalLoadedModules= */ ImmutableMap.of(),
-          WorkspaceFileValue.key(RootedPath.toRootedPath(root, workspaceFilePath)));
+      factory.execute(file, /* additionalLoadedModules= */ ImmutableMap.of());
     } catch (InterruptedException e) {
       fail("Shouldn't happen: " + e.getMessage());
     }
@@ -97,7 +99,7 @@ final class WorkspaceFactoryTestHelper {
   }
 
   String getParserError() {
-    List<Event> events = builder.getEvents();
+    ImmutableList<Event> events = builder.getLocalEventHandler().getEvents();
     assertThat(events.size()).isGreaterThan(0);
     return events.get(0).getMessage();
   }

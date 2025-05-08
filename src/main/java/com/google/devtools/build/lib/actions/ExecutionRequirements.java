@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -39,8 +40,13 @@ import javax.annotation.Nullable;
 public class ExecutionRequirements {
 
   /** An execution requirement that can be split into a key and a value part using a regex. */
-  @AutoValue
-  public abstract static class ParseableRequirement {
+  public record ParseableRequirement(
+      String userFriendlyName, Pattern detectionPattern, Function<String, String> validator) {
+    public ParseableRequirement {
+      requireNonNull(userFriendlyName, "userFriendlyName");
+      requireNonNull(detectionPattern, "detectionPattern");
+      requireNonNull(validator, "validator");
+    }
 
     /**
      * Thrown when a {@link ParseableRequirement} feels responsible for a tag, but the {@link
@@ -87,15 +93,8 @@ public class ExecutionRequirements {
      */
     static ParseableRequirement create(
         String userFriendlyName, Pattern detectionPattern, Function<String, String> validator) {
-      return new AutoValue_ExecutionRequirements_ParseableRequirement(
-          userFriendlyName, detectionPattern, validator);
+      return new ParseableRequirement(userFriendlyName, detectionPattern, validator);
     }
-
-    public abstract String userFriendlyName();
-
-    public abstract Pattern detectionPattern();
-
-    public abstract Function<String, String> validator();
 
     /**
      * Returns the parsed value from a tag, if this {@link ParseableRequirement} detects that it is
@@ -149,6 +148,30 @@ public class ExecutionRequirements {
 
             if (value < 1) {
               return "can't be zero or negative";
+            }
+
+            return null;
+          });
+
+  /** How many extra resources an action requires for execution. */
+  public static final ParseableRequirement RESOURCES =
+      ParseableRequirement.create(
+          "resources:<str>:<float>",
+          Pattern.compile("resources:(.+:.+)"),
+          s -> {
+            Preconditions.checkNotNull(s);
+
+            int splitIndex = s.indexOf(":");
+            String resourceCount = s.substring(splitIndex + 1);
+            float value;
+            try {
+              value = Float.parseFloat(resourceCount);
+            } catch (NumberFormatException e) {
+              return "can't be parsed as a float";
+            }
+
+            if (value < 0) {
+              return "can't be negative";
             }
 
             return null;
@@ -256,17 +279,20 @@ public class ExecutionRequirements {
   /** Use this to request eager fetching of a single remote output into local memory. */
   public static final String REMOTE_EXECUTION_INLINE_OUTPUTS = "internal-inline-outputs";
 
+  /** Tag for Google internal use. Indicates a memory estimate in bytes. */
+  public static final String MEMORY_ESTIMATE = "internal-memory-estimate";
+
   /**
    * Request graceful termination of subprocesses on interrupt (that is, an initial {@code SIGTERM}
    * followed by a {@code SIGKILL} after a grace period).
    */
   public static final String GRACEFUL_TERMINATION = "supports-graceful-termination";
 
-  /** Requires the execution service to support a given xcode version e.g. "xcode_version:1.0". */
+  /** Requires the execution service to support a given Xcode version e.g. "xcode_version:1.0". */
   public static final String REQUIRES_XCODE = "requires-xcode";
 
   /**
-   * Requires the execution service to support a "label" in addition to the xcode version. The user
+   * Requires the execution service to support a "label" in addition to the Xcode version. The user
    * specifies the label as a hyphenated extension to their requested version. For example, if the
    * user requests "--xcode_version=1.0-unstable", the action request will include
    * "requires-xcode-label:unstable" and "requires-xcode:1.0".
@@ -276,4 +302,10 @@ public class ExecutionRequirements {
   /** Requires the execution service do NOT share caches across different workspace. */
   public static final String DIFFERENTIATE_WORKSPACE_CACHE =
       "internal-differentiate-workspace-cache";
+
+  /**
+   * Indicates that the action is compatible with path mapping, e.g., removing the configuration
+   * segment from the paths of all inputs and outputs.
+   */
+  public static final String SUPPORTS_PATH_MAPPING = "supports-path-mapping";
 }

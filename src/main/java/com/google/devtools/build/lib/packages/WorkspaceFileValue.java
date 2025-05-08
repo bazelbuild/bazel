@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -43,7 +43,7 @@ public class WorkspaceFileValue implements SkyValue {
   @Immutable
   @AutoCodec
   public static class WorkspaceFileKey implements SkyKey {
-    private static final Interner<WorkspaceFileKey> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<WorkspaceFileKey> interner = SkyKey.newInterner();
 
     private final RootedPath path;
     private final int idx;
@@ -53,10 +53,15 @@ public class WorkspaceFileValue implements SkyValue {
       this.idx = idx;
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
+    @VisibleForTesting
     static WorkspaceFileKey create(RootedPath path, int idx) {
       return interner.intern(new WorkspaceFileKey(path, idx));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static WorkspaceFileKey intern(WorkspaceFileKey key) {
+      return interner.intern(key);
     }
 
     public RootedPath getPath() {
@@ -92,6 +97,11 @@ public class WorkspaceFileValue implements SkyValue {
     @Override
     public String toString() {
       return path + ", " + idx;
+    }
+
+    @Override
+    public SkyKeyInterner<WorkspaceFileKey> getSkyKeyInterner() {
+      return interner;
     }
   }
 

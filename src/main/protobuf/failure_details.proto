@@ -147,8 +147,10 @@ message FailureDetail {
     StarlarkLoading starlark_loading = 179;
     ExternalDeps external_deps = 181;
     DiffAwareness diff_awareness = 182;
-    ModqueryCommand modquery_command = 183;
+    ModCommand mod_command = 183;
     BuildReport build_report = 184;
+    Skyfocus skyfocus = 185;
+    RemoteAnalysisCaching remote_analysis_caching = 186;
   }
 
   reserved 102; // For internal use
@@ -168,6 +170,8 @@ message FailureDetail {
   reserved 176; // For internal use
   reserved 178; // For internal use
   reserved 180; // For internal use
+  reserved 187; // For internal use
+  reserved 188; // For internal use
 }
 
 message Interrupted {
@@ -226,6 +230,12 @@ message Spawn {
     //   refactored to prohibit undetailed failures
     UNSPECIFIED_EXECUTION_FAILURE = 12 [(metadata) = { exit_code: 1 }];
     FORBIDDEN_INPUT = 13 [(metadata) = { exit_code: 1 }];
+    // This also includes other remote cache errors, not just evictions.
+    // TODO: Rename it to a more general name when
+    // --experimental_remote_cache_eviction_retries is moved to
+    // non-experimental.
+    REMOTE_CACHE_EVICTED = 14 [(metadata) = { exit_code: 39 }];
+    SPAWN_LOG_IO_EXCEPTION = 15 [(metadata) = { exit_code: 36 }];
   }
   Code code = 1;
 
@@ -248,6 +258,7 @@ message ExternalRepository {
     OVERRIDE_DISALLOWED_MANAGED_DIRECTORIES = 1 [(metadata) = { exit_code: 2 }];
     BAD_DOWNLOADER_CONFIG = 2 [(metadata) = { exit_code: 2 }];
     REPOSITORY_MAPPING_RESOLUTION_FAILED = 3 [(metadata) = { exit_code: 37 }];
+    CREDENTIALS_INIT_FAILURE = 4 [(metadata) = { exit_code: 2 }];
   }
   Code code = 1;
   // Additional data could include external repository names.
@@ -276,7 +287,7 @@ message BuildProgress {
         [(metadata) = { exit_code: 45 }];
     BES_UPLOAD_RETRY_LIMIT_EXCEEDED_FAILURE = 17
         [(metadata) = { exit_code: 38 }];
-    reserved 1, 2, 18; // For internal use
+    reserved 1, 2, 18, 20; // For internal use
   }
   Code code = 1;
   // Additional data could include the build progress upload endpoint.
@@ -293,6 +304,8 @@ message RemoteOptions {
     CREDENTIALS_WRITE_FAILURE = 3 [(metadata) = { exit_code: 36 }];
     DOWNLOADER_WITHOUT_GRPC_CACHE = 4 [(metadata) = { exit_code: 2 }];
     EXECUTION_WITH_INVALID_CACHE = 5 [(metadata) = { exit_code: 2 }];
+
+    reserved 6;
   }
 
   Code code = 1;
@@ -318,6 +331,36 @@ message Crash {
   // The cause chain of the crash, with the outermost throwable first. Limited
   // to the outermost exception and at most 4 nested causes (so, max size of 5).
   repeated Throwable causes = 2;
+
+  enum OomCauseCategory {
+    // This was not an OOM.
+    NONE = 0;
+
+    // Normal OOM noticed in Blaze's app-land code.
+    ORGANIC = 1;
+
+    // Originally a crash, but changed to an OOM because Blaze's native code was
+    // told by the JVM there was an OOM, and then Blaze's app-land code assumed
+    // the crash was a symptom of that OOM.
+    OOM_DETECTOR_OVERRIDE = 2;
+
+    // Blaze gave up and pretended it OOM'd because its post-full-GC heap size
+    // was too big after a number of full GCs within a time window.
+    //
+    // See --gc_thrashing_threshold and --gc_thrashing_limits.
+    GC_THRASHING = 3;
+
+    // Blaze gave up and pretended it OOM'd because it has spent too much of the
+    // invocation wall time doing full GCs.
+    //
+    // See --gc_churning_threshold.
+    GC_CHURNING = 4;
+  }
+
+  // If Blaze OOM'd (code = CRASH_OOM), the category of cause of that OOM.
+  OomCauseCategory oom_cause_category = 4;
+
+  reserved 3;
 }
 
 message Throwable {
@@ -355,12 +398,40 @@ message BuildReport {
   // failed to be written.
 }
 
+// Failure details for errors produced when using Skyfocus
+message Skyfocus {
+  enum Code {
+    // The defined working set cannot be used for the focused targets. For
+    // example, this happens when the intersection of the working set and the
+    // transitive closure of the focused target is empty.
+    INVALID_WORKING_SET = 0 [(metadata) = { exit_code: 2 }];
+    // The user needs to augment their working set to include the new file(s).
+    NON_WORKING_SET_CHANGE = 1 [(metadata) = { exit_code: 2 }];
+    CONFIGURATION_CHANGE = 2 [(metadata) = { exit_code: 2 }];
+    DISALLOWED_OPERATION_ON_FOCUSED_GRAPH = 3 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+// Failure details for errors produced during remote analysis caching.
+message RemoteAnalysisCaching {
+  enum Code {
+    REMOTE_ANALYSIS_CACHING_UNKNOWN = 0 [(metadata) = { exit_code: 1 }];
+    SERIALIZED_FRONTIER_PROFILE_FAILED = 1 [(metadata) = { exit_code: 1 }];
+    PROJECT_FILE_NOT_FOUND = 2 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
 message PackageOptions {
   enum Code {
     reserved 2, 3;  // For internal use
 
     PACKAGE_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     PACKAGE_PATH_INVALID = 1 [(metadata) = { exit_code: 2 }];
+    NONSINGLETON_PACKAGE_PATH = 4 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -393,6 +464,7 @@ message RemoteExecution {
         [(metadata) = { exit_code: 1 }];
     ILLEGAL_OUTPUT = 15 [(metadata) = { exit_code: 1 }];
     INVALID_EXEC_AND_PLATFORM_PROPERTIES = 16 [(metadata) = { exit_code: 1 }];
+    TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE = 17 [(metadata) = { exit_code: 34 }];
   }
 
   Code code = 1;
@@ -451,6 +523,7 @@ message Execution {
     UNEXPECTED_EXCEPTION = 37 [(metadata) = { exit_code: 1 }];
     reserved 38;
     SOURCE_INPUT_IO_EXCEPTION = 39 [(metadata) = { exit_code: 1 }];
+    SYMLINK_TREE_DELETION_IO_EXCEPTION = 40 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -493,8 +566,10 @@ message Filesystem {
     SERVER_FILE_WRITE_FAILURE = 5 [(metadata) = { exit_code: 36 }];
     DEFAULT_DIGEST_HASH_FUNCTION_INVALID_VALUE = 6
         [(metadata) = { exit_code: 2 }];
+    FILESYSTEM_JNI_NOT_AVAILABLE = 8 [(metadata) = { exit_code: 36 }];
+    FAILED_TO_LOCK_INSTALL_BASE = 12 [(metadata) = { exit_code: 36 }];
 
-    reserved 7; // For internal use
+    reserved 7, 9, 10; // For internal use
   }
 
   Code code = 1;
@@ -519,8 +594,9 @@ message ExecutionOptions {
         [(metadata) = { exit_code: 2 }];
     STRATEGY_NOT_FOUND = 9 [(metadata) = { exit_code: 2 }];
     DYNAMIC_STRATEGY_NOT_SANDBOXED = 10 [(metadata) = { exit_code: 2 }];
+    MULTIPLE_EXECUTION_LOG_FORMATS = 11 [(metadata) = { exit_code: 2 }];
 
-    reserved 1, 2; // For internal use
+    reserved 1, 2, 12, 13; // For internal use
   }
 
   Code code = 1;
@@ -547,7 +623,7 @@ message Command {
     STARLARK_OPTIONS_PARSE_FAILURE = 10 [(metadata) = { exit_code: 2 }];
     ARGUMENTS_NOT_RECOGNIZED = 11 [(metadata) = { exit_code: 2 }];
     NOT_IN_WORKSPACE = 12 [(metadata) = { exit_code: 2 }];
-    SPACES_IN_WORKSPACE_PATH = 13 [(metadata) = { exit_code: 36 }];
+    reserved 13;
     IN_OUTPUT_DIRECTORY = 14 [(metadata) = { exit_code: 2 }];
   }
 
@@ -601,6 +677,9 @@ message BuildConfiguration {
     // possibilities in Bazel, so we go with the more straightforward
     // command-line error exit code 2.
     INVALID_OUTPUT_DIRECTORY_MNEMONIC = 11 [(metadata) = { exit_code: 2 }];
+    CONFIGURATION_DISCARDED_ANALYSIS_CACHE = 12 [(metadata) = { exit_code: 2 }];
+    // Failure modes specific to PROJECT.scl files.
+    INVALID_PROJECT = 13 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -624,10 +703,12 @@ message InfoCommand {
 message MemoryOptions {
   enum Code {
     MEMORY_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
-    EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE = 1
-        [(metadata) = { exit_code: 2 }];
-    EXPERIMENTAL_OOM_MORE_EAGERLY_NO_TENURED_COLLECTORS_FOUND = 2
-        [(metadata) = { exit_code: 2 }];
+    // Deprecated: validation is now implemented by the option converter.
+    DEPRECATED_EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE = 1
+        [(metadata) = { exit_code: 2 }, deprecated = true];
+    // Deprecated: no tenured collectors found is now a crash on startup.
+    DEPRECATED_EXPERIMENTAL_OOM_MORE_EAGERLY_NO_TENURED_COLLECTORS_FOUND = 2
+        [(metadata) = { exit_code: 2 }, deprecated = true];
   }
 
   Code code = 1;
@@ -696,6 +777,8 @@ message LocalExecution {
   enum Code {
     LOCAL_EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     LOCKFREE_OUTPUT_PREREQ_UNMET = 1 [(metadata) = { exit_code: 2 }];
+    UNTRACKED_RESOURCE = 2 [(metadata) = { exit_code: 1 }];
+    NOT_ENOUGH_LOCAL_RESOURCE = 3 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -748,6 +831,8 @@ message Sandbox {
     MOUNT_TARGET_DOES_NOT_EXIST = 9 [(metadata) = { exit_code: 1 }];
     SUBPROCESS_START_FAILED = 10 [(metadata) = { exit_code: 36 }];
     FORBIDDEN_INPUT = 11 [(metadata) = { exit_code: 1 }];
+    COPY_INPUTS_IO_EXCEPTION = 12 [(metadata) = { exit_code: 36 }];
+    COPY_OUTPUTS_IO_EXCEPTION = 13 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -905,6 +990,9 @@ message DumpCommand {
     ACTION_GRAPH_DUMP_FAILED = 4 [(metadata) = { exit_code: 7 }];
     STARLARK_HEAP_DUMP_FAILED = 5 [(metadata) = { exit_code: 8 }];
      reserved 6; // For internal use
+    SKYFRAME_MEMORY_DUMP_FAILED = 7 [(metadata) = { exit_code: 7 }];
+    // deprecated, moved to the RemoteAnalysisCaching message.
+    reserved 8;
   }
 
   Code code = 1;
@@ -1021,7 +1109,13 @@ message ActionRewinding {
   enum Code {
     ACTION_REWINDING_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     LOST_INPUT_TOO_MANY_TIMES = 1 [(metadata) = { exit_code: 1 }];
-    LOST_INPUT_IS_SOURCE = 2 [(metadata) = { exit_code: 1 }];
+    REWIND_LOST_INPUTS_PREREQ_UNMET = 3 [(metadata) = { exit_code: 2 }];
+    LOST_OUTPUT_TOO_MANY_TIMES = 4 [(metadata) = { exit_code: 1 }];
+    LOST_INPUT_REWINDING_DISABLED = 5 [(metadata) = { exit_code: 1 }];
+    LOST_OUTPUT_REWINDING_DISABLED = 6 [(metadata) = { exit_code: 1 }];
+    // Deprecated: attempting to rewind a source artifact is now a hard crash.
+    DEPRECATED_LOST_INPUT_IS_SOURCE = 2
+        [(metadata) = { exit_code: 1 }, deprecated = true];
   }
 
   Code code = 1;
@@ -1103,6 +1197,7 @@ message SymlinkAction {
     EXECUTABLE_INPUT_CHECK_IO_EXCEPTION = 3 [(metadata) = { exit_code: 1 }];
     LINK_CREATION_IO_EXCEPTION = 4 [(metadata) = { exit_code: 1 }];
     LINK_TOUCH_IO_EXCEPTION = 5 [(metadata) = { exit_code: 1 }];
+    LINK_LOG_IO_EXCEPTION = 6 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -1188,6 +1283,8 @@ message Analysis {
     CONFIGURED_VALUE_CREATION_FAILED = 18 [(metadata) = { exit_code: 1 }];
     INCOMPATIBLE_TARGET_REQUESTED = 19 [(metadata) = { exit_code: 1 }];
     ANALYSIS_FAILURE_PROPAGATION_FAILED = 20 [(metadata) = { exit_code: 1 }];
+    ANALYSIS_CACHE_DISCARDED = 21 [(metadata) = { exit_code: 1 }];
+    INVALID_RUNFILES_TREE = 22 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1234,6 +1331,8 @@ message PackageLoading {
     BUILTINS_INJECTION_FAILURE = 29 [(metadata) = { exit_code: 1 }];
     SYMLINK_CYCLE_OR_INFINITE_EXPANSION = 30 [(metadata) = { exit_code: 1 }];
     OTHER_IO_EXCEPTION = 31 [(metadata) = { exit_code: 36 }];
+    BAD_REPO_FILE = 32 [(metadata) = { exit_code: 1 }];
+    BAD_IGNORED_DIRECTORIES = 33 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1280,6 +1379,8 @@ message ExternalDeps {
     VERSION_RESOLUTION_ERROR = 3 [(metadata) = { exit_code: 48 }];
     INVALID_REGISTRY_URL = 4 [(metadata) = { exit_code: 48 }];
     ERROR_ACCESSING_REGISTRY = 5 [(metadata) = { exit_code: 32 }];
+    INVALID_EXTENSION_IMPORT = 6 [(metadata) = { exit_code: 48 }];
+    BAD_LOCKFILE = 7 [(metadata) = { exit_code: 48 }];
   }
 
   Code code = 1;
@@ -1294,12 +1395,14 @@ message DiffAwareness {
   Code code = 1;
 }
 
-message ModqueryCommand {
+message ModCommand {
   enum Code {
-    MODQUERY_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    MOD_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     MISSING_ARGUMENTS = 1 [(metadata) = { exit_code: 2 }];
     TOO_MANY_ARGUMENTS = 2 [(metadata) = { exit_code: 2 }];
     INVALID_ARGUMENTS = 3 [(metadata) = { exit_code: 2 }];
+    BUILDOZER_FAILED = 4 [(metadata) = { exit_code: 2 }];
+    ERROR_DURING_GRAPH_INSPECTION = 5 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;

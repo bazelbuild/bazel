@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
-import com.google.common.base.Joiner;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
+
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -53,12 +54,13 @@ import com.google.devtools.common.options.OptionsParsingResult;
 /** Handles the 'aquery' command on the Blaze command line. */
 @Command(
     name = "aquery",
-    builds = true,
-    inherits = {BuildCommand.class},
+    buildPhase = ANALYZES,
+    inheritsOptionsFrom = {BuildCommand.class},
     options = {AqueryOptions.class},
     usesConfigurationOptions = true,
     shortDescription = "Analyzes the given targets and queries the action graph.",
     allowResidue = true,
+    binaryStdOut = true,
     completion = "label",
     help = "resource:aquery.txt")
 public final class AqueryCommand implements BlazeCommand {
@@ -101,15 +103,13 @@ public final class AqueryCommand implements BlazeCommand {
           InterruptedFailureDetails.detailedExitCode(errorMessage));
     }
 
-    // When querying for the state of Skyframe, it's possible to omit the query expression.
-    if (options.getResidue().isEmpty() && !queryCurrentSkyframeState) {
-      String message =
-          "Missing query expression. Use the 'help aquery' command for syntax and help.";
-      env.getReporter().handle(Event.error(message));
-      return createFailureResult(message, Code.COMMAND_LINE_EXPRESSION_MISSING);
+    String query = null;
+    try {
+      query = QueryOptionHelper.readQuery(aqueryOptions, options, env, queryCurrentSkyframeState);
+    } catch (QueryException e) {
+      return BlazeCommandResult.failureDetail(e.getFailureDetail());
     }
 
-    String query = Joiner.on(' ').join(options.getResidue());
     ImmutableMap<String, QueryFunction> functions = getFunctionsMap(env);
 
     // Query expression might be null in the case of --skyframe_state.
@@ -163,7 +163,9 @@ public final class AqueryCommand implements BlazeCommand {
     }
     try {
       return BlazeCommandResult.detailedExitCode(
-          new BuildTool(env, aqueryBuildTool).processRequest(request, null).getDetailedExitCode());
+          new BuildTool(env, aqueryBuildTool)
+              .processRequest(request, null, options)
+              .getDetailedExitCode());
     } catch (StackOverflowError e) {
       String message = "Aquery output was too large to handle: " + query;
       env.getReporter().handle(Event.error(message));

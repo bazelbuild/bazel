@@ -17,13 +17,16 @@ package com.google.devtools.build.lib.remote.common;
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
-import com.google.auto.value.AutoValue;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
-import javax.annotation.Nullable;
+import java.util.Set;
 
 /**
  * An interface for a remote caching protocol.
@@ -31,10 +34,16 @@ import javax.annotation.Nullable;
  * <p>Implementations must be thread-safe.
  */
 public interface RemoteCacheClient extends MissingDigestsFinder {
+  ServerCapabilities getServerCapabilities() throws IOException;
+
+  ListenableFuture<String> getAuthority();
 
   /**
    * A key in the remote action cache. The type wraps around a {@link Digest} of an {@link Action}.
    * Action keys are special in that they aren't content-addressable but refer to action results.
+   *
+   * <p>Terminology note: "action" is used here in the remote execution protocol sense, which is
+   * equivalent to a Bazel "spawn" (a Bazel "action" being a higher-level concept).
    */
   final class ActionKey {
 
@@ -50,11 +59,10 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
 
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof ActionKey)) {
+      if (!(other instanceof ActionKey otherKey)) {
         return false;
       }
 
-      ActionKey otherKey = (ActionKey) other;
       return digest.equals(otherKey.digest);
     }
 
@@ -65,45 +73,22 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
   }
 
   /**
-   * Class to keep track of which cache (disk or remote) a given [cached] ActionResult comes from.
-   */
-  @AutoValue
-  abstract class CachedActionResult {
-    @Nullable
-    public static CachedActionResult remote(ActionResult actionResult) {
-      if (actionResult == null) {
-        return null;
-      }
-      return new AutoValue_RemoteCacheClient_CachedActionResult(actionResult, "remote");
-    }
-
-    @Nullable
-    public static CachedActionResult disk(ActionResult actionResult) {
-      if (actionResult == null) {
-        return null;
-      }
-      return new AutoValue_RemoteCacheClient_CachedActionResult(actionResult, "disk");
-    }
-
-    /** A actionResult can have a cache name ascribed to it. */
-    public abstract ActionResult actionResult();
-
-    /** Indicates which cache the {@link #actionResult} came from (disk/remote) */
-    public abstract String cacheName();
-  }
-
-  /**
    * Downloads an action result for the {@code actionKey}.
    *
    * @param context the context for the action.
    * @param actionKey The digest of the {@link Action} that generated the action result.
    * @param inlineOutErr A hint to the server to inline the stdout and stderr in the {@code
    *     ActionResult} message.
+   * @param inlineOutputFiles A hint to the server to inline the specified output files in the
+   *     {@code ActionResult} message.
    * @return A Future representing pending download of an action result. If an action result for
    *     {@code actionKey} cannot be found the result of the Future is {@code null}.
    */
-  ListenableFuture<CachedActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr);
+  ListenableFuture<ActionResult> downloadActionResult(
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      boolean inlineOutErr,
+      Set<String> inlineOutputFiles);
 
   /**
    * Uploads an action result for the {@code actionKey}.
@@ -129,25 +114,56 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
       RemoteActionExecutionContext context, Digest digest, OutputStream out);
 
   /**
-   * Uploads a {@code file} to the CAS.
+   * A supplier for the data comprising a BLOB.
+   *
+   * <p>As blobs can be large and may need to be kept in memory, consumers should call {@link #get}
+   * as late as possible and close the blob as soon as they are done with it.
+   */
+  @FunctionalInterface
+  interface Blob extends Closeable {
+    /** Get an input stream for the blob's data. Can be called multiple times. */
+    InputStream get() throws IOException;
+
+    @Override
+    default void close() {}
+  }
+
+  /**
+   * Uploads a {@code file} BLOB to the CAS.
    *
    * @param context the context for the action.
    * @param digest The digest of the file.
    * @param file The file to upload.
    * @return A future representing pending completion of the upload.
    */
-  ListenableFuture<Void> uploadFile(RemoteActionExecutionContext context, Digest digest, Path file);
+  default ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
+    return uploadBlob(context, digest, () -> new LazyFileInputStream(file));
+  }
 
   /**
-   * Uploads a BLOB to the CAS.
+   * Uploads a blob to the CAS.
+   *
+   * @param context the context for the action.
+   * @param digest The digest of the blob.
+   * @param blob A supplier for the blob to upload. May be called multiple times, but is closed by
+   *     the implementation after the upload is complete.
+   * @return A future representing pending completion of the upload.
+   */
+  ListenableFuture<Void> uploadBlob(RemoteActionExecutionContext context, Digest digest, Blob blob);
+
+  /**
+   * Uploads an in-memory BLOB to the CAS.
    *
    * @param context the context for the action.
    * @param digest The digest of the blob.
    * @param data The BLOB to upload.
    * @return A future representing pending completion of the upload.
    */
-  ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data);
+  default ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data) {
+    return uploadBlob(context, digest, data::newInput);
+  }
 
   /** Close resources associated with the remote cache. */
   void close();

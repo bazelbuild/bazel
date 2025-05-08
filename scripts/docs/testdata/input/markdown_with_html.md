@@ -1,6 +1,8 @@
 Project: /_project.yaml
 Book: /_book.yaml
 
+{% include "_buttons.html" %}
+
 Lorem ipsum [short link](/foo/bar). Or rather a [long link](https://bazel.build/foo/bar)?
 
 ![Scalability graph](/rules/scalability-graph.png "Scalability graph")

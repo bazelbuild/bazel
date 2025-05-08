@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.PositionAwareAnsiTerminalWriter;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
-import java.time.Instant;
+import javax.annotation.concurrent.GuardedBy;
 
 /** Tracks the state of Skymeld builds and determines what to display at each state in the UI. */
 final class SkymeldUiStateTracker extends UiStateTracker {
@@ -35,6 +35,7 @@ final class SkymeldUiStateTracker extends UiStateTracker {
     // We explicitly define a starting status, which can be used to determine what to display in
     // cases before the build has started.
     BUILD_NOT_STARTED,
+    COMPUTING_MAIN_REPO_MAPPING,
     BUILD_STARTED,
     TARGET_PATTERN_PARSING,
     LOADING_COMPLETE,
@@ -47,7 +48,9 @@ final class SkymeldUiStateTracker extends UiStateTracker {
     BUILD_COMPLETED;
   }
 
-  @VisibleForTesting BuildStatus buildStatus = BuildStatus.BUILD_NOT_STARTED;
+  // Prevent a race condition with the thread that runs writeProgressBar.
+  @GuardedBy("this")
+  private BuildStatus buildStatus = BuildStatus.BUILD_NOT_STARTED;
 
   SkymeldUiStateTracker(Clock clock, int targetWidth) {
     super(clock, targetWidth);
@@ -77,6 +80,9 @@ final class SkymeldUiStateTracker extends UiStateTracker {
     switch (buildStatus) {
       case BUILD_NOT_STARTED:
         return;
+      case COMPUTING_MAIN_REPO_MAPPING:
+        writeBaseProgress("Computing main repo mapping", "", terminalWriter);
+        break;
       case BUILD_STARTED:
         writeBaseProgress("Loading", "", terminalWriter);
         break;
@@ -96,10 +102,11 @@ final class SkymeldUiStateTracker extends UiStateTracker {
         writeLoadingAnalysisPhaseProgress(
             "Analyzing", additionalMessage, terminalWriter, shortVersion);
         terminalWriter.newline();
-        writeExecutionProgress(terminalWriter, shortVersion);
-        break;
+      // fall through
       case EXECUTION:
-        writeExecutionProgress(terminalWriter, shortVersion);
+        if (executionPhaseStarted) {
+          writeExecutionProgress(terminalWriter, shortVersion);
+        }
         break;
       case BUILD_COMPLETED:
         writeBaseProgress(ok ? "INFO" : "FAILED", additionalMessage, terminalWriter);
@@ -136,8 +143,8 @@ final class SkymeldUiStateTracker extends UiStateTracker {
       Pair<String, String> progress = packageProgressReceiver.progressState();
       String analysisProgress = progress.getFirst();
 
-      if (configuredTargetProgressReceiver != null) {
-        analysisProgress += ", " + configuredTargetProgressReceiver.getProgressString();
+      if (analysisProgressReceiver != null) {
+        analysisProgress += ", " + analysisProgressReceiver.getProgressString();
       }
 
       if (message.isEmpty()) {
@@ -152,18 +159,23 @@ final class SkymeldUiStateTracker extends UiStateTracker {
   }
 
   @Override
-  void buildStarted() {
+  synchronized void mainRepoMappingComputationStarted() {
+    buildStatus = BuildStatus.COMPUTING_MAIN_REPO_MAPPING;
+  }
+
+  @Override
+  synchronized void buildStarted() {
     buildStatus = BuildStatus.BUILD_STARTED;
   }
 
   @Override
-  void loadingStarted(LoadingPhaseStartedEvent event) {
+  synchronized void loadingStarted(LoadingPhaseStartedEvent event) {
     buildStatus = BuildStatus.TARGET_PATTERN_PARSING;
     packageProgressReceiver = event.getPackageProgressReceiver();
   }
 
   @Override
-  void loadingComplete(LoadingPhaseCompleteEvent event) {
+  synchronized void loadingComplete(LoadingPhaseCompleteEvent event) {
     buildStatus = BuildStatus.LOADING_COMPLETE;
     int labelsCount = event.getLabels().size();
     if (labelsCount == 1) {
@@ -171,12 +183,13 @@ final class SkymeldUiStateTracker extends UiStateTracker {
     } else {
       additionalMessage = labelsCount + " targets";
     }
+    mainRepositoryMapping = event.getMainRepositoryMapping();
   }
 
   @Override
-  void configurationStarted(ConfigurationPhaseStartedEvent event) {
+  synchronized void configurationStarted(ConfigurationPhaseStartedEvent event) {
     buildStatus = BuildStatus.CONFIGURATION;
-    configuredTargetProgressReceiver = event.getConfiguredTargetProgressReceiver();
+    analysisProgressReceiver = event.getAnalysisProgressReceiver();
   }
 
   /**
@@ -196,14 +209,14 @@ final class SkymeldUiStateTracker extends UiStateTracker {
     if (packageProgressReceiver != null) {
       Pair<String, String> progress = packageProgressReceiver.progressState();
       workDone += " (" + progress.getFirst();
-      if (configuredTargetProgressReceiver != null) {
-        workDone += ", " + configuredTargetProgressReceiver.getProgressString();
+      if (analysisProgressReceiver != null) {
+        workDone += ", " + analysisProgressReceiver.getProgressString();
       }
       workDone += ")";
     }
     workDone += ".";
     packageProgressReceiver = null;
-    configuredTargetProgressReceiver = null;
+    analysisProgressReceiver = null;
     return workDone;
   }
 
@@ -219,34 +232,21 @@ final class SkymeldUiStateTracker extends UiStateTracker {
   }
 
   @Override
-  void buildComplete(BuildCompleteEvent event) {
+  synchronized Event buildComplete(BuildCompleteEvent event) {
     buildStatus = BuildStatus.BUILD_COMPLETED;
-    buildCompleteAt = Instant.ofEpochMilli(clock.currentTimeMillis());
+    return super.buildComplete(event);
+  }
 
-    if (event.getResult().getSuccess()) {
-      int actionsCompleted = this.actionsCompleted.get();
-      if (failedTests == 0) {
-        additionalMessage =
-            "Build completed successfully, "
-                + actionsCompleted
-                + pluralize(" total action", actionsCompleted);
-      } else {
-        additionalMessage =
-            "Build completed, "
-                + failedTests
-                + pluralize(" test", failedTests)
-                + " FAILED, "
-                + actionsCompleted
-                + pluralize(" total action", actionsCompleted);
-      }
-    } else {
-      ok = false;
-      additionalMessage = "Build did NOT complete successfully";
-    }
+  synchronized BuildStatus getBuildStatus() {
+    return buildStatus;
+  }
+
+  synchronized void setBuildStatusForTestingOnly(BuildStatus newStatus) {
+    buildStatus = newStatus;
   }
 
   @Override
-  protected boolean buildCompleted() {
+  protected synchronized boolean buildCompleted() {
     return BuildStatus.BUILD_COMPLETED.equals(buildStatus);
   }
 }

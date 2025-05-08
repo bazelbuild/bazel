@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -57,13 +57,6 @@ msys*)
   declare -r is_windows=false
   ;;
 esac
-
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
 
 #### TESTS #############################################################
 
@@ -197,9 +190,16 @@ EOF
   cat >$pkg/BUILD <<EOF
 load(':rule.bzl', 'demo_rule')
 
+# Needed to avoid the select() being eliminated as trivial.
+config_setting(
+    name = 'config',
+    values = {'defines': 'something'},
+)
+
 demo_rule(
   name = 'demo',
   foo = select({
+    ':config': 'selectable_str',
     '//conditions:default': 'selectable_str',
   }))
 EOF
@@ -208,6 +208,55 @@ EOF
     fail "Build expected to fail"
   fi
   expect_log "Attribute foo is configurable and cannot be used in outputs"
+}
+
+function test_build_generated_file_with_selects_succeeds() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg || fail "mkdir -p $pkg failed"
+  cat >$pkg/rule.bzl <<EOF
+def _impl(ctx):
+  ctx.actions.write(
+      output=ctx.outputs.out,
+      content="Hello World!"
+  )
+  return []
+
+demo_rule = rule(
+  _impl,
+  attrs = {
+    'srcs': attr.label_list(allow_files=True),
+    'foo': attr.string(),
+  },
+  outputs = {
+    'out': '%{foo}.txt'
+  })
+EOF
+
+  cat >$pkg/a.txt <<EOF
+EOF
+  cat >$pkg/b.txt <<EOF
+EOF
+  cat >$pkg/BUILD <<EOF
+load(':rule.bzl', 'demo_rule')
+
+config_setting(
+  name = "k8_cpu",
+  values = {'cpu': 'k8'},
+)
+
+demo_rule(
+  name = 'demo',
+  srcs = select({
+    ':k8_cpu': ['a.txt'],
+  }) + select({
+    ':k8_cpu': ['b.txt'],
+  }),
+  foo = 'foobar',
+)
+EOF
+
+  bazel cquery --cpu=k8 --experimental_use_validation_aspect //$pkg:foobar.txt &> $TEST_log \
+    || fail "Cquery 'foobar.txt' expected to succeed"
 }
 
 run_suite "starlark outputs tests"

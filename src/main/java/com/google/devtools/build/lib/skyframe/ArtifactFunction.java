@@ -13,13 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.actions.MiddlemanType.RUNFILES_MIDDLEMAN;
+import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.fetchRemoteSkyValue;
+import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -32,11 +31,8 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
-import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -44,9 +40,14 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
+import com.google.devtools.build.lib.skyframe.TraversalRequest.DirectTraversalRoot;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationState;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.XattrProvider;
@@ -55,25 +56,24 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
  * A builder of values for {@link Artifact} keys when the key is not a simple generated artifact. To
- * save memory, ordinary generated artifacts (non-middleman, non-tree) have their metadata accessed
+ * save memory, ordinary generated artifacts (non-runfiles, non-tree) have their metadata accessed
  * directly from the corresponding {@link ActionExecutionValue}. This SkyFunction is therefore only
- * usable for source, middleman, and tree artifacts.
+ * usable for source, runfiles trees and tree artifacts.
  */
 public final class ArtifactFunction implements SkyFunction {
 
   private final Supplier<Boolean> mkdirForTreeArtifacts;
   private final MetadataConsumerForMetrics sourceArtifactsSeen;
   private final XattrProvider xattrProvider;
+  private final Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier;
 
   /** A {@link SkyValue} representing a missing input file. */
   public static final class MissingArtifactValue implements SkyValue {
@@ -98,13 +98,29 @@ public final class ArtifactFunction implements SkyFunction {
     }
   }
 
+  private static class State implements SerializableSkyKeyComputeState {
+    private SerializationState serializationState = INITIAL_STATE;
+
+    @Override
+    public SerializationState getSerializationState() {
+      return serializationState;
+    }
+
+    @Override
+    public void setSerializationState(SerializationState state) {
+      this.serializationState = state;
+    }
+  }
+
   public ArtifactFunction(
       Supplier<Boolean> mkdirForTreeArtifacts,
       MetadataConsumerForMetrics sourceArtifactsSeen,
-      XattrProvider xattrProvider) {
+      XattrProvider xattrProvider,
+      Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier) {
     this.mkdirForTreeArtifacts = mkdirForTreeArtifacts;
     this.sourceArtifactsSeen = sourceArtifactsSeen;
     this.xattrProvider = xattrProvider;
+    this.cachingDependenciesSupplier = cachingDependenciesSupplier;
   }
 
   @Nullable
@@ -112,14 +128,33 @@ public final class ArtifactFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws ArtifactFunctionException, InterruptedException {
     Artifact artifact = (Artifact) skyKey;
+
     if (!artifact.hasKnownGeneratingAction()) {
-      // If the artifact has no known generating action, it is a source artifact.
+      // If the artifact has no known generating action, it is a source artifact and is never cached
+      // remotely.
       return createSourceValue(artifact, env);
     }
+
+    RemoteAnalysisCachingDependenciesProvider remoteCachingDependencies =
+        cachingDependenciesSupplier.get();
+    if (remoteCachingDependencies.isRemoteFetchEnabled()) {
+      switch (fetchRemoteSkyValue(artifact, env, remoteCachingDependencies, State::new)) {
+        case SkyValueRetriever.Restart unused:
+          return null;
+        case SkyValueRetriever.RetrievedValue v:
+          return v.value();
+        case SkyValueRetriever.NoCachedData unused:
+          break;
+      }
+    }
+
     Artifact.DerivedArtifact derivedArtifact = (DerivedArtifact) artifact;
 
     ArtifactDependencies artifactDependencies =
-        ArtifactDependencies.discoverDependencies(derivedArtifact, env);
+        ArtifactDependencies.discoverDependencies(
+            derivedArtifact,
+            env,
+            /* crashIfActionOwnerMissing= */ !remoteCachingDependencies.isRemoteFetchEnabled());
     if (artifactDependencies == null) {
       return null;
     }
@@ -140,23 +175,14 @@ public final class ArtifactFunction implements SkyFunction {
       return null;
     }
 
-    if (artifact.isTreeArtifact()) {
-      // We got a request for the whole tree artifact. We can just return the associated
-      // TreeArtifactValue.
-      return Preconditions.checkNotNull(actionValue.getTreeArtifactValue(artifact), artifact);
-    }
+    Preconditions.checkState(
+        artifact.isTreeArtifact(),
+        "'%s' used as a key for ArtifactFunction is not a tree artifact or a source artifact",
+        artifact);
 
-    Preconditions.checkState(artifact.isMiddlemanArtifact(), artifact);
-    Action action =
-        Preconditions.checkNotNull(
-            artifactDependencies.actionLookupValue.getAction(generatingActionKey.getActionIndex()),
-            "Null middleman action? %s",
-            artifactDependencies);
-    FileArtifactValue individualMetadata = actionValue.getExistingFileArtifactValue(artifact);
-    if (isAggregatingValue(action)) {
-      return createRunfilesArtifactValue(artifact, action, individualMetadata, env);
-    }
-    return individualMetadata;
+    // We got a request for the whole tree artifact. We can just return the associated
+    // TreeArtifactValue.
+    return Preconditions.checkNotNull(actionValue.getTreeArtifactValue(artifact), artifact);
   }
 
   private static void mkdirForTreeArtifact(
@@ -196,8 +222,8 @@ public final class ArtifactFunction implements SkyFunction {
       return null; // The expanded actions are not yet available.
     }
 
-    SkyframeIterableResult expandedActionValues =
-        env.getOrderedValuesAndExceptions(expandedActionExecutionKeys);
+    SkyframeLookupResult expandedActionValues =
+        env.getValuesAndExceptions(expandedActionExecutionKeys);
     if (env.valuesMissing()) {
       return null; // The execution values of the expanded actions are not yet all available.
     }
@@ -206,12 +232,11 @@ public final class ArtifactFunction implements SkyFunction {
     // parent TreeArtifact.
     SpecialArtifact parent = (SpecialArtifact) artifactDependencies.artifact;
     TreeArtifactValue.Builder treeBuilder = TreeArtifactValue.newBuilder(parent);
-    boolean omitted = false;
 
     for (ActionLookupData actionKey : expandedActionExecutionKeys) {
       boolean sawTreeChild = false;
       ActionExecutionValue actionExecutionValue =
-          (ActionExecutionValue) expandedActionValues.next();
+          (ActionExecutionValue) expandedActionValues.get(actionKey);
       if (actionExecutionValue == null) {
         return null;
       }
@@ -229,11 +254,7 @@ public final class ArtifactFunction implements SkyFunction {
 
         if (artifact.getParent().equals(parent)) {
           sawTreeChild = true;
-          if (FileArtifactValue.OMITTED_FILE_MARKER.equals(entry.getValue())) {
-            omitted = true;
-          } else {
-            treeBuilder.putChild((TreeFileArtifact) artifact, entry.getValue());
-          }
+          treeBuilder.putChild((TreeFileArtifact) artifact, entry.getValue());
         }
       }
 
@@ -245,17 +266,6 @@ public final class ArtifactFunction implements SkyFunction {
     }
 
     TreeArtifactValue tree = treeBuilder.build();
-
-    if (omitted) {
-      // Expected 1 args, but got 2.
-      Preconditions.checkState(
-          tree.getChildValues().isEmpty(),
-          "Action template expansion has some but not all outputs omitted, present outputs: %s",
-          artifactDependencies,
-          tree.getChildValues());
-      return TreeArtifactValue.OMITTED_TREE_MARKER;
-    }
-
     return tree;
   }
 
@@ -267,6 +277,9 @@ public final class ArtifactFunction implements SkyFunction {
     FileValue fileValue;
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
+    } catch (DetailedIOException e) {
+      throw new ArtifactFunctionException(
+          SourceArtifactException.createdDetailed(artifact, e), Transience.PERSISTENT);
     } catch (IOException e) {
       throw new ArtifactFunctionException(
           SourceArtifactException.create(artifact, e), Transience.PERSISTENT);
@@ -298,7 +311,7 @@ public final class ArtifactFunction implements SkyFunction {
     // We rely on the guarantees of RecursiveFilesystemTraversalFunction for correctness.
     //
     // This approach may have unexpected interactions with --package_path. In particular, the exec
-    // root is setup from the loading / analysis phase, and it is now too late to change it;
+    // root is set up from the loading / analysis phase, and it is now too late to change it;
     // therefore, this may traverse a different set of files depending on which targets are built
     // at the same time and what the package-path layout is (this may be moot if there is only one
     // entry). Or this may return a set of files that's inconsistent with those actually available
@@ -320,17 +333,27 @@ public final class ArtifactFunction implements SkyFunction {
         case DANGLING_SYMLINK:
         case FILE_OPERATION_FAILURE:
         case SYMLINK_CYCLE_OR_INFINITE_EXPANSION:
+        case CANNOT_TRAVERSE_SOURCE_DIRECTORY:
           throw new ArtifactFunctionException(
               SourceArtifactException.create(artifact, e), Transience.PERSISTENT);
+        case INCONSISTENT_FILESYSTEM:
+          throw new ArtifactFunctionException(
+              SourceArtifactException.create(artifact, e), Transience.TRANSIENT);
         case CANNOT_CROSS_PACKAGE_BOUNDARY:
           throw new IllegalStateException(
               String.format(
-                  "Package boundary mode was cross: %s %s %s" + artifact, fileValue, request),
+                  "Cannot cross package boundary: %s %s %s", artifact, fileValue, request),
               e);
         case GENERATED_PATH_CONFLICT:
           throw new IllegalStateException(
               String.format(
                   "Generated conflict in source tree: %s %s %s", artifact, fileValue, request),
+              e);
+        // TODO: b/7075837 - This code path is possible when BAZEL_TRACK_SOURCE_DIRECTORIES is set.
+        case DETAILED_IO_EXCEPTION:
+          throw new IllegalStateException(
+              String.format(
+                  "%s: %s %s %s", e.getCause().getMessage(), artifact, fileValue, request),
               e);
       }
       throw new IllegalStateException("Can't get here", e);
@@ -346,83 +369,23 @@ public final class ArtifactFunction implements SkyFunction {
     return FileArtifactValue.createForDirectoryWithHash(fp.digestAndReset());
   }
 
-  @Nullable
-  private static RunfilesArtifactValue createRunfilesArtifactValue(
-      Artifact artifact,
-      ActionAnalysisMetadata action,
-      FileArtifactValue value,
-      SkyFunction.Environment env)
-      throws InterruptedException {
-    ImmutableList.Builder<Pair<Artifact, FileArtifactValue>> fileInputsBuilder =
-        ImmutableList.builder();
-    ImmutableList.Builder<Pair<Artifact, TreeArtifactValue>> directoryInputsBuilder =
-        ImmutableList.builder();
-    // Avoid iterating over nested set twice.
-    List<Artifact> inputs = action.getInputs().toList();
-    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(Artifact.keys(inputs));
-    if (env.valuesMissing()) {
-      return null;
-    }
-    for (Artifact input : inputs) {
-
-      SkyValue inputValue = values.next();
-      if (inputValue == null) {
-        return null;
-      }
-      if (inputValue instanceof FileArtifactValue) {
-        fileInputsBuilder.add(Pair.of(input, (FileArtifactValue) inputValue));
-      } else if (inputValue instanceof ActionExecutionValue) {
-        fileInputsBuilder.add(
-            Pair.of(
-                input, ((ActionExecutionValue) inputValue).getExistingFileArtifactValue(input)));
-      } else if (inputValue instanceof TreeArtifactValue) {
-        directoryInputsBuilder.add(Pair.of(input, (TreeArtifactValue) inputValue));
-      } else {
-        // We do not recurse in middleman artifacts.
-        Preconditions.checkState(
-            !(inputValue instanceof RunfilesArtifactValue),
-            "%s %s %s",
-            artifact,
-            action,
-            inputValue);
-      }
-    }
-
-    ImmutableList<Pair<Artifact, FileArtifactValue>> fileInputs =
-        ImmutableList.sortedCopyOf(
-            Comparator.comparing(pair -> pair.getFirst().getExecPathString()),
-            fileInputsBuilder.build());
-    ImmutableList<Pair<Artifact, TreeArtifactValue>> directoryInputs =
-        ImmutableList.sortedCopyOf(
-            Comparator.comparing(pair -> pair.getFirst().getExecPathString()),
-            directoryInputsBuilder.build());
-
-    return new RunfilesArtifactValue(fileInputs, directoryInputs, value);
-  }
-
-  /**
-   * Returns whether this value needs to contain the data of all its inputs. Currently only tests to
-   * see if the action is a runfiles middleman action. However, may include Fileset artifacts in the
-   * future.
-   */
-  private static boolean isAggregatingValue(ActionAnalysisMetadata action) {
-    return action.getActionType() == RUNFILES_MIDDLEMAN;
-  }
-
   @Override
   public String extractTag(SkyKey skyKey) {
     return Label.print(((Artifact) skyKey).getOwner());
   }
 
   @Nullable
-  public static ActionLookupValue getActionLookupValue(
-      ActionLookupKey actionLookupKey, SkyFunction.Environment env) throws InterruptedException {
+  static ActionLookupValue getActionLookupValue(
+      ActionLookupKey actionLookupKey,
+      SkyFunction.Environment env,
+      boolean crashIfActionOwnerMissing)
+      throws InterruptedException {
     ActionLookupValue value = (ActionLookupValue) env.getValue(actionLookupKey);
     if (value == null) {
       Preconditions.checkState(
-          actionLookupKey == CoverageReportValue.COVERAGE_REPORT_KEY,
+          actionLookupKey == CoverageReportValue.COVERAGE_REPORT_KEY || !crashIfActionOwnerMissing,
           "Not-yet-present artifact owner: %s",
-          actionLookupKey);
+          actionLookupKey.getCanonicalName());
       return null;
     }
     return value;
@@ -473,8 +436,6 @@ public final class ArtifactFunction implements SkyFunction {
   }
 
   /** Describes dependencies of derived artifacts. */
-  // TODO(b/19539699): extend this to comprehensively support all special artifact types (e.g.
-  // middleman, etc).
   public static final class ArtifactDependencies {
     private final DerivedArtifact artifact;
     private final ActionLookupValue actionLookupValue;
@@ -490,12 +451,15 @@ public final class ArtifactFunction implements SkyFunction {
      */
     @Nullable
     public static ArtifactDependencies discoverDependencies(
-        Artifact.DerivedArtifact derivedArtifact, SkyFunction.Environment env)
+        Artifact.DerivedArtifact derivedArtifact,
+        SkyFunction.Environment env,
+        boolean crashIfActionOwnerMissing)
         throws InterruptedException {
 
       ActionLookupData generatingActionKey = derivedArtifact.getGeneratingActionKey();
       ActionLookupValue actionLookupValue =
-          ArtifactFunction.getActionLookupValue(generatingActionKey.getActionLookupKey(), env);
+          ArtifactFunction.getActionLookupValue(
+              generatingActionKey.getActionLookupKey(), env, crashIfActionOwnerMissing);
       if (actionLookupValue == null) {
         return null;
       }
@@ -535,7 +499,7 @@ public final class ArtifactFunction implements SkyFunction {
         return null;
       }
       ImmutableList.Builder<ActionLookupData> expandedActionExecutionKeys =
-          ImmutableList.builderWithExpectedSize(value.getNumActions());
+          ImmutableList.builderWithExpectedSize(value.getActions().size());
       for (ActionAnalysisMetadata action : value.getActions()) {
         expandedActionExecutionKeys.add(
             ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey());
@@ -572,6 +536,20 @@ public final class ArtifactFunction implements SkyFunction {
       return new SourceArtifactException(detailedExitCode, e);
     }
 
+    private static SourceArtifactException createdDetailed(
+        Artifact artifact, DetailedIOException e) {
+      FailureDetail failureDetailWithUpdatedErrorMessage =
+          e.getDetailedExitCode().getFailureDetail().toBuilder()
+              .setMessage(
+                  constructErrorMessage(
+                      artifact,
+                      "error reading file: "
+                          + e.getDetailedExitCode().getFailureDetail().getMessage()))
+              .build();
+      return new SourceArtifactException(
+          DetailedExitCode.of(failureDetailWithUpdatedErrorMessage), e);
+    }
+
     private static SourceArtifactException create(
         Artifact artifact, RecursiveFilesystemTraversalException e) {
       FailureDetail failureDetail =
@@ -591,12 +569,16 @@ public final class ArtifactFunction implements SkyFunction {
     }
   }
 
-  private static final class DirectoryArtifactTraversalRequest extends TraversalRequest {
+  /**
+   * Key for depending on all files under a source directory. Only requested when {@linkplain
+   * TrackSourceDirectoriesFlag tracking source directories}.
+   */
+  public static final class DirectoryArtifactTraversalRequest extends TraversalRequest {
 
-    private static final Interner<DirectoryArtifactTraversalRequest> interner =
-        BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<DirectoryArtifactTraversalRequest> interner =
+        SkyKey.newInterner();
 
-    static DirectoryArtifactTraversalRequest create(
+    private static DirectoryArtifactTraversalRequest create(
         DirectTraversalRoot root, boolean skipTestingForSubpackage, Artifact artifact) {
       return interner.intern(
           new DirectoryArtifactTraversalRequest(root, skipTestingForSubpackage, artifact));
@@ -621,11 +603,6 @@ public final class ArtifactFunction implements SkyFunction {
     @Override
     protected boolean isRootGenerated() {
       return false;
-    }
-
-    @Override
-    protected PackageBoundaryMode crossPkgBoundaries() {
-      return PackageBoundaryMode.CROSS;
     }
 
     @Override
@@ -655,6 +632,11 @@ public final class ArtifactFunction implements SkyFunction {
     }
 
     @Override
+    public SkyKeyInterner<DirectoryArtifactTraversalRequest> getSkyKeyInterner() {
+      return interner;
+    }
+
+    @Override
     public int hashCode() {
       // Artifact is only for error info and not considered in hash code or equality.
       return root.hashCode() * 31 + Boolean.hashCode(skipTestingForSubpackage);
@@ -665,11 +647,10 @@ public final class ArtifactFunction implements SkyFunction {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof DirectoryArtifactTraversalRequest)) {
+      if (!(o instanceof DirectoryArtifactTraversalRequest other)) {
         return false;
       }
       // Artifact is only for error info and not considered in hash code or equality.
-      DirectoryArtifactTraversalRequest other = (DirectoryArtifactTraversalRequest) o;
       return root.equals(other.root) && skipTestingForSubpackage == other.skipTestingForSubpackage;
     }
   }

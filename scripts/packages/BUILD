@@ -1,3 +1,4 @@
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load(":self_extract_binary.bzl", "self_extract_binary")
 
 package(default_visibility = ["//scripts/packages:__subpackages__"])
@@ -6,8 +7,8 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//scripts/packages/debian:srcs",
-        "//scripts/packages/fedora:srcs",
         "//scripts/packages/dmg:srcs",
+        "//scripts/packages/fedora:srcs",
     ],
     visibility = [
         "//scripts:__pkg__",
@@ -25,14 +26,14 @@ filegroup(
         "//src/conditions:freebsd": [],
         "//src/conditions:openbsd": [],
         "//src/conditions:darwin": [
+            ":generate-package-info",
             ":with-jdk/install.sh",
             ":without-jdk/install.sh",
-            ":generate-package-info",
         ],
         "//conditions:default": [
+            ":generate-package-info",
             ":with-jdk/install.sh",
             ":without-jdk/install.sh",
-            ":generate-package-info",
             "//:bazel-distfile",
             "//scripts/packages/debian:bazel-debian",
             "//scripts/packages/debian:bazel-debian-src",

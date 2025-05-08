@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -41,14 +41,9 @@ fi
 # latter depends on the bazel binary used to run the test.
 # Sort the targets for a deterministic diffing experience.
 current_deps="${TEST_TMPDIR}/current_deps"
-grep -v "^@bazel_tools//\|^@remote_java_tools\|^@debian_cc_deps" \
-  "${TEST_SRCDIR}/io_bazel/src/test/shell/bazel/embedded_tools_deps" \
+grep -v "@bazel_tools//\|^@remote_java_tools\|debian_cc_deps" \
+  "$(rlocation io_bazel/src/test/shell/bazel/embedded_tools_deps)" \
   | sort >"${current_deps}"
-
-# TODO: This is a temproary hack to make this test works both before and after
-# https://github.com/bazelbuild/bazel/pull/11300
-# Remove the following line after the PR is merged.
-sed -i.bak s/\:zlib$/\:zlib_checked_in/ "${current_deps}"
 
 # Load the current allowed dependencies of //src:embedded_tools_srcs
 allowed_deps=${testdata_path}/embedded_tools_srcs_deps

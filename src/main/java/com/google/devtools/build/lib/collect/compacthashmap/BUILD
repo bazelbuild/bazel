@@ -1,6 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -11,9 +14,7 @@ filegroup(
 # Library of collection utilities.
 java_library(
     name = "compacthashmap",
-    srcs = glob([
-        "*.java",
-    ]),
+    srcs = ["CompactHashMap.java"],
     deps = [
         "//third_party:error_prone_annotations",
         "//third_party:guava",

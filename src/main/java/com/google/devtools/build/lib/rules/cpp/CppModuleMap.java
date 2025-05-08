@@ -93,8 +93,7 @@ public final class CppModuleMap implements CppModuleMapApi<Artifact> {
     if (this == other) {
       return true;
     }
-    if (other instanceof CppModuleMap) {
-      CppModuleMap that = (CppModuleMap) other;
+    if (other instanceof CppModuleMap that) {
       return artifact.equals(that.artifact)
           && umbrellaHeader.equals(that.umbrellaHeader)
           && name.equals(that.name);
@@ -105,15 +104,5 @@ public final class CppModuleMap implements CppModuleMapApi<Artifact> {
   @Override
   public String toString() {
     return name + "@" + artifact;
-  }
-
-  /**
-   * Specifies whether to generate an umbrella header.
-   */
-  public enum UmbrellaHeaderStrategy {
-    /** Generate an umbrella header. */
-    GENERATE,
-    /** Do not generate an umbrella header. */
-    DO_NOT_GENERATE
   }
 }

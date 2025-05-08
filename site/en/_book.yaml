@@ -9,6 +9,8 @@ upper_tabs:
       contents:
       - title: Bazel overview
         path: /about/intro
+      - title: Why Bazel?
+        path: /about/why
       - title: Bazel vision
         path: /about/vision
       - title: Roadmap
@@ -47,8 +49,6 @@ upper_tabs:
         path: /install/os-x
       - title: Windows
         path: /install/windows
-      - title: Fedora/CentOS
-        path: /install/redhat
       - title: Ubuntu
         path: /install/ubuntu
       - title: openSUSE
@@ -86,7 +86,7 @@ upper_tabs:
       - title: Platforms
         path: /concepts/platforms
       - title: Hermeticity
-        path: /concepts/hermeticity
+        path: /basics/hermeticity
 
 - name: User guide
   heading: Guides and tutorials for learning to use Bazel
@@ -95,12 +95,14 @@ upper_tabs:
     other:
     - name: Releases
       contents:
-      - title: Overview
+      - title: Release model
         path: /release/
-      - title: Release versioning
-        path: /release/versioning
+      - title: Rolling releases
+        path: /release/rolling
       - title: Backward compatibility
         path: /release/backward-compatibility
+      - title: Rule compatibility
+        path: /release/rule-compatibility
     - name: Basics
       contents:
       - heading: Getting started with BUILD files
@@ -108,10 +110,6 @@ upper_tabs:
         path: /build/style-guide
       - title: Share variables
         path: /build/share-variables
-      - title: External dependencies
-        path: /build/external
-      - title: Manage dependencies with Bzlmod
-        path: /build/bzlmod
       - title: Recommended rules
         path: /community/recommended-rules
       - heading: Running Bazel
@@ -125,11 +123,34 @@ upper_tabs:
         path: /run/scripts
       - title: Client/server implementation
         path: /run/client-server
+      - heading: External dependencies
+      - title: Overview
+        path: /external/overview
+      - title: Bazel modules
+        path: /external/module
+      - title: Bazel registries
+        path: /external/registry
+      - title: Repository rules
+        path: /external/repo
+      - title: Module extensions
+        path: /external/extension
+      - title: Module lockfile
+        path: /external/lockfile
+      - title: Vendor mode
+        path: /external/vendor
+      - title: '`mod` command'
+        path: /external/mod-command
+      - title: Bzlmod migration guide
+        path: /external/migration
+      - title: FAQ
+        path: /external/faq
       - heading: Querying your build
       - title: Query quickstart
         path: /query/quickstart
       - title: Query language
         path: /query/language
+      - title: Query guide
+        path: /query/guide
       - title: Action graph query (aquery)
         path: /query/aquery
       - title: Configurable query (cquery)
@@ -141,17 +162,24 @@ upper_tabs:
         path: /configure/attributes
       - title: Integrating with C++ rules
         path: /configure/integrate-cpp
-      - title: Implementing toolchain resolution
-        path: /configure/toolchain-resolution
       - title: Code coverage with Bazel
         path: /configure/coverage
       - heading: Optimizing Bazel
       - title: Best practices
         path: /configure/best-practices
-      - title: Optimize memory
-        path: /configure/memory
       - title: Using Bazel on Windows
         path: /configure/windows
+      - heading: Build performance
+      - title: Extracting build performance metrics
+        path: /advanced/performance/build-performance-metrics
+      - title: Breaking down build performance
+        path: /advanced/performance/build-performance-breakdown
+      - title: JSON trace profile
+        path: /advanced/performance/json-trace-profile
+      - title: Optimize memory
+        path: /advanced/performance/memory
+      - title: Optimize build iteration speed
+        path: /advanced/performance/iteration-speed
     - name: Remote execution
       contents:
       - heading: Remote build execution (RBE)
@@ -167,7 +195,7 @@ upper_tabs:
         path: /remote/caching
       - heading: Troubleshooting
       - title: Docker Sandbox
-        path: /remote/sandboxing
+        path: /remote/sandbox
       - title: Non-hermetic WORKSPACE rules
         path: /remote/workspace
       - title: Remote cache hits
@@ -227,11 +255,15 @@ upper_tabs:
     - name: Query language
       contents:
       - title: Query reference
-        path: /reference/query
+        path: /query/language
     - name: Glossary
       contents:
       - title: Glossary
         path: /reference/glossary
+    - name: Flag cheatsheet
+      contents:
+      - title: Flag cheatsheet
+        path: /reference/flag-cheatsheet
 
 - name: Extending
   heading: Guides to maximize Bazel's power through advanced concepts and extensions
@@ -244,22 +276,32 @@ upper_tabs:
         path: /extending/concepts/
       - title: Rules
         path: /extending/rules
-      - title: Macros
+      - title: Symbolic macros
         path: /extending/macros
+      - title: Legacy macros
+        path: /extending/legacy-macros
       - title: Depsets
         path: /extending/depsets
       - title: Aspects
         path: /extending/aspects
-      - title: Repository rules
-        path: /extending/repo
       - title: Configuring
         path: /extending/config
+      - title: Platforms
+        path: /extending/platforms
+      - title: Toolchains
+        path: /extending/toolchains
+      - title: Execution groups
+        path: /extending/exec-groups
+      - title: Automatic execution groups
+        path: /extending/auto-exec-groups
     - name: Writing rules
       contents:
       - title: Creating a rule
         path: /rules/rules-tutorial
-      - title: Creating a macro
+      - title: Creating a symbolic macro
         path: /rules/macro-tutorial
+      - title: Creating a legacy macro
+        path: /rules/legacy-macro-tutorial
       - title: Creating custom verbs
         path: /rules/verbs-tutorial
       - title: Starlark language
@@ -289,14 +331,6 @@ upper_tabs:
       - title: Document rules with Stardoc
         path: https://github.com/bazelbuild/stardoc
         status: external
-    - name: Design docs
-      contents:
-      - title: Platforms
-        path: /extending/platforms
-      - title: Execution groups
-        path: /extending/exec-groups
-      - title: Toolchains
-        path: /extending/toolchains
     - name: APIs
       contents:
       - title: Build file API
@@ -322,6 +356,8 @@ upper_tabs:
         path: /contribute/codebase
       - title: Searching the codebase
         path: /contribute/search
+      - title: StateMachine Guide
+        path: /contribute/statemachine-guide
       - heading: Contribute documentation
       - title: Overview
         path: /contribute/docs
@@ -339,10 +375,12 @@ upper_tabs:
         path: /community/sig
       - title: Bazel experts
         path: /community/experts/
+      - title: Bazel partners
+        path: /community/partners/
       - title: Bazel users
         path: /community/users
       - title: Nominate a recommended rule
-        path: /contribute/recommended-rules
+        path: /community/recommended-rules
       - title: Remote execution services
         path: /community/remote-execution-services
     - name: Getting help
@@ -352,7 +390,7 @@ upper_tabs:
       - title: Support policy
         path: /contribute/policy
 
-- name: Versions
+- name: Versioned docs
   path: /versions/
   menu:
   - column:

@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider.StrictActionEnvOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -44,11 +46,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests consistency of {@link BazelRuleClassProvider}.
- */
+/** Tests consistency of {@link BazelRuleClassProvider}. */
 @RunWith(JUnit4.class)
-public class BazelRuleClassProviderTest {
+public class BazelRuleClassProviderTest extends BuildViewTestCase {
 
   private static void checkConfigConsistency(ConfiguredRuleClassProvider provider) {
     // Check that every fragment required by a rule is present.
@@ -113,11 +113,6 @@ public class BazelRuleClassProviderTest {
   }
 
   @Test
-  public void shConsistency() {
-    checkModule(ShRules.INSTANCE);
-  }
-
-  @Test
   public void protoConsistency() {
     checkModule(BazelRuleClassProvider.PROTO_RULES);
   }
@@ -145,11 +140,6 @@ public class BazelRuleClassProviderTest {
   @Test
   public void objcConsistency() {
     checkModule(ObjcRules.INSTANCE);
-  }
-
-  @Test
-  public void j2objcConsistency() {
-    checkModule(J2ObjcRules.INSTANCE);
   }
 
   @Test
@@ -204,11 +194,19 @@ public class BazelRuleClassProviderTest {
   }
 
   @Test
-  public void optionsAlsoApplyToHost() {
-    StrictActionEnvOptions o = Options.getDefaults(
-        StrictActionEnvOptions.class);
-    o.useStrictActionEnv = true;
-    StrictActionEnvOptions h = o.getHost();
+  public void optionsAlsoApplyToHost() throws Exception {
+    BuildOptions options = targetConfig.getOptions().clone();
+    var strictActionEnvOptions = options.get(StrictActionEnvOptions.class);
+    if (strictActionEnvOptions == null) {
+      // This Bazel build doesn't include StrictActionEnvOptions. Nothing to test.
+      return;
+    }
+    strictActionEnvOptions.useStrictActionEnv = true;
+
+    StrictActionEnvOptions h =
+        AnalysisTestUtil.execOptions(options, skyframeExecutor, reporter)
+            .get(StrictActionEnvOptions.class);
+
     assertThat(h.useStrictActionEnv).isTrue();
   }
 
@@ -221,7 +219,7 @@ public class BazelRuleClassProviderTest {
     assertThat(determineShellExecutable(OS.OPENBSD, null))
         .isEqualTo(PathFragment.create("/usr/local/bin/bash"));
     assertThat(determineShellExecutable(OS.WINDOWS, null))
-        .isEqualTo(PathFragment.create("c:/tools/msys64/usr/bin/bash.exe"));
+        .isEqualTo(PathFragment.create("c:/msys64/usr/bin/bash.exe"));
   }
 
   @Test

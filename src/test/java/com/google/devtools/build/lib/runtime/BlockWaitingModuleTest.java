@@ -41,7 +41,6 @@ public final class BlockWaitingModuleTest {
               .setCrash(Crash.newBuilder().setCode(Crash.Code.CRASH_UNKNOWN))
               .build());
 
-  BlockWaitingModule module;
   @Mock CommandEnvironment env;
 
   @Test

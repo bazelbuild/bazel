@@ -80,9 +80,9 @@ public abstract class Link {
           CppFileTypes.CLIF_OUTPUT_PROTO,
           CppFileTypes.BC_SOURCE);
 
-  /**
-   * Whether a particular link target requires PIC code.
-   */
+  // LINT.IfChange
+
+  /** Whether a particular link target requires PIC code. */
   public enum Picness {
     PIC,
     NOPIC
@@ -115,14 +115,6 @@ public abstract class Link {
         ArtifactCategory.STATIC_LIBRARY,
         Executable.NOT_EXECUTABLE),
 
-    /** An objc static archive. */
-    OBJC_ARCHIVE(
-        LinkerOrArchiver.ARCHIVER,
-        CppActionNames.OBJC_ARCHIVE,
-        Picness.NOPIC,
-        ArtifactCategory.STATIC_LIBRARY,
-        Executable.NOT_EXECUTABLE),
-
     /** An objc fully linked static archive. */
     OBJC_FULLY_LINKED_ARCHIVE(
         LinkerOrArchiver.ARCHIVER,
@@ -135,14 +127,6 @@ public abstract class Link {
     OBJC_EXECUTABLE(
         LinkerOrArchiver.LINKER,
         CppActionNames.OBJC_EXECUTABLE,
-        Picness.NOPIC,
-        ArtifactCategory.EXECUTABLE,
-        Executable.EXECUTABLE),
-
-    /** An objc executable that includes objc++/c++ source. */
-    OBJCPP_EXECUTABLE(
-        LinkerOrArchiver.LINKER,
-        CppActionNames.OBJCPP_EXECUTABLE,
         Picness.NOPIC,
         ArtifactCategory.EXECUTABLE,
         Executable.EXECUTABLE),
@@ -202,6 +186,8 @@ public abstract class Link {
         ArtifactCategory.EXECUTABLE,
         Executable.EXECUTABLE);
 
+    // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/target_types.bzl)
+
     private final LinkerOrArchiver linkerOrArchiver;
     private final String actionName;
     private final ArtifactCategory linkerOutput;
@@ -239,7 +225,7 @@ public abstract class Link {
     public LinkerOrArchiver linkerOrArchiver() {
       return linkerOrArchiver;
     }
-    
+
     /** Returns an {@code ArtifactCategory} identifying the artifact type this link action emits. */
     public ArtifactCategory getLinkerOutput() {
       return linkerOutput;
@@ -302,14 +288,5 @@ public abstract class Link {
   public enum ArchiveType {
     REGULAR,        // Put the archive itself on the linker command line.
     START_END_LIB   // Put the object files enclosed by --start-lib / --end-lib on the command line
-  }
-
-  static boolean useStartEndLib(LinkerInput linkerInput, ArchiveType archiveType) {
-    // TODO(bazel-team): Figure out if PicArchives are actually used. For it to be used, both
-    // linkingStatically and linkShared must me true, we must be in opt mode and cpu has to be k8.
-    return archiveType == ArchiveType.START_END_LIB
-        && (linkerInput.getArtifactCategory() == ArtifactCategory.STATIC_LIBRARY
-            || linkerInput.getArtifactCategory() == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY)
-        && linkerInput.containsObjectFiles();
   }
 }

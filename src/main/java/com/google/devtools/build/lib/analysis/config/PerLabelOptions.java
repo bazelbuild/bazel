@@ -65,6 +65,20 @@ public final class PerLabelOptions {
     }
 
     @Override
+    public boolean starlarkConvertible() {
+      return true;
+    }
+
+    @Override
+    public String reverseForStarlark(Object converted) {
+      PerLabelOptions typedValue = (PerLabelOptions) converted;
+      return String.format(
+          "%s@%s",
+          typedValue.getRegexFilter().toOriginalString(),
+          String.join(",", typedValue.getOptions()));
+    }
+
+    @Override
     public String getTypeDescription() {
       return "a comma-separated list of regex expressions with prefix '-' specifying"
       + " excluded paths followed by an @ and a comma separated list of options";
@@ -112,10 +126,9 @@ public final class PerLabelOptions {
     if (this == other) {
       return true;
     }
-    if (!(other instanceof PerLabelOptions)) {
+    if (!(other instanceof PerLabelOptions otherOptions)) {
       return false;
     }
-    PerLabelOptions otherOptions = (PerLabelOptions) other;
     return this.regexFilter.equals(otherOptions.regexFilter)
         && this.optionsList.equals(otherOptions.optionsList);
   }

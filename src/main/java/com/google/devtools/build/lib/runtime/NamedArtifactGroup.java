@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.devtools.build.lib.actions.CompletionContext.isGuaranteedToBeOutputFile;
 import static com.google.devtools.build.lib.analysis.TargetCompleteEvent.newFileFromArtifact;
 
 import com.google.common.collect.ImmutableList;
@@ -76,26 +75,19 @@ class NamedArtifactGroup implements BuildEvent {
     for (Object elem : set.getLeaves()) {
       ExpandedArtifact expandedArtifact = (ExpandedArtifact) elem;
       if (expandedArtifact.relPath == null) {
-        FileArtifactValue fileMetadata =
+        FileArtifactValue metadata =
             completionContext.getFileArtifactValue(expandedArtifact.artifact);
-        LocalFileType outputType =
-            fileMetadata != null && isGuaranteedToBeOutputFile(fileMetadata.getType())
-                ? LocalFileType.OUTPUT_FILE
-                : LocalFileType.OUTPUT;
         artifacts.add(
             new LocalFile(
                 completionContext.pathResolver().toPath(expandedArtifact.artifact),
-                outputType,
-                fileMetadata == null ? null : expandedArtifact.artifact,
-                fileMetadata));
+                LocalFileType.forArtifact(expandedArtifact.artifact, metadata),
+                metadata));
       } else {
-        // TODO(b/199940216): Can fileset metadata be properly handled here?
         artifacts.add(
             new LocalFile(
                 completionContext.pathResolver().convertPath(expandedArtifact.target),
                 LocalFileType.OUTPUT,
-                /*artifact=*/ null,
-                /*artifactMetadata=*/ null));
+                expandedArtifact.metadata));
       }
     }
     return artifacts.build();
@@ -113,19 +105,27 @@ class NamedArtifactGroup implements BuildEvent {
       if (expandedArtifact.relPath == null) {
         String uri =
             pathConverter.apply(completionContext.pathResolver().toPath(expandedArtifact.artifact));
-        if (uri != null) {
-          builder.addFiles(
-              newFileFromArtifact(expandedArtifact.artifact, completionContext).setUri(uri));
+        BuildEventStreamProtos.File file =
+            newFileFromArtifact(
+                /* name= */ null, expandedArtifact.artifact, completionContext, uri);
+        // Omit files with unknown contents (e.g. if uploading failed).
+        if (file.getFileCase() != BuildEventStreamProtos.File.FileCase.FILE_NOT_SET) {
+          builder.addFiles(file);
         }
       } else {
         String uri =
             pathConverter.apply(
                 completionContext.pathResolver().convertPath(expandedArtifact.target));
-        if (uri != null) {
-          builder.addFiles(
-              newFileFromArtifact(
-                      null, expandedArtifact.artifact, expandedArtifact.relPath, completionContext)
-                  .setUri(uri));
+        BuildEventStreamProtos.File file =
+            newFileFromArtifact(
+                /* name= */ null,
+                expandedArtifact.artifact,
+                expandedArtifact.relPath,
+                completionContext,
+                uri);
+        // Omit files with unknown contents (e.g. if uploading failed).
+        if (file.getFileCase() != BuildEventStreamProtos.File.FileCase.FILE_NOT_SET) {
+          builder.addFiles(file);
         }
       }
     }
@@ -142,7 +142,7 @@ class NamedArtifactGroup implements BuildEvent {
    * unaltered.
    */
   static NestedSet<?> expandSet(CompletionContext ctx, NestedSet<?> artifacts) {
-    NestedSetBuilder<Object> res = new NestedSetBuilder<>(Order.STABLE_ORDER);
+    NestedSetBuilder<Object> res = NestedSetBuilder.newBuilder(Order.STABLE_ORDER);
     for (Object artifact : artifacts.getLeaves()) {
       if (artifact instanceof ExpandedArtifact) {
         res.add(artifact);
@@ -152,13 +152,16 @@ class NamedArtifactGroup implements BuildEvent {
             new ArtifactReceiver() {
               @Override
               public void accept(Artifact artifact) {
-                res.add(new ExpandedArtifact(artifact, null, null));
+                res.add(new ExpandedArtifact(artifact, null, null, null));
               }
 
               @Override
               public void acceptFilesetMapping(
-                  Artifact fileset, PathFragment relName, Path targetFile) {
-                res.add(new ExpandedArtifact(fileset, relName, targetFile));
+                  Artifact fileset,
+                  PathFragment relName,
+                  Path targetFile,
+                  FileArtifactValue metadata) {
+                res.add(new ExpandedArtifact(fileset, relName, targetFile, metadata));
               }
             });
       } else {
@@ -193,11 +196,14 @@ class NamedArtifactGroup implements BuildEvent {
     // These fields are used only for Fileset links.
     @Nullable final PathFragment relPath;
     @Nullable final Path target;
+    @Nullable final FileArtifactValue metadata;
 
-    ExpandedArtifact(Artifact artifact, PathFragment relPath, Path target) {
+    ExpandedArtifact(
+        Artifact artifact, PathFragment relPath, Path target, FileArtifactValue metadata) {
       this.artifact = artifact;
       this.relPath = relPath;
       this.target = target;
+      this.metadata = metadata;
     }
 
     // TODO(adonovan): define equals/hashCode. Consider:

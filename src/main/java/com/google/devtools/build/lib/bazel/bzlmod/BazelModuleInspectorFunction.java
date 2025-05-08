@@ -15,19 +15,22 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -42,11 +45,14 @@ public class BazelModuleInspectorFunction implements SkyFunction {
 
   @Override
   @Nullable
-  public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     RootModuleFileValue root =
         (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     if (root == null) {
+      return null;
+    }
+    BazelDepGraphValue depGraphValue = (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
+    if (depGraphValue == null) {
       return null;
     }
     BazelModuleResolutionValue resolutionValue =
@@ -54,12 +60,17 @@ public class BazelModuleInspectorFunction implements SkyFunction {
     if (resolutionValue == null) {
       return null;
     }
-    ImmutableMap<String, ModuleOverride> overrides = root.getOverrides();
-    ImmutableMap<ModuleKey, Module> unprunedDepGraph = resolutionValue.getUnprunedDepGraph();
-    ImmutableMap<ModuleKey, Module> resolvedDepGraph = resolutionValue.getDepGraph();
+    ImmutableMap<String, ModuleOverride> overrides = root.overrides();
+    ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph = resolutionValue.getUnprunedDepGraph();
+    ImmutableMap<ModuleKey, Module> resolvedDepGraph = resolutionValue.getResolvedDepGraph();
 
     ImmutableMap<ModuleKey, AugmentedModule> depGraph =
         computeAugmentedGraph(unprunedDepGraph, resolvedDepGraph.keySet(), overrides);
+
+    ExtensionRepos extensionRepos = computExtensionRepos(depGraphValue, env);
+    if (extensionRepos == null) {
+      return null;
+    }
 
     // Group all ModuleKeys seen by their module name for easy lookup
     ImmutableMap<String, ImmutableSet<ModuleKey>> modulesIndex =
@@ -67,14 +78,19 @@ public class BazelModuleInspectorFunction implements SkyFunction {
             depGraph.values().stream()
                 .collect(
                     Collectors.groupingBy(
-                        AugmentedModule::getName,
-                        Collectors.mapping(AugmentedModule::getKey, toImmutableSet()))));
+                        AugmentedModule::name,
+                        Collectors.mapping(AugmentedModule::key, toImmutableSet()))));
 
-    return BazelModuleInspectorValue.create(depGraph, modulesIndex);
+    return BazelModuleInspectorValue.create(
+        depGraph,
+        modulesIndex,
+        extensionRepos.extensionToRepoInternalNames(),
+        depGraphValue.getCanonicalRepoNameLookup().inverse(),
+        extensionRepos.errors());
   }
 
   public static ImmutableMap<ModuleKey, AugmentedModule> computeAugmentedGraph(
-      ImmutableMap<ModuleKey, Module> unprunedDepGraph,
+      ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph,
       ImmutableSet<ModuleKey> usedModules,
       ImmutableMap<String, ModuleOverride> overrides) {
     Map<ModuleKey, AugmentedModule.Builder> depGraphAugmentBuilder = new HashMap<>();
@@ -83,22 +99,26 @@ public class BazelModuleInspectorFunction implements SkyFunction {
     // to their children AugmentedModule as dependant. Also fill in their own AugmentedModule
     // with a map from their dependencies to the resolution reason that was applied to each.
     // The newly created graph will also contain ModuleAugments for non-loaded modules.
-    for (Entry<ModuleKey, Module> e : unprunedDepGraph.entrySet()) {
+    for (Entry<ModuleKey, InterimModule> e : unprunedDepGraph.entrySet()) {
       ModuleKey parentKey = e.getKey();
-      Module parentModule = e.getValue();
+      InterimModule parentModule = e.getValue();
 
       AugmentedModule.Builder parentBuilder =
           depGraphAugmentBuilder
               .computeIfAbsent(
-                  parentKey, k -> AugmentedModule.builder(k).setName(parentModule.getName()))
+                  parentKey,
+                  k ->
+                      AugmentedModule.builder(k)
+                          .setName(parentModule.getName())
+                          .setRepoName(parentModule.getRepoName()))
               .setVersion(parentModule.getVersion())
               .setLoaded(true);
 
       for (String childDep : parentModule.getDeps().keySet()) {
-        ModuleKey originalKey = parentModule.getOriginalDeps().get(childDep);
-        Module originalModule = unprunedDepGraph.get(originalKey);
-        ModuleKey key = parentModule.getDeps().get(childDep);
-        Module module = unprunedDepGraph.get(key);
+        ModuleKey originalKey = parentModule.getOriginalDeps().get(childDep).toModuleKey();
+        InterimModule originalModule = unprunedDepGraph.get(originalKey);
+        ModuleKey key = parentModule.getDeps().get(childDep).toModuleKey();
+        InterimModule module = unprunedDepGraph.get(key);
 
         AugmentedModule.Builder originalChildBuilder =
             depGraphAugmentBuilder.computeIfAbsent(originalKey, AugmentedModule::builder);
@@ -106,6 +126,7 @@ public class BazelModuleInspectorFunction implements SkyFunction {
           originalChildBuilder
               .setName(originalModule.getName())
               .setVersion(originalModule.getVersion())
+              .setRepoName(originalModule.getRepoName())
               .setLoaded(true);
         }
 
@@ -116,6 +137,7 @@ public class BazelModuleInspectorFunction implements SkyFunction {
                     AugmentedModule.builder(k)
                         .setName(module.getName())
                         .setVersion(module.getVersion())
+                        .setRepoName(module.getRepoName())
                         .setLoaded(true));
 
         // originalDependants and dependants can differ because
@@ -128,22 +150,17 @@ public class BazelModuleInspectorFunction implements SkyFunction {
           newChildBuilder.addDependant(parentKey);
         }
 
-        ResolutionReason reason = ResolutionReason.ORIGINAL;
-        if (!key.getVersion().equals(originalKey.getVersion())) {
-          ModuleOverride override = overrides.get(key.getName());
-          if (override != null) {
-            if (override instanceof SingleVersionOverride) {
-              reason = ResolutionReason.SINGLE_VERSION_OVERRIDE;
-            } else if (override instanceof MultipleVersionOverride) {
-              reason = ResolutionReason.MULTIPLE_VERSION_OVERRIDE;
-            } else {
-              // There is no other possible override
-              Preconditions.checkArgument(override instanceof NonRegistryOverride);
-              reason = ((NonRegistryOverride) override).getResolutionReason();
-            }
-          } else {
-            reason = ResolutionReason.MINIMAL_VERSION_SELECTION;
-          }
+        ResolutionReason reason;
+        if (key.version().equals(originalKey.version())) {
+          reason = ResolutionReason.ORIGINAL;
+        } else {
+          reason =
+              switch (overrides.get(key.name())) {
+                case SingleVersionOverride svo -> ResolutionReason.SINGLE_VERSION_OVERRIDE;
+                case MultipleVersionOverride mvo -> ResolutionReason.MULTIPLE_VERSION_OVERRIDE;
+                case NonRegistryOverride nro -> ResolutionReason.NON_REGISTRY_OVERRIDE;
+                case null -> ResolutionReason.MINIMAL_VERSION_SELECTION;
+              };
         }
 
         if (!reason.equals(ResolutionReason.ORIGINAL)) {
@@ -156,5 +173,43 @@ public class BazelModuleInspectorFunction implements SkyFunction {
 
     return depGraphAugmentBuilder.entrySet().stream()
         .collect(toImmutableMap(Entry::getKey, e -> e.getValue().build()));
+  }
+
+  private record ExtensionRepos(
+      ImmutableSetMultimap<ModuleExtensionId, String> extensionToRepoInternalNames,
+      ImmutableList<ExternalDepsException> errors) {}
+
+  @Nullable
+  private ExtensionRepos computExtensionRepos(BazelDepGraphValue depGraphValue, Environment env)
+      throws InterruptedException {
+    ImmutableSet<ModuleExtensionId> extensionEvalKeys =
+        depGraphValue.getExtensionUsagesTable().rowKeySet();
+    ImmutableList<SingleExtensionValue.Key> singleExtensionKeys =
+        extensionEvalKeys.stream().map(SingleExtensionValue::key).collect(toImmutableList());
+    SkyframeLookupResult singleExtensionValues = env.getValuesAndExceptions(singleExtensionKeys);
+
+    ImmutableSetMultimap.Builder<ModuleExtensionId, String> extensionToRepoInternalNames =
+        ImmutableSetMultimap.builder();
+    ImmutableList.Builder<ExternalDepsException> errors = ImmutableList.builder();
+    for (SingleExtensionValue.Key singleExtensionKey : singleExtensionKeys) {
+      SingleExtensionValue singleExtensionValue;
+      try {
+        singleExtensionValue =
+            (SingleExtensionValue)
+                singleExtensionValues.getOrThrow(singleExtensionKey, ExternalDepsException.class);
+      } catch (ExternalDepsException e) {
+        // The extension failed, so we can't report its generated repos. We can still report the
+        // imported repos in keep going mode, so don't fail and just skip this extension.
+        errors.add(e);
+        env.getListener().handle(Event.error(e.getMessage()));
+        continue;
+      }
+      if (singleExtensionValue == null) {
+        return null;
+      }
+      extensionToRepoInternalNames.putAll(
+          singleExtensionKey.argument(), singleExtensionValue.generatedRepoSpecs().keySet());
+    }
+    return new ExtensionRepos(extensionToRepoInternalNames.build(), errors.build());
   }
 }

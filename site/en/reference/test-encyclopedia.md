@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Test encyclopedia
 
+{% include "_buttons.html" %}
+
 An exhaustive specification of the test execution environment.
 
 ## Background {:#background}
@@ -214,17 +216,18 @@ may kill any stray processes. Tests should not leak processes in this fashion.
 ## Test sharding {:#test-sharding}
 
 Tests can be parallelized via test sharding. See
-[`--test_sharding_strategy`](/docs/user-manual#running-executables) and
-[`shard_count`](/reference/be/common-definitions#common-attributes-tests) to enable
-test sharding. When sharding is enabled, the test runner is launched once per
-shard. The environment variable [`TEST_TOTAL_SHARDS`](#initial-conditions) is
-the number of shards, and [`TEST_SHARD_INDEX`](#initial-conditions) is the shard
-index, beginning at 0. Runners use this information to select which tests to
-run - for example, using a round-robin strategy. Not all test runners support
+[`--test_sharding_strategy`](/reference/command-line-reference#flag--test_sharding_strategy)
+and [`shard_count`](/reference/be/common-definitions#common-attributes-tests) to
+enable test sharding. When sharding is enabled, the test runner is launched once
+per shard. The environment variable [`TEST_TOTAL_SHARDS`](#initial-conditions)
+is the number of shards, and [`TEST_SHARD_INDEX`](#initial-conditions) is the
+shard index, beginning at 0. Runners use this information to select which tests
+to run - for example, using a round-robin strategy. Not all test runners support
 sharding. If a runner supports sharding, it must create or update the last
 modified date of the file specified by
-[`TEST_SHARD_STATUS_FILE`](#initial-conditions). Otherwise, Bazel assumes it
-does not support sharding and will not launch additional runners.
+[`TEST_SHARD_STATUS_FILE`](#initial-conditions). Otherwise, if
+[`--incompatible_check_sharding_support`](/reference/command-line-reference#flag--incompatible_check_sharding_support)
+is enabled, Bazel will fail the test if it is sharded.
 
 ## Initial conditions {:#initial-conditions}
 
@@ -412,7 +415,10 @@ The initial environment block shall be composed as follows:
   <tr>
     <td><code>TEST_UNDECLARED_OUTPUTS_DIR</code></td>
     <td>absolute path to a private writable directory (used to write undeclared
-      test outputs)</td>
+      test outputs). Any files written to the
+      <code>TEST_UNDECLARED_OUTPUTS_DIR</code> directory will be zipped up and
+      added to an <code>outputs.zip</code> file under
+      <code>bazel-testlogs</code>.</td>
     <td>optional</td>
   </tr>
   <tr>
@@ -447,9 +453,12 @@ The initial environment block shall be composed as follows:
   </tr>
   <tr>
     <td><code>XML_OUTPUT_FILE</code></td>
-    <td>Location of the test result XML output file. The XML schema is based on
-      the <a href="https://windyroad.com.au/dl/Open%20Source/JUnit.xsd"
-             class="external">JUnit test result schema</a>.</td>
+    <td>
+      Location to which test actions should write a test result XML output file.
+      Otherwise, Bazel generates a default XML output file wrapping the test log
+      as part of the test action. The XML schema is based on the
+      <a href="https://windyroad.com.au/dl/Open%20Source/JUnit.xsd"
+        class="external">JUnit test result schema</a>.</td>
     <td>optional</td>
   </tr>
   <tr>
@@ -690,6 +699,39 @@ In order to catch early exit, a test may create a file at the path specified by
 file when the test finishes, it will assume that the test exited prematurely and
 mark it as having failed.
 
+## Execution platform {:#execution-platform}
+
+The [execution platform](/extending/platforms) for a test action is determined
+via [toolchain resolution](/extending/toolchains#toolchain-resolution), just
+like for any other action. Each test rule has an implicitly defined [
+`test` exec group](/extending/exec-groups#exec-groups-for-native-rules) that,
+unless overridden, has a mandatory toolchain requirement on
+`@bazel_tools//tools/test:default_test_toolchain_type`. Toolchains of this type
+do not carry any data in the form of providers, but can be used to influence the
+execution platform of the test action. By default, Bazel registers two such
+toolchains:
+
+* If `--@bazel_tools//tools/test:incompatible_use_default_test_toolchain` is
+  disabled (the current default), the active test toolchain is
+  `@bazel_tools//tools/test:legacy_test_toolchain`. This toolchain does not
+  impose any constraints and thus test actions without manually specified exec
+  constraints are configured for the first registered execution platform. This
+  is often not the intended behavior in multi-platform builds as it can result
+  in e.g. a test binary built for Linux on a Windows machine to be executed on
+  Windows.
+* If `--@bazel_tools//tools/test:incompatible_use_default_test_toolchain` is
+  enabled, the active test toolchain is
+  `@bazel_tools//tools/test:default_test_toolchain`. This toolchain requires an
+  execution platform to match all the constraints of the test rule's target
+  platform. In particular, the target platform is compatible with this toolchain
+  if it is also registered as an execution platform. If no such platform is
+  found, the test rule fails with a toolchain resolution error.
+
+Users can register additional toolchains for this type to influence this
+behavior and their toolchains will take precedence over the default ones.
+Test rule authors can define their own test toolchain type and also register
+a default toolchain for it.
+
 ## Tag conventions {:#tag-conventions}
 
 Some tags in the test rules have a special meaning. See also the
@@ -767,9 +809,3 @@ The runfiles directory contains the following:
     The destination of the symlink is the OutputFileName() of the OutputFile or
     CommandRule, expressed as an absolute path. Thus, the destination of the
     symlink might be `$(WORKSPACE)/linux-dbg/deps/server/42/server`.
-*   **Symlinks to sub-runfiles**: for every `*_binary()` Z that is a run-time
-    dependency of `*_binary()` C, there is a second link in the runfiles
-    directory of C to the runfiles of Z. The name of the symlink is
-    `$(WORKSPACE)/package_name/rule_name.runfiles`. The target of the symlink is
-    the runfiles directory. For example, all subprograms share a common runfiles
-    directory.

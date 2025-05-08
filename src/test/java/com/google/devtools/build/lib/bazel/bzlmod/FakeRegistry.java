@@ -20,8 +20,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
@@ -63,32 +66,50 @@ public class FakeRegistry implements Registry {
   }
 
   @Override
-  public Optional<byte[]> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler) {
-    return Optional.ofNullable(modules.get(key)).map(value -> value.getBytes(UTF_8));
+  public ModuleFile getModuleFile(
+      ModuleKey key, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
+      throws NotFoundException {
+    String uri = String.format("%s/modules/%s/%s/MODULE.bazel", url, key.name(), key.version());
+    var maybeContent = Optional.ofNullable(modules.get(key)).map(value -> value.getBytes(UTF_8));
+    eventHandler.post(RegistryFileDownloadEvent.create(uri, maybeContent));
+    if (maybeContent.isEmpty()) {
+      throw new NotFoundException("module not found: " + key);
+    }
+    return ModuleFile.create(maybeContent.get(), uri);
   }
 
   @Override
   public RepoSpec getRepoSpec(
-      ModuleKey key, RepositoryName repoName, ExtendedEventHandler eventHandler) {
-    return RepoSpec.builder()
-        .setRuleClassName("local_repository")
-        .setAttributes(
-            ImmutableMap.of(
-                "name", repoName.getName(), "path", rootPath + "/" + repoName.getName()))
-        .build();
+      ModuleKey key, ExtendedEventHandler eventHandler, DownloadManager downloadManager) {
+    RepoSpec repoSpec =
+        LocalPathRepoSpecs.create(rootPath + "/" + key.getCanonicalRepoNameWithVersion().getName());
+    eventHandler.post(
+        RegistryFileDownloadEvent.create(
+            "%s/modules/%s/%s/source.json".formatted(url, key.name(), key.version()),
+            Optional.of(
+                GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON
+                    .toJson(repoSpec)
+                    .getBytes(UTF_8))));
+    return repoSpec;
   }
 
   @Override
   public Optional<ImmutableMap<Version, String>> getYankedVersions(
-      String moduleName, ExtendedEventHandler eventHandler) {
+      String moduleName, ExtendedEventHandler eventHandler, DownloadManager downloadManager) {
     return Optional.ofNullable(yankedVersionMap.get(moduleName));
   }
 
   @Override
+  public Optional<YankedVersionsValue> tryGetYankedVersionsFromLockfile(
+      ModuleKey selectedModuleKey) {
+    return Optional.empty();
+  }
+
+  @Override
   public boolean equals(Object other) {
-    return other instanceof FakeRegistry
-        && this.url.equals(((FakeRegistry) other).url)
-        && this.modules.equals(((FakeRegistry) other).modules);
+    return other instanceof FakeRegistry fakeRegistry
+        && this.url.equals(fakeRegistry.url)
+        && this.modules.equals(fakeRegistry.modules);
   }
 
   @Override
@@ -111,7 +132,12 @@ public class FakeRegistry implements Registry {
     }
 
     @Override
-    public Registry getRegistryWithUrl(String url) {
+    public Registry createRegistry(
+        String url,
+        LockfileMode lockfileMode,
+        ImmutableMap<String, Optional<Checksum>> fileHashes,
+        ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions,
+        Optional<Path> vendorDir) {
       return Preconditions.checkNotNull(registries.get(url), "unknown registry url: %s", url);
     }
   }

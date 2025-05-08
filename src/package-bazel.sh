@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -19,7 +19,7 @@ set -euo pipefail
 # This script creates the Bazel archive that Bazel client unpacks and then
 # starts the server from.
 
-WORKDIR=$(pwd)
+WORKDIR="$(pwd)"
 OUT=$1; shift
 EMBEDDED_TOOLS=$1; shift
 DEPLOY_JAR=$1; shift
@@ -37,6 +37,7 @@ ROOT="$(mktemp -d ${TMP_DIR%%/}/bazel.XXXXXXXX)"
 RECOMP="$ROOT/recomp"
 PACKAGE_DIR="$ROOT/pkg"
 DEPLOY_UNCOMP="$ROOT/deploy-uncompressed.jar"
+FILE_LIST="$ROOT/file.list"
 mkdir -p "${PACKAGE_DIR}"
 trap "rm -fr ${ROOT}" EXIT
 
@@ -45,6 +46,7 @@ cp $* ${PACKAGE_DIR}
 if [[ $DEV_BUILD -eq 0 ]]; then
   # Unpack the deploy jar for postprocessing and for "re-compressing" to save
   # ~10% of final binary size.
+  mkdir -p $RECOMP
   unzip -q -d $RECOMP ${DEPLOY_JAR}
   cd $RECOMP
 
@@ -58,38 +60,22 @@ if [[ $DEV_BUILD -eq 0 ]]; then
   bazel_label="$(\
     (grep '^build.label=' build-data.properties | cut -d'=' -f2- | tr -d '\n') \
         || echo -n 'no_version')"
-  echo -n "${bazel_label:-no_version}" > "${PACKAGE_DIR}/build-label.txt"
 
-  cd $WORKDIR
+  cd "$WORKDIR"
 
   DEPLOY_JAR="$DEPLOY_UNCOMP"
 fi
+echo -n "${bazel_label:-no_version}" > "${PACKAGE_DIR}/build-label.txt"
 
 if [ -n "${EMBEDDED_TOOLS}" ]; then
   mkdir ${PACKAGE_DIR}/embedded_tools
   (cd ${PACKAGE_DIR}/embedded_tools && unzip -q "${WORKDIR}/${EMBEDDED_TOOLS}")
 fi
 
-# Unzip platforms.zip into platforms/, move files up from external/platforms
-# subdirectory if required, and create WORKSPACE if it doesn't exist.
 (
   cd $PACKAGE_DIR
-  unzip -q -d platforms $WORKDIR/$PLATFORMS_ARCHIVE
-  cd platforms
-  # Platform files may be located under external/platform or platform depending
-  # on the external repository source layout. Take them out if it's the case.
-  # Note that, when enabling Bzlmod, the canonical repo name for platforms is platforms.<version>,
-  # therefore, we use wildcard (platform*) to make sure it always work.
-  if ls external/platforms*/ >/dev/null 2>&1; then
-    # --experimental_sibling_repository_layout=false
-    mv external/platforms*/* .
-    rmdir -p external/platforms*
-  else
-    # --experimental_sibling_repository_layout=true
-    mv platforms*/* .
-    rmdir -p platforms*
-  fi
-  >> WORKSPACE
+  tar -xf "$WORKDIR/$PLATFORMS_ARCHIVE" -C .
+  # "platforms" is a well-known module, so no need to tamper with anything here.
 )
 
 # Make a list of the files in the order we want them inside the final zip.
@@ -101,14 +87,14 @@ fi
   find . -type f | sort
   # And install_base_key must be last.
   echo install_base_key
-) > files.list
+) > $FILE_LIST
 
 # Move these after the 'find' above.
 cp $DEPLOY_JAR $PACKAGE_DIR/A-server.jar
 cp $INSTALL_BASE_KEY $PACKAGE_DIR/install_base_key
 
 # Zero timestamps.
-(cd $PACKAGE_DIR; xargs touch -t 198001010000.00) < files.list
+(cd $PACKAGE_DIR; xargs touch -t 198001010000.00) < $FILE_LIST
 
 if [[ "$DEV_BUILD" -eq 1 ]]; then
   # Create output zip with lowest compression, but fast.
@@ -117,6 +103,4 @@ else
   # Create output zip with highest compression, but slow.
   ZIP_ARGS="-q9DX@"
 fi
-(cd $PACKAGE_DIR; zip $ZIP_ARGS $WORKDIR/$OUT) < files.list
-
-
+(cd $PACKAGE_DIR; zip $ZIP_ARGS "$WORKDIR/$OUT") < $FILE_LIST

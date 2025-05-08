@@ -1,5 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
-load("//:distdir_deps.bzl", "gen_workspace_stanza")
+load("//:workspace_deps.bzl", "gen_workspace_stanza")
 
 java_library(
     name = "deps",
@@ -45,7 +45,7 @@ gen_workspace_stanza(
     preamble = "load('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')",
     repos = [
         "rules_cc",
-        "rules_proto",
+        "rules_python",
     ],
     visibility = ["//visibility:private"],
 )

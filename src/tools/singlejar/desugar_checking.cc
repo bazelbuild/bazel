@@ -20,7 +20,7 @@ bool Java8DesugarDepsChecker::Merge(const CDH *cdh, const LH *lh) {
   // Throw away anything previously read, no need to concatenate
   buffer_.reset(new TransientBytes());
   if (Z_NO_COMPRESSION == lh->compression_method()) {
-    buffer_->ReadEntryContents(lh);
+    buffer_->ReadEntryContents(cdh, lh);
   } else if (Z_DEFLATED == lh->compression_method()) {
     if (!inflater_) {
       inflater_.reset(new Inflater());

@@ -19,43 +19,54 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.StarlarkAnnotations;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 
 /** An abstract class containing documentation for a Starlark method. */
 public abstract class StarlarkMethodDoc extends StarlarkDoc {
+  protected final Method javaMethod;
+  protected final StarlarkMethod annotation;
+  protected final ImmutableList<StarlarkParamDoc> params;
 
-  public StarlarkMethodDoc(StarlarkDocExpander expander) {
+  public StarlarkMethodDoc(Method method, StarlarkMethod annotation, StarlarkDocExpander expander) {
     super(expander);
+    this.javaMethod = method;
+    this.annotation = annotation;
+    this.params = determineParams();
   }
 
   /** Returns whether the Starlark method is documented. */
-  public abstract boolean documented();
+  public final boolean documented() {
+    return annotation.documented();
+  }
 
   /**
    * Returns a string containing additional documentation about the method's return value.
    *
    * <p>Returns an empty string by default.
    */
-  public String getReturnTypeExtraMessage() {
+  public final String getReturnTypeExtraMessage() {
+    if (annotation.allowReturnNones()) {
+      return " May return <code>None</code>.\n";
+    }
     return "";
   }
 
   /** Returns the annotated Java method. */
-  public abstract Method getMethod();
+  public final Method getMethod() {
+    return javaMethod;
+  }
 
   /** Returns a string containing a name for the method's return type. */
-  public String getReturnType() {
-    return "";
-  }
+  public abstract String getReturnType();
 
   /**
    * Returns whether a method can be called as a function.
    *
-   * <p>E.g. True is not callable.
+   * <p>E.g. ctx.label is not callable.
    */
-  public Boolean isCallable() {
-    return true;
+  public final boolean isCallable() {
+    return !annotation.structField();
   }
 
   /**
@@ -70,16 +81,16 @@ public abstract class StarlarkMethodDoc extends StarlarkDoc {
   }
 
   /** Returns a list containing the documentation for each of the method's parameters. */
-  public List<StarlarkParamDoc> getParams() {
-    return ImmutableList.<StarlarkParamDoc>of();
+  public final ImmutableList<StarlarkParamDoc> getParams() {
+    return params;
   }
 
-  private String getParameterString(Method method) {
-    StarlarkMethod annotation = StarlarkAnnotations.getStarlarkMethod(method);
+  private String getParameterString() {
     List<String> argList = new ArrayList<>();
 
     boolean named = false;
-    for (Param param : withoutSelfParam(annotation, method)) {
+    for (int i = getStartIndexForParams(); i < annotation.parameters().length; i++) {
+      Param param = annotation.parameters()[i];
       if (!param.documented()) {
         continue;
       }
@@ -100,27 +111,47 @@ public abstract class StarlarkMethodDoc extends StarlarkDoc {
     return Joiner.on(", ").join(argList);
   }
 
+  private ImmutableList<StarlarkParamDoc> determineParams() {
+    ImmutableList.Builder<StarlarkParamDoc> paramsBuilder = ImmutableList.builder();
+    for (int i = getStartIndexForParams(); i < annotation.parameters().length; i++) {
+      Param param = annotation.parameters()[i];
+      if (param.documented()) {
+        paramsBuilder.add(
+            new StarlarkParamDoc(this, param, expander, StarlarkParamDoc.Kind.NORMAL, i));
+      }
+    }
+    if (!annotation.extraPositionals().name().isEmpty()) {
+      paramsBuilder.add(
+          new StarlarkParamDoc(
+              this,
+              annotation.extraPositionals(),
+              expander,
+              StarlarkParamDoc.Kind.EXTRA_POSITIONALS,
+              /* paramIndex= */ -1));
+    }
+    if (!annotation.extraKeywords().name().isEmpty()) {
+      paramsBuilder.add(
+          new StarlarkParamDoc(
+              this,
+              annotation.extraKeywords(),
+              expander,
+              StarlarkParamDoc.Kind.EXTRA_KEYWORDS,
+              /* paramIndex= */ -1));
+    }
+    return paramsBuilder.build();
+  }
+
   /**
    * Returns a string representing the method signature of the Starlark method, which contains HTML
    * links to the documentation of parameter types if available.
    */
   public abstract String getSignature();
 
-  protected String getSignature(String objectName, String methodName, Method method) {
-    String objectDotExpressionPrefix =
-        objectName.isEmpty() ? "" : objectName + ".";
+  protected String getSignature(String fullyQualifiedMethodName) {
+    String args = isCallable() ? "(" + getParameterString() + ")" : "";
 
-    return getSignature(objectDotExpressionPrefix + methodName, method);
-  }
-
-  protected String getSignature(String fullyQualifiedMethodName, Method method) {
-    String args =
-        StarlarkAnnotations.getStarlarkMethod(method).structField()
-            ? ""
-            : "(" + getParameterString(method) + ")";
-
-    return String.format("%s %s%s",
-        getTypeAnchor(method.getReturnType()), fullyQualifiedMethodName, args);
+    return String.format(
+        "%s %s%s", getTypeAnchor(javaMethod.getReturnType()), fullyQualifiedMethodName, args);
   }
 
   private String formatParameter(Param param) {
@@ -131,5 +162,22 @@ public abstract class StarlarkMethodDoc extends StarlarkDoc {
     } else {
       return name;
     }
+  }
+
+  /**
+   * Returns the index to start at when iterating through the parameters of the method annotation.
+   * This is not always 0 because of the "self" param for the "string" module.
+   */
+  private int getStartIndexForParams() {
+    Param[] params = annotation.parameters();
+    if (params.length > 0) {
+      StarlarkBuiltin module = javaMethod.getDeclaringClass().getAnnotation(StarlarkBuiltin.class);
+      if (module != null && module.name().equals("string")) {
+        // Skip the self parameter, which is the first mandatory
+        // positional parameter in each method of the "string" module.
+        return 1;
+      }
+    }
+    return 0;
   }
 }

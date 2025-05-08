@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -57,13 +57,13 @@ esac
 # counts and manifest checks in test_foo_runfiles.
 # TODO(#8169): Update this test and remove the toolchain opt-out.
 if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
   export EXT=".exe"
+  export EXTRA_STARTUP_FLAGS="--windows_enable_symlinks"
   export EXTRA_BUILD_FLAGS="--incompatible_use_python_toolchains=false \
 --enable_runfiles --build_python_zip=0"
 else
   export EXT=""
+  export EXTRA_STARTUP_FLAGS=""
   export EXTRA_BUILD_FLAGS="--incompatible_use_python_toolchains=false"
 fi
 
@@ -140,21 +140,29 @@ genrule(name = "hidden",
         outs = [ "e/f/g/hidden.txt" ],
         cmd = "touch \$@")
 EOF
-  bazel build $pkg:bin $EXTRA_BUILD_FLAGS >&$TEST_log 2>&1 || fail "build failed"
+  bazel $EXTRA_STARTUP_FLAGS build $pkg:bin $EXTRA_BUILD_FLAGS >&$TEST_log 2>&1 || fail "build failed"
 
   # we get a warning that hidden.txt is inaccessible
   expect_log_once "${pkg}/e/f/g/hidden.txt obscured by ${pkg}/e/f "
 }
 
 function test_foo_runfiles() {
+  add_rules_python "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
+  local WORKSPACE_NAME=$TEST_WORKSPACE
   local -r pkg=$FUNCNAME
   create_pkg $pkg
 cat > BUILD << EOF
+load("@rules_python//python:py_library.bzl", "py_library")
+
 py_library(name = "root",
            srcs = ["__init__.py"],
            visibility = ["//visibility:public"])
 EOF
 cat > $pkg/BUILD << EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(name = "foo",
           srcs = [ "x/y/z.sh" ],
           data = [ ":py",
@@ -168,7 +176,7 @@ py_binary(name = "py",
           data = ["e/f/g/ignored.txt"],
           deps = ["//:root"])
 EOF
-  bazel build $pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
+  bazel $EXTRA_STARTUP_FLAGS build $pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
   workspace_root=$PWD
 
   cd ${PRODUCT_NAME}-bin/$pkg/foo${EXT}.runfiles
@@ -236,6 +244,7 @@ EOF
   assert_equals "$expected" "$actual"
 
   # The manifest only records files and symlinks, not real directories
+  expected="$expected$(get_repo_mapping_manifest_file)"
   expected_manifest_size=$(echo "$expected" | grep -v ' regular dir' | wc -l)
   actual_manifest_size=$(wc -l < ../MANIFEST)
   assert_equals $expected_manifest_size $actual_manifest_size
@@ -255,6 +264,17 @@ EOF
       fi
     fi
   done
+
+  # Add the repo mapping manifest entry for Bazel.
+  if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+    repo_mapping="_repo_mapping"
+    repo_mapping_target="$(readlink "$repo_mapping")"
+    if "$is_windows"; then
+      repo_mapping_target="$(cygpath -m $repo_mapping_target)"
+    fi
+    echo "$repo_mapping $repo_mapping_target" >> ${TEST_TMPDIR}/MANIFEST2
+  fi
+
   sort MANIFEST > ${TEST_TMPDIR}/MANIFEST_sorted
   sort ${TEST_TMPDIR}/MANIFEST2 > ${TEST_TMPDIR}/MANIFEST2_sorted
   diff -u ${TEST_TMPDIR}/MANIFEST_sorted ${TEST_TMPDIR}/MANIFEST2_sorted
@@ -262,11 +282,12 @@ EOF
   # Rebuild the same target with a new dependency.
   cd "$workspace_root"
 cat > $pkg/BUILD << EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(name = "foo",
           srcs = [ "x/y/z.sh" ],
           data = [ "e/f" ])
 EOF
-  bazel build $pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
+  bazel $EXTRA_STARTUP_FLAGS build $pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
 
   cd ${PRODUCT_NAME}-bin/$pkg/foo${EXT}.runfiles
 
@@ -310,13 +331,21 @@ EOF
     assert_equals  0 $(find ${WORKSPACE_NAME} -type f | wc -l)
     assert_equals  5 $(find ${WORKSPACE_NAME} -type d | wc -l)
     assert_equals  9 $(find ${WORKSPACE_NAME} | wc -l)
-    assert_equals  4 $(wc -l < MANIFEST)
+    if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+      assert_equals  5 $(wc -l < MANIFEST)
+    else
+      assert_equals  4 $(wc -l < MANIFEST)
+    fi
   else
     assert_equals  3 $(find ${WORKSPACE_NAME} -type l | wc -l)
     assert_equals  0 $(find ${WORKSPACE_NAME} -type f | wc -l)
     assert_equals  5 $(find ${WORKSPACE_NAME} -type d | wc -l)
     assert_equals  8 $(find ${WORKSPACE_NAME} | wc -l)
-    assert_equals  3 $(wc -l < MANIFEST)
+    if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+      assert_equals  4 $(wc -l < MANIFEST)
+    else
+      assert_equals  3 $(wc -l < MANIFEST)
+    fi
   fi
 
   rm -f ${TEST_TMPDIR}/MANIFEST
@@ -333,41 +362,26 @@ EOF
       fi
     fi
   done
+
+  # Add the repo mapping manifest entry for Bazel.
+  if [[ "$PRODUCT_NAME" == "bazel" ]]; then
+    repo_mapping="_repo_mapping"
+    repo_mapping_target="$(readlink "$repo_mapping")"
+    if "$is_windows"; then
+      repo_mapping_target="$(cygpath -m $repo_mapping_target)"
+    fi
+    echo "$repo_mapping $repo_mapping_target" >> ${TEST_TMPDIR}/MANIFEST2
+  fi
+
   sort MANIFEST > ${TEST_TMPDIR}/MANIFEST_sorted
   sort ${TEST_TMPDIR}/MANIFEST2 > ${TEST_TMPDIR}/MANIFEST2_sorted
   diff -u ${TEST_TMPDIR}/MANIFEST_sorted ${TEST_TMPDIR}/MANIFEST2_sorted
 }
 
-function test_workspace_name_change() {
-  # TODO(b/174761497): Re-enable the test outside of Bazel.
-  [[ "${PRODUCT_NAME}" != bazel ]] && return 0
-
-  # Rewrite the workspace name but leave the rest of WORKSPACE alone.
-  sed -ie 's,workspace(.*,workspace(name = "foo"),' WORKSPACE
-
-  cat > BUILD <<EOF
-cc_binary(
-    name = "thing",
-    srcs = ["thing.cc"],
-    data = ["BUILD"],
-)
-EOF
-  cat > thing.cc <<EOF
-int main() { return 0; }
-EOF
-  bazel build //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
-  [[ -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/foo ]] || fail "foo not found"
-
-  # Change workspace name to bar.
-  sed -ie 's,workspace(.*,workspace(name = "bar"),' WORKSPACE
-  bazel build //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
-  [[ -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/bar ]] || fail "bar not found"
-  [[ ! -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/foo ]] \
-    || fail "Old foo still found"
-}
-
 # regression test for b/237547165
-function test_fail_on_middleman_in_transitive_runfiles_for_executable() {
+function test_fail_on_runfiles_tree_in_transitive_runfiles_for_executable() {
+  local exit_code
+
   cat > rule.bzl <<EOF
 def _impl(ctx):
     exe = ctx.actions.declare_file(ctx.label.name + '.out')
@@ -392,9 +406,398 @@ EOF
   cat > thing.cc <<EOF
 int main() { return 0; }
 EOF
-  bazel build //:test &> $TEST_log && fail "Expected build to fail but it succeeded"
-  expect_log_once "Runfiles must not contain middleman artifacts"
+  bazel build //:test &> $TEST_log || exit_code=$?
+  if [[ $exit_code -ne 1 ]]; then
+    fail "Expected regular build failure but instead got exit code $exit_code"
+  fi
+  expect_log_once "Runfiles must not contain runfiles tree artifacts"
 }
 
+function test_manifest_action_reruns_on_output_base_change() {
+  add_rules_shell "MODULE.bazel"
+  CURRENT_DIRECTORY=$(pwd)
+  if $is_windows; then
+    CURRENT_DIRECTORY=$(cygpath -m "${CURRENT_DIRECTORY}")
+  fi
+
+  if $is_windows; then
+    MANIFEST_PATH=bazel-bin/hello_world.exe.runfiles_manifest
+  else
+    MANIFEST_PATH=bazel-bin/hello_world.runfiles_manifest
+  fi
+
+  OUTPUT_BASE="${CURRENT_DIRECTORY}/test/outputs/__main__"
+  TEST_FOLDER_1="${CURRENT_DIRECTORY}/test/test1/$(basename ${CURRENT_DIRECTORY})"
+  TEST_FOLDER_2="${CURRENT_DIRECTORY}/test/test2/$(basename ${CURRENT_DIRECTORY})"
+
+  mkdir -p "${OUTPUT_BASE}"
+  mkdir -p "${TEST_FOLDER_1}"
+  mkdir -p "${TEST_FOLDER_2}"
+
+  cat > BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+sh_binary(
+    name = "hello_world",
+    srcs = ["hello_world.sh"],
+)
+EOF
+  cat > hello_world.sh <<EOF
+echo "Hello World"
+EOF
+  chmod +x hello_world.sh
+
+  for d in $(ls -a | grep -v '^test$' | grep -v '^\.*$'); do
+    cp -R "${CURRENT_DIRECTORY}/${d}" "${TEST_FOLDER_1}"
+    cp -R "${CURRENT_DIRECTORY}/${d}" "${TEST_FOLDER_2}"
+  done
+
+  cd "${TEST_FOLDER_1}"
+  bazel --output_base="${OUTPUT_BASE}" build //:hello_world
+  assert_contains "${TEST_FOLDER_1}" "${MANIFEST_PATH}"
+  assert_not_contains "${TEST_FOLDER_2}" "${MANIFEST_PATH}"
+
+  cd "${TEST_FOLDER_2}"
+  bazel --output_base="${OUTPUT_BASE}" build //:hello_world
+  assert_not_contains "${TEST_FOLDER_1}" "${MANIFEST_PATH}"
+  assert_contains "${TEST_FOLDER_2}" "${MANIFEST_PATH}"
+}
+
+function test_removal_of_old_tempfiles() {
+  add_rules_shell "MODULE.bazel"
+  cat > BUILD << EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+sh_binary(
+    name = "foo",
+    srcs = ["foo.sh"],
+)
+EOF
+  touch foo.sh
+  chmod +x foo.sh
+
+  # Build once to create a runfiles directory.
+  bazel $EXTRA_STARTUP_FLAGS build //:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
+
+  # Remove the MANIFEST file that was created by the previous build.
+  # Create an inaccessible file in the place where build-runfiles writes
+  # its temporary results.
+  #
+  # This simulates the case where the runfiles creation process is
+  # interrupted and leaves the temporary file behind. The temporary file
+  # may become read-only if it was stored in a snapshot.
+  rm ${PRODUCT_NAME}-bin/foo${EXT}.runfiles/MANIFEST
+  touch ${PRODUCT_NAME}-bin/foo${EXT}.runfiles/MANIFEST.tmp
+  chmod 0 ${PRODUCT_NAME}-bin/foo${EXT}.runfiles/MANIFEST.tmp
+
+  # Even with the inaccessible temporary file in place, build-runfiles
+  # should complete successfully. The MANIFEST file should be recreated.
+  bazel $EXTRA_STARTUP_FLAGS build //:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
+  [[ -f ${PRODUCT_NAME}-bin/foo${EXT}.runfiles/MANIFEST ]] \
+    || fail "MANIFEST file not recreated"
+}
+
+function test_rebuilt_when_mapping_changes {
+  if "$is_windows"; then
+    # Can't do 'ln -s' on Windows
+    return
+  fi
+
+  mkdir -p a
+  cat > a/a.bzl <<'EOF'
+def _a_impl(ctx):
+    ex = ctx.actions.declare_file("a.sh")
+    r = ctx.runfiles(
+        files = [ex],
+        symlinks = {ctx.attr.link: ctx.file.target},
+    )
+    ctx.actions.write(ex, "#!/bin/bash", True)
+    return DefaultInfo(
+        files = depset([ex]),
+        default_runfiles = r,
+        executable = ex,
+    )
+
+a = rule(
+    implementation = _a_impl,
+    executable = True,
+    attrs = {
+        "link": attr.string(),
+        "target": attr.label(allow_single_file = True),
+    },
+)
+EOF
+
+  cat >a/BUILD <<'EOF'
+load(":a.bzl", "a")
+a(
+  name = "a",
+  link = "link_one",
+  target = ":f",
+)
+
+genrule(
+  name = "g",
+  srcs = [],
+  outs = ["go"],
+  output_to_bindir = 1,
+  tools = [":a"],
+  cmd = "echo $(location :a).runfiles/*/link_* > $@",
+)
+EOF
+
+  touch a/f
+
+  bazel build //a:g || fail "first build failed"
+  assert_contains '/link_one$' *-bin/a/go
+
+  inplace-sed 's/link_one/link_two/' a/BUILD
+  bazel build //a:g || fail "first build failed"
+  assert_contains '/link_two$' *-bin/a/go
+}
+
+function test_special_chars_in_runfiles_source_paths() {
+  add_rules_shell "MODULE.bazel"
+
+  mkdir -p pkg
+  if "$is_windows"; then
+    cat > pkg/constants.bzl <<'EOF'
+NAME = "pkg/a b .txt"
+EOF
+  else
+    cat > pkg/constants.bzl <<'EOF'
+NAME = "pkg/a \n \\ b .txt"
+EOF
+  fi
+  cat > pkg/defs.bzl <<'EOF'
+load(":constants.bzl", "NAME")
+def _special_chars_impl(ctx):
+    out = ctx.actions.declare_file("data.txt")
+    ctx.actions.write(out, "my content")
+    runfiles = ctx.runfiles(
+        symlinks = {
+            NAME: out,
+        },
+    )
+    return [DefaultInfo(files = depset([out]), runfiles = runfiles)]
+
+spaces = rule(
+    implementation = _special_chars_impl,
+)
+EOF
+  cat > pkg/BUILD <<'EOF'
+load(":defs.bzl", "spaces")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+spaces(name = "spaces")
+sh_test(
+    name = "foo",
+    srcs = ["foo.sh"],
+    data = [":spaces"],
+)
+EOF
+  if "$is_windows"; then
+    cat > pkg/foo.sh <<'EOF'
+#!/usr/bin/env bash
+if [[ "$(cat $'pkg/a b .txt')" != "my content" ]]; then
+  echo "unexpected content or not found"
+  exit 1
+fi
+EOF
+  else
+    cat > pkg/foo.sh <<'EOF'
+#!/usr/bin/env bash
+if [[ "$(cat $'pkg/a \n \\ b .txt')" != "my content" ]]; then
+  echo "unexpected content or not found"
+  exit 1
+fi
+EOF
+  fi
+  chmod +x pkg/foo.sh
+
+  bazel test --test_output=errors \
+    //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
+}
+
+function test_special_chars_in_runfiles_target_paths() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p pkg
+  if "$is_windows"; then
+    cat > pkg/constants.bzl <<'EOF'
+NAME = "pkg/a b .txt"
+EOF
+  else
+    cat > pkg/constants.bzl <<'EOF'
+NAME = "pkg/a \n \\ b .txt"
+EOF
+  fi
+  cat > pkg/defs.bzl <<'EOF'
+load(":constants.bzl", "NAME")
+def _special_chars_impl(ctx):
+    out = ctx.actions.declare_file(NAME)
+    ctx.actions.write(out, "my content")
+    runfiles = ctx.runfiles(
+        symlinks = {
+            "pkg/data.txt": out,
+        },
+    )
+    return [DefaultInfo(files = depset([out]), runfiles = runfiles)]
+
+spaces = rule(
+    implementation = _special_chars_impl,
+)
+EOF
+  cat > pkg/BUILD <<'EOF'
+load(":defs.bzl", "spaces")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+spaces(name = "spaces")
+sh_test(
+    name = "foo",
+    srcs = ["foo.sh"],
+    data = [":spaces"],
+)
+EOF
+  cat > pkg/foo.sh <<'EOF'
+#!/usr/bin/env bash
+if [[ "$(cat pkg/data.txt)" != "my content" ]]; then
+  echo "unexpected content or not found"
+  exit 1
+fi
+EOF
+  chmod +x pkg/foo.sh
+
+  bazel test --test_output=errors \
+    //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
+}
+
+function test_special_chars_in_runfiles_source_and_target_paths() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p pkg
+  if "$is_windows"; then
+    cat > pkg/constants.bzl <<'EOF'
+NAME = "a b .txt"
+EOF
+  else
+    cat > pkg/constants.bzl <<'EOF'
+NAME = "a \n \\ b .txt"
+EOF
+  fi
+  cat > pkg/defs.bzl <<'EOF'
+load(":constants.bzl", "NAME")
+def _special_chars_impl(ctx):
+    out = ctx.actions.declare_file(NAME)
+    ctx.actions.write(out, "my content")
+    return [DefaultInfo(files = depset([out]))]
+
+spaces = rule(
+    implementation = _special_chars_impl,
+)
+EOF
+  cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load(":defs.bzl", "spaces")
+
+spaces(name = "spaces")
+sh_test(
+    name = "foo",
+    srcs = ["foo.sh"],
+    data = [":spaces"],
+)
+EOF
+  if "$is_windows"; then
+    cat > pkg/foo.sh <<'EOF'
+#!/usr/bin/env bash
+if [[ "$(cat $'pkg/a b .txt')" != "my content" ]]; then
+  echo "unexpected content or not found"
+  exit 1
+fi
+EOF
+  else
+    cat > pkg/foo.sh <<'EOF'
+#!/usr/bin/env bash
+if [[ "$(cat $'pkg/a \n \\ b .txt')" != "my content" ]]; then
+  echo "unexpected content or not found"
+  exit 1
+fi
+EOF
+  fi
+  chmod +x pkg/foo.sh
+
+  bazel test --test_output=errors \
+    //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
+}
+
+# Verify that Bazel's runfiles manifest is compatible with v3 of the Bash
+# runfiles library snippet, even if the workspace path contains a space and
+# a backslash.
+function test_compatibility_with_bash_runfiles_library_snippet() {
+  if [[ "${PRODUCT_NAME}" != "bazel" ]]; then
+    # This test is only relevant for Bazel.
+    return
+  fi
+  # Create a workspace path with a space.
+  add_rules_shell "MODULE.bazel"
+  WORKSPACE="$(mktemp -d jar_manifest.XXXXXXXX)/my w\orkspace"
+  trap "rm -fr '$WORKSPACE'" EXIT
+  mkdir -p "$WORKSPACE"
+  cd "$WORKSPACE" || fail "failed to cd to $WORKSPACE"
+  cat > MODULE.bazel <<'EOF'
+module(name = "my_module")
+EOF
+  add_rules_shell "MODULE.bazel"
+  mkdir pkg
+  cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+sh_binary(
+    name = "tool",
+    srcs = ["tool.sh"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+genrule(
+    name = "gen",
+    outs = ["out"],
+    tools = [":tool"],
+    cmd = "$(execpath :tool) $@",
+)
+EOF
+  cat > pkg/tool.sh <<'EOF'
+#!/usr/bin/env bash
+# --- begin runfiles.bash initialization v3 ---
+# Copy-pasted from the Bazel Bash runfiles library v3.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+# shellcheck disable=SC1090
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v3 ---
+
+if [[ ! -z "${RUNFILES_DIR+x}" ]]; then
+  echo "RUNFILES_DIR is set"
+  exit 1
+fi
+
+if [[ -z "${RUNFILES_MANIFEST_FILE+x}" ]]; then
+  echo "RUNFILES_MANIFEST_FILE is not set"
+  exit 1
+fi
+
+if [[ -z "$(rlocation "my_module/pkg/tool.sh")" ]]; then
+  echo "rlocation failed"
+  exit 1
+fi
+
+touch $1
+EOF
+  chmod +x pkg/tool.sh
+
+  bazel build --noenable_runfiles \
+    --spawn_strategy=local \
+    --action_env=RUNFILES_LIB_DEBUG=1 \
+    //pkg:gen >&$TEST_log || fail "build failed"
+}
 
 run_suite "runfiles"

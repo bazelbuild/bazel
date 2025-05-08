@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.util.GroupedList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -25,16 +24,19 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   protected abstract NodeEntry getDelegate();
 
   @Override
+  @Nullable
   public SkyValue getValue() throws InterruptedException {
     return getDelegate().getValue();
   }
 
   @Override
+  @Nullable
   public SkyValue getValueMaybeWithMetadata() throws InterruptedException {
     return getDelegate().getValueMaybeWithMetadata();
   }
 
   @Override
+  @Nullable
   public SkyValue toValue() throws InterruptedException {
     return getDelegate().toValue();
   }
@@ -95,17 +97,22 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public DirtyState getDirtyState() {
-    return getDelegate().getDirtyState();
+  public void setTemporaryMaxTransitiveSourceVersion(Version maxTransitiveSourceVersion) {
+    getDelegate().setTemporaryMaxTransitiveSourceVersion(maxTransitiveSourceVersion);
   }
 
   @Override
-  public ImmutableList<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
+  public LifecycleState getLifecycleState() {
+    return getDelegate().getLifecycleState();
+  }
+
+  @Override
+  public List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     return getDelegate().getNextDirtyDirectDeps();
   }
 
   @Override
-  public Iterable<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException {
+  public ImmutableSet<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException {
     return getDelegate().getAllDirectDepsForIncompleteNode();
   }
 
@@ -115,7 +122,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Iterable<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
+  public Collection<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
     return getDelegate().getAllReverseDepsForNodeBeingDeleted();
   }
 
@@ -125,7 +132,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public GroupedList<SkyKey> getTemporaryDirectDeps() {
+  public GroupedDeps getTemporaryDirectDeps() {
     return getDelegate().getTemporaryDirectDeps();
   }
 
@@ -140,8 +147,13 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public void resetForRestartFromScratch() {
-    getDelegate().resetForRestartFromScratch();
+  public void resetEvaluationFromScratch() {
+    getDelegate().resetEvaluationFromScratch();
+  }
+
+  @Override
+  public ImmutableSet<SkyKey> getResetDirectDeps() {
+    return getDelegate().getResetDirectDeps();
   }
 
   @Override
@@ -150,7 +162,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public void addTemporaryDirectDepGroup(ImmutableList<SkyKey> group) {
+  public void addTemporaryDirectDepGroup(List<SkyKey> group) {
     getDelegate().addTemporaryDirectDepGroup(group);
   }
 
@@ -160,8 +172,13 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public boolean isReady() {
-    return getDelegate().isReady();
+  public boolean isReadyToEvaluate() {
+    return getDelegate().isReadyToEvaluate();
+  }
+
+  @Override
+  public boolean hasUnsignaledDeps() {
+    return getDelegate().hasUnsignaledDeps();
   }
 
   @Override
@@ -190,12 +207,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public void removeInProgressReverseDep(SkyKey reverseDep) {
-    getDelegate().removeInProgressReverseDep(reverseDep);
-  }
-
-  @Override
-  public Iterable<SkyKey> getReverseDepsForDoneEntry() throws InterruptedException {
+  public Collection<SkyKey> getReverseDepsForDoneEntry() throws InterruptedException {
     return getDelegate().getReverseDepsForDoneEntry();
   }
 

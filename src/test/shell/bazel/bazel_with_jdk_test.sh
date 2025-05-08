@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -58,13 +58,6 @@ msys*)
 esac
 
 if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
-if "$is_windows"; then
   EXE_EXT=".exe"
 else
   EXE_EXT=""
@@ -90,11 +83,15 @@ function set_up() {
     setup_bazelrc
   fi
 
+  add_rules_java "MODULE.bazel"
+
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
-java_library(
+load("@rules_java//java:java_binary.bzl", "java_binary")
+java_binary(
     name = 'JavaExample',
     srcs = ['JavaExample.java'],
+    main_class = 'JavaExample',
 )
 EOF
 
@@ -147,7 +144,9 @@ function test_bazel_reports_missing_local_jdk() {
   export JAVA_HOME="$PWD"
   export PATH="$PWD/bin:$PATH"
 
-  bazel build java/main:JavaExample &>"${TEST_log}" \
+  bazel build \
+      --java_runtime_version=local_jdk \
+       java/main:JavaExample &>"${TEST_log}" \
       && fail "build with missing local JDK should have failed" || true
   expect_log "Auto-Configuration Error: Cannot find Java binary"
 }
@@ -159,7 +158,7 @@ function test_bazel_detects_local_jdk_version8() {
   touch jdk/bin/javac
   chmod +x jdk/bin/javac
   cat >jdk/bin/java <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo " Property settings:" >&2
 echo "  java.version = 1.8.0 " >&2
@@ -172,19 +171,19 @@ EOF
       --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
       --java_runtime_version=8 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 8 and selecting it failed"
-  expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+  expect_log "@@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @@rules_java+.*+toolchains+local_jdk//:jdk"
 
   bazel cquery \
       --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
       --java_runtime_version=local_jdk_8 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 8 and selecting it failed"
-  expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+  expect_log "@@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @@rules_java+.*+toolchains+local_jdk//:jdk"
 
   bazel cquery \
       --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
       --java_runtime_version=11 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 8 and selecting it failed"
-  expect_not_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+  expect_not_log "@@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @@rules_java+.*+toolchains+local_jdk//:jdk"
 }
 
 # Bazel shall detect JDK version and configure it with "local_jdk_{version}" and "{version}" setting.
@@ -194,7 +193,7 @@ function test_bazel_detects_local_jdk_version11() {
   touch jdk/bin/javac
   chmod +x jdk/bin/javac
   cat >jdk/bin/java <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo " Property settings:" >&2
 echo "  java.version = 11.0.1 " >&2
@@ -207,19 +206,19 @@ EOF
       --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
       --java_runtime_version=11 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
-  expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+  expect_log "@@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @@rules_java+.*+toolchains+local_jdk//:jdk"
 
   bazel cquery \
       --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
       --java_runtime_version=local_jdk_11 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
-  expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+  expect_log "@@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @@rules_java+.*+toolchains+local_jdk//:jdk"
 
   bazel cquery \
       --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
       --java_runtime_version=17 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
-  expect_not_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+  expect_not_log "@@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @@rules_java+.*+toolchains+local_jdk//:jdk"
 }
 
 # Bazel shall detect JDK version and configure it with "local_jdk_{version}" and "{version}" setting.
@@ -229,7 +228,7 @@ function test_bazel_detects_local_jdk_version11_with_only_major() {
   touch jdk/bin/javac
   chmod +x jdk/bin/javac
   cat >jdk/bin/java <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo " Property settings:" >&2
 echo "  java.version = 11 " >&2
@@ -242,19 +241,19 @@ EOF
       --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
       --java_runtime_version=11 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
-  expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+  expect_log "@@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @@rules_java+.*+toolchains+local_jdk//:jdk"
 
   bazel cquery \
       --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
       --java_runtime_version=local_jdk_11 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
-  expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+  expect_log "@@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @@rules_java+.*+toolchains+local_jdk//:jdk"
 
   bazel cquery \
       --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
       --java_runtime_version=17 \
       //java/main:JavaExample &>"${TEST_log}" || fail "Autodetecting a fake JDK version 11 and selecting it failed"
-  expect_not_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+  expect_not_log "@@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @@rules_java+.*+toolchains+local_jdk//:jdk"
 }
 
 # Failure to detect JDK version shall be handled gracefully.
@@ -264,7 +263,7 @@ function test_bazel_gracefully_handles_unknown_java() {
   touch jdk/bin/javac
   chmod +x jdk/bin/javac
   cat >jdk/bin/java <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo " Property settings:" >&2
 echo "  java.version = xxx.superfuture.version " >&2
@@ -274,19 +273,25 @@ EOF
   export PATH="$PWD/jdk/bin:$PATH"
 
   bazel cquery \
+      --java_runtime_version=local_jdk \
       --toolchain_resolution_debug=tools/jdk:runtime_toolchain_type \
       //java/main:JavaExample &>"${TEST_log}" \
       || fail "Failed to resolve Java toolchain when version cannot be detected"
-  expect_log "@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @local_jdk//:jdk"
+  expect_log "@@bazel_tools//tools/jdk:runtime_toolchain_type -> toolchain @@rules_java+.*+toolchains+local_jdk//:jdk"
 }
 
 # Bazel shall provide Java compilation toolchains that use local JDK.
 function test_bazel_compiles_with_localjdk() {
+  cat >> MODULE.bazel <<EOF
+java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
+use_repo(java_toolchains, "local_jdk")
+EOF
+
   bazel aquery '//java/main:JavaExample' --extra_toolchains=@local_jdk//:all &>"${TEST_log}" \
       || fail "Failed to use extra toolchains provided by @local_jdk repository."
 
-  expect_log "exec external/local_jdk/bin/java"
-  expect_not_log "exec external/remotejdk11_linux/bin/java"
+  expect_log "exec external/rules_java++toolchains+local_jdk/bin/java"
+  expect_not_log "remotejdk11_linux/bin/java"
 }
 
 run_suite "Tests detection of local JDK and that Bazel executes with a bundled JDK."

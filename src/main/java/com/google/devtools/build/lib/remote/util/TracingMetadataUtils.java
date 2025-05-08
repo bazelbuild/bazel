@@ -19,7 +19,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import io.grpc.ClientInterceptor;
 import io.grpc.Context;
@@ -52,6 +51,24 @@ public class TracingMetadataUtils {
       String commandId,
       String actionId,
       @Nullable ActionExecutionMetadata actionMetadata) {
+    return buildMetadata(
+        buildRequestId,
+        commandId,
+        actionId,
+        actionMetadata != null ? actionMetadata.getMnemonic() : null,
+        actionMetadata != null && actionMetadata.getOwner().getLabel() != null
+            ? actionMetadata.getOwner().getLabel().getCanonicalForm()
+            : null,
+        actionMetadata != null ? actionMetadata.getOwner().getConfigurationChecksum() : null);
+  }
+
+  public static RequestMetadata buildMetadata(
+      String buildRequestId,
+      String commandId,
+      String actionId,
+      @Nullable String mnemonic,
+      @Nullable String label,
+      @Nullable String configurationId) {
     Preconditions.checkNotNull(buildRequestId);
     Preconditions.checkNotNull(commandId);
     Preconditions.checkNotNull(actionId);
@@ -64,13 +81,14 @@ public class TracingMetadataUtils {
                 ToolDetails.newBuilder()
                     .setToolName("bazel")
                     .setToolVersion(BlazeVersionInfo.instance().getVersion()));
-    if (actionMetadata != null) {
-      builder.setActionMnemonic(actionMetadata.getMnemonic());
-      Label label = actionMetadata.getOwner().getLabel();
-      if (label != null) {
-        builder.setTargetId(label.getCanonicalForm());
-      }
-      builder.setConfigurationId(actionMetadata.getOwner().getConfigurationChecksum());
+    if (mnemonic != null) {
+      builder.setActionMnemonic(mnemonic);
+    }
+    if (label != null) {
+      builder.setTargetId(label);
+    }
+    if (configurationId != null) {
+      builder.setConfigurationId(configurationId);
     }
     return builder.build();
   }

@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.MinDepthUniquifierImpl;
-import com.google.devtools.build.lib.query2.engine.QueryUtil.MutableKeyExtractorBackedMapImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.SamePkgDirectRdepsFunction;
@@ -53,12 +52,10 @@ import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -120,8 +117,10 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions) {
-    super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
+      Iterable<QueryFunction> extraFunctions,
+      LabelPrinter labelPrinter) {
+    super(
+        keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions, labelPrinter);
     this.targetPatternPreloader = targetPatternPreloader;
     this.mainRepoTargetParser = mainRepoTargetParser;
     this.queryTransitivePackagePreloader = queryTransitivePackagePreloader;
@@ -173,6 +172,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
 
   @Override
   public Collection<Target> getSiblingTargetsInPackage(Target target) {
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
     return target.getPackage().getTargets().values();
   }
 
@@ -348,7 +348,14 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       Callback<Target> callback)
       throws InterruptedException, QueryException {
     try (SilentCloseable closeable = Profiler.instance().profile("preloadTransitiveClosure")) {
-      preloadTransitiveClosure(universe, maxDepth, caller);
+      preloadTransitiveClosure(
+          universe,
+          // PathLabelVisitor#rdeps, called below, necessarily needs to crawl the full DTC of
+          // `universe` in order to be able to reify the reverse edges needed to determine the rdeps
+          // of `from` at the specified depth. Therefore we preload the full DTC of `universe` in
+          // parallel, so that PathLabelVisitor#rdeps doesn't need to do novel package loading.
+          /* maxDepth= */ OptionalInt.empty(),
+          caller);
     }
     Iterable<Target> results =
         new PathLabelVisitor(targetProvider, dependencyFilter, errorObserver)
@@ -396,11 +403,6 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
   }
 
   @Override
-  public <V> MutableMap<Target, V> createMutableMap() {
-    return new MutableKeyExtractorBackedMapImpl<>(TargetKeyExtractor.INSTANCE);
-  }
-
-  @Override
   public Uniquifier<Target> createUniquifier() {
     return new UniquifierImpl<>(TargetKeyExtractor.INSTANCE);
   }
@@ -408,6 +410,29 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
   @Override
   public MinDepthUniquifier<Target> createMinDepthUniquifier() {
     return new MinDepthUniquifierImpl<>(TargetKeyExtractor.INSTANCE, /*concurrencyLevel=*/ 1);
+  }
+
+  @Override
+  public TransitiveLoadFilesHelper<Target> getTransitiveLoadFilesHelper() {
+    return new TransitiveLoadFilesHelperForTargets() {
+      @Override
+      public Target getLoadFileTarget(Target originalTarget, Label bzlLabel) {
+        return new FakeLoadTarget(bzlLabel, originalTarget.getPackageoid());
+      }
+
+      @Nullable
+      @Override
+      public Target maybeGetBuildFileTargetForLoadFileTarget(
+          Target originalTarget, Label bzlLabel) {
+        PackageIdentifier pkgIdOfBzlLabel = bzlLabel.getPackageIdentifier();
+        String baseName = cachingPackageLocator.getBaseNameForLoadedPackage(pkgIdOfBzlLabel);
+        if (baseName == null) {
+          return null;
+        }
+        return new FakeLoadTarget(
+            Label.createUnvalidated(pkgIdOfBzlLabel, baseName), originalTarget.getPackageoid());
+      }
+    };
   }
 
   private void preloadTransitiveClosure(
@@ -439,53 +464,6 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       throw new SkyframeRestartQueryException();
     }
     return target;
-  }
-
-  @Override
-  public ThreadSafeMutableSet<Target> getBuildFiles(
-      final QueryExpression caller,
-      ThreadSafeMutableSet<Target> nodes,
-      boolean buildFiles,
-      boolean loads,
-      QueryExpressionContext<Target> context)
-      throws QueryException {
-    ThreadSafeMutableSet<Target> dependentFiles = createThreadSafeMutableSet();
-    Set<PackageIdentifier> seenPackages = new HashSet<>();
-
-    // Adds all the package definition files (BUILD files and build extensions) for package "pkg",
-    // to dependentFiles.
-    for (Target x : nodes) {
-      Package pkg = x.getPackage();
-      if (seenPackages.add(pkg.getPackageIdentifier())) {
-        if (buildFiles) {
-          dependentFiles.add(pkg.getBuildFile());
-        }
-
-        List<Label> extensions = new ArrayList<>();
-        if (loads) {
-          extensions.addAll(pkg.getStarlarkFileDependencies());
-        }
-
-        for (Label extension : extensions) {
-          Target loadTarget = new FakeLoadTarget(extension, pkg);
-          dependentFiles.add(loadTarget);
-
-          // Also add the BUILD file of the extension.
-          if (buildFiles) {
-            // Can be null in genquery: see http://b/123795023#comment6.
-            String baseName =
-                cachingPackageLocator.getBaseNameForLoadedPackage(
-                    loadTarget.getLabel().getPackageIdentifier());
-            if (baseName != null) {
-              Label buildFileLabel =
-                  Label.createUnvalidated(loadTarget.getLabel().getPackageIdentifier(), baseName);
-              dependentFiles.add(new FakeLoadTarget(buildFileLabel, pkg));
-            }
-          }
-        }
-      }
-    }
-    return dependentFiles;
   }
 
   @Override

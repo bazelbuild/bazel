@@ -17,62 +17,60 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.config.TransitionFactories;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
-import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import net.starlark.java.eval.StarlarkInt;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests of Attribute code. */
+/** Tests for {@link Attribute}. */
 @RunWith(JUnit4.class)
-public class AttributeTest {
+public final class AttributeTest {
 
-  private void assertDefaultValue(Object expected, Attribute attr) {
+  private static void assertDefaultValue(Object expected, Attribute attr) {
     assertThat(attr.getDefaultValue(null)).isEqualTo(expected);
   }
 
-  private void assertType(Type<?> expectedType, Attribute attr) {
+  private static void assertType(Type<?> expectedType, Attribute attr) {
     assertThat(attr.getType()).isEqualTo(expectedType);
   }
 
   @Test
-  public void testBasics() throws Exception {
+  public void testBasics() {
     Attribute attr = attr("foo", Type.INTEGER).mandatory().value(StarlarkInt.of(3)).build();
     assertThat(attr.getName()).isEqualTo("foo");
     assertThat(attr.getDefaultValue(null)).isEqualTo(StarlarkInt.of(3));
     assertThat(attr.getType()).isEqualTo(Type.INTEGER);
     assertThat(attr.isMandatory()).isTrue();
     assertThat(attr.isDocumented()).isTrue();
+    assertThat(attr.starlarkDefined()).isFalse();
     attr = attr("$foo", Type.INTEGER).build();
     assertThat(attr.isDocumented()).isFalse();
   }
 
   @Test
-  public void testNonEmptyReqiresListType() throws Exception {
+  public void testNonEmptyRequiresListType() {
     NullPointerException e =
         assertThrows(
             NullPointerException.class,
@@ -81,7 +79,7 @@ public class AttributeTest {
   }
 
   @Test
-  public void testNonEmpty() throws Exception {
+  public void testNonEmpty() {
     Attribute attr = attr("foo", BuildType.LABEL_LIST).nonEmpty().legacyAllowAnyFileType().build();
     assertThat(attr.getName()).isEqualTo("foo");
     assertThat(attr.getType()).isEqualTo(BuildType.LABEL_LIST);
@@ -89,7 +87,7 @@ public class AttributeTest {
   }
 
   @Test
-  public void testSingleArtifactReqiresLabelType() throws Exception {
+  public void testSingleArtifactRequiresLabelType() {
     IllegalStateException e =
         assertThrows(
             IllegalStateException.class,
@@ -98,21 +96,15 @@ public class AttributeTest {
   }
 
   @Test
-  public void testDoublePropertySet() {
+  public void testSettingConfigurationTwiceDisallowed() {
     Attribute.Builder<String> builder =
         attr("x", STRING)
             .mandatory()
-            .cfg(ExecutionTransitionFactory.create())
+            .cfg(ExecutionTransitionFactory.createFactory())
             .undocumented("")
             .value("y");
-    assertThrows(IllegalStateException.class, () -> builder.mandatory());
     assertThrows(
-        IllegalStateException.class, () -> builder.cfg(ExecutionTransitionFactory.create()));
-    assertThrows(IllegalStateException.class, () -> builder.undocumented(""));
-    assertThrows(IllegalStateException.class, () -> builder.value("z"));
-
-    Attribute.Builder<String> builder2 = attr("$x", STRING);
-    assertThrows(IllegalStateException.class, () -> builder2.undocumented(""));
+        IllegalStateException.class, () -> builder.cfg(ExecutionTransitionFactory.createFactory()));
   }
 
   /**
@@ -199,7 +191,8 @@ public class AttributeTest {
       Attribute childAttr1 = parentAttr.cloneBuilder().build();
       assertThat(childAttr1.getName()).isEqualTo("x");
       assertThat(childAttr1.getAllowedFileTypesPredicate()).isEqualTo(txtFiles);
-      assertThat(childAttr1.getAllowedRuleClassesPredicate()).isEqualTo(Predicates.alwaysTrue());
+      assertThat(childAttr1.getAllowedRuleClassObjectPredicate())
+          .isEqualTo(Predicates.alwaysTrue());
       assertThat(childAttr1.isMandatory()).isTrue();
       assertThat(childAttr1.isNonEmpty()).isFalse();
       assertThat(childAttr1.getAspects(/* rule= */ null)).hasSize(1);
@@ -215,8 +208,8 @@ public class AttributeTest {
               .build();
       assertThat(childAttr2.getName()).isEqualTo("x");
       assertThat(childAttr2.getAllowedFileTypesPredicate()).isEqualTo(txtFiles);
-      assertThat(childAttr2.getAllowedRuleClassesPredicate())
-          .isEqualTo(ruleClasses.asPredicateOfRuleClass());
+      assertThat(childAttr2.getAllowedRuleClassObjectPredicate())
+          .isEqualTo(ruleClasses.asPredicateOfRuleClassObject());
       assertThat(childAttr2.isMandatory()).isTrue();
       assertThat(childAttr2.isNonEmpty()).isTrue();
       assertThat(childAttr2.getAspects(/* rule= */ null)).hasSize(2);
@@ -224,7 +217,7 @@ public class AttributeTest {
 
     // Check if the parent attribute is unchanged
     assertThat(parentAttr.isNonEmpty()).isFalse();
-    assertThat(parentAttr.getAllowedRuleClassesPredicate()).isEqualTo(Predicates.alwaysTrue());
+    assertThat(parentAttr.getAllowedRuleClassObjectPredicate()).isEqualTo(Predicates.alwaysTrue());
   }
 
   /**
@@ -248,53 +241,33 @@ public class AttributeTest {
   }
 
   @Test
-  public void testSplitTransition() throws Exception {
-    TestSplitTransition splitTransition = new TestSplitTransition();
-    Attribute attr =
-        attr("foo", LABEL).cfg(TransitionFactories.of(splitTransition)).allowedFileTypes().build();
-    assertThat(attr.getTransitionFactory().isSplit()).isTrue();
-    ConfigurationTransition transition =
-        attr.getTransitionFactory()
-            .create(
-                AttributeTransitionData.builder().attributes(FakeAttributeMapper.empty()).build());
-    assertThat(transition).isEqualTo(splitTransition);
-  }
-
-  @Test
-  public void testSplitTransitionProvider() throws Exception {
+  public void testSplitTransitionProvider() {
     TestSplitTransitionProvider splitTransitionProvider = new TestSplitTransitionProvider();
-    Attribute attr =
-        attr("foo", LABEL).cfg(splitTransitionProvider).allowedFileTypes().build();
+    Attribute attr = attr("foo", LABEL).cfg(splitTransitionProvider).allowedFileTypes().build();
     assertThat(attr.getTransitionFactory().isSplit()).isTrue();
-    ConfigurationTransition transition =
-        attr.getTransitionFactory()
-            .create(
-                AttributeTransitionData.builder().attributes(FakeAttributeMapper.empty()).build());
-    assertThat(transition).isInstanceOf(TestSplitTransition.class);
   }
 
   @Test
-  public void testHostTransition() throws Exception {
+  public void testExecTransition() {
     Attribute attr =
-        attr("foo", LABEL).cfg(ExecutionTransitionFactory.create()).allowedFileTypes().build();
+        attr("foo", LABEL)
+            .cfg(ExecutionTransitionFactory.createFactory())
+            .allowedFileTypes()
+            .build();
     assertThat(attr.getTransitionFactory().isTool()).isTrue();
     assertThat(attr.getTransitionFactory().isSplit()).isFalse();
-  }
-
-  private static class TestSplitTransition implements SplitTransition {
-    @Override
-    public Map<String, BuildOptions> split(
-        BuildOptionsView buildOptions, EventHandler eventHandler) {
-      return ImmutableMap.of(
-          "test0", buildOptions.clone().underlying(), "test1", buildOptions.clone().underlying());
-    }
   }
 
   private static class TestSplitTransitionProvider
       implements TransitionFactory<AttributeTransitionData> {
     @Override
     public SplitTransition create(AttributeTransitionData data) {
-      return new TestSplitTransition();
+      return (buildOptions, eventHandler) ->
+          ImmutableMap.of(
+              "test0",
+              buildOptions.clone().underlying(),
+              "test1",
+              buildOptions.clone().underlying());
     }
 
     @Override
@@ -309,7 +282,7 @@ public class AttributeTest {
   }
 
   @Test
-  public void allowedRuleClassesAndAllowedRuleClassesWithWarningsCannotOverlap() throws Exception {
+  public void allowedRuleClassesAndAllowedRuleClassesWithWarningsCannotOverlap() {
     IllegalStateException e =
         assertThrows(
             IllegalStateException.class,
@@ -320,5 +293,69 @@ public class AttributeTest {
                     .allowedFileTypes()
                     .build());
     assertThat(e).hasMessageThat().contains("may not contain the same rule classes");
+  }
+
+  @Test
+  public void factoryEquality() throws Exception {
+    new EqualsTester()
+        .addEqualityGroup(attr("foo", LABEL).buildPartial(), attr("foo", LABEL).buildPartial())
+        .addEqualityGroup(
+            attr("foo", LABEL).value(Label.parseCanonicalUnchecked("//a:b")).buildPartial(),
+            attr("foo", LABEL).value(Label.parseCanonicalUnchecked("//a:b")).buildPartial())
+        .addEqualityGroup(
+            attr("foo", NODEP_LABEL).value(Label.parseCanonicalUnchecked("//a:b")).buildPartial(),
+            attr("foo", NODEP_LABEL).value(Label.parseCanonicalUnchecked("//a:b")).buildPartial())
+        .addEqualityGroup(
+            attr("foo", LABEL).value(Label.parseCanonicalUnchecked("//c:d")).buildPartial(),
+            attr("foo", LABEL).value(Label.parseCanonicalUnchecked("//c:d")).buildPartial())
+        .addEqualityGroup(
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .setDoc("My doc")
+                .buildPartial(),
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .setDoc("My doc")
+                .buildPartial())
+        .addEqualityGroup(
+            // PredicateWithMessage does not define any particular equality semantics
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .allowedValues(new AllowedValueSet(Label.parseCanonical("//a:b")))
+                .buildPartial())
+        .addEqualityGroup(
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .allowedRuleClasses("java_binary")
+                .buildPartial(),
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .allowedRuleClasses("java_binary")
+                .buildPartial())
+        .addEqualityGroup(
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .buildPartial(),
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .buildPartial())
+        .addEqualityGroup(
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .mandatoryProviders(DefaultInfo.PROVIDER.id())
+                .buildPartial(),
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .mandatoryProviders(DefaultInfo.PROVIDER.id())
+                .buildPartial())
+        .addEqualityGroup(
+            // Aspects list builder does not define any particular equality semantics
+            attr("foo", LABEL)
+                .value(Label.parseCanonicalUnchecked("//a:b"))
+                .aspect(TestAspects.SIMPLE_ASPECT)
+                .buildPartial())
+        .testEquals();
   }
 }

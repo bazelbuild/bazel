@@ -65,6 +65,7 @@ public class WorkerMultiplexerManagerTest {
             ImmutableSortedMap.of(),
             false,
             false,
+            false,
             /* cancellable= */ false,
             WorkerProtocolFormat.PROTO);
     WorkerMultiplexer wm1 = WorkerMultiplexerManager.getInstance(workerKey1, logFile);
@@ -82,6 +83,7 @@ public class WorkerMultiplexerManagerTest {
             "mnemonic2",
             HashCode.fromInt(1),
             ImmutableSortedMap.of(),
+            false,
             false,
             false,
             /* cancellable= */ false,

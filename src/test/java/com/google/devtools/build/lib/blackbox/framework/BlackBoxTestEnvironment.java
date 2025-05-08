@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.blackbox.framework;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.util.ResourceFileLoader;
-import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -74,9 +72,5 @@ public abstract class BlackBoxTestEnvironment {
     Preconditions.checkNotNull(executorService);
     MoreExecutors.shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS);
     executorService = null;
-  }
-
-  public static String getWorkspaceWithDefaultRepos() throws IOException {
-    return ResourceFileLoader.loadResource(BlackBoxTestEnvironment.class, "blackbox.WORKSPACE");
   }
 }

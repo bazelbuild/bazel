@@ -14,15 +14,15 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.NotSerializableException;
 
 /** A testing helper to force serialization errors. */
-public class NotSerializableCodec implements ObjectCodec<Object> {
+public class NotSerializableCodec extends LeafObjectCodec<Object> {
   private final Class<?> type;
 
   public NotSerializableCodec(Class<?> type) {
@@ -36,13 +36,13 @@ public class NotSerializableCodec implements ObjectCodec<Object> {
 
   @Override
   public void serialize(
-      SerializationContext unusedContext, Object unusedObj, CodedOutputStream unusedCodedOut)
+      LeafSerializationContext context, Object unusedObj, CodedOutputStream unusedCodedOut)
       throws NotSerializableException {
     throw new NotSerializableException(type + " marked not serializable");
   }
 
   @Override
-  public Object deserialize(DeserializationContext unusedContext, CodedInputStream unusedCodedIn)
+  public Object deserialize(LeafDeserializationContext context, CodedInputStream unusedCodedIn)
       throws NotSerializableException {
     throw new NotSerializableException(type + " marked not serializable");
   }

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import java.util.Collection;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,34 +32,35 @@ public class LastBuildEventTest {
 
   @Test
   public void testForwardsReferencedLocalFilesCall() {
-    FileSystem fs = new UnixFileSystem(DigestHashFunction.SHA256, /*hashAttributeName=*/ "");
+    FileSystem fs = new UnixFileSystem(DigestHashFunction.SHA256, /* hashAttributeName= */ "");
     LocalFile localFile =
         new LocalFile(
             fs.getPath("/some/file"),
             LocalFileType.FAILED_TEST_OUTPUT,
-            /*artifact=*/ null,
-            /*artifactMetadata=*/ null);
-    LastBuildEvent event = new LastBuildEvent(new BuildEvent() {
-      @Override
-      public BuildEventId getEventId() {
-        return null;
-      }
+            /* artifactMetadata= */ null);
+    LastBuildEvent event =
+        new LastBuildEvent(
+            new BuildEvent() {
+              @Override
+              public BuildEventId getEventId() {
+                return null;
+              }
 
-      @Override
-      public Collection<BuildEventId> getChildrenEvents() {
-        return null;
-      }
+              @Override
+              public ImmutableList<BuildEventId> getChildrenEvents() {
+                return ImmutableList.of();
+              }
 
-      @Override
-      public Collection<LocalFile> referencedLocalFiles() {
-        return ImmutableList.of(localFile);
-      }
+              @Override
+              public ImmutableList<LocalFile> referencedLocalFiles() {
+                return ImmutableList.of(localFile);
+              }
 
-      @Override
-      public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext context) {
-        return null;
-      }
-    });
+              @Override
+              public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventContext context) {
+                return null;
+              }
+            });
     assertThat(event.referencedLocalFiles()).containsExactly(localFile);
   }
 }

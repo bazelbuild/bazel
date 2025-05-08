@@ -46,8 +46,12 @@ public abstract class AbstractRunfilesSupportTest extends BuildViewTestCase {
   public void testWorkingDirectory() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "cc_test(name = 'bar',",
-        "        srcs = ['bar.cc'],)");
+        """
+        cc_test(
+            name = "bar",
+            srcs = ["bar.cc"],
+        )
+        """);
     ConfiguredTarget foo_bar;
     useConfiguration("--build_runfile_links");
     // we get expected runfiles directory

@@ -20,14 +20,6 @@ import java.util.concurrent.atomic.AtomicLong;
 /** A {@link ForkJoinPool} with support for thread naming. */
 public class NamedForkJoinPool extends ForkJoinPool {
 
-  protected NamedForkJoinPool(String name, int poolSize) {
-    super(
-        poolSize,
-        new NamedForkJoinWorkerThreadFactory(name + "-%s"),
-        /*getUncaughtExceptionHandler=*/ null,
-        /*asyncMode=*/ false);
-  }
-
   /**
    * Creates a new NamedForkJoinPool.
    *
@@ -37,6 +29,14 @@ public class NamedForkJoinPool extends ForkJoinPool {
    */
   public static NamedForkJoinPool newNamedPool(String name, int numThreads) {
     return new NamedForkJoinPool(name, numThreads);
+  }
+
+  private NamedForkJoinPool(String name, int poolSize) {
+    super(
+        poolSize,
+        new NamedForkJoinWorkerThreadFactory(name + "-%s"),
+        null, // Uncaught exception handler.
+        /* asyncMode= */ false);
   }
 
   /** A {@link ForkJoinWorkerThread} named on construction. */

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages.metrics;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.protobuf.util.Durations;
-import java.util.OptionalLong;
 import javax.annotation.concurrent.GuardedBy;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -25,6 +24,8 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
 
   @GuardedBy("this")
   private PackageMetricsRecorder recorder;
+
+  private boolean publishPackageMetricsInBep = false;
 
   @GuardedBy("PackageMetricsPackageLoadingListener.class")
   private static PackageMetricsPackageLoadingListener instance = null;
@@ -42,24 +43,21 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
 
   @Override
   public synchronized void onLoadingCompleteAndSuccessful(
-      Package pkg,
-      StarlarkSemantics starlarkSemantics,
-      long loadTimeNanos,
-      OptionalLong packageOverhead) {
+      Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos) {
     if (recorder == null) {
       // Micro-optimization - no need to track.
       return;
     }
 
-    PackageMetrics.Builder builder =
-        PackageMetrics.newBuilder()
+    PackageLoadMetrics.Builder builder =
+        PackageLoadMetrics.newBuilder()
             .setLoadDuration(Durations.fromNanos(loadTimeNanos))
             .setComputationSteps(pkg.getComputationSteps())
             .setNumTargets(pkg.getTargets().size())
-            .setNumTransitiveLoads(pkg.getStarlarkFileDependencies().size());
+            .setNumTransitiveLoads(pkg.getDeclarations().countTransitivelyLoadedStarlarkFiles());
 
-    if (packageOverhead.isPresent()) {
-      builder.setPackageOverhead(packageOverhead.getAsLong());
+    if (pkg.getPackageOverhead().isPresent()) {
+      builder.setPackageOverhead(pkg.getPackageOverhead().getAsLong());
     }
 
     recorder.recordMetrics(pkg.getPackageIdentifier(), builder.build());
@@ -68,6 +66,14 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
   /** Set the PackageMetricsRecorder for this listener. */
   public synchronized void setPackageMetricsRecorder(PackageMetricsRecorder recorder) {
     this.recorder = recorder;
+  }
+
+  public void setPublishPackageMetricsInBep(boolean publishPackageMetricsInBep) {
+    this.publishPackageMetricsInBep = publishPackageMetricsInBep;
+  }
+
+  public boolean getPublishPackageMetricsInBep() {
+    return publishPackageMetricsInBep;
   }
 
   /** Returns the PackageMetricsRecorder, if any, for the PackageLoadingListener. */

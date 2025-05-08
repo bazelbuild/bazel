@@ -13,16 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.errorprone.annotations.ForOverride;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,7 +35,7 @@ import javax.annotation.Nullable;
  */
 public class NotifyingHelper {
   public static MemoizingEvaluator.GraphTransformerForTesting makeNotifyingTransformer(
-      final Listener listener) {
+      Listener listener) {
     return new MemoizingEvaluator.GraphTransformerForTesting() {
       @Override
       public InMemoryGraph transform(InMemoryGraph graph) {
@@ -50,7 +49,7 @@ public class NotifyingHelper {
     };
   }
 
-  final Listener graphListener;
+  final ErrorRecordingDelegatingListener graphListener;
 
   NotifyingHelper(Listener graphListener) {
     this.graphListener = new ErrorRecordingDelegatingListener(graphListener);
@@ -80,7 +79,16 @@ public class NotifyingHelper {
     @Override
     public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key)
         throws InterruptedException {
-      return notifyingHelper.wrapEntry(key, delegate.get(requestor, reason, key));
+      var node = delegate.get(requestor, reason, key);
+      // Maintains behavior for tests written when all DEP_REQUESTED calls were made as batch
+      // requests. Now there are optimizations in SkyFunctionEnvironment for looking up deps
+      // individually, but older tests may be written to listen for a GET_BATCH event.
+      if (reason == Reason.DEP_REQUESTED) {
+        notifyingHelper.graphListener.accept(key, EventType.GET_BATCH, Order.BEFORE, reason);
+      } else if (reason == Reason.EVALUATION) {
+        notifyingHelper.graphListener.accept(key, EventType.EVALUATE, Order.BEFORE, node);
+      }
+      return notifyingHelper.wrapEntry(key, node);
     }
 
     @Override
@@ -115,8 +123,16 @@ public class NotifyingHelper {
           delegate.getBatchMap(requestor, reason, keys), notifyingHelper::wrapEntry);
     }
 
+    @Nullable
     @Override
-    public DepsReport analyzeDepsDoneness(SkyKey parent, Collection<SkyKey> deps)
+    public ImmutableSet<SkyKey> prefetchDeps(
+        SkyKey requestor, Set<SkyKey> oldDeps, GroupedDeps previouslyRequestedDeps)
+        throws InterruptedException {
+      return delegate.prefetchDeps(requestor, oldDeps, previouslyRequestedDeps);
+    }
+
+    @Override
+    public DepsReport analyzeDepsDoneness(SkyKey parent, List<SkyKey> deps)
         throws InterruptedException {
       return delegate.analyzeDepsDoneness(parent, deps);
     }
@@ -128,6 +144,7 @@ public class NotifyingHelper {
    */
   public enum EventType {
     CREATE_IF_ABSENT,
+    EVALUATE,
     ADD_REVERSE_DEP,
     ADD_EXTERNAL_DEP,
     REMOVE_REVERSE_DEP,
@@ -139,7 +156,7 @@ public class NotifyingHelper {
     MARK_DIRTY,
     MARK_CLEAN,
     IS_CHANGED,
-    GET_DIRTY_STATE,
+    GET_LIFECYCLE_STATE,
     GET_VALUE_WITH_METADATA,
     IS_DIRTY,
     IS_READY,
@@ -147,6 +164,7 @@ public class NotifyingHelper {
     ADD_TEMPORARY_DIRECT_DEPS,
     GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE,
     RESET_FOR_RESTART_FROM_SCRATCH,
+    REMOVE,
   }
 
   /**
@@ -161,18 +179,25 @@ public class NotifyingHelper {
 
   /** Receiver to be informed when an event for a given key occurs. */
   public interface Listener {
+
+    /**
+     * Informs this listener of an event.
+     *
+     * <p>{@link InterruptedException} may be thrown but is translated to an {@link
+     * IllegalStateException} by the test framework. Listeners may use blocking synchronization to
+     * exercise a certain scenario and are encouraged to propagate unexpected interrupts instead of
+     * using {@link com.google.common.util.concurrent.Uninterruptibles} - this way an unexpected
+     * build failure that interrupts and awaits quiescence of skyframe threads leads to a timely
+     * test failure without deadlocking.
+     */
     @ThreadSafe
-    void accept(SkyKey key, EventType type, Order order, @Nullable Object context);
+    void accept(SkyKey key, EventType type, Order order, @Nullable Object context)
+        throws InterruptedException;
 
     Listener NULL_LISTENER = (key, type, order, context) -> {};
   }
 
-  private static class ErrorRecordingDelegatingListener implements Listener {
-    private final Listener delegate;
-
-    private ErrorRecordingDelegatingListener(Listener delegate) {
-      this.delegate = delegate;
-    }
+  record ErrorRecordingDelegatingListener(Listener delegate) implements Listener {
 
     @Override
     public void accept(SkyKey key, EventType type, Order order, @Nullable Object context) {
@@ -189,7 +214,7 @@ public class NotifyingHelper {
   }
 
   /** {@link NodeEntry} that informs a {@link Listener} of various method calls. */
-  class NotifyingNodeEntry extends DelegatingNodeEntry {
+  public class NotifyingNodeEntry extends DelegatingNodeEntry {
     private final SkyKey myKey;
     private final NodeEntry delegate;
 
@@ -226,7 +251,7 @@ public class NotifyingHelper {
     }
 
     @Override
-    public GroupedList<SkyKey> getTemporaryDirectDeps() {
+    public GroupedDeps getTemporaryDirectDeps() {
       graphListener.accept(myKey, EventType.GET_TEMPORARY_DIRECT_DEPS, Order.BEFORE, null);
       return super.getTemporaryDirectDeps();
     }
@@ -282,17 +307,17 @@ public class NotifyingHelper {
     }
 
     @Override
-    public boolean isReady() {
+    public boolean isReadyToEvaluate() {
       graphListener.accept(myKey, EventType.IS_READY, Order.BEFORE, this);
-      return super.isReady();
+      return super.isReadyToEvaluate();
     }
 
     @Override
-    public DirtyState getDirtyState() {
-      graphListener.accept(myKey, EventType.GET_DIRTY_STATE, Order.BEFORE, this);
-      DirtyState dirtyState = super.getDirtyState();
-      graphListener.accept(myKey, EventType.GET_DIRTY_STATE, Order.AFTER, dirtyState);
-      return dirtyState;
+    public LifecycleState getLifecycleState() {
+      graphListener.accept(myKey, EventType.GET_LIFECYCLE_STATE, Order.BEFORE, this);
+      LifecycleState lifecycleState = super.getLifecycleState();
+      graphListener.accept(myKey, EventType.GET_LIFECYCLE_STATE, Order.AFTER, lifecycleState);
+      return lifecycleState;
     }
 
     @Override
@@ -318,7 +343,7 @@ public class NotifyingHelper {
     }
 
     @Override
-    public void addTemporaryDirectDepGroup(ImmutableList<SkyKey> group) {
+    public void addTemporaryDirectDepGroup(List<SkyKey> group) {
       graphListener.accept(myKey, EventType.ADD_TEMPORARY_DIRECT_DEPS, Order.BEFORE, group);
       super.addTemporaryDirectDepGroup(group);
       graphListener.accept(myKey, EventType.ADD_TEMPORARY_DIRECT_DEPS, Order.AFTER, group);
@@ -332,15 +357,15 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Iterable<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException {
+    public ImmutableSet<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException {
       graphListener.accept(
           myKey, EventType.GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE, Order.BEFORE, this);
       return super.getAllDirectDepsForIncompleteNode();
     }
 
     @Override
-    public void resetForRestartFromScratch() {
-      delegate.resetForRestartFromScratch();
+    public void resetEvaluationFromScratch() {
+      delegate.resetEvaluationFromScratch();
       graphListener.accept(myKey, EventType.RESET_FOR_RESTART_FROM_SCRATCH, Order.AFTER, this);
     }
 
@@ -355,14 +380,13 @@ public class NotifyingHelper {
    * the graph listener as the context {@link Order#AFTER} a call to {@link EventType#MARK_DIRTY} a
    * node.
    */
-  @AutoValue
-  public abstract static class MarkDirtyAfterContext {
-    public abstract DirtyType dirtyType();
-
-    public abstract boolean actuallyDirtied();
+  public record MarkDirtyAfterContext(DirtyType dirtyType, boolean actuallyDirtied) {
+    public MarkDirtyAfterContext {
+      requireNonNull(dirtyType, "dirtyType");
+    }
 
     static MarkDirtyAfterContext create(DirtyType dirtyType, boolean actuallyDirtied) {
-      return new AutoValue_NotifyingHelper_MarkDirtyAfterContext(dirtyType, actuallyDirtied);
+      return new MarkDirtyAfterContext(dirtyType, actuallyDirtied);
     }
   }
 }

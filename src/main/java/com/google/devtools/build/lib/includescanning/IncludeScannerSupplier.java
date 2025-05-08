@@ -62,10 +62,9 @@ public class IncludeScannerSupplier {
       if (this == other) {
         return true;
       }
-      if (!(other instanceof IncludeScannerParams)) {
+      if (!(other instanceof IncludeScannerParams that)) {
         return false;
       }
-      IncludeScannerParams that = (IncludeScannerParams) other;
       return this.quoteIncludePaths.equals(that.quoteIncludePaths)
           && this.includePaths.equals(that.includePaths)
           && this.frameworkIncludePaths.equals(that.frameworkIncludePaths);
@@ -87,6 +86,7 @@ public class IncludeScannerSupplier {
   public IncludeScannerSupplier(
       BlazeDirectories directories,
       ExecutorService includePool,
+      boolean shouldShuffle,
       ArtifactFactory artifactFactory,
       Supplier<SpawnIncludeScanner> spawnIncludeScannerSupplier,
       Path execRoot) {
@@ -94,11 +94,22 @@ public class IncludeScannerSupplier {
     PathExistenceCache pathCache = new PathExistenceCache(execRoot, artifactFactory);
     scanners =
         Caffeine.newBuilder()
+            // We choose to make cache values weak referenced due to LegacyIncludeScanner can hold
+            // on to a memory expensive InclusionCache. However, a lot of IncludeScannerParams are
+            // not in use so they are eligible for garbage collection. As a matter of fact, this
+            // reduces peak heap on an example cpp-heavy build by ~5%.
+
+            //
+            // We could also choose to use softValues() but avoid doing so. The reason is that we
+            // want to keep blaze memory usage deterministic and to guarantee collection before
+            // blaze initiated-OOMs.
+            .weakValues()
             .build(
                 key ->
                     new LegacyIncludeScanner(
                         includeParser,
                         includePool,
+                        shouldShuffle,
                         includeParseCache,
                         pathCache,
                         key.quoteIncludePaths,

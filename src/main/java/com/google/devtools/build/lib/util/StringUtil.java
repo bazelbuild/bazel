@@ -13,53 +13,78 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import java.util.Collection;
 import java.util.Iterator;
 
-/**
- * Various utility methods operating on strings.
- */
+/** Various utility methods operating on strings. */
 public class StringUtil {
   /**
    * Creates a comma-separated list of words as in English.
    *
-   * <p>Example: ["a", "b", "c"] -&gt; "a, b or c".
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li>["a"] → "a"
+   *   <li>["a", "b"] → "a or b"
+   *   <li>["a", "b", "c"] → "a, b, or c"
+   * </ul>
    */
   public static String joinEnglishList(Iterable<?> choices) {
-    return joinEnglishList(choices, "or", "");
+    return joinEnglishList(choices, "or", "", /* oxfordComma= */ true);
   }
 
   /**
    * Creates a comma-separated list of words as in English with the given last-separator.
    *
-   * <p>Example with lastSeparator="then": ["a", "b", "c"] -&gt; "a, b then c".
+   * <p>Example with lastSeparator="and": ["a", "b", "c"] → "a, b, and c".
    */
   public static String joinEnglishList(Iterable<?> choices, String lastSeparator) {
-    return joinEnglishList(choices, lastSeparator, "");
+    return joinEnglishList(choices, lastSeparator, "", /* oxfordComma= */ true);
   }
 
   /**
    * Creates a comma-separated list of words as in English with the given last-separator and quotes.
    *
-   * <p>Example with lastSeparator="then", quote="'": ["a", "b", "c"] -&gt; "'a', 'b' then 'c'".
+   * <p>Example with lastSeparator="then", quote="'", oxfordComma=false: ["a", "b", "c"] → "'a', 'b'
+   * then 'c'".
    */
-  public static String joinEnglishList(Iterable<?> choices, String lastSeparator, String quote) {
+  public static String joinEnglishList(
+      Iterable<?> choices, String lastSeparator, String quote, boolean oxfordComma) {
     StringBuilder buf = new StringBuilder();
+    int numChoicesSeen = 0;
     for (Iterator<?> ii = choices.iterator(); ii.hasNext(); ) {
       Object choice = ii.next();
       if (buf.length() > 0) {
-        buf.append(ii.hasNext() ? "," : " " + lastSeparator);
+        if (ii.hasNext() || (oxfordComma && numChoicesSeen >= 2)) {
+          buf.append(",");
+        }
+        if (!ii.hasNext()) {
+          buf.append(" ").append(lastSeparator);
+        }
         buf.append(" ");
       }
       buf.append(quote).append(choice).append(quote);
+      numChoicesSeen++;
     }
     return buf.length() == 0 ? "nothing" : buf.toString();
+  }
+
+  /**
+   * Creates a comma-separated list of singe-quoted words as in English.
+   *
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li>["a"] → "'a'""
+   *   <li>["a", "b"] → "'a' or 'b'"
+   *   <li>["a", "b", "c"] → "'a', 'b', or 'c'"
+   * </ul>
+   */
+  public static String joinEnglishListSingleQuoted(Iterable<?> choices) {
+    return joinEnglishList(choices, "or", "'", /* oxfordComma= */ true);
   }
 
   /**
@@ -93,65 +118,5 @@ public class StringUtil {
     }
   }
 
-  /**
-   * Decode a String that might actually be UTF-8, in which case each input character will be
-   * treated as a byte.
-   *
-   * <p>Several Bazel subsystems, including Starlark, store bytes in `String` values where each
-   * `char` stores one `byte` in its lower 8 bits. This function converts its input to a `[]byte`,
-   * then decodes that byte array as UTF-8.
-   *
-   * <p>Using U+2049 (EXCLAMATION QUESTION MARK) as an example:
-   *
-   * <p>"\u2049".getBytes(UTF_8) == [0xE2, 0x81, 0x89]
-   *
-   * <p>decodeBytestringUtf8("\u00E2\u0081\u0089") == "\u2049"
-   *
-   * <p>The return value is suitable for passing to Protobuf string fields or printing to the
-   * terminal.
-   */
-  public static String decodeBytestringUtf8(String maybeUtf8) {
-    if (maybeUtf8.chars().allMatch(c -> c < 128)) {
-      return maybeUtf8;
-    }
-
-    // Try our best to get a valid Unicode string, assuming that the input
-    // is either UTF-8 (from Starlark or a UNIX file path) or already valid
-    // Unicode (from a Windows file path).
-    if (maybeUtf8.chars().anyMatch(c -> c > 0xFF)) {
-      return maybeUtf8;
-    }
-
-    final byte[] utf8 = maybeUtf8.getBytes(ISO_8859_1);
-    final String decoded = new String(utf8, UTF_8);
-
-    // If the input was Unicode that happens to contain only codepoints in
-    // the ISO-8859-1 range, then it will probably have a partial decoding
-    // failure.
-    if (decoded.chars().anyMatch(c -> c == 0xFFFD)) {
-      return maybeUtf8;
-    }
-
-    return decoded;
-  }
-
-  /**
-   * Encodes a String to UTF-8, then converts those UTF-8 bytes to a String by zero-extending each
-   * `byte` into a `char`.
-   *
-   * <p>Using U+2049 (EXCLAMATION QUESTION MARK) as an example:
-   *
-   * <p>"\u2049".getBytes(UTF_8) == [0xE2, 0x81, 0x89]
-   *
-   * <p>encodeBytestringUtf8("\u2049") == "\u00E2\u0081\u0089"
-   *
-   * <p>See {@link #decodeBytestringUtf8} for motivation.
-   */
-  public static String encodeBytestringUtf8(String unicode) {
-    if (unicode.chars().allMatch(c -> c < 128)) {
-      return unicode;
-    }
-    final byte[] utf8 = unicode.getBytes(UTF_8);
-    return new String(utf8, ISO_8859_1);
-  }
+  private StringUtil() {}
 }

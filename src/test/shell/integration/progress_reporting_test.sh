@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -51,8 +51,6 @@ msys*|mingw*|cygwin*)
 esac
 
 if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
   declare -r WORKSPACE_STATUS="$(cygpath -m "$(mktemp -d "${TEST_TMPDIR}/wscXXXXXXXX")/wsc.bat")"
   touch "$WORKSPACE_STATUS"
 else
@@ -178,13 +176,18 @@ EOF
   # It may happen that Skyframe does not discover (enque) the workspace status
   # writer action immediately, so the counter may initially report 3 total
   # actions instead of 4.
-  expect_log "START.*: \[0 / [34]\] Executing genrule //${pkg}:z\s*$"
-  expect_log "FINISH.*: \[1 / [34]\] Executing genrule //${pkg}:z\s*$"
-  expect_log "START.*: \[1 / [34]\] Executing genrule //${pkg}:y\s*$"
-  expect_log "FINISH.*: \[2 / [34]\] Executing genrule //${pkg}:y\s*$"
-  expect_log "START.*: \[2 / 4\] Executing genrule //${pkg}:x\s*$"
-  expect_log "FINISH.*: \[3 / 4\] Executing genrule //${pkg}:x\s*$"
-  expect_log "PROGRESS.*: \[3 / 4\] Still waiting for 1 job to complete:"
+  # It's also possible that the workspace status action is done before any other
+  # action, especially in Skymeld mode.
+  expect_log "START.*: \[[01] / [34]\] Executing genrule //${pkg}:z\s*$"
+  expect_log "FINISH.*: \[[12] / [34]\] Executing genrule //${pkg}:z\s*$"
+  expect_log "START.*: \[[12] / [34]\] Executing genrule //${pkg}:y\s*$"
+  expect_log "FINISH.*: \[[23] / [34]\] Executing genrule //${pkg}:y\s*$"
+  expect_log "START.*: \[[23] / 4\] Executing genrule //${pkg}:x\s*$"
+  expect_log "FINISH.*: \[[34] / 4\] Executing genrule //${pkg}:x\s*$"
+  # No counter here since there's theoretically no guarantee that that workspace
+  # status action would still be running after the above actions have finished.
+  # This is especially true if we're running in Skymeld mode.
+  expect_log "PROGRESS.*: .* Still waiting for 1 job to complete:"
 
   # Open-source Bazel calls this file stable-status.txt, Google internal version
   # calls it build-info.txt.
@@ -348,10 +351,13 @@ EOF
 }
 
 function test_counts_exclusive_tests_in_total_work() {
+  add_rules_shell "MODULE.bazel"
+
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
 
   cat >"${pkg}/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 [sh_test(
     name = "t%d" % i,
     srcs = ["test.sh"],

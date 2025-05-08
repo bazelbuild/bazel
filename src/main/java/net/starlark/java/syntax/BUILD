@@ -2,6 +2,11 @@
 
 load("@rules_java//java:defs.bzl", "java_library")
 
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -53,12 +58,14 @@ java_library(
         "StringLiteral.java",
         "SyntaxError.java",
         "TokenKind.java",
+        "TypeApplication.java",
         "UnaryOperatorExpression.java",
     ],
     visibility = ["//src/main/java/net/starlark/java:clients"],
     # Do not add Bazel or Google dependencies here!
     deps = [
         "//src/main/java/net/starlark/java/spelling",
+        "//src/main/java/net/starlark/java/types",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",

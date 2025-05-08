@@ -25,6 +25,7 @@ class Options {
  public:
   Options()
       : output_jar_creator("singlejar"),
+        build_target(""),
         exclude_build_data(false),
         force_compression(false),
         normalize_timestamps(false),
@@ -35,7 +36,8 @@ class Options {
         verbose(false),
         warn_duplicate_resources(false),
         check_desugar_deps(false),
-        multi_release(false) {}
+        multi_release(false),
+        no_strip_module_info(false) {}
 
   virtual ~Options() {}
 
@@ -44,6 +46,7 @@ class Options {
 
   std::string output_jar;
   std::string output_jar_creator;
+  std::string build_target;
   std::string main_class;
   std::string java_launcher;
   std::string cds_archive;
@@ -67,6 +70,7 @@ class Options {
   bool warn_duplicate_resources;
   bool check_desugar_deps;
   bool multi_release;
+  bool no_strip_module_info;
   std::string hermetic_java_home;
   std::vector<std::string> add_exports;
   std::vector<std::string> add_opens;

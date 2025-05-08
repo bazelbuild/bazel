@@ -15,34 +15,30 @@ package com.google.devtools.build.lib.skyframe.rewinding;
 
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
-import com.google.devtools.build.lib.skyframe.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
-import com.google.devtools.build.lib.skyframe.FilesetEntryKey;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
-import com.google.devtools.build.lib.skyframe.TraversalRequest;
+import com.google.devtools.build.lib.skyframe.TopLevelActionLookupKeyWrapper;
 import com.google.devtools.build.skyframe.SkyKey;
 
-/**
- * Centralizes rewinding-related logic used by {@link
- * com.google.devtools.build.skyframe.GraphInconsistencyReceiver} policies.
- */
+/** Rewinding-related utilities used by {@link RewindableGraphInconsistencyReceiver}. */
 public final class RewindingInconsistencyUtils {
 
   private RewindingInconsistencyUtils() {}
 
-  public static boolean mayForceRebuildChildren(SkyKey key) {
-    return key instanceof ActionLookupData || key instanceof ArtifactNestedSetKey;
+  static boolean mayForceRebuildChildren(SkyKey key) {
+    return key instanceof ActionLookupData
+        || key instanceof ArtifactNestedSetKey
+        || key instanceof TopLevelActionLookupKeyWrapper;
   }
 
   /** Returns whether the key specifies a node which may be rewound by a failed action. */
   public static boolean isRewindable(SkyKey key) {
     return key instanceof ActionLookupData
         || key instanceof ArtifactNestedSetKey
-        || key instanceof Artifact
-        || key instanceof FilesetEntryKey
-        || key instanceof TraversalRequest;
+        || key instanceof Artifact;
   }
 
   /**
@@ -51,15 +47,13 @@ public final class RewindingInconsistencyUtils {
    * <p>Such a node may discover, while in-flight, that a dependency of theirs transitioned from
    * done to undone.
    */
-  public static boolean isTypeThatDependsOnRewindableNodes(SkyKey key) {
+  static boolean isTypeThatDependsOnRewindableNodes(SkyKey key) {
     return key instanceof ActionLookupData
         || key instanceof ArtifactNestedSetKey
         || key instanceof ActionTemplateExpansionKey
         || key instanceof Artifact
         || key instanceof TargetCompletionKey
         || key instanceof TestCompletionKey
-        || key instanceof AspectCompletionKey
-        || key instanceof TraversalRequest
-        || key instanceof FilesetEntryKey;
+        || key instanceof AspectCompletionKey;
   }
 }

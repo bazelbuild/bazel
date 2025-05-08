@@ -18,12 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi.ProtoInfoProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
-import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
-import net.starlark.java.eval.FlagGuardedValue;
+import com.google.devtools.build.lib.starlarkbuildapi.stubs.ProviderStub;
 
 /** A {@link Bootstrap} for Starlark objects related to protocol buffers. */
 public class ProtoBootstrap implements Bootstrap {
@@ -41,20 +38,10 @@ public class ProtoBootstrap implements Bootstrap {
 
   public static final String PROTO_COMMON_SECOND_NAME = "proto_common_do_not_use";
 
-  private final ProtoInfoProviderApi protoInfoApiProvider;
   private final Object protoCommon;
-  private final StarlarkAspectApi protoRegistryAspect;
-  private final ProviderApi protoRegistryProvider;
 
-  public ProtoBootstrap(
-      ProtoInfoProviderApi protoInfoApiProvider,
-      Object protoCommon,
-      StarlarkAspectApi protoRegistryAspect,
-      ProviderApi protoRegistryProvider) {
-    this.protoInfoApiProvider = protoInfoApiProvider;
+  public ProtoBootstrap(Object protoCommon) {
     this.protoCommon = protoCommon;
-    this.protoRegistryAspect = protoRegistryAspect;
-    this.protoRegistryProvider = protoRegistryProvider;
   }
 
   @Override
@@ -63,7 +50,7 @@ public class ProtoBootstrap implements Bootstrap {
         PROTO_INFO_STARLARK_NAME,
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            protoInfoApiProvider,
+            new ProviderStub(),
             allowedRepositories));
     builder.put(
         PROTO_COMMON_NAME,
@@ -77,13 +64,5 @@ public class ProtoBootstrap implements Bootstrap {
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
             protoCommon,
             allowedRepositories));
-    builder.put(
-        "ProtoRegistryAspect",
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, protoRegistryAspect));
-    builder.put(
-        "ProtoRegistryProvider",
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, protoRegistryProvider));
   }
 }

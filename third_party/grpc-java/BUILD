@@ -15,7 +15,8 @@
 # limitations under the License.
 
 load("@rules_license//rules:license.bzl", "license")
-load("//tools/distributions:distribution_rules.bzl", "distrib_cc_binary", "distrib_jar_filegroup", "distrib_java_import")
+load("//tools/distributions:distribution_rules.bzl", "distrib_cc_binary", "distrib_jar_filegroup")
+load("@rules_java//java:java_library.bzl", "java_library")
 
 package(
     default_applicable_licenses = [":license"],
@@ -31,7 +32,7 @@ license(
         "@rules_license//licenses/spdx:Apache-2.0",
     ],
     license_text = "LICENSE",
-    package_version = "1.45",
+    package_version = "1.47",
 )
 
 filegroup(
@@ -39,41 +40,29 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-distrib_jar_filegroup(
-    name = "bootstrap-grpc-jars",
-    srcs = [
-        "grpc-api-1.45.1.jar",
-        "grpc-api-1.47.0.jar",
-        "grpc-auth-1.45.1.jar",
-        "grpc-auth-1.47.0.jar",
-        "grpc-context-1.45.1.jar",
-        "grpc-context-1.47.0.jar",
-        "grpc-core-1.45.1.jar",
-        "grpc-core-1.47.0.jar",
-        "grpc-netty-1.45.1.jar",
-        "grpc-netty-1.47.0.jar",
-        "grpc-protobuf-1.45.1.jar",
-        "grpc-protobuf-1.47.0.jar",
-        "grpc-protobuf-lite-1.45.1.jar",
-        "grpc-protobuf-lite-1.47.0.jar",
-        "grpc-stub-1.45.1.jar",
-        "grpc-stub-1.47.0.jar",
-    ],
-    enable_distributions = ["debian"],
+# @grpc-java specifies overrides for these maven coordinates, so these are not actually
+# jars, but built from source from the @grpc-java repo.
+GRPC_JARS = [
+    "@maven//:io_grpc_grpc_api",
+    "@maven//:io_grpc_grpc_auth",
+    "@maven//:io_grpc_grpc_context",
+    "@maven//:io_grpc_grpc_core",
+    "@maven//:io_grpc_grpc_inprocess",
+    "@maven//:io_grpc_grpc_netty",
+    "@maven//:io_grpc_grpc_protobuf",
+    "@maven//:io_grpc_grpc_protobuf_lite",
+    "@maven//:io_grpc_grpc_stub",
+]
+
+# TODO: wyv@ - rename this to just `grpc-java`.
+java_library(
+    name = "grpc-jar",
+    exports = GRPC_JARS,
 )
 
-distrib_java_import(
-    name = "grpc-jar",
-    enable_distributions = ["debian"],
-    jars = [":bootstrap-grpc-jars"],
-    runtime_deps = [
-        "//third_party:netty",
-        "//third_party:opencensus-api",
-        "//third_party:perfmark-api",
-    ],
-    deps = [
-        "//third_party:guava",
-    ],
+filegroup(
+    name = "grpc_jars",
+    srcs = GRPC_JARS,
 )
 
 distrib_cc_binary(

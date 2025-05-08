@@ -16,10 +16,15 @@ package com.google.devtools.build.lib.cmdline;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.TargetPattern.InterpretPathAsTarget;
+import com.google.devtools.build.lib.cmdline.TargetPattern.SingleTarget;
 import com.google.devtools.build.lib.cmdline.TargetPattern.TargetsBelowDirectory;
 import com.google.devtools.build.lib.cmdline.TargetPattern.TargetsBelowDirectory.ContainsResult;
+import com.google.devtools.build.lib.cmdline.TargetPattern.TargetsInPackage;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,38 +33,237 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link com.google.devtools.build.lib.cmdline.TargetPattern}. */
 @RunWith(JUnit4.class)
 public class TargetPatternTest {
-  private void expectError(String pattern) {
-    assertThrows(TargetParsingException.class, () -> parse(pattern));
+  private static Label label(String raw) {
+    return Label.parseCanonicalUnchecked(raw);
+  }
+
+  private static PackageIdentifier pkg(String raw) {
+    try {
+      return PackageIdentifier.parse(raw);
+    } catch (LabelSyntaxException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Test
-  public void testPassingValidations() throws TargetParsingException {
-    parse("foo:bar");
-    parse("foo:all");
-    parse("foo/...:all");
-    parse("foo:*");
+  public void validPatterns_mainRepo_atRepoRoot() throws TargetParsingException {
+    TargetPattern.Parser parser =
+        new TargetPattern.Parser(
+            PathFragment.EMPTY_FRAGMENT,
+            RepositoryName.MAIN,
+            RepositoryMapping.create(
+                ImmutableMap.of("repo", RepositoryName.createUnvalidated("canonical_repo")),
+                RepositoryName.MAIN));
 
-    parse("//foo");
-    parse("//foo:bar");
-    parse("//foo:all");
+    assertThat(parser.parse(":foo")).isEqualTo(new SingleTarget(":foo", label("@@//:foo")));
+    assertThat(parser.parse("foo:bar"))
+        .isEqualTo(new SingleTarget("foo:bar", label("@@//foo:bar")));
+    assertThat(parser.parse("foo:all"))
+        .isEqualTo(new TargetsInPackage("foo:all", pkg("@@//foo"), "all", false, true));
+    assertThat(parser.parse("foo/...:all"))
+        .isEqualTo(new TargetsBelowDirectory("foo/...:all", pkg("@@//foo"), true));
+    assertThat(parser.parse("foo:*"))
+        .isEqualTo(new TargetsInPackage("foo:*", pkg("@@//foo"), "*", false, false));
+    assertThat(parser.parse("foo")).isEqualTo(new InterpretPathAsTarget("foo", "foo"));
+    assertThat(parser.parse("...")).isEqualTo(new TargetsBelowDirectory("...", pkg("@@//"), true));
+    assertThat(parser.parse("foo/bar")).isEqualTo(new InterpretPathAsTarget("foo/bar", "foo/bar"));
 
-    parse("//foo/all");
-    parse("java/com/google/foo/Bar.java");
-    parse("//foo/...:all");
+    assertThat(parser.parse("//foo")).isEqualTo(new SingleTarget("//foo", label("@@//foo:foo")));
+    assertThat(parser.parse("//foo:bar"))
+        .isEqualTo(new SingleTarget("//foo:bar", label("@@//foo:bar")));
+    assertThat(parser.parse("//foo:all"))
+        .isEqualTo(new TargetsInPackage("//foo:all", pkg("@@//foo"), "all", true, true));
 
-    parse("//...");
-    parse("@repo//foo:bar");
-    parse("@repo//foo:all");
-    parse("@repo//:bar");
-    parse("@@repo//foo:all");
-    parse("@@repo//:bar");
+    assertThat(parser.parse("//foo/all"))
+        .isEqualTo(new SingleTarget("//foo/all", label("@@//foo/all:all")));
+    assertThat(parser.parse("//foo/...:all"))
+        .isEqualTo(new TargetsBelowDirectory("//foo/...:all", pkg("@@//foo"), true));
+    assertThat(parser.parse("//..."))
+        .isEqualTo(new TargetsBelowDirectory("//...", pkg("@@//"), true));
+
+    assertThat(parser.parse("@repo"))
+        .isEqualTo(new SingleTarget("@repo", label("@@canonical_repo//:repo")));
+    assertThat(parser.parse("@repo//foo:bar"))
+        .isEqualTo(new SingleTarget("@repo//foo:bar", label("@@canonical_repo//foo:bar")));
+    assertThat(parser.parse("@repo//foo:all"))
+        .isEqualTo(
+            new TargetsInPackage(
+                "@repo//foo:all", pkg("@@canonical_repo//foo"), "all", true, true));
+    assertThat(parser.parse("@repo//:bar"))
+        .isEqualTo(new SingleTarget("@repo//:bar", label("@@canonical_repo//:bar")));
+    assertThat(parser.parse("@repo//..."))
+        .isEqualTo(new TargetsBelowDirectory("@repo//...", pkg("@@canonical_repo//"), true));
+
+    assertThat(parser.parse("@@repo"))
+        .isEqualTo(new SingleTarget("@@repo", label("@@repo//:repo")));
+    assertThat(parser.parse("@@repo//foo:all"))
+        .isEqualTo(new TargetsInPackage("@@repo//foo:all", pkg("@@repo//foo"), "all", true, true));
+    assertThat(parser.parse("@@repo//:bar"))
+        .isEqualTo(new SingleTarget("@@repo//:bar", label("@@repo//:bar")));
   }
 
   @Test
-  public void testInvalidPatterns() throws TargetParsingException {
-    expectError("Bar\\java");
-    expectError("");
-    expectError("\\");
+  public void validPatterns_mainRepo_inSomeRelativeDirectory() throws TargetParsingException {
+    TargetPattern.Parser parser =
+        new TargetPattern.Parser(
+            PathFragment.create("base"),
+            RepositoryName.MAIN,
+            RepositoryMapping.create(
+                ImmutableMap.of("repo", RepositoryName.createUnvalidated("canonical_repo")),
+                RepositoryName.MAIN));
+
+    assertThat(parser.parse(":foo")).isEqualTo(new SingleTarget(":foo", label("@@//base:foo")));
+    assertThat(parser.parse("foo:bar"))
+        .isEqualTo(new SingleTarget("foo:bar", label("@@//base/foo:bar")));
+    assertThat(parser.parse("foo:all"))
+        .isEqualTo(new TargetsInPackage("foo:all", pkg("@@//base/foo"), "all", false, true));
+    assertThat(parser.parse("foo/...:all"))
+        .isEqualTo(new TargetsBelowDirectory("foo/...:all", pkg("@@//base/foo"), true));
+    assertThat(parser.parse("foo:*"))
+        .isEqualTo(new TargetsInPackage("foo:*", pkg("@@//base/foo"), "*", false, false));
+    assertThat(parser.parse("foo")).isEqualTo(new InterpretPathAsTarget("foo", "base/foo"));
+    assertThat(parser.parse("..."))
+        .isEqualTo(new TargetsBelowDirectory("...", pkg("@@//base"), true));
+    assertThat(parser.parse("foo/bar"))
+        .isEqualTo(new InterpretPathAsTarget("foo/bar", "base/foo/bar"));
+
+    assertThat(parser.parse("//foo")).isEqualTo(new SingleTarget("//foo", label("@@//foo:foo")));
+    assertThat(parser.parse("//foo:bar"))
+        .isEqualTo(new SingleTarget("//foo:bar", label("@@//foo:bar")));
+    assertThat(parser.parse("//foo:all"))
+        .isEqualTo(new TargetsInPackage("//foo:all", pkg("@@//foo"), "all", true, true));
+
+    assertThat(parser.parse("//foo/all"))
+        .isEqualTo(new SingleTarget("//foo/all", label("@@//foo/all:all")));
+    assertThat(parser.parse("//foo/...:all"))
+        .isEqualTo(new TargetsBelowDirectory("//foo/...:all", pkg("@@//foo"), true));
+    assertThat(parser.parse("//..."))
+        .isEqualTo(new TargetsBelowDirectory("//...", pkg("@@//"), true));
+
+    assertThat(parser.parse("@repo"))
+        .isEqualTo(new SingleTarget("@repo", label("@@canonical_repo//:repo")));
+    assertThat(parser.parse("@repo//foo:bar"))
+        .isEqualTo(new SingleTarget("@repo//foo:bar", label("@@canonical_repo//foo:bar")));
+    assertThat(parser.parse("@repo//foo:all"))
+        .isEqualTo(
+            new TargetsInPackage(
+                "@repo//foo:all", pkg("@@canonical_repo//foo"), "all", true, true));
+    assertThat(parser.parse("@repo//:bar"))
+        .isEqualTo(new SingleTarget("@repo//:bar", label("@@canonical_repo//:bar")));
+    assertThat(parser.parse("@repo//..."))
+        .isEqualTo(new TargetsBelowDirectory("@repo//...", pkg("@@canonical_repo//"), true));
+
+    assertThat(parser.parse("@@repo"))
+        .isEqualTo(new SingleTarget("@@repo", label("@@repo//:repo")));
+    assertThat(parser.parse("@@repo//foo:all"))
+        .isEqualTo(new TargetsInPackage("@@repo//foo:all", pkg("@@repo//foo"), "all", true, true));
+    assertThat(parser.parse("@@repo//:bar"))
+        .isEqualTo(new SingleTarget("@@repo//:bar", label("@@repo//:bar")));
+  }
+
+  @Test
+  public void validPatterns_nonMainRepo() throws TargetParsingException {
+    TargetPattern.Parser parser =
+        new TargetPattern.Parser(
+            PathFragment.EMPTY_FRAGMENT,
+            RepositoryName.createUnvalidated("my_repo"),
+            RepositoryMapping.create(
+                ImmutableMap.of("repo", RepositoryName.createUnvalidated("canonical_repo")),
+                RepositoryName.createUnvalidated("my_repo")));
+
+    assertThat(parser.parse(":foo")).isEqualTo(new SingleTarget(":foo", label("@@my_repo//:foo")));
+    assertThat(parser.parse("foo:bar"))
+        .isEqualTo(new SingleTarget("foo:bar", label("@@my_repo//foo:bar")));
+    assertThat(parser.parse("foo:all"))
+        .isEqualTo(new TargetsInPackage("foo:all", pkg("@@my_repo//foo"), "all", false, true));
+    assertThat(parser.parse("foo/...:all"))
+        .isEqualTo(new TargetsBelowDirectory("foo/...:all", pkg("@@my_repo//foo"), true));
+    assertThat(parser.parse("foo:*"))
+        .isEqualTo(new TargetsInPackage("foo:*", pkg("@@my_repo//foo"), "*", false, false));
+    assertThat(parser.parse("foo")).isEqualTo(new SingleTarget("foo", label("@@my_repo//:foo")));
+    assertThat(parser.parse("..."))
+        .isEqualTo(new TargetsBelowDirectory("...", pkg("@@my_repo//"), true));
+    assertThat(parser.parse("foo/bar"))
+        .isEqualTo(new SingleTarget("foo/bar", label("@@my_repo//:foo/bar")));
+
+    assertThat(parser.parse("//foo"))
+        .isEqualTo(new SingleTarget("//foo", label("@@my_repo//foo:foo")));
+    assertThat(parser.parse("//foo:bar"))
+        .isEqualTo(new SingleTarget("//foo:bar", label("@@my_repo//foo:bar")));
+    assertThat(parser.parse("//foo:all"))
+        .isEqualTo(new TargetsInPackage("//foo:all", pkg("@@my_repo//foo"), "all", true, true));
+
+    assertThat(parser.parse("//foo/all"))
+        .isEqualTo(new SingleTarget("//foo/all", label("@@my_repo//foo/all:all")));
+    assertThat(parser.parse("//foo/...:all"))
+        .isEqualTo(new TargetsBelowDirectory("//foo/...:all", pkg("@@my_repo//foo"), true));
+    assertThat(parser.parse("//..."))
+        .isEqualTo(new TargetsBelowDirectory("//...", pkg("@@my_repo//"), true));
+
+    assertThat(parser.parse("@repo"))
+        .isEqualTo(new SingleTarget("@repo", label("@@canonical_repo//:repo")));
+    assertThat(parser.parse("@repo//foo:bar"))
+        .isEqualTo(new SingleTarget("@repo//foo:bar", label("@@canonical_repo//foo:bar")));
+    assertThat(parser.parse("@repo//foo:all"))
+        .isEqualTo(
+            new TargetsInPackage(
+                "@repo//foo:all", pkg("@@canonical_repo//foo"), "all", true, true));
+    assertThat(parser.parse("@repo//:bar"))
+        .isEqualTo(new SingleTarget("@repo//:bar", label("@@canonical_repo//:bar")));
+    assertThat(parser.parse("@repo//..."))
+        .isEqualTo(new TargetsBelowDirectory("@repo//...", pkg("@@canonical_repo//"), true));
+
+    assertThat(parser.parse("@@repo"))
+        .isEqualTo(new SingleTarget("@@repo", label("@@repo//:repo")));
+    assertThat(parser.parse("@@repo//foo:all"))
+        .isEqualTo(new TargetsInPackage("@@repo//foo:all", pkg("@@repo//foo"), "all", true, true));
+    assertThat(parser.parse("@@repo//:bar"))
+        .isEqualTo(new SingleTarget("@@repo//:bar", label("@@repo//:bar")));
+  }
+
+  @Test
+  public void invalidPatterns() throws Exception {
+    ImmutableList<String> badPatterns =
+        ImmutableList.of("//Bar\\java", "", "/foo", "///foo", "@", "@foo//", "@@");
+    ImmutableMap<String, RepositoryName> repoMappingEntries =
+        ImmutableMap.of("repo", RepositoryName.createUnvalidated("canonical_repo"));
+    for (TargetPattern.Parser parser :
+        ImmutableList.of(
+            new TargetPattern.Parser(
+                PathFragment.EMPTY_FRAGMENT,
+                RepositoryName.MAIN,
+                RepositoryMapping.create(repoMappingEntries, RepositoryName.MAIN)),
+            new TargetPattern.Parser(
+                PathFragment.create("base"),
+                RepositoryName.MAIN,
+                RepositoryMapping.create(repoMappingEntries, RepositoryName.MAIN)),
+            new TargetPattern.Parser(
+                PathFragment.EMPTY_FRAGMENT,
+                RepositoryName.create("my_repo"),
+                RepositoryMapping.create(repoMappingEntries, RepositoryName.create("my_repo"))))) {
+      for (String pattern : badPatterns) {
+        try {
+          TargetPattern parsed = parser.parse(pattern);
+          fail(
+              String.format(
+                  "parsing should have failed for pattern \"%s\" with parser in repo %s at"
+                      + " relative directory [%s], but succeeded with the result:\n%s",
+                  pattern, parser.getCurrentRepo(), parser.getRelativeDirectory(), parsed));
+        } catch (TargetParsingException expected) {
+        }
+      }
+    }
+  }
+
+  @Test
+  public void invalidParser_nonMainRepo_nonEmptyRelativeDirectory() throws Exception {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new TargetPattern.Parser(
+                PathFragment.create("base"),
+                RepositoryName.create("my_repo"),
+                RepositoryMapping.ALWAYS_FALLBACK));
   }
 
   @Test
@@ -87,6 +291,13 @@ public class TargetPatternTest {
     assertThat(TargetPattern.normalize("../../a")).isEqualTo("../../a");
     assertThat(TargetPattern.normalize("../../../a")).isEqualTo("../../../a");
     assertThat(TargetPattern.normalize("a/../../../b")).isEqualTo("../../b");
+  }
+
+  private static TargetsBelowDirectory parseAsTBD(String pattern) throws TargetParsingException {
+    TargetPattern parsedPattern = TargetPattern.defaultParser().parse(pattern);
+    assertThat(parsedPattern.getType()).isEqualTo(TargetPattern.Type.TARGETS_BELOW_DIRECTORY);
+    assertThat(parsedPattern.getOriginalPattern()).isEqualTo(pattern);
+    return (TargetsBelowDirectory) parsedPattern;
   }
 
   @Test
@@ -165,48 +376,5 @@ public class TargetPatternTest {
     assertThat(tbdDepot.contains(tbdFoo))
         .isEqualTo(ContainsResult.DIRECTORY_EXCLUSION_WOULD_BE_EXACT);
     assertThat(tbdFoo.contains(tbdDepot)).isEqualTo(ContainsResult.NOT_CONTAINED);
-  }
-
-  @Test
-  public void testRenameRepository() throws Exception {
-    RepositoryMapping renaming =
-        RepositoryMapping.createAllowingFallback(
-            ImmutableMap.of(
-                "foo", RepositoryName.create("bar"),
-                "myworkspace", RepositoryName.create("")));
-    TargetPattern.Parser parser =
-        new TargetPattern.Parser(
-            PathFragment.EMPTY_FRAGMENT, RepositoryName.createUnvalidated("myrepo"), renaming);
-
-    // Expecting renaming
-    assertThat(parser.parse("@foo//package:target").getRepository().getName()).isEqualTo("bar");
-    assertThat(parser.parse("@myworkspace//package:target").getRepository().isMain()).isTrue();
-    assertThat(parser.parse("@foo//foo/...").getRepository().getName()).isEqualTo("bar");
-    assertThat(parser.parse("@myworkspace//foo/...").getRepository().isMain()).isTrue();
-
-    // No renaming should occur
-    assertThat(parser.parse("@//package:target").getRepository().isMain()).isTrue();
-    assertThat(parser.parse("@@foo//package:target").getRepository().getName()).isEqualTo("foo");
-    assertThat(parser.parse("@unrelated//package:target").getRepository().getName())
-        .isEqualTo("unrelated");
-    assertThat(parser.parse("foo/package:target").getRepository().getName()).isEqualTo("myrepo");
-    assertThat(parser.parse("foo/...").getRepository().getName()).isEqualTo("myrepo");
-  }
-
-  private static TargetPattern parse(String pattern) throws TargetParsingException {
-    return TargetPattern.defaultParser().parse(pattern);
-  }
-
-  private static TargetPattern parseAsExpectedType(String pattern, TargetPattern.Type expectedType)
-      throws TargetParsingException {
-    TargetPattern parsedPattern = parse(pattern);
-    assertThat(parsedPattern.getType()).isEqualTo(expectedType);
-    assertThat(parsedPattern.getOriginalPattern()).isEqualTo(pattern);
-    return parsedPattern;
-  }
-
-  private static TargetsBelowDirectory parseAsTBD(String pattern) throws TargetParsingException {
-    return (TargetsBelowDirectory)
-        parseAsExpectedType(pattern, TargetPattern.Type.TARGETS_BELOW_DIRECTORY);
   }
 }

@@ -150,10 +150,10 @@ public class VanillaJavaBuilderTest {
             "import java.util.ArrayList;",
             "import java.util.List;",
             "abstract class A {",
-            "  abstract void f(List<String> xs);",
-            "  {",
-            "    f(new ArrayList<>());",
-            "  }",
+            "  void test() {",
+            "      f(0L);",
+            "   }",
+            "   void f(int i) {}",
             "}"),
         UTF_8);
 
@@ -161,8 +161,6 @@ public class VanillaJavaBuilderTest {
         run(
             ImmutableList.of(
                 "--javacopts",
-                "-source",
-                "7",
                 "-Xlint:none",
                 "--",
                 "--sources",

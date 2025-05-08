@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Rules Tutorial
 
+{% include "_buttons.html" %}
+
 <!-- [TOC] -->
 
 [Starlark](https://github.com/bazelbuild/starlark) is a Python-like
@@ -15,7 +17,7 @@ of Bazel. Bazel augments the core language with numerous build-related functions
 such as `glob`, `genrule`, `java_binary`, and so on.
 
 See the
-[Bazel](/start/getting-started) and [Starlark](/rules/concepts) documentation for
+[Bazel](/start/) and [Starlark](/extending/concepts) documentation for
 more details, and the
 [Rules SIG template](https://github.com/bazel-contrib/rules-template) as a
 starting point for new rulesets.
@@ -112,13 +114,11 @@ Make a few observations:
 * The callback function `_foo_binary_impl` is not called. Bazel query loads
   `BUILD` files, but doesn't analyze targets.
 
-To analyze the targets, use the [`cquery`](/docs/cquery) ("configured
+To analyze the targets, use the [`cquery`](/query/cquery) ("configured
 query") or the `build` command:
 
 ```
 $ bazel build :all
-DEBUG: /usr/home/bazel-codelab/foo.bzl:8:1: bzl file evaluation
-DEBUG: /usr/home/bazel-codelab/BUILD:2:1: BUILD file
 DEBUG: /usr/home/bazel-codelab/foo.bzl:2:5: analyzing //:bin1
 DEBUG: /usr/home/bazel-codelab/foo.bzl:2:5: analyzing //:bin2
 INFO: Analyzed 2 targets (0 packages loaded, 0 targets configured).
@@ -127,10 +127,9 @@ INFO: Found 2 targets...
 
 As you can see, `_foo_binary_impl` is now called twice - once for each target.
 
-Some readers will notice that "bzl file evaluation" is printed again, although
-the evaluation of foo.bzl is cached after the call to `bazel query`. Bazel
-doesn't reevaluate the code, it only replays the print events. Regardless of
-the cache state, you get the same output.
+Notice that neither "bzl file evaluation" nor "BUILD file" are printed again,
+because the evaluation of `foo.bzl` is cached after the call to `bazel query`.
+Bazel only emits `print` statements when they are actually executed.
 
 ## Creating a file
 
@@ -364,7 +363,7 @@ exports_files(["file.cc.tpl"])
 
 ## Going further
 
-*   Take a look at the [reference documentation for rules](rules#contents).
-*   Get familiar with [depsets](depsets).
+*   Take a look at the [reference documentation for rules](/extending/rules#contents).
+*   Get familiar with [depsets](/extending/depsets).
 *   Check out the [examples repository](https://github.com/bazelbuild/examples/tree/master/rules)
     which includes additional examples of rules.

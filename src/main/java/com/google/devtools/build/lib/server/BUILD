@@ -1,6 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -11,16 +14,24 @@ filegroup(
 )
 
 java_library(
+    name = "idle_task",
+    srcs = [
+        "IdleTask.java",
+        "IdleTaskException.java",
+    ],
+)
+
+java_library(
     name = "server",
     srcs = [
         "CommandManager.java",
         "GrpcServerImpl.java",
-        "IdleServerTasks.java",
+        "IdleTaskManager.java",
         "ServerWatcherRunnable.java",
     ],
     deps = [
+        ":idle_task",
         ":pid_file_watcher",
-        ":rpc_server",
         ":shutdown_hooks",
         "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_dispatcher",
@@ -28,8 +39,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/platform:system_memory_pressure_monitor",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
@@ -37,7 +46,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:interrupted_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
@@ -51,7 +60,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party:netty",
         "//third_party/grpc-java:grpc-jar",
-        "//third_party/protobuf:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -83,11 +92,29 @@ java_library(
 )
 
 java_library(
-    name = "rpc_server",
+    name = "gc_and_interner_shrinking_idle_task",
     srcs = [
-        "RPCServer.java",
+        "GcAndInternerShrinkingIdleTask.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        ":idle_task",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//third_party:flogger",
+    ],
+)
+
+java_library(
+    name = "install_base_garbage_collector",
+    srcs = [
+        "InstallBaseGarbageCollector.java",
+        "InstallBaseGarbageCollectorIdleTask.java",
+    ],
+    deps = [
+        ":idle_task",
+        "//src/main/java/com/google/devtools/build/lib/util:file_system_lock",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
     ],
 )

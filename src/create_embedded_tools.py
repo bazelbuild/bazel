@@ -30,20 +30,25 @@ from src.create_embedded_tools_lib import is_executable
 output_paths = [
     ('*MODULE.tools', lambda x: 'MODULE.bazel'),
     ('*tools/jdk/BUILD.tools', lambda x: 'tools/jdk/BUILD'),
-    ('*tools/build_defs/repo/BUILD.repo',
-     lambda x: 'tools/build_defs/repo/BUILD'),
-    ('*tools/j2objc/BUILD.tools', lambda x: 'tools/j2objc/BUILD'),
-    ('*tools/platforms/BUILD.tools', lambda x: 'platforms/BUILD'),
+    (
+        '*tools/build_defs/repo/BUILD.repo',
+        lambda x: 'tools/build_defs/repo/BUILD',
+    ),
+    (
+        '*tools/build_defs/build_info/BUILD.tools',
+        lambda x: 'tools/build_defs/build_info/BUILD',
+    ),
+    (
+        '*tools/build_defs/build_info/templates/BUILD.tools',
+        lambda x: 'tools/build_defs/build_info/templates/BUILD',
+    ),
     ('*tools/platforms/*', lambda x: 'platforms/' + os.path.basename(x)),
     ('*tools/cpp/BUILD.tools', lambda x: 'tools/cpp/BUILD'),
-    ('*tools/cpp/runfiles/generated_*',
-     lambda x: 'tools/cpp/runfiles/' + os.path.basename(x)[len('generated_'):]),
     ('*launcher.exe', lambda x: 'tools/launcher/launcher.exe'),
+    ('*launcher_maker.exe', lambda x: 'tools/launcher/launcher_maker.exe'),
     ('*def_parser.exe', lambda x: 'tools/def_parser/def_parser.exe'),
     ('*zipper.exe', lambda x: 'tools/zip/zipper/zipper.exe'),
     ('*zipper', lambda x: 'tools/zip/zipper/zipper'),
-    ('*xcode*make_hashed_objlist.py',
-     lambda x: 'tools/objc/make_hashed_objlist.py'),
     ('*xcode*xcode-locator', lambda x: 'tools/objc/xcode-locator'),
     ('*src/tools/xcode/*', lambda x: 'tools/objc/' + os.path.basename(x)),
     # --experimental_sibling_repository_layout=false

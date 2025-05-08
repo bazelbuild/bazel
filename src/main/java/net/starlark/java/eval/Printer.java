@@ -114,13 +114,13 @@ public class Printer {
    *
    * <p>Implementations of StarlarkValue may define their own behavior of {@code debugPrint}.
    */
-  public Printer debugPrint(Object o, StarlarkSemantics semantics) {
+  public Printer debugPrint(Object o, StarlarkThread thread) {
     if (o instanceof StarlarkValue) {
-      ((StarlarkValue) o).debugPrint(this, semantics);
+      ((StarlarkValue) o).debugPrint(this, thread);
       return this;
     }
 
-    return this.str(o, semantics);
+    return this.str(o, thread.getSemantics());
   }
 
   /**

@@ -14,24 +14,22 @@
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Basic class to abstract action graph cache functionality.
  */
 abstract class BaseCache<K, P> {
-  private final Map<K, Integer> cache = new HashMap<>();
+  private final Map<K, Integer> cache = new ConcurrentHashMap<>();
   protected final AqueryOutputHandler aqueryOutputHandler;
+  // protobuf interprets the value 0 as "default value" for uint64, thus treating the field as
+  // "unset". We should start from 1 instead.
+  private final AtomicInteger nextId = new AtomicInteger(1);
 
   BaseCache(AqueryOutputHandler aqueryOutputHandler) {
     this.aqueryOutputHandler = aqueryOutputHandler;
-  }
-
-  private int generateNextId() {
-    // protobuf interprets the value 0 as "default value" for uint64, thus treating the field as
-    // "unset". We should start from 1 instead.
-    return cache.size() + 1;
   }
 
   protected K transformToKey(K data) {
@@ -46,18 +44,29 @@ abstract class BaseCache<K, P> {
    * <p>Stream the proto to output, the first time it's generated.
    */
   int dataToIdAndStreamOutputProto(K data) throws IOException, InterruptedException {
+    int id = -1;
     K key = transformToKey(data);
-    Integer id = cache.get(key);
-    if (id == null) {
-      // Note that this cannot be replaced by computeIfAbsent since createProto is a recursive
-      // operation for the case of nested sets which will call dataToId on the same object and thus
-      // computeIfAbsent again.
-      id = generateNextId();
-      cache.put(key, id);
+    boolean shouldOutputProto = false;
+
+    // Double-checked locking here:
+    // Once cache.get(key) != null it won't be changed again.
+    if (cache.get(key) == null) {
+      synchronized (this) {
+        if (cache.get(key) == null) {
+          id = nextId.getAndIncrement();
+          // Note that this cannot be replaced by computeIfAbsent since createProto is a recursive
+          // operation for the case of nested sets which will call dataToId on the same object and
+          // thus computeIfAbsent again.
+          cache.put(key, id);
+          shouldOutputProto = true;
+        }
+      }
+    }
+    if (shouldOutputProto) {
       P proto = createProto(data, id);
       toOutput(proto);
     }
-    return id;
+    return cache.get(key);
   }
 
   abstract P createProto(K key, int id) throws IOException, InterruptedException;

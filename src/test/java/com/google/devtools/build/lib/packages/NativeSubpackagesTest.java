@@ -26,15 +26,16 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@code native.subpackages} function. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class NativeSubpackagesTest extends BuildViewTestCase {
 
   private static final String ALL_SUBDIRS = "**";
@@ -50,7 +51,7 @@ public class NativeSubpackagesTest extends BuildViewTestCase {
 
   @Test
   public void subpackages_simple_include() throws Exception {
-    makeSubpackageFileGroup("test/starlark/BUILD", "sub1/**", null, null);
+    makeSubpackageFileGroup("test/starlark/BUILD", "sub1", null, null);
 
     makeFilesSubPackage("test/starlark/sub");
     makeFilesSubPackage("test/starlark/sub1");
@@ -199,7 +200,7 @@ public class NativeSubpackagesTest extends BuildViewTestCase {
   @Test
   public void invalidPositionalParams() throws Exception {
     scratch.file("foo/subdir/BUILD");
-    scratch.file("foo/BUILD", "[sh_library(name = p) for p in subpackages(['subdir'])]");
+    scratch.file("foo/BUILD", "[filegroup(name = p) for p in subpackages(['subdir'])]");
 
     AssertionError e =
         assertThrows(AssertionError.class, () -> getConfiguredTargetAndData("//foo:subdir"));
@@ -209,7 +210,7 @@ public class NativeSubpackagesTest extends BuildViewTestCase {
   @Test
   public void invalidMissingInclude() throws Exception {
     scratch.file("foo/subdir/BUILD");
-    scratch.file("foo/BUILD", "[sh_library(name = p) for p in subpackages()]");
+    scratch.file("foo/BUILD", "[filegroup(name = p) for p in subpackages()]");
 
     AssertionError e =
         assertThrows(AssertionError.class, () -> getConfiguredTargetAndData("//foo:subdir"));
@@ -232,19 +233,26 @@ public class NativeSubpackagesTest extends BuildViewTestCase {
   @Test
   public void includeValidMatchSubdir() throws Exception {
     scratch.file("foo/subdir/BUILD");
-    scratch.file(
-        "foo/BUILD", "[sh_library(name = p) for p in subpackages(include = ['subdir/*'])]");
-
+    scratch.file("foo/BUILD", "[filegroup(name = p) for p in subpackages(include = ['subdir'])]");
     getConfiguredTargetAndData("//foo:subdir");
   }
 
   @Test
-  public void includeValidSubMatchSubdir() throws Exception {
+  public void includeValidSubMatchSubdir(
+      @TestParameter({
+            "subdir/*/deeper",
+            "subdir/sub*/deeper",
+            "subdir/**",
+            "subdir/*/deeper/**",
+            "subdir/**/deeper/**"
+          })
+          String expression)
+      throws Exception {
     makeFilesSubPackage("test/starlark/subdir/sub/deeper");
     makeFilesSubPackage("test/starlark/subdir/sub2/deeper");
     makeFilesSubPackage("test/starlark/subdir/sub3/deeper");
 
-    makeSubpackageFileGroup("test/starlark/BUILD", "subdir/*/deeper", null, null);
+    makeSubpackageFileGroup("test/starlark/BUILD", expression, null, null);
 
     assertAttrLabelList(
         "//test/starlark:files",

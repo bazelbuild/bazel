@@ -16,16 +16,16 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nonnull;
 
@@ -108,26 +108,39 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
   /** {@link com.google.devtools.build.skyframe.SkyKey} for {@code ContainingPackageLookupValue}. */
   @AutoCodec
   public static class Key extends AbstractSkyKey<PackageIdentifier> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(PackageIdentifier arg) {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(PackageIdentifier arg) {
+    private static Key create(PackageIdentifier arg) {
       return interner.intern(new Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.CONTAINING_PACKAGE_LOOKUP;
     }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
+    }
   }
 
   public static ContainingPackage withContainingPackage(PackageIdentifier pkgId, Root root) {
     return new ContainingPackage(pkgId, root);
+  }
+
+  static ContainingPackageLookupValue noContainingPackage(String reason) {
+    return new NoContainingPackage(reason);
   }
 
   /** Value indicating there is no containing package. */
@@ -138,7 +151,7 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
       this.reason = null;
     }
 
-    NoContainingPackage(@Nonnull String reason) {
+    private NoContainingPackage(@Nonnull String reason) {
       this.reason = reason;
     }
 
@@ -199,10 +212,9 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof ContainingPackage)) {
+      if (!(obj instanceof ContainingPackage other)) {
         return false;
       }
-      ContainingPackage other = (ContainingPackage) obj;
       return containingPackage.equals(other.containingPackage)
           && containingPackageRoot.equals(other.containingPackageRoot);
     }

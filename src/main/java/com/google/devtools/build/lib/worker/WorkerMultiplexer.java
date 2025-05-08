@@ -17,18 +17,23 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessFactory;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
+import com.google.errorprone.annotations.concurrent.LazyInit;
 import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -53,6 +58,16 @@ import javax.annotation.Nullable;
  * WorkerMultiplexer} wakes up the relevant {@code WorkerProxy} to retrieve the response.
  */
 public class WorkerMultiplexer {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  /**
+   * An ID for this multiplexer that can be used by sandboxed multiplex workers to generate their
+   * workdir. The workdir needs to be the same for all {@code SandboxedWorkerProxy} instances
+   * associated with a {@code WorkerMultiplexer}, but needs to be unique across multiplexers for the
+   * same mnemonic. This is analogous to the {@code workerId} created in {@code WorkerFactory}.
+   */
+  private final int multiplexerId;
+
   /**
    * A queue of {@link WorkRequest} instances that need to be sent to the worker. {@link
    * WorkerProxy} instances add to this queue, while the requestSender subthread remove requests and
@@ -60,12 +75,14 @@ public class WorkerMultiplexer {
    * stdin} of the worker process.
    */
   @VisibleForTesting final BlockingQueue<WorkRequest> pendingRequests = new LinkedBlockingQueue<>();
+
   /**
    * A map of {@code WorkResponse}s received from the worker process. They are stored in this map
    * keyed by the request id until the corresponding {@code WorkerProxy} picks them up.
    */
   private final ConcurrentMap<Integer, WorkResponse> workerProcessResponse =
       new ConcurrentHashMap<>();
+
   /**
    * A map of semaphores corresponding to {@code WorkRequest}s. After sending the {@code
    * WorkRequest}, {@code WorkerProxy} will wait on a semaphore to be released. {@code
@@ -73,18 +90,23 @@ public class WorkerMultiplexer {
    * {@code WorkerProxy} that the {@code WorkerResponse} has been received.
    */
   private final ConcurrentMap<Integer, Semaphore> responseChecker = new ConcurrentHashMap<>();
+
   /**
    * The worker process that this WorkerMultiplexer should be talking to. This should only be set
    * once, when creating a new process. If the process dies or its stdio streams get corrupted, the
    * {@code WorkerMultiplexer} gets discarded as well and a new one gets created as needed.
    */
   @VisibleForTesting Subprocess process;
+
   /** The implementation of the worker protocol (JSON or Proto). */
   private WorkerProtocolImpl workerProtocol;
+
   /** InputStream from the worker process. */
-  private RecordingInputStream recordingStream;
-  /** True if this multiplexer was explicitly destroyed. */
-  private boolean wasDestroyed;
+  @LazyInit private RecordingInputStream recordingStream;
+
+  /** Status of the worker process. */
+  private final WorkerProcessStatus status;
+
   /**
    * The log file of the actual running worker process. It is shared between all WorkerProxy
    * instances for this multiplexer.
@@ -116,9 +138,17 @@ public class WorkerMultiplexer {
    */
   private Thread shutdownHook;
 
-  WorkerMultiplexer(Path logFile, WorkerKey workerKey) {
+  /**
+   * The workDir of the multiplexer. We should clean this up on destroy if it's a sandboxed
+   * multiplex worker.
+   */
+  private Path workDir;
+
+  WorkerMultiplexer(Path logFile, WorkerKey workerKey, int multiplexerId) {
+    this.status = new WorkerProcessStatus();
     this.logFile = logFile;
     this.workerKey = workerKey;
+    this.multiplexerId = multiplexerId;
   }
 
   /** Sets or clears the reporter for outputting verbose info. */
@@ -133,13 +163,21 @@ public class WorkerMultiplexer {
     }
   }
 
+  public WorkerProcessStatus getStatus() {
+    return status;
+  }
+
   /**
    * Creates a worker process corresponding to this {@code WorkerMultiplexer}, if it doesn't already
    * exist. Also starts up the subthreads handling reading and writing requests and responses, and
    * sets up the sandbox root dir with the required worker files.
    */
   public synchronized void createSandboxedProcess(
-      Path workDir, Set<PathFragment> workerFiles, SandboxInputs inputFiles) throws IOException {
+      Path workDir,
+      Set<PathFragment> workerFiles,
+      SandboxInputs inputFiles,
+      TreeDeleter treeDeleter)
+      throws IOException, InterruptedException {
     // TODO: Make blaze clean remove the workdir.
     if (this.process == null) {
       // This should be a once-only operation.
@@ -152,11 +190,15 @@ public class WorkerMultiplexer {
           inputsToCreate,
           dirsToCreate,
           workerFiles,
-          SandboxOutputs.getEmptyInstance().files(),
-          SandboxOutputs.getEmptyInstance().dirs());
+          SandboxOutputs.getEmptyInstance());
       SandboxHelpers.cleanExisting(
-          workDir.getParentDirectory(), inputFiles, inputsToCreate, dirsToCreate, workDir);
-      SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict=*/ false);
+          workDir.getParentDirectory(),
+          inputFiles,
+          inputsToCreate,
+          dirsToCreate,
+          workDir,
+          treeDeleter);
+      SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict= */ false);
       WorkerExecRoot.createInputs(inputsToCreate, inputFiles.limitedCopy(workerFiles), workDir);
       createProcess(workDir);
     }
@@ -168,7 +210,7 @@ public class WorkerMultiplexer {
    */
   public synchronized void createProcess(Path workDir) throws IOException {
     if (this.process == null) {
-      if (this.wasDestroyed) {
+      if (this.status.isKilled()) {
         throw new IOException("Multiplexer destroyed before created process");
       }
       this.shutdownHook =
@@ -179,10 +221,14 @@ public class WorkerMultiplexer {
               });
       Runtime.getRuntime().addShutdownHook(shutdownHook);
       ImmutableList<String> args = workerKey.getArgs();
-      File executable = new File(args.get(0));
+      File executable = new File(StringEncoding.internalToPlatform(args.get(0)));
       if (!executable.isAbsolute() && executable.getParent() != null) {
         List<String> newArgs = new ArrayList<>(args);
-        newArgs.set(0, new File(workDir.getPathFile(), newArgs.get(0)).getAbsolutePath());
+        newArgs.set(
+            0,
+            StringEncoding.platformToInternal(
+                new File(workDir.getPathFile(), StringEncoding.internalToPlatform(newArgs.get(0)))
+                    .getAbsolutePath()));
         args = ImmutableList.copyOf(newArgs);
       }
       SubprocessBuilder processBuilder =
@@ -194,6 +240,8 @@ public class WorkerMultiplexer {
       processBuilder.setStderr(logFile.getPathFile());
       processBuilder.setEnv(workerKey.getEnv());
       this.process = processBuilder.start();
+      status.maybeUpdateStatus(Status.ALIVE);
+
       recordingStream = new RecordingInputStream(process.getInputStream());
       recordingStream.startRecording(4096);
       if (workerProtocol == null) {
@@ -207,6 +255,8 @@ public class WorkerMultiplexer {
         }
       }
       String id = workerKey.getMnemonic() + "-" + workerKey.hashCode();
+      logger.atInfo().log(
+          "Created multiplexer process %s for worker %s", process.getProcessId(), id);
       // TODO(larsrc): Consider moving sender/receiver threads into separate classes.
       this.requestSender =
           new Thread(
@@ -244,7 +294,19 @@ public class WorkerMultiplexer {
     if (this.process != null) {
       destroyProcess();
     }
-    wasDestroyed = true;
+    if (workDir != null) {
+      try {
+        workDir.deleteTree();
+      } catch (IOException e) {
+        logger.atWarning().withCause(e).log("Failed to delete workDir.");
+      }
+    } else if (workerKey.isSandboxed()) {
+      logger.atWarning().log(
+          "No workDir was deleted for this sandboxed multiplex worker because the workDir was never"
+              + " set or set to null.");
+    }
+    // The WorkerProcessStatus is only set as killed once all WorkerProxy instances are destroyed.
+    status.setKilled();
   }
 
   /**
@@ -304,7 +366,7 @@ public class WorkerMultiplexer {
    * called on the thread of a {@code WorkerProxy}, and so is subject to interrupts by dynamic
    * execution.
    */
-  public WorkResponse getResponse(Integer requestId) throws InterruptedException {
+  public WorkResponse getResponse(Integer requestId) throws InterruptedException, IOException {
     try {
       if (!process.isAlive()) {
         // If the process has died, all we can do is return what may already have been returned.
@@ -320,10 +382,13 @@ public class WorkerMultiplexer {
         return workerProcessResponse.get(requestId);
       }
 
-      // Wait for the multiplexer to get our response and release this semaphore. The semaphore will
-      // throw {@code InterruptedException} when the multiplexer is terminated.
+      // Wait for the multiplexer to get our response and release this semaphore. If the multiplexer
+      // process dies, the semaphore gets released with no response available.
       waitForResponse.acquire();
 
+      if (workerProcessResponse.get(requestId) == null && !process.isAlive()) {
+        throw new IOException("Worker process for " + workerKey.getMnemonic() + " has died");
+      }
       return workerProcessResponse.get(requestId);
     } finally {
       responseChecker.remove(requestId);
@@ -415,14 +480,16 @@ public class WorkerMultiplexer {
   }
 
   String getRecordingStreamMessage() {
-    // Unlike SingleplexWorker, we don't want to read the remaining bytes, as those could contain
-    // many other responses. We just return what we actually read.
-    return recordingStream.getRecordedDataAsString();
+    // Once we read junk, we can't trust the rest of the stream
+    synchronized (recordingStream) {
+      recordingStream.readRemaining();
+      return recordingStream.getRecordedDataAsString();
+    }
   }
 
   /** Returns true if this process has died for other reasons than a call to {@code #destroy()}. */
   boolean diedUnexpectedly() {
-    return this.process != null && !this.process.isAlive() && !wasDestroyed;
+    return this.process != null && !this.process.isAlive() && !status.isKilled();
   }
 
   /** Returns the exit value of multiplexer's process, if it has exited. */
@@ -450,9 +517,11 @@ public class WorkerMultiplexer {
     return process.getProcessId();
   }
 
-  // TODO: Check if this can be removed
-  @VisibleForTesting
-  Subprocess getProcess() {
-    return process;
+  public int getMultiplexerId() {
+    return this.multiplexerId;
+  }
+
+  public void setWorkDir(Path workDir) {
+    this.workDir = workDir;
   }
 }

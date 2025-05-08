@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
@@ -32,7 +34,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -47,11 +48,11 @@ import javax.annotation.Nullable;
  */
 public class AggregatingAttributeMapper extends AbstractAttributeMapper {
 
-  private AggregatingAttributeMapper(Rule rule) {
+  private AggregatingAttributeMapper(RuleOrMacroInstance rule) {
     super(rule);
   }
 
-  public static AggregatingAttributeMapper of(Rule rule) {
+  public static AggregatingAttributeMapper of(RuleOrMacroInstance rule) {
     return new AggregatingAttributeMapper(rule);
   }
 
@@ -60,7 +61,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * available to computed defaults no matter what dependencies they've declared.
    */
   private List<String> getNonConfigurableAttributes() {
-    return rule.getRuleClassObject().getNonConfigurableAttributes();
+    return rule.getAttributeProvider().getNonConfigurableAttributes();
   }
 
   /**
@@ -88,14 +89,12 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
         attribute,
         type,
         /*includeSelectKeys=*/ true,
-        rule.getAttributeContainer(),
         ruleClass.getAttributeIndex(attribute.getName()));
   }
 
   /** See {@link #visitLabels(DependencyFilter, BiConsumer)}. */
   void visitLabels(DependencyFilter filter, Type.LabelVisitor visitor) {
     List<Attribute> attributes = ruleClass.getAttributes();
-    AttributeContainer attributeContainer = rule.getAttributeContainer();
     for (int i = 0; i < attributes.size(); i++) {
       Attribute attr = attributes.get(i);
       Type<?> type = attr.getType();
@@ -104,39 +103,38 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
           && type != BuildType.NODEP_LABEL
           && type != BuildType.NODEP_LABEL_LIST
           && filter.test(rule, attr)) {
-        visitLabels(visitor, attr, type, /* includeSelectKeys= */ true, attributeContainer, i);
+        visitLabels(visitor, attr, type, /* includeSelectKeys= */ true, i);
       }
     }
   }
 
   @SuppressWarnings("unchecked")
   private <T> void visitLabels(
-      LabelVisitor visitor,
-      Attribute attr,
-      Type<T> type,
-      boolean includeSelectKeys,
-      AttributeContainer attributeContainer,
-      int i) {
+      LabelVisitor visitor, Attribute attr, Type<T> type, boolean includeSelectKeys, int i) {
     Object rawVal;
     if (type.getLabelClass() == LabelClass.NONE) {
       // The only way for LabelClass.NONE to contain labels is in select keys.
       if (includeSelectKeys && attr.isConfigurable()) {
-        rawVal = attributeContainer.getAttributeValue(i);
+        rawVal = rule.getAttrIfStored(i);
         if (rawVal instanceof SelectorList) {
           visitLabelsInSelect(
               (SelectorList<T>) rawVal,
               attr,
               type,
               visitor,
+              rule,
               /* includeKeys= */ true,
               /* includeValues= */ false);
         }
       }
       return;
     }
-    rawVal = attributeContainer.getAttributeValue(i);
-    if (rawVal == null && !attr.hasComputedDefault()) {
-      rawVal = attr.getDefaultValue(null);
+    rawVal = rule.getAttrIfStored(i);
+    if (rawVal == null) {
+      // Frozen rules don't store computed defaults.
+      if (!attr.hasComputedDefault() || rule.isFrozen()) {
+        rawVal = attr.getDefaultValue(rule);
+      }
     }
     if (rawVal instanceof SelectorList) {
       visitLabelsInSelect(
@@ -144,6 +142,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
           attr,
           type,
           visitor,
+          rule,
           /* includeKeys= */ includeSelectKeys,
           /* includeValues= */ true);
       return;
@@ -159,7 +158,9 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       return;
     }
     if (rawVal instanceof Attribute.LateBoundDefault) {
-      rawVal = ((Attribute.LateBoundDefault<?, ?>) rawVal).getDefault();
+      rawVal = ((Attribute.LateBoundDefault<?, ?>) rawVal).getDefault(rule);
+    } else if (rawVal instanceof MaterializingDefault) {
+      rawVal = ((MaterializingDefault<?, ?>) rawVal).getDefault();
     }
     if (rawVal == null || ((rawVal instanceof Collection) && ((Collection<?>) rawVal).isEmpty())) {
       return;
@@ -167,28 +168,40 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     type.visitLabels(visitor, (T) rawVal, attr);
   }
 
-  private static <T> void visitLabelsInSelect(
+  /**
+   * Applies {@code visitor} to the labels appearing in {@code selectorList}.
+   *
+   * <p>{@code attribute} and {@code type} give the context for interpreting {@code selectorList}.
+   *
+   * <p>If {@code rule} is not null, its value is used to interpret a possible late-bound default
+   * specified by the attribute.
+   *
+   * <p>{@code includeKeys} and {@code includeValues} determine which parts of the select entries
+   * are traversed.
+   */
+  public static <T> void visitLabelsInSelect(
       SelectorList<T> selectorList,
       Attribute attribute,
       Type<T> type,
       Type.LabelVisitor visitor,
+      @Nullable RuleOrMacroInstance rule,
       boolean includeKeys,
       boolean includeValues) {
     var entryProcessor =
-        new BiConsumer<Label, T>() {
+        new Selector.SelectorEntryConsumer<T>() {
           Selector<T> selector;
           boolean hasDefault;
           boolean unconditional;
 
           @Override
-          public void accept(Label key, T val) {
+          public void accept(Label key, @Nullable T val) {
             if (includeKeys
                 && !unconditional
                 && (!hasDefault || !Selector.isDefaultConditionLabel(key))) {
               visitor.visit(key, attribute);
             }
             if (includeValues) {
-              T value = selector.isValueSet(key) ? val : type.cast(attribute.getDefaultValue(null));
+              T value = selector.isValueSet(key) ? val : type.cast(attribute.getDefaultValue(rule));
               type.visitLabels(visitor, value, attribute);
             }
           }
@@ -201,12 +214,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       entryProcessor.selector = selector;
       entryProcessor.hasDefault = selector.hasDefault();
       entryProcessor.unconditional = selector.isUnconditional();
-      // The use of .forEach() here is a performance optimization, compared with e.g.
-      // iterating over selector.getEntries().entrySet(). The .getEntries() call returns an
-      // UnmodifiableMap; .entrySet() could require an UnmodifiableEntrySet allocation; iterating
-      // over an UnmodifiableEntrySet requires an UnmodifiableEntry allocation for each call to
-      // .next().
-      selector.getEntries().forEach(entryProcessor);
+      selector.forEach(entryProcessor);
     }
   }
 
@@ -227,14 +235,13 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
         attribute,
         attribute.getType(),
         includeSelectKeys,
-        rule.getAttributeContainer(),
         attributeIndex);
     return builder.build();
   }
 
   /** Returns the labels that appear multiple times in the same attribute value. */
   @SuppressWarnings("unchecked")
-  public Set<Label> checkForDuplicateLabels(Attribute attribute) {
+  Set<Label> checkForDuplicateLabels(Attribute attribute) {
     Type<List<Label>> attrType = BuildType.LABEL_LIST;
     checkArgument(attribute.getType() == attrType, "Not a label list type: %s", attribute);
     String attrName = attribute.getName();
@@ -250,7 +257,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
 
     // "attr = select({...})" with just a single select.
     if (selectors.size() == 1) {
-      return checkForDuplicateLabels(selectors.get(0).getEntries().values());
+      return checkForDuplicateLabels(selectors.get(0).valuesCopy());
     }
 
     // It's expensive to iterate over every possible permutation of values, so instead check for
@@ -258,7 +265,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     // within only the used permutations.
     ImmutableSet.Builder<Label> duplicates = null;
     for (Selector<List<Label>> selector : selectors) {
-      for (List<Label> labelsInSelectorValue : selector.getEntries().values()) {
+      for (List<Label> labelsInSelectorValue : selector.valuesCopy()) {
         // Duplicates within a single select branch are not okay.
         duplicates = addDuplicateLabels(duplicates, labelsInSelectorValue);
       }
@@ -268,22 +275,23 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
   }
 
   private static Set<Label> checkForDuplicateLabels(Collection<List<Label>> possibleLabels) {
-    switch (possibleLabels.size()) {
-      case 0:
-        return ImmutableSet.of();
-      case 1:
+    return switch (possibleLabels.size()) {
+      case 0 -> ImmutableSet.of();
+      case 1 -> {
         List<Label> onlyPossibility =
             possibleLabels instanceof List
                 ? ((List<List<Label>>) possibleLabels).get(0) // Avoid overhead of list iterator.
                 : possibleLabels.iterator().next();
-        return CollectionUtils.duplicatedElementsOf(onlyPossibility);
-      default:
+        yield CollectionUtils.duplicatedElementsOf(onlyPossibility);
+      }
+      default -> {
         ImmutableSet.Builder<Label> duplicates = null;
         for (List<Label> labels : possibleLabels) {
           duplicates = addDuplicateLabels(duplicates, labels);
         }
-        return duplicates == null ? ImmutableSet.of() : duplicates.build();
-    }
+        yield duplicates == null ? ImmutableSet.of() : duplicates.build();
+      }
+    };
   }
 
   private static ImmutableSet.Builder<Label> addDuplicateLabels(
@@ -318,7 +326,9 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       List<T> selectList = new ArrayList<>();
 
       for (Selector<T> selector : selectorList.getSelectors()) {
-        selectList.add(type.concat(selector.getEntries().values()));
+        ArrayList<T> values = Lists.newArrayListWithCapacity(selector.getNumEntries());
+        selector.forEach((label, value) -> values.add(value));
+        selectList.add(type.concat(values));
       }
       return ImmutableList.copyOf(selectList);
     }
@@ -396,11 +406,11 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       return ((Attribute.ComputedDefault) rawVal).getPossibleValues(type, rule);
     }
 
-    if ("visibility".equals(attributeName) && type.equals(BuildType.NODEP_LABEL_LIST)) {
+    if (Objects.equals(attributeName, "visibility") && type.equals(BuildType.NODEP_LABEL_LIST)) {
       // This special case for the visibility attribute is needed because its value is replaced
       // with an empty list during package loading if it is public or private in order not to visit
       // the package called 'visibility'.
-      return ImmutableList.of(type.cast(rule.getVisibility().getDeclaredLabels()));
+      return ImmutableList.of(type.cast(rule.getVisibilityDeclaredLabels()));
     }
 
     // For any other attribute, just return its direct value.
@@ -427,9 +437,9 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * <p>The work done by this method may be limited by providing a {@link ComputationLimiter} that
    * throws if too much work is attempted.
    */
-  <TException extends Exception> List<Map<String, Object>> visitAttributes(
-      List<String> attributes, ComputationLimiter<TException> limiter) throws TException {
-    List<Map<String, Object>> depMaps = new LinkedList<>();
+  <ExceptionT extends Exception> List<Map<String, Object>> visitAttributes(
+      List<String> attributes, ComputationLimiter<ExceptionT> limiter) throws ExceptionT {
+    List<Map<String, Object>> depMaps = new ArrayList<>();
     AtomicInteger combinationsSoFar = new AtomicInteger(0);
     visitAttributesInner(
         attributes,
@@ -453,13 +463,13 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    *     values.
    * @param limiter a strategy to limit the work done by invocations of this method.
    */
-  private <TException extends Exception> void visitAttributesInner(
+  private <ExceptionT extends Exception> void visitAttributesInner(
       List<String> attributes,
       List<Map<String, Object>> mappings,
       Map<String, Object> currentMap,
       AtomicInteger combinationsSoFar,
-      ComputationLimiter<TException> limiter)
-      throws TException {
+      ComputationLimiter<ExceptionT> limiter)
+      throws ExceptionT {
     if (attributes.isEmpty()) {
       // Because this method uses exponential time/space on the number of inputs, we may limit
       // the total number of method calls.
@@ -585,10 +595,20 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
 
     if (selectors.size() == 1) {
       // Optimize for common case.
-      return selectors.get(0).getEntries().values().stream()
-          .filter(Objects::nonNull)
-          .collect(ImmutableList.toImmutableList());
+      ImmutableList.Builder<T> resultBuilder = ImmutableList.builder();
+      selectors
+          .get(0)
+          .forEach(
+              (key, value) -> {
+                if (value != null) {
+                  resultBuilder.add(value);
+                }
+              });
+      return resultBuilder.build();
     }
+
+    ImmutableList<Map<Label, T>> selectorMaps =
+        selectors.stream().map(Selector::mapCopy).collect(toImmutableList());
 
     Deque<ConfigurableAttrVisitationNode<T>> nodes = new ArrayDeque<>();
     // Track per selector key set when we started visiting a specific key.
@@ -596,9 +616,9 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     ImmutableList.Builder<T> result = ImmutableList.builder();
 
     // Seed visitation.
-    for (Map.Entry<Label, T> root : selectors.get(0).getEntries().entrySet()) {
-      nodes.push(new ConfigurableAttrVisitationNode<>(0, root.getKey(), root.getValue()));
-    }
+    selectorMaps
+        .get(0)
+        .forEach((key, value) -> nodes.push(new ConfigurableAttrVisitationNode<>(0, key, value)));
 
     boolean foundResults = false;
     while (!nodes.isEmpty()) {
@@ -621,7 +641,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
         continue;
       }
 
-      Map<Label, T> nextSelectorEntries = selectors.get(nextOffset).getEntries();
+      Map<Label, T> nextSelectorEntries = selectorMaps.get(nextOffset);
       BoundKeyAndOffset boundKeyAndOffset = boundKeysAndOffsets.get(nextSelectorEntries.keySet());
       if (boundKeyAndOffset != null && boundKeyAndOffset.offset < node.offset) {
         // We've seen this select key set before along this path and chosen this key.
@@ -633,7 +653,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
         continue;
       }
 
-      Set<Label> currentKeys = selectors.get(node.offset).getEntries().keySet();
+      Set<Label> currentKeys = selectorMaps.get(node.offset).keySet();
       // Record that we've descended along node.boundKey starting at this offset.
       boundKeysAndOffsets.put(currentKeys, new BoundKeyAndOffset(node.boundKey, node.offset));
 
@@ -646,11 +666,11 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
         continue;
       }
 
-      for (Map.Entry<Label, T> entry : nextSelectorEntries.entrySet()) {
-        nodes.push(
-            new ConfigurableAttrVisitationNode<>(
-                nextOffset, entry.getKey(), concat(type, node.valueSoFar, entry.getValue())));
-      }
+      nextSelectorEntries.forEach(
+          (key, value) ->
+              nodes.push(
+                  new ConfigurableAttrVisitationNode<>(
+                      nextOffset, key, concat(type, node.valueSoFar, value))));
     }
 
     return result.build();

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.config;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigFeatureFlagProviderApi;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -48,10 +50,13 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
       RequiredProviders.acceptAnyBuilder().addStarlarkSet(ImmutableSet.of(id())).build();
 
   private final String value;
+  @Nullable private final String potentialError;
   private final Predicate<String> validityPredicate;
 
-  private ConfigFeatureFlagProvider(String value, Predicate<String> validityPredicate) {
+  private ConfigFeatureFlagProvider(
+      String value, @Nullable String potentialError, Predicate<String> validityPredicate) {
     this.value = value;
+    this.potentialError = potentialError;
     this.validityPredicate = validityPredicate;
   }
 
@@ -61,8 +66,9 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
   }
 
   /** Creates a new ConfigFeatureFlagProvider with the given value and valid value predicate. */
-  public static ConfigFeatureFlagProvider create(String value, Predicate<String> isValidValue) {
-    return new ConfigFeatureFlagProvider(value, isValidValue);
+  public static ConfigFeatureFlagProvider create(
+      String value, @Nullable String potentialError, Predicate<String> isValidValue) {
+    return new ConfigFeatureFlagProvider(value, potentialError, isValidValue);
   }
 
   /**
@@ -84,7 +90,7 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
         parameters = {@Param(name = "value", named = true)},
         selfCall = true)
     public ConfigFeatureFlagProvider selfcall(String value) {
-      return create(value, Predicates.alwaysTrue());
+      return create(value, null, Predicates.alwaysTrue());
     }
 
     @Override
@@ -102,10 +108,25 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
     return target.get(STARLARK_CONSTRUCTOR);
   }
 
+  /**
+   * Gets the current value of the flag in the flag's current configuration.
+   *
+   * <p>Throws EvalException when getError() is non-empty.
+   */
+  @Override
+  @Nullable
+  public String getFlagValue() {
+    if (!Strings.isNullOrEmpty(potentialError)) {
+      return null;
+    }
+    return value;
+  }
+
   /** Gets the current value of the flag in the flag's current configuration. */
   @Override
-  public String getFlagValue() {
-    return value;
+  @Nullable
+  public String getError() {
+    return potentialError;
   }
 
   /** Returns whether this value is valid for this flag. */

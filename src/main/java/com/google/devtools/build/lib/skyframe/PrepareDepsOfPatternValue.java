@@ -14,20 +14,20 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
 
@@ -192,25 +192,26 @@ public class PrepareDepsOfPatternValue implements SkyValue {
 
     @AutoCodec
     static class Key extends AbstractSkyKey<TargetPatternKey> {
-      private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+      private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
       private Key(TargetPatternKey arg) {
         super(arg);
       }
 
-      @AutoCodec.VisibleForSerialization
+      @VisibleForSerialization
       @AutoCodec.Instantiator
       static Key create(TargetPatternKey arg) {
         return interner.intern(new Key(arg));
       }
 
-      TargetPatternKey getTargetPatternKey() {
-        return arg;
-      }
-
       @Override
       public SkyFunctionName functionName() {
         return SkyFunctions.PREPARE_DEPS_OF_PATTERN;
+      }
+
+      @Override
+      public SkyKeyInterner<Key> getSkyKeyInterner() {
+        return interner;
       }
     }
   }

@@ -51,7 +51,7 @@ import java.lang.annotation.Target;
  * StarlarkValue} without using the annotation mechanism defined in this package. {@code
  * StarlarkFunction} is one example.)
  */
-// TODO(adonovan): rename to StarlarkType now that that name is available again.
+// TODO(adonovan): rename to StarlarkBuiltinType.
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface StarlarkBuiltin {

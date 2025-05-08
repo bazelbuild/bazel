@@ -35,6 +35,6 @@ public class JavaConfigurationTest extends ConfigurationTestCase {
         assertThrows(
             InvalidConfigurationException.class,
             () -> create("--experimental_bytecode_optimizers=somekey,somevalue"));
-    assertThat(thrown).hasMessageThat().contains("can only accept up to one mapping");
+    assertThat(thrown).hasMessageThat().contains("can only accept exactly one mapping");
   }
 }

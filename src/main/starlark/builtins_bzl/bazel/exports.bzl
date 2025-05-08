@@ -14,14 +14,14 @@
 
 """Exported builtins symbols that are specific to OSS Bazel."""
 
-load("@_builtins//:common/java/java_library.bzl", "java_library")
-load("@_builtins//:common/java/java_plugin.bzl", "java_plugin")
-load("@_builtins//:common/java/proto/java_proto_library.bzl", "java_proto_library")
+load("@_builtins//:common/python/py_internal.bzl", "py_internal")
+load(":common/java/java_common.bzl", "java_common_export_for_bazel")
 
-exported_toplevels = {}
-exported_rules = {
-    "java_library": java_library,
-    "java_plugin": java_plugin,
-    "java_proto_library": java_proto_library,
+exported_toplevels = {
+    "py_internal": py_internal,
+    "java_common": java_common_export_for_bazel,
+    "JavaInfo": java_common_export_for_bazel.provider,
+    "JavaPluginInfo": java_common_export_for_bazel.JavaPluginInfo,
 }
+exported_rules = {}
 exported_to_java = {}

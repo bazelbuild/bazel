@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -39,7 +39,10 @@ public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCas
     addOptions("--compile_one_dependency");
     // Make build super minimal.
     addOptions("--nobuild_runfile_links");
-    write("package/BUILD", "py_binary(name='foo', srcs=['foo.py'])");
+    write(
+        "package/BUILD", //
+        getPyLoad("py_binary"),
+        "py_binary(name='foo', srcs=['foo.py'])");
     write("package/foo.py");
     buildTarget("package/foo.py");
 
@@ -54,15 +57,24 @@ public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCas
   public void testBadPackage() throws Exception {
     addOptions("--compile_one_dependency", "--keep_going");
 
-    write("package/BUILD",
-          "cc_binary(name='foo', srcs=['foo.cc'], malloc = '//base:system_malloc')",
-          "invalidbuildsyntax");
-    write("package/foo.cc",
-          "#include <stdio.h>",
-          "int main() {",
-          "  printf(\"Hello, world!\\n\");",
-          "  return 0;",
-          "}");
+    write(
+        "package/BUILD",
+        """
+        cc_binary(
+            name = "foo",
+            srcs = ["foo.cc"],
+            malloc = "//base:system_malloc",
+        )
+
+        invalidbuildsyntax
+        """);
+    write(
+        "package/foo.cc",
+        "#include <stdio.h>",
+        "int main() {",
+        "  printf(\"Hello, world!\\n\");",
+        "  return 0;",
+        "}");
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("package/foo.cc"));
     assertThat(e)
@@ -77,9 +89,20 @@ public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCas
 
     write(
         "package/BUILD",
-        "exports_files(['foo.cc'])",
-        "cc_binary(name='foo', srcs=['fg'], malloc = '//base:system_malloc')",
-        "filegroup(name = 'fg', srcs = ['//brokenpackage:fg'])");
+        """
+        exports_files(["foo.cc"])
+
+        cc_binary(
+            name = "foo",
+            srcs = ["fg"],
+            malloc = "//base:system_malloc",
+        )
+
+        filegroup(
+            name = "fg",
+            srcs = ["//brokenpackage:fg"],
+        )
+        """);
     write(
         "package/foo.cc",
         "#include <stdio.h>",
@@ -87,7 +110,16 @@ public class CompileOneDependencyIntegrationTest extends BuildIntegrationTestCas
         "  printf(\"Hello, world!\\n\");",
         "  return 0;",
         "}");
-    write("brokenpackage/BUILD", "filegroup(name = 'fg', srcs = ['//package:foo.cc'])", "nope");
+    write(
+        "brokenpackage/BUILD",
+        """
+        filegroup(
+            name = "fg",
+            srcs = ["//package:foo.cc"],
+        )
+
+        nope
+        """);
     BuildFailedException e =
         assertThrows(BuildFailedException.class, () -> buildTarget("package:foo.cc"));
     assertThat(e)

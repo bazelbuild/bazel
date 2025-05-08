@@ -77,25 +77,18 @@ int portable_fstatat(int dirfd, char *name, portable_stat_struct *statbuf,
   return r;
 }
 
-int StatSeconds(const portable_stat_struct &statbuf, StatTimes t) {
+uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
+                               StatTimes t) {
   switch (t) {
     case STAT_ATIME:
-      return statbuf.st_atime;
+      return statbuf.st_atimespec.tv_sec * 1000L +
+             statbuf.st_atimespec.tv_nsec / 1000000;
     case STAT_CTIME:
-      return statbuf.st_ctime;
+      return statbuf.st_ctimespec.tv_sec * 1000L +
+             statbuf.st_ctimespec.tv_nsec / 1000000;
     case STAT_MTIME:
-      return statbuf.st_mtime;
-  }
-}
-
-int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t) {
-  switch (t) {
-    case STAT_ATIME:
-      return statbuf.st_atimespec.tv_nsec;
-    case STAT_CTIME:
-      return statbuf.st_ctimespec.tv_nsec;
-    case STAT_MTIME:
-      return statbuf.st_mtimespec.tv_nsec;
+      return statbuf.st_mtimespec.tv_sec * 1000L +
+             statbuf.st_mtimespec.tv_nsec / 1000000;
   }
 }
 
@@ -111,10 +104,6 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
   ssize_t result = getxattr(path, name, value, size, 0, XATTR_NOFOLLOW);
   *attr_not_found = (errno == ENOATTR);
   return result;
-}
-
-int portable_sysctlbyname(const char *name_chars, void *mibp, size_t *sizep) {
-  return sysctlbyname(name_chars, mibp, sizep, nullptr, 0);
 }
 
 }  // namespace blaze_jni

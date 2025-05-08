@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.skyframe.LocalDiffAwareness.SequentialView;
 import com.google.devtools.build.lib.testing.common.FakeOptions;
@@ -56,6 +57,7 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
   private LocalDiffAwareness localDiff;
   private DiffAwareness.View oldView;
   private Path testCaseRoot;
+  private Path testCaseIgnoredDir;
 
   @org.junit.Rule
   public TestName name = new TestName();
@@ -66,11 +68,20 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
     // Make sure all test functions have their own directory to test
     testCaseRoot = testRoot.getChild(name.getMethodName());
     testCaseRoot.createDirectoryAndParents();
-    localDiff = (LocalDiffAwareness) factory.maybeCreate(Root.fromPath(testCaseRoot));
+    testCaseIgnoredDir = testCaseRoot.getChild("ignored-dir");
+    testCaseIgnoredDir.createDirectoryAndParents();
 
     LocalDiffAwareness.Options localDiffOptions = new LocalDiffAwareness.Options();
     localDiffOptions.watchFS = true;
     watchFsEnabledProvider = FakeOptions.of(localDiffOptions);
+
+    localDiff =
+        (LocalDiffAwareness)
+            factory.maybeCreate(
+                Root.fromPath(testCaseRoot),
+                IgnoredSubdirectories.of(
+                    ImmutableSet.of(testCaseIgnoredDir.asFragment().toRelative())),
+                watchFsEnabledProvider);
 
     // Ignore test failures when run on a Mac.
     //
@@ -141,6 +152,14 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
 
     touch("foo.txt");
     new ModifiedFileSetChecker().modify("foo.txt").check();
+  }
+
+  @Test
+  public void testIgnoredFileModified() throws Exception {
+    captureFirstView(watchFsEnabledProvider);
+
+    touch(testCaseIgnoredDir.getRelative("foo").getPathString());
+    new ModifiedFileSetChecker().check();
   }
 
   @Test

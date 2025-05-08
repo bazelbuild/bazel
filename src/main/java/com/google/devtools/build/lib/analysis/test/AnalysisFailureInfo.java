@@ -67,7 +67,7 @@ public final class AnalysisFailureInfo implements Info, AnalysisFailureInfoApi<A
 
   @Override
   public Depset /*<AnalysisFailure>*/ getCauses() {
-    return Depset.of(AnalysisFailure.TYPE, causes);
+    return Depset.of(AnalysisFailure.class, causes);
   }
 
   public NestedSet<AnalysisFailure> getCausesNestedSet() {

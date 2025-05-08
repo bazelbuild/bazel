@@ -115,12 +115,17 @@ public class FakeExecutionService extends ExecutionImplBase {
     }
 
     public void thenError(Code code) {
+      // From REAPI Spec:
+      // > Errors discovered during creation of the `Operation` will be reported
+      // > as gRPC Status errors, while errors that occurred while running the
+      // > action will be reported in the `status` field of the `ExecuteResponse`. The
+      // > server MUST NOT set the `error` field of the `Operation` proto.
       Operation operation =
-          Operation.newBuilder()
-              .setName(getResourceName(request))
-              .setDone(true)
-              .setError(Status.newBuilder().setCode(code.getNumber()))
-              .build();
+          doneOperation(
+              request,
+              ExecuteResponse.newBuilder()
+                  .setStatus(Status.newBuilder().setCode(code.getNumber()))
+                  .build());
       operations.add(() -> operation);
       finish();
     }
@@ -133,7 +138,7 @@ public class FakeExecutionService extends ExecutionImplBase {
       finish();
     }
 
-    private void finish() {
+    public void finish() {
       String name = getResourceName(request);
       provider.append(name, ImmutableList.copyOf(operations));
     }
@@ -159,11 +164,19 @@ public class FakeExecutionService extends ExecutionImplBase {
   private static void serve(
       StreamObserver<Operation> responseObserver, String name, OperationProvider provider) {
     if (provider.hasNext(name)) {
+      boolean thrown = false;
       ImmutableList<Supplier<Operation>> suppliers = provider.next(name);
       for (Supplier<Operation> supplier : suppliers) {
-        responseObserver.onNext(supplier.get());
+        try {
+          responseObserver.onNext(supplier.get());
+        } catch (Exception e) {
+          thrown = true;
+          responseObserver.onError(e);
+        }
       }
-      responseObserver.onCompleted();
+      if (!thrown) {
+        responseObserver.onCompleted();
+      }
     } else {
       responseObserver.onError(io.grpc.Status.UNIMPLEMENTED.asRuntimeException());
     }

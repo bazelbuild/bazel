@@ -1,11 +1,15 @@
+load("@com_google_protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_import.bzl", "java_import")
+
 package(default_visibility = ["//visibility:public"])
 
 exports_files(glob(["**/*.jar"]))
 
 licenses(["notice"])  # Apache 2.0
-
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_proto_library")
-load("@rules_proto//proto:defs.bzl", "proto_library")
 
 SUPRESSED_WARNINGS = select({
     ":windows": [],
@@ -57,14 +61,14 @@ filegroup(
 
 java_import(
     name = "jacoco-agent",
-    jars = ["java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.7.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.7-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.11.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.agent-0.8.11-sources.jar",
 )
 
 java_import(
     name = "jacoco-core",
-    jars = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.8.7.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.core-0.8.7-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.8.11.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.core-0.8.11-sources.jar",
     exports = [
         ":asm",
         ":asm-commons",
@@ -74,13 +78,13 @@ java_import(
 
 filegroup(
     name = "jacoco-core-jars",
-    srcs = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.8.7.jar"],
+    srcs = ["java_tools/third_party/java/jacoco/org.jacoco.core-0.8.11.jar"],
 )
 
 java_import(
     name = "jacoco-report",
-    jars = ["java_tools/third_party/java/jacoco/org.jacoco.report-0.8.7.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.report-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/org.jacoco.report-0.8.11.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/org.jacoco.report-0.8.11-sources.jar",
     exports = [
         ":asm",
         ":jacoco-core",
@@ -89,32 +93,32 @@ java_import(
 
 java_import(
     name = "bazel-jacoco-agent",
-    jars = ["java_tools/third_party/java/jacoco/jacocoagent-0.8.7.jar"],
+    jars = ["java_tools/third_party/java/jacoco/jacocoagent-0.8.11.jar"],
 )
 
 java_import(
     name = "bazel-jacoco-agent-neverlink",
-    jars = ["java_tools/third_party/java/jacoco/jacocoagent-0.8.7.jar"],
+    jars = ["java_tools/third_party/java/jacoco/jacocoagent-0.8.11.jar"],
     neverlink = 1,
 )
 
 java_import(
     name = "asm",
-    jars = ["java_tools/third_party/java/jacoco/asm-9.1.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-9.1-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-9.7.1.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-9.7.1-sources.jar",
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["java_tools/third_party/java/jacoco/asm-commons-9.1.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-commons-9.1-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-commons-9.7.1.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-commons-9.7.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["java_tools/third_party/java/jacoco/asm-tree-9.1.jar"],
-    srcjar = "java_tools/third_party/java/jacoco/asm-tree-9.1-sources.jar",
+    jars = ["java_tools/third_party/java/jacoco/asm-tree-9.7.1.jar"],
+    srcjar = "java_tools/third_party/java/jacoco/asm-tree-9.7.1-sources.jar",
     runtime_deps = [":asm"],
 )
 
@@ -135,21 +139,25 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+# Create intermediate cc_library, which does not implicitly depend on "malloc"
+# and "link_extra_lib" in @bazel_tools//tools/cpp, and thereby avoids include
+# path /Iexternal/tools being used in compiling actions which would result in
+# the wrong headers being picked up.
 cc_library(
-    name = "malloc",
-)
-
-cc_binary(
-    name = "ijar_cc_binary",
+    name = "ijar_cc_binary_main",
     srcs = [
         "java_tools/ijar/classfile.cc",
         "java_tools/ijar/ijar.cc",
     ],
     copts = SUPRESSED_WARNINGS,
-    # Remove dependency on @bazel_tools//tools/cpp:malloc, which avoid /Iexternal/tools being used
-    # in compiling actions.
-    malloc = ":malloc",
+    linkstatic = 1,  # provides main()
     deps = [":zip"],
+    alwayslink = 1,
+)
+
+cc_binary(
+    name = "ijar_cc_binary",
+    deps = [":ijar_cc_binary_main"],
 )
 
 cc_library(
@@ -359,13 +367,14 @@ cc_library(
     copts = SUPRESSED_WARNINGS,
     include_prefix = "third_party",
     strip_include_prefix = "java_tools",
-    deps = ["//java_tools/zlib"],
+    deps = ["@zlib"],
 )
 
 ##################### singlejar
 
-cc_binary(
-    name = "singlejar_cc_bin",
+# See comment for ":ijar_cc_binary_main".
+cc_library(
+    name = "singlejar_cc_bin_main",
     srcs = [
         "java_tools/src/tools/singlejar/singlejar_main.cc",
     ],
@@ -375,16 +384,22 @@ cc_binary(
         ":openbsd": ["-lm"],
         "//conditions:default": [],
     }),
-    linkstatic = 1,
-    # Remove dependency on @bazel_tools//tools/cpp:malloc, which avoid /Iexternal/tools being used
-    # in compiling actions.
-    malloc = ":malloc",
-    visibility = ["//visibility:public"],
+    linkstatic = 1,  # provides main()
     deps = [
+        ":combiners",
+        ":diag",
         ":options",
         ":output_jar",
-        "//java_tools/zlib",
+        "@zlib",
     ],
+    alwayslink = 1,
+)
+
+cc_binary(
+    name = "singlejar_cc_bin",
+    linkstatic = 1,
+    visibility = ["//visibility:public"],
+    deps = [":singlejar_cc_bin_main"],
 )
 
 cc_binary(
@@ -405,7 +420,7 @@ cc_binary(
         ":desugar_checking",
         ":options",
         ":output_jar",
-        "//java_tools/zlib",
+        "@zlib",
     ],
 )
 
@@ -413,15 +428,17 @@ cc_library(
     name = "combiners",
     srcs = [
         "java_tools/src/tools/singlejar/combiners.cc",
+        "java_tools/src/tools/singlejar/log4j2_plugin_dat_combiner.cc",
     ],
     hdrs = [
         "java_tools/src/tools/singlejar/combiners.h",
+        "java_tools/src/tools/singlejar/log4j2_plugin_dat_combiner.h",
         ":transient_bytes",
     ],
     copts = SUPRESSED_WARNINGS,
     strip_include_prefix = "java_tools",
     deps = [
-        "//java_tools/zlib",
+        "@zlib",
     ],
 )
 
@@ -531,7 +548,7 @@ cc_library(
         ":mapped_file",
         ":options",
         ":singlejar_port",
-        "//java_tools/zlib",
+        "@zlib",
     ],
 )
 
@@ -572,4 +589,83 @@ java_binary(
     main_class = "proguard.ProGuard",
     visibility = ["//visibility:public"],
     runtime_deps = [":proguard_import"],
+)
+
+##################### one_version
+
+# See comment for ":ijar_cc_binary_main".
+cc_library(
+    name = "one_version_cc_bin_main",
+    srcs = [
+        "java_tools/src/tools/one_version/one_version_main.cc",
+    ],
+    copts = SUPRESSED_WARNINGS,
+    linkopts = select({
+        ":freebsd": ["-lm"],
+        ":openbsd": ["-lm"],
+        "//conditions:default": [],
+    }),
+    linkstatic = 1,  # provides main()
+    deps = [
+        ":allowlist",
+        ":duplicate_class_collector",
+        ":input_jar",
+        ":one_version",
+        ":token_stream",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/log:die_if_null",
+        "@com_google_absl//absl/strings",
+    ],
+    alwayslink = 1,
+)
+
+cc_binary(
+    name = "one_version_cc_bin",
+    linkstatic = 1,
+    visibility = ["//visibility:public"],
+    deps = [":one_version_cc_bin_main"],
+)
+
+cc_library(
+    name = "duplicate_class_collector",
+    srcs = ["java_tools/src/tools/one_version/duplicate_class_collector.cc"],
+    hdrs = ["java_tools/src/tools/one_version/duplicate_class_collector.h"],
+    copts = SUPRESSED_WARNINGS,
+    strip_include_prefix = "java_tools",
+    deps = [
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "allowlist",
+    srcs = ["java_tools/src/tools/one_version/allowlist.cc"],
+    hdrs = ["java_tools/src/tools/one_version/allowlist.h"],
+    copts = SUPRESSED_WARNINGS,
+    strip_include_prefix = "java_tools",
+    deps = [
+        ":duplicate_class_collector",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_library(
+    name = "one_version",
+    srcs = ["java_tools/src/tools/one_version/one_version.cc"],
+    hdrs = ["java_tools/src/tools/one_version/one_version.h"],
+    copts = SUPRESSED_WARNINGS,
+    strip_include_prefix = "java_tools",
+    deps = [
+        ":allowlist",
+        ":duplicate_class_collector",
+        ":input_jar",
+        "@com_google_absl//absl/log:die_if_null",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+    ],
 )

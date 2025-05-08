@@ -1,13 +1,13 @@
 ---
 platforms:
-  centos7_java11_devtoolset10:
+  rockylinux8:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
     build_flags:
       - "-c"
       - "opt"
-  ubuntu1804:
+  rockylinux8_arm64:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
@@ -21,8 +21,21 @@ platforms:
     build_flags:
       - "-c"
       - "opt"
+  ubuntu2004_arm64:
+    build_targets:
+      - "//src:bazel"
+      - "//src:bazel_nojdk"
+    build_flags:
+      - "-c"
+      - "opt"
+  ubuntu2204:
+    build_targets:
+      - "//src:bazel"
+      - "//src:bazel_nojdk"
+    build_flags:
+      - "-c"
+      - "opt"
   macos:
-    xcode_version: "13.0"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
@@ -30,16 +43,12 @@ platforms:
       - "-c"
       - "opt"
   macos_arm64:
-    xcode_version: "13.0"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
     build_flags:
       - "-c"
       - "opt"
-      # TODO(pcloudy): Remove the following flag when we actually use Apple
-      # Silicon machines for macos_arm64 platform
-      - "--cpu=darwin_arm64"
   windows:
     build_flags:
       - "--copt=-w"
@@ -55,7 +64,7 @@ platforms:
       - "--host_copt=-w"
       - "-c"
       - "opt"
-      - "--cpu=x64_arm64_windows"
+      - "--config=windows_arm64"
     build_targets:
       - "//src:bazel.exe"
       - "//src:bazel_nojdk.exe"

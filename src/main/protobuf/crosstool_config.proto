@@ -114,6 +114,7 @@ message CToolchain {
   message EnvEntry {
     required string key = 1;
     required string value = 2;
+    repeated string expand_if_all_available = 3;
   }
 
   // A set of features; used to support logical 'and' when specifying feature

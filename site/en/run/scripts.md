@@ -1,7 +1,9 @@
 Project: /_project.yaml
 Book: /_book.yaml
 
-#  Calling Bazel from scripts
+# Calling Bazel from scripts
+
+{% include "_buttons.html" %}
 
 You can call Bazel from scripts to perform a build, run tests, or query
 the dependency graph. Bazel has been designed to enable effective scripting, but
@@ -20,7 +22,11 @@ factors. If you need to put the build outputs in a specific location, this will
 dictate the output base you need to use. If you are making a "read only" call to
 Bazel (such as `bazel query`), the locking factors will be more important. In
 particular, if you need to run multiple instances of your script concurrently,
-you will need to give each one a different (or random) output base.
+you should be mindful that each Blaze server process can handle at most one
+invocation [at a time](/run/client-server#clientserver-implementation).
+Depending on your situation it may make sense for each instance of your script
+to wait its turn, or it may make sense to use `--output_base` to run multiple
+Blaze servers and use those.
 
 If you use the default output base value, you will be contending for the same
 lock used by the user's interactive Bazel commands. If the user issues
@@ -29,7 +35,7 @@ commands to complete before it can continue.
 
 ### Notes about server mode {:#server-mode}
 
-By default, Bazel uses a long-running [server process](/docs/client-server) as an
+By default, Bazel uses a long-running [server process](/run/client-server) as an
 optimization. When running Bazel in a script, don't forget to call `shutdown`
 when you're finished with the server, or, specify `--max_idle_secs=5` so that
 idle servers shut themselves down promptly.
@@ -54,10 +60,12 @@ Bazel execution can result in following exit codes:
 -   `35` - Reserved for Google-internal use.
 -   `36` - Local Environmental Issue, suspected permanent.
 -   `37` - Unhandled Exception / Internal Bazel Error.
--   `38` - Reserved for Google-internal use.
+-   `38` - Transient error publishing results to the Build Event Service.
+-   `39` - Blobs required by Bazel are evicted from Remote Cache.
 -   `41-44` - Reserved for Google-internal use.
--   `45` - Error publishing results to the Build Event Service.
+-   `45` - Persistent error publishing results to the Build Event Service.
 -   `47` - Reserved for Google-internal use.
+-   `49` - Reserved for Google-internal use.
 
 **Return codes for commands `bazel build`, `bazel test`:**
 
@@ -87,7 +95,7 @@ However, all non-zero exit values will always constitute an error.
 
 ### Reading the .bazelrc file {:#reading-bazelrc}
 
-By default, Bazel reads the [`.bazelrc` file](/docs/bazelrc) from the base
+By default, Bazel reads the [`.bazelrc` file](/run/bazelrc) from the base
 workspace directory or the user's home directory. Whether or not this is
 desirable is a choice for your script; if your script needs to be perfectly
 hermetic (such as when doing release builds), you should disable reading the

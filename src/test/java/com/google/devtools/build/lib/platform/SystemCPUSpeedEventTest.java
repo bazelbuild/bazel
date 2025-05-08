@@ -33,6 +33,8 @@ import org.junit.runners.JUnit4;
 public final class SystemCPUSpeedEventTest extends BuildIntegrationTestCase {
   static class SystemCPUSpeedEventListener extends BlazeModule {
     public int cpuSpeedEventCount = 0;
+    public int highestSpeed = Integer.MIN_VALUE;
+    public int lowestSpeed = Integer.MAX_VALUE;
 
     @Override
     public void beforeCommand(CommandEnvironment env) {
@@ -42,6 +44,13 @@ public final class SystemCPUSpeedEventTest extends BuildIntegrationTestCase {
     @Subscribe
     public void cpuSpeedEvent(SystemCPUSpeedEvent event) {
       ++cpuSpeedEventCount;
+      int speed = event.speed();
+      if (speed > highestSpeed) {
+        highestSpeed = speed;
+      }
+      if (speed < lowestSpeed) {
+        lowestSpeed = speed;
+      }
     }
   }
 
@@ -74,5 +83,7 @@ public final class SystemCPUSpeedEventTest extends BuildIntegrationTestCase {
         ")");
     buildTarget("//system_cpuspeed_event:fire_cpuspeed_notifications");
     assertThat(eventListener.cpuSpeedEventCount).isAtLeast(5);
+    assertThat(eventListener.highestSpeed).isAtLeast(80);
+    assertThat(eventListener.lowestSpeed).isAtMost(40);
   }
 }

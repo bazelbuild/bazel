@@ -17,18 +17,15 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
-import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
-import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionRewindEvent;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindingStats;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewoundEvent;
 import java.util.ArrayList;
@@ -36,7 +33,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Predicate;
 
 /** Records various action-related events for tests. */
 public final class ActionEventRecorder {
@@ -48,8 +44,6 @@ public final class ActionEventRecorder {
   private final List<ActionExecutedEvent> actionExecutedEvents =
       Collections.synchronizedList(new ArrayList<>());
   private final List<ActionResultReceivedEvent> actionResultReceivedEvents =
-      Collections.synchronizedList(new ArrayList<>());
-  private final List<ActionMiddlemanEvent> actionMiddlemanEvents =
       Collections.synchronizedList(new ArrayList<>());
   private final List<CachedActionEvent> cachedActionEvents =
       Collections.synchronizedList(new ArrayList<>());
@@ -119,13 +113,6 @@ public final class ActionEventRecorder {
   @SuppressWarnings("unused")
   @Subscribe
   @AllowConcurrentEvents
-  void actionMiddleman(ActionMiddlemanEvent event) {
-    actionMiddlemanEvents.add(event);
-  }
-
-  @SuppressWarnings("unused")
-  @Subscribe
-  @AllowConcurrentEvents
   void cachedAction(CachedActionEvent event) {
     cachedActionEvents.add(event);
   }
@@ -150,7 +137,6 @@ public final class ActionEventRecorder {
     actionCompletionEvents.clear();
     actionExecutedEvents.clear();
     actionResultReceivedEvents.clear();
-    actionMiddlemanEvents.clear();
     cachedActionEvents.clear();
     actionRewoundEvents.clear();
     actionRewindingStatsPosts.clear();
@@ -163,29 +149,24 @@ public final class ActionEventRecorder {
    * @param completedRewound Actions which ran and then are rewound by a later failed action
    * @param failedRewound Actions which fail because of lost inputs and which rewind themselves and
    *     the actions that generate those lost inputs
-   * @param exactlyOneMiddlemanEventChecks A list of predicates which should be satisfied exactly
-   *     once by the sequence of middleman events emitted
    */
   public void assertEvents(
       ImmutableList<String> runOnce,
       ImmutableList<String> completedRewound,
       ImmutableList<String> failedRewound,
-      ImmutableList<Predicate<ActionMiddlemanEvent>> exactlyOneMiddlemanEventChecks,
       ImmutableList<Integer> actionRewindingPostLostInputCounts) {
     assertEvents(
         runOnce,
         completedRewound,
         failedRewound,
-        exactlyOneMiddlemanEventChecks,
-        /*expectResultReceivedForFailedRewound=*/ true,
-        actionRewindingPostLostInputCounts,
-        /*lostInputAndActionsPosts=*/ ImmutableList.of());
+        /* expectResultReceivedForFailedRewound= */ true,
+        actionRewindingPostLostInputCounts);
   }
 
   /**
-   * Like {@link #assertEvents(ImmutableList, ImmutableList, ImmutableList, ImmutableList,
-   * ImmutableList)}. The {@code expectResultReceivedForFailedRewound} should be true iff the failed
-   * rewound actions ever successfully complete.
+   * Like {@link #assertEvents(ImmutableList, ImmutableList, ImmutableList, ImmutableList)}. The
+   * {@code expectResultReceivedForFailedRewound} should be true iff the failed rewound actions ever
+   * successfully complete.
    *
    * @param expectResultReceivedForFailedRewound whether the failed rewound actions ever
    *     successfully complete, because no {@link ActionResultReceivedEvent} is emitted for a failed
@@ -195,20 +176,18 @@ public final class ActionEventRecorder {
       ImmutableList<String> runOnce,
       ImmutableList<String> completedRewound,
       ImmutableList<String> failedRewound,
-      ImmutableList<Predicate<ActionMiddlemanEvent>> exactlyOneMiddlemanEventChecks,
       boolean expectResultReceivedForFailedRewound,
-      ImmutableList<Integer> actionRewindingPostLostInputCounts,
-      ImmutableList<ImmutableList<ActionRewindEventAsserter>> lostInputAndActionsPosts) {
+      ImmutableList<Integer> actionRewindingPostLostInputCounts) {
     EventCountAsserter eventCountAsserter =
         new EventCountAsserter(runOnce, completedRewound, failedRewound);
 
     eventCountAsserter.assertEventCounts(
-        /*events=*/ actionStartedEvents,
-        /*eventsName=*/ "actionStartedEvents",
-        /*converter=*/ e -> progressMessageOrPrettyPrint(e.getAction()),
-        /*expectedRunOnceEventCount=*/ 1,
-        /*expectedCompletedRewoundEventCount=*/ 1,
-        /*expectedFailedRewoundEventCount=*/ 2);
+        /* events= */ actionStartedEvents,
+        /* eventsName= */ "actionStartedEvents",
+        /* converter= */ e -> progressMessageOrPrettyPrint(e.getAction()),
+        /* expectedRunOnceEventCount= */ 1,
+        /* expectedCompletedRewoundEventCount= */ 1,
+        /* expectedFailedRewoundEventCount= */ 2);
 
     eventCountAsserter.assertEventCounts(
         /*events=*/ actionCompletionEvents,
@@ -242,74 +221,40 @@ public final class ActionEventRecorder {
         /*expectedCompletedRewoundEventCount=*/ 0,
         /*expectedFailedRewoundEventCount=*/ 1);
 
-    assertRewindActionStats(actionRewindingPostLostInputCounts, lostInputAndActionsPosts);
-
-    for (Predicate<ActionMiddlemanEvent> check : exactlyOneMiddlemanEventChecks) {
-      assertThat(actionMiddlemanEvents.stream().filter(check).count()).isEqualTo(1);
-    }
+    assertTotalLostInputCountsFromStats(actionRewindingPostLostInputCounts);
     assertThat(cachedActionEvents).isEmpty();
   }
 
   /**
-   * Assert that the contents of the {@link ActionRewindingStats} event matches expected results.
+   * Asserts that the total lost input counts from posted {@link ActionRewindingStats} matches
+   * expected results.
    *
-   * @param totalLostInputCounts - The list of the counts of all lost inputs logged with each
-   *     ActionRewindingStats post.
-   * @param lostInputAndActionsPosts - The list of all expected values in all ActionRewindingStats
-   *     posts. The outer list represents the ActionRewindingStats posts, the inner list contains
-   *     {@link ActionRewindEventAsserter} that has the expected values of each action rewind event
-   *     within each corresponding post.
+   * @param totalLostInputCounts - The list of the counts of all lost inputs logged with each {@link
+   *     ActionRewindingStats} post.
    */
-  public void assertRewindActionStats(
-      ImmutableList<Integer> totalLostInputCounts,
-      ImmutableList<ImmutableList<ActionRewindEventAsserter>> lostInputAndActionsPosts) {
+  public void assertTotalLostInputCountsFromStats(ImmutableList<Integer> totalLostInputCounts) {
     assertThat(actionRewindingStatsPosts).hasSize(totalLostInputCounts.size());
-    for (int postIndex = 0; postIndex < lostInputAndActionsPosts.size(); postIndex++) {
+    for (int postIndex = 0; postIndex < totalLostInputCounts.size(); postIndex++) {
       ActionRewindingStats actionRewindingStats = actionRewindingStatsPosts.get(postIndex);
       assertThat(actionRewindingStats.lostInputsCount())
           .isEqualTo(totalLostInputCounts.get(postIndex));
-      ImmutableList<ActionRewindEventAsserter> expectedLostInputPost =
-          lostInputAndActionsPosts.get(postIndex);
-
-      for (int r = 0; r < actionRewindingStats.actionRewindEvents().size(); r++) {
-        ActionRewindEvent actualActionRewind = actionRewindingStats.actionRewindEvents().get(r);
-        expectedLostInputPost.get(r).assertActionRewindEvent(actualActionRewind);
-      }
     }
   }
 
-  @AutoValue
-  public abstract static class ActionRewindEventAsserter {
-
-    public static ActionRewindEventAsserter create(
-        String expectedActionMnemonic,
-        String expectedActionOwnerLabel,
-        int expectedLostInputsCount,
-        int expectedInvalidatedNodesCount) {
-      return new AutoValue_ActionEventRecorder_ActionRewindEventAsserter(
-          expectedActionMnemonic,
-          expectedActionOwnerLabel,
-          expectedLostInputsCount,
-          expectedInvalidatedNodesCount);
+  /**
+   * Asserts that the total lost output counts from posted {@link ActionRewindingStats} matches
+   * expected results.
+   *
+   * @param totalLostOutputCounts - The list of the counts of all lost outputs logged with each
+   *     {@link ActionRewindingStats} post.
+   */
+  public void assertTotalLostOutputCountsFromStats(ImmutableList<Integer> totalLostOutputCounts) {
+    assertThat(actionRewindingStatsPosts).hasSize(totalLostOutputCounts.size());
+    for (int postIndex = 0; postIndex < totalLostOutputCounts.size(); postIndex++) {
+      ActionRewindingStats actionRewindingStats = actionRewindingStatsPosts.get(postIndex);
+      assertThat(actionRewindingStats.lostOutputsCount())
+          .isEqualTo(totalLostOutputCounts.get(postIndex));
     }
-
-    ActionRewindEventAsserter() {}
-
-    private void assertActionRewindEvent(ActionRewindEvent actualEvent) {
-      assertThat(actualEvent.getActionDescription().getType()).isEqualTo(expectedActionMnemonic());
-      assertThat(actualEvent.getActionDescription().getRuleLabel())
-          .isEqualTo(expectedActionOwnerLabel());
-      assertThat(actualEvent.getTotalLostInputsCount()).isEqualTo(expectedLostInputsCount());
-      assertThat(actualEvent.getInvalidatedNodesCount()).isEqualTo(expectedInvalidatedNodesCount());
-    }
-
-    abstract String expectedActionMnemonic();
-
-    abstract String expectedActionOwnerLabel();
-
-    abstract int expectedLostInputsCount();
-
-    abstract int expectedInvalidatedNodesCount();
   }
 
   private static final class EventCountAsserter {

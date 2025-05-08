@@ -24,17 +24,14 @@ import java.util.Set;
 public final class TopLevelArtifactContext {
   private final boolean runTestsExclusively;
   private final boolean expandFilesets;
-  private final boolean fullyResolveFilesetSymlinks;
   private final ImmutableSortedSet<String> outputGroups;
 
   public TopLevelArtifactContext(
       boolean runTestsExclusively,
       boolean expandFilesets,
-      boolean fullyResolveFilesetSymlinks,
       ImmutableSortedSet<String> outputGroups) {
     this.runTestsExclusively = runTestsExclusively;
     this.expandFilesets = expandFilesets;
-    this.fullyResolveFilesetSymlinks = fullyResolveFilesetSymlinks;
     this.outputGroups = outputGroups;
   }
 
@@ -47,9 +44,6 @@ public final class TopLevelArtifactContext {
     return expandFilesets;
   }
 
-  public boolean fullyResolveFilesetSymlinks() {
-    return fullyResolveFilesetSymlinks;
-  }
 
   /** Returns the value of the --output_groups flag. */
   public Set<String> outputGroups() {
@@ -61,11 +55,9 @@ public final class TopLevelArtifactContext {
   // so equals() and hashCode() need to work.
   @Override
   public boolean equals(Object other) {
-    if (other instanceof TopLevelArtifactContext) {
-      TopLevelArtifactContext otherContext = (TopLevelArtifactContext) other;
+    if (other instanceof TopLevelArtifactContext otherContext) {
       return runTestsExclusively == otherContext.runTestsExclusively
           && expandFilesets == otherContext.expandFilesets
-          && fullyResolveFilesetSymlinks == otherContext.fullyResolveFilesetSymlinks
           && outputGroups.equals(otherContext.outputGroups);
     } else {
       return false;
@@ -74,7 +66,6 @@ public final class TopLevelArtifactContext {
 
   @Override
   public int hashCode() {
-    return Objects.hash(
-        runTestsExclusively, expandFilesets, fullyResolveFilesetSymlinks, outputGroups);
+    return Objects.hash(runTestsExclusively, expandFilesets, outputGroups);
   }
 }

@@ -37,9 +37,7 @@ public interface CcLinkingOutputsApi<
       name = "library_to_link",
       structField = true,
       allowReturnNones = true,
-      doc =
-          "<a href='LibraryToLink.html'><code>LibraryToLink</code></a> for including these outputs "
-              + "in further linking.",
+      doc = "<code>LibraryToLink</code> for including these outputs in further linking.",
       documented = true)
   @Nullable
   LibraryToLinkApi<FileT, LtoBackendArtifactsT> getLibraryToLink();
@@ -48,7 +46,7 @@ public interface CcLinkingOutputsApi<
       name = "executable",
       structField = true,
       allowReturnNones = true,
-      doc = "<a href='File.html'><code>File</code></a> object representing the linked executable.",
+      doc = "Represents the linked executable.",
       documented = true)
   @Nullable
   FileT getExecutable();

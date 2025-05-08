@@ -275,7 +275,7 @@ public class EventTest {
     EventHandler mockHandler = mock(EventHandler.class);
     PrintHandler printHandler = Event.makeDebugPrintHandler(mockHandler);
     StarlarkThread starlarkThread =
-        new StarlarkThread(Mutability.create(), StarlarkSemantics.DEFAULT);
+        StarlarkThread.createTransient(Mutability.create(), StarlarkSemantics.DEFAULT);
 
     printHandler.print(starlarkThread, "someMessage");
 

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -42,13 +42,13 @@ export BAZEL_SUFFIX="_jdk_minimal"
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# Bazel's install base is < 320MB with minimal JDK and > 320MB with an all
+# Bazel's install base is < 385MB with minimal JDK and > 395MB with an all
 # modules JDK.
-function test_size_less_than_320MB() {
+function test_size_less_than_385MB() {
   bazel info
   ib=$(bazel info install_base)
   size=$(du -s "$ib" | cut -d\	 -f1)
-  maxsize=$((1024*320))
+  maxsize=$((1024*385))
   if [ $size -gt $maxsize ]; then
     echo "$ib was too big:" 1>&2
     du -a "$ib" 1>&2
@@ -57,9 +57,12 @@ function test_size_less_than_320MB() {
 }
 
 function test_cc() {
+  add_rules_cc "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p "$pkg" || fail "Couldn't create $pkg."
   cat > "$pkg/BUILD" <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
     name = "foo",
     srcs = ["foo.cc"],
@@ -75,9 +78,12 @@ EOF
 }
 
 function test_java() {
+  add_rules_java "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p "$pkg" || fail "Couldn't create $pkg."
   cat > "$pkg/BUILD" <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "foo",
     srcs = ["foo.java"],

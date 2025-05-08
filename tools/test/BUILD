@@ -1,3 +1,7 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(default_visibility = ["//visibility:public"])
 
 # Members of this filegroup shouldn't have duplicate basenames, otherwise
@@ -76,7 +80,7 @@ cc_library(
             "//src/main/native/windows:lib-file",
             "//src/main/native/windows:lib-process",
             "//third_party/ijar:zip",
-            "@bazel_tools//tools/cpp/runfiles",
+            "@rules_cc//cc/runfiles",
         ],
         "//conditions:default": [],
     }),
@@ -111,11 +115,12 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        "test-setup.sh",
-        "generate-xml.sh",
-        "collect_coverage.sh",
         "collect_cc_coverage.sh",
+        "collect_coverage.sh",
+        "default_test_toolchain.bzl",
         "extensions.bzl",
+        "generate-xml.sh",
+        "test-setup.sh",
     ] + select({
         "@bazel_tools//src/conditions:windows": [
             "tw",
@@ -130,5 +135,8 @@ filegroup(
 
 filegroup(
     name = "bzl_srcs",
-    srcs = ["extensions.bzl"],
+    srcs = [
+        "default_test_toolchain.bzl",
+        "extensions.bzl",
+    ],
 )

@@ -14,15 +14,22 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.ExecConfigurationDistinguisherScheme;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputDirectoryNamingScheme;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
@@ -30,12 +37,17 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext.Phase;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
+import com.google.devtools.build.lib.util.HashCodes;
+import com.google.devtools.build.lib.util.RegexFilter;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.TriState;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -43,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -61,7 +74,7 @@ import net.starlark.java.syntax.Location;
  *
  * <p>Represents a configuration transition across a dependency edge defined in Starlark.
  */
-public abstract class StarlarkDefinedConfigTransition implements ConfigurationTransitionApi {
+public abstract sealed class StarlarkDefinedConfigTransition implements ConfigurationTransitionApi {
 
   public static final String COMMAND_LINE_OPTION_PREFIX = "//command_line_option:";
 
@@ -80,12 +93,13 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
   private final ImmutableMap<String, String> inputsCanonicalizedToGiven;
   private final ImmutableMap<String, String> outputsCanonicalizedToGiven;
+  final Label parentLabel;
   private final Location location;
   private final Label.PackageContext packageContext;
 
   // The values in this cache should always be instances of StarlarkTransition, but referencing that
   // here results in a circular dependency.
-  private final transient Cache<Rule, PatchTransition> ruleTransitionCache =
+  private final transient Cache<RuleTransitionData, PatchTransition> ruleTransitionCache =
       Caffeine.newBuilder().weakKeys().build();
 
   private StarlarkDefinedConfigTransition(
@@ -95,6 +109,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       Label parentLabel,
       Location location)
       throws EvalException {
+    this.parentLabel = parentLabel;
     this.location = location;
     packageContext = Label.PackageContext.of(parentLabel.getPackageIdentifier(), repoMapping);
 
@@ -107,6 +122,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
   public final PackageContext getPackageContext() {
     return packageContext;
   }
+
+  /** Is this transition an exec transition? */
+  public abstract boolean isExecTransition();
 
   /**
    * Returns a build settings in canonicalized form taking into account repository remappings.
@@ -122,7 +140,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       return canonicalizedString;
     }
     canonicalizedString =
-        parentLabel.getRelativeWithRemapping(setting, repoMapping).getUnambiguousCanonicalForm();
+        Label.parseWithPackageContext(
+                setting, PackageContext.of(parentLabel.getPackageIdentifier(), repoMapping))
+            .getUnambiguousCanonicalForm();
     return canonicalizedString;
   }
 
@@ -198,7 +218,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
   /**
    * Returns a cache that can be used to ensure that this {@link StarlarkDefinedConfigTransition}
    * results in at most one {@link
-   * com.google.devtools.build.lib.analysis.starlark.StarlarkTransition} instance per {@link Rule}.
+   * com.google.devtools.build.lib.analysis.starlark.StarlarkTransition} instance per {@link
+   * RuleTransitionData}.
    *
    * <p>The cache uses {@link Caffeine#weakKeys} to permit collection of transition objects when the
    * corresponding {@link Rule} is collectable. As a consequence, it uses identity comparison for
@@ -213,8 +234,10 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
    * practice to have few or even one transition invoke multiple times over multiple configured
    * targets.
    */
-  public final Cache<Rule, PatchTransition> getRuleTransitionCache() {
-    return ruleTransitionCache;
+  public PatchTransition createRuleTransition(
+      RuleTransitionData ruleData,
+      Function<RuleTransitionData, ? extends PatchTransition> createTransition) {
+    return this.ruleTransitionCache.get(ruleData, createTransition);
   }
 
   /**
@@ -222,6 +245,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
    * a result of applying this transition.
    *
    * @param previousSettings a map representing the previous build settings
+   * @param attributeMapper a map of attributes
+   * @param optionInfoMap info about each option's {@link Option} type
+   * @param handler handler for messages
    * @return a map of changed build setting maps; each element of the map represents a different
    *     child configuration (split transitions will have multiple elements in this map with keys
    *     provided by the transition impl, patch transitions should have a single element keyed by
@@ -232,7 +258,10 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
    */
   @Nullable
   public abstract ImmutableMap<String, Map<String, Object>> evaluate(
-      Map<String, Object> previousSettings, StructImpl attributeMap, EventHandler eventHandler)
+      Map<String, Object> previousSettings,
+      StructImpl attributeMapper,
+      ImmutableMap<String, OptionInfo> optionInfoMap,
+      EventHandler handler)
       throws InterruptedException;
 
   public static StarlarkDefinedConfigTransition newRegularTransition(
@@ -248,6 +277,18 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
   }
 
+  public static StarlarkDefinedConfigTransition newExecTransition(
+      StarlarkCallable impl,
+      List<String> inputs,
+      List<String> outputs,
+      StarlarkSemantics semantics,
+      Label parentLabel,
+      Location location,
+      RepositoryMapping repoMapping)
+      throws EvalException {
+    return new ExecTransition(impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
+  }
+
   public static StarlarkDefinedConfigTransition newAnalysisTestTransition(
       Map<String, Object> changedSettings,
       RepositoryMapping repoMapping,
@@ -257,8 +298,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     return new AnalysisTestTransition(changedSettings, repoMapping, parentLabel, location);
   }
 
-  private static class AnalysisTestTransition extends StarlarkDefinedConfigTransition {
+  private static final class AnalysisTestTransition extends StarlarkDefinedConfigTransition {
     private final Map<String, Object> changedSettings;
+    private final int hashCode;
 
     AnalysisTestTransition(
         Map<String, Object> changedSettings,
@@ -267,12 +309,13 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         Location location)
         throws EvalException {
       super(
-          /*inputs=*/ ImmutableList.of(),
+          /* inputs= */ ImmutableList.of(),
           ImmutableList.copyOf(changedSettings.keySet()),
           repoMapping,
           parentLabel,
           location);
       this.changedSettings = changedSettings;
+      this.hashCode = HashCodes.hashObjects(getInputs(), getOutputs(), changedSettings);
     }
 
     @Override
@@ -281,9 +324,15 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     }
 
     @Override
+    public boolean isExecTransition() {
+      return false;
+    }
+
+    @Override
     public ImmutableMap<String, Map<String, Object>> evaluate(
         Map<String, Object> previousSettings,
         StructImpl attributeMapper,
+        ImmutableMap<String, OptionInfo> optionInfoMap,
         EventHandler eventHandler) {
       return ImmutableMap.of(PATCH_TRANSITION_KEY, changedSettings);
     }
@@ -298,8 +347,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       if (object == this) {
         return true;
       }
-      if (object instanceof AnalysisTestTransition) {
-        AnalysisTestTransition otherTransition = (AnalysisTestTransition) object;
+      if (object instanceof AnalysisTestTransition otherTransition) {
         return Objects.equals(otherTransition.getInputs(), this.getInputs())
             && Objects.equals(otherTransition.getOutputs(), this.getOutputs())
             && Objects.equals(otherTransition.changedSettings, this.changedSettings);
@@ -309,16 +357,16 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
     @Override
     public int hashCode() {
-      return Objects.hash(this.getInputs(), this.getOutputs(), this.changedSettings);
+      return hashCode;
     }
   }
 
   /** A transition with a user-defined implementation function. */
-  public static class RegularTransition extends StarlarkDefinedConfigTransition {
+  public static sealed class RegularTransition extends StarlarkDefinedConfigTransition {
     private final StarlarkCallable impl;
     private final StarlarkSemantics semantics;
     private final RepositoryMapping repoMapping;
-    private final Label parentLabel;
+    private final int hashCode;
 
     RegularTransition(
         StarlarkCallable impl,
@@ -332,12 +380,17 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       super(inputs, outputs, repoMapping, parentLabel, location);
       this.impl = impl;
       this.semantics = semantics;
-      this.parentLabel = parentLabel;
       this.repoMapping = repoMapping;
+      this.hashCode = HashCodes.hashObjects(getInputs(), getOutputs(), impl);
     }
 
     @Override
     public boolean isForAnalysisTesting() {
+      return false;
+    }
+
+    @Override
+    public boolean isExecTransition() {
       return false;
     }
 
@@ -358,13 +411,18 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
      * <p>The returned (outer) Dict will be immutable but all the underlying entries will have
      * mutability given by the entryMu param.
      *
-     * @param settings map os settings to copy over
+     * @param settings map os settings to copy over * {@code optionInfoMap} info about each option's
+     *     {@link Option} type
+     * @param optionInfoMap info about each option's {@link Option} type
      * @param entryMu Mutability context to use when copying individual entries
      * @throws UnreadableInputSettingException when entry in build setting is not convertable (using
      *     {@link Starlark#fromJava})
      */
     private static Dict<String, Object> createBuildSettingsDict(
-        Map<String, Object> settings, Mutability entryMu) throws UnreadableInputSettingException {
+        Map<String, Object> settings,
+        ImmutableMap<String, OptionInfo> optionInfoMap,
+        Mutability entryMu)
+        throws UnreadableInputSettingException {
 
       // Need to convert contained values into Starlark readable values.
       Dict.Builder<String, Object> builder = Dict.builder();
@@ -372,12 +430,104 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         try {
           builder.put(entry.getKey(), Starlark.fromJava(entry.getValue(), entryMu));
         } catch (Starlark.InvalidStarlarkValueException e) {
-          throw new UnreadableInputSettingException(entry.getKey(), e.getInvalidClass());
+          // Starlark#frromJava doesn't know how to read this value. Try again with a special
+          // allowlist of types we know how to make Starlark-compatible. This is not complete. If a
+          // value a) isn't Starlark-convertible and b) not special-cased here, Bazel emits a "can't
+          // process this setting" error.
+          builder.put(
+              entry.getKey(),
+              Starlark.fromJava(
+                  getTransitionSafeString(entry.getKey(), entry.getValue(), optionInfoMap),
+                  entryMu));
         }
       }
 
       // Want the 'outer' build settings dictionary to be immutable
       return builder.buildImmutable();
+    }
+
+    /**
+     * Native flag types known to serialize and deserialize cleanly to strings for Starlark
+     * evaluation.
+     *
+     * <p>This is an intentionally conservative list intended to support Starlark exec transitions
+     * ({@link ExecutionTransitionFactory}).
+     *
+     * <p>We'd ideally represent these directly as class types instead of strings. But that would
+     * add dependencies on rule-related library to this class, which breaks Bazel linking.
+     */
+    private static final ImmutableSet<String> SAFE_NATIVE_FLAG_TYPES =
+        ImmutableSet.of(
+            "AndroidManifestMerger",
+            "ManifestMergerOrder",
+            "ImportDepsCheckingLevel",
+            "JavaClasspathMode",
+            "StrictDepsMode",
+            "PythonVersion",
+            "OneVersionEnforcementLevel");
+
+    /**
+     * Converts a Java-native flag value to a Starlark-readable string, or throws an exception if
+     * the flag's type can't be represented in Starlark.
+     *
+     * <p>This only kicks in for values {@link Starlark#fromJava} failed to directly convert. That
+     * implies they need extra processing, which is what happens here.
+     *
+     * <p>This is incomplete. It only handles types we explicitly know are Starlark-convertible or
+     * that handle {@link Converter#starlarkConvertible()}. Other flags emit a "can't process this
+     * setting" error.
+     */
+    private static Object getTransitionSafeString(
+        String name, Object value, ImmutableMap<String, OptionInfo> optionInfoMap)
+        throws UnreadableInputSettingException {
+      if (value instanceof RegexFilter) {
+        // RegExFilter doesn't serialize to the same value it originally had on the command line.
+        // Call toOriginalString, to do that properly.
+        return Verify.verifyNotNull(((RegexFilter) value).toOriginalString());
+      }
+      if (value instanceof PathFragment
+          || value instanceof TriState
+          || value instanceof ExecConfigurationDistinguisherScheme
+          || value instanceof OutputDirectoryNamingScheme
+          || value instanceof OutputPathsMode
+          || value instanceof IncludeConfigFragmentsEnum
+          || SAFE_NATIVE_FLAG_TYPES.contains(value.getClass().getSimpleName())) {
+        // Starlark#fromJava doesn't understand these Bazel-specific Java types. But their
+        // toString() methods serialize cleanly.
+        return value.toString();
+      }
+      // See if the option's converter knows how to produce to Starlark values.
+      OptionDefinition optionDef =
+          optionInfoMap.get(name.substring(COMMAND_LINE_OPTION_PREFIX.length())).getDefinition();
+      if (!optionDef.getConverter().starlarkConvertible()) {
+        throw new UnreadableInputSettingException(name, value.getClass());
+      }
+      if (optionDef.allowsMultiple()) {
+        // allowMultiple() options are complicated (see the definition of allowMultiple() in
+        // Option.java). They must be typed as a List<T>. Their converters can return either T or
+        // List<T>. In the latter case, the typed value is a concatenation of all the converted
+        // lists.
+        //
+        // Option metadata doesn't include enough information to know which version of the converter
+        // it uses. Also note we can't encode this information in the converter because different
+        // options may use the same converter with or without allowMultiple.
+        //
+        // For lack of direct support, this code infers the right logic.
+        var asList = ((List<?>) value);
+        // If this is an empty list, Starlark#fromJava should have handled it.
+        Verify.verify(!asList.isEmpty());
+        // The converter matches the option with generics. So we don't actually know how their types
+        // compare at runtime. We know allowMultiple options must be typed List<T>. We assume if the
+        // converter doesn't return a list, it returns a single T. Else it returns a List<T>. This
+        // works as long as the option isn't a List<List<?>>. This verification check confirms that.
+        Verify.verify(!(asList.get(0) instanceof List));
+        return asList.stream()
+            .map(o -> optionDef.getConverter().reverseForStarlark(o))
+            .collect(toImmutableList());
+      } else {
+        // This isn't allowMultiple, so the converter is a straightforward reversal.
+        return optionDef.getConverter().reverseForStarlark(value);
+      }
     }
 
     /**
@@ -394,7 +544,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
      * splits (i.e. accessing later via {@code ctx.split_attrs}).
      *
      * @param previousSettings a map representing the previous build settings
-     * @param attributeMapper a map of attributes
+     * @param attrObject the attributes of the rule to which this transition is attached
+     * @param optionInfoMap info about each option's {@link Option} type
+     * @param handler handler for messages
      * @return a map of the changed settings. An empty map is shorthand for the transition not
      *     changing any settings ({@code return {} } is simpler than assigning every output setting
      *     to itself). A null return means an error occurred and results are unusable.
@@ -403,39 +555,26 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     @Nullable
     @Override
     public ImmutableMap<String, Map<String, Object>> evaluate(
-        Map<String, Object> previousSettings, StructImpl attributeMapper, EventHandler handler)
+        Map<String, Object> previousSettings,
+        StructImpl attrObject,
+        ImmutableMap<String, OptionInfo> optionInfoMap,
+        EventHandler handler)
         throws InterruptedException {
       // Call the Starlark function.
       Object result;
       try (Mutability mu = Mutability.create("eval_transition_function")) {
-        StarlarkThread thread = new StarlarkThread(mu, semantics);
-        thread.setPrintHandler(Event.makeDebugPrintHandler(handler));
         // TODO(brandjon): If the resulting values of Starlark transitions ever evolve to be
         //  complex Starlark objects like structs as opposed to the ints, strings,
         //  etc they are today then we need a real symbol generator which is used
         //  to calculate equality between instances of Starlark objects. A candidate
         //  for transition instance uniqueness is the Rule and configuration that
         //  are used as inputs to the configuration.
-        SymbolGenerator<Object> dummySymbolGenerator = new SymbolGenerator<>(new Object());
+        StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
+        thread.setPrintHandler(Event.makeDebugPrintHandler(handler));
+        Dict<String, Object> previousSettingsDict =
+            createBuildSettingsDict(previousSettings, optionInfoMap, mu);
 
-        Dict<String, Object> previousSettingsDict = createBuildSettingsDict(previousSettings, mu);
-
-        // Create a new {@link BazelStarlarkContext} for the new thread. We need to
-        // create a new context every time because {@link BazelStarlarkContext}s
-        // should be confined to a single thread.
-        BazelStarlarkContext starlarkContext =
-            new BazelStarlarkContext(
-                Phase.ANALYSIS,
-                /*toolsRepository=*/ null,
-                /*fragmentNameToClass=*/ null,
-                dummySymbolGenerator,
-                parentLabel,
-                /*networkAllowlistForTests=*/ null);
-
-        starlarkContext.storeInThread(thread);
-        result =
-            Starlark.fastcall(
-                thread, impl, new Object[] {previousSettingsDict, attributeMapper}, new Object[0]);
+        result = Starlark.positionalOnlyCall(thread, impl, previousSettingsDict, attrObject);
       } catch (UnreadableInputSettingException ex) {
         // TODO(blaze-configurability-team): Ideally, the error would happen (and thus location)
         //   at the transition() call during loading phase. Instead, error happens at the impl
@@ -452,8 +591,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
       if (result instanceof NoneType) {
         return ImmutableMap.of();
-      } else if (result instanceof Dict) {
-        if (((Dict<?, ?>) result).isEmpty()) {
+      } else if (result instanceof Dict<?, ?> dict) {
+        if (dict.isEmpty()) {
           return ImmutableMap.of();
         }
         try {
@@ -463,7 +602,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
           for (Map.Entry<String, ?> entry : dictOfDict.entrySet()) {
             Map<String, Object> rawDict =
                 Dict.cast(entry.getValue(), String.class, Object.class, "dictionary of options");
-            Map<String, Object> canonicalizedDict =
+            ImmutableMap<String, Object> canonicalizedDict =
                 canonicalizeTransitionOutputDict(rawDict, repoMapping, parentLabel, getOutputs());
             builder.put(entry.getKey(), canonicalizedDict);
           }
@@ -479,7 +618,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
           // Try if this is a patch transition.
           Map<String, Object> rawDict =
               Dict.cast(result, String.class, Object.class, "dictionary of options");
-          Map<String, Object> canonicalizedDict =
+          ImmutableMap<String, Object> canonicalizedDict =
               canonicalizeTransitionOutputDict(rawDict, repoMapping, parentLabel, getOutputs());
           return ImmutableMap.of(PATCH_TRANSITION_KEY, canonicalizedDict);
         } catch (EvalException | ValidationException ex) {
@@ -488,8 +627,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
           return null;
         }
 
-      } else if (result instanceof Sequence) {
-        if (((Sequence<?>) result).isEmpty()) {
+      } else if (result instanceof Sequence<?> sequence) {
+        if (sequence.isEmpty()) {
           return ImmutableMap.of();
         }
         ImmutableMap.Builder<String, Map<String, Object>> builder = ImmutableMap.builder();
@@ -500,7 +639,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
             // TODO(b/146347033): Document this behavior.
             Map<String, Object> rawDict =
                 Dict.cast(entry, String.class, Object.class, "dictionary of options");
-            Map<String, Object> canonicalizedDict =
+            ImmutableMap<String, Object> canonicalizedDict =
                 canonicalizeTransitionOutputDict(rawDict, repoMapping, parentLabel, getOutputs());
             builder.put(Integer.toString(i++), canonicalizedDict);
           }
@@ -609,8 +748,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       if (object == this) {
         return true;
       }
-      if (object instanceof RegularTransition) {
-        RegularTransition otherTransition = (RegularTransition) object;
+      if (object instanceof RegularTransition otherTransition) {
         return Objects.equals(otherTransition.getInputs(), this.getInputs())
             && Objects.equals(otherTransition.getOutputs(), this.getOutputs())
             && Objects.equals(otherTransition.impl, this.impl);
@@ -620,7 +758,27 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
     @Override
     public int hashCode() {
-      return Objects.hash(this.getInputs(), this.getOutputs(), this.impl);
+      return hashCode;
+    }
+  }
+
+  /** A transition implementation used only for Starlark-defined exec transitions. */
+  private static final class ExecTransition extends RegularTransition {
+    private ExecTransition(
+        StarlarkCallable impl,
+        List<String> inputs,
+        List<String> outputs,
+        StarlarkSemantics semantics,
+        Label parentLabel,
+        Location location,
+        RepositoryMapping repoMapping)
+        throws EvalException {
+      super(impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
+    }
+
+    @Override
+    public boolean isExecTransition() {
+      return true;
     }
   }
 

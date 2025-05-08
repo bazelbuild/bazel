@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -52,24 +52,19 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 # Java source files version shall match --java_language_version_flag version.
 # Output class files shall be created in corresponding version (JDK 8, class version is 52).
 function test_default_java_toolchain_target_version() {
+  add_rules_java "MODULE.bazel"
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+
 java_binary(
     name = 'JavaBinary',
     srcs = ['JavaBinary.java'],
     main_class = 'JavaBinary',
-)
-load(
-    "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
-    "default_java_toolchain",
 )
 default_java_toolchain(
   name = "default_toolchain",
@@ -100,8 +95,10 @@ EOF
 # Java source files version shall match --java_language_version_flag version.
 # Output class files shall be created in corresponding version (JDK 11, class version is 55).
 function test_java_language_version_output_classes() {
+  add_rules_java "MODULE.bazel"
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = 'JavaBinary',
     srcs = ['JavaBinary.java'],
@@ -135,17 +132,18 @@ EOF
 
 # When coverage is requested with no Jacoco configured, an error shall be reported.
 function test_tools_jdk_toolchain_nojacocorunner() {
+  add_rules_java "MODULE.bazel"
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+
 java_binary(
     name = 'JavaBinary',
     srcs = ['JavaBinary.java'],
     main_class = 'JavaBinary',
 )
-load(
-    "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
-    "default_java_toolchain",
-)
+
 default_java_toolchain(
   name = "default_toolchain",
   jacocorunner = None,
@@ -162,7 +160,7 @@ public class JavaBinary {
 EOF
   bazel coverage java/main:JavaBinary \
       --java_runtime_version=11 \
-      --extra_toolchains=//java/main:default_toolchain_definition \
+      --extra_toolchains=//java/main:all \
       --verbose_failures -s &>"${TEST_log}" \
       && fail "Coverage succeeded even when jacocorunner not set"
   expect_log "jacocorunner not set in java_toolchain:"
@@ -170,8 +168,9 @@ EOF
 
 # Specific toolchain attributes can be overridden.
 function test_default_java_toolchain_manualConfiguration() {
+  add_rules_java "MODULE.bazel"
   cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
   name = "vanilla",
   javabuilder = ["//:VanillaJavaBuilder"],
@@ -183,13 +182,14 @@ EOF
   bazel cquery --output=build //:vanilla >& $TEST_log || fail "failed to query //:vanilla"
 
   expect_log 'jvm_opts = \[\]'
-  expect_log 'javabuilder = \["//:VanillaJavaBuilder"\]'
+  expect_log 'javabuilder = "//:VanillaJavaBuilder"'
 }
 
 # DEFAULT_TOOLCHAIN_CONFIGURATION shall use JavaBuilder and override Java 9+ internal compiler classes.
 function test_default_java_toolchain_javabuilderToolchain() {
+  add_rules_java "MODULE.bazel"
   cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "DEFAULT_TOOLCHAIN_CONFIGURATION")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain", "DEFAULT_TOOLCHAIN_CONFIGURATION")
 default_java_toolchain(
   name = "javabuilder_toolchain",
   configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
@@ -205,8 +205,13 @@ EOF
 
 # VANILLA_TOOLCHAIN_CONFIGURATION shall use VanillaJavaBuilder and not override any JDK internal compiler classes.
 function test_default_java_toolchain_vanillaToolchain() {
+  add_rules_java MODULE.bazel
+  cat >> MODULE.bazel <<EOF
+java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
+use_repo(java_toolchains, "local_jdk")
+EOF
   cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "VANILLA_TOOLCHAIN_CONFIGURATION")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain", "VANILLA_TOOLCHAIN_CONFIGURATION")
 default_java_toolchain(
   name = "vanilla_toolchain",
   configuration = VANILLA_TOOLCHAIN_CONFIGURATION,
@@ -221,29 +226,11 @@ EOF
   expect_not_log ":JavaBuilder"
 }
 
-# PREBUILT_TOOLCHAIN_CONFIGURATION shall use prebuilt ijar and singlejar binaries.
-function test_default_java_toolchain_prebuiltToolchain() {
-  cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "PREBUILT_TOOLCHAIN_CONFIGURATION")
-default_java_toolchain(
-  name = "prebuilt_toolchain",
-  configuration = PREBUILT_TOOLCHAIN_CONFIGURATION,
-)
-EOF
-
-  bazel build //:prebuilt_toolchain || fail "default_java_toolchain target failed to build"
-  bazel cquery 'deps(//:prebuilt_toolchain)' >& $TEST_log || fail "failed to query //:prebuilt_toolchain"
-
-  expect_log "ijar/ijar\(.exe\)\? "
-  expect_log "singlejar/singlejar_local"
-  expect_not_log "ijar/ijar.cc"
-  expect_not_log "singlejar/singlejar_main.cc"
-}
-
 # NONPREBUILT_TOOLCHAIN_CONFIGURATION shall compile ijar and singlejar from sources.
 function test_default_java_toolchain_nonprebuiltToolchain() {
+  add_rules_java "MODULE.bazel"
   cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "NONPREBUILT_TOOLCHAIN_CONFIGURATION")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain", "NONPREBUILT_TOOLCHAIN_CONFIGURATION")
 default_java_toolchain(
   name = "nonprebuilt_toolchain",
   configuration = NONPREBUILT_TOOLCHAIN_CONFIGURATION,
@@ -257,6 +244,253 @@ EOF
   expect_log "singlejar/singlejar_main.cc"
   expect_not_log "ijar/ijar\(.exe\)\? "
   expect_not_log "singlejar/singlejar_local"
+}
+
+function test_executable_java_binary_compiles_for_platform_without_cc_toolchain() {
+  cat > MODULE.bazel <<'EOF'
+# This version should always be at most as high as the version in MODULE.tools.
+bazel_dep(name = "rules_java", version = "7.3.2")
+java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
+use_repo(java_toolchains, "remotejdk17_linux")
+register_toolchains(
+  "//pkg:runtime",
+  "//pkg:bootstrap_runtime",
+)
+EOF
+  add_rules_cc "MODULE.bazel"
+  mkdir -p pkg
+# Choose a platform with a registered JDK, but for which no registered C++ toolchain can compile, to
+# verify that java_binary doesn't have a mandatory dependency on a C++ toolchain. The particular
+# architecture of the fake registered JDK doesn't matter as it won't be executed.
+  cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+constraint_setting(
+  name = "exotic_constraint",
+)
+constraint_value(
+  name = "exotic_value",
+  constraint_setting = ":exotic_constraint",
+)
+platform(
+  name = "exotic_platform",
+  constraint_values = [":exotic_value"],
+)
+toolchain(
+  name = "runtime",
+  target_compatible_with = [":exotic_value"],
+  toolchain_type = "@bazel_tools//tools/jdk:runtime_toolchain_type",
+  toolchain = "@remotejdk17_linux//:jdk",
+)
+toolchain(
+  name = "bootstrap_runtime",
+  target_compatible_with = [":exotic_value"],
+  toolchain_type = "@bazel_tools//tools/jdk:runtime_toolchain_type",
+  toolchain = "@remotejdk17_linux//:jdk",
+)
+java_binary(
+  name = "foo",
+  srcs = ["Foo.java"],
+  main_class = "com.example.Foo",
+)
+cc_binary(
+  name = "cc",
+)
+EOF
+
+    cat > pkg/Foo.java <<'EOF'
+package com.example;
+public class Foo {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_17 \
+    //pkg:cc &>"$TEST_log" && fail "C++ build should fail"
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_17 \
+    //pkg:foo &>"$TEST_log" || fail "Build should succeed"
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_17 \
+    //pkg:foo_deploy.jar &>"$TEST_log" || fail "Build should succeed"
+}
+
+function test_java_library_compiles_for_any_platform_with_local_jdk() {
+  add_rules_java "MODULE.bazel"
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+
+platform(name = "exotic_platform")
+java_library(
+  name = "foo",
+  srcs = ["Foo.java"],
+)
+EOF
+
+    cat > pkg/Foo.java <<'EOF'
+package com.example;
+public class Foo {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
+    //pkg:foo &>"$TEST_log" || fail "Build should succeed"
+}
+
+function test_java_library_compiles_for_any_platform_with_remote_jdk() {
+  add_rules_java "MODULE.bazel"
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+
+platform(name = "exotic_platform")
+java_library(
+  name = "foo",
+  srcs = ["Foo.java"],
+)
+EOF
+
+    cat > pkg/Foo.java <<'EOF'
+package com.example;
+public class Foo {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_11 \
+    //pkg:foo &>"$TEST_log" || fail "Build should succeed"
+}
+
+function test_non_executable_java_binary_compiles_for_any_platform_with_local_jdk() {
+  add_rules_java "MODULE.bazel"
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+platform(name = "exotic_platform")
+java_binary(
+  name = "foo",
+  srcs = ["Foo.java"],
+  create_executable = False,
+)
+EOF
+
+    cat > pkg/Foo.java <<'EOF'
+package com.example;
+public class Foo {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
+    //pkg:foo &>"$TEST_log" || fail "Build should succeed"
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
+    //pkg:foo_deploy.jar &>"$TEST_log" || fail "Build should succeed"
+}
+
+function test_non_executable_java_binary_compiles_for_any_platform_with_remote_jdk() {
+  add_rules_java "MODULE.bazel"
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+platform(name = "exotic_platform")
+java_binary(
+  name = "foo",
+  srcs = ["Foo.java"],
+  create_executable = False,
+)
+EOF
+
+    cat > pkg/Foo.java <<'EOF'
+package com.example;
+public class Foo {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_11 \
+    //pkg:foo &>"$TEST_log" || fail "Build should succeed"
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_11 \
+    //pkg:foo_deploy.jar &>"$TEST_log" || fail "Build should succeed"
+}
+
+function test_executable_java_binary_fails_without_runtime_with_local_jdk() {
+  add_rules_java "MODULE.bazel"
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
+platform(name = "exotic_platform")
+java_binary(
+  name = "foo",
+  srcs = ["Foo.java"],
+  main_class = "com.example.Foo",
+)
+EOF
+
+    cat > pkg/Foo.java <<'EOF'
+package com.example;
+public class Foo {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
+    //pkg:foo &>"$TEST_log" && fail "Build should fail"
+  expect_log "While resolving toolchains for target //pkg:foo ([0-9a-f]*): No matching toolchains found for types:$"
+  expect_log "^  @@bazel_tools//tools/jdk:runtime_toolchain_type$"
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
+    //pkg:foo_deploy.jar &>"$TEST_log" && fail "Build should fail"
+  expect_log "While resolving toolchains for target //pkg:foo_deploy.jar ([0-9a-f]*): No matching toolchains found for types:$"
+  expect_log "^  @@bazel_tools//tools/jdk:runtime_toolchain_type$"
+}
+
+function test_executable_java_binary_fails_without_runtime_with_remote_jdk() {
+  add_rules_java "MODULE.bazel"
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
+platform(name = "exotic_platform")
+java_binary(
+  name = "foo",
+  srcs = ["Foo.java"],
+  main_class = "com.example.Foo",
+)
+EOF
+
+  cat > pkg/Foo.java <<'EOF'
+package com.example;
+public class Foo {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_11 \
+    //pkg:foo &>"$TEST_log" && fail "Build should fail"
+  expect_log "While resolving toolchains for target //pkg:foo ([0-9a-f]*): No matching toolchains found for types:$"
+  expect_log "^  @@bazel_tools//tools/jdk:runtime_toolchain_type$"
+
+  bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_11 \
+    //pkg:foo_deploy.jar &>"$TEST_log" && fail "Build should fail"
+  expect_log "While resolving toolchains for target //pkg:foo_deploy.jar ([0-9a-f]*): No matching toolchains found for types:$"
+  expect_log "^  @@bazel_tools//tools/jdk:runtime_toolchain_type$"
 }
 
 run_suite "Java toolchains tests, configured using flags or the default_java_toolchain macro."

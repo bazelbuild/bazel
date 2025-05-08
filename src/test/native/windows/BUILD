@@ -1,3 +1,7 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -31,8 +35,8 @@ cc_test(
     }),
     deps = select({
         "//src/conditions:windows": [
-            "//src/main/native/windows:lib-file",
             ":test_deps",
+            "//src/main/native/windows:lib-file",
         ],
         "//conditions:default": [],
     }),
@@ -47,8 +51,8 @@ cc_test(
     }),
     deps = select({
         "//src/conditions:windows": [
-            "//src/main/native/windows:lib-file",
             ":test_deps",
+            "//src/main/native/windows:lib-file",
         ],
         "//conditions:default": [],
     }),
@@ -65,10 +69,10 @@ cc_test(
     deps = select({
         "//src/conditions:windows": [
             ":test_deps",
+            "//src/main/cpp/util:filesystem",
             "//src/main/native/windows:lib-file",
             "//src/main/native/windows:lib-process",
-            "//src/main/cpp/util:filesystem",
-            "@bazel_tools//tools/cpp/runfiles",
+            "@rules_cc//cc/runfiles",
         ],
         "//conditions:default": [],
     }),

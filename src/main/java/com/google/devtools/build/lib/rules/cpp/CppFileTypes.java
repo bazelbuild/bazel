@@ -30,9 +30,44 @@ public final class CppFileTypes {
   // .cu and .cl are CUDA and OpenCL source extensions, respectively. They are expected to only be
   // supported with clang. Bazel is not officially supporting these targets, and the extensions are
   // listed only as long as they work with the existing C++ actions.
+  // FileType is extended to use case-sensitive comparison also on Windows
   public static final FileType CPP_SOURCE =
-      FileType.of(".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl");
-  public static final FileType C_SOURCE = FileType.of(".c");
+      new FileType() {
+        final ImmutableList<String> extensions =
+            ImmutableList.of(".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl");
+
+        @Override
+        public boolean apply(String path) {
+          for (String ext : extensions) {
+            if (path.endsWith(ext)) {
+              return true;
+            }
+          }
+          return false;
+        }
+
+        @Override
+        public ImmutableList<String> getExtensions() {
+          return extensions;
+        }
+      };
+
+  // FileType is extended to use case-sensitive comparison also on Windows
+  public static final FileType C_SOURCE =
+      new FileType() {
+        final String ext = ".c";
+
+        @Override
+        public boolean apply(String path) {
+          return path.endsWith(ext);
+        }
+
+        @Override
+        public ImmutableList<String> getExtensions() {
+          return ImmutableList.of(ext);
+        }
+      };
+
   public static final FileType OBJC_SOURCE = FileType.of(".m");
   public static final FileType OBJCPP_SOURCE = FileType.of(".mm");
   public static final FileType CLIF_INPUT_PROTO = FileType.of(".ipb");
@@ -204,7 +239,17 @@ public final class CppFileTypes {
   // Minimized bitcode file emitted by the ThinLTO compile step and used just for LTO indexing.
   public static final FileType LTO_INDEXING_OBJECT_FILE = FileType.of(".indexing.o");
 
-  public static final FileType SHARED_LIBRARY = FileType.of(".so", ".dylib", ".dll");
+  // Imports file emitted by the ThinLTO indexing step and used for LTO backend action.
+  public static final FileType LTO_IMPORTS_FILE = FileType.of(".imports");
+
+  // Indexing analysis result file emitted by the ThinLTO indexing step and used for LTO backend
+  // action.
+  public static final FileType LTO_INDEXING_ANALYSIS_FILE = FileType.of(".thinlto.bc");
+
+  // TODO(bazel-team): File types should not be read from this hard-coded list but should come from
+  // the toolchain instead. See https://github.com/bazelbuild/bazel/issues/17117
+  public static final FileType SHARED_LIBRARY =
+      FileType.of(".so", ".dylib", ".dll", ".pyd", ".wasm", ".tgt", ".vpi");
   // Unix shared libraries can be passed to linker, but not .dll on Windows
   public static final FileType UNIX_SHARED_LIBRARY = FileType.of(".so", ".dylib");
   public static final FileType INTERFACE_SHARED_LIBRARY =
@@ -240,7 +285,7 @@ public final class CppFileTypes {
   public static final FileType LLVM_PROFILE_ZIP = FileType.of(".zip");
 
   public static final FileType CPP_MODULE_MAP = FileType.of(".cppmap");
-  public static final FileType CPP_MODULE = FileType.of(".pcm");
+  public static final FileType CPP_MODULE = FileType.of(".pcm", ".gcm", ".ifc");
   public static final FileType OBJC_MODULE_MAP = FileType.of("module.modulemap");
 
   /** Predicate that matches all artifacts that can be used in an objc Clang module map. */

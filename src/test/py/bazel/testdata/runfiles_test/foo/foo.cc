@@ -50,9 +50,9 @@ using std::unique_ptr;
 
 string child_binary_name(const char* lang) {
 #ifdef IS_WINDOWS
-  return string("foo_ws/bar/bar-") + lang + ".exe";
+  return string("_main/bar/bar-") + lang + ".exe";
 #else
-  return string("foo_ws/bar/bar-") + lang;
+  return string("_main/bar/bar-") + lang;
 #endif  // IS_WINDOWS
 }
 
@@ -120,7 +120,7 @@ int _main(int argc, char** argv) {
     cerr << "ERROR[" << __FILE__ << "]: " << error << endl;
     return 1;
   }
-  string path = runfiles->Rlocation("foo_ws/foo/datadep/hello.txt");
+  string path = runfiles->Rlocation("_main/foo/datadep/hello.txt");
   if (!is_file(path)) {
     return 1;
   }

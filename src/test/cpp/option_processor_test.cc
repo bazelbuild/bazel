@@ -41,21 +41,11 @@ class OptionProcessorTest : public ::testing::Test {
   void SetUp() override {
     ASSERT_TRUE(blaze_util::MakeDirectories(workspace_, 0755));
     option_processor_.reset(new OptionProcessor(
-        workspace_layout_.get(),
-        std::unique_ptr<StartupOptions>(
-            new BazelStartupOptions(workspace_layout_.get()))));
+        workspace_layout_.get(), std::make_unique<BazelStartupOptions>()));
   }
 
   void TearDown() override {
-    // TODO(bazel-team): The code below deletes all the files in the workspace
-    // but it intentionally skips directories. As a consequence, there may be
-    // empty directories from test to test. Remove this once
-    // blaze_util::DeleteDirectories(path) exists.
-    std::vector<std::string> files_in_workspace;
-    blaze_util::GetAllFilesUnder(workspace_, &files_in_workspace);
-    for (const std::string& file : files_in_workspace) {
-      blaze_util::UnlinkPath(file);
-    }
+    blaze_util::RemoveRecursively(blaze_util::Path(workspace_));
   }
 
   void FailedSplitCommandLineTest(const std::vector<std::string>& args,
@@ -100,9 +90,13 @@ class OptionProcessorTest : public ::testing::Test {
 };
 
 TEST_F(OptionProcessorTest, CanParseOptions) {
-  const std::vector<std::string> args = {"bazel",     "--host_jvm_args=MyParam",
-                                         "--nobatch", "command",
-                                         "--flag",    "//my:target",
+  const std::vector<std::string> args = {"bazel",
+                                         "--ignore_all_rc_files",
+                                         "--host_jvm_args=MyParam",
+                                         "--nobatch",
+                                         "command",
+                                         "--flag",
+                                         "//my:target",
                                          "--flag2=42"};
   std::string error;
   ASSERT_EQ(blaze_exit_code::SUCCESS,
@@ -135,9 +129,13 @@ TEST_F(OptionProcessorTest, CanParseOptions) {
 }
 
 TEST_F(OptionProcessorTest, CanParseHelpCommandSurroundedByOtherArgs) {
-  const std::vector<std::string> args = {"bazel",     "--host_jvm_args=MyParam",
-                                         "--nobatch", "help",
-                                         "--flag",    "//my:target",
+  const std::vector<std::string> args = {"bazel",
+                                         "--ignore_all_rc_files",
+                                         "--host_jvm_args=MyParam",
+                                         "--nobatch",
+                                         "help",
+                                         "--flag",
+                                         "//my:target",
                                          "--flag2=42"};
   std::string error;
   ASSERT_EQ(blaze_exit_code::SUCCESS,
@@ -196,9 +194,12 @@ TEST_F(OptionProcessorTest, CanParseEmptyArgs) {
 }
 
 TEST_F(OptionProcessorTest, CanParseDifferentStartupArgs) {
-  const std::vector<std::string> args =
-      {"bazel",
-       "--nobatch", "--host_jvm_args=MyParam", "--host_jvm_args", "42"};
+  const std::vector<std::string> args = {"bazel",
+                                         "--nobatch",
+                                         "--ignore_all_rc_files",
+                                         "--host_jvm_args=MyParam",
+                                         "--host_jvm_args",
+                                         "42"};
   std::string error;
   ASSERT_EQ(blaze_exit_code::SUCCESS,
             option_processor_->ParseOptions(args, workspace_, cwd_, &error))

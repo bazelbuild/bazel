@@ -36,6 +36,7 @@ public class AttributeValueSourceTest {
     // Success means "no exception is being thrown".
     AttributeValueSource.COMPUTED_DEFAULT.validateStarlarkName("_name");
     AttributeValueSource.LATE_BOUND.validateStarlarkName("_name");
+    AttributeValueSource.MATERIALIZER.validateStarlarkName("_name");
     AttributeValueSource.DIRECT.validateStarlarkName("_name");
     AttributeValueSource.DIRECT.validateStarlarkName("name");
   }
@@ -54,6 +55,7 @@ public class AttributeValueSourceTest {
             + "(i.e. start with '_'). Found 'my_name'";
     assertNameIsNotValid(AttributeValueSource.COMPUTED_DEFAULT, "my_name", msg);
     assertNameIsNotValid(AttributeValueSource.LATE_BOUND, "my_name", msg);
+    assertNameIsNotValid(AttributeValueSource.MATERIALIZER, "my_name", msg);
   }
 
   private void assertNameIsNotValid(
@@ -66,6 +68,7 @@ public class AttributeValueSourceTest {
   public void testConvertToNativeName() throws Exception {
     assertConvertsToCorrectNativeName(AttributeValueSource.COMPUTED_DEFAULT, "_name", "$name");
     assertConvertsToCorrectNativeName(AttributeValueSource.LATE_BOUND, "_name", ":name");
+    assertConvertsToCorrectNativeName(AttributeValueSource.MATERIALIZER, "_name", ":name");
     assertConvertsToCorrectNativeName(AttributeValueSource.DIRECT, "_name", "$name");
     assertConvertsToCorrectNativeName(AttributeValueSource.DIRECT, "name", "name");
   }
@@ -80,6 +83,7 @@ public class AttributeValueSourceTest {
   public void testConvertToNativeName_invalidName() throws Exception {
     assertTranslationFails(AttributeValueSource.COMPUTED_DEFAULT, "name");
     assertTranslationFails(AttributeValueSource.LATE_BOUND, "name");
+    assertTranslationFails(AttributeValueSource.MATERIALIZER, "name");
   }
 
   private void assertTranslationFails(AttributeValueSource source, String invalidName)

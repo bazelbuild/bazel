@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.authandtls;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.google.auth.Credentials;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
@@ -22,6 +23,7 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperCredentials;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
+import com.google.devtools.build.lib.authandtls.credentialhelper.GetCredentialsResponse;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -48,6 +50,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -87,8 +90,8 @@ public final class GoogleAuthUtils {
               .negotiationType(
                   isTlsEnabled(target) ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
       if (options.grpcKeepaliveTime != null) {
-        builder.keepAliveTime(options.grpcKeepaliveTime.getSeconds(), TimeUnit.SECONDS);
-        builder.keepAliveTimeout(options.grpcKeepaliveTimeout.getSeconds(), TimeUnit.SECONDS);
+        builder.keepAliveTime(options.grpcKeepaliveTime.toSeconds(), TimeUnit.SECONDS);
+        builder.keepAliveTimeout(options.grpcKeepaliveTimeout.toSeconds(), TimeUnit.SECONDS);
       }
       if (interceptors != null) {
         builder.intercept(interceptors);
@@ -248,6 +251,7 @@ public final class GoogleAuthUtils {
    */
   public static Credentials newCredentials(
       CredentialHelperEnvironment credentialHelperEnvironment,
+      Cache<URI, GetCredentialsResponse> credentialCache,
       CommandLinePathFactory commandLinePathFactory,
       FileSystem fileSystem,
       AuthAndTLSOptions authAndTlsOptions)
@@ -257,16 +261,16 @@ public final class GoogleAuthUtils {
     Preconditions.checkNotNull(fileSystem);
     Preconditions.checkNotNull(authAndTlsOptions);
 
-    Optional<Credentials> credentials = newGoogleCredentials(authAndTlsOptions);
+    Optional<Credentials> fallbackCredentials = newGoogleCredentials(authAndTlsOptions);
 
-    if (credentials.isEmpty()) {
+    if (fallbackCredentials.isEmpty()) {
       // Fallback to .netrc if it exists.
       try {
-        credentials =
-            newCredentialsFromNetrc(credentialHelperEnvironment.getClientEnvironment(), fileSystem);
+        fallbackCredentials =
+            newCredentialsFromNetrc(credentialHelperEnvironment.clientEnvironment(), fileSystem);
       } catch (IOException e) {
         // TODO(yannic): Make this fail the build.
-        credentialHelperEnvironment.getEventReporter().handle(Event.warn(e.getMessage()));
+        credentialHelperEnvironment.eventReporter().handle(Event.warn(e.getMessage()));
       }
     }
 
@@ -276,8 +280,8 @@ public final class GoogleAuthUtils {
             commandLinePathFactory,
             authAndTlsOptions.credentialHelpers),
         credentialHelperEnvironment,
-        credentials,
-        authAndTlsOptions.credentialHelperCacheTimeout);
+        credentialCache,
+        fallbackCredentials);
   }
 
   /**
@@ -325,7 +329,7 @@ public final class GoogleAuthUtils {
         creds = creds.createScoped(authScopes);
       }
       return creds;
-    } catch (IOException e) {
+    } catch (Exception e) {
       String message = "Failed to init auth credentials: " + e.getMessage();
       throw new IOException(message, e);
     }
@@ -367,20 +371,19 @@ public final class GoogleAuthUtils {
     }
   }
 
-  @VisibleForTesting
   public static CredentialHelperProvider newCredentialHelperProvider(
       CredentialHelperEnvironment environment,
       CommandLinePathFactory pathFactory,
-      List<AuthAndTLSOptions.UnresolvedScopedCredentialHelper> helpers)
+      List<AuthAndTLSOptions.CredentialHelperOption> helpers)
       throws IOException {
     Preconditions.checkNotNull(environment);
     Preconditions.checkNotNull(pathFactory);
     Preconditions.checkNotNull(helpers);
 
     CredentialHelperProvider.Builder builder = CredentialHelperProvider.builder();
-    for (AuthAndTLSOptions.UnresolvedScopedCredentialHelper helper : helpers) {
-      Optional<String> scope = helper.getScope();
-      Path path = pathFactory.create(environment.getClientEnvironment(), helper.getPath());
+    for (AuthAndTLSOptions.CredentialHelperOption helper : helpers) {
+      Optional<String> scope = helper.scope();
+      Path path = pathFactory.create(environment.clientEnvironment(), helper.path());
       if (scope.isPresent()) {
         builder.add(scope.get(), path);
       } else {

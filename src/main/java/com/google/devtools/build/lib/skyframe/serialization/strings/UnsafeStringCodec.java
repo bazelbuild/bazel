@@ -14,26 +14,33 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.strings;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.util.Arrays;
 
 /**
  * A high-performance {@link ObjectCodec} for {@link String} objects specialized for Strings in
  * JDK9+, where a String can be represented as a byte array together with a single byte (0 or 1) for
  * Latin-1 or UTF16 encoding.
  */
-@VisibleForTesting
-public final class UnsafeStringCodec implements ObjectCodec<String> {
+public final class UnsafeStringCodec extends LeafObjectCodec<String> {
+  /**
+   * An instance to use for delegation by other codecs.
+   *
+   * <p>The default constructor is left intact to allow the usual codec registration mechanisms to
+   * work.
+   */
+  private static final UnsafeStringCodec INSTANCE = new UnsafeStringCodec();
 
-  private final StringUnsafe stringUnsafe = StringUnsafe.getInstance();
+  public static UnsafeStringCodec stringCodec() {
+    return INSTANCE;
+  }
 
   @Override
   public Class<String> getEncodedClass() {
@@ -41,19 +48,10 @@ public final class UnsafeStringCodec implements ObjectCodec<String> {
   }
 
   @Override
-  public MemoizationStrategy getStrategy() {
-    // Don't memoize strings inside memoizing serialization, to preserve current behavior.
-    // TODO(janakr,brandjon,michajlo): Is it actually a problem to memoize strings? Doubt there
-    // would be much performance impact from increasing the size of the identity map, and we
-    // could potentially drop our string tables in the future.
-    return MemoizationStrategy.DO_NOT_MEMOIZE;
-  }
-
-  @Override
-  public void serialize(SerializationContext context, String obj, CodedOutputStream codedOut)
+  public void serialize(LeafSerializationContext context, String obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    byte coder = stringUnsafe.getCoder(obj);
-    byte[] value = stringUnsafe.getByteArray(obj);
+    byte coder = StringUnsafe.getCoder(obj);
+    byte[] value = StringUnsafe.getByteArray(obj);
     // Optimize for the case that coder == 0, in which case we can just write the length here,
     // potentially using just one byte. If coder != 0, we'll use 4 bytes, but that's vanishingly
     // rare.
@@ -68,7 +66,7 @@ public final class UnsafeStringCodec implements ObjectCodec<String> {
   }
 
   @Override
-  public String deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public String deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     int length = codedIn.readInt32();
     byte coder;
@@ -79,11 +77,6 @@ public final class UnsafeStringCodec implements ObjectCodec<String> {
       length = -length;
     }
     byte[] value = codedIn.readRawBytes(length);
-    try {
-      return stringUnsafe.newInstance(value, coder);
-    } catch (ReflectiveOperationException e) {
-      throw new SerializationException(
-          "Could not instantiate string: " + Arrays.toString(value) + ", " + coder, e);
-    }
+    return StringUnsafe.newInstance(value, coder);
   }
 }

@@ -29,24 +29,24 @@ public class ConstraintValueInfoTest extends BuildViewTestCase {
   @Test
   public void constraintValue_equalsTester() {
     ConstraintSettingInfo setting1 =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:basic"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:basic"));
     ConstraintSettingInfo setting2 =
-        ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("//constraint:other"));
+        ConstraintSettingInfo.create(Label.parseCanonicalUnchecked("//constraint:other"));
     new EqualsTester()
         .addEqualityGroup(
             // Base case.
             ConstraintValueInfo.create(
-                setting1, Label.parseAbsoluteUnchecked("//constraint:value")),
+                setting1, Label.parseCanonicalUnchecked("//constraint:value")),
             ConstraintValueInfo.create(
-                setting1, Label.parseAbsoluteUnchecked("//constraint:value")))
+                setting1, Label.parseCanonicalUnchecked("//constraint:value")))
         .addEqualityGroup(
             // Different label.
             ConstraintValueInfo.create(
-                setting1, Label.parseAbsoluteUnchecked("//constraint:otherValue")))
+                setting1, Label.parseCanonicalUnchecked("//constraint:otherValue")))
         .addEqualityGroup(
             // Different setting.
             ConstraintValueInfo.create(
-                setting2, Label.parseAbsoluteUnchecked("//constraint:otherValue")))
+                setting2, Label.parseCanonicalUnchecked("//constraint:otherValue")))
         .testEquals();
   }
 }

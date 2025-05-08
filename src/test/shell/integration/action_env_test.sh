@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -27,18 +27,30 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 set -e
 
 function set_up() {
+  add_rules_shell "MODULE.bazel"
+
   mkdir -p pkg
   cat > pkg/BUILD <<EOF
+load("//pkg:build.bzl", "environ")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 genrule(
   name = "showenv",
   outs = ["env.txt"],
   cmd = "env | sort > \"\$@\""
 )
 
-load("//pkg:build.bzl", "environ")
-
 environ(name = "no_default_env", env = 0)
 environ(name = "with_default_env", env = 1)
+environ(
+    name = "with_default_and_fixed_env",
+    env = 1,
+    fixed_env = {
+        "ACTION_FIXED": "action",
+        "ACTION_AND_CLIENT_FIXED": "action",
+        "ACTION_AND_CLIENT_INHERITED": "action",
+    },
+)
 
 sh_test(
     name = "test_env_foo",
@@ -53,17 +65,10 @@ genrule(
 )
 
 genrule(
-  name = "show_host_env_using_exec_tools",
-  exec_tools = ["env.txt"],
-  outs = ["exec_tools_env.txt"],
-  cmd = "cp \$(location env.txt) \"\$@\""
-)
-
-genrule(
-  name = "show_host_env_using_successive_exec_tools",
-  exec_tools = ["exec_tools_env.txt"],
-  outs = ["successive_exec_tools_env.txt"],
-  cmd = "cp \$(location exec_tools_env.txt) \"\$@\""
+  name = "show_host_env_using_successive_tools",
+  tools = ["tools_env.txt"],
+  outs = ["successive_tools_env.txt"],
+  cmd = "cp \$(location tools_env.txt) \"\$@\""
 )
 EOF
   cat > pkg/build.bzl <<EOF
@@ -72,12 +77,16 @@ def _impl(ctx):
   ctx.actions.run_shell(
       inputs=[],
       outputs=[output],
+      env = ctx.attr.fixed_env,
       use_default_shell_env = ctx.attr.env,
       command="env > %s" % output.path)
 
 environ = rule(
     implementation=_impl,
-    attrs={"env": attr.bool(default=True)},
+    attrs={
+        "env": attr.bool(default=True),
+        "fixed_env": attr.string_dict(),
+    },
     outputs={"out": "%{name}.env"},
 )
 EOF
@@ -222,6 +231,29 @@ function test_use_default_shell_env {
          && fail "dynamic action_env used, even though requested not to") || true
 }
 
+function test_use_default_shell_env_and_fixed_env {
+    ACTION_AND_CLIENT_INHERITED=client CLIENT_INHERITED=client \
+        bazel build \
+        --action_env=ACTION_AND_CLIENT_FIXED=client \
+        --action_env=ACTION_AND_CLIENT_INHERITED \
+        --action_env=CLIENT_FIXED=client \
+        --action_env=CLIENT_INHERITED \
+        //pkg:with_default_and_fixed_env
+    echo
+    cat bazel-bin/pkg/with_default_and_fixed_env.env
+    echo
+    grep -q ACTION_AND_CLIENT_FIXED=action bazel-bin/pkg/with_default_and_fixed_env.env \
+        || fail "action-provided env should have overridden static --action_env"
+    grep -q ACTION_AND_CLIENT_INHERITED=action bazel-bin/pkg/with_default_and_fixed_env.env \
+        || fail "action-provided env should have overridden dynamic --action_env"
+    grep -q ACTION_FIXED=action bazel-bin/pkg/with_default_and_fixed_env.env \
+        || fail "action-provided env should have been honored"
+    grep -q CLIENT_FIXED=client bazel-bin/pkg/with_default_and_fixed_env.env \
+        || fail "static action environment not honored"
+    grep -q CLIENT_INHERITED=client bazel-bin/pkg/with_default_and_fixed_env.env \
+        || fail "dynamic action environment not honored"
+}
+
 function test_action_env_changes_honored {
     # Verify that changes to the explicitly specified action_env in honored in
     # tests. Regression test for #3265.
@@ -337,108 +369,108 @@ function test_latest_wins_env_using_tools() {
   expect_not_log "FOO=foo"
 }
 
-function test_host_env_using_exec_tools_simple() {
+function test_host_env_using_tools_simple() {
   export FOO=baz
 
   # If FOO is passed using --host_action_env, it should be listed in host env vars
-  bazel build --host_action_env=FOO=bar pkg:show_host_env_using_exec_tools \
-      || fail "${PRODUCT_NAME} build show_host_env_using_exec_tools failed"
+  bazel build --host_action_env=FOO=bar pkg:show_host_env_using_tools \
+      || fail "${PRODUCT_NAME} build show_host_env_using_tools failed"
 
-  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/exec_tools_env.txt > $TEST_log
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/tools_env.txt > $TEST_log
   expect_log "FOO=bar"
 
   # But if FOO is passed using --action_env, it should not be listed in host env vars
-  bazel build --action_env=FOO=bar pkg:show_host_env_using_exec_tools \
-      || fail "${PRODUCT_NAME} build show_host_env_using_exec_tools failed"
+  bazel build --action_env=FOO=bar pkg:show_host_env_using_tools \
+      || fail "${PRODUCT_NAME} build show_host_env_using_tools failed"
 
-  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/exec_tools_env.txt > $TEST_log
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/tools_env.txt > $TEST_log
   expect_not_log "FOO=bar"
 }
 
-function test_host_env_using_exec_tools_latest_wins() {
+function test_host_env_using_tools_latest_wins() {
   export FOO=environmentfoo
   export BAR=environmentbar
   bazel build --host_action_env=FOO=foo \
-      --host_action_env=BAR=willbeoverridden --host_action_env=BAR=bar pkg:show_host_env_using_exec_tools \
-      || fail "${PRODUCT_NAME} build show_host_env_using_exec_tools failed"
+      --host_action_env=BAR=willbeoverridden --host_action_env=BAR=bar pkg:show_host_env_using_tools \
+      || fail "${PRODUCT_NAME} build show_host_env_using_tools failed"
 
-  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/exec_tools_env.txt > $TEST_log
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/tools_env.txt > $TEST_log
   expect_log "FOO=foo"
   expect_log "BAR=bar"
 }
 
-function test_client_env_using_exec_tools() {
+function test_client_env_using_tools() {
   export FOO=startup_foo
   bazel clean --expunge
   bazel help build > /dev/null || fail "${PRODUCT_NAME} help failed"
   export FOO=client_foo
-  bazel build --host_action_env=FOO pkg:show_host_env_using_exec_tools || \
-    fail "${PRODUCT_NAME} build show_host_env_using_exec_tools failed"
+  bazel build --host_action_env=FOO pkg:show_host_env_using_tools || \
+    fail "${PRODUCT_NAME} build show_host_env_using_tools failed"
 
-  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/exec_tools_env.txt > $TEST_log
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/tools_env.txt > $TEST_log
   expect_log "FOO=client_foo"
 }
 
-function test_redo_host_env_using_exec_tools() {
+function test_redo_host_env_using_tools() {
   export FOO=initial_foo
   export UNRELATED=some_value
-  bazel build --host_action_env=FOO pkg:show_host_env_using_exec_tools \
-    || fail "${PRODUCT_NAME} build show_host_env_using_exec_tools failed"
+  bazel build --host_action_env=FOO pkg:show_host_env_using_tools \
+    || fail "${PRODUCT_NAME} build show_host_env_using_tools failed"
 
-  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/exec_tools_env.txt > $TEST_log
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/tools_env.txt > $TEST_log
   expect_log "FOO=initial_foo"
 
   # If an unrelated value changes, we expect the action not to be executed again
   export UNRELATED=some_other_value
-  bazel build --host_action_env=FOO -s pkg:show_host_env_using_exec_tools 2> $TEST_log \
-      || fail "${PRODUCT_NAME} build show_host_env_using_exec_tools failed"
-  expect_not_log '^SUBCOMMAND.*pkg:show_host_env_using_exec_tools'
+  bazel build --host_action_env=FOO -s pkg:show_host_env_using_tools 2> $TEST_log \
+      || fail "${PRODUCT_NAME} build show_host_env_using_tools failed"
+  expect_not_log '^SUBCOMMAND.*pkg:show_host_env_using_tools'
 
   # However, if a used variable changes, we expect the change to be propagated
   export FOO=changed_foo
-  bazel build --host_action_env=FOO -s pkg:show_host_env_using_exec_tools 2> $TEST_log \
-      || fail "${PRODUCT_NAME} build show_host_env_using_exec_tools failed"
-  expect_log '^SUBCOMMAND.*pkg:show_host_env_using_exec_tools'
-  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/exec_tools_env.txt > $TEST_log
+  bazel build --host_action_env=FOO -s pkg:show_host_env_using_tools 2> $TEST_log \
+      || fail "${PRODUCT_NAME} build show_host_env_using_tools failed"
+  expect_log '^SUBCOMMAND.*pkg:show_host_env_using_tools'
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/tools_env.txt > $TEST_log
   expect_log "FOO=changed_foo"
 
   # But repeating the build with no further changes, no action should happen
-  bazel build --host_action_env=FOO -s pkg:show_host_env_using_exec_tools 2> $TEST_log \
-      || fail "${PRODUCT_NAME} build show_host_env_using_exec_tools failed"
-  expect_not_log '^SUBCOMMAND.*pkg:show_host_env_using_exec_tools'
+  bazel build --host_action_env=FOO -s pkg:show_host_env_using_tools 2> $TEST_log \
+      || fail "${PRODUCT_NAME} build show_host_env_using_tools failed"
+  expect_not_log '^SUBCOMMAND.*pkg:show_host_env_using_tools'
 }
 
-function test_latest_wins_arg_using_exec_tools() {
+function test_latest_wins_arg_using_tools() {
   export FOO=bar
   export BAR=baz
   bazel build --host_action_env=BAR --host_action_env=FOO --host_action_env=FOO=foo \
-      pkg:show_host_env_using_exec_tools || fail "${PRODUCT_NAME} build show_host_env_using_exec_tools failed"
+      pkg:show_host_env_using_tools || fail "${PRODUCT_NAME} build show_host_env_using_tools failed"
 
-  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/exec_tools_env.txt > $TEST_log
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/tools_env.txt > $TEST_log
   expect_log "FOO=foo"
   expect_log "BAR=baz"
   expect_not_log "FOO=bar"
 }
 
-function test_latest_wins_env_using_exec_tools() {
+function test_latest_wins_env_using_tools() {
   export FOO=bar
   export BAR=baz
   bazel build --host_action_env=BAR --host_action_env=FOO=foo --host_action_env=FOO \
-      pkg:show_host_env_using_exec_tools || fail "${PRODUCT_NAME} build show_host_env_using_exec_tools failed"
+      pkg:show_host_env_using_tools || fail "${PRODUCT_NAME} build show_host_env_using_tools failed"
 
-  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/exec_tools_env.txt > $TEST_log
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/tools_env.txt > $TEST_log
   expect_log "FOO=bar"
   expect_log "BAR=baz"
   expect_not_log "FOO=foo"
 }
 
-function test_host_env_using_successive_exec_tools_simple() {
+function test_host_env_using_successive_tools_simple() {
   export FOO=baz
 
-  bazel build --host_action_env=FOO=bar pkg:show_host_env_using_successive_exec_tools \
-      || fail "${PRODUCT_NAME} build show_host_env_using_successive_exec_tool failed"
+  bazel build --host_action_env=FOO=bar pkg:show_host_env_using_successive_tools \
+      || fail "${PRODUCT_NAME} build show_host_env_using_successive_tool failed"
 
-  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/successive_exec_tools_env.txt > $TEST_log
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/successive_tools_env.txt > $TEST_log
   expect_log "FOO=bar"
 }
 

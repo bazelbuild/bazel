@@ -17,32 +17,23 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests {@link JavaOptions}.
- */
+/** Tests {@link JavaOptions}. */
 @RunWith(JUnit4.class)
-public class JavaOptionsTest {
+public class JavaOptionsTest extends BuildViewTestCase {
   @Test
   public void hostJavacOptions() throws Exception {
-    OptionsParser parser =
-        OptionsParser.builder().optionsClasses(CoreOptions.class, JavaOptions.class).build();
-    parser.parse("--javacopt=-XDtarget", "--host_javacopt=-XDhost");
-    BuildOptions buildOptions =
-        BuildOptions.of(
-            ImmutableList.<Class<? extends FragmentOptions>>of(
-                CoreOptions.class, JavaOptions.class),
-            parser);
+    BuildOptions options = targetConfig.getOptions().clone();
+    options.get(JavaOptions.class).javacOpts = ImmutableList.of("-XDtarget");
+    options.get(JavaOptions.class).hostJavacOpts = ImmutableList.of("-XDhost");
 
-    assertThat(buildOptions.get(JavaOptions.class).javacOpts).contains("-XDtarget");
-    assertThat(buildOptions.get(JavaOptions.class).hostJavacOpts).contains("-XDhost");
-    assertThat(((JavaOptions) buildOptions.get(JavaOptions.class).getHost()).javacOpts)
-        .contains("-XDhost");
+    BuildOptions execOptions = AnalysisTestUtil.execOptions(options, skyframeExecutor, reporter);
+    assertThat(execOptions.get(JavaOptions.class).javacOpts).contains("-XDhost");
+    assertThat(execOptions.get(JavaOptions.class).hostJavacOpts).contains("-XDhost");
   }
 }

@@ -18,10 +18,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.difflib.UnifiedDiffUtils;
 import com.github.difflib.patch.AbstractDelta;
-import com.github.difflib.patch.ChangeDelta;
-import com.github.difflib.patch.Chunk;
-import com.github.difflib.patch.DeleteDelta;
-import com.github.difflib.patch.InsertDelta;
 import com.github.difflib.patch.Patch;
 import com.github.difflib.patch.PatchFailedException;
 import com.google.common.base.Preconditions;
@@ -76,88 +72,6 @@ public class PatchUtil {
       } else {
         throw new PatchFailedException("Wrong chunk header: " + header);
       }
-    }
-  }
-
-  // Sometimes the line number in patch file is not completely correct, but we might still be able
-  // to find a content match with an offset.
-  private static List<String> applyOffsetPatchTo(Patch<String> patch, ImmutableList<String> target)
-      throws PatchFailedException {
-    List<AbstractDelta<String>> deltas = patch.getDeltas();
-    List<String> result = new ArrayList<>(target);
-    for (AbstractDelta<String> item : Lists.reverse(deltas)) {
-      AbstractDelta<String> delta = item;
-      applyTo(delta, result);
-    }
-
-    return result;
-  }
-
-  /**
-   * This function first tries to apply the Delta without any offset, if that fails, then it tries
-   * to apply the Delta with an offset, starting from 1, up to the total lines in the original
-   * content. For every offset, we try both forwards and backwards.
-   */
-  private static void applyTo(AbstractDelta<String> delta, List<String> result)
-      throws PatchFailedException {
-    PatchFailedException e = applyDelta(delta, result);
-    if (e == null) {
-      return;
-    }
-
-    Chunk<String> original = delta.getSource();
-    Chunk<String> revised = delta.getTarget();
-    int[] direction = {1, -1};
-    int maxOffset = result.size();
-    for (int i = 1; i < maxOffset; i++) {
-      for (int j = 0; j < 2; j++) {
-        int offset = i * direction[j];
-        if (offset + original.getPosition() < 0 || offset + revised.getPosition() < 0) {
-          continue;
-        }
-        Chunk<String> source = new Chunk<>(original.getPosition() + offset, original.getLines());
-        Chunk<String> target = new Chunk<>(revised.getPosition() + offset, revised.getLines());
-        AbstractDelta<String> newDelta = null;
-        switch (delta.getType()) {
-          case CHANGE:
-            newDelta = new ChangeDelta<>(source, target);
-            break;
-          case INSERT:
-            newDelta = new InsertDelta<>(source, target);
-            break;
-          case DELETE:
-            newDelta = new DeleteDelta<>(source, target);
-            break;
-          case EQUAL:
-        }
-        PatchFailedException exception = null;
-        if (newDelta != null) {
-          exception = applyDelta(newDelta, result);
-        }
-        if (exception == null) {
-          return;
-        }
-      }
-    }
-
-    throw e;
-  }
-
-  @Nullable
-  private static PatchFailedException applyDelta(AbstractDelta<String> delta, List<String> result) {
-    try {
-      delta.applyTo(result);
-      return null;
-    } catch (PatchFailedException e) {
-      String msg =
-          String.join(
-              "\n",
-              "**Original Position**: " + (delta.getSource().getPosition() + 1) + "\n",
-              "**Original Content**:",
-              String.join("\n", delta.getSource().getLines()) + "\n",
-              "**Revised Content**:",
-              String.join("\n", delta.getTarget().getLines()) + "\n");
-      return new PatchFailedException(e.getMessage() + "\n" + msg);
     }
   }
 
@@ -300,7 +214,21 @@ public class PatchUtil {
       }
     }
 
-    List<String> newContent = applyOffsetPatchTo(patch, oldContent);
+    List<String> newContent = new ArrayList<>(oldContent);
+    // Apply the chunks separately and in reverse order to workaround an issue in applyFuzzy.
+    // See https://github.com/java-diff-utils/java-diff-utils/pull/125#issuecomment-1749385825
+    for (AbstractDelta<String> delta : Lists.reverse(patch.getDeltas())) {
+      Patch<String> tmpPatch = new Patch<>();
+      tmpPatch.addDelta(delta);
+      try {
+        newContent = tmpPatch.applyFuzzy(newContent, 0);
+      } catch (PatchFailedException | IndexOutOfBoundsException e) {
+        throw new PatchFailedException(
+            String.format(
+                "in patch applied to %s: %s, error applying change near line %s",
+                oldFile, e.getMessage(), delta.getSource().getPosition() + 1));
+      }
+    }
 
     // The file we should write newContent to.
     Path outputFile;
@@ -426,7 +354,7 @@ public class PatchUtil {
     String oldFileError = "";
     String newFileError = "";
     if (oldFile == null) {
-      oldFileError = ", old file name (%s) is not specified";
+      oldFileError = ", old file name is not specified";
     } else if (!oldFile.exists()) {
       oldFileError = String.format(", old file name (%s) doesn't exist", oldFileStr);
     }
@@ -469,7 +397,7 @@ public class PatchUtil {
       String oldFileError;
       String newFileError;
       if (oldFile == null) {
-        oldFileError = ", old file name (%s) is not specified";
+        oldFileError = ", old file name is not specified";
       } else {
         oldFileError = String.format(", old file name (%s) doesn't exist", oldFileStr);
       }
@@ -489,9 +417,31 @@ public class PatchUtil {
    *
    * @param patchFile the patch file to apply
    * @param strip the number of leading components to strip from file path in the patch file
-   * @param outputDirectory the repository directory to apply the patch file
+   * @param outputDirectory the directory to apply the patch file to
    */
   public static void apply(Path patchFile, int strip, Path outputDirectory)
+      throws IOException, PatchFailedException {
+    applyInternal(patchFile, strip, outputDirectory, /* singleFile= */ null);
+  }
+
+  /**
+   * Apply a patch file under a directory, skipping all parts of the patch file that do not apply to
+   * the given single file.
+   *
+   * @param patchFile the patch file to apply
+   * @param strip the number of leading components to strip from file path in the patch file
+   * @param outputDirectory the directory to apply the patch file to
+   * @param singleFile only apply the parts of the patch file that apply to this file. Renaming the
+   *     file is not supported in this case.
+   */
+  public static void applyToSingleFile(
+      Path patchFile, int strip, Path outputDirectory, Path singleFile)
+      throws IOException, PatchFailedException {
+    applyInternal(patchFile, strip, outputDirectory, singleFile);
+  }
+
+  private static void applyInternal(
+      Path patchFile, int strip, Path outputDirectory, @Nullable Path singleFile)
       throws IOException, PatchFailedException {
     if (!patchFile.exists()) {
       throw new PatchFailedException("Cannot find patch file: " + patchFile.getPathString());
@@ -518,18 +468,17 @@ public class PatchUtil {
       String line = i < patchFileLines.size() ? patchFileLines.get(i) : "$";
       LineType type;
       switch (type = getLineType(line, isReadingChunk, isGitDiff)) {
-        case OLD_FILE:
+        case OLD_FILE -> {
           patchContent.add(line);
           oldFileStr = extractPath(line, strip, i + 1);
           oldFile = getFilePath(oldFileStr, outputDirectory, i + 1);
-          break;
-        case NEW_FILE:
+        }
+        case NEW_FILE -> {
           patchContent.add(line);
           newFileStr = extractPath(line, strip, i + 1);
           newFile = getFilePath(newFileStr, outputDirectory, i + 1);
-          break;
-        case NEW_MODE:
-        case NEW_FILE_MODE:
+        }
+        case NEW_MODE, NEW_FILE_MODE -> {
           // The line should look like: "new mode 100755" or "new file mode 100755"
           // 7 is the file permission for owner, which is at index 12 or 17
           int index = type == LineType.NEW_MODE ? 12 : 17;
@@ -538,9 +487,9 @@ public class PatchUtil {
             throw new PatchFailedException(
                 "Wrong file mode format at line " + (i + 1) + ": " + line);
           }
-          filePermission = Character.getNumericValue(c);
-          break;
-        case CHUNK_HEAD:
+          filePermission = c - '0';
+        }
+        case CHUNK_HEAD -> {
           int pos = line.indexOf("@@", 2);
           String headerStr = line.substring(0, pos + 2);
           patchContent.add(headerStr);
@@ -548,8 +497,8 @@ public class PatchUtil {
           oldLineCount = 0;
           newLineCount = 0;
           isReadingChunk = true;
-          break;
-        case CHUNK_ADD:
+        }
+        case CHUNK_ADD -> {
           newLineCount++;
           patchContent.add(line);
           result = header.check(oldLineCount, newLineCount);
@@ -563,8 +512,8 @@ public class PatchUtil {
                     + line
                     + ", does not expect an added line here.");
           }
-          break;
-        case CHUNK_DEL:
+        }
+        case CHUNK_DEL -> {
           oldLineCount++;
           patchContent.add(line);
           result = header.check(oldLineCount, newLineCount);
@@ -578,8 +527,8 @@ public class PatchUtil {
                     + line
                     + ", does not expect a deleted line here.");
           }
-          break;
-        case CHUNK_EQL:
+        }
+        case CHUNK_EQL -> {
           oldLineCount++;
           newLineCount++;
           patchContent.add(line);
@@ -594,8 +543,8 @@ public class PatchUtil {
                     + line
                     + ", does not expect a context line here.");
           }
-          break;
-        case RENAME_FROM:
+        }
+        case RENAME_FROM -> {
           hasRenameFrom = true;
           if (oldFileStr == null) {
             // len("rename from ") == 12
@@ -606,8 +555,8 @@ public class PatchUtil {
             }
             oldFile = getFilePath(oldFileStr, outputDirectory, i + 1);
           }
-          break;
-        case RENAME_TO:
+        }
+        case RENAME_TO -> {
           hasRenameTo = true;
           if (newFileStr == null) {
             // len("rename to ") == 10
@@ -618,14 +567,11 @@ public class PatchUtil {
             }
             newFile = getFilePath(newFileStr, outputDirectory, i + 1);
           }
-          break;
-        case OTHER_GIT_LINE:
-          break;
-        case GIT_HEADER:
-        case UNKNOWN:
+        }
+        case OTHER_GIT_LINE -> {}
+        case GIT_HEADER, UNKNOWN -> {
           // A git header line or an unknown line should trigger an action to apply collected
           // patch content to a file.
-
           // Renaming is a git only format
           boolean isRenaming = isGitDiff && hasRenameFrom && hasRenameTo;
 
@@ -637,15 +583,25 @@ public class PatchUtil {
                 patchContent, header, oldLineCount, newLineCount, patchStartLocation);
 
             if (isRenaming) {
-              checkFilesStatusForRenaming(
-                  oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
+              if (singleFile != null) {
+                if (singleFile.equals(newFile) || singleFile.equals(oldFile)) {
+                  throw new PatchFailedException(
+                      "Renaming %s while applying patches to it as a single file is not supported."
+                          .formatted(singleFile));
+                }
+              } else {
+                checkFilesStatusForRenaming(
+                    oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
+              }
             }
 
-            Patch<String> patch = UnifiedDiffUtils.parseUnifiedDiff(patchContent);
-            checkFilesStatusForPatching(
-                patch, oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
+            if (singleFile == null || (singleFile.equals(newFile) && singleFile.equals(oldFile))) {
+              Patch<String> patch = UnifiedDiffUtils.parseUnifiedDiff(patchContent);
+              checkFilesStatusForPatching(
+                  patch, oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
 
-            applyPatchToFile(patch, oldFile, newFile, isRenaming, filePermission);
+              applyPatchToFile(patch, oldFile, newFile, isRenaming, filePermission);
+            }
           }
 
           patchContent.clear();
@@ -677,7 +633,7 @@ public class PatchUtil {
           }
           hasRenameFrom = false;
           hasRenameTo = false;
-          break;
+        }
       }
     }
   }

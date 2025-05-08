@@ -165,12 +165,11 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
    */
   private Iterable<SkyKey> getStrictLabelAspectKeys(
       Target target, SkyframeLookupResult depMap, Environment env) throws InterruptedException {
-    if (!(target instanceof Rule)) {
+    if (!(target instanceof Rule rule)) {
       // Aspects can be declared only for Rules.
       return ImmutableList.of();
     }
 
-    Rule rule = (Rule) target;
     if (!rule.hasAspects()) {
       return ImmutableList.of();
     }
@@ -182,7 +181,6 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
       for (Aspect aspect : attribute.getAspects(rule)) {
         if (hasDepThatSatisfies(aspect, transitions.get(attribute), depMap, env)) {
           AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
-              rule,
               aspect,
               DependencyFilter.ALL_DEPS,
               (aspectAttribute, aspectLabel) -> depKeys.add(getKey(aspectLabel)));
@@ -220,7 +218,8 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
   @Nullable
   TargetAndErrorIfAny loadTarget(Environment env, Label label)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
-    return TargetLoadingUtil.loadTarget(env, label);
+    Object o = TargetLoadingUtil.loadTarget(env, label);
+    return o instanceof TargetAndErrorIfAny ? (TargetAndErrorIfAny) o : null;
   }
 
   /**

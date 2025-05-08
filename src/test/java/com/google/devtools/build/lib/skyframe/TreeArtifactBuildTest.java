@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -40,14 +41,12 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
@@ -62,21 +61,15 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.Serializat
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -91,10 +84,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     SpecialArtifact parent = createTreeArtifact("parent");
     parent.setGeneratingActionKey(ActionLookupData.create(ACTION_LOOKUP_KEY, 0));
     new SerializationTester(parent, TreeFileArtifact.createTreeOutput(parent, "child"))
-        .addDependency(FileSystem.class, scratch.getFileSystem())
-        .addDependency(
-            Root.RootCodecDependencies.class,
-            new Root.RootCodecDependencies(Root.absoluteRoot(scratch.getFileSystem())))
+        .addDependencies(getCommonSerializationDependencies())
         .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
         .runTests();
   }
@@ -153,16 +143,19 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
           @Override
           void run(ActionExecutionContext actionExecutionContext) throws IOException {
             // Check the metadata provider for input TreeFileArtifacts.
-            MetadataProvider metadataProvider = actionExecutionContext.getMetadataProvider();
+            InputMetadataProvider inputMetadataProvider =
+                actionExecutionContext.getInputMetadataProvider();
             assertThat(
-                    metadataProvider
-                        .getMetadata(TreeFileArtifact.createTreeOutput(treeArtifactInput, "out1"))
+                    inputMetadataProvider
+                        .getInputMetadata(
+                            TreeFileArtifact.createTreeOutput(treeArtifactInput, "out1"))
                         .getType()
                         .isFile())
                 .isTrue();
             assertThat(
-                    metadataProvider
-                        .getMetadata(TreeFileArtifact.createTreeOutput(treeArtifactInput, "out2"))
+                    inputMetadataProvider
+                        .getInputMetadata(
+                            TreeFileArtifact.createTreeOutput(treeArtifactInput, "out2"))
                         .getType()
                         .isFile())
                 .isTrue();
@@ -402,6 +395,111 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
+  public void doesNotSetPermissionsAfterTraversingSymlink() throws Exception {
+    SpecialArtifact out = createTreeArtifact("output");
+
+    Path fileTarget = scratch.file("file");
+    writeFile(fileTarget, "file");
+
+    Path dirTarget = scratch.dir("dir");
+    Path dirFileTarget = dirTarget.getChild("file");
+    writeFile(dirFileTarget, "dir/file");
+
+    Action action =
+        new SimpleTestAction(out) {
+          @Override
+          void run(ActionExecutionContext context) throws IOException {
+            out.getPath().getChild("file_link").createSymbolicLink(fileTarget.asFragment());
+            out.getPath().getChild("dir_link").createSymbolicLink(dirTarget.asFragment());
+          }
+        };
+
+    registerAction(action);
+    buildArtifact(out);
+
+    assertThat(fileTarget.isWritable()).isTrue();
+    assertThat(dirTarget.isWritable()).isTrue();
+    assertThat(dirFileTarget.isWritable()).isTrue();
+  }
+
+  @Test
+  public void symlinkLoopRejected() {
+    // Failure expected
+    EventCollector eventCollector = new EventCollector(EventKind.ERROR);
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(eventCollector);
+
+    SpecialArtifact out = createTreeArtifact("output");
+
+    Action action =
+        new SimpleTestAction(out) {
+          @Override
+          void run(ActionExecutionContext context) throws IOException {
+            writeFile(out.getPath().getRelative("dir/file"), "contents");
+            out.getPath().getRelative("dir/sym").createSymbolicLink(PathFragment.create("../dir"));
+          }
+        };
+
+    registerAction(action);
+    assertThrows(BuildFailedException.class, () -> buildArtifact(out));
+
+    ImmutableList<Event> errors = ImmutableList.copyOf(eventCollector);
+    assertThat(errors).hasSize(2);
+    assertThat(errors.get(0).getMessage()).contains("Too many levels of symbolic links");
+    assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
+  }
+
+  @Test
+  public void validAbsoluteSymlinkAccepted() throws Exception {
+    scratch.overwriteFile("/random/pointer");
+
+    SpecialArtifact out = createTreeArtifact("output");
+
+    Action action =
+        new SimpleTestAction(out) {
+          @Override
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            writeFile(out.getPath().getChild("one"), "one");
+            writeFile(out.getPath().getChild("two"), "two");
+            FileSystemUtils.ensureSymbolicLink(
+                out.getPath().getChild("links").getChild("link"), "/random/pointer");
+          }
+        };
+
+    registerAction(action);
+    buildArtifact(out);
+  }
+
+  @Test
+  public void danglingAbsoluteSymlinkRejected() {
+    // Failure expected
+    EventCollector eventCollector = new EventCollector(EventKind.ERROR);
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(eventCollector);
+
+    SpecialArtifact out = createTreeArtifact("output");
+
+    Action action =
+        new SimpleTestAction(out) {
+          @Override
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            writeFile(out.getPath().getChild("one"), "one");
+            writeFile(out.getPath().getChild("two"), "two");
+            FileSystemUtils.ensureSymbolicLink(
+                out.getPath().getChild("links").getChild("link"), "/random/pointer");
+          }
+        };
+
+    registerAction(action);
+    assertThrows(BuildFailedException.class, () -> buildArtifact(out));
+
+    ImmutableList<Event> errors = ImmutableList.copyOf(eventCollector);
+    assertThat(errors).hasSize(2);
+    assertThat(errors.get(0).getMessage()).contains("child links/link is a dangling symbolic link");
+    assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
+  }
+
+  @Test
   public void validRelativeSymlinkAccepted() throws Exception {
     SpecialArtifact out = createTreeArtifact("output");
 
@@ -421,7 +519,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void invalidSymlinkRejected() {
+  public void danglingRelativeSymlinkRejected() {
     // Failure expected
     EventCollector eventCollector = new EventCollector(EventKind.ERROR);
     reporter.removeHandler(failFastHandler);
@@ -443,105 +541,17 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     registerAction(action);
     assertThrows(BuildFailedException.class, () -> buildArtifact(out));
 
-    List<Event> errors = ImmutableList.copyOf(eventCollector);
+    ImmutableList<Event> errors = ImmutableList.copyOf(eventCollector);
     assertThat(errors).hasSize(2);
-    assertThat(errors.get(0).getMessage()).contains("Failed to resolve relative path links/link");
+    assertThat(errors.get(0).getMessage()).contains("child links/link is a dangling symbolic link");
     assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
   }
 
   @Test
-  public void absoluteSymlinkBadTargetRejected() {
-    // Failure expected
-    EventCollector eventCollector = new EventCollector(EventKind.ERROR);
-    reporter.removeHandler(failFastHandler);
-    reporter.addHandler(eventCollector);
-
+  public void validRelativeSymlinkToOutsideOfTreeArtifactAccepted() throws Exception {
     SpecialArtifact out = createTreeArtifact("output");
 
-    Action action =
-        new SimpleTestAction(out) {
-          @Override
-          void run(ActionExecutionContext actionExecutionContext) throws IOException {
-            writeFile(out.getPath().getChild("one"), "one");
-            writeFile(out.getPath().getChild("two"), "two");
-            FileSystemUtils.ensureSymbolicLink(
-                out.getPath().getChild("links").getChild("link"), "/random/pointer");
-          }
-        };
-
-    registerAction(action);
-    assertThrows(BuildFailedException.class, () -> buildArtifact(out));
-
-    List<Event> errors = ImmutableList.copyOf(eventCollector);
-    assertThat(errors).hasSize(2);
-    assertThat(errors.get(0).getMessage()).contains("Failed to resolve relative path links/link");
-    assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
-  }
-
-  @Test
-  public void absoluteSymlinkAccepted() throws Exception {
-    scratch.overwriteFile("/random/pointer");
-
-    SpecialArtifact out = createTreeArtifact("output");
-
-    Action action =
-        new SimpleTestAction(out) {
-          @Override
-          void run(ActionExecutionContext actionExecutionContext) throws IOException {
-            writeFile(out.getPath().getChild("one"), "one");
-            writeFile(out.getPath().getChild("two"), "two");
-            FileSystemUtils.ensureSymbolicLink(
-                out.getPath().getChild("links").getChild("link"), "/random/pointer");
-          }
-        };
-
-    registerAction(action);
-    buildArtifact(out);
-  }
-
-  @Test
-  public void relativeSymlinkTraversingOutsideOfTreeArtifactRejected() {
-    // Failure expected
-    EventCollector eventCollector = new EventCollector(EventKind.ERROR);
-    reporter.removeHandler(failFastHandler);
-    reporter.addHandler(eventCollector);
-
-    SpecialArtifact out = createTreeArtifact("output");
-
-    Action action =
-        new SimpleTestAction(out) {
-          @Override
-          void run(ActionExecutionContext actionExecutionContext) throws IOException {
-            writeFile(out.getPath().getChild("one"), "one");
-            writeFile(out.getPath().getChild("two"), "two");
-            FileSystemUtils.ensureSymbolicLink(
-                out.getPath().getChild("links").getChild("link"), "../../output/random/pointer");
-          }
-        };
-
-    registerAction(action);
-
-    assertThrows(BuildFailedException.class, () -> buildArtifact(out));
-    List<Event> errors = ImmutableList.copyOf(eventCollector);
-    assertThat(errors).hasSize(2);
-    assertThat(errors.get(0).getMessage())
-        .contains(
-            "A TreeArtifact may not contain relative symlinks whose target paths traverse "
-                + "outside of the TreeArtifact");
-    assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
-  }
-
-  @Test
-  public void relativeSymlinkTraversingToDirOutsideOfTreeArtifactRejected() throws Exception {
-    // Failure expected
-    EventCollector eventCollector = new EventCollector(EventKind.ERROR);
-    reporter.removeHandler(failFastHandler);
-    reporter.addHandler(eventCollector);
-
-    SpecialArtifact out = createTreeArtifact("output");
-
-    // Create a valid directory that can be referenced
-    scratch.dir(out.getRoot().getRoot().getRelative("some/dir").getPathString());
+    scratch.file(out.getPath().getRelative("../some/file").getPathString());
 
     TestAction action =
         new SimpleTestAction(out) {
@@ -550,60 +560,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
             writeFile(out.getPath().getChild("one"), "one");
             writeFile(out.getPath().getChild("two"), "two");
             FileSystemUtils.ensureSymbolicLink(
-                out.getPath().getChild("links").getChild("link"), "../../some/dir");
-          }
-        };
-
-    registerAction(action);
-
-    assertThrows(BuildFailedException.class, () -> buildArtifact(out));
-    List<Event> errors = ImmutableList.copyOf(eventCollector);
-    assertThat(errors).hasSize(2);
-    assertThat(errors.get(0).getMessage())
-        .contains(
-            "A TreeArtifact may not contain relative symlinks whose target paths traverse "
-                + "outside of the TreeArtifact");
-    assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
-  }
-
-  @Test
-  public void constructMetadataForDigest() throws Exception {
-    SpecialArtifact out = createTreeArtifact("output");
-    Action action =
-        new SimpleTestAction(out) {
-          @Override
-          void run(ActionExecutionContext actionExecutionContext) throws IOException {
-            TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(out, "one");
-            TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(out, "two");
-            writeFile(child1, "one");
-            writeFile(child2, "two");
-
-            MetadataHandler md = actionExecutionContext.getMetadataHandler();
-            FileStatus stat = child1.getPath().stat(Symlinks.NOFOLLOW);
-            FileArtifactValue metadata1 =
-                md.constructMetadataForDigest(
-                    child1,
-                    stat,
-                    DigestHashFunction.SHA256.getHashFunction().hashString("one", UTF_8).asBytes());
-
-            stat = child2.getPath().stat(Symlinks.NOFOLLOW);
-            FileArtifactValue metadata2 =
-                md.constructMetadataForDigest(
-                    child2,
-                    stat,
-                    DigestHashFunction.SHA256.getHashFunction().hashString("two", UTF_8).asBytes());
-
-            // The metadata will not be equal to reading from the filesystem since the filesystem
-            // won't have the digest. However, we should be able to detect that nothing could have
-            // been modified.
-            assertThat(
-                    metadata1.couldBeModifiedSince(
-                        FileArtifactValue.createForTesting(child1.getPath())))
-                .isFalse();
-            assertThat(
-                    metadata2.couldBeModifiedSince(
-                        FileArtifactValue.createForTesting(child2.getPath())))
-                .isFalse();
+                out.getPath().getChild("links").getChild("link"), "../../some/file");
           }
         };
 
@@ -612,14 +569,47 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
+  public void danglingRelativeSymlinkOutsideOfTreeArtifactRejected() {
+    // Failure expected
+    EventCollector eventCollector = new EventCollector(EventKind.ERROR);
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(eventCollector);
+
+    SpecialArtifact out = createTreeArtifact("output");
+
+    Action action =
+        new SimpleTestAction(out) {
+          @Override
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            writeFile(out.getPath().getChild("one"), "one");
+            writeFile(out.getPath().getChild("two"), "two");
+            FileSystemUtils.ensureSymbolicLink(
+                out.getPath().getChild("links").getChild("link"), "../../some/file");
+          }
+        };
+
+    registerAction(action);
+    assertThrows(BuildFailedException.class, () -> buildArtifact(out));
+
+    ImmutableList<Event> errors = ImmutableList.copyOf(eventCollector);
+    assertThat(errors).hasSize(2);
+    assertThat(errors.get(0).getMessage()).contains("child links/link is a dangling symbolic link");
+    assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
+  }
+
+  @Test
   public void remoteDirectoryInjection() throws Exception {
     SpecialArtifact out = createTreeArtifact("output");
-    RemoteFileArtifactValue remoteFile1 =
-        RemoteFileArtifactValue.create(
-            Hashing.sha256().hashString("one", UTF_8).asBytes(), /*size=*/ 3, /*locationIndex=*/ 1);
-    RemoteFileArtifactValue remoteFile2 =
-        RemoteFileArtifactValue.create(
-            Hashing.sha256().hashString("two", UTF_8).asBytes(), /*size=*/ 3, /*locationIndex=*/ 2);
+    FileArtifactValue remoteFile1 =
+        FileArtifactValue.createForRemoteFile(
+            Hashing.sha256().hashString("one", UTF_8).asBytes(),
+            /* size= */ 3,
+            /* locationIndex= */ 1);
+    FileArtifactValue remoteFile2 =
+        FileArtifactValue.createForRemoteFile(
+            Hashing.sha256().hashString("two", UTF_8).asBytes(),
+            /* size= */ 3,
+            /* locationIndex= */ 2);
 
     Action action =
         new SimpleTestAction(out) {
@@ -631,7 +621,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
             writeFile(child2, "two");
 
             actionExecutionContext
-                .getMetadataHandler()
+                .getOutputMetadataStore()
                 .injectTree(
                     out,
                     TreeArtifactValue.newBuilder(out)
@@ -843,17 +833,18 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     assertThat(artifact2.getPath().getDirectoryEntries()).isEmpty();
   }
 
-  // This happens in the wild. See https://github.com/bazelbuild/bazel/issues/11813.
   @Test
-  public void treeArtifactContainsSymlinkToDirectory() throws Exception {
+  public void treeArtifactWithSymlinkToFile() throws Exception {
     SpecialArtifact treeArtifact = createTreeArtifact("tree");
     registerAction(
-        new SimpleTestAction(/*output=*/ treeArtifact) {
+        new SimpleTestAction(/* output= */ treeArtifact) {
           @Override
           void run(ActionExecutionContext context) throws IOException {
-            PathFragment subdir = PathFragment.create("subdir");
-            touchFile(treeArtifact.getPath().getRelative(subdir).getRelative("file"));
-            treeArtifact.getPath().getRelative("link").createSymbolicLink(subdir);
+            touchFile(treeArtifact.getPath().getRelative("subdir/file"));
+            treeArtifact
+                .getPath()
+                .getRelative("link")
+                .createSymbolicLink(PathFragment.create("subdir/file"));
           }
         });
 
@@ -865,11 +856,56 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
             TreeFileArtifact.createTreeOutput(treeArtifact, "link"));
   }
 
+  @Test
+  public void treeArtifactWithSymlinkToDirectory() throws Exception {
+    SpecialArtifact treeArtifact = createTreeArtifact("tree");
+    registerAction(
+        new SimpleTestAction(/* output= */ treeArtifact) {
+          @Override
+          void run(ActionExecutionContext context) throws IOException {
+            touchFile(treeArtifact.getPath().getRelative("subdir/file"));
+            treeArtifact
+                .getPath()
+                .getRelative("link")
+                .createSymbolicLink(PathFragment.create("subdir"));
+          }
+        });
+
+    TreeArtifactValue tree = buildArtifact(treeArtifact);
+
+    assertThat(tree.getChildren())
+        .containsExactly(
+            TreeFileArtifact.createTreeOutput(treeArtifact, "subdir/file"),
+            TreeFileArtifact.createTreeOutput(treeArtifact, "link/file"));
+  }
+
+  @Test
+  public void symlinkActionToTreeArtifact() throws Exception {
+    SpecialArtifact tree1 = createTreeArtifact("tree1");
+    registerAction(
+        new SimpleTestAction(/* output= */ tree1) {
+          @Override
+          void run(ActionExecutionContext context) throws IOException {
+            touchFile(tree1.getPath().getChild("file"));
+          }
+        });
+
+    SpecialArtifact tree2 = createTreeArtifact("tree2");
+    registerAction(
+        SymlinkAction.toArtifact(
+            ActionsTestUtil.NULL_ACTION_OWNER, tree1, tree2, "Symlinking tree2 -> tree1"));
+
+    // The SymlinkAction should produce a TreeArtifactValue with tree2 as the parent.
+    TreeArtifactValue tree2Value = buildArtifact(tree2);
+    assertThat(tree2Value.getChildren())
+        .containsExactly(TreeFileArtifact.createTreeOutput(tree2, "file"));
+  }
+
   private abstract static class SimpleTestAction extends TestAction {
     private final Button button;
 
     SimpleTestAction(Artifact output) {
-      this(/*inputs=*/ ImmutableList.of(), output);
+      this(/* inputs= */ ImmutableList.of(), output);
     }
 
     SimpleTestAction(Iterable<Artifact> inputs, Artifact output) {
@@ -951,9 +987,8 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     @Override
     void run(ActionExecutionContext context) throws IOException {
-      List<Artifact> children = new ArrayList<>();
-      context.getArtifactExpander().expand(getPrimaryInput(), children);
-      for (Artifact child : children) {
+      for (Artifact child :
+          context.getInputMetadataProvider().getTreeMetadata(getPrimaryInput()).getChildren()) {
         Path newOutput = getPrimaryOutput().getPath().getRelative(child.getParentRelativePath());
         newOutput.createDirectoryAndParents();
         FileSystemUtils.copyFile(child.getPath(), newOutput);
@@ -1043,15 +1078,12 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
       try {
-        return new ActionTemplateExpansionValue(
-            Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                actionKeyContext,
-                actions,
-                (ActionLookupKey) skyKey,
-                /*outputFiles=*/ null));
+        Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+            actionKeyContext, actions, (ActionLookupKey) skyKey);
       } catch (ActionConflictException | Actions.ArtifactGeneratedByOtherRuleException e) {
         throw new IllegalStateException(e);
       }
+      return new ActionTemplateExpansionValue(actions);
     }
   }
 

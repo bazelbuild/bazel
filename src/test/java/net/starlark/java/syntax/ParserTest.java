@@ -34,6 +34,7 @@ public final class ParserTest {
 
   private final List<SyntaxError> events = new ArrayList<>();
   private boolean failFast = true;
+  private FileOptions fileOptions = FileOptions.DEFAULT;
 
   private SyntaxError assertContainsError(String expectedMessage) {
     return LexerTest.assertContainsError(events, expectedMessage);
@@ -41,6 +42,10 @@ public final class ParserTest {
 
   private void setFailFast(boolean failFast) {
     this.failFast = failFast;
+  }
+
+  private void setFileOptions(FileOptions fileOptions) {
+    this.fileOptions = fileOptions;
   }
 
   // Joins the lines, parse, and returns an expression.
@@ -65,7 +70,7 @@ public final class ParserTest {
   // Errors are added to this.events, or thrown if this.failFast;
   private StarlarkFile parseFile(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    StarlarkFile file = StarlarkFile.parse(input);
+    StarlarkFile file = StarlarkFile.parse(input, fileOptions);
     if (!file.ok()) {
       if (failFast) {
         throw new SyntaxError.Exception(file.errors());
@@ -649,16 +654,16 @@ public final class ParserTest {
     List<Statement> loop = ((ForStatement) body.get(0)).getBody();
     assertThat(loop).hasSize(4);
 
-    assertThat(((FlowStatement) loop.get(0)).getKind()).isEqualTo(TokenKind.BREAK);
+    assertThat(((FlowStatement) loop.get(0)).getFlowKind()).isEqualTo(TokenKind.BREAK);
     assertLocation(34, 39, loop.get(0));
 
-    assertThat(((FlowStatement) loop.get(1)).getKind()).isEqualTo(TokenKind.CONTINUE);
+    assertThat(((FlowStatement) loop.get(1)).getFlowKind()).isEqualTo(TokenKind.CONTINUE);
     assertLocation(44, 52, loop.get(1));
 
-    assertThat(((FlowStatement) loop.get(2)).getKind()).isEqualTo(TokenKind.PASS);
+    assertThat(((FlowStatement) loop.get(2)).getFlowKind()).isEqualTo(TokenKind.PASS);
     assertLocation(57, 61, loop.get(2));
 
-    assertThat(((FlowStatement) loop.get(3)).getKind()).isEqualTo(TokenKind.BREAK);
+    assertThat(((FlowStatement) loop.get(3)).getFlowKind()).isEqualTo(TokenKind.BREAK);
     assertLocation(66, 71, loop.get(3));
   }
 
@@ -1014,6 +1019,143 @@ public final class ParserTest {
   }
 
   @Test
+  public void testDef() throws Exception {
+    DefStatement stmt =
+        (DefStatement)
+            parseStatement(
+                "def f(a, *, b=1, *args, **kwargs):", //
+                "  pass");
+
+    assertThat(stmt.getParameters()).hasSize(5);
+
+    assertThat(stmt.getParameters().get(0).getName()).isEqualTo("a");
+    assertThat(stmt.getParameters().get(0)).isInstanceOf(Parameter.Mandatory.class);
+
+    assertThat(stmt.getParameters().get(1).getName()).isNull();
+    assertThat(stmt.getParameters().get(1)).isInstanceOf(Parameter.Star.class);
+
+    assertThat(stmt.getParameters().get(2).getName()).isEqualTo("b");
+    assertThat(stmt.getParameters().get(2)).isInstanceOf(Parameter.Optional.class);
+    assertThat(stmt.getParameters().get(2).getDefaultValue().toString()).isEqualTo("1");
+
+    assertThat(stmt.getParameters().get(3).getName()).isEqualTo("args");
+    assertThat(stmt.getParameters().get(3)).isInstanceOf(Parameter.Star.class);
+
+    assertThat(stmt.getParameters().get(4).getName()).isEqualTo("kwargs");
+    assertThat(stmt.getParameters().get(4)).isInstanceOf(Parameter.StarStar.class);
+  }
+
+  @Test
+  public void testDefAssignmentToStarArgs() throws Exception {
+    setFailFast(false);
+    parseStatement("def f(*args=1): pass");
+    assertContainsError("syntax error at '=': expected ,");
+  }
+
+  @Test
+  public void testDefAssignmentToBareStar() throws Exception {
+    setFailFast(false);
+    parseStatement("def f(* = 1): pass");
+    assertContainsError("syntax error at '=': expected ,");
+  }
+
+  @Test
+  public void testDefAssignmentToKwargs() throws Exception {
+    setFailFast(false);
+    parseStatement("def f(**kwargs=1): pass");
+    assertContainsError("syntax error at '=': expected ,");
+  }
+
+  @Test
+  public void testDefWithTypeAnnotations() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
+    parseStatement("def f(a: int): pass");
+    parseStatement("def f(a: list[str]): pass");
+    parseStatement("def f(a: dict[str, int]): pass");
+
+    // test list literal
+    parseStatement("def f(a: Callable[[int, str], int]): pass");
+
+    // test dict literal
+    parseStatement("def f(a: TypedDict[{'a': int, 'b': bool}]): pass");
+
+    // test string literal
+    parseStatement("def f(a: Literal['abc']): pass");
+
+    // test composition
+    parseStatement("def f(a: list[str, dict[str, bool]]): pass");
+
+    // test optional
+    parseStatement("def f(a: str | int): pass");
+    parseStatement("def f(a: str | int | bool): pass");
+
+    // test with default values
+    parseStatement("def f(a: int, *, b: bool = True, c): pass");
+
+    // test args and kwargs
+    parseStatement("def f(*args: list[int]): pass");
+    parseStatement("def f(**kwargs: dict[str, Any]): pass");
+
+    // Empty dict or list argument
+    parseStatement("def f(a: Callable[[], TypeDict[{}]]): pass");
+
+    // Trailing commas in dict and list arguments
+    parseStatement("def f(a: Callable[[int,],bool]): pass");
+    parseStatement("def f(a: TypeDict[{'foo': int, }]): pass");
+
+    // Return type
+    parseStatement("def f() -> int: pass");
+  }
+
+  @Test
+  public void testDefWithBareStarTypeAnnotation() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
+    setFailFast(false);
+    parseStatement("def f(a, *: int, b: bool): pass");
+    assertContainsError("syntax error at ':': expected )");
+  }
+
+  @Test
+  public void testDefWithEmptyParametersInTypeAnnotation() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
+    setFailFast(false);
+    parseStatement("def f(a: list[]): pass");
+    assertContainsError("syntax error at ']': expected a type argument");
+  }
+
+  @Test
+  public void testTrailingCommaNotAllowedInTypeArgumentList() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
+    setFailFast(false);
+    parseStatement("def f(a: list[int,]): pass");
+    assertContainsError("syntax error at ']': expected a type argument");
+  }
+
+  @Test
+  public void testDefWithDisallowedTypeAnnotations() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeAnnotations(false).build());
+    setFailFast(false);
+    parseStatement("def f(a: int): pass");
+    assertContainsError("syntax error at ':': type annotations are disallowed.");
+  }
+
+  @Test
+  public void testDefWithLiteralInTypeAnnotation() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
+    setFailFast(false);
+    parseStatement("def f(a: [int]): pass");
+    assertContainsError("syntax error at '[': expected a type");
+  }
+
+  @Test
+  public void testDefWithExpressionInTypeAnnotation() throws Exception {
+    setFileOptions(FileOptions.builder().allowTypeAnnotations(true).build());
+    setFailFast(false);
+    parseStatement("def f(a: int[f(1)]): pass");
+    assertContainsError("syntax error at '(': expected ,");
+  }
+
+  @Test
   public void testLambda() throws Exception {
     parseExpression("lambda a, b=1, *args, **kwargs: a+b");
     parseExpression("lambda *, a, *b: 0");
@@ -1348,7 +1490,7 @@ public final class ParserTest {
 
   private static ParserInput veryDeepExpression() {
     StringBuilder s = new StringBuilder();
-    for (int i = 0; i < 1000; i++) {
+    for (int i = 0; i < 5000; i++) {
       s.append("{");
     }
     return ParserInput.fromString(s.toString(), "foo.star");

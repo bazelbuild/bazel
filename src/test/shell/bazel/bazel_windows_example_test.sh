@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -58,23 +58,42 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 if ! "$is_windows"; then
   echo "This test suite requires running on Windows. But now is ${PLATFORM}" >&2
   exit 0
 fi
 
+setup_localjdk_javabase
+
 function set_up() {
   copy_examples
   setup_bazelrc
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
+  add_platforms "MODULE.bazel"
+  mkdir platforms
+  cat >platforms/BUILD <<EOF
+platform(
+    name = "x64_windows-mingw-gcc",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+        "@bazel_tools//tools/cpp:mingw",
+    ],
+)
+platform(
+    name = "x64_windows-msys-gcc",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+        "@bazel_tools//tools/cpp:msys",
+    ],
+)
+EOF
+
+  add_rules_cc "MODULE.bazel"
+  cat >> MODULE.bazel <<EOF
+cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
+use_repo(cc_configure, "local_config_cc")
+EOF
 }
 
 # An assertion that execute a binary from a sub directory (to test runfiles)
@@ -117,11 +136,13 @@ function test_cpp_with_msys_gcc() {
   local cpp_pkg=examples/cpp
   assert_build_output \
     ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world \
-    --noincompatible_enable_cc_toolchain_resolution \
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_msys \
+    --extra_execution_platforms=//platforms:x64_windows-msys-gcc \
     --compiler=msys-gcc
   assert_build_output \
     ./bazel-bin/${cpp_pkg}/libhello-lib_fbaaaedd.so ${cpp_pkg}:hello-lib\
-    --noincompatible_enable_cc_toolchain_resolution \
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_msys \
+    --extra_execution_platforms=//platforms:x64_windows-msys-gcc \
     --compiler=msys-gcc --output_groups=dynamic_library
   assert_build ${cpp_pkg}:hello-world --compiler=msys-gcc
   ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
@@ -138,24 +159,29 @@ function test_cpp_with_mingw_gcc() {
   export PATH="/mingw64/bin:$PATH"
   assert_build_output \
     ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world \
-    --noincompatible_enable_cc_toolchain_resolution \
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw \
+    --extra_execution_platforms=//platforms:x64_windows-mingw-gcc \
     --compiler=mingw-gcc --experimental_strict_action_env
   assert_build_output \
     ./bazel-bin/${cpp_pkg}/libhello-lib_fbaaaedd.so ${cpp_pkg}:hello-lib\
-    --noincompatible_enable_cc_toolchain_resolution \
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw \
+    --extra_execution_platforms=//platforms:x64_windows-mingw-gcc \
     --compiler=mingw-gcc --output_groups=dynamic_library \
     --experimental_strict_action_env
   assert_build ${cpp_pkg}:hello-world --compiler=mingw-gcc \
-    --noincompatible_enable_cc_toolchain_resolution \
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw \
+    --extra_execution_platforms=//platforms:x64_windows-mingw-gcc \
     --experimental_strict_action_env
   ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
     || fail "./bazel-bin/${cpp_pkg}/hello-world foo execution failed"
   expect_log "Hello foo"
   assert_test_ok "//examples/cpp:hello-success_test" --compiler=mingw-gcc \
-    --noincompatible_enable_cc_toolchain_resolution \
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw \
+    --extra_execution_platforms=//platforms:x64_windows-mingw-gcc \
     --experimental_strict_action_env --test_env=PATH
   assert_test_fails "//examples/cpp:hello-fail_test" --compiler=mingw-gcc \
-    --noincompatible_enable_cc_toolchain_resolution \
+    --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows_mingw \
+    --extra_execution_platforms=//platforms:x64_windows-mingw-gcc \
     --experimental_strict_action_env --test_env=PATH)
 }
 
@@ -202,6 +228,7 @@ EOF
 }
 
 function test_java() {
+  add_rules_java "MODULE.bazel"
   local java_pkg=examples/java-native/src/main/java/com/example/myproject
 
   assert_build_output ./bazel-bin/${java_pkg}/libhello-lib.jar ${java_pkg}:hello-lib
@@ -242,6 +269,7 @@ function test_java_with_jar_under_different_drive() {
 
   trap delete_tmp_drive EXIT
 
+  add_rules_java "MODULE.bazel"
   local java_pkg=examples/java-native/src/main/java/com/example/myproject
   bazel --output_user_root=${TMP_DRIVE}:/tmp build ${java_pkg}:hello-world
 
@@ -253,6 +281,7 @@ function test_java_test() {
   local java_native_tests=//examples/java-native/src/test/java/com/example/myproject
   local java_native_main=//examples/java-native/src/main/java/com/example/myproject
 
+  add_rules_java "MODULE.bazel"
   assert_build "-- //examples/java-native/... -${java_native_main}:hello-error-prone"
   assert_build_fails "${java_native_main}:hello-error-prone" \
       "Did you mean 'result = b == -1;'?"
@@ -263,10 +292,14 @@ function test_java_test() {
 }
 
 function test_native_python() {
+  add_rules_python "MODULE.bazel"
   # On windows, we build a python executable zip as the python binary
   assert_build //examples/py_native:bin
-  # run the python package directly
-  ./bazel-bin/examples/py_native/bin >& $TEST_log \
+  # run the python package directly, clearing out runfiles variables to
+  # ensure that the binary finds its own runfiles correctly
+  env -u RUNFILES_DIR -u RUNFILES_MANIFEST_FILE -u RUNFILES_MANIFEST_ONLY \
+    -u JAVA_RUNFILES -u PYTHON_RUNFILES \
+    ./bazel-bin/examples/py_native/bin >& $TEST_log \
     || fail "//examples/py_native:bin execution failed"
   expect_log "Fib(5) == 8"
   # Using python <zipfile> to run the python package
@@ -282,6 +315,7 @@ function test_native_python() {
 # default on your system. See this pull request for an example:
 # https://github.com/bazelbuild/continuous-integration/pull/1216
 function test_native_python_with_runfiles() {
+  add_rules_python "MODULE.bazel"
   BUILD_FLAGS="--enable_runfiles --build_python_zip=0"
   bazel build -s --verbose_failures $BUILD_FLAGS //examples/py_native:bin \
     || fail "Failed to build //examples/py_native:bin with runfiles support"
@@ -319,6 +353,7 @@ function test_native_python_with_python3() {
 }
 
 function test_python_test_with_data() {
+  add_rules_python "MODULE.bazel"
   touch BUILD
 
   mkdir data
@@ -336,6 +371,7 @@ EOF
 
   mkdir src
   cat >src/BUILD <<EOF
+load("@rules_python//python:py_test.bzl", "py_test")
 py_test(
   name = "data_test",
   srcs = ["data_test.py"],

@@ -3,12 +3,21 @@ Book: /_book.yaml
 
 # BUILD files
 
+{% include "_buttons.html" %}
+
 The previous sections described packages, targets and labels, and the
 build dependency graph abstractly. This section describes the concrete syntax
 used to define a package.
 
 By definition, every package contains a `BUILD` file, which is a short
-program. `BUILD` files are evaluated using an imperative language,
+program.
+
+Note: The `BUILD` file can be named either `BUILD` or `BUILD.bazel`. If both
+files exist, `BUILD.bazel` takes precedence over `BUILD`.
+For simplicity's sake, the documentation refers to these files simply as `BUILD`
+files.
+
+`BUILD` files are evaluated using an imperative language,
 [Starlark](https://github.com/bazelbuild/starlark/){: .external}.
 
 They are interpreted as a sequential list of statements.
@@ -34,10 +43,7 @@ allowed in `BUILD` files; instead list all the arguments explicitly.
 Crucially, programs in Starlark can't perform arbitrary I/O. This invariant
 makes the interpretation of `BUILD` files hermetic — dependent only on a known
 set of inputs, which is essential for ensuring that builds are reproducible.
-For more details, see [Hermeticity](/concepts/hermeticity).
-
-`BUILD` files should be written using only ASCII characters, although
-technically they are interpreted using the Latin-1 character set.
+For more details, see [Hermeticity](/basics/hermeticity).
 
 Because `BUILD` files need to be updated whenever the dependencies of the
 underlying code change, they are typically maintained by multiple people on a
@@ -82,8 +88,10 @@ load(":my_rules.bzl", "some_rule", nice_alias = "some_other_rule")
 ```
 
 In a `.bzl` file, symbols starting with `_` are not exported and cannot be
-loaded from another file. Visibility doesn't affect loading (yet): you don't
-need to use `exports_files` to make a `.bzl` file visible.
+loaded from another file.
+
+You can use [load visibility](/concepts/visibility#load-visibility) to restrict
+who may load a `.bzl` file.
 
 ## Types of build rules {:#types-of-build-rules}
 
@@ -137,3 +145,9 @@ for anyone to create new rules.
     </td>
   </tr>
 </table>
+
+## File encoding
+
+`BUILD` and `.bzl` files should be encoded in UTF-8, of which ASCII is a valid
+subset. Arbitrary byte sequences are currently allowed, but may stop being
+supported in the future.

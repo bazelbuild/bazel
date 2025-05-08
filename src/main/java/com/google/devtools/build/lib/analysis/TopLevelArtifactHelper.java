@@ -24,12 +24,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.Node;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -196,13 +198,12 @@ public final class TopLevelArtifactHelper {
    */
   public static ArtifactsToBuild getAllArtifactsToBuild(
       ProviderCollection target, TopLevelArtifactContext context) {
-    return getAllArtifactsToBuild(
-        OutputGroupInfo.get(target), target.getProvider(FileProvider.class), context);
+    return getAllArtifactsToBuild(OutputGroupInfo.get(target), getFilesToBuild(target), context);
   }
 
   static ArtifactsToBuild getAllArtifactsToBuild(
       @Nullable OutputGroupInfo outputGroupInfo,
-      @Nullable FileProvider fileProvider,
+      @Nullable NestedSet<Artifact> filesToBuild,
       TopLevelArtifactContext context) {
     ImmutableMap.Builder<String, ArtifactsInOutputGroup> allOutputGroups =
         ImmutableMap.builderWithExpectedSize(context.outputGroups().size());
@@ -210,8 +211,8 @@ public final class TopLevelArtifactHelper {
     for (String outputGroup : context.outputGroups()) {
       NestedSetBuilder<Artifact> results = NestedSetBuilder.stableOrder();
 
-      if (outputGroup.equals(OutputGroupInfo.DEFAULT) && fileProvider != null) {
-        results.addTransitive(fileProvider.getFilesToBuild());
+      if (outputGroup.equals(OutputGroupInfo.DEFAULT) && filesToBuild != null) {
+        results.addTransitive(filesToBuild);
       }
 
       if (outputGroupInfo != null) {
@@ -239,18 +240,38 @@ public final class TopLevelArtifactHelper {
   }
 
   /**
+   * Returns files to build directly from {@link FileProvider} or from {@code files} under {@link
+   * DefaultInfo} provider.
+   */
+  @Nullable
+  private static NestedSet<Artifact> getFilesToBuild(ProviderCollection target) {
+    if (target.getProvider(FileProvider.class) != null) {
+      return target.getProvider(FileProvider.class).getFilesToBuild();
+    } else if (target.get(DefaultInfo.PROVIDER.getKey()) != null) {
+      DefaultInfo defaultInfo = (DefaultInfo) target.get(DefaultInfo.PROVIDER.getKey());
+      if (defaultInfo.getFiles() != null) {
+        try {
+          return defaultInfo.getFiles().getSet(Artifact.class);
+        } catch (TypeException e) {
+          throw new IllegalStateException("Error getting 'files' field of 'DefaultInfo'", e);
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
    * Returns false if the build outputs provided by the target should never be shown to users.
    *
    * <p>Always returns false for hidden rules and source file targets.
    */
-  public static boolean shouldConsiderForDisplay(ConfiguredTarget configuredTarget) {
+  public static boolean shouldConsiderForDisplay(CqueryNode configuredTarget) {
     // TODO(bazel-team): this is quite ugly. Add a marker provider for this check.
     if (configuredTarget instanceof InputFileConfiguredTarget) {
       // Suppress display of source files (because we do no work to build them).
       return false;
     }
-    if (configuredTarget instanceof RuleConfiguredTarget) {
-      RuleConfiguredTarget ruleCt = (RuleConfiguredTarget) configuredTarget;
+    if (configuredTarget instanceof RuleConfiguredTarget ruleCt) {
       if (ruleCt.getRuleClassString().contains("$")) {
         // Suppress display of hidden rules
         return false;
@@ -262,10 +283,10 @@ public final class TopLevelArtifactHelper {
   /**
    * Returns true if the given artifact should be shown to users as a build output.
    *
-   * <p>Always returns false for middleman and source artifacts.
+   * <p>Always returns false for runfiles tree and source artifacts.
    */
   public static boolean shouldDisplay(Artifact artifact) {
-    return !artifact.isSourceArtifact() && !artifact.isMiddlemanArtifact();
+    return !artifact.isSourceArtifact() && !artifact.isRunfilesTree();
   }
 
   /**
@@ -368,7 +389,7 @@ public final class TopLevelArtifactHelper {
         return null;
       }
       NestedSetBuilder<Artifact> newSetBuilder =
-          new NestedSetBuilder<>(declaredArtifacts.getOrder());
+          NestedSetBuilder.newBuilder(declaredArtifacts.getOrder());
       for (Artifact a : leaves) {
         if (builtArtifacts.contains(a)) {
           newSetBuilder.add(a);

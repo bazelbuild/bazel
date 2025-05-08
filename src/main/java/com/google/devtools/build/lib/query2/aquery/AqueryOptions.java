@@ -27,7 +27,7 @@ public class AqueryOptions extends CommonQueryOptions {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "The format in which the aquery results should be printed. Allowed values for aquery "
-              + "are: text, textproto, proto, jsonproto.")
+              + "are: text, textproto, proto, streamed_proto, jsonproto.")
   public String outputFormat;
 
   @Option(
@@ -43,9 +43,19 @@ public class AqueryOptions extends CommonQueryOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help =
-          "Includes names of the action inputs and outputs in the output " + "(potentially large).")
+      help = "Includes names of the action inputs and outputs in the output (potentially large).")
   public boolean includeArtifacts;
+
+  @Option(
+      name = "include_pruned_inputs",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Includes action inputs that were pruned during action execution. Only affects actions"
+              + " that discover inputs and have been executed in a previous invocation. Only takes"
+              + " effect if --include_artifacts is also set.")
+  public boolean includePrunedInputs;
 
   @Option(
       name = "include_param_files",
@@ -64,8 +74,8 @@ public class AqueryOptions extends CommonQueryOptions {
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "Include the file contents for the FileWrite and SourceSymlinkManifest actions"
-              + " (potentially large). ")
+          "Include the file contents for the FileWrite, SourceSymlinkManifest, and "
+              + "RepoMappingManifest actions (potentially large). ")
   public boolean includeFileWriteContents;
 
   @Option(
@@ -78,15 +88,4 @@ public class AqueryOptions extends CommonQueryOptions {
               + "Note: Specifying a target with --skyframe_state is currently not supported. "
               + "This flag is only available with --output=proto or --output=textproto.")
   public boolean queryCurrentSkyframeState;
-
-  @Option(
-      name = "deduplicate_depsets",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.QUERY,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help =
-          "De-duplicate non-leaf children of a dep_set_of_files in the final proto/textproto/json"
-              + " output. This does not deduplicate depsets that don't share an immediate parent."
-              + " This does not affect the final effective list of input artifacts of the actions.")
-  public boolean deduplicateDepsets;
 }

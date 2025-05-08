@@ -5,7 +5,7 @@ This directory contains the gRPC libraries needed by Bazel, sourced from
 
 | Repo             | Current   |
 | ---------------- | --------- |
-| `grpc/grpc`      | `v1.41.0` |
+| `grpc/grpc`      | `v1.48.1` |
 
 ## Updating `third_party/grpc`
 
@@ -13,7 +13,7 @@ This requires 3 pull requests:
 
 1. Update `third_party/grpc` to include files from new version
 
-2. Switch `distdir_deps.bzl`, `scripts/bootstrap/compile.sh`, and any other references to new version
+2. Switch `distdir_deps.bzl`, `WORKSPACE`, and any other references to new version
 
 3. Remove older version from `third_party/grpc`
 

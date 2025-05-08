@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Configurable Build Attributes
 
+{% include "_buttons.html" %}
+
 **_Configurable attributes_**, commonly known as [`select()`](
 /reference/be/functions#select), is a Bazel feature that lets users toggle the values
 of build rule attributes at the command line.
@@ -71,11 +73,13 @@ command line. Specifically, `deps` becomes:
 targets. By using `select()` in a configurable attribute, the attribute
 effectively adopts different values when different conditions hold.
 
-Matches must be unambiguous: either exactly one condition must match or, if
-multiple conditions match, one's `values` must be a strict superset of all
-others'. For example, `values = {"cpu": "x86", "compilation_mode": "dbg"}` is an
-unambiguous specialization of `values = {"cpu": "x86"}`. The built-in condition
-[`//conditions:default`](#default-condition) automatically matches when
+Matches must be unambiguous: if multiple conditions match then either
+*  They all resolve to the same value. For example, when running on linux x86, this is unambiguous
+   `{"@platforms//os:linux": "Hello", "@platforms//cpu:x86_64": "Hello"}` because both branches resolve to "hello".
+*  One's `values` is a strict superset of all others'. For example, `values = {"cpu": "x86", "compilation_mode": "dbg"}`
+   is an unambiguous specialization of `values = {"cpu": "x86"}`.
+
+The built-in condition [`//conditions:default`](#default-condition) automatically matches when
 nothing else does.
 
 While this example uses `deps`, `select()` works just as well on `srcs`,
@@ -144,7 +148,7 @@ build parameters, which include `--cpu=arm`. The `tools` attribute changes
 
 Each key in a configurable attribute is a label reference to a
 [`config_setting`](/reference/be/general#config_setting) or
-[`constraint_value`](/reference/be/platform#constraint_value).
+[`constraint_value`](/reference/be/platforms-and-toolchains#constraint_value).
 
 `config_setting` is just a collection of
 expected command line flag settings. By encapsulating these in a target, it's
@@ -263,7 +267,7 @@ For even clearer errors, you can set custom messages with `select()`'s
 While the ability to specify multiple flags on the command line provides
 flexibility, it can also be burdensome to individually set each one every time
 you want to build a target.
-   [Platforms](/docs/platforms)
+   [Platforms](/extending/platforms)
 let you consolidate these into simple bundles.
 
 ```python
@@ -358,7 +362,7 @@ This saves the need for boilerplate `config_setting`s when you only need to
 check against single values.
 
 Platforms are still under development. See the
-[documentation](/concepts/platforms-intro) for details.
+[documentation](/concepts/platforms) for details.
 
 ## Combining `select()`s {:#combining-selects}
 
@@ -516,7 +520,7 @@ Unlike `selects.with_or`, different targets can share `:config1_or_2` across
 different attributes.
 
 It's an error for multiple conditions to match unless one is an unambiguous
-"specialization" of the others. See [here](#configurable-build-example) for details.
+"specialization" of the others or they all resolve to the same value. See [here](#configurable-build-example) for details.
 
 ## AND chaining {:#and-chaining}
 
@@ -625,7 +629,7 @@ select({"foo": "val_with_suffix"}, ...)
 This is for two reasons.
 
 First, macros that need to know which path a `select` will choose *cannot work*
-because macros are evaluated in Bazel's [loading phase](/docs/build#loading),
+because macros are evaluated in Bazel's [loading phase](/run/build#loading),
 which occurs before flag values are known.
 This is a core Bazel design restriction that's unlikely to change any time soon.
 
@@ -635,14 +639,14 @@ this.
 
 ## Bazel query and cquery {:#query-and-cquery}
 
-Bazel [`query`](/docs/query-how-to) operates over Bazel's
+Bazel [`query`](/query/guide) operates over Bazel's
 [loading phase](/reference/glossary#loading-phase).
 This means it doesn't know what command line flags a target uses since those
 flags aren't evaluated until later in the build (in the
 [analysis phase](/reference/glossary#analysis-phase)).
 So it can't determine which `select()` branches are chosen.
 
-Bazel [`cquery`](/docs/cquery) operates after Bazel's analysis phase, so it has
+Bazel [`cquery`](/query/cquery) operates after Bazel's analysis phase, so it has
 all this information and can accurately resolve `select()`s.
 
 Consider:
@@ -703,7 +707,7 @@ details.
 
 The key issue this question usually means is that select() doesn't work in
 *macros*. These are different than *rules*. See the
-documentation on [rules](/rules/rules) and [macros](/rules/macros)
+documentation on [rules](/extending/rules) and [macros](/extending/macros)
 to understand the difference.
 Here's an end-to-end example:
 
@@ -742,8 +746,8 @@ load("//myapp:defs.bzl", "my_custom_bazel_macro")
 my_custom_bazel_rule(
     name = "happy_rule",
     my_config_string = select({
-        "//tools/target_cpu:x86": "first string",
-        "//tools/target_cpu:ppc": "second string",
+        "//third_party/bazel_platforms/cpu:x86_32": "first string",
+        "//third_party/bazel_platforms/cpu:ppc": "second string",
     }),
 )
 
@@ -755,8 +759,8 @@ my_custom_bazel_macro(
 my_custom_bazel_macro(
     name = "sad_macro",
     my_config_string = select({
-        "//tools/target_cpu:x86": "first string",
-        "//tools/target_cpu:ppc": "other string",
+        "//third_party/bazel_platforms/cpu:x86_32": "first string",
+        "//third_party/bazel_platforms/cpu:ppc": "other string",
     }),
 )
 ```
@@ -837,8 +841,8 @@ $ cat myapp/BUILD
 load("//myapp:defs.bzl", "my_boolean_macro")
 my_boolean_macro(
     boolval = select({
-        "//tools/target_cpu:x86": True,
-        "//tools/target_cpu:ppc": False,
+        "//third_party/bazel_platforms/cpu:x86_32": True,
+        "//third_party/bazel_platforms/cpu:ppc": False,
     }),
 )
 
@@ -881,7 +885,7 @@ $ cat myapp/BUILD
 selecty_genrule(
     name = "selecty",
     select_cmd = {
-        "//tools/target_cpu:x86": "x86 mode",
+        "//third_party/bazel_platforms/cpu:x86_32": "x86 mode",
     },
 )
 
@@ -912,9 +916,12 @@ def selecty_genrule(name, select_cmd):
 
 ### Why doesn't select() work with bind()? {:#faq-select-bind}
 
-Because [`bind()`](/reference/be/workspace#bind) is a WORKSPACE rule, not a BUILD rule.
+First of all, do not use `bind()`. It is deprecated in favor of `alias()`.
 
-Workspace rules do not have a specific configuration, and aren't evaluated in
+The technical answer is that [`bind()`](/reference/be/workspace#bind) is a repo
+rule, not a BUILD rule.
+
+Repo rules do not have a specific configuration, and aren't evaluated in
 the same way as BUILD rules. Therefore, a `select()` in a `bind()` can't
 actually evaluate to any specific branch.
 
@@ -922,8 +929,6 @@ Instead, you should use [`alias()`](/reference/be/general#alias), with a `select
 the `actual` attribute, to perform this type of run-time determination. This
 works correctly, since `alias()` is a BUILD rule, and is evaluated with a
 specific configuration.
-
-You can even have a `bind()` target point to an `alias()`, if needed.
 
 ```sh
 $ cat WORKSPACE
@@ -953,10 +958,12 @@ With this setup, you can pass `--define ssl_library=alternative`, and any target
 that depends on either `//:ssl` or `//external:ssl` will see the alternative
 located at `@alternative//:ssl`.
 
+But really, stop using `bind()`.
+
 ### Why doesn't my select() choose what I expect? {:#faq-select-choose-condition}
 
 If `//myapp:foo` has a `select()` that doesn't choose the condition you expect,
-use [cquery](/docs/cquery) and `bazel config` to debug:
+use [cquery](/query/cquery) and `bazel config` to debug:
 
 If `//myapp:foo` is the top-level target you're building, run:
 
@@ -997,7 +1004,7 @@ Fragment com.google.devtools.build.lib.rules.cpp.CppOptions {
 Then compare this output against the settings expected by each `config_setting`.
 
 `//myapp:foo` may exist in different configurations in the same build. See the
-[cquery docs](/docs/cquery) for guidance on using `somepath` to get the right
+[cquery docs](/query/cquery) for guidance on using `somepath` to get the right
 one.
 
 Caution: To prevent restarting the Bazel server, invoke `bazel config` with the
@@ -1088,4 +1095,4 @@ cc_library(
 The Bazel team doesn't endorse doing this; it overly constrains your build and
 confuses users when the expected condition does not match.
 
-[BuildSettings]: /rules/config#user-defined-build-settings
+[BuildSettings]: /extending/config#user-defined-build-settings

@@ -22,11 +22,18 @@
 #include <map>
 #include <set>
 #include <vector>
-#include <google/protobuf/compiler/java/java_names.h>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/descriptor.pb.h>
 #include <google/protobuf/io/printer.h>
 #include <google/protobuf/io/zero_copy_stream.h>
+#include <google/protobuf/stubs/common.h>
+
+// Protobuf 3.21 changed the name of this file.
+#if GOOGLE_PROTOBUF_VERSION >= 3021000
+  #include <google/protobuf/compiler/java/names.h>
+#else
+  #include <google/protobuf/compiler/java/java_names.h>
+#endif
 
 // Stringify helpers used solely to cast GRPC_VERSION
 #ifndef STR

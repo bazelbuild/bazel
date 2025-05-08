@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.Objects;
@@ -33,15 +35,13 @@ import java.util.Objects;
  */
 @ThreadSafe
 public class RecursivePkgKey {
-  private final RepositoryName repositoryName;
-  private final RootedPath rootedPath;
-  private final ImmutableSet<PathFragment> excludedPaths;
+  @VisibleForSerialization final RepositoryName repositoryName;
+  @VisibleForSerialization final RootedPath rootedPath;
+  @VisibleForSerialization final IgnoredSubdirectories excludedPaths;
 
   public RecursivePkgKey(
-      RepositoryName repositoryName,
-      RootedPath rootedPath,
-      ImmutableSet<PathFragment> excludedPaths) {
-    PathFragment.checkAllPathsAreUnder(excludedPaths, rootedPath.getRootRelativePath());
+      RepositoryName repositoryName, RootedPath rootedPath, IgnoredSubdirectories excludedPaths) {
+    Preconditions.checkArgument(excludedPaths.allPathsAreUnder(rootedPath.getRootRelativePath()));
     this.repositoryName = repositoryName;
     this.rootedPath = Preconditions.checkNotNull(rootedPath);
     this.excludedPaths = Preconditions.checkNotNull(excludedPaths);
@@ -55,7 +55,7 @@ public class RecursivePkgKey {
     return rootedPath;
   }
 
-  public ImmutableSet<PathFragment> getExcludedPaths() {
+  public IgnoredSubdirectories getExcludedPaths() {
     return excludedPaths;
   }
 
@@ -69,11 +69,10 @@ public class RecursivePkgKey {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof RecursivePkgKey)) {
+    if (!(o instanceof RecursivePkgKey that)) {
       return false;
     }
 
-    RecursivePkgKey that = (RecursivePkgKey) o;
     return excludedPaths.equals(that.excludedPaths)
         && rootedPath.equals(that.rootedPath)
         && repositoryName.equals(that.repositoryName);

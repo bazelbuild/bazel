@@ -27,7 +27,7 @@ import java.util.SortedMap;
 
 /**
  * Data container that uniquely identifies a kind of worker process and is used as the key for the
- * {@link WorkerPool}.
+ * {@link WorkerPoolImpl}.
  *
  * <p>We expect a small number of WorkerKeys per mnemonic. Unbounded creation of WorkerKeys will
  * break various things as well as render the workers less useful.
@@ -35,10 +35,13 @@ import java.util.SortedMap;
 public final class WorkerKey {
   /** Build options. */
   private final ImmutableList<String> args;
+
   /** Environment variables. */
   private final ImmutableMap<String, String> env;
+
   /** Execution root of Bazel process. */
   private final Path execRoot;
+
   /** Mnemonic of the worker. */
   private final String mnemonic;
 
@@ -48,19 +51,28 @@ public final class WorkerKey {
    * methods.
    */
   private final HashCode workerFilesCombinedHash;
+
   /** Worker files with the corresponding digest. */
   private final SortedMap<PathFragment, byte[]> workerFilesWithDigests;
+
   /** If true, the workers run inside a sandbox. */
   private final boolean sandboxed;
+
+  /** If true, the sandbox contents are tracked in memory to speed up cleanup. */
+  private final boolean useInMemoryTracking;
+
   /** A WorkerProxy will be instantiated if true, instantiate a regular Worker if false. */
   private final boolean multiplex;
+
   /** If true, the workers for this key are able to cancel work requests. */
   private final boolean cancellable;
+
   /**
    * Cached value for the hash of this key, because the value is expensive to calculate
    * (ImmutableMap and ImmutableList do not cache their hashcodes.
    */
   private final int hash;
+
   /** The format of the worker protocol sent to and read from the worker. */
   private final WorkerProtocolFormat protocolFormat;
 
@@ -72,21 +84,24 @@ public final class WorkerKey {
       HashCode workerFilesCombinedHash,
       SortedMap<PathFragment, byte[]> workerFilesWithDigests,
       boolean sandboxed,
+      boolean useInMemoryTracking,
       boolean multiplex,
       boolean cancellable,
       WorkerProtocolFormat protocolFormat) {
     this.args = Preconditions.checkNotNull(args);
     this.env = Preconditions.checkNotNull(env);
-    this.execRoot = Preconditions.checkNotNull(execRoot);
+    this.execRoot = Preconditions.checkNotNull(execRoot.devirtualize());
     this.mnemonic = Preconditions.checkNotNull(mnemonic);
     this.workerFilesCombinedHash = Preconditions.checkNotNull(workerFilesCombinedHash);
     this.workerFilesWithDigests = Preconditions.checkNotNull(workerFilesWithDigests);
     this.sandboxed = sandboxed;
+    this.useInMemoryTracking = useInMemoryTracking;
     this.multiplex = multiplex;
     this.cancellable = cancellable;
     this.protocolFormat = protocolFormat;
     hash = calculateHashCode();
   }
+
 
   public ImmutableList<String> getArgs() {
     return args;
@@ -117,12 +132,12 @@ public final class WorkerKey {
     return sandboxed;
   }
 
-  public boolean isMultiplex() {
-    return multiplex;
+  public boolean useInMemoryTracking() {
+    return useInMemoryTracking;
   }
 
-  public boolean isCancellable() {
-    return cancellable;
+  public boolean isMultiplex() {
+    return multiplex;
   }
 
   /** Returns the format of the worker protocol. */
@@ -162,13 +177,16 @@ public final class WorkerKey {
     if (!args.equals(workerKey.args)) {
       return false;
     }
-    if (!multiplex == workerKey.multiplex) {
+    if (multiplex != workerKey.multiplex) {
       return false;
     }
-    if (!cancellable == workerKey.cancellable) {
+    if (cancellable != workerKey.cancellable) {
       return false;
     }
-    if (!sandboxed == workerKey.sandboxed) {
+    if (sandboxed != workerKey.sandboxed) {
+      return false;
+    }
+    if (useInMemoryTracking != workerKey.useInMemoryTracking) {
       return false;
     }
     if (!env.equals(workerKey.env)) {
@@ -181,7 +199,6 @@ public final class WorkerKey {
       return false;
     }
     return mnemonic.equals(workerKey.mnemonic);
-
   }
 
   /** Since all fields involved in the {@code hashCode} are final, we cache the result. */
@@ -201,6 +218,7 @@ public final class WorkerKey {
         multiplex,
         cancellable,
         sandboxed,
+        useInMemoryTracking,
         protocolFormat.toString());
   }
 
@@ -211,11 +229,13 @@ public final class WorkerKey {
     // debugging.
     return CommandFailureUtils.describeCommand(
         CommandDescriptionForm.COMPLETE,
-        /*prettyPrintArgs=*/ false,
+        /* prettyPrintArgs= */ false,
         args,
         env,
+        /* environmentVariablesToClear= */ null,
         execRoot.getPathString(),
-        /*configurationChecksum=*/ null,
-        /*executionPlatformAsLabelString=*/ null);
+        /* configurationChecksum= */ null,
+        /* executionPlatformLabel= */ null,
+        /* spawnRunner= */ getWorkerTypeName());
   }
 }

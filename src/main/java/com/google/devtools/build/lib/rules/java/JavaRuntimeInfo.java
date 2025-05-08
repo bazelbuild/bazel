@@ -15,73 +15,50 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuntimeInfoApi;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 
 /** Information about the Java runtime used by the <code>java_*</code> rules. */
 @Immutable
-public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfoApi {
+public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
 
-  public static final BuiltinProvider<JavaRuntimeInfo> PROVIDER =
-      new BuiltinProvider<JavaRuntimeInfo>("JavaRuntimeInfo", JavaRuntimeInfo.class) {};
-
-  public static JavaRuntimeInfo create(
-      NestedSet<Artifact> javaBaseInputs,
-      PathFragment javaHome,
-      PathFragment javaBinaryExecPath,
-      PathFragment javaHomeRunfilesPath,
-      PathFragment javaBinaryRunfilesPath,
-      NestedSet<Artifact> hermeticInputs,
-      @Nullable Artifact libModules,
-      ImmutableList<CcInfo> hermeticStaticLibs) {
-    return new JavaRuntimeInfo(
-        javaBaseInputs,
-        javaHome,
-        javaBinaryExecPath,
-        javaHomeRunfilesPath,
-        javaBinaryRunfilesPath,
-        hermeticInputs,
-        libModules,
-        hermeticStaticLibs);
-  }
-
-  @Override
-  public boolean isImmutable() {
-    return true; // immutable and Starlark-hashable
-  }
+  public static final StarlarkProviderWrapper<JavaRuntimeInfo> RULES_JAVA_PROVIDER =
+      new RulesJavaProvider();
+  public static final StarlarkProviderWrapper<JavaRuntimeInfo> WORKSPACE_PROVIDER =
+      new WorkspaceProvider();
+  public static final StarlarkProviderWrapper<JavaRuntimeInfo> PROVIDER = new Provider();
 
   // Helper methods to access an instance of JavaRuntimeInfo.
 
-  public static JavaRuntimeInfo forHost(RuleContext ruleContext) {
+  public static JavaRuntimeInfo forHost(RuleContext ruleContext) throws RuleErrorException {
     return JavaToolchainProvider.from(ruleContext).getJavaRuntime();
   }
 
-  public static JavaRuntimeInfo from(RuleContext ruleContext) {
-    ToolchainInfo toolchainInfo =
-        ruleContext
-            .getToolchainContext()
-            .forToolchainType(
-                ruleContext
-                    .getPrerequisite(JavaRuleClasses.JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)
-                    .getLabel());
+  public static JavaRuntimeInfo from(RuleContext ruleContext, Label javaRuntimeToolchainType) {
+    ToolchainInfo toolchainInfo = ruleContext.getToolchainInfo(javaRuntimeToolchainType);
     return from(ruleContext, toolchainInfo);
   }
 
@@ -103,11 +80,11 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
   private static JavaRuntimeInfo from(RuleContext ruleContext, ToolchainInfo toolchainInfo) {
     if (toolchainInfo != null) {
       try {
-        JavaRuntimeInfo result = (JavaRuntimeInfo) toolchainInfo.getValue("java_runtime");
+        JavaRuntimeInfo result = wrap(toolchainInfo.getValue("java_runtime", Info.class));
         if (result != null) {
           return result;
         }
-      } catch (EvalException e) {
+      } catch (EvalException | RuleErrorException e) {
         ruleContext.ruleError(String.format("There was an error reading the Java runtime: %s", e));
         return null;
       }
@@ -116,96 +93,47 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
     return null;
   }
 
-  private final NestedSet<Artifact> javaBaseInputs;
-  private final PathFragment javaHome;
-  private final PathFragment javaBinaryExecPath;
-  private final PathFragment javaHomeRunfilesPath;
-  private final PathFragment javaBinaryRunfilesPath;
-  private final NestedSet<Artifact> hermeticInputs;
-  @Nullable private final Artifact libModules;
-  private final ImmutableList<CcInfo> hermeticStaticLibs;
+  private JavaRuntimeInfo(StarlarkInfo underlying) {
+    super(underlying);
+  }
 
-  private JavaRuntimeInfo(
-      NestedSet<Artifact> javaBaseInputs,
-      PathFragment javaHome,
-      PathFragment javaBinaryExecPath,
-      PathFragment javaHomeRunfilesPath,
-      PathFragment javaBinaryRunfilesPath,
-      NestedSet<Artifact> hermeticInputs,
-      @Nullable Artifact libModules,
-      ImmutableList<CcInfo> hermeticStaticLibs) {
-    this.javaBaseInputs = javaBaseInputs;
-    this.javaHome = javaHome;
-    this.javaBinaryExecPath = javaBinaryExecPath;
-    this.javaHomeRunfilesPath = javaHomeRunfilesPath;
-    this.javaBinaryRunfilesPath = javaBinaryRunfilesPath;
-    this.hermeticInputs = hermeticInputs;
-    this.libModules = libModules;
-    this.hermeticStaticLibs = hermeticStaticLibs;
+  public static JavaRuntimeInfo wrap(Info info) throws RuleErrorException {
+    com.google.devtools.build.lib.packages.Provider.Key key = info.getProvider().getKey();
+    if (key.equals(PROVIDER.getKey())) {
+      return PROVIDER.wrap(info);
+    } else if (key.equals(RULES_JAVA_PROVIDER.getKey())) {
+      return RULES_JAVA_PROVIDER.wrap(info);
+    } else if (key.equals(WORKSPACE_PROVIDER.getKey())) {
+      return WORKSPACE_PROVIDER.wrap(info);
+    } else {
+      throw new RuleErrorException("expected JavaRuntimeInfo, got: " + key);
+    }
   }
 
   /** All input artifacts in the javabase. */
-  public NestedSet<Artifact> javaBaseInputs() {
-    return javaBaseInputs;
+  public NestedSet<Artifact> javaBaseInputs() throws RuleErrorException {
+    return getUnderlyingNestedSet("files", Artifact.class);
   }
 
   /** The root directory of the Java installation. */
-  @Override
-  public String javaHome() {
-    return javaHome.toString();
+  public String javaHome() throws RuleErrorException {
+    return getUnderlyingValue("java_home", String.class);
   }
 
-  public PathFragment javaHomePathFragment() {
-    return javaHome;
+  public PathFragment javaBinaryExecPathFragment() throws RuleErrorException {
+    return PathFragment.create(getUnderlyingValue("java_executable_exec_path", String.class));
   }
 
-  /** The execpath of the Java binary. */
-  @Override
-  public String javaBinaryExecPath() {
-    return javaBinaryExecPath.toString();
+  public PathFragment javaBinaryRunfilesPathFragment() throws RuleErrorException {
+    return PathFragment.create(getUnderlyingValue("java_executable_runfiles_path", String.class));
   }
 
-  public PathFragment javaBinaryExecPathFragment() {
-    return javaBinaryExecPath;
+  public ImmutableList<CcInfo> hermeticStaticLibs() throws RuleErrorException {
+    return getUnderlyingSequence("hermetic_static_libs", CcInfo.class).getImmutableList();
   }
 
-  /** The runfiles path of the root directory of the Java installation. */
-  @Override
-  public String javaHomeRunfilesPath() {
-    return javaHomeRunfilesPath.toString();
-  }
-
-  /** The runfiles path of the Java binary. */
-  @Override
-  public String javaBinaryRunfilesPath() {
-    return javaBinaryRunfilesPath.toString();
-  }
-
-  public PathFragment javaBinaryRunfilesPathFragment() {
-    return javaBinaryRunfilesPath;
-  }
-
-  /** Input artifacts required for hermetic deployments. */
-  public NestedSet<Artifact> hermeticInputs() {
-    return hermeticInputs;
-  }
-
-  @Override
-  public Depset starlarkHermeticInputs() {
-    return Depset.of(Artifact.TYPE, hermeticInputs());
-  }
-
-  @Override
-  @Nullable
-  public Artifact libModules() {
-    return libModules;
-  }
-
-  public ImmutableList<CcInfo> hermeticStaticLibs() {
-    return hermeticStaticLibs;
-  }
-
-  public NestedSet<LibraryToLink> collectHermeticStaticLibrariesToLink() {
+  @VisibleForTesting
+  NestedSet<LibraryToLink> collectHermeticStaticLibrariesToLink() throws RuleErrorException {
     NestedSetBuilder<LibraryToLink> result = NestedSetBuilder.stableOrder();
     for (CcInfo lib : hermeticStaticLibs()) {
       result.addTransitive(lib.getCcLinkingContext().getLibraries());
@@ -213,31 +141,47 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
     return result.build();
   }
 
-  @Override
-  public Sequence<CcInfo> starlarkHermeticStaticLibs() {
-    return StarlarkList.immutableCopyOf(hermeticStaticLibs());
+  public int version() throws RuleErrorException {
+    return getUnderlyingValue("version", StarlarkInt.class).toIntUnchecked();
   }
 
-  @Override
-  public Depset starlarkJavaBaseInputs() {
-    return Depset.of(Artifact.TYPE, javaBaseInputs());
+  private static class RulesJavaProvider extends Provider {
+    private RulesJavaProvider() {
+      super(keyForBuild(Label.parseCanonicalUnchecked("//java/common/rules:java_runtime.bzl")));
+    }
   }
 
-  @Override
-  public com.google.devtools.build.lib.packages.Provider getProvider() {
-    return PROVIDER;
+  private static class WorkspaceProvider extends Provider {
+    private WorkspaceProvider() {
+      super(
+          keyForBuild(
+              Label.parseCanonicalUnchecked("@@rules_java//java/common/rules:java_runtime.bzl")));
+    }
   }
 
-  // Not all of JavaRuntimeInfo is exposed to Starlark, which makes implementing deep equality
-  // impossible: if Java-only parts are considered, the behavior is surprising in Starlark, if they
-  // are not, the behavior is surprising in Java. Thus, object identity it is.
-  @Override
-  public boolean equals(Object other) {
-    return other == this;
-  }
+  private static class Provider extends StarlarkProviderWrapper<JavaRuntimeInfo> {
 
-  @Override
-  public int hashCode() {
-    return System.identityHashCode(this);
+    private Provider() {
+      this(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  JavaSemantics.RULES_JAVA_PROVIDER_LABELS_PREFIX
+                      + "java/common/rules:java_runtime.bzl")));
+    }
+
+    private Provider(BzlLoadValue.Key key) {
+      super(key, "JavaRuntimeInfo");
+    }
+
+    @Override
+    public JavaRuntimeInfo wrap(Info value) throws RuleErrorException {
+      if (value instanceof StarlarkInfoWithSchema
+          && value.getProvider().getKey().equals(getKey())) {
+        return new JavaRuntimeInfo((StarlarkInfo) value);
+      } else {
+        throw new RuleErrorException(
+            "got value of type '" + Starlark.type(value) + "', want 'JavaRuntimeInfo'");
+      }
+    }
   }
 }

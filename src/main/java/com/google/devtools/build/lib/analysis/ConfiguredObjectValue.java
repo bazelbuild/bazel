@@ -26,7 +26,8 @@ public interface ConfiguredObjectValue extends NotComparableSkyValue {
   ProviderCollection getConfiguredObject();
 
   /**
-   * Returns the set of packages transitively loaded by this value. Must only be used for:
+   * Returns the metadata for the set packages transitively loaded by this value. Must only be used
+   * for:
    *
    * <ul>
    *   <li>constructing the package -> source root map needed for some builds, OR
@@ -39,13 +40,7 @@ public interface ConfiguredObjectValue extends NotComparableSkyValue {
    * {@link com.google.devtools.build.lib.skyframe.AspectFunction#AspectFunction}), calling this
    * will crash.
    */
-  NestedSet<Package> getTransitivePackages();
-
-  /**
-   * Clears data from this value.
-   *
-   * <p>Should only be used when user specifies --discard_analysis_cache. Must be called at most
-   * once per value, after which this object's other methods cannot be called.
-   */
-  void clear(boolean clearEverything);
+  // TODO(b/283125139): Most builds never need to build a repo mapping manifest. Store transitive
+  // packages outside of configured object values to save the wasted field.
+  NestedSet<Package.Metadata> getTransitivePackages();
 }

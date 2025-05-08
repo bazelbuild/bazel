@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import com.google.auto.value.AutoValue;
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
@@ -21,9 +22,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionContext;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ExecutionOptions.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -53,6 +53,8 @@ import java.util.Map;
 public final class ModuleActionContextRegistry
     implements ActionContext, ActionContext.ActionContextRegistry {
 
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private final ImmutableClassToInstanceMap<ActionContext> identifyingTypeToContext;
 
   private ModuleActionContextRegistry(
@@ -79,17 +81,14 @@ public final class ModuleActionContextRegistry
    * Records the list of all contexts that can be {@linkplain #getContext returned by this registry}
    * to the given reporter.
    */
-  void writeActionContextsTo(Reporter reporter) {
+  void logActionContexts() {
     for (Map.Entry<Class<? extends ActionContext>, ActionContext> typeToContext :
         identifyingTypeToContext.entrySet()) {
-      reporter.handle(
-          Event.info(
-              String.format(
-                  "IdentifyingTypeToContext: \"%s\" = [%s]",
-                  typeToContext.getKey(), typeToContext.getValue().getClass().getSimpleName())));
+      logger.atInfo().log(
+          "IdentifyingTypeToContext: \"%s\" = [%s]",
+          typeToContext.getKey(), typeToContext.getValue().getClass().getSimpleName());
     }
   }
-
   /**
    * Returns a new {@link Builder} suitable for creating instances of ModuleActionContextRegistry.
    */
@@ -134,7 +133,7 @@ public final class ModuleActionContextRegistry
     public <T extends ActionContext> Builder register(
         Class<T> identifyingType, T context, String... commandLineIdentifiers) {
       actionContexts.add(
-          new AutoValue_ModuleActionContextRegistry_ActionContextInformation<>(
+          new ActionContextInformation<>(
               context, identifyingType, ImmutableList.copyOf(commandLineIdentifiers)));
       return this;
     }
@@ -200,14 +199,13 @@ public final class ModuleActionContextRegistry
     }
   }
 
-  @AutoValue
-  abstract static class ActionContextInformation<T extends ActionContext> {
-
-    abstract T context();
-
-    abstract Class<T> identifyingType();
-
-    abstract ImmutableList<String> commandLineIdentifiers();
+  record ActionContextInformation<T extends ActionContext>(
+      T context, Class<T> identifyingType, ImmutableList<String> commandLineIdentifiers) {
+    ActionContextInformation {
+      requireNonNull(context, "context");
+      requireNonNull(identifyingType, "identifyingType");
+      requireNonNull(commandLineIdentifiers, "commandLineIdentifiers");
+    }
 
     private void addToMap(MutableClassToInstanceMap<ActionContext> map) {
       map.putInstance(identifyingType(), context());

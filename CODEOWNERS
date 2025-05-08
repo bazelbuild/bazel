@@ -27,6 +27,8 @@ android/ @ahumesky @ted-xie
 
 /src/test/java/com/google/devtools/build/android/dexer/ @ahumesky @ted-xie @kevin1e100
 
+/src/test/shell/bazel/android/ @ahumesky @ted-xie
+
 # Apple
 
 /src/main/java/com/google/devtools/build/lib/rules/apple @bazelbuild/rules_apple-team
@@ -42,17 +44,17 @@ android/ @ahumesky @ted-xie
 
 # Documentation
 
-/site @gregestren @philomathing @fweikert
+/site @gregestren @fweikert
 
 # C++
 
-/src/tools/cpp @oquenchil
+/src/tools/cpp @comius @pzembrod @trybka
 
-/src/test/shell/bazel/cpp @oquenchil
+/src/test/shell/bazel/cpp @comius @pzembrod @trybka
 
-/src/test/java/com/google/devtools/build/lib/rules/cpp/ @oquenchil
+/src/test/java/com/google/devtools/build/lib/rules/cpp/ @comius @pzembrod @trybka
 
-/src/main/java/com/google/devtools/build/lib/rules/cpp/ @oquenchil
+/src/main/java/com/google/devtools/build/lib/rules/cpp/ @comius @pzembrod @trybka
 
 # Java
 

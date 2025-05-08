@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Platforms
 
+{% include "_buttons.html" %}
+
 Bazel can build and test code on a variety of hardware, operating systems, and
 system configurations, using many different versions of build tools such as
 linkers and compilers. To help manage this complexity, Bazel has a concept of
@@ -14,7 +16,7 @@ resources that are available in some environment.
 
 Modeling the environment as a platform helps Bazel to automatically select the
 appropriate
-[toolchains](/docs/toolchains)
+[toolchains](/extending/toolchains)
 for build actions. Platforms can also be used in combination with the
 [config_setting](/reference/be/general#config_setting)
 rule to write [configurable attributes](/docs/configurable-attributes).
@@ -39,15 +41,22 @@ Bazel supports the following build scenarios regarding platforms:
 *  **Multi-platform builds** - host, execution, and target platforms are all
    different.
 
+Tip: for detailed instructions on migrating your project to platforms, see
+[Migrating to Platforms](/concepts/platforms).
+
 ## Defining constraints and platforms {:#constraints-platforms}
 
 The space of possible choices for platforms is defined by using the
- [`constraint_setting`](/reference/be/platform#constraint_setting) and
- [`constraint_value`](/reference/be/platform#constraint_value) rules within `BUILD` files. `constraint_setting` creates a new dimension, while
+[`constraint_setting`][constraint_setting] and
+[`constraint_value`][constraint_value] rules within `BUILD` files.
+`constraint_setting` creates a new dimension, while
 `constraint_value` creates a new value for a given dimension; together they
 effectively define an enum and its possible values. For example, the following
 snippet of a `BUILD` file introduces a constraint for the system's glibc version
 with two possible values.
+
+[constraint_setting]: /reference/be/platforms-and-toolchains#constraint_setting
+[constraint_value]: /reference/be/platforms-and-toolchains#constraint_value
 
 ```python
 constraint_setting(name = "glibc_version")
@@ -68,7 +77,7 @@ workspace. They are referenced by label and subject to the usual visibility
 controls. If visibility allows, you can extend an existing constraint setting by
 defining your own value for it.
 
-The [`platform`](/reference/be/platform#platform) rule introduces a new platform with
+The [`platform`](/reference/be/platforms-and-toolchains#platform) rule introduces a new platform with
 certain choices of constraint values. The
 following creates a platform named `linux_x86`, and says that it describes any
 environment that runs a Linux operating system on an x86_64 architecture with a
@@ -97,7 +106,8 @@ systems. These are all located in
 [https://github.com/bazelbuild/platforms](https://github.com/bazelbuild/platforms){: .external}.
 
 Bazel ships with the following special platform definition:
-`@local_config_platform//:host`. This is the autodetected host platform value -
+`@platforms//host` (aliased as `@bazel_tools//tools:host_platform`). This is the
+autodetected host platform value -
 represents autodetected platform for the system Bazel is running on.
 
 ## Specifying a platform for a build {:#specifying-build-platform}
@@ -105,8 +115,17 @@ represents autodetected platform for the system Bazel is running on.
 You can specify the host and target platforms for a build using the following
 command-line flags:
 
-*  `--host_platform` - defaults to `@bazel_tools//platforms:host_platform`
-*  `--platforms` - defaults to `@bazel_tools//platforms:target_platform`
+*  `--host_platform` - defaults to `@bazel_tools//tools:host_platform`
+   *  This target is aliased to `@platforms//host`, which is backed by a repo
+      rule that detects the host OS and CPU and writes the platform target.
+   *  There's also `@platforms//host:constraints.bzl`, which exposes
+      an array called `HOST_CONSTRAINTS`, which can be used in other BUILD and
+      Starlark files.
+*  `--platforms` - defaults to the host platform
+   *  This means that when no other flags are set,
+      `@platforms//host` is the target platform.
+   *  If `--host_platform` is set and not `--platforms`, the value of
+      `--host_platform` is both the host and target platform.
 
 ## Skipping incompatible targets {:#skipping-incompatible-targets}
 
@@ -170,12 +189,15 @@ ERROR: Target //:target_incompatible_with_myplatform is incompatible and cannot 
 FAILED: Build did NOT complete successfully
 ```
 
+Incompatible explicit targets are silently skipped if
+`--skip_incompatible_explicit_targets` is enabled.
+
 ### More expressive constraints {:#expressive-constraints}
 
 For more flexibility in expressing constraints, use the
 `@platforms//:incompatible`
-[`constraint_value`](/reference/be/platform#constraint_value) that no platform
-satisfies.
+[`constraint_value`](/reference/be/platforms-and-toolchains#constraint_value)
+that no platform satisfies.
 
 Use [`select()`](/reference/be/functions#select) in combination with
 `@platforms//:incompatible` to express more complicated restrictions. For
@@ -218,16 +240,16 @@ cc_library(
     target_compatible_with = select({
         "@platforms//cpu:arm": ["@platforms//:incompatible"],
         "//conditions:default": [],
-    ],
+    }),
 )
 ```
 
 ### Detecting incompatible targets using `bazel cquery` {:#cquery-incompatible-target-detection}
 
 You can use the
-[`IncompatiblePlatformProvider`](/rules/lib/IncompatiblePlatformProvider)
+[`IncompatiblePlatformProvider`](/rules/lib/providers/IncompatiblePlatformProvider)
 in `bazel cquery`'s [Starlark output
-format](/docs/cquery#output-format-definition) to distinguish
+format](/query/cquery#output-format-definition) to distinguish
 incompatible targets from compatible ones.
 
 This can be used to filter out incompatible targets. The example below will

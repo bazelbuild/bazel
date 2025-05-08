@@ -22,7 +22,6 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -50,8 +49,8 @@ public final class Allowlist {
   public static Attribute.Builder<Label> getAttributeFromAllowlistName(String allowlistName) {
     String attributeName = getAttributeNameFromAllowlistName(allowlistName).iterator().next();
     return attr(attributeName, LABEL)
-        .cfg(ExecutionTransitionFactory.create())
-        .mandatoryProviders(PackageGroupConfiguredTarget.PROVIDER.id());
+        .cfg(ExecutionTransitionFactory.createFactory())
+        .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class));
   }
 
   /**
@@ -116,26 +115,10 @@ public final class Allowlist {
       Preconditions.checkArgument(ruleContext.isAttrDefined(attributeName, LABEL), attributeName);
       TransitiveInfoCollection packageGroup = ruleContext.getPrerequisite(attributeName);
       PackageSpecificationProvider packageSpecificationProvider =
-          packageGroup.get(PackageGroupConfiguredTarget.PROVIDER);
-      if (packageSpecificationProvider == null) {
-        packageSpecificationProvider = packageGroup.get(PackageGroupConfiguredTarget.PROVIDER);
-      }
+          packageGroup.get(PackageSpecificationProvider.PROVIDER);
       return requireNonNull(packageSpecificationProvider, packageGroup.getLabel().toString());
     }
     return null;
-  }
-
-  /**
-   * Returns whether the given label is in the allowlist provided.
-   *
-   * @param allowlist the allowlist provided
-   * @param relevantLabel the label to check for in the allowlist.
-   */
-  public static boolean isAvailableForAllowlist(
-      TransitiveInfoCollection allowlist, Label relevantLabel) {
-    PackageSpecificationProvider packageSpecificationProvider =
-        allowlist.get(PackageGroupConfiguredTarget.PROVIDER);
-    return isAvailableFor(packageSpecificationProvider.getPackageSpecifications(), relevantLabel);
   }
 
   /**

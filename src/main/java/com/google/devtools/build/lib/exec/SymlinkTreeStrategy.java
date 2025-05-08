@@ -13,36 +13,31 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -57,11 +52,11 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       (artifact) -> artifact == null ? null : artifact.getPath().asFragment();
 
   private final OutputService outputService;
-  private final BinTools binTools;
+  private final String workspaceName;
 
-  public SymlinkTreeStrategy(OutputService outputService, BinTools binTools) {
+  public SymlinkTreeStrategy(OutputService outputService, String workspaceName) {
     this.outputService = outputService;
-    this.binTools = binTools;
+    this.workspaceName = workspaceName;
   }
 
   @Override
@@ -71,69 +66,44 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
     actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
     try (AutoProfiler p =
         GoogleAutoProfilerUtils.logged("running " + action.prettyPrint(), MIN_LOGGING)) {
+      // TODO(tjgq): Respect RunfileSymlinksMode.SKIP even in the presence of an OutputService.
       try {
-        if (outputService != null && outputService.canCreateSymlinkTree()) {
-          Path inputManifest =
-              action.getInputManifest() == null
-                  ? null
-                  : actionExecutionContext.getInputPath(action.getInputManifest());
+        if (outputService.canCreateSymlinkTree()) {
+          Path inputManifest = actionExecutionContext.getInputPath(action.getInputManifest());
+
           Map<PathFragment, PathFragment> symlinks;
-          if (action.getRunfiles() != null) {
-            symlinks = Maps.transformValues(runfilesToMap(action, actionExecutionContext), TO_PATH);
+          if (action.isFilesetTree()) {
+            symlinks = getFilesetMap(action, actionExecutionContext);
           } else {
-            Preconditions.checkState(action.isFilesetTree());
-            checkNotNull(inputManifest);
-
-            ImmutableList<FilesetOutputSymlink> filesetLinks;
-            try {
-              filesetLinks =
-                  actionExecutionContext
-                      .getArtifactExpander()
-                      .getFileset(action.getInputManifest());
-            } catch (MissingExpansionException e) {
-              throw new IllegalStateException(e);
-            }
-
-            symlinks =
-                SymlinkTreeHelper.processFilesetLinks(
-                    filesetLinks,
-                    action.getFilesetRoot(),
-                    actionExecutionContext.getExecRoot().asFragment());
+            // TODO(tjgq): This produces an incorrect path for unresolved symlinks, which should be
+            // created textually.
+            symlinks = Maps.transformValues(getRunfilesMap(action), TO_PATH);
           }
 
           outputService.createSymlinkTree(
-              symlinks,
-              action.getOutputManifest().getExecPath().getParentDirectory());
+              symlinks, action.getOutputManifest().getExecPath().getParentDirectory());
 
           createOutput(action, actionExecutionContext, inputManifest);
-        } else if (!action.isRunfilesEnabled()) {
-          createSymlinkTreeHelper(action, actionExecutionContext).copyManifest();
-        } else if (action.getInputManifest() == null
-            || (action.inprocessSymlinkCreation() && !action.isFilesetTree())) {
+        } else if (action.getRunfileSymlinksMode() == RunfileSymlinksMode.SKIP) {
+          // Delete symlinks possibly left over by a previous invocation with a different mode.
+          // This is required because only the output manifest is considered an action output, so
+          // Skyframe does not clear the directory for us.
+          createSymlinkTreeHelper(action).clearRunfilesDirectory();
+        } else {
           try {
-            Map<PathFragment, Artifact> runfiles = runfilesToMap(action, actionExecutionContext);
-            createSymlinkTreeHelper(action, actionExecutionContext)
-                .createSymlinksDirectly(
-                    action.getOutputManifest().getPath().getParentDirectory(), runfiles);
+            SymlinkTreeHelper helper = createSymlinkTreeHelper(action);
+            if (action.isFilesetTree()) {
+              helper.createFilesetSymlinks(getFilesetMap(action, actionExecutionContext));
+            } else {
+              helper.createRunfilesSymlinks(getRunfilesMap(action));
+            }
           } catch (IOException e) {
             throw ActionExecutionException.fromExecException(
                 new EnvironmentalExecException(e, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION), action);
           }
 
-          Path inputManifest =
-              action.getInputManifest() == null
-                  ? null
-                  : actionExecutionContext.getInputPath(action.getInputManifest());
+          Path inputManifest = actionExecutionContext.getInputPath(action.getInputManifest());
           createOutput(action, actionExecutionContext, inputManifest);
-        } else {
-          Map<String, String> resolvedEnv = new LinkedHashMap<>();
-          action.getEnvironment().resolve(resolvedEnv, actionExecutionContext.getClientEnv());
-          createSymlinkTreeHelper(action, actionExecutionContext)
-              .createSymlinksUsingCommand(
-                  actionExecutionContext.getExecRoot(),
-                  binTools,
-                  resolvedEnv,
-                  actionExecutionContext.getFileOutErr());
         }
       } catch (ExecException e) {
         throw ActionExecutionException.fromExecException(e, action);
@@ -141,52 +111,49 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
     }
   }
 
-  private static Map<PathFragment, Artifact> runfilesToMap(
+  private ImmutableMap<PathFragment, PathFragment> getFilesetMap(
       SymlinkTreeAction action, ActionExecutionContext actionExecutionContext) {
-    // This call outputs warnings about overlapping symlinks. However, this is already called by the
-    // SourceManifestAction, so it can happen that we generate the warning twice. If the input
-    // manifest is null, then we print the warning. Otherwise we assume that the
-    // SourceManifestAction already printed it.
-    return action
-        .getRunfiles()
-        .getRunfilesInputs(
-            action.getInputManifest() == null ? actionExecutionContext.getEventHandler() : null,
-            action.getOwner().getLocation());
+    ImmutableList<FilesetOutputSymlink> filesetLinks =
+        actionExecutionContext
+            .getInputMetadataProvider()
+            .getFileset(action.getInputManifest())
+            .symlinks();
+    return SymlinkTreeHelper.processFilesetLinks(filesetLinks, action.getWorkspaceNameForFileset());
+  }
+
+  private static Map<PathFragment, Artifact> getRunfilesMap(SymlinkTreeAction action) {
+    // This call outputs warnings about overlapping symlinks. However, since this has already been
+    // called by the SourceManifestAction, we silence the warnings here.
+    return action.getRunfiles().getRunfilesInputs(action.getRepoMappingManifest());
   }
 
   private static void createOutput(
       SymlinkTreeAction action, ActionExecutionContext actionExecutionContext, Path inputManifest)
       throws EnvironmentalExecException {
     Path outputManifest = actionExecutionContext.getInputPath(action.getOutputManifest());
-    if (inputManifest == null) {
-      // If we don't have an input manifest, then create a file containing a fingerprint of
-      // the runfiles object.
-      Fingerprint fp = new Fingerprint();
-      action.getRunfiles().fingerprint(fp);
-      String hexDigest = fp.hexDigestAndReset();
-      try {
-        FileSystemUtils.writeContentAsLatin1(outputManifest, hexDigest);
-      } catch (IOException e) {
-        throw createLinkFailureException(outputManifest, e);
-      }
-    } else {
-      // Link output manifest on success. We avoid a file copy as these manifests may be
-      // large. Note that this step has to come last because the OutputService may delete any
-      // pre-existing symlink tree before creating a new one.
-      try {
-        outputManifest.createSymbolicLink(inputManifest);
-      } catch (IOException e) {
-        throw createLinkFailureException(outputManifest, e);
-      }
+    // Link output manifest on success. We avoid a file copy as these manifests may be
+    // large. Note that this step has to come last because the OutputService may delete any
+    // pre-existing symlink tree before creating a new one.
+    try {
+      outputManifest.createSymbolicLink(inputManifest);
+    } catch (IOException e) {
+      throw createLinkFailureException(outputManifest, e);
     }
   }
 
-  private static SymlinkTreeHelper createSymlinkTreeHelper(
-      SymlinkTreeAction action, ActionExecutionContext actionExecutionContext) {
+  private SymlinkTreeHelper createSymlinkTreeHelper(SymlinkTreeAction action) {
+    // Do not indirect paths through the action filesystem, for two reasons:
+    // (1) we always want to create the symlinks on disk, even if the action filesystem creates them
+    //     in memory (at the time of writing, no action filesystem implementations do so, but this
+    //     may change in the future).
+    // (2) current action filesystem implementations are not a true overlay filesystem, so errors
+    //     might occur in an incremental build when the parent directory of a symlink exists on disk
+    //     but not in memory (see https://github.com/bazelbuild/bazel/issues/24867).
     return new SymlinkTreeHelper(
-        actionExecutionContext.getInputPath(action.getInputManifest()),
-        actionExecutionContext.getInputPath(action.getOutputManifest()).getParentDirectory(),
-        action.isFilesetTree());
+        action.getInputManifest().getPath(),
+        action.getOutputManifest().getPath(),
+        action.getOutputManifest().getPath().getParentDirectory(),
+        workspaceName);
   }
 
   private static EnvironmentalExecException createLinkFailureException(

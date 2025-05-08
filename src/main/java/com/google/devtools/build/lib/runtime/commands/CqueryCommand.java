@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
-import com.google.common.base.Joiner;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
@@ -56,17 +58,18 @@ import java.util.Set;
 /** Handles the 'cquery' command on the Blaze command line. */
 @Command(
     name = "cquery",
-    builds = true,
+    buildPhase = ANALYZES,
     // We inherit from TestCommand so that we pick up changes like `test --test_arg=foo` in .bazelrc
     // files.
     // Without doing this, there is no easy way to use the output of cquery to determine whether a
     // test has changed between two invocations, because the testrunner action is not easily
     // introspectable.
-    inherits = {TestCommand.class},
+    inheritsOptionsFrom = {TestCommand.class},
     options = {CqueryOptions.class},
     usesConfigurationOptions = true,
     shortDescription = "Loads, analyzes, and queries the specified targets w/ configurations.",
     allowResidue = true,
+    binaryStdOut = true,
     completion = "label",
     help = "resource:cquery.txt")
 public final class CqueryCommand implements BlazeCommand {
@@ -133,13 +136,15 @@ public final class CqueryCommand implements BlazeCommand {
           InterruptedFailureDetails.detailedExitCode(errorMessage));
     }
 
-    if (options.getResidue().isEmpty()) {
-      String message =
-          "Missing query expression. Use the 'help cquery' command for syntax and help.";
-      env.getReporter().handle(Event.error(message));
-      return createFailureResult(message, Code.COMMAND_LINE_EXPRESSION_MISSING);
+    String query = null;
+    try {
+      query =
+          QueryOptionHelper.readQuery(
+              options.getOptions(CqueryOptions.class), options, env, /* allowEmptyQuery= */ false);
+    } catch (QueryException e) {
+      return BlazeCommandResult.failureDetail(e.getFailureDetail());
     }
-    String query = Joiner.on(' ').join(options.getResidue());
+
     HashMap<String, QueryFunction> functions = new HashMap<>();
     for (QueryFunction queryFunction : ConfiguredTargetQueryEnvironment.FUNCTIONS) {
       functions.put(queryFunction.getName(), queryFunction);
@@ -180,7 +185,7 @@ public final class CqueryCommand implements BlazeCommand {
             .build();
     DetailedExitCode detailedExitCode =
         new BuildTool(env, new CqueryProcessor(expr, mainRepoTargetParser))
-            .processRequest(request, null)
+            .processRequest(request, null, options)
             .getDetailedExitCode();
     return BlazeCommandResult.detailedExitCode(detailedExitCode);
   }

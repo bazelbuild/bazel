@@ -21,14 +21,13 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <windows.h>
-
 #include <errno.h>
 #include <limits.h>  // INT_MAX
 #include <lmcons.h>  // UNLEN
 #include <string.h>
 #include <sys/types.h>
 #include <wchar.h>
+#include <windows.h>
 
 #include <algorithm>
 #include <cstdio>
@@ -40,6 +39,7 @@
 #include <string>
 #include <vector>
 
+#include "rules_cc/cc/runfiles/runfiles.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path_platform.h"
 #include "src/main/cpp/util/strings.h"
@@ -49,7 +49,6 @@
 #include "third_party/ijar/common.h"
 #include "third_party/ijar/platform_utils.h"
 #include "third_party/ijar/zip.h"
-#include "tools/cpp/runfiles/runfiles.h"
 
 namespace bazel {
 namespace tools {
@@ -615,7 +614,10 @@ bool ExportGtestVariables(const Path& test_tmpdir) {
   }
   if (total_shards_value > 0) {
     std::wstring shard_index;
-    if (!GetEnv(L"TEST_SHARD_INDEX", &shard_index) ||
+    std::wstring shard_status_file;
+    if (!GetEnv(L"TEST_SHARD_STATUS_FILE", &shard_status_file) ||
+        !GetEnv(L"TEST_SHARD_INDEX", &shard_index) ||
+        !SetEnv(L"GTEST_SHARD_STATUS_FILE", shard_status_file) ||
         !SetEnv(L"GTEST_SHARD_INDEX", shard_index) ||
         !SetEnv(L"GTEST_TOTAL_SHARDS", total_shards_str)) {
       return false;
@@ -625,6 +627,11 @@ bool ExportGtestVariables(const Path& test_tmpdir) {
 }
 
 bool ExportMiscEnvvars(const Path& cwd) {
+  // Add BAZEL_TEST environment variable.
+  if (!SetEnv(L"BAZEL_TEST", L"1")) {
+    return false;
+  }
+
   for (const wchar_t* name :
        {L"TEST_INFRASTRUCTURE_FAILURE_FILE", L"TEST_LOGSPLITTER_OUTPUT_FILE",
         L"TEST_PREMATURE_EXIT_FILE", L"TEST_UNUSED_RUNFILES_LOG_FILE",
@@ -1138,8 +1145,8 @@ bool FindTestBinary(const Path& argv0, const Path& cwd, std::wstring test_path,
     }
 
     std::string error;
-    std::unique_ptr<bazel::tools::cpp::runfiles::Runfiles> runfiles(
-        bazel::tools::cpp::runfiles::Runfiles::Create(argv0_acp, &error));
+    std::unique_ptr<rules_cc::cc::runfiles::Runfiles> runfiles(
+        rules_cc::cc::runfiles::Runfiles::Create(argv0_acp, &error));
     if (runfiles == nullptr) {
       LogError(__LINE__, "Failed to load runfiles");
       return false;
@@ -1297,17 +1304,37 @@ bool StartSubprocess(const Path& path, const std::wstring& args,
   return true;
 }
 
+bool RemoveRelativeRecursively(const Path& root,
+                               const std::vector<FileInfo>& files) {
+  Path path;
+  for (const auto& file : files) {
+    if (!(path.Set(file.RelativePath()) && path.Absolutize(root) &&
+          blaze_util::RemoveRecursively(
+              blaze_util::WstringToCstring(path.Get())))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool ArchiveUndeclaredOutputs(const UndeclaredOutputs& undecl) {
-  if (undecl.root.Get().empty()) {
-    // TEST_UNDECLARED_OUTPUTS_DIR was undefined, there's nothing to archive.
+  if (undecl.root.Get().empty() || undecl.zip.Get().empty()) {
+    // TEST_UNDECLARED_OUTPUTS_DIR was undefined, so there's nothing to archive,
+    // or TEST_UNDECLARED_OUTPUTS_ZIP was undefined as
+    // --nozip_undeclared_test_outputs was specified.
     return true;
   }
 
   std::vector<FileInfo> files;
-  return GetFileListRelativeTo(undecl.root, &files) &&
-         (files.empty() ||
-          (CreateZip(undecl.root, files, undecl.zip) &&
-           CreateUndeclaredOutputsManifest(files, undecl.manifest)));
+  if (!GetFileListRelativeTo(undecl.root, &files)) {
+    return false;
+  }
+  if (files.empty()) {
+    return true;
+  }
+  return CreateZip(undecl.root, files, undecl.zip) &&
+         CreateUndeclaredOutputsManifest(files, undecl.manifest) &&
+         RemoveRelativeRecursively(undecl.root, files);
 }
 
 // Creates the Undeclared Outputs Annotations file.

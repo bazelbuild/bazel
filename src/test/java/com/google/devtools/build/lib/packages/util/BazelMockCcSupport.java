@@ -13,17 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.util;
 
+import static java.lang.Integer.MAX_VALUE;
+
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
+import java.util.Arrays;
 
-/**
- * Bazel implementation of {@link MockCcSupport}
- */
+/** Bazel implementation of {@link MockCcSupport} */
 public final class BazelMockCcSupport extends MockCcSupport {
   public static final BazelMockCcSupport INSTANCE = new BazelMockCcSupport();
 
@@ -35,18 +38,24 @@ public final class BazelMockCcSupport extends MockCcSupport {
   private BazelMockCcSupport() {}
 
   private static final ImmutableList<String> CROSSTOOL_ARCHS =
-      ImmutableList.of("piii", "k8", "armeabi-v7a", "ppc", "darwin");
+      ImmutableList.of("piii", "k8", "armeabi-v7a", "ppc", "darwin_x86_64");
 
   @Override
   protected String getRealFilesystemCrosstoolTopPath() {
-    // TODO(b/195425240): Make real-filesystem mode work.
-    return "";
+    if (OS.getCurrent() == OS.LINUX) {
+      return "src/test/java/com/google/devtools/build/lib/packages/util/real/linux";
+    }
+    throw new IllegalStateException("Unsupported OS: " + OS.getCurrent());
   }
 
   @Override
-  protected String[] getRealFilesystemTools(String crosstoolTop) {
-    // TODO(b/195425240): Make real-filesystem mode work.
+  protected String[] getRealFilesystemToolsToLink(String crosstoolTop) {
     return new String[0];
+  }
+
+  @Override
+  protected String[] getRealFilesystemToolsToCopy(String crosstoolTop) {
+    return new String[] {crosstoolTop + "/BUILD"};
   }
 
   @Override
@@ -64,11 +73,63 @@ public final class BazelMockCcSupport extends MockCcSupport {
     config.append(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
         "alias(name='host_xcodes',actual='@local_config_xcode//:host_xcodes')");
+    if (config.isRealFileSystem() && shouldUseRealFileSystemCrosstool()) {
+      config.append(
+          TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
+          """
+          toolchain_type(name = 'toolchain_type')
+          cc_library(
+              name = 'link_extra_lib',
+              srcs = ['linkextra.cc'],
+              tags = ['__DONT_DEPEND_ON_DEF_PARSER__'],
+          )
+          cc_library(
+              name = 'malloc',
+              srcs = ['malloc.cc'],
+              tags = ['__DONT_DEPEND_ON_DEF_PARSER__'],
+          )
+          filegroup(
+              name = 'aggregate-ddi',
+              srcs = ['aggregate-ddi.sh'],
+          )
+          filegroup(
+              name = 'generate-modmap',
+              srcs = ['generate-modmap.sh'],
+          )
+          filegroup(
+              name = 'interface_library_builder',
+              srcs = ['interface_library_builder.sh'],
+          )
+          filegroup(
+              name = 'link_dynamic_library',
+              srcs = ['link_dynamic_library.sh'],
+          )
+          """);
+      for (String s :
+          Arrays.asList(
+              "linkextra.cc",
+              "malloc.cc",
+              "aggregate-ddi.sh",
+              "generate-modmap.sh",
+              "interface_library_builder.sh",
+              "link_dynamic_library.sh")) {
+        config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/" + s);
+      }
+    }
+
+    // Copies rules_cc from real @rules_cc
+    config.create("third_party/bazel_rules/rules_cc/MODULE.bazel", "module(name='rules_cc')");
+    Runfiles runfiles = Runfiles.preload().withSourceRepository("");
+    PathFragment path = PathFragment.create(runfiles.rlocation("rules_cc/cc/defs.bzl"));
+    config.copyDirectory(
+        path.getParentDirectory(), "third_party/bazel_rules/rules_cc/cc", MAX_VALUE, true);
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/common/BUILD");
   }
 
   @Override
   public Label getMockCrosstoolLabel() {
-    return Label.parseAbsoluteUnchecked("@bazel_tools//tools/cpp:toolchain");
+    return Label.parseCanonicalUnchecked("@bazel_tools//tools/cpp:toolchain");
   }
 
   @Override
@@ -83,8 +144,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
 
   @Override
   protected boolean shouldUseRealFileSystemCrosstool() {
-    // TODO(b/195425240): Workaround for lack of real-filesystem support.
-    return false;
+    return OS.getCurrent() == OS.LINUX;
   }
 
   private static ImmutableList<CcToolchainConfig> getToolchainConfigs() {
@@ -94,9 +154,13 @@ public final class BazelMockCcSupport extends MockCcSupport {
     result.add(CcToolchainConfig.builder().build());
 
     if (OS.getCurrent() == OS.DARWIN) {
-      result.add(CcToolchainConfig.getCcToolchainConfigForCpu("darwin"));
+      result.add(CcToolchainConfig.getCcToolchainConfigForCpu("darwin_x86_64"));
+      result.add(CcToolchainConfig.getCcToolchainConfigForCpu("darwin_arm64"));
     }
 
+    if (System.getProperty("os.arch").equals("s390x")) {
+      result.add(CcToolchainConfig.getCcToolchainConfigForCpu("s390x"));
+    }
     return result.build();
   }
 }

@@ -17,16 +17,11 @@ package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 import com.google.common.base.Preconditions;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeMirror;
 
-/**
- * Generates serialize and deserialize code fragments.
- *
- * <p>All methods are logically static and take the {@link ProcessingEnvironment} as a parameter.
- */
+/** Generates serialize and deserialize code fragments. */
 interface SerializationCodeGenerator {
   class Context {
     /** Builder for the method. */
@@ -35,11 +30,8 @@ interface SerializationCodeGenerator {
     public final TypeMirror type;
     /** Name of variable. */
     public final String name;
-    /**
-     * Recursion depth.
-     *
-     * <p>Recursion is used to traverse generic types.
-     */
+
+    /** Recursion depth, for traversing nested types. */
     public final int depth;
 
     Context(MethodSpec.Builder builder, TypeMirror type, String name) {
@@ -91,12 +83,10 @@ interface SerializationCodeGenerator {
   };
 
   /** Appends code statements to serialize a pre-declared variable. */
-  void addSerializationCode(Context context)
-      throws SerializationProcessorUtil.SerializationProcessingFailedException;
+  void addSerializationCode(Context context) throws SerializationProcessingException;
 
   /** Appends code statements to initialize the pre-declared variable with deserialization. */
-  void addDeserializationCode(Context context)
-      throws SerializationProcessorUtil.SerializationProcessingFailedException;
+  void addDeserializationCode(Context context) throws SerializationProcessingException;
 
   /** A {@link SerializationCodeGenerator} for a particular declared type. */
   interface Marshaller extends SerializationCodeGenerator {

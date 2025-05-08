@@ -14,14 +14,13 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -35,7 +34,6 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -49,6 +47,7 @@ import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -100,7 +99,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
             Suppliers.ofInstance(new TimestampGranularityMonitor(BlazeClock.instance())),
             SyscallCache.NO_CACHE,
             externalFilesHelper));
-    skyFunctions.put(FileValue.FILE, new FileFunction(pkgLocator, directories));
+    skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
@@ -123,6 +122,22 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
         new LocalRepositoryLookupFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
+    skyFunctions.put(
+        SkyFunctions.REPOSITORY_MAPPING,
+        new SkyFunction() {
+          @Override
+          public SkyValue compute(SkyKey skyKey, Environment env) {
+            return RepositoryMappingValue.VALUE_FOR_ROOT_MODULE_WITHOUT_REPOS;
+          }
+        });
+    skyFunctions.put(
+        BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
+        new SkyFunction() {
+          @Override
+          public SkyValue compute(SkyKey skyKey, Environment env) {
+            return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
+          }
+        });
 
     RecordingDifferencer differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
@@ -147,7 +162,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
-            .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setParallelism(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     return evaluator.evaluate(ImmutableList.of(directoryKey), evaluationContext);
@@ -175,154 +190,4 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     assertThat(repositoryLookupValue.getRepository()).isEqualTo(RepositoryName.MAIN);
     assertThat(repositoryLookupValue.getPath()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
   }
-
-  @Test
-  public void testLocalRepository() throws Exception {
-    scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='local/repo')");
-    scratch.file("local/repo/WORKSPACE");
-    scratch.file("local/repo/BUILD");
-
-    LocalRepositoryLookupValue repositoryLookupValue =
-        lookupDirectory(
-            RootedPath.toRootedPath(
-                Root.fromPath(rootDirectory), PathFragment.create("local/repo")));
-    assertThat(repositoryLookupValue).isNotNull();
-    assertThat(repositoryLookupValue.getRepository().getNameWithAt()).isEqualTo("@local");
-    assertThat(repositoryLookupValue.getPath()).isEqualTo(PathFragment.create("local/repo"));
-  }
-
-  @Test
-  public void testLocalRepository_absolutePath() throws Exception {
-    scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='/abs/local/repo')");
-    scratch.file("/abs/local/repo/WORKSPACE");
-    scratch.file("/abs/local/repo/BUILD");
-
-    LocalRepositoryLookupValue repositoryLookupValue =
-        lookupDirectory(
-            RootedPath.toRootedPath(
-                Root.fromPath(rootDirectory.getRelative("/abs")),
-                PathFragment.create("local/repo")));
-    assertThat(repositoryLookupValue).isNotNull();
-    assertThat(repositoryLookupValue.getRepository().getNameWithAt()).isEqualTo("@local");
-    assertThat(repositoryLookupValue.getPath()).isEqualTo(PathFragment.create("/abs/local/repo"));
-  }
-
-  @Test
-  public void testLocalRepository_nonNormalizedPath() throws Exception {
-    scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='./local/repo')");
-    scratch.file("local/repo/WORKSPACE");
-    scratch.file("local/repo/BUILD");
-
-    LocalRepositoryLookupValue repositoryLookupValue =
-        lookupDirectory(
-            RootedPath.toRootedPath(
-                Root.fromPath(rootDirectory), PathFragment.create("local/repo")));
-    assertThat(repositoryLookupValue).isNotNull();
-    assertThat(repositoryLookupValue.getRepository().getNameWithAt()).isEqualTo("@local");
-    assertThat(repositoryLookupValue.getPath()).isEqualTo(PathFragment.create("local/repo"));
-  }
-
-  @Test
-  public void testLocalRepository_absolutePath_nonNormalized() throws Exception {
-    scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='/abs/local/./repo')");
-    scratch.file("/abs/local/repo/WORKSPACE");
-    scratch.file("/abs/local/repo/BUILD");
-
-    LocalRepositoryLookupValue repositoryLookupValue =
-        lookupDirectory(
-            RootedPath.toRootedPath(
-                Root.fromPath(rootDirectory.getRelative("/abs")),
-                PathFragment.create("local/repo")));
-    assertThat(repositoryLookupValue).isNotNull();
-    assertThat(repositoryLookupValue.getRepository().getNameWithAt()).isEqualTo("@local");
-    assertThat(repositoryLookupValue.getPath()).isEqualTo(PathFragment.create("/abs/local/repo"));
-  }
-
-  @Test
-  public void testLocalRepositorySubPackage() throws Exception {
-    scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='local/repo')");
-    scratch.file("local/repo/WORKSPACE");
-    scratch.file("local/repo/BUILD");
-    scratch.file("local/repo/sub/package/BUILD");
-
-    LocalRepositoryLookupValue repositoryLookupValue =
-        lookupDirectory(
-            RootedPath.toRootedPath(
-                Root.fromPath(rootDirectory), PathFragment.create("local/repo/sub/package")));
-    assertThat(repositoryLookupValue).isNotNull();
-    assertThat(repositoryLookupValue.getRepository().getNameWithAt()).isEqualTo("@local");
-    assertThat(repositoryLookupValue.getPath()).isEqualTo(PathFragment.create("local/repo"));
-  }
-
-  @Test
-  public void testWorkspaceButNoLocalRepository() throws Exception {
-    scratch.overwriteFile("WORKSPACE", "");
-    scratch.file("local/repo/WORKSPACE");
-    scratch.file("local/repo/BUILD");
-
-    LocalRepositoryLookupValue repositoryLookupValue =
-        lookupDirectory(
-            RootedPath.toRootedPath(
-                Root.fromPath(rootDirectory), PathFragment.create("local/repo")));
-    assertThat(repositoryLookupValue).isNotNull();
-    assertThat(repositoryLookupValue.getRepository()).isEqualTo(RepositoryName.MAIN);
-    assertThat(repositoryLookupValue.getPath()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
-  }
-
-  @Test
-  public void testLocalRepository_localWorkspace_symlinkCycle() throws Exception {
-    scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='local/repo')");
-    Path localRepoWorkspace = scratch.resolve("local/repo/WORKSPACE");
-    Path localRepoWorkspaceLink = scratch.resolve("local/repo/WORKSPACE.link");
-    localRepoWorkspace.getParentDirectory().createDirectoryAndParents();
-    localRepoWorkspaceLink.getParentDirectory().createDirectoryAndParents();
-    localRepoWorkspace.createSymbolicLink(localRepoWorkspaceLink);
-    localRepoWorkspaceLink.createSymbolicLink(localRepoWorkspace);
-    scratch.file("local/repo/BUILD");
-
-    SkyKey localRepositoryKey =
-        createKey(
-            RootedPath.toRootedPath(
-                Root.fromPath(rootDirectory), PathFragment.create("local/repo")));
-    EvaluationResult<LocalRepositoryLookupValue> result = lookupDirectory(localRepositoryKey);
-
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(localRepositoryKey)
-        .hasExceptionThat()
-        .hasMessageThat()
-        .isEqualTo(
-            "FileSymlinkException while checking if there is a WORKSPACE file in "
-                + "/workspace/local/repo");
-  }
-
-  @Test
-  public void testLocalRepository_mainWorkspace_notFound() throws Exception {
-    // Do not add a local_repository to WORKSPACE.
-    scratch.overwriteFile("WORKSPACE", "");
-    scratch.deleteFile("WORKSPACE");
-    scratch.file("local/repo/WORKSPACE");
-    scratch.file("local/repo/BUILD");
-
-    LocalRepositoryLookupValue repositoryLookupValue =
-        lookupDirectory(
-            RootedPath.toRootedPath(
-                Root.fromPath(rootDirectory), PathFragment.create("local/repo")));
-    assertThat(repositoryLookupValue).isNotNull();
-    // In this case, the repository should be MAIN as we can't find any local_repository rules.
-    assertThat(repositoryLookupValue.getRepository()).isEqualTo(RepositoryName.MAIN);
-    assertThat(repositoryLookupValue.getPath()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
-  }
-
-  // TODO(katre): Add tests for the following exceptions
-  // While reading dir/WORKSPACE:
-  // - IOException
-  // - FileSymlinkException
-  // - InconsistentFilesystemException
-  // While loading //external
-  // - BuildFileNotFoundException
-  // - InconsistentFilesystemException
-  // While reading //external:WORKSPACE
-  // - PackageFunctionException
-  // - NameConflictException
-  // - WorkspaceFileException
 }

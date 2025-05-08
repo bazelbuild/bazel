@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
+import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -34,7 +34,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -56,7 +55,7 @@ import javax.annotation.Nullable;
  * to achieve.
  */
 @ThreadSafe
-public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
+public class InMemoryFileSystem extends AbstractFileSystem {
 
   protected final Clock clock;
 
@@ -609,15 +608,10 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected synchronized ReadableByteChannel createReadableByteChannel(PathFragment path)
+  protected synchronized SeekableByteChannel createReadWriteByteChannel(PathFragment path)
       throws IOException {
-    return statFile(path).createReadableByteChannel();
-  }
-
-  @Override
-  protected synchronized SeekableByteChannel createReadWriteByteChannel(PathFragment path) {
-    // It's feasible to implement, but so far it is not needed.
-    throw new UnsupportedOperationException("Not implemented");
+    InMemoryContentInfo status = getOrCreateWritableInode(path);
+    return ((FileInfo) status).createReadWriteByteChannel();
   }
 
   @Override
@@ -673,8 +667,8 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected synchronized OutputStream getOutputStream(PathFragment path, boolean append)
-      throws IOException {
+  protected synchronized OutputStream getOutputStream(
+      PathFragment path, boolean append, boolean internal) throws IOException {
     InMemoryContentInfo status = getOrCreateWritableInode(path);
     return ((FileInfo) status).getOutputStream(append);
   }

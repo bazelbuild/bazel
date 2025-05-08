@@ -1,3 +1,4 @@
+#include "src/main/cpp/util/path_platform.h"
 // Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,15 +16,17 @@
 #ifndef BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_
 #define BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_
 
-#include <cinttypes>
+#include <stdint.h>
+
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/server_process_info.h"
-#include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/port.h"
 
 namespace blaze {
@@ -45,7 +48,7 @@ class Dumper {
   // If writing fails, this method sets a flag in the `Dumper`, and `Finish`
   // will return false. Subsequent `Dump` calls will have no effect.
   virtual void Dump(const void* data, const size_t size,
-                    const std::string& path) = 0;
+                    const blaze_util::Path& path) = 0;
 
   // Finishes dumping data.
   //
@@ -76,7 +79,7 @@ class StartupOptions;
 
 class SignalHandler {
  public:
-  typedef void (* Callback)();
+  typedef void (*Callback)();
 
   static SignalHandler& Get() { return INSTANCE; }
   const ServerProcessInfo* GetServerProcessInfo() const {
@@ -103,7 +106,7 @@ class SignalHandler {
 };
 
 // A signal-safe version of fprintf(stderr, ...).
-void SigPrintf(const char *format, ...);
+void SigPrintf(const char* format, ...);
 
 std::string GetProcessIdAsString();
 
@@ -115,8 +118,8 @@ std::string Which(const std::string& executable);
 // readable.
 std::string GetSelfPath(const char* argv0);
 
-// Returns the directory Bazel can use to store output.
-std::string GetOutputRoot();
+// Returns a directory suitable for storing cached files.
+std::string GetCacheDir();
 
 // Returns the current user's home directory, or the empty string if unknown.
 // On Linux/macOS, this is $HOME. On Windows this is %USERPROFILE%.
@@ -151,12 +154,12 @@ std::string GetJavaBinaryUnderJavabase();
 // Start the Bazel server's JVM in the current directory.
 //
 // Note on Windows: 'server_jvm_args' is NOT expected to be escaped for
-// CreateProcessW.
+// CreateProcessW, and 'run_in_user_cgroup' is ignored.
 //
 // This function does not return on success.
 ATTRIBUTE_NORETURN void ExecuteServerJvm(
     const blaze_util::Path& exe,
-    const std::vector<std::string>& server_jvm_args);
+    const std::vector<std::string>& server_jvm_args, bool run_in_user_cgroup);
 
 // Execute the "bazel run" request in the current directory.
 //
@@ -174,7 +177,6 @@ class BlazeServerStartup {
   virtual bool IsStillAlive() = 0;
 };
 
-
 // Starts a daemon process with its standard output and standard error
 // redirected (and conditionally appended) to the file "daemon_output". Sets
 // server_startup to an object that can be used to query if the server is
@@ -185,35 +187,42 @@ int ExecuteDaemon(
     const blaze_util::Path& exe, const std::vector<std::string>& args_vector,
     const std::map<std::string, EnvVarValue>& env,
     const blaze_util::Path& daemon_output, const bool daemon_output_append,
-    const std::string& binaries_dir, const blaze_util::Path& server_dir,
+    const blaze_util::Path& binaries_dir, const blaze_util::Path& server_dir,
     const StartupOptions& options, BlazeServerStartup** server_startup);
 
 // A character used to separate paths in a list.
 extern const char kListSeparator;
 
 // Create a symlink to directory ``target`` at location ``link``.
-// Returns true on success, false on failure. The target must be absolute.
+// Returns true on success, false on failure.
 // Implemented via junctions on Windows.
-bool SymlinkDirectories(const std::string& target,
+bool SymlinkDirectories(const blaze_util::Path& target,
                         const blaze_util::Path& link);
 
-struct BlazeLock {
-#if defined(_WIN32) || defined(__CYGWIN__)
-  /* HANDLE */ void* handle;
-#else
-  int lockfd;
-#endif
+typedef uintptr_t LockHandle;
+
+enum class LockMode {
+  kShared,
+  kExclusive,
 };
 
-// Acquires a lock on the output base. Exits if the lock cannot be acquired.
-// Sets ``lock`` to a value that can subsequently be passed to ReleaseLock().
-// Returns the number of milliseconds spent with waiting for the lock.
-uint64_t AcquireLock(const blaze_util::Path& output_base, bool batch_mode,
-                     bool block, BlazeLock* blaze_lock);
+// Acquires a `mode` lock on `path`, creating it if doesn't yet exist.
+// If `block` is true, busy-wait until the lock becomes available.
+// If `batch_mode` is false, release the lock on exec.
+// The `path` is guaranteed to exist when this function returns; if it is
+// deleted concurrently with obtaining the lock, we recreate it and try again.
+// This makes it safe to delete the file under an exclusive lock.
+// The `name` argument is used in human-readable error messages.
+// Returns a handle that can be subsequently passed to ReleaseLock as well as
+// the time spent waiting for the lock, if any.
+// Crashes if an error occurs while attempting to obtain the lock.
+std::pair<LockHandle, DurationMillis> AcquireLock(const std::string& name,
+                                                  const blaze_util::Path& path,
+                                                  LockMode mode,
+                                                  bool batch_mode, bool block);
 
-// Releases the lock on the output base. In case of an error, continues as
-// usual.
-void ReleaseLock(BlazeLock* blaze_lock);
+// Releases a lock previously obtained from AcquireLock.
+void ReleaseLock(LockHandle lock_handle);
 
 // Verifies whether the server process still exists. Returns true if it does.
 bool VerifyServerProcess(int pid, const blaze_util::Path& output_base);
@@ -233,13 +242,12 @@ void ExcludePathFromBackup(const blaze_util::Path& path);
 
 // Returns the canonical form of the base dir given a root and a hashable
 // string. The resulting dir is composed of the root + md5(hashable)
-std::string GetHashedBaseDir(const std::string& root,
-                             const std::string& hashable);
+blaze_util::Path GetHashedBaseDir(const blaze_util::Path& root,
+                                  const std::string& hashable);
 
-// Create a safe installation directory where we keep state, installations etc.
-// This method ensures that the directory is created, is owned by the current
-// user, and not accessible to anyone else.
-void CreateSecureOutputRoot(const blaze_util::Path& path);
+// Creates a directory while making sure it is owned by the current user and
+// not accessible to anyone else.
+void CreateSecureDirectory(const blaze_util::Path& path);
 
 std::string GetEnv(const std::string& name);
 

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.skyframe.packages.PackageLoader;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import java.util.OptionalLong;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
@@ -58,10 +57,7 @@ public class BazelPackageLoadingListenerForTesting implements PackageLoadingList
 
   @Override
   public void onLoadingCompleteAndSuccessful(
-      Package pkg,
-      StarlarkSemantics starlarkSemantics,
-      long loadTimeNanos,
-      OptionalLong packageOverhead) {
+      Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos) {
     sanityCheckBazelPackageLoader(pkg, ruleClassProvider, starlarkSemantics);
   }
 

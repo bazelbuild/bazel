@@ -16,32 +16,30 @@
 
 #include <assert.h>
 
+#include <optional>
+#include <string>
+#include <vector>
+
 #include "src/main/cpp/blaze_util_platform.h"
-#include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
+#include "absl/strings/match.h"
 
 namespace blaze {
 
 using std::string;
 using std::vector;
 
-static const char kWorkspaceDotBazelMarker[] = "WORKSPACE.bazel";
-static const char kWorkspaceMarker[] = "WORKSPACE";
-
-string WorkspaceLayout::GetOutputRoot() const {
-  return blaze::GetOutputRoot();
-}
-
 bool WorkspaceLayout::InWorkspace(const string &workspace) const {
-  auto workspaceDotBazelPath =
-      blaze_util::JoinPath(workspace, kWorkspaceDotBazelMarker);
-  auto workspacePath = blaze_util::JoinPath(workspace, kWorkspaceMarker);
-  return (blaze_util::PathExists(workspaceDotBazelPath) &&
-          !blaze_util::IsDirectory(workspaceDotBazelPath)) ||
-         (blaze_util::PathExists(workspacePath) &&
-          !blaze_util::IsDirectory(workspacePath));
+  for (auto boundaryFileName :
+       {"MODULE.bazel", "REPO.bazel", "WORKSPACE.bazel", "WORKSPACE"}) {
+    auto boundaryFilePath = blaze_util::JoinPath(workspace, boundaryFileName);
+    if (blaze_util::PathExists(boundaryFilePath) &&
+        !blaze_util::IsDirectory(boundaryFilePath))
+      return true;
+  }
+  return false;
 }
 
 string WorkspaceLayout::GetWorkspace(const string &cwd) const {
@@ -58,7 +56,7 @@ string WorkspaceLayout::GetWorkspace(const string &cwd) const {
 }
 
 string WorkspaceLayout::GetPrettyWorkspaceName(
-    const std::string& workspace) const {
+    const std::string &workspace) const {
   // e.g. A Bazel server process running in ~/src/myproject (where there's a
   // ~/src/myproject/WORKSPACE file) will appear in ps(1) as "bazel(myproject)".
   return blaze_util::Basename(workspace);
@@ -73,15 +71,17 @@ std::string WorkspaceLayout::GetWorkspaceRcPath(
   return blaze_util::JoinPath(workspace, "tools/bazel.rc");
 }
 
-bool WorkspaceLayout::WorkspaceRelativizeRcFilePath(const string &workspace,
-                                                    string *path_fragment)
-    const {
+std::optional<std::string> WorkspaceLayout::ResolveWorkspaceRelativeRcFilePath(
+    const string &workspace, const string &import_path) const {
   // Strip off the "%workspace%/" prefix and prepend the true workspace path.
   // In theory this could use alternate search paths for blazerc files.
-  path_fragment->assign(
-      blaze_util::JoinPath(workspace,
-                           path_fragment->substr(WorkspacePrefixLength)));
-  return true;
+  assert(absl::StartsWith(import_path, kWorkspacePrefix));
+  string resolved_path = blaze_util::JoinPath(
+      workspace, import_path.substr(kWorkspacePrefixLength));
+  if (blaze_util::PathExists(resolved_path)) {
+    return resolved_path;
+  }
+  return std::nullopt;
 }
 
 }  // namespace blaze

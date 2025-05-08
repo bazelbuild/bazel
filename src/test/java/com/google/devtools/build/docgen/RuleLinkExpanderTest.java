@@ -40,14 +40,16 @@ public class RuleLinkExpanderTest {
             .buildOrThrow();
     DocLinkMap linkMap =
         new DocLinkMap(
-            "",
+            /* beRoot= */ "",
             ImmutableMap.of(
                 "make-variables",
                 "make-variables.html",
                 "common-definitions",
                 "common-definitions.html",
                 "standalone",
-                "standalone.html"));
+                "standalone.html"),
+            /* sourceUrlRoot= */ "",
+            ImmutableMap.of());
     multiPageExpander = new RuleLinkExpander(index, false, linkMap);
     singlePageExpander = new RuleLinkExpander(index, true, linkMap);
   }
@@ -192,7 +194,12 @@ public class RuleLinkExpanderTest {
 
   @Test
   public void testExcplicitBuildEncyclopediaRoot() {
-    DocLinkMap linkMap = new DocLinkMap("/be_root", ImmutableMap.of());
+    DocLinkMap linkMap =
+        new DocLinkMap(
+            /* beRoot= */ "/be_root",
+            ImmutableMap.of(),
+            /* sourceUrlRoot= */ "",
+            ImmutableMap.of());
     RuleLinkExpander expander =
         new RuleLinkExpander(ImmutableMap.of("java_binary", "java"), false, linkMap);
 

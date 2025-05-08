@@ -17,7 +17,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
+import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.IOException;
@@ -35,7 +37,7 @@ public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<KeyedConfiguredTarget> accessor,
+      TargetAccessor<CqueryNode> accessor,
       TopLevelArtifactContext topLevelArtifactContext) {
     // Different targets may provide the same artifact, so we deduplicate the collection of all
     // results at the end.
@@ -49,18 +51,22 @@ public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<KeyedConfiguredTarget> partialResult)
+  public void processOutput(Iterable<CqueryNode> partialResult)
       throws IOException, InterruptedException {
-    for (KeyedConfiguredTarget keyedTarget : partialResult) {
-      ConfiguredTarget target = keyedTarget.getConfiguredTarget();
-      if (!TopLevelArtifactHelper.shouldConsiderForDisplay(target)) {
+    for (CqueryNode target : partialResult) {
+      if (!(target instanceof ConfiguredTarget cf)
+          || (!TopLevelArtifactHelper.shouldConsiderForDisplay(target)
+              && !(target instanceof InputFileConfiguredTarget))) {
         continue;
       }
-      TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext)
+
+      TopLevelArtifactHelper.getAllArtifactsToBuild(cf, topLevelArtifactContext)
           .getImportantArtifacts()
           .toList()
           .stream()
-          .filter(TopLevelArtifactHelper::shouldDisplay)
+          .filter(
+              artifact ->
+                  TopLevelArtifactHelper.shouldDisplay(artifact) || artifact.isSourceArtifact())
           .map(Artifact::getExecPathString)
           .forEach(this::addResult);
     }

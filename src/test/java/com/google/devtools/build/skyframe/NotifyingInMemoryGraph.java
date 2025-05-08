@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.devtools.build.skyframe.NotifyingHelper.Order;
+import java.util.Collection;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** {@link NotifyingHelper} that additionally implements the {@link InMemoryGraph} interface. */
@@ -58,25 +60,58 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
   public Map<SkyKey, SkyValue> getValues() {
     notifyingHelper.graphListener.accept(
         // Be gentle to tests that assume the key is not null
-        /*key=*/ () -> SkyFunctionName.FOR_TESTING,
+        /* key= */ () -> SkyFunctionName.FOR_TESTING,
         NotifyingHelper.EventType.GET_VALUES,
         NotifyingHelper.Order.BEFORE,
-        /*context=*/ null);
+        /* context= */ null);
     return ((InMemoryGraph) delegate).getValues();
   }
 
   @Override
+  public void remove(SkyKey key) {
+    notifyingHelper.graphListener.accept(
+        key, NotifyingHelper.EventType.REMOVE, Order.BEFORE, /* context= */ null);
+    delegate.remove(key);
+  }
+
+  @Override
   public int valuesSize() {
-    return ((InMemoryGraph) delegate).getValues().size();
+    return ((InMemoryGraph) delegate).valuesSize();
   }
 
   @Override
-  public Map<SkyKey, InMemoryNodeEntry> getAllValues() {
-    return ((InMemoryGraph) delegate).getAllValues();
+  public Map<SkyKey, SkyValue> getDoneValues() {
+    return ((InMemoryGraph) delegate).getDoneValues();
   }
 
   @Override
-  public ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable() {
-    return ((InMemoryGraph) delegate).getAllValuesMutable();
+  public Collection<InMemoryNodeEntry> getAllNodeEntries() {
+    return ((InMemoryGraph) delegate).getAllNodeEntries();
+  }
+
+  @Override
+  public void parallelForEach(Consumer<InMemoryNodeEntry> consumer) {
+    ((InMemoryGraph) delegate).parallelForEach(consumer);
+  }
+
+  @Override
+  public void cleanupInterningPools() {
+    ((InMemoryGraph) delegate).cleanupInterningPools();
+  }
+
+  @Override
+  public void removeIfDone(SkyKey key) {
+    ((InMemoryGraph) delegate).removeIfDone(key);
+  }
+
+  @Override
+  @Nullable
+  public InMemoryNodeEntry getIfPresent(SkyKey key) {
+    return ((InMemoryGraph) delegate).getIfPresent(key);
+  }
+
+  @Override
+  public void shrinkNodeMap() {
+    ((InMemoryGraph) delegate).shrinkNodeMap();
   }
 }

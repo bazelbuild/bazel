@@ -28,17 +28,23 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ResourceConverterTest {
 
-  private ResourceConverter resourceConverter;
+  private ResourceConverter<?> resourceConverter;
 
   @Test
   public void convertNumber_returnsInt() throws Exception {
-    resourceConverter = new ResourceConverter(() -> null);
+    resourceConverter = new ResourceConverter.IntegerConverter(() -> null, 1, Integer.MAX_VALUE);
     assertThat(resourceConverter.convert("6")).isEqualTo(6);
   }
 
   @Test
+  public void convertNumber_returnsDouble() throws Exception {
+    resourceConverter = new ResourceConverter.DoubleConverter(() -> null, 1.0, Double.MAX_VALUE);
+    assertThat(resourceConverter.convert("6.3")).isEqualTo(6.3);
+  }
+
+  @Test
   public void convertNumber_greaterThanMax_throwsException() {
-    resourceConverter = new ResourceConverter(() -> null, 0, 1);
+    resourceConverter = new ResourceConverter.IntegerConverter(() -> null, 0, 1);
     OptionsParsingException thrown =
         assertThrows(OptionsParsingException.class, () -> resourceConverter.convert("2"));
     assertThat(thrown).hasMessageThat().contains("cannot be greater than 1");
@@ -46,7 +52,7 @@ public class ResourceConverterTest {
 
   @Test
   public void convertNumber_lessThanMin_throwsException() throws Exception {
-    resourceConverter = new ResourceConverter(() -> null, -1, 1);
+    resourceConverter = new ResourceConverter.IntegerConverter(() -> null, -1, 1);
     assertThat(resourceConverter.convert("0")).isEqualTo(0);
     OptionsParsingException thrown =
         assertThrows(OptionsParsingException.class, () -> resourceConverter.convert("-2"));
@@ -55,19 +61,19 @@ public class ResourceConverterTest {
 
   @Test
   public void convertAuto_returnsSuppliedAutoValue() throws Exception {
-    resourceConverter = new ResourceConverter(() -> 5);
+    resourceConverter = new ResourceConverter.IntegerConverter(() -> 5, 1, Integer.MAX_VALUE);
     assertThat(resourceConverter.convert("auto")).isEqualTo(5);
   }
 
   @Test
   public void convertAuto_withOperator_appliesOperatorToAuto() throws Exception {
-    resourceConverter = new ResourceConverter(() -> 5);
+    resourceConverter = new ResourceConverter.IntegerConverter(() -> 5, 1, Integer.MAX_VALUE);
     assertThat(resourceConverter.convert("auto-1")).isEqualTo(4);
   }
 
   @Test
   public void convertAuto_withInvalidOperator_throwsException() {
-    resourceConverter = new ResourceConverter(() -> null);
+    resourceConverter = new ResourceConverter.IntegerConverter(() -> null, 1, Integer.MAX_VALUE);
     OptionsParsingException thrown =
         assertThrows(OptionsParsingException.class, () -> resourceConverter.convert("auto/2"));
     assertThat(thrown).hasMessageThat().contains("does not follow correct syntax");
@@ -75,27 +81,27 @@ public class ResourceConverterTest {
 
   @Test
   public void convertAuto_isFloat_returnsRoundedInt() throws Exception {
-    resourceConverter = new ResourceConverter(() -> 5);
+    resourceConverter = new ResourceConverter.IntegerConverter(() -> 5, 1, Integer.MAX_VALUE);
     assertThat(resourceConverter.convert("auto*.51")).isEqualTo(3);
   }
 
   @Test
   public void convertHostCpus_returnsCpuSetting() throws Exception {
     LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(1, 15));
-    resourceConverter = new ResourceConverter(() -> 5);
+    resourceConverter = new ResourceConverter.IntegerConverter(() -> 5, 1, Integer.MAX_VALUE);
     assertThat(resourceConverter.convert("HOST_CPUS")).isEqualTo(15);
   }
 
   @Test
   public void convertRam_returnsRamSetting() throws Exception {
     LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(10, 0));
-    resourceConverter = new ResourceConverter(() -> 5);
+    resourceConverter = new ResourceConverter.IntegerConverter(() -> 5, 1, Integer.MAX_VALUE);
     assertThat(resourceConverter.convert("HOST_RAM")).isEqualTo(10);
   }
 
   @Test
   public void convertFloat_throwsException() {
-    resourceConverter = new ResourceConverter(() -> null);
+    resourceConverter = new ResourceConverter.IntegerConverter(() -> null, 1, Integer.MAX_VALUE);
     OptionsParsingException thrown =
         assertThrows(OptionsParsingException.class, () -> resourceConverter.convert(".5"));
     assertThat(thrown).hasMessageThat().contains("This flag takes an integer");
@@ -103,7 +109,7 @@ public class ResourceConverterTest {
 
   @Test
   public void convertWrongKeyword_throwsException() {
-    resourceConverter = new ResourceConverter(() -> null);
+    resourceConverter = new ResourceConverter.IntegerConverter(() -> null, 1, Integer.MAX_VALUE);
     OptionsParsingException thrown =
         assertThrows(
             OptionsParsingException.class, () -> resourceConverter.convert("invalid_keyword"));
@@ -119,7 +125,7 @@ public class ResourceConverterTest {
 
   @Test
   public void convertAlmostValidKeyword_throwsException() {
-    resourceConverter = new ResourceConverter(() -> null);
+    resourceConverter = new ResourceConverter.IntegerConverter(() -> null, 1, Integer.MAX_VALUE);
     OptionsParsingException thrown =
         assertThrows(OptionsParsingException.class, () -> resourceConverter.convert("aut"));
     assertThat(thrown).hasMessageThat().contains("does not follow correct syntax");
@@ -127,17 +133,8 @@ public class ResourceConverterTest {
 
   @Test
   public void buildConverter_beforeResources_usesResources() throws Exception {
-    resourceConverter = new ResourceConverter(() -> null);
+    resourceConverter = new ResourceConverter.IntegerConverter(() -> null, 1, Integer.MAX_VALUE);
     LocalHostCapacity.setLocalHostCapacity(ResourceSet.createWithRamCpu(0, 15));
     assertThat(resourceConverter.convert("HOST_CPUS")).isEqualTo(15);
   }
-
-  @Test
-  public void buildConverter_withNoMin_setsMinTo1() {
-    resourceConverter = new ResourceConverter(() -> null);
-    OptionsParsingException thrown =
-        assertThrows(OptionsParsingException.class, () -> resourceConverter.convert("0"));
-    assertThat(thrown).hasMessageThat().contains("must be at least 1");
-  }
-
 }

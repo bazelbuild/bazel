@@ -21,11 +21,9 @@ import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
+import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
@@ -39,7 +37,6 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -57,20 +54,13 @@ public final class SpawnRunnerTestUtil {
 
   /** A rigged spawn execution policy that can be used for testing purposes. */
   public static final class SpawnExecutionContextForTesting implements SpawnExecutionContext {
-    private final List<ProgressStatus> reportedStatus = new ArrayList<>();
+    public final List<ProgressStatus> reportedStatus = new ArrayList<>();
+    public boolean prefetchCalled;
+    public boolean lockOutputFilesCalled;
 
     private final Spawn spawn;
     private final Duration timeout;
     private final FileOutErr fileOutErr;
-
-    /** An object that can expand middleman artifacts. */
-    private final ArtifactExpander artifactExpander =
-        new ArtifactExpander() {
-          @Override
-          public void expand(Artifact artifact, Collection<? super Artifact> output) {
-            // Do nothing.
-          }
-        };
 
     /**
      * Creates a new spawn execution policy for testing purposes.
@@ -92,13 +82,27 @@ public final class SpawnRunnerTestUtil {
     }
 
     @Override
+    public void setDigest(Digest digest) {
+      // Intentionally empty.
+    }
+
+    @Override
+    @Nullable
+    public Digest getDigest() {
+      return null;
+    }
+
+    @Override
     public ListenableFuture<Void> prefetchInputs() {
+      prefetchCalled = true;
       return immediateVoidFuture();
     }
 
     @Override
     public void lockOutputFiles(int exitCode, String errorMessage, FileOutErr outErr)
-        throws InterruptedException {}
+        throws InterruptedException {
+      lockOutputFilesCalled = true;
+    }
 
     @Override
     public boolean speculating() {
@@ -106,13 +110,8 @@ public final class SpawnRunnerTestUtil {
     }
 
     @Override
-    public MetadataProvider getMetadataProvider() {
-      return mock(MetadataProvider.class);
-    }
-
-    @Override
-    public ArtifactExpander getArtifactExpander() {
-      return artifactExpander;
+    public InputMetadataProvider getInputMetadataProvider() {
+      return mock(InputMetadataProvider.class);
     }
 
     @Override
@@ -131,7 +130,8 @@ public final class SpawnRunnerTestUtil {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory) {
+    public SortedMap<PathFragment, ActionInput> getInputMapping(
+        PathFragment baseDirectory, boolean willAccessRepeatedly) {
       TreeMap<PathFragment, ActionInput> inputMapping = new TreeMap<>();
       for (ActionInput actionInput : spawn.getInputFiles().toList()) {
         inputMapping.put(baseDirectory.getRelative(actionInput.getExecPath()), actionInput);
@@ -142,11 +142,6 @@ public final class SpawnRunnerTestUtil {
     @Override
     public void report(ProgressStatus progress) {
       reportedStatus.add(progress);
-    }
-
-    @Override
-    public MetadataInjector getMetadataInjector() {
-      return mock(MetadataInjector.class);
     }
 
     @Override

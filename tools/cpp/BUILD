@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
@@ -21,6 +23,7 @@ exports_files(glob(["*.bzl"]))
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//tools/cpp/modules_tools:srcs",
         "//tools/cpp/runfiles:srcs",
     ],
 )
@@ -28,6 +31,7 @@ filegroup(
 filegroup(
     name = "embedded_tools",
     srcs = glob(["**"]) + [
+        "//tools/cpp/modules_tools:embedded_tools",
         "//tools/cpp/runfiles:embedded_tools",
     ],
 )

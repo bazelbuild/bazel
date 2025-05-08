@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.aquery;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -32,12 +33,10 @@ import com.google.devtools.build.lib.query2.engine.QueryVisibility;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -47,36 +46,35 @@ import java.util.Set;
  *
  * <p>Incomplete; we'll implement getPrerequisites and getVisibility when needed.
  */
-public class ConfiguredTargetValueAccessor implements TargetAccessor<KeyedConfiguredTargetValue> {
+public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredTargetValue> {
 
   private final WalkableGraph walkableGraph;
   private final TargetLookup targetLookup;
-  private final KeyExtractor<KeyedConfiguredTargetValue, ConfiguredTargetKey>
-      configuredTargetKeyExtractor;
+  private final KeyExtractor<ConfiguredTargetValue, ActionLookupKey> configuredTargetKeyExtractor;
 
   public ConfiguredTargetValueAccessor(
       WalkableGraph walkableGraph,
       TargetLookup targetLookup,
-      KeyExtractor<KeyedConfiguredTargetValue, ConfiguredTargetKey> configuredTargetKeyExtractor) {
+      KeyExtractor<ConfiguredTargetValue, ActionLookupKey> configuredTargetKeyExtractor) {
     this.walkableGraph = walkableGraph;
     this.targetLookup = targetLookup;
     this.configuredTargetKeyExtractor = configuredTargetKeyExtractor;
   }
 
   @Override
-  public String getTargetKind(KeyedConfiguredTargetValue keyedConfiguredTargetValue) {
-    Target actualTarget = getTargetFromConfiguredTargetValue(keyedConfiguredTargetValue);
+  public String getTargetKind(ConfiguredTargetValue configuredTargetValue) {
+    Target actualTarget = getTargetFromConfiguredTargetValue(configuredTargetValue);
     return actualTarget.getTargetKind();
   }
 
   @Override
-  public String getLabel(KeyedConfiguredTargetValue keyedConfiguredTargetValue) {
-    return keyedConfiguredTargetValue.getConfiguredTarget().getLabel().toString();
+  public String getLabel(ConfiguredTargetValue configuredTargetValue) {
+    return configuredTargetValue.getConfiguredTarget().getLabel().toString();
   }
 
   @Override
-  public String getPackage(KeyedConfiguredTargetValue keyedConfiguredTargetValue) {
-    return keyedConfiguredTargetValue
+  public String getPackage(ConfiguredTargetValue configuredTargetValue) {
+    return configuredTargetValue
         .getConfiguredTarget()
         .getLabel()
         .getPackageIdentifier()
@@ -85,27 +83,27 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<KeyedConfig
   }
 
   @Override
-  public boolean isRule(KeyedConfiguredTargetValue keyedConfiguredTargetValue) {
-    Target actualTarget = getTargetFromConfiguredTargetValue(keyedConfiguredTargetValue);
+  public boolean isRule(ConfiguredTargetValue configuredTargetValue) {
+    Target actualTarget = getTargetFromConfiguredTargetValue(configuredTargetValue);
     return actualTarget instanceof Rule;
   }
 
   @Override
-  public boolean isTestRule(KeyedConfiguredTargetValue keyedConfiguredTargetValue) {
-    Target actualTarget = getTargetFromConfiguredTargetValue(keyedConfiguredTargetValue);
+  public boolean isTestRule(ConfiguredTargetValue configuredTargetValue) {
+    Target actualTarget = getTargetFromConfiguredTargetValue(configuredTargetValue);
     return TargetUtils.isTestRule(actualTarget);
   }
 
   @Override
-  public boolean isTestSuite(KeyedConfiguredTargetValue keyedConfiguredTargetValue) {
-    Target actualTarget = getTargetFromConfiguredTargetValue(keyedConfiguredTargetValue);
+  public boolean isTestSuite(ConfiguredTargetValue configuredTargetValue) {
+    Target actualTarget = getTargetFromConfiguredTargetValue(configuredTargetValue);
     return TargetUtils.isTestSuiteRule(actualTarget);
   }
 
   @Override
-  public List<KeyedConfiguredTargetValue> getPrerequisites(
+  public List<ConfiguredTargetValue> getPrerequisites(
       QueryExpression caller,
-      KeyedConfiguredTargetValue keyedConfiguredTargetValue,
+      ConfiguredTargetValue configuredTargetValue,
       String attrName,
       String errorMsgPrefix)
       throws QueryException, InterruptedException {
@@ -116,42 +114,36 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<KeyedConfig
 
   @Override
   public List<String> getStringListAttr(
-      KeyedConfiguredTargetValue keyedConfiguredTargetValue, String attrName) {
-    Target actualTarget = getTargetFromConfiguredTargetValue(keyedConfiguredTargetValue);
+      ConfiguredTargetValue configuredTargetValue, String attrName) {
+    Target actualTarget = getTargetFromConfiguredTargetValue(configuredTargetValue);
     return TargetUtils.getStringListAttr(actualTarget, attrName);
   }
 
   @Override
-  public String getStringAttr(
-      KeyedConfiguredTargetValue keyedConfiguredTargetValue, String attrName) {
-    Target actualTarget = getTargetFromConfiguredTargetValue(keyedConfiguredTargetValue);
+  public String getStringAttr(ConfiguredTargetValue configuredTargetValue, String attrName) {
+    Target actualTarget = getTargetFromConfiguredTargetValue(configuredTargetValue);
     return TargetUtils.getStringAttr(actualTarget, attrName);
   }
 
   @Override
   public Iterable<String> getAttrAsString(
-      KeyedConfiguredTargetValue keyedConfiguredTargetValue, String attrName) {
-    Target actualTarget = getTargetFromConfiguredTargetValue(keyedConfiguredTargetValue);
+      ConfiguredTargetValue configuredTargetValue, String attrName) {
+    Target actualTarget = getTargetFromConfiguredTargetValue(configuredTargetValue);
     return TargetUtils.getAttrAsString(actualTarget, attrName);
   }
 
   @Override
-  public ImmutableSet<QueryVisibility<KeyedConfiguredTargetValue>> getVisibility(
-      QueryExpression caller, KeyedConfiguredTargetValue from) throws QueryException {
+  public ImmutableSet<QueryVisibility<ConfiguredTargetValue>> getVisibility(
+      QueryExpression caller, ConfiguredTargetValue from) throws QueryException {
     // TODO(bazel-team): implement this if needed.
     throw new QueryException(
         "visible() is not supported on configured targets",
         ConfigurableQuery.Code.VISIBLE_FUNCTION_NOT_SUPPORTED);
   }
 
-  private Target getTargetFromConfiguredTargetValue(
-      KeyedConfiguredTargetValue keyedConfiguredTargetValue) {
+  private Target getTargetFromConfiguredTargetValue(ConfiguredTargetValue configuredTargetValue) {
     // Dereference any aliases that might be present.
-    Label label =
-        keyedConfiguredTargetValue
-            .getConfiguredTargetValue()
-            .getConfiguredObject()
-            .getOriginalLabel();
+    Label label = configuredTargetValue.getConfiguredTarget().getOriginalLabel();
     try {
       return targetLookup.getTarget(label);
     } catch (InterruptedException e) {
@@ -162,13 +154,13 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<KeyedConfig
   }
 
   /** Returns the AspectValues that are attached to the given configuredTarget. */
-  public Collection<AspectValue> getAspectValues(
-      KeyedConfiguredTargetValue keyedConfiguredTargetValue) throws InterruptedException {
+  public Set<AspectValue> getAspectValues(ConfiguredTargetValue configuredTargetValue)
+      throws InterruptedException {
     Set<AspectValue> result = new HashSet<>();
-    SkyKey skyKey = configuredTargetKeyExtractor.extractKey(keyedConfiguredTargetValue);
+    SkyKey skyKey = configuredTargetKeyExtractor.extractKey(configuredTargetValue);
     Iterable<SkyKey> revDeps =
         Iterables.concat(walkableGraph.getReverseDeps(ImmutableList.of(skyKey)).values());
-    Label label = keyedConfiguredTargetValue.getConfiguredTarget().getLabel();
+    Label label = configuredTargetValue.getConfiguredTarget().getLabel();
     for (SkyKey revDep : revDeps) {
       SkyFunctionName skyFunctionName = revDep.functionName();
       if (SkyFunctions.ASPECT.equals(skyFunctionName)) {

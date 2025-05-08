@@ -28,8 +28,8 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.BUILTIN,
     doc =
         "This object holds information about the environment in which the build is running. See the"
-            + " <a href='https://bazel.build/rules/rules#configurations'>Rules page</a> for more on"
-            + " the general concept of configurations.")
+            + " <a href='https://bazel.build/extending/rules#configurations'>Rules page</a> for"
+            + " more on the general concept of configurations.")
 public interface BuildConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "bin_dir", structField = true, documented = false)
@@ -71,7 +71,7 @@ public interface BuildConfigurationApi extends StarlarkValue {
           "A boolean that tells whether code coverage is enabled for this run. Note that this does"
               + " not compute whether a specific rule should be instrumented for code coverage data"
               + " collection. For that, see the <a"
-              + " href=\"ctx.html#coverage_instrumented\"><code>ctx.coverage_instrumented</code></a>"
+              + " href=\"../builtins/ctx.html#coverage_instrumented\"><code>ctx.coverage_instrumented</code></a>"
               + " function.")
   boolean isCodeCoverageEnabled();
 
@@ -80,4 +80,19 @@ public interface BuildConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "is_tool_configuration", documented = false, useStarlarkThread = true)
   boolean isToolConfigurationForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "has_separate_genfiles_directory",
+      documented = false,
+      useStarlarkThread = true)
+  boolean hasSeparateGenfilesDirectoryForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "is_sibling_repository_layout",
+      documented = false,
+      useStarlarkThread = true)
+  boolean isSiblingRepositoryLayoutForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "runfiles_enabled", documented = false, useStarlarkThread = true)
+  boolean runfilesEnabledForStarlark(StarlarkThread thread) throws EvalException;
 }

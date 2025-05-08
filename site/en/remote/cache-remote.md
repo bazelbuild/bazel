@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Debugging Remote Cache Hits for Remote Execution
 
+{% include "_buttons.html" %}
+
 This page describes how to check your cache hit rate and how to investigate
 cache misses in the context of remote execution.
 
@@ -63,10 +65,10 @@ If you are not getting the cache hit rate you are expecting, do the following:
       ```posix-terminal
       bazel clean
 
-      bazel {{ '<var>' }}--optional-flags{{ '</var>' }} build //{{ '<var>' }}your:target{{ '</var>' }} --execution_log_binary_file=/tmp/exec1.log
+      bazel {{ '<var>' }}--optional-flags{{ '</var>' }} build //{{ '<var>' }}your:target{{ '</var>' }} --execution_log_compact_file=/tmp/exec1.log
       ```
 
-   b. [Compare the execution logs](#compare-logs-the-execution-logs) between the
+   b. [Compare the execution logs](#compare-logs) between the
       two runs. Ensure that the actions are identical across the two log files.
       Discrepancies provide a clue about the changes that occurred between the
       runs. Update your build to eliminate those discrepancies.
@@ -78,16 +80,12 @@ If you are not getting the cache hit rate you are expecting, do the following:
    in your configuration is preventing caching. Continue with this section to
    check for common problems.
 
-   If you do not need to diff execution logs, you can use the
-   human-readable `--execution_log_json_file` flag instead. It cannot be
-   used for stable diffing since it contains execution time and doesn't
-   guarantee ordering.
-
 5. Check that all actions in the execution log have `cacheable` set to true. If
    `cacheable` does not appear in the execution log for a give action, that
    means that the corresponding rule may have a `no-cache` tag in its
-   definition in the `BUILD` file. Look at the human-readable `progress_message`
-   field in the execution log to help determine where the action is coming from.
+   definition in the `BUILD` file. Look at the `mnemonic` and `target_label`
+   fields in the execution log to help determine where the action is coming
+   from.
 
 6. If the actions are identical and `cacheable` but there are no cache hits, it
    is possible that your command line includes `--noremote_accept_cached` which
@@ -109,7 +107,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
 
    d. If `remote_accept_cached` is `false`, determine where it is being
       set to `false`: either at the command line or in a
-      [bazelrc](/docs/bazelrc#bazelrc-file-locations) file.
+      [bazelrc](/run/bazelrc#bazelrc-file-locations) file.
 
 ### Ensure caching across machines {:#caching-across-machines}
 
@@ -124,7 +122,7 @@ not happening across machines, do the following:
    ```posix-terminal
     bazel clean
 
-    bazel ... build ... --execution_log_binary_file=/tmp/exec1.log
+    bazel ... build ... --execution_log_compact_file=/tmp/exec1.log
    ```
 
 3. Run the build on the second machine, ensuring the modification from step 1
@@ -133,7 +131,7 @@ not happening across machines, do the following:
    ```posix-terminal
     bazel clean
 
-    bazel ... build ... --execution_log_binary_file=/tmp/exec2.log
+    bazel ... build ... --execution_log_compact_file=/tmp/exec2.log
    ```
 
 4. [Compare the execution logs](#compare-logs-the-execution-logs) for the two
@@ -143,31 +141,35 @@ not happening across machines, do the following:
 
 ## Comparing the execution logs {:#compare-logs}
 
-Execution logs contain records of all actions executed during the build. For
-each action there is a
-[SpawnExec](https://github.com/bazelbuild/bazel/blob/42389d9468a954f3793a19f8e026b022b39aefca/src/main/protobuf/spawn.proto#L67){: .external}
-element containing all of the information from the action key, Thus, if the
-logs are identical then so are the action cache keys.
+The execution log contains records of actions executed during the build.
+Each record describes both the inputs (not only files, but also command line
+arguments, environment variables, etc) and the outputs of the action. Thus,
+examination of the log can reveal why an action was reexecuted.
+
+The execution log can be produced in one of three formats:
+compact (`--execution_log_compact_file`),
+binary (`--execution_log_binary_file`) or JSON (`--execution_log_json_file`).
+The compact format is recommended, as it produces much smaller files with very
+little runtime overhead. The following instructions work for any format. You
+can also convert between them using the `//src/tools/execlog:converter` tool.
 
 To compare logs for two builds that are not sharing cache hits as expected,
-do the folowing:
+do the following:
 
 1. Get the execution logs from each build and store them as `/tmp/exec1.log` and
    `/tmp/exec2.log`.
 
-2. Download the Bazel source code and navigate to the Bazel folder by using
-    the command below. You need the source code to parse the
-    execution logs with the
-    [execlog parser](https://source.bazel.build/bazel/+/master:src/tools/execlog/).
+2. Download the Bazel source code and build the `//src/tools/execlog:parser`
+   tool:
 
-        git clone https://github.com/bazelbuild/bazel.git
-        cd bazel
+       git clone https://github.com/bazelbuild/bazel.git
+       cd bazel
+       bazel build //src/tools/execlog:parser
 
-3. Use the execution log parser to convert the logs to text. The following
-   invocation also sorts the actions in the second log to match the action order
-   in the first log for ease of comparison.
+3. Use the `//src/tools/execlog:parser` tool to convert the logs into a
+   human-readable text format. In this format, the actions in the second log are
+   sorted to match the order in the first log, making a comparison easier.
 
-        bazel build src/tools/execlog:parser
         bazel-bin/src/tools/execlog/parser \
           --log_path=/tmp/exec1.log \
           --log_path=/tmp/exec2.log \

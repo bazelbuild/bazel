@@ -44,11 +44,20 @@ public class InstrumentedFileManifestActionTest extends AnalysisTestCase {
   /** regression test for b/9607864. */
   @Test
   public void testInstrumentedFileManifestConflicts() throws Exception {
-    scratch.file("foo/BUILD",
-        "java_library(name = 'foo.so',",
-        "           srcs = ['Bar.java'])",
-        "java_library(name = 'foo',",
-        "           srcs = ['Foo.java'])");
+    scratch.file(
+        "foo/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "foo.so",
+            srcs = ["Bar.java"],
+        )
+
+        java_library(
+            name = "foo",
+            srcs = ["Foo.java"],
+        )
+        """);
 
     update("//foo:foo", "//foo:foo.so");
   }

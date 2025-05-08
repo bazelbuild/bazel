@@ -29,10 +29,13 @@ public final class CoverageCommandUnitTest extends BuildViewTestCase {
     // Make sure that javatests dir still gets replaced even when immediately under top-level dir
     scratch.file(
         "javatests/com/google/foo/BUILD",
-        "java_library(",
-        "    name = 'l', ",
-        "    srcs = ['foo.java'],",
-        ")");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(
+            name = "l",
+            srcs = ["foo.java"],
+        )
+        """);
     String packageName = getConfiguredTarget("//javatests/com/google/foo:l").getLabel()
         .getPackageName();
     assertThat(packageName).isEqualTo("javatests/com/google/foo"); // No leading slashes

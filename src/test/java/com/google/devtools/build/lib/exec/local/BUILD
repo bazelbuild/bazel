@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -23,13 +24,12 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
         "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
         "//src/main/java/com/google/devtools/build/lib/exec:runfiles_tree_updater",
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_input_expander",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
@@ -45,11 +45,11 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/exec/util",
+        "//src/test/java/com/google/devtools/build/lib/sandbox:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:guava",
-        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",

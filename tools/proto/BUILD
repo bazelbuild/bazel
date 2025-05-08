@@ -7,6 +7,9 @@ filegroup(
 
 exports_files(["BUILD"])
 
+# Those aliases are needed to resolve the repository name correctly in both
+# bzlmod and WORKSPACE mode. They are resolved in the namespace of MODULE.tools
+
 alias(
     name = "protoc",
     actual = "@com_google_protobuf//:protoc",

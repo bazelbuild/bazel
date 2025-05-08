@@ -77,7 +77,8 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
   @Override
   public Depset getCcTransitiveNativeLibraries(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(LibraryToLink.TYPE, getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
+    return Depset.of(
+        LibraryToLink.class, getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
   }
 
   public CcDebugInfoContext getCcDebugInfoContext() {
@@ -113,9 +114,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
       ccNativeLibraryInfos.add(ccInfo.getCcNativeLibraryInfo());
     }
 
-    CcCompilationContext.Builder builder =
-        CcCompilationContext.builder(
-            /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
+    CcCompilationContext.Builder builder = CcCompilationContext.builder();
 
     return new CcInfo(
         builder
@@ -129,10 +128,9 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
 
   @Override
   public boolean equals(Object otherObject) {
-    if (!(otherObject instanceof CcInfo)) {
+    if (!(otherObject instanceof CcInfo other)) {
       return false;
     }
-    CcInfo other = (CcInfo) otherObject;
     if (this == other) {
       return true;
     }

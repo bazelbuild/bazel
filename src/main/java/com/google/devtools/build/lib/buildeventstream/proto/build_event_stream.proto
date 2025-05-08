@@ -12,12 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// LINT: LEGACY_NAMES
+
 syntax = "proto3";
 
 package build_event_stream;
 
+import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
+import "src/main/java/com/google/devtools/build/lib/packages/metrics/package_load_metrics.proto";
+import "src/main/protobuf/action_cache.proto";
 import "src/main/protobuf/command_line.proto";
 import "src/main/protobuf/failure_details.proto";
 import "src/main/protobuf/invocation_policy.proto";
@@ -79,6 +84,14 @@ message BuildEventId {
   message FetchId {
     // The external resource that was fetched from.
     string url = 1;
+
+    enum Downloader {
+      UNKNOWN = 0;
+      HTTP = 1;
+      GRPC = 2;
+    }
+    // The downloader used to fetch the resource.
+    Downloader downloader = 2;
   }
 
   // Identifier of an event indicating that a target pattern has been expanded
@@ -128,6 +141,9 @@ message BuildEventId {
     // Identifier of the configuration; users of the protocol should not make
     // any assumptions about it having any structure, or equality of the
     // identifier between different streams.
+    //
+    // A value of "none" means the null configuration. It is used for targets
+    // that are not configurable, for example, source files.
     string id = 1;
   }
 
@@ -196,6 +212,24 @@ message BuildEventId {
     int32 attempt = 4;
   }
 
+  // Identifier of an event reporting progress of an individual test run.
+  message TestProgressId {
+    // The label of the target for the action.
+    string label = 1;
+    // The configuration under which the action is running.
+    ConfigurationId configuration = 2;
+    // The run number of the test action (e.g. for runs_per_test > 1).
+    int32 run = 3;
+    // For sharded tests, the shard number of the test action.
+    int32 shard = 4;
+    // The execution attempt number which may increase due to retries (e.g. for
+    // flaky tests).
+    int32 attempt = 5;
+    // An incrementing count used to differentiate TestProgressIds for the same
+    // test attempt.
+    int32 opaque_count = 6;
+  }
+
   // Identifier of an event reporting the summary of a test.
   message TestSummaryId {
     string label = 1;
@@ -222,6 +256,11 @@ message BuildEventId {
   // Identifier of an event providing convenience symlinks information.
   message ConvenienceSymlinksIdentifiedId {}
 
+  // Identifier of an event providing the ExecRequest of a run command.
+  message ExecRequestId {}
+
+  reserved 27;
+
   oneof id {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;
@@ -241,6 +280,7 @@ message BuildEventId {
     UnconfiguredLabelId unconfigured_label = 19;
     ConfiguredLabelId configured_label = 21;
     TestResultId test_result = 8;
+    TestProgressId test_progress = 29;
     TestSummaryId test_summary = 7;
     TargetSummaryId target_summary = 26;
     BuildFinishedId build_finished = 9;
@@ -249,6 +289,7 @@ message BuildEventId {
     WorkspaceConfigId workspace = 23;
     BuildMetadataId build_metadata = 24;
     ConvenienceSymlinksIdentifiedId convenience_symlinks_identified = 25;
+    ExecRequestId exec_request = 28;
   }
 }
 
@@ -258,10 +299,16 @@ message BuildEventId {
 message Progress {
   // The next chunk of stdout that bazel produced since the last progress event
   // or the beginning of the build.
+  // Consumers that need to reason about the relative order of stdout and stderr
+  // can assume that stderr has been emitted before stdout if both are present,
+  // on a best-effort basis.
   string stdout = 1;
 
   // The next chunk of stderr that bazel produced since the last progress event
   // or the beginning of the build.
+  // Consumers that need to reason about the relative order of stdout and stderr
+  // can assume that stderr has been emitted before stdout if both are present,
+  // on a best-effort basis.
   string stderr = 2;
 }
 
@@ -401,7 +448,8 @@ message WorkspaceStatus {
 // build.
 message BuildMetadata {
   // Custom metadata for the build.
-  map<string, string> metadata = 1;
+  map<string, string> metadata = 1
+      ;
 }
 
 // Payload of an event reporting details of a given configuration.
@@ -409,7 +457,8 @@ message Configuration {
   string mnemonic = 1;
   string platform_name = 2;
   string cpu = 3;
-  map<string, string> make_variable = 4;
+  map<string, string> make_variable = 4
+      ;
   // Whether this configuration is used for building tools.
   bool is_tool = 5;
 }
@@ -480,6 +529,8 @@ message File {
     string uri = 2;
     // The contents of the file, if they are guaranteed to be short.
     bytes contents = 3;
+    // The symlink target path, if the file is an unresolved symlink.
+    string symlink_target_path = 7;
   }
 
   // Digest of the file, using the build tool's configured digest algorithm,
@@ -506,6 +557,8 @@ message NamedSetOfFiles {
 // failing; however, consumers of the build-event protocol must not assume
 // that only failed actions are posted.
 message ActionExecuted {
+  reserved 10;
+
   bool success = 1;
 
   // The mnemonic of the action that was executed
@@ -534,11 +587,21 @@ message ActionExecuted {
   // The command-line of the action, if the action is a command.
   repeated string command_line = 9;
 
-  // List of paths to log files
-  repeated File action_metadata_logs = 10;
-
   // Only populated if success = false, and sometimes not even then.
   failure_details.FailureDetail failure_detail = 11;
+
+  // Start of action execution, before any attempted execution begins.
+  google.protobuf.Timestamp start_time = 12;
+
+  // End of action execution, after all attempted execution completes.
+  google.protobuf.Timestamp end_time = 13;
+
+  // Additional details about action execution supplied by strategies. Bazel
+  // options will determine which strategy details are included when multiple
+  // strategies are involved in a single action's execution.
+  //
+  // The default type will be `tools.proto.SpawnExec` found in `spawn.proto`.
+  repeated google.protobuf.Any strategy_details = 14;
 }
 
 // Collection of all output files belonging to that output group.
@@ -555,6 +618,10 @@ message OutputGroup {
   // Indicates that one or more of the output group's files were not built
   // successfully (the generating action failed).
   bool incomplete = 4;
+
+  // Inlined files that belong to this output group, requested via
+  // --experimental_build_event_output_group_mode.
+  repeated File inline_files = 5;
 }
 
 // Payload of the event indicating the completion of a target. The target is
@@ -708,6 +775,15 @@ message TestResult {
   ExecutionInfo execution_info = 8;
 }
 
+// Event payload providing information about an active, individual test run.
+message TestProgress {
+  // Identifies a resource that may provide information about an active test
+  // run. The resource is not necessarily a file and may need to be queried
+  // for information. The URI is not guaranteed to be available after the test
+  // completes. The string is encoded according to RFC2396.
+  string uri = 1;
+}
+
 // Payload of the event summarizing a test.
 message TestSummary {
   // Wrapper around BlazeTestStatus to support importing that enum to proto3.
@@ -775,7 +851,15 @@ message TargetSummary {
   // Conjunction of TargetComplete events for this target, including aspects.
   bool overall_build_success = 1;
 
-  // Repeats TestSummary's overall_status if available.
+  // For non-test targets, set to NO_STATUS. For test targets, identical to
+  // TestSummary.overall_status.
+  //
+  // There are some cases where the `build` command on a test target succeeds,
+  // but the `test` command on the same target results in FAILED_TO_BUILD. In
+  // such cases, TargetComplete.overall_build_success is true, but this field is
+  // FAILED_TO_BUILD, and TestSummary may be missing.
+  // TODO - b/186996003: TestSummary is a child of TargetComplete and should be
+  //  posted.
   TestStatus overall_test_status = 2;
 }
 
@@ -823,6 +907,9 @@ message BuildFinished {
   google.protobuf.Timestamp finish_time = 5;
 
   AnomalyReport anomaly_report = 4 [deprecated = true];
+
+  // Only populated if success = false, and sometimes not even then.
+  failure_details.FailureDetail failure_detail = 6;
 }
 
 message BuildMetrics {
@@ -860,6 +947,14 @@ message BuildMetrics {
       // When the last action of this type ended being executed, in
       // milliseconds from the epoch.
       int64 last_ended_ms = 4;
+
+      // Accumulated CPU time of all spawned actions of this type.
+      // This is only set if all the actions reported a time
+      google.protobuf.Duration system_time = 5;
+      google.protobuf.Duration user_time = 6;
+
+      // The total number of actions of this type registered during the build.
+      int64 actions_created = 7;
     }
     // Contains the top N actions by number of actions executed.
     repeated ActionData action_data = 4;
@@ -870,8 +965,11 @@ message BuildMetrics {
     message RunnerCount {
       string name = 1;
       int32 count = 2;
+      string exec_kind = 3;
     }
     repeated RunnerCount runner_count = 6;
+
+    blaze.ActionCacheStatistics action_cache_statistics = 7;
   }
   ActionSummary action_summary = 1;
 
@@ -936,10 +1034,17 @@ message BuildMetrics {
     // After Feb 2022, this value is the number of packages successfully
     // loaded.
     int64 packages_loaded = 1;
+
+    // Loading time metrics per package.
+    repeated devtools.build.lib.packages.metrics.PackageLoadMetrics
+        package_load_metrics = 2;
   }
   PackageMetrics package_metrics = 4;
 
   message TimingMetrics {
+    // For Skymeld, it's possible that
+    // analysis_phase_time_in_ms + execution_phase_time_in_ms >= wall_time_in_ms
+    //
     // The CPU time in milliseconds consumed during this build.
     int64 cpu_time_in_ms = 1;
     // The elapsed wall time in milliseconds during this build.
@@ -948,6 +1053,15 @@ message BuildMetrics {
     // When analysis and execution phases are interleaved, this measures the
     // elapsed time from the first analysis work to the last.
     int64 analysis_phase_time_in_ms = 3;
+    // The elapsed wall time in milliseconds during the execution phase.
+    // When analysis and execution phases are interleaved, this measures the
+    // elapsed time from the first action execution (excluding workspace status
+    // actions) to the last.
+    int64 execution_phase_time_in_ms = 4;
+
+    // The elapsed wall time in milliseconds until the first action execution
+    // started (excluding workspace status actions).
+    int64 actions_execution_start_in_ms = 5;
   }
   TimingMetrics timing_metrics = 5;
 
@@ -992,6 +1106,14 @@ message BuildMetrics {
 
   ArtifactMetrics artifact_metrics = 7;
 
+  // Data about the evaluation of Skyfunctions.
+  message EvaluationStat {
+    // Name of the Skyfunction.
+    string skyfunction_name = 1;
+    // How many times a given operation was carried out on a Skyfunction.
+    int64 count = 2;
+  }
+
   // Information about the size and shape of the build graph. Some fields may
   // not be populated if Bazel was able to skip steps due to caching.
   message BuildGraphMetrics {
@@ -1031,14 +1153,72 @@ message BuildMetrics {
     // settings or with Skybuild, and may overestimate if there are nodes from
     // prior evaluations still in the cache.
     int32 post_invocation_skyframe_node_count = 4;
+    // Number of SkyValues that were dirtied during the build. Dirtied nodes are
+    // those that transitively depend on a node that changed by itself (e.g. one
+    // representing a file in the file system)
+    repeated EvaluationStat dirtied_values = 10;
+    // Number of SkyValues that changed by themselves. For example, when a file
+    // on the file system changes, the SkyValue representing it will change.
+    repeated EvaluationStat changed_values = 11;
+    // Number of SkyValues that were built. This means that they were evaluated
+    // and were found to have changed from their previous version.
+    repeated EvaluationStat built_values = 12;
+    // Number of SkyValues that were evaluated and found clean, i.e. equal to
+    // their previous version.
+    repeated EvaluationStat cleaned_values = 13;
+    // Number of evaluations to build SkyValues. This includes restarted
+    // evaluations, which means there can be multiple evaluations per built
+    // SkyValue. Subtract built_values from this number to get the number of
+    // restarted evaluations.
+    repeated EvaluationStat evaluated_values = 17;
+
+    // For SkyKeys in 'done values' where the SkyValue is of type
+    // RuleConfiguredTargetValue, we pull those out separately and report the
+    // ruleClass and action count.
+    message RuleClassCount {
+      // Unique key for the rule class.
+      string key = 1;
+
+      // String name of the rule_class (not guaranteed unique)
+      string rule_class = 2;
+
+      // how many rule instances of this type were seen.
+      uint64 count = 3;
+
+      // how many actions were created by this rule class.
+      uint64 action_count = 4;
+    }
+    repeated RuleClassCount rule_class = 14;
+
+    // For SkyKeys whose function name is ASPECT break out that information
+    message AspectCount {
+      // Unique key for Aspect.
+      string key = 1;
+
+      // usually the same as above, but can differ in some cases.
+      string aspect_name = 2;
+
+      // number of aspects created of this type.
+      uint64 count = 3;
+
+      // number of actions created by aspects of this type.
+      uint64 action_count = 4;
+    }
+    repeated AspectCount aspect = 15;
+
+    // Removed due to overlap with EvaluationStat
+    reserved 16;
   }
 
   BuildGraphMetrics build_graph_metrics = 8;
 
   // Information about all workers that were alive during the invocation.
   message WorkerMetrics {
-    // Unique id of worker.
-    int32 worker_id = 1;
+    // Deprecated. Use worker_ids instead of this field.
+    int32 worker_id = 1 [deprecated = true];
+
+    // Ids of workers. Could be multiple in case of multiplex workers
+    repeated uint32 worker_ids = 8;
     // Worker process id. If there is no process for worker, equals to zero.
     uint32 process_id = 2;
     // Mnemonic of running worker.
@@ -1047,15 +1227,45 @@ message BuildMetrics {
     bool is_multiplex = 4;
     // Using worker sandbox file system or not.
     bool is_sandbox = 5;
-    // Shows is worker stats measured at the end of invocation.
+    // TODO(b/300067854): Deprecate since all worker metrics should have their
+    // WorkerStats set.
     bool is_measurable = 6;
+    // Hash value of worker key. Needed to distinguish worker pools with same
+    // menmonic but with different worker keys.
+    int64 worker_key_hash = 9;
+
+    WorkerStatus worker_status = 10;
+
+    enum WorkerStatus {
+      // Used to indicate a worker instance where the process has not been
+      // created yet. In reality this isn't logged, but leaving this here as a
+      // possible option in the future.
+      NOT_STARTED = 0;
+      ALIVE = 1;
+      KILLED_DUE_TO_MEMORY_PRESSURE = 2;
+      // Indicates that the worker process was killed due to a reason unknown to
+      // Bazel at the point of measurement; if a known cause (below) comes along
+      // later on, this field will be updated.
+      KILLED_UNKNOWN = 3;
+      KILLED_DUE_TO_INTERRUPTED_EXCEPTION = 4;
+      KILLED_DUE_TO_IO_EXCEPTION = 5;
+      KILLED_DUE_TO_USER_EXEC_EXCEPTION = 6;
+    }
+
+    optional failure_details.Worker.Code code = 12;
+
+    int64 actions_executed = 11;
+
+    int64 prior_actions_executed = 13;
 
     // Information collected from worker at some point.
     message WorkerStats {
       // Epoch unix time of collection of metrics.
       int64 collect_time_in_ms = 1;
-      // RSS size of worker process.
+      // Memory usage of worker process at the end of the build.
       int32 worker_memory_in_kb = 2;
+      // Memory usage of the worker process prior to the invocation.
+      int32 prior_worker_memory_in_kb = 4;
       // Epoch unix time of last action started on specific worker.
       int64 last_action_start_time_in_ms = 3;
     }
@@ -1065,6 +1275,96 @@ message BuildMetrics {
   }
 
   repeated WorkerMetrics worker_metrics = 9;
+
+  // Information about host network.
+  message NetworkMetrics {
+    // Information for all the network traffic going on on the host machine
+    // during the invocation.
+    message SystemNetworkStats {
+      // Total bytes sent during the invocation.
+      uint64 bytes_sent = 1;
+      // Total bytes received during the invocation.
+      uint64 bytes_recv = 2;
+      // Total packets sent during the invocation.
+      uint64 packets_sent = 3;
+      // Total packets received during the invocation.
+      uint64 packets_recv = 4;
+      // Peak bytes/sec sent during the invocation.
+      uint64 peak_bytes_sent_per_sec = 5;
+      // Peak bytes/sec received during the invocation.
+      uint64 peak_bytes_recv_per_sec = 6;
+      // Peak packets/sec sent during the invocation.
+      uint64 peak_packets_sent_per_sec = 7;
+      // Peak packets/sec received during the invocation.
+      uint64 peak_packets_recv_per_sec = 8;
+    }
+
+    SystemNetworkStats system_network_stats = 1;
+  }
+
+  NetworkMetrics network_metrics = 10;
+
+  // Information about worker pool actions.
+  message WorkerPoolMetrics {
+    // Statistics of worker pool per worker pool hash. Basically it's a map from
+    // worker pool hash to statistics.
+    repeated WorkerPoolStats worker_pool_stats = 1;
+
+    message WorkerPoolStats {
+      // Hash of worker pool these stats are for. Contains information about
+      // startup flags.
+      int32 hash = 1;
+      // Mnemonic of workers these stats are for.
+      string mnemonic = 2;
+      // Number of workers created during a build.
+      int64 created_count = 3;
+      // Number of workers destroyed during a build (sum of all workers
+      // destroyed by eviction, UserExecException, IoException,
+      // InterruptedException and unknown reasons below).
+      int64 destroyed_count = 4;
+      // Number of workers evicted during a build.
+      int64 evicted_count = 5;
+      // Number of workers destroyed due to UserExecExceptions.
+      int64 user_exec_exception_destroyed_count = 6;
+      // Number of workers destroyed due to IoExceptions.
+      int64 io_exception_destroyed_count = 7;
+      // Number of workers destroyed due to InterruptedExceptions.
+      int64 interrupted_exception_destroyed_count = 8;
+      // Number of workers destroyed due to an unknown reason.
+      int64 unknown_destroyed_count = 9;
+      // Number of workers alive at the end of the build.
+      int64 alive_count = 10;
+    }
+  }
+
+  WorkerPoolMetrics worker_pool_metrics = 11;
+
+  // Information about dynamic execution.
+  message DynamicExecutionMetrics {
+    message RaceStatistics {
+      // Mnemonic of the action.
+      string mnemonic = 1;
+      // Name of runner of local branch.
+      string local_runner = 2;
+      // Name of runner of remote branch.
+      string remote_runner = 3;
+      // Number of wins of local branch in race.
+      int32 local_wins = 4;
+      // Number of wins of remote branch in race.
+      int32 remote_wins = 5;
+    }
+    // Race statistics grouped by mnemonic, local_name, remote_name.
+    repeated RaceStatistics race_statistics = 1;
+  }
+
+  DynamicExecutionMetrics dynamic_execution_metrics = 12;
+
+  // Statistics about remote analysis caching
+  message RemoteAnalysisCacheStatistics {
+    int64 cache_hits = 1;
+    int64 cache_misses = 2;
+  }
+  RemoteAnalysisCacheStatistics remote_analysis_cache_statistics = 13;
 }
 
 // Event providing additional statistics/logs after completion of the build.
@@ -1105,12 +1405,27 @@ message ConvenienceSymlink {
   // The operation we are performing on the symlink.
   Action action = 2;
 
-  // If action is CREATE, this is the target path that the symlink should point
-  // to. If the path points underneath the output base, it is relative to the
-  // output base; otherwise it is absolute.
+  // If action is CREATE, this is the target path (relative to the output base)
+  // that the symlink should point to.
   //
   // If action is DELETE, this field is not set.
   string target = 3;
+}
+
+// Event that contains the ExecRequest of a run command announced only after a
+// successful build and before trying to execute the requested command-line.
+message ExecRequestConstructed {
+  bytes working_directory = 1;
+  repeated bytes argv = 2;
+  repeated EnvironmentVariable environment_variable = 3;
+  repeated bytes environment_variable_to_clear = 4;
+  bool should_exec = 5;
+}
+
+// An environment variable provided by a run command after a successful build.
+message EnvironmentVariable {
+  bytes name = 1;
+  bytes value = 2;
 }
 
 // Message describing a build event. Events will have an identifier that
@@ -1139,6 +1454,7 @@ message BuildEvent {
     NamedSetOfFiles named_set_of_files = 15;
     TargetComplete completed = 8;
     TestResult test_result = 10;
+    TestProgress test_progress = 30;
     TestSummary test_summary = 9;
     TargetSummary target_summary = 28;
     BuildFinished finished = 14;
@@ -1147,5 +1463,6 @@ message BuildEvent {
     WorkspaceConfig workspace_info = 25;
     BuildMetadata build_metadata = 26;
     ConvenienceSymlinksIdentified convenience_symlinks_identified = 27;
+    ExecRequestConstructed exec_request = 29;
   }
 }

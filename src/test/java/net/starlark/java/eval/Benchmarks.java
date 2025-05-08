@@ -63,12 +63,20 @@ import net.starlark.java.syntax.SyntaxError;
 public final class Benchmarks {
 
   private static final String HELP =
-      "Usage: Benchmarks [--help] [--filter regex] [--seconds float] [--iterations count]\n"
-          + "Runs Starlark benchmarks matching the filter for the specified approximate time or\n"
-          + "specified number of iterations, and reports various performance measures.\n"
-          + "The optional filter is a regular expression applied to the string FILE:FUNC,\n"
-          + "where FILE is the base name of the file and FUNC is the name of the function,\n"
-          + "for example 'bench_int.star:bench_add32'.\n";
+      """
+Usage: Benchmarks [--help] [--filter regex] [--seconds float] [--iterations count]
+
+Runs Starlark benchmarks matching the filter for the specified approximate time or
+specified number of iterations, and reports the following performance measures:
+  ops:      number of iterations
+  cpu/op:   CPU time per iteration
+  wall/op:  wall time per iteration
+  steps/op: Starlark computation steps per iteration
+  alloc/op: approximate amount of memory allocated by the JVM per iteration
+The optional filter is a regular expression applied to the string FILE:FUNC,
+where FILE is the base name of the file and FUNC is the name of the function,
+for example 'bench_int.star:bench_add32'.
+""";
 
   private static boolean ok = true;
 
@@ -160,9 +168,8 @@ public final class Benchmarks {
 
       Module module = Module.withPredeclared(semantics, predeclared.buildOrThrow());
       try (Mutability mu = Mutability.create("test")) {
-        StarlarkThread thread = new StarlarkThread(mu, semantics);
+        StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
         Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
-
       } catch (SyntaxError.Exception ex) {
         for (SyntaxError err : ex.errors()) {
           System.err.println(err); // includes location
@@ -205,7 +212,7 @@ public final class Benchmarks {
       // Run benchmarks.
       System.out.printf("File %s:\n", file);
       System.out.printf(
-          "%-20s %10s %10s %10s %10s %10s\n", //
+          "%-25s %10s %10s %10s %10s %10s\n", //
           "benchmark", "ops", "cpu/op", "wall/op", "steps/op", "alloc/op");
       for (Map.Entry<String, StarlarkFunction> e : benchmarks.entrySet()) {
         String name = e.getKey();
@@ -216,11 +223,11 @@ public final class Benchmarks {
           continue;
         }
         System.out.printf(
-            "%-20s %10d %10s %10s %10d %10s\n",
+            "%-25s %10d %10s %10s %10d %10s\n",
             name,
             b.count,
-            formatDuration(((double) b.time) / b.count),
             formatDuration(((double) b.cpu) / b.count),
+            formatDuration(((double) b.time) / b.count),
             b.steps / b.count,
             formatBytes(b.alloc / b.count));
       }
@@ -245,7 +252,7 @@ public final class Benchmarks {
     Preconditions.checkState((budgetNanos >= 0) != (iterations >= 0));
 
     Mutability mu = Mutability.create("test");
-    StarlarkThread thread = new StarlarkThread(mu, semantics);
+    StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
 
     // Run for a fixed number of iterations?
     if (iterations >= 0) {
@@ -309,8 +316,9 @@ public final class Benchmarks {
       this.n = n;
       try {
         start(thread);
-        Starlark.fastcall(thread, f, new Object[] {this}, new Object[0]);
+        Starlark.positionalOnlyCall(thread, f, this);
         stop(thread);
+        this.count += n;
 
       } catch (EvalException ex) {
         System.err.println(ex.getMessageWithStack());
@@ -358,8 +366,6 @@ public final class Benchmarks {
       this.steps += steps1 - this.steps0;
       this.alloc += alloc1 - this.alloc0;
       this.cpu += cpu1 - this.cpu0;
-
-      this.count += this.n;
 
       time0 = 0; // stopped
     }

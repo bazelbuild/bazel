@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.remote.worker;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
+import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
@@ -22,33 +24,47 @@ import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.SymlinkNode;
-import com.google.devtools.build.lib.remote.RemoteCache;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.remote.CombinedCache;
+import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-/** A {@link RemoteCache} backed by an {@link DiskCacheClient}. */
-class OnDiskBlobStoreCache extends RemoteCache {
+/** A {@link CombinedCache} backed by an {@link DiskCacheClient}. */
+class OnDiskBlobStoreCache extends CombinedCache {
+  private static final ExecutorService executorService =
+      MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(1));
 
-  private static final CacheCapabilities CAPABILITIES =
-      CacheCapabilities.newBuilder()
-          .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
-          .build();
-
-  public OnDiskBlobStoreCache(RemoteOptions options, Path cacheDir, DigestUtil digestUtil) {
+  public OnDiskBlobStoreCache(RemoteOptions options, Path cacheDir, DigestUtil digestUtil)
+      throws IOException {
     super(
-        CAPABILITIES,
-        new DiskCacheClient(cacheDir, /* verifyDownloads= */ true, digestUtil),
+        /* remoteCacheClient= */ null,
+        new DiskCacheClient(cacheDir, digestUtil, executorService, /* verifyDownloads= */ true),
         options,
         digestUtil);
   }
 
-  public boolean containsKey(Digest digest) {
-    return ((DiskCacheClient) cacheProtocol).contains(digest);
+  @Override
+  public CacheCapabilities getRemoteCacheCapabilities() {
+    return CacheCapabilities.newBuilder()
+        .setActionCacheUpdateCapabilities(
+            ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
+        .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
+        .build();
+  }
+
+  /** If the given blob exists, updates its mtime and returns true. Otherwise, returns false. */
+  boolean refresh(Digest digest) throws IOException {
+    return diskCacheClient.refresh(diskCacheClient.toPath(digest, Store.CAS));
   }
 
   @SuppressWarnings("ProtoParseWithRegistry")
@@ -82,5 +98,21 @@ class OnDiskBlobStoreCache extends RemoteCache {
 
   public RemoteOptions getRemoteOptions() {
     return options;
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadBlob(
+      RemoteActionExecutionContext context, Digest digest, ByteString data) {
+    return uploadBlob(context, digest, data, /* force= */ true);
+  }
+
+  @Override
+  public ListenableFuture<Void> uploadFile(
+      RemoteActionExecutionContext context, Digest digest, Path file) {
+    return uploadFile(context, digest, file, /* force= */ true);
+  }
+
+  public DiskCacheClient getDiskCacheClient() {
+    return checkNotNull(diskCacheClient);
   }
 }

@@ -13,40 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import java.util.Iterator;
-import java.util.List;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ForOverride;
 import java.util.Map;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
  * Partial {@link SkyFunction.Environment} implementation that allows tests to deal with simple
- * types like {@link ValueOrUntypedException}, {@link Map}, and {@link List}.
+ * types like {@link ValueOrUntypedException} and {@link ImmutableMap}.
  */
 public abstract class AbstractSkyFunctionEnvironmentForTesting
     extends AbstractSkyFunctionEnvironment {
-
-  /**
-   * Gets a single value or exception.
-   *
-   * <p>Implementations should set {@link #valuesMissing} as necessary.
-   */
-  protected abstract ValueOrUntypedException getSingleValueOrUntypedException(SkyKey depKey)
-      throws InterruptedException;
 
   /**
    * Gets a map of values or exceptions.
    *
    * <p>Implementations should set {@link #valuesMissing} as necessary.
    */
-  protected abstract Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
-      Iterable<? extends SkyKey> depKeys) throws InterruptedException;
-
-  /**
-   * Gets a list of values or exceptions parallel to the given keys.
-   *
-   * <p>Implementations should set {@link #valuesMissing} as necessary.
-   */
-  protected abstract List<ValueOrUntypedException> getOrderedValueOrUntypedExceptions(
+  @ForOverride
+  protected abstract ImmutableMap<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
       Iterable<? extends SkyKey> depKeys) throws InterruptedException;
 
   @Nullable
@@ -59,7 +47,7 @@ public abstract class AbstractSkyFunctionEnvironmentForTesting
           @Nullable Class<E3> exceptionClass3,
           @Nullable Class<E4> exceptionClass4)
           throws E1, E2, E3, E4, InterruptedException {
-    ValueOrUntypedException voe = getSingleValueOrUntypedException(depKey);
+    ValueOrUntypedException voe = getValueOrUntypedExceptions(ImmutableList.of(depKey)).get(depKey);
     SkyValue value = voe.getValue();
     if (value != null) {
       return value;
@@ -78,10 +66,32 @@ public abstract class AbstractSkyFunctionEnvironmentForTesting
   }
 
   @Override
-  public final SkyframeIterableResult getOrderedValuesAndExceptions(
-      Iterable<? extends SkyKey> depKeys) throws InterruptedException {
-    List<ValueOrUntypedException> valuesOrExceptions = getOrderedValueOrUntypedExceptions(depKeys);
-    Iterator<ValueOrUntypedException> valuesOrExceptionsi = valuesOrExceptions.iterator();
-    return new SimpleSkyframeIterableResult(() -> valuesMissing = true, valuesOrExceptionsi);
+  public SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void registerDependencies(Iterable<SkyKey> keys) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void dependOnFuture(ListenableFuture<?> future) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public Version getMaxTransitiveSourceVersionSoFar() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public boolean inErrorBubbling() {
+    return false;
+  }
+
+  @Override
+  public <T extends SkyKeyComputeState> T getState(Supplier<T> stateSupplier) {
+    return stateSupplier.get();
   }
 }

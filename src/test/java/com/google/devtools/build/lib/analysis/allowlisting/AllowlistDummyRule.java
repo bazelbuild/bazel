@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.allowlisting;
 
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -37,7 +37,7 @@ public final class AllowlistDummyRule {
                   (builder, env) ->
                       builder.add(
                           Allowlist.getAttributeFromAllowlistName("dummy")
-                              .value(Label.parseAbsoluteUnchecked("//allowlist:allowlist"))));
+                              .value(Label.parseCanonicalUnchecked("//allowlist:allowlist"))));
 
   /** Has to be public to make factory initialization logic happy. **/
   public static class RuleFactory implements RuleConfiguredTargetFactory {

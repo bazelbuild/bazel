@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultT
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.RuleClassUtils;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AllowedRuleClassInfo;
@@ -37,6 +37,13 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.BuildLanguage;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.RuleDefinition;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.StringEncoding;
+import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -50,24 +57,58 @@ import net.starlark.java.eval.StarlarkInt;
  */
 @Deprecated
 public final class BuildLanguageInfoItem extends InfoItem {
+
   public BuildLanguageInfoItem() {
     super("build-language", "A protobuffer with the build language structure", true);
   }
 
   @Override
-  public byte[] get(
-      Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
-    checkNotNull(env);
-    return print(getBuildLanguageDefinition(env.getRuntime().getRuleClassProvider()));
+  public boolean needsSyncPackageLoading() {
+    // Requires CommandEnvironment.syncPackageLoading to be called in order to initialize the
+    // skyframe executor.
+    return true;
   }
 
-  /** Returns a byte array containing a proto-buffer describing the build language. */
-  private static byte[] getBuildLanguageDefinition(RuleClassProvider provider) {
+  @Override
+  public byte[] get(Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env)
+      throws AbruptExitException {
+    checkNotNull(env);
+    StarlarkBuiltinsValue builtins = loadStarlarkBuiltins(env);
+    return print(
+        getBuildLanguageDefinition(
+            RuleClassUtils.getBuiltinRuleClasses(
+                builtins,
+                env.getRuntime().getRuleClassProvider(),
+                /* includeMacroWrappedRules= */ true)));
+  }
+
+  private StarlarkBuiltinsValue loadStarlarkBuiltins(CommandEnvironment env)
+      throws AbruptExitException {
+    EvaluationResult<SkyValue> result =
+        env.getSkyframeExecutor()
+            .evaluateSkyKeys(
+                env.getReporter(),
+                ImmutableList.of(StarlarkBuiltinsValue.key()),
+                /* keepGoing= */ false);
+    if (result.hasError()) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetails.FailureDetail.newBuilder()
+                  .setMessage("Failed to load Starlark builtins")
+                  .setInfoCommand(FailureDetails.InfoCommand.getDefaultInstance())
+                  .build()));
+    }
+    return (StarlarkBuiltinsValue) result.get(StarlarkBuiltinsValue.key());
+  }
+
+  /**
+   * Returns a byte array containing a proto-buffer describing the build language.
+   *
+   * @param ruleClasses a sorted list of rule classes
+   */
+  private static byte[] getBuildLanguageDefinition(ImmutableList<RuleClass> ruleClasses) {
     BuildLanguage.Builder resultPb = BuildLanguage.newBuilder();
-    ImmutableList<RuleClass> sortedRuleClasses =
-        ImmutableList.sortedCopyOf(
-            Comparator.comparing(RuleClass::getName), provider.getRuleClassMap().values());
-    for (RuleClass ruleClass : sortedRuleClasses) {
+    for (RuleClass ruleClass : ruleClasses) {
       if (isAbstractRule(ruleClass)) {
         continue;
       }
@@ -77,7 +118,8 @@ public final class BuildLanguageInfoItem extends InfoItem {
 
       ImmutableList<Attribute> sortedAttributeDefinitions =
           ImmutableList.sortedCopyOf(
-              Comparator.comparing(Attribute::getName), ruleClass.getAttributes());
+              Comparator.comparing(Attribute::getName),
+              ruleClass.getAttributeProvider().getAttributes());
       for (Attribute attr : sortedAttributeDefinitions) {
         Type<?> t = attr.getType();
         AttributeDefinition.Builder attrPb = AttributeDefinition.newBuilder();
@@ -87,7 +129,6 @@ public final class BuildLanguageInfoItem extends InfoItem {
         attrPb.setAllowEmpty(!attr.isNonEmpty());
         attrPb.setAllowSingleFile(attr.isSingleArtifact());
         attrPb.setConfigurable(attr.isConfigurable());
-        attrPb.setCfgIsHost(attr.getTransitionFactory().isHost());
 
         // Encode default value, if simple.
         Object v = attr.getDefaultValueUnchecked();
@@ -100,7 +141,7 @@ public final class BuildLanguageInfoItem extends InfoItem {
         }
         attrPb.setExecutable(attr.isExecutable());
         if (BuildType.isLabelType(t)) {
-          attrPb.setAllowedRuleClasses(getAllowedRuleClasses(sortedRuleClasses, attr));
+          attrPb.setAllowedRuleClasses(getAllowedRuleClasses(ruleClasses, attr));
           attrPb.setNodep(t.getLabelClass() == Type.LabelClass.NONDEP_REFERENCE);
         }
         rulePb.addAttribute(attrPb);
@@ -129,11 +170,8 @@ public final class BuildLanguageInfoItem extends InfoItem {
     } else if (t == BuildType.LICENSE) {
       // TODO(adonovan): need dual function of parseLicense.
       // Treat as empty list for now.
-    } else if (t == BuildType.DISTRIBUTIONS) {
-      // TODO(adonovan): need dual function of parseDistributions.
-      // Treat as empty list for now.
     } else if (t == Type.STRING) {
-      b.setString((String) v);
+      b.setString(StringEncoding.internalToUnicode((String) v));
     } else if (t == Type.INTEGER) {
       b.setInt(((StarlarkInt) v).toIntUnchecked());
     } else if (t == Type.BOOLEAN) {
@@ -141,7 +179,7 @@ public final class BuildLanguageInfoItem extends InfoItem {
     } else if (t == BuildType.TRISTATE) {
       b.setInt(((TriState) v).toInt());
     } else if (BuildType.isLabelType(t)) { // case order matters!
-      b.setString(v.toString());
+      b.setString(StringEncoding.internalToUnicode(v.toString()));
     } else {
       // No native rule attribute of this type (FilesetEntry?) has a default value.
       throw new IllegalStateException("unexpected type of attribute default value: " + t);
@@ -154,10 +192,11 @@ public final class BuildLanguageInfoItem extends InfoItem {
     AllowedRuleClassInfo.Builder info = AllowedRuleClassInfo.newBuilder();
     info.setPolicy(AllowedRuleClassInfo.AllowedRuleClasses.ANY);
 
+    Predicate<RuleClass> filter;
     if (attr.isStrictLabelCheckingEnabled()
-        && attr.getAllowedRuleClassesPredicate() != Predicates.<RuleClass>alwaysTrue()) {
+        && (filter = attr.getAllowedRuleClassObjectPredicate())
+            != Predicates.<RuleClass>alwaysTrue()) {
       info.setPolicy(AllowedRuleClassInfo.AllowedRuleClasses.SPECIFIED);
-      Predicate<RuleClass> filter = attr.getAllowedRuleClassesPredicate();
       for (RuleClass otherClass : Iterables.filter(ruleClasses, filter)) {
         if (!isAbstractRule(otherClass)) {
           info.addAllowedRuleClass(otherClass.getName());

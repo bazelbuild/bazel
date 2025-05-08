@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.authandtls;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.auth.Credentials;
 import com.google.common.base.Preconditions;
@@ -345,7 +343,7 @@ public class GoogleAuthUtilsTest {
       Map<String, List<String>> requestMetadata, String username, String password) {
     assertThat(requestMetadata.keySet()).containsExactly("Authorization");
     assertThat(Iterables.getOnlyElement(requestMetadata.values()))
-        .containsExactly(BasicHttpAuthenticationEncoder.encode(username, password, UTF_8));
+        .containsExactly(BasicHttpAuthenticationEncoder.encode(username, password));
   }
 
   private static CredentialHelperProvider newCredentialHelperProvider(
@@ -360,16 +358,15 @@ public class GoogleAuthUtilsTest {
     return GoogleAuthUtils.newCredentialHelperProvider(
         credentialHelperEnvironment,
         commandLinePathFactory,
-        ImmutableList.copyOf(
-            Iterables.transform(inputs, s -> createUnresolvedScopedCredentialHelper(s))));
+        ImmutableList.copyOf(Iterables.transform(inputs, s -> createCredentialHelperOption(s))));
   }
 
-  private static AuthAndTLSOptions.UnresolvedScopedCredentialHelper
-      createUnresolvedScopedCredentialHelper(String input) {
+  private static AuthAndTLSOptions.CredentialHelperOption createCredentialHelperOption(
+      String input) {
     Preconditions.checkNotNull(input);
 
     try {
-      return AuthAndTLSOptions.UnresolvedScopedCredentialHelperConverter.INSTANCE.convert(input);
+      return AuthAndTLSOptions.CredentialHelperOptionConverter.INSTANCE.convert(input);
     } catch (OptionsParsingException e) {
       throw new IllegalStateException(e);
     }

@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.skyframe.TargetLoadingUtil.TargetAndErrorIfAny;
-import com.google.devtools.build.lib.util.GroupedList;
+import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -117,7 +117,7 @@ public class TransitiveTraversalFunction
     //
     // IMPORTANT: No other package values should be requested inside
     // TransitiveTraversalFunction#compute from this point forward.
-    Collection<SkyKey> oldDepKeys = getDepsAfterLastPackageDep(env, /*offset=*/ 1);
+    Collection<SkyKey> oldDepKeys = getDepsAfterLastPackageDep(env, /* offset= */ 1);
     return oldDepKeys == null ? super.getLabelDepKeys(env, targetAndErrorIfAny) : oldDepKeys;
   }
 
@@ -131,7 +131,7 @@ public class TransitiveTraversalFunction
     // last time #compute was called. By requesting these from the environment, we can avoid
     // repeating the label visitation step. For TransitiveTraversalFunction#compute, the label
     // aspect deps dependency group is requested two groups after the package.
-    Collection<SkyKey> oldAspectDepKeys = getDepsAfterLastPackageDep(env, /*offset=*/ 2);
+    Collection<SkyKey> oldAspectDepKeys = getDepsAfterLastPackageDep(env, /* offset= */ 2);
     return oldAspectDepKeys == null
         ? super.getStrictLabelAspectDepKeys(env, depMap, targetAndErrorIfAny)
         : oldAspectDepKeys;
@@ -140,22 +140,22 @@ public class TransitiveTraversalFunction
   @Nullable
   private static Collection<SkyKey> getDepsAfterLastPackageDep(
       SkyFunction.Environment env, int offset) {
-    GroupedList<SkyKey> temporaryDirectDeps = env.getTemporaryDirectDeps();
+    GroupedDeps temporaryDirectDeps = env.getTemporaryDirectDeps();
     if (temporaryDirectDeps == null) {
       return null;
     }
     int lastPackageDepIndex = getLastPackageValueIndex(temporaryDirectDeps);
     if (lastPackageDepIndex == -1
-        || temporaryDirectDeps.listSize() <= lastPackageDepIndex + offset) {
+        || temporaryDirectDeps.numGroups() <= lastPackageDepIndex + offset) {
       return null;
     }
-    return temporaryDirectDeps.get(lastPackageDepIndex + offset);
+    return temporaryDirectDeps.getDepGroup(lastPackageDepIndex + offset);
   }
 
-  private static int getLastPackageValueIndex(GroupedList<SkyKey> directDeps) {
-    int directDepsNumGroups = directDeps.listSize();
+  private static int getLastPackageValueIndex(GroupedDeps directDeps) {
+    int directDepsNumGroups = directDeps.numGroups();
     for (int i = directDepsNumGroups - 1; i >= 0; i--) {
-      List<SkyKey> depGroup = directDeps.get(i);
+      List<SkyKey> depGroup = directDeps.getDepGroup(i);
       if (depGroup.size() == 1 && depGroup.get(0).functionName().equals(SkyFunctions.PACKAGE)) {
         return i;
       }

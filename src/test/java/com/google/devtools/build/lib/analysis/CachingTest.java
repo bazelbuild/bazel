@@ -30,15 +30,26 @@ import org.junit.runners.JUnit4;
 /** Tests to verify that Bazel actions don't poison any output cache. */
 @RunWith(JUnit4.class)
 public class CachingTest extends BuildViewTestCase {
-  /**
-   * Regression test for bugs #2317593 and #2284024: Don't expand runfile middlemen.
-   */
+  /** Regression test for bugs #2317593 and #2284024 */
   @Test
   public void testRunfilesManifestNotAnInput() throws Exception {
     scratch.file(
         "x/BUILD",
-        "sh_binary(name = 'tool', srcs = ['tool.sh'], data = ['tool.data'])",
-        "genrule(name = 'x', tools = [':tool'], outs = ['x.out'], cmd = 'dummy')");
+        """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
+            name = "tool",
+            srcs = ["tool.sh"],
+            data = ["tool.data"],
+        )
+
+        genrule(
+            name = "x",
+            outs = ["x.out"],
+            cmd = "dummy",
+            tools = [":tool"],
+        )
+        """);
 
     Set<Action> actions = new HashSet<>();
     for (Artifact artifact : getFilesToBuild(getConfiguredTarget("//x:x")).toList()) {
@@ -46,14 +57,15 @@ public class CachingTest extends BuildViewTestCase {
     }
 
     boolean lookedAtAnyAction = false;
-    boolean foundRunfilesMiddlemanSoRunfilesAreCorrectlyStaged = false;
+    boolean foundRunfilesTreeSoRunfilesAreCorrectlyStaged = false;
     for (Action action : actions) {
       if (action instanceof SpawnAction) {
-        for (ActionInput string : ((SpawnAction) action).getSpawn().getInputFiles().toList()) {
+        for (ActionInput string :
+            ((SpawnAction) action).getSpawnForTesting().getInputFiles().toList()) {
           lookedAtAnyAction = true;
-          if (string.getExecPathString().endsWith("x_Stool-runfiles")
-              || string.getExecPathString().endsWith("x_Stool.exe-runfiles")) {
-            foundRunfilesMiddlemanSoRunfilesAreCorrectlyStaged = true;
+          if (string.getExecPathString().endsWith("tool.runfiles")
+              || string.getExecPathString().endsWith("tool.exe.runfiles")) {
+            foundRunfilesTreeSoRunfilesAreCorrectlyStaged = true;
           } else {
             assertThat(string.getExecPathString().endsWith(".runfiles/MANIFEST")).isFalse();
           }
@@ -61,6 +73,6 @@ public class CachingTest extends BuildViewTestCase {
       }
     }
     assertThat(lookedAtAnyAction).isTrue();
-    assertThat(foundRunfilesMiddlemanSoRunfilesAreCorrectlyStaged).isTrue();
+    assertThat(foundRunfilesTreeSoRunfilesAreCorrectlyStaged).isTrue();
   }
 }

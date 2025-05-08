@@ -25,6 +25,7 @@ package execution_graph;
 option java_package = "com.google.devtools.build.lib.actions";
 
 // Node is one entry in the executed graph.
+// Next ID: 12
 message Node {
   // All nodes should have a description so human debuggers could see what was
   // going on in this step. This should be ActionAnalysisMetadata.prettyPrint().
@@ -43,6 +44,9 @@ message Node {
   // The spawn or action mnemonic. For example, Javac, GoLink, TestRunner, etc.
   string mnemonic = 4;
 
+  // The rule class for the above target. Examples: java_test, cc_library, etc.
+  string rule_class = 10;
+
   Metrics metrics = 5;
 
   // A list of node indexes corresponding to direct dependencies of this
@@ -59,6 +63,11 @@ message Node {
   // a flaky test would point to the first attempt, and the third attempt would
   // point to the second.
   optional int32 retry_of = 9;
+
+  // An opaque id used by spawn runner to uniquely identify the spawn. Only
+  // available when remote execution, remote cache or disk cache was enabled for
+  // the spawn.
+  string identifier = 11;
 }
 
 // Metrics contains all the timing metrics about a Node.
@@ -79,6 +88,7 @@ message Metrics {
   int32 setup_millis = 8;
   int32 process_outputs_millis = 9;
   int32 queue_millis = 10;
+  int32 discover_inputs_millis = 14;
 
   // Total time spent on failed attempts.
   int32 retry_millis = 11;

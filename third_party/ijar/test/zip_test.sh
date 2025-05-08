@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,6 +11,8 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
+
+set -eu
 
 # Integration tests for ijar zipper/unzipper
 
@@ -231,6 +233,11 @@ function test_unzipper_zip64_archive() {
   "${ZIPPER}" x zip.zip -d unzipped
 
   diff -r unzipped source
+}
+
+function test_zipper_file_large_than_2G() {
+  dd if=/dev/zero of=${TEST_TMPDIR}/file_2064M.bin bs=16M count=129
+  $ZIPPER c ${TEST_TMPDIR}/output.zip ${TEST_TMPDIR}/file_2064M.bin
 }
 
 run_suite "zipper tests"

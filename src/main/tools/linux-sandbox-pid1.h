@@ -15,6 +15,11 @@
 #ifndef SRC_MAIN_TOOLS_LINUX_SANDBOX_PID1_H_
 #define SRC_MAIN_TOOLS_LINUX_SANDBOX_PID1_H_
 
-int Pid1Main(void *sync_pipe_param);
+struct Pid1Args {
+  int *pipe_to_parent;
+  int *pipe_from_parent;
+};
+
+int Pid1Main(void *pid1Args);
 
 #endif

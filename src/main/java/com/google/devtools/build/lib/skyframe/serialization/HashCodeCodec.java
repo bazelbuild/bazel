@@ -20,17 +20,17 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
 /** Encodes a HashCode. */
-public class HashCodeCodec implements ObjectCodec<HashCode> {
+public class HashCodeCodec extends LeafObjectCodec<HashCode> {
 
   @Override
-  public void serialize(SerializationContext context, HashCode obj, CodedOutputStream codedOut)
-      throws SerializationException, IOException {
+  public void serialize(LeafSerializationContext context, HashCode obj, CodedOutputStream codedOut)
+      throws IOException {
     codedOut.writeByteArrayNoTag(obj.asBytes());
   }
 
   @Override
-  public HashCode deserialize(DeserializationContext context, CodedInputStream codedIn)
-      throws SerializationException, IOException {
+  public HashCode deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
+      throws IOException {
     return HashCode.fromBytes(codedIn.readByteArray());
   }
 

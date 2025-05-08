@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 
 /** Represents the data needed for a specific target's use of toolchains and platforms. */
 public interface ToolchainContext {

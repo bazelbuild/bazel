@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -24,24 +24,11 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
 
-# On Mac, set host config to use PY2 because our CI Mac workers don't have a
-# Python 3 runtime.
-# TODO(https://github.com/bazelbuild/continuous-integration/issues/578):
-# Remove this workaround.
-if [[ "$(uname -s | tr [:upper:] [:lower:] | grep -E 'darwin.*')" ]]; then
-    HOST_PY_FLAG="--host_force_python=PY2"
-    echo "Setting host Python to PY2 to workaround unavailability of Python 3 \
-on Mac CI"
-else
-    HOST_PY_FLAG=""
-fi
-
-
 test_pkg_tar() {
   rm -rf main
   mkdir main
   cd main
-  create_workspace_with_default_repos WORKSPACE
+  setup_module_dot_bazel
   echo Hello World > foo.txt
   echo Hello World, again > bar.txt
   cat > BUILD <<'EOF'
@@ -52,19 +39,19 @@ pkg_tar(
     srcs = glob(["*.txt"]),
 )
 EOF
-  bazel build $HOST_PY_FLAG ... &> $TEST_log \
+  bazel build ... &> $TEST_log \
     || fail "Expect success, even with all upcoming Starlark changes"
-  grep -q 'Hello World' `bazel info bazel-bin $HOST_PY_FLAG`/data.tar \
+  grep -q 'Hello World' `bazel info bazel-bin `/data.tar \
     || fail "Output not generated correctly"
 }
 
 test_pkg_tar_quoting() {
-  # Verify that pkg_tar can handle file names that are allowed as lablels
+  # Verify that pkg_tar can handle file names that are allowed as labels
   # but contain characters that could mess up options.
   rm -rf main out
   mkdir main
   cd main
-  create_workspace_with_default_repos WORKSPACE
+  setup_module_dot_bazel
   mkdir data
   echo 'with equal' > data/'foo=bar'
   echo 'like an option' > data/--foo
@@ -76,10 +63,10 @@ pkg_tar(
   srcs = glob(["data/**/*"]),
 )
 EOF
-  bazel build $HOST_PY_FLAG :fancy &> $TEST_log \
+  bazel build :fancy &> $TEST_log \
       || fail "Expected success"
   mkdir ../out
-  tar -C ../out -x -v -f `bazel info bazel-bin $HOST_PY_FLAG`/fancy.tar
+  tar -C ../out -x -v -f `bazel info bazel-bin `/fancy.tar
 
   grep equal ../out/data/foo=bar || fail "file with equal sign not packed correctly"
   grep option ../out/data/--foo || fail "file with double minus not packed correctly"
@@ -98,8 +85,8 @@ EOF
   EXTREPODIR=`pwd`
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   urls=["file://${EXTREPODIR}/ext.zip"],
@@ -141,8 +128,8 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+  cat > $(setup_module_dot_bazel) <<EOF
+new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="ext",
   remote="file://${EXTREPODIR}/extgit/.git",

@@ -1,6 +1,8 @@
 load("@rules_cc//cc:defs.bzl", "cc_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 

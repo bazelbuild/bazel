@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -24,7 +24,7 @@ function test_workspace_status_parameters() {
 
   local cmd=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat > $cmd <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo BUILD_SCM_STATUS funky
 EOF
@@ -50,7 +50,7 @@ function test_workspace_status_overrides() {
 
   local cmd=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat > $cmd <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo BUILD_USER fake_user
 echo BUILD_HOST fake_host
@@ -83,7 +83,7 @@ function test_workspace_status_cpp() {
 
   local cmd=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat > $cmd <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo BUILD_SCM_STATUS funky
 EOF
@@ -144,7 +144,7 @@ function test_stable_and_volatile_status() {
   create_new_workspace
   local wsc=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat >$wsc <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 cat $TEST_TMPDIR/status
 EOF
@@ -190,13 +190,35 @@ EOF
   assert_contains "STABLE_NAME bob" bazel-genfiles/ao
   assert_contains "NUMBER 3" bazel-genfiles/ao
 
+  # Test that generated timestamp is the same as its formatted version.
+  volatile_file="bazel-out/volatile-status.txt"
+  bazel build --stamp //:a || fail "build failed"
+  assert_contains "BUILD_TIMESTAMP" $volatile_file
+  assert_contains "FORMATTED_DATE" $volatile_file
+  # Read key value pairs.
+  timestamp_key_value=$(sed "1q;d" $volatile_file)
+  formatted_timestamp_key_value=$(sed "2q;d" $volatile_file)
+  # Extract values of the formatted date and timestamp.
+  timestamp=${timestamp_key_value#* }
+  formatted_date=${formatted_timestamp_key_value#* }
+  if [[ $(uname -s) == "Darwin" ]]
+  then
+    timestamp_formatted_date=$(date -u -r "$timestamp" +'%Y %b %d %H %M %S %a')
+  else
+    timestamp_formatted_date=$(date -u -d "@$timestamp" +'%Y %b %d %H %M %S %a')
+  fi
+
+  if [[ $timestamp_formatted_date != $formatted_date ]]
+  then
+    fail "Timestamp formatted date: $timestamp_formatted_date differs from workspace module provided formatted date: $formatted_date"
+  fi
 }
 
 function test_env_var_in_workspace_status() {
   create_new_workspace
   local wsc=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat >$wsc <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo "STABLE_ENV" ${STABLE_VAR}
 echo "VOLATILE_ENV" ${VOLATILE_VAR}

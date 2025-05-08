@@ -18,14 +18,11 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -36,7 +33,6 @@ import org.junit.runners.JUnit4;
 public class ProtoLangToolchainTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
-    MockProtoSupport.setupWorkspace(scratch);
     MockProtoSupport.setup(mockToolsConfig);
     useConfiguration("--protocopt=--myflag");
     invalidatePackages();
@@ -61,19 +57,53 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
       throws Exception {
     Label actualProtocLabel = getConfiguredTarget(protocLabel).getActual().getLabel();
     assertThat(toolchain.protoc().getExecutable().prettyPrint())
-        .isEqualTo(actualProtocLabel.toPathFragment().getPathString());
+        .isEqualTo(
+            actualProtocLabel
+                .getRepository()
+                .getExecPath(false)
+                .getRelative(actualProtocLabel.toPathFragment())
+                .getPathString());
   }
 
   @Test
   public void protoToolchain() throws Exception {
     scratch.file(
         "third_party/x/BUILD",
-        "licenses(['unencumbered'])",
-        "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
-        "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
-        "filegroup(name = 'descriptors', srcs = ['metadata.proto', 'descriptor.proto'])",
-        "filegroup(name = 'any', srcs = ['any.proto'])",
-        "proto_library(name = 'denied', srcs = [':descriptors', ':any'])");
+        """
+        load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')
+        licenses(["unencumbered"])
+
+        cc_binary(
+            name = "plugin",
+            srcs = ["plugin.cc"],
+        )
+
+        cc_library(
+            name = "runtime",
+            srcs = ["runtime.cc"],
+        )
+
+        filegroup(
+            name = "descriptors",
+            srcs = [
+                "descriptor.proto",
+                "metadata.proto",
+            ],
+        )
+
+        filegroup(
+            name = "any",
+            srcs = ["any.proto"],
+        )
+
+        proto_library(
+            name = "denied",
+            srcs = [
+                ":any",
+                ":descriptors",
+            ],
+        )
+        """);
 
     scratch.file(
         "foo/BUILD",
@@ -98,17 +128,45 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   }
 
   @Test
-  public void protoToolchain_setProtoCompiler() throws Exception {
+  public void protoToolchainResolution_enabled() throws Exception {
+    setBuildLanguageOptions("--incompatible_enable_proto_toolchain_resolution");
     scratch.file(
         "third_party/x/BUILD",
-        "licenses(['unencumbered'])",
-        "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
-        "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
-        "filegroup(name = 'descriptors', srcs = ['metadata.proto', 'descriptor.proto'])",
-        "filegroup(name = 'any', srcs = ['any.proto'])",
-        "proto_library(name = 'denied', srcs = [':descriptors', ':any'])",
-        "cc_binary(name = 'compiler')");
+        """
+        load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')
+        licenses(["unencumbered"])
 
+        cc_binary(
+            name = "plugin",
+            srcs = ["plugin.cc"],
+        )
+
+        cc_library(
+            name = "runtime",
+            srcs = ["runtime.cc"],
+        )
+
+        filegroup(
+            name = "descriptors",
+            srcs = [
+                "descriptor.proto",
+                "metadata.proto",
+            ],
+        )
+
+        filegroup(
+            name = "any",
+            srcs = ["any.proto"],
+        )
+
+        proto_library(
+            name = "denied",
+            srcs = [
+                ":any",
+                ":descriptors",
+            ],
+        )
+        """);
     scratch.file(
         "foo/BUILD",
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
@@ -121,21 +179,21 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
         "    runtime = '//third_party/x:runtime',",
         "    progress_message = 'Progress Message %{label}',",
         "    mnemonic = 'MyMnemonic',",
-        "    proto_compiler = '//third_party/x:compiler',",
         ")");
 
+    update(ImmutableList.of("//foo:toolchain"), false, 1, true, new EventBus());
     ProtoLangToolchainProvider toolchain =
         ProtoLangToolchainProvider.get(getConfiguredTarget("//foo:toolchain"));
 
     validateProtoLangToolchain(toolchain);
-    validateProtoCompiler(toolchain, "//third_party/x:compiler");
+    validateProtoCompiler(toolchain, ProtoConstants.DEFAULT_PROTOC_LABEL);
   }
 
   @Test
   public void protoToolchainBlacklistProtoLibraries() throws Exception {
     scratch.file(
         "third_party/x/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
+        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
         "licenses(['unencumbered'])",
         "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
         "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
@@ -167,7 +225,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   public void protoToolchainBlacklistTransitiveProtos() throws Exception {
     scratch.file(
         "third_party/x/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
+        "load('@com_google_protobuf//bazel:proto_library.bzl', 'proto_library')",
         "licenses(['unencumbered'])",
         "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
         "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
@@ -212,55 +270,5 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     assertThat(toolchain.pluginExecutable()).isNull();
     assertThat(toolchain.runtime()).isNull();
     assertThat(toolchain.mnemonic()).isEqualTo("GenProto");
-  }
-
-  @Test
-  public void protoLangToolchainProvider_deserialization() throws Exception {
-    scratch.file(
-        "foo/BUILD",
-        "cc_binary(",
-        "    name = 'plugin',",
-        "    srcs = ['plugin.cc'],",
-        ")",
-        "cc_binary(",
-        "    name = 'runtime',",
-        "    srcs = ['runtime.cc'],",
-        ")");
-    FilesToRunProvider plugin =
-        getConfiguredTarget("//foo:plugin").getProvider(FilesToRunProvider.class);
-    TransitiveInfoCollection runtime = getConfiguredTarget("//foo:runtime");
-    FilesToRunProvider protoCompiler =
-        getConfiguredTarget("//net/proto2/compiler/public:protocol_compiler")
-            .getProvider(FilesToRunProvider.class);
-    ImmutableList<ProtoSource> providedProtoSources =
-        ImmutableList.of(
-            new ProtoSource(
-                getSourceArtifact("a.proto"),
-                getSourceArtifact("_virtual_imports/b/a.proto"),
-                PathFragment.create("b")));
-    StarlarkInfo starlarkProvider =
-        ProtoLangToolchainProvider.create(
-            /* outReplacementFormatFlag= */ "outReplacementFormatFlag",
-            /* pluginFormatFlag= */ null,
-            /* pluginExecutable= */ plugin,
-            /* runtime= */ runtime,
-            /* providedProtoSources= */ providedProtoSources,
-            protoCompiler,
-            ImmutableList.of("--a", "--b"),
-            "Generating C++ proto_library %{label}",
-            "GenProto");
-
-    ProtoLangToolchainProvider nativeProvider =
-        ProtoLangToolchainProvider.wrapStarlarkProviderWithNativeProvider(starlarkProvider);
-
-    assertThat(nativeProvider.outReplacementFormatFlag()).isEqualTo("outReplacementFormatFlag");
-    assertThat(nativeProvider.pluginFormatFlag()).isNull();
-    assertThat(nativeProvider.pluginExecutable()).isEqualTo(plugin);
-    assertThat(nativeProvider.runtime()).isEqualTo(runtime);
-    assertThat(nativeProvider.providedProtoSources()).isEqualTo(providedProtoSources);
-    assertThat(nativeProvider.protoc()).isEqualTo(protoCompiler);
-    assertThat(nativeProvider.protocOpts()).containsExactly("--a", "--b");
-    assertThat(nativeProvider.progressMessage()).isEqualTo("Generating C++ proto_library %{label}");
-    assertThat(nativeProvider.mnemonic()).isEqualTo("GenProto");
   }
 }

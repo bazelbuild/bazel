@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.packages.util.TargetDataSubject.assertThat;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
@@ -31,7 +32,8 @@ public class OutputFileTest extends PackageLoadingTestCase {
   public final void createRule() throws Exception {
     scratch.file("pkg/BUILD", "genrule(name='foo', srcs=[], cmd='', outs=['x', 'subdir/y'])");
     this.rule = (Rule) getTarget("//pkg:foo");
-    this.pkg = rule.getPackage();
+    this.pkg = getPackage(this.rule.getLabel().getPackageIdentifier());
+    assertThat(this.pkg.getTarget(this.rule.getLabel().getName())).isSameInstanceAs(this.rule);
     assertNoEvents();
   }
 
@@ -87,13 +89,19 @@ public class OutputFileTest extends PackageLoadingTestCase {
   public void testDuplicateOutputFilesInDifferentRules() throws Exception {
     scratch.file(
         "two_outs/BUILD",
-        "genrule(name='a',",
-        "        cmd='ls >$(location out)',",
-        "        outs=['out'])",
-        "",
-        "genrule(name='b',",
-        "        cmd='ls >$(location out)',",
-        "        outs=['out'])");
+        """
+        genrule(
+            name = "a",
+            outs = ["out"],
+            cmd = "ls >$(location out)",
+        )
+
+        genrule(
+            name = "b",
+            outs = ["out"],
+            cmd = "ls >$(location out)",
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getTarget("//two_outs:BUILD");
@@ -106,13 +114,19 @@ public class OutputFileTest extends PackageLoadingTestCase {
   public void testOutputFileNameConflictsWithExistingRule() throws Exception {
     scratch.file(
         "out_is_rule/BUILD",
-        "genrule(name='a',",
-        "        cmd='ls >$(location out)',",
-        "        outs=['out'])",
-        "",
-        "genrule(name='b',",
-        "        cmd='ls >$(location out)',",
-        "        outs=['a'])");
+        """
+        genrule(
+            name = "a",
+            outs = ["out"],
+            cmd = "ls >$(location out)",
+        )
+
+        genrule(
+            name = "b",
+            outs = ["a"],
+            cmd = "ls >$(location out)",
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getTarget("//out_is_rule:BUILD");
@@ -122,12 +136,20 @@ public class OutputFileTest extends PackageLoadingTestCase {
   @Test
   public void testDuplicateOutputFilesInSameRule() throws Exception {
     scratch.file(
-        "two_outs/BUILD", "genrule(name='a', cmd='ls >$(location out)',outs=['out', 'out'])");
+        "two_outs/BUILD",
+        """
+        genrule(
+            name = "a",
+            outs = [
+                "out",
+                "out",
+            ],
+            cmd = "ls >$(location out)",
+        )
+        """);
     reporter.removeHandler(failFastHandler);
     getTarget("//two_outs:BUILD");
-    assertContainsEvent(
-        "generated file 'out' in rule 'a' conflicts with "
-            + "existing generated file from rule 'a'");
+    assertContainsEvent("rule 'a' has more than one generated file named 'out'");
   }
 
   @Test
@@ -152,5 +174,13 @@ public class OutputFileTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     getTarget("//output_called_build:BUILD");
     assertContainsEvent("generated file 'BUILD' in rule 'a' conflicts with existing source file");
+  }
+
+  @Test
+  public void testReduceForSerialization() throws Exception {
+    var outputFileX = pkg.getTarget("x");
+    assertThat(outputFileX).hasSamePropertiesAs(outputFileX.reduceForSerialization());
+    var outputFileY = pkg.getTarget("subdir/y");
+    assertThat(outputFileY).hasSamePropertiesAs(outputFileY.reduceForSerialization());
   }
 }

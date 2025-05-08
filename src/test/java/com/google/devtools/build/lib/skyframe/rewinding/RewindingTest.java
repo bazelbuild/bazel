@@ -17,23 +17,41 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
 
 import com.google.common.collect.Iterables;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.TargetConfiguredEvent;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.includescanning.IncludeScanningModule;
+import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.testutil.ActionEventRecorder;
+import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Tests for action rewinding on non-incremental builds. */
-// TODO(b/228090759): Add back actionFromPreviousBuildReevaluated when incrementality is supported.
+/**
+ * Integration tests for action rewinding.
+ *
+ * <p>Uses {@link TestParameter}s to run tests with all combinations of {@code
+ * --track_incremental_state}, {@code --keep_going}, and {@code
+ * --experimental_merged_skyframe_analysis_execution}.
+ */
+// TODO(b/228090759): Consider asserting on graph structure to improve coverage for incrementality.
+// TODO(b/228090759): Add back actionFromPreviousBuildReevaluated.
 @RunWith(TestParameterInjector.class)
 public final class RewindingTest extends BuildIntegrationTestCase {
 
+  @TestParameter private boolean trackIncrementalState;
   @TestParameter private boolean keepGoing;
+  @TestParameter private boolean skymeld;
 
   private final ActionEventRecorder actionEventRecorder = new ActionEventRecorder();
   private final RewindingTestsHelper helper = new RewindingTestsHelper(this, actionEventRecorder);
@@ -42,7 +60,23 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
         .addBlazeModule(new IncludeScanningModule())
-        .addBlazeModule(helper.makeControllableActionStrategyModule("standalone"));
+        .addBlazeModule(helper.makeControllableActionStrategyModule("standalone"))
+        .addBlazeModule(helper.getLostOutputsModule())
+        .addBlazeModule(
+            new BlazeModule() {
+              @Override
+              public void workspaceInit(
+                  BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
+                // Null out RepositoryHelpersHolder so that we don't trigger
+                // RepoMappingManifestAction. This preserves action graph structure between blaze
+                // and bazel, which is important for this test's assertions.
+                //
+                // IMPORTANT: As a result of this, external repositories are not symlinked under
+                // the execroot with Skymeld enabled. See onTargetAnalyzed for how to manually
+                // create such a symlink.
+                builder.setSkyframeExecutorRepositoryHelpersHolder(null);
+              }
+            });
   }
 
   @Override
@@ -50,29 +84,59 @@ public final class RewindingTest extends BuildIntegrationTestCase {
     super.setupOptions();
     addOptions(
         "--spawn_strategy=standalone",
-        "--notrack_incremental_state",
-        "--nouse_action_cache",
+        "--noexperimental_merged_skyframe_analysis_execution",
         "--rewind_lost_inputs",
         "--features=cc_include_scanning",
         "--experimental_remote_include_extraction_size_threshold=0",
-        "--keep_going=" + keepGoing);
+        "--experimental_remote_cache_eviction_retries=0",
+        "--track_incremental_state=" + trackIncrementalState,
+        "--keep_going=" + keepGoing,
+        "--experimental_merged_skyframe_analysis_execution=" + skymeld);
     runtimeWrapper.registerSubscriber(actionEventRecorder);
+    runtimeWrapper.registerSubscriber(this);
+  }
+
+  @Subscribe
+  public void onTargetAnalyzed(TargetConfiguredEvent event) throws IOException {
+    if (skymeld) {
+      // Necessary due to the RepositoryHelpersHolder nulling above, simulates the effect of
+      // TopLevelTargetReadyForSymlinkPlanting.
+      FileSystemUtils.ensureSymbolicLink(
+          getExecRootBase()
+              .getChild(TestConstants.WORKSPACE_NAME)
+              .getRelative("external/bazel_tools"),
+          getOutputBase().getRelative("external/bazel_tools"));
+    }
   }
 
   /**
    * Skips test cases that cannot run with bazel.
    *
-   * <p>{@link BuildIntegrationTestCase} currently does not support CPP compilation on bazel.
+   * <p>{@link BuildIntegrationTestCase} currently does not support include scanning or header
+   * modules on bazel.
    */
-  // TODO(b/195425240): Remove once CPP compilation on bazel is supported. Assumptions that
-  // generated headers are always under k8-opt will need to be relaxed to support other platforms.
   private static void skipIfBazel() {
     assume().that(AnalysisMock.get().isThisBazel()).isFalse();
+  }
+
+  /**
+   * Skips test cases that cannot run on non-Linux platforms.
+   *
+   * <p>The macOS linker does not support --start-lib/--end-lib and nodeps dynamic libraries, which
+   * throws off the assertions.
+   */
+  private static void skipIfNotLinux() {
+    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
   }
 
   @Test
   public void noLossSmokeTest() throws Exception {
     helper.runNoLossSmokeTest();
+  }
+
+  @Test
+  public void lostInputWithRewindingDisabled() throws Exception {
+    helper.runLostInputWithRewindingDisabled();
   }
 
   @Test
@@ -86,19 +150,13 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void inputDiscoveringActionNoticesMissingDep() throws Exception {
-    skipIfBazel();
-    helper.runInputDiscoveringActionNoticesMissingDep();
-  }
-
-  @Test
   public void multipleLostInputsForRewindPlan() throws Exception {
     helper.runMultipleLostInputsForRewindPlan();
   }
 
   @Test
-  public void multiplyLosingInputsFails() throws Exception {
-    helper.runMultiplyLosingInputsFails();
+  public void ineffectiveRewindingResultsInLostInputTooManyTimes() throws Exception {
+    helper.runIneffectiveRewindingResultsInLostInputTooManyTimes();
     assertOutputForRule2NotCreated();
   }
 
@@ -147,19 +205,19 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void treeFileArtifactRewound() throws Exception {
-    skipIfBazel();
+    skipIfNotLinux();
     helper.runTreeFileArtifactRewound_spawnFailed();
   }
 
   @Test
   public void treeArtifactRewound_allFilesLost() throws Exception {
-    skipIfBazel();
+    skipIfNotLinux();
     helper.runTreeArtifactRewound_allFilesLost_spawnFailed();
   }
 
   @Test
   public void treeArtifactRewound_oneFileLost() throws Exception {
-    skipIfBazel();
+    skipIfNotLinux();
     helper.runTreeArtifactRewound_oneFileLost_spawnFailed();
   }
 
@@ -196,7 +254,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void generatedHeaderRewound_lostInActionExecution() throws Exception {
-    skipIfBazel();
+    skipIfNotLinux();
     helper.runGeneratedHeaderRewound_lostInActionExecution_spawnFailed();
   }
 
@@ -208,7 +266,59 @@ public final class RewindingTest extends BuildIntegrationTestCase {
 
   @Test
   public void generatedTransitiveHeaderRewound_lostInActionExecution() throws Exception {
-    skipIfBazel();
+    skipIfNotLinux();
     helper.runGeneratedTransitiveHeaderRewound_lostInActionExecution_spawnFailed();
+  }
+
+  @Test
+  public void doneToDirtyDepForNodeInError() throws Exception {
+    helper.runDoneToDirtyDepForNodeInError();
+  }
+
+  @Test
+  public void flakyActionFailsAfterRewind_raceWithIndirectConsumer_undoneDuringInputChecking()
+      throws Exception {
+    helper.runFlakyActionFailsAfterRewind_raceWithIndirectConsumer_undoneDuringInputChecking();
+  }
+
+  @Test
+  public void discoveredCppModuleLost() throws Exception {
+    skipIfBazel();
+    helper.runDiscoveredCppModuleLost();
+  }
+
+  @Test
+  public void lostTopLevelOutputWithRewindingDisabled() throws Exception {
+    helper.runLostTopLevelOutputWithRewindingDisabled();
+  }
+
+  @Test
+  public void topLevelOutputRewound_regularFile() throws Exception {
+    helper.runTopLevelOutputRewound_regularFile();
+  }
+
+  @Test
+  public void topLevelOutputRewound_aspectOwned() throws Exception {
+    helper.runTopLevelOutputRewound_aspectOwned();
+  }
+
+  @Test
+  public void topLevelOutputRewound_fileInTreeArtifact() throws Exception {
+    helper.runTopLevelOutputRewound_fileInTreeArtifact();
+  }
+
+  @Test
+  public void topLevelOutputRewound_partiallyBuiltTarget_regularFile() throws Exception {
+    helper.runTopLevelOutputRewound_partiallyBuiltTarget_regularFile();
+  }
+
+  @Test
+  public void topLevelOutputRewound_partiallyBuiltTarget_fileInTreeArtifact() throws Exception {
+    helper.runTopLevelOutputRewound_partiallyBuiltTarget_fileInTreeArtifact();
+  }
+
+  @Test
+  public void topLevelOutputRewound_ineffectiveRewinding() throws Exception {
+    helper.runTopLevelOutputRewound_ineffectiveRewinding();
   }
 }

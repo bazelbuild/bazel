@@ -54,33 +54,24 @@ final class FormatUtils {
   }
 
   /**
-   * Returns the target location string, optionally relative to its package's source root directory.
-   */
-  static String getLocation(Target target, boolean relative) {
-    Location loc = target.getLocation();
-
-    if (relative) {
-      loc = getRootRelativeLocation(loc, target.getPackage());
-    }
-    return loc.toString();
-  }
-
-  /**
    * Returns the target location string, optionally relative to its package's source root directory
    * and optionally to display the location of source files.
    *
    * @param relative flag to display the location relative to its package's source root directory.
-   * @param displaySourceFileLocation flag to display the location of line 1 of the actual source
-   *     file instead of its location in the BUILD file.
+   * @param overrideSourceRoot if non-null and {@code relative} is false, replaces the package
+   *     source root
    */
-  static String getLocation(Target target, boolean relative, boolean displaySourceFileLocation) {
+  static String getLocation(
+      Target target, boolean relative, @Nullable PathFragment overrideSourceRoot) {
     Location loc = target.getLocation();
-    if (target instanceof InputFile && displaySourceFileLocation) {
-      PathFragment packageDir = target.getPackage().getPackageDirectory().asFragment();
+    if (target instanceof InputFile) {
+      PathFragment packageDir = target.getPackageMetadata().getPackageDirectory().asFragment();
       loc = Location.fromFileLineColumn(packageDir.getRelative(target.getName()).toString(), 1, 1);
     }
     if (relative) {
-      loc = getRootRelativeLocation(loc, target.getPackage());
+      loc = getRootRelativeLocation(loc, target.getPackageMetadata());
+    } else if (overrideSourceRoot != null) {
+      loc = getLocationUnderAlternateRoot(loc, target.getPackageMetadata(), overrideSourceRoot);
     }
     return loc.toString();
   }
@@ -89,14 +80,20 @@ final class FormatUtils {
    * Returns the specified location relative to the optional package's source root directory, if
    * available.
    */
-  static Location getRootRelativeLocation(Location location, @Nullable Package base) {
-    if (base != null
-        && base.getSourceRoot().isPresent()) { // !isPresent => WORKSPACE pseudo-package
-      Root root = base.getSourceRoot().get();
+  static Location getRootRelativeLocation(Location location, @Nullable Package.Metadata base) {
+    return getLocationUnderAlternateRoot(location, base, PathFragment.EMPTY_FRAGMENT);
+  }
+
+  private static Location getLocationUnderAlternateRoot(
+      Location location, @Nullable Package.Metadata base, PathFragment alternateRoot) {
+    if (base != null && base.sourceRoot().isPresent()) { // !isPresent => WORKSPACE pseudo-package
+      Root root = base.sourceRoot().get();
       PathFragment file = PathFragment.create(location.file());
       if (root.contains(file)) {
         PathFragment rel = root.relativize(file);
-        location = Location.fromFileLineColumn(rel.toString(), location.line(), location.column());
+        location =
+            Location.fromFileLineColumn(
+                alternateRoot.getRelative(rel).toString(), location.line(), location.column());
       }
     }
     return location;

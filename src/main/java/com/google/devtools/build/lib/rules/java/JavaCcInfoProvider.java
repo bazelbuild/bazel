@@ -15,36 +15,65 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Collection;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 
 /** Provides information about C++ libraries to be linked into Java targets. */
 @Immutable
-public final class JavaCcInfoProvider implements TransitiveInfoProvider {
-
-  // TODO(b/183579145): Replace CcInfo with only linking information.
-  private final CcInfo ccInfo;
-
-  public CcInfo getCcInfo() {
-    return ccInfo;
+@AutoCodec
+public record JavaCcInfoProvider(CcInfo ccInfo) implements JavaInfoInternalProvider {
+  public JavaCcInfoProvider {
+    requireNonNull(ccInfo, "ccInfo");
   }
 
-  public JavaCcInfoProvider(CcInfo ccInfo) {
-    this.ccInfo =
+  // TODO(b/183579145): Replace CcInfo with only linking information.
+
+  public static JavaCcInfoProvider create(CcInfo ccInfo) {
+    return new JavaCcInfoProvider(
         CcInfo.builder()
             .setCcLinkingContext(ccInfo.getCcLinkingContext())
             .setCcNativeLibraryInfo(ccInfo.getCcNativeLibraryInfo())
-            .build();
+            .setCcDebugInfoContext(ccInfo.getCcDebugInfoContext())
+            .build());
   }
 
   /** Merges several JavaCcInfoProvider providers into one. */
   public static JavaCcInfoProvider merge(Collection<JavaCcInfoProvider> providers) {
     ImmutableList<CcInfo> ccInfos =
-        providers.stream().map(JavaCcInfoProvider::getCcInfo).collect(toImmutableList());
-    return new JavaCcInfoProvider(CcInfo.merge(ccInfos));
+        providers.stream().map(JavaCcInfoProvider::ccInfo).collect(toImmutableList());
+    return create(CcInfo.merge(ccInfos));
+  }
+
+  @Nullable
+  static JavaCcInfoProvider fromStarlarkJavaInfo(StructImpl javaInfo) throws EvalException {
+    CcInfo ccInfo = javaInfo.getValue("cc_link_params_info", CcInfo.class);
+    if (ccInfo == null) {
+      NestedSet<LibraryToLink> transitiveCcNativeLibraries =
+          Depset.cast(
+              javaInfo.getValue("transitive_native_libraries"),
+              LibraryToLink.class,
+              "transitive_native_libraries");
+      if (transitiveCcNativeLibraries.isEmpty()) {
+        return null;
+      }
+      ccInfo =
+          CcInfo.builder()
+              .setCcNativeLibraryInfo(new CcNativeLibraryInfo(transitiveCcNativeLibraries))
+              .build();
+    }
+    return create(ccInfo);
   }
 }

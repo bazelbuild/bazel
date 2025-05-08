@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -61,13 +61,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function expect_symlink() {
   local file=$1
 
@@ -77,6 +70,7 @@ function expect_symlink() {
 }
 
 function set_up() {
+  add_rules_python "MODULE.bazel"
   mkdir -p symlink
   touch symlink/BUILD
   cat > symlink/symlink.bzl <<EOF
@@ -105,6 +99,7 @@ EOF
   # Windows.
   mkdir -p symlink_helper
   cat > symlink_helper/BUILD <<EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
 py_binary(
     name = "symlink_helper",
     srcs = ["symlink_helper.py"],
@@ -126,8 +121,20 @@ load("//symlink:symlink.bzl", "dangling_symlink")
 dangling_symlink(name="a", link_target="non/existent")
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:a || fail "build failed"
+  bazel build //a:a || fail "build failed"
   ls -l bazel-bin/a
+}
+
+function test_no_unresolved_symlinks() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+load("//symlink:symlink.bzl", "dangling_symlink")
+dangling_symlink(name="a", link_target="non/existent")
+EOF
+
+  bazel build --noallow_unresolved_symlinks //a:a >& $TEST_log \
+    && fail "build succeeded, but should have failed"
+  expect_log 'declare_symlink() is not allowed; use the --allow_unresolved_symlinks'
 }
 
 function test_inmemory_cache_symlinks() {
@@ -137,9 +144,9 @@ load("//symlink:symlink.bzl", "dangling_symlink")
 dangling_symlink(name="a", link_target="non/existent")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
-  bazel build --experimental_allow_unresolved_symlinks //a:g >& $TEST_log || fail "build failed"
+  bazel build //a:g >& $TEST_log || fail "build failed"
   expect_log "running genrule"
-  bazel build --experimental_allow_unresolved_symlinks //a:g >& $TEST_log || fail "build failed"
+  bazel build //a:g >& $TEST_log || fail "build failed"
   expect_not_log "running genrule"
 }
 
@@ -150,10 +157,10 @@ load("//symlink:symlink.bzl", "dangling_symlink")
 dangling_symlink(name="a", link_target="non/existent")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
-  bazel build --experimental_allow_unresolved_symlinks //a:g >& $TEST_log || fail "build failed"
+  bazel build //a:g >& $TEST_log || fail "build failed"
   expect_log "running genrule"
   bazel shutdown
-  bazel build --experimental_allow_unresolved_symlinks //a:g >& $TEST_log || fail "build failed"
+  bazel build //a:g >& $TEST_log || fail "build failed"
   expect_not_log "running genrule"
 }
 
@@ -165,7 +172,7 @@ dangling_symlink(name="a", link_target="non/existent")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:g >& $TEST_log || fail "build failed"
+  bazel build //a:g >& $TEST_log || fail "build failed"
   expect_log "running genrule"
 
   cat > a/BUILD <<'EOF'
@@ -174,7 +181,7 @@ dangling_symlink(name="a", link_target="non/existent2")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:g >& $TEST_log || fail "build failed"
+  bazel build //a:g >& $TEST_log || fail "build failed"
   expect_log "running genrule"
 }
 
@@ -186,7 +193,7 @@ dangling_symlink(name="a", link_target="non/existent")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:g >& $TEST_log || fail "build failed"
+  bazel build //a:g >& $TEST_log || fail "build failed"
   expect_log "running genrule"
 
   cat > a/BUILD <<'EOF'
@@ -196,7 +203,7 @@ genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO >
 EOF
 
   bazel shutdown
-  bazel build --experimental_allow_unresolved_symlinks //a:g >& $TEST_log || fail "build failed"
+  bazel build //a:g >& $TEST_log || fail "build failed"
   expect_log "running genrule"
 }
 
@@ -208,7 +215,7 @@ dangling_symlink(name="a", link_target="non/existent")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:g >& $TEST_log || fail "build failed"
+  bazel build //a:g >& $TEST_log || fail "build failed"
   expect_log "running genrule"
 
   cat > a/BUILD <<'EOF'
@@ -217,7 +224,7 @@ write(name="a", contents="non/existent")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:g >& $TEST_log || fail "build failed"
+  bazel build //a:g >& $TEST_log || fail "build failed"
   expect_log "running genrule"
 }
 
@@ -229,7 +236,7 @@ write(name="a", contents="non/existent")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:g >& $TEST_log || fail "build failed"
+  bazel build //a:g >& $TEST_log || fail "build failed"
   expect_log "running genrule"
 
   cat > a/BUILD <<'EOF'
@@ -238,7 +245,7 @@ dangling_symlink(name="a", link_target="non/existent")
 genrule(name="g", srcs=[":a"], outs=["go"], cmd="echo running genrule; echo GO > $@")
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:g >& $TEST_log || fail "build failed"
+  bazel build //a:g >& $TEST_log || fail "build failed"
   expect_log "running genrule"
 }
 
@@ -286,13 +293,13 @@ genrule(
 )
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:bsg >& $TEST_log && fail "build succeeded"
+  bazel build //a:bsg >& $TEST_log && fail "build succeeded"
   expect_log "declared output 'a/bs' is not a symlink"
 
-  bazel build --experimental_allow_unresolved_symlinks //a:bwg >& $TEST_log && fail "build succeeded"
+  bazel build //a:bwg >& $TEST_log && fail "build succeeded"
   expect_log "symlink() with \"target_path\" param requires that \"output\" be declared as a symlink, not a file or directory"
 
-  bazel build --experimental_allow_unresolved_symlinks //a:bg >& $TEST_log && fail "build succeeded"
+  bazel build //a:bg >& $TEST_log && fail "build succeeded"
   expect_log "declared output 'a/bgo' is a dangling symbolic link"
 }
 
@@ -322,7 +329,7 @@ load(":a.bzl", "bad_symlink")
 bad_symlink(name="bs")
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:bs >& $TEST_log && fail "build succeeded"
+  bazel build //a:bs >& $TEST_log && fail "build succeeded"
   expect_log "symlink() with \"target_file\" param requires that \"output\" be declared as a file or directory, not a symlink"
 }
 
@@ -364,7 +371,7 @@ load(":a.bzl", "a")
 a(name="a", link_target="somewhere/over/the/rainbow")
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:a || fail "build failed"
+  bazel build //a:a || fail "build failed"
   assert_contains "input link is somewhere/over/the/rainbow" bazel-bin/a/a.file
 }
 
@@ -399,7 +406,7 @@ load(":a.bzl", "a")
 a(name="a", link_target="../somewhere/in/my/heart")
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:a || fail "build failed"
+  bazel build //a:a || fail "build failed"
   assert_contains "input link is ../somewhere/in/my/heart" bazel-bin/a/a.file
 }
 
@@ -495,13 +502,6 @@ EOF
 
   bazel build //a:a >& $TEST_log && fail "build succeeded"
   expect_log "symlink() with \"target_file\" directory param requires that \"output\" be declared as a directory"
-
-  bazel build --noincompatible_disallow_symlink_file_to_dir //a:a || fail "build failed"
-  assert_contains "Hello, World!" bazel-bin/a/a.link/inside.txt
-  expect_symlink bazel-bin/a/a.link
-
-  bazel build --incompatible_disallow_symlink_file_to_dir //a:a >& $TEST_log && fail "build succeeded"
-  expect_log "symlink() with \"target_file\" directory param requires that \"output\" be declared as a directory"
 }
 
 function test_symlink_directory_to_file_created_from_symlink_action() {
@@ -555,7 +555,7 @@ load(":a.bzl", "a")
 a(name="a")
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:a >& $TEST_log && fail "build succeeded"
+  bazel build //a:a >& $TEST_log && fail "build succeeded"
   expect_log "\"is_executable\" cannot be True when using \"target_path\""
 }
 
@@ -714,16 +714,14 @@ genrule(
     srcs = [],
     outs = ["out"],
     cmd = "touch $@",
-    exec_tools = [":a"],
+    tools = [":a"],
 )
 EOF
 
-  bazel build --experimental_allow_unresolved_symlinks //a:exec || fail "build failed"
+  bazel build //a:exec || fail "build failed"
 }
 
 function setup_unresolved_symlink_as_input() {
-  add_to_bazelrc build --experimental_allow_unresolved_symlinks
-
   mkdir -p pkg
   cat > pkg/def.bzl <<'EOF'
 def _r(ctx):
@@ -781,6 +779,27 @@ function test_unresolved_symlink_as_input_local() {
   bazel build //pkg:c || fail "symlink should resolve"
 }
 
+function test_unresolved_symlink_as_input_local_inprocess() {
+  if "$is_windows"; then
+    # TODO(#10298): Support unresolved symlinks on Windows.
+    return 0
+  fi
+
+  setup_unresolved_symlink_as_input
+  add_to_bazelrc build --spawn_strategy=local
+
+  bazel build //pkg:b && fail "symlink should not resolve"
+
+  bazel clean
+  bazel build  //pkg:file
+  # Since the build isn't sandboxed, the symlink to //:a resolves even though
+  # the action does not declare it as an input.
+  bazel build  //pkg:b || fail "symlink expected to resolve non-hermetically"
+
+  bazel clean
+  bazel build  //pkg:c || fail "symlink should resolve"
+}
+
 function test_unresolved_symlink_as_input_sandbox() {
   if "$is_windows"; then
     # TODO(#10298): Support unresolved symlinks on Windows.
@@ -794,7 +813,7 @@ function test_unresolved_symlink_as_input_sandbox() {
 
   bazel clean
   bazel build //pkg:a
-  # Since the build isn't sandboxed, the symlink to //:a does not resolves even
+  # Since the build is sandboxed, the symlink to //:a does not resolves even
   # though it would in the unsandboxed exec root due to //:a having been built
   # before.
   bazel build //pkg:b && fail "sandboxed build is not hermetic"
@@ -804,8 +823,6 @@ function test_unresolved_symlink_as_input_sandbox() {
 }
 
 function setup_unresolved_symlink_as_runfile() {
-  add_to_bazelrc build --experimental_allow_unresolved_symlinks
-
   mkdir -p pkg
   cat > pkg/script.sh.tpl <<'EOF'
 #!/usr/bin/env bash
@@ -870,6 +887,22 @@ EOF
 }
 
 function test_unresolved_symlink_as_runfile_local() {
+  if "$is_windows"; then
+    # TODO(#10298): Support unresolved symlinks on Windows.
+    return 0
+  fi
+
+  setup_unresolved_symlink_as_runfile
+  add_to_bazelrc build --spawn_strategy=local
+
+  bazel build //pkg:use_tool || fail "local build failed"
+  # Keep the implicitly built //pkg:a around to make the symlink resolve
+  # outside the runfiles tree. The build should still fail as the relative
+  # symlink is staged as is and doesn't resolve outside the runfiles tree.
+  bazel build //pkg:use_tool_non_hermetically && fail "symlink in runfiles resolved outside the runfiles tree" || true
+}
+
+function test_unresolved_symlink_as_runfile_local_inprocess() {
   if "$is_windows"; then
     # TODO(#10298): Support unresolved symlinks on Windows.
     return 0

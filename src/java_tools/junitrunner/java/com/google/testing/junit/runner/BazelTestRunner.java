@@ -15,14 +15,16 @@
 package com.google.testing.junit.runner;
 
 import com.google.testing.junit.runner.internal.StackTraces;
+import com.google.testing.junit.runner.junit4.JUnit4Bazel;
 import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.Config;
-import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.SuiteClass;
 import com.google.testing.junit.runner.junit4.JUnit4Runner;
 import java.io.PrintStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
+import org.junit.runner.Result;
 
 /**
  * A class to run JUnit tests in a controlled environment.
@@ -43,6 +45,11 @@ public class BazelTestRunner {
    */
   static final String TEST_SUITE_PROPERTY_NAME = "bazel.test_suite";
 
+  private static final int EXIT_CODE_SUCCESS = 0;
+  private static final int EXIT_CODE_TEST_FAILURE_OTHER = 1;
+  private static final int EXIT_CODE_TEST_RUNNER_FAILURE = 2;
+  private static final int EXIT_CODE_TEST_FAILURE_OOM = 137;
+
   private BazelTestRunner() {
     // utility class; should not be instantiated
   }
@@ -50,16 +57,17 @@ public class BazelTestRunner {
   /**
    * Takes as arguments the classes or packages to test.
    *
-   * <p>To help just run one test or method in a suite, the test suite
-   * may be passed in via system properties (-Dbazel.test_suite).
-   * An empty args parameter means to run all tests in the suite.
-   * A non-empty args parameter means to run only the specified tests/methods.
+   * <p>To help just run one test or method in a suite, the test suite may be passed in via system
+   * properties (-Dbazel.test_suite). An empty args parameter means to run all tests in the suite. A
+   * non-empty args parameter means to run only the specified tests/methods.
    *
    * <p>Return codes:
+   *
    * <ul>
-   * <li>Test runner failure, bad arguments, etc.: exit code of 2</li>
-   * <li>Normal test failure: exit code of 1</li>
-   * <li>All tests pass: exit code of 0</li>
+   *   <li>Test runner failure, bad arguments, etc.: exit code of 2
+   *   <li>Test failure that included an OutOfMemoryException: exit code of 137
+   *   <li>Normal test failure: exit code of 1
+   *   <li>All tests pass: exit code of 0
    * </ul>
    */
   public static void main(String[] args) {
@@ -67,7 +75,7 @@ public class BazelTestRunner {
 
     String suiteClassName = System.getProperty(TEST_SUITE_PROPERTY_NAME);
     if (!checkTestSuiteProperty(suiteClassName)) {
-      System.exit(2);
+      System.exit(EXIT_CODE_TEST_RUNNER_FAILURE);
     }
 
     int exitCode;
@@ -78,7 +86,8 @@ public class BazelTestRunner {
       // logged
       // by the executing strategy, and return a failure, so this process can gracefully shut down.
       e.printStackTrace();
-      exitCode = 1;
+      exitCode =
+          e instanceof OutOfMemoryError ? EXIT_CODE_TEST_FAILURE_OOM : EXIT_CODE_TEST_FAILURE_OTHER;
     }
 
     System.err.printf("%nBazelTestRunner exiting with a return value of %d%n", exitCode);
@@ -88,7 +97,7 @@ public class BazelTestRunner {
 
     printStackTracesIfJvmExitHangs(stderr);
 
-    DateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    DateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
     Date shutdownTime = new Date();
     String formattedShutdownTime = format.format(shutdownTime);
     System.err.printf("-- JVM shutdown starting at %s --%n%n", formattedShutdownTime);
@@ -134,18 +143,21 @@ public class BazelTestRunner {
       // No class found corresponding to the system property passed in from Bazel
       if (args.length == 0 && suiteClassName != null) {
         System.err.printf("Class not found: [%s]%n", suiteClassName);
-        return 2;
+        return EXIT_CODE_TEST_RUNNER_FAILURE;
       }
     }
 
     // TODO(kush): Use a new classloader for the following instantiation.
     JUnit4Runner runner =
-        JUnit4Bazel.builder()
-            .suiteClass(new SuiteClass(suite))
-            .config(new Config(args))
-            .build()
-            .runner();
-    return runner.run().wasSuccessful() ? 0 : 1;
+        JUnit4Bazel.builder().suiteClass(suite).config(new Config(args)).build().runner();
+    Result result = runner.run();
+    if (result.wasSuccessful()) {
+      return EXIT_CODE_SUCCESS;
+    }
+    return result.getFailures().stream()
+            .anyMatch(failure -> failure.getException() instanceof OutOfMemoryError)
+        ? EXIT_CODE_TEST_FAILURE_OOM
+        : EXIT_CODE_TEST_FAILURE_OTHER;
   }
 
   private static Class<?> getTestClass(String name) {

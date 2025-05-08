@@ -19,20 +19,21 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.devtools.build.skyframe.SkyframeLookupResult.QueryDepCallback;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -50,6 +51,10 @@ import javax.annotation.Nullable;
 public class GraphTester {
 
   public static final SkyFunctionName NODE_TYPE = SkyFunctionName.FOR_TESTING;
+
+  /** If true, uses the {@link SkyframeLookupResult#queryDep} interface to retrieve values. */
+  private boolean useQueryDep = false;
+
   private final Map<SkyFunctionName, SkyFunction> functionMap = new HashMap<>();
 
   private final Map<SkyKey, TestFunction> values = new HashMap<>();
@@ -58,6 +63,10 @@ public class GraphTester {
   public GraphTester() {
     functionMap.put(NODE_TYPE, new DelegatingFunction());
     functionMap.put(FOR_TESTING_NONHERMETIC, new DelegatingFunction());
+  }
+
+  public void setUseQueryDep(boolean useQueryDep) {
+    this.useQueryDep = useQueryDep;
   }
 
   public TestFunction getOrCreate(String name) {
@@ -111,22 +120,16 @@ public class GraphTester {
         if (builder.progress != null) {
           env.getListener().handle(Event.progress(builder.progress));
         }
+        if (builder.errorEvent != null) {
+          env.getListener().handle(Event.error(builder.errorEvent));
+        }
         if (builder.postable != null) {
           env.getListener().post(builder.postable);
         }
         Map<SkyKey, SkyValue> deps = new LinkedHashMap<>();
         boolean oneMissing = false;
         for (Pair<SkyKey, SkyValue> dep : builder.deps) {
-          SkyValue value;
-          if (dep.second == null) {
-            value = env.getValue(dep.first);
-          } else {
-            try {
-              value = env.getValueOrThrow(dep.first, SomeErrorException.class);
-            } catch (SomeErrorException e) {
-              value = dep.second;
-            }
-          }
+          SkyValue value = useQueryDep ? getValueUsingQueryDep(dep, env) : getValue(dep, env);
           if (value == null) {
             oneMissing = true;
           } else {
@@ -171,12 +174,84 @@ public class GraphTester {
     };
   }
 
+  private static SkyValue getValue(Pair<SkyKey, SkyValue> dep, SkyFunction.Environment env)
+      throws InterruptedException {
+    SkyValue value;
+    if (dep.second == null) {
+      value = env.getValue(dep.first);
+    } else {
+      try {
+        value = env.getValueOrThrow(dep.first, SomeErrorException.class);
+      } catch (SomeErrorException e) {
+        value = dep.second;
+      }
+    }
+    return value;
+  }
+
+  private static SkyValue getValueUsingQueryDep(
+      Pair<SkyKey, SkyValue> dep, SkyFunction.Environment env) throws InterruptedException {
+    SkyValue value;
+    var lookupResult = env.getValuesAndExceptions(ImmutableList.of(dep.first));
+    if (dep.second == null) {
+      var valueRef = new AtomicReference<SkyValue>();
+      var gotValue =
+          lookupResult.queryDep(
+              dep.first,
+              (k, v) -> {
+                assertThat(k).isEqualTo(dep.first);
+                valueRef.set(v);
+              });
+      if ((value = valueRef.get()) != null) {
+        assertThat(gotValue).isTrue();
+      } else {
+        assertThat(gotValue).isFalse();
+      }
+    } else {
+      var valueRef = new AtomicReference<SkyValue>();
+      var exceptionRef = new AtomicReference<SomeErrorException>();
+      var gotValue =
+          lookupResult.queryDep(
+              dep.first,
+              new QueryDepCallback() {
+                @Override
+                public void acceptValue(SkyKey key, SkyValue value) {
+                  assertThat(key).isEqualTo(dep.first);
+                  valueRef.set(value);
+                }
+
+                @Override
+                public boolean tryHandleException(SkyKey key, Exception e) {
+                  assertThat(key).isEqualTo(dep.first);
+                  if (e instanceof SomeErrorException someErrorException) {
+                    exceptionRef.set(someErrorException);
+                    return true;
+                  }
+                  return false;
+                }
+              });
+      if ((value = valueRef.get()) != null) {
+        assertThat(gotValue).isTrue();
+      } else if (exceptionRef.get() != null) {
+        value = dep.second;
+        assertThat(gotValue).isTrue();
+      } else {
+        assertThat(gotValue).isFalse();
+      }
+    }
+    return value;
+  }
+
   public static SkyKey skyKey(String key) {
     return Key.create(key);
   }
 
   public static NonHermeticKey nonHermeticKey(String key) {
     return NonHermeticKey.create(key);
+  }
+
+  public static SkipBatchPrefetchKey skipBatchPrefetchKey(String key) {
+    return SkipBatchPrefetchKey.create(key);
   }
 
   /** A value in the testing graph that is constructed in the tester. */
@@ -192,6 +267,7 @@ public class GraphTester {
 
     private String warning;
     private String progress;
+    private String errorEvent;
     private Postable postable;
 
     private String tag;
@@ -216,11 +292,6 @@ public class GraphTester {
     public TestFunction removeDependency(SkyKey key) {
       deps.remove(Pair.<SkyKey, SkyValue>of(key, null));
       return this;
-    }
-
-    @CanIgnoreReturnValue
-    public TestFunction addErrorDependency(String name, SkyValue altValue) {
-      return addErrorDependency(skyKey(name), altValue);
     }
 
     @CanIgnoreReturnValue
@@ -264,6 +335,7 @@ public class GraphTester {
       Preconditions.checkState(!hasError);
       Preconditions.checkState(warning == null);
       Preconditions.checkState(progress == null);
+      Preconditions.checkState(errorEvent == null);
       Preconditions.checkState(tag == null);
       this.builder = builder;
       return this;
@@ -300,6 +372,16 @@ public class GraphTester {
       return this;
     }
 
+    /**
+     * Sets an error message to emit as an {@link Event}. Does not imply that the function throws an
+     * error.
+     */
+    @CanIgnoreReturnValue
+    public TestFunction setErrorEvent(String error) {
+      this.errorEvent = error;
+      return this;
+    }
+
     @CanIgnoreReturnValue
     public TestFunction setTag(String tag) {
       Preconditions.checkState(builder == null);
@@ -315,15 +397,16 @@ public class GraphTester {
   }
 
   public static ImmutableList<SkyKey> toSkyKeys(String... names) {
-    ImmutableList.Builder<SkyKey> result = ImmutableList.builder();
-    for (String element : names) {
-      result.add(Key.create(element));
-    }
-    return result.build();
+    return toSkyKeys(/* useSkipBatchPrefetchKey= */ false, names);
   }
 
-  public static SkyKey toSkyKey(String name) {
-    return toSkyKeys(name).get(0);
+  public static ImmutableList<SkyKey> toSkyKeys(boolean useSkipBatchPrefetchKey, String... names) {
+    ImmutableList.Builder<SkyKey> result = ImmutableList.builder();
+    for (String element : names) {
+      result.add(
+          useSkipBatchPrefetchKey ? SkipBatchPrefetchKey.create(element) : Key.create(element));
+    }
+    return result.build();
   }
 
   private class DelegatingFunction implements SkyFunction {
@@ -342,6 +425,10 @@ public class GraphTester {
 
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctionMap() {
     return ImmutableMap.copyOf(functionMap);
+  }
+
+  public void putDelegateFunction(SkyFunctionName functionName) {
+    putSkyFunction(functionName, new DelegatingFunction());
   }
 
   public void putSkyFunction(SkyFunctionName functionName, SkyFunction function) {
@@ -434,48 +521,102 @@ public class GraphTester {
         StringValue.of(String.format(format, StringValue.from(deps.get(key)).getValue()));
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<String> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(String arg) {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(String arg) {
+    private static Key create(String arg) {
       return interner.intern(new Key(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static Key intern(Key key) {
+      return interner.intern(key);
     }
 
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctionName.FOR_TESTING;
     }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
+    }
   }
 
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   @AutoCodec
   static class NonHermeticKey extends AbstractSkyKey<String> {
-    private static final Interner<NonHermeticKey> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<NonHermeticKey> interner = SkyKey.newInterner();
 
     private NonHermeticKey(String arg) {
       super(arg);
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static NonHermeticKey create(String arg) {
+    private static NonHermeticKey create(String arg) {
       return interner.intern(new NonHermeticKey(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static NonHermeticKey intern(NonHermeticKey nonHermeticKey) {
+      return interner.intern(nonHermeticKey);
     }
 
     @Override
     public SkyFunctionName functionName() {
       return FOR_TESTING_NONHERMETIC;
     }
+
+    @Override
+    public SkyKeyInterner<NonHermeticKey> getSkyKeyInterner() {
+      return interner;
+    }
   }
 
   private static final SkyFunctionName FOR_TESTING_NONHERMETIC =
       SkyFunctionName.createNonHermetic("FOR_TESTING_NONHERMETIC");
+
+  // TODO: b/324948927 - Remove this class along with `SkyKey#skipBatchPrefetch()` method.
+  @VisibleForSerialization
+  @AutoCodec
+  static final class SkipBatchPrefetchKey extends AbstractSkyKey<String> implements SkyKey {
+    private static final SkyKeyInterner<SkipBatchPrefetchKey> interner = SkyKey.newInterner();
+
+    SkipBatchPrefetchKey(String arg) {
+      super(arg);
+    }
+
+    private static SkipBatchPrefetchKey create(String arg) {
+      return interner.intern(new SkipBatchPrefetchKey(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static SkipBatchPrefetchKey intern(SkipBatchPrefetchKey key) {
+      return interner.intern(key);
+    }
+
+    @Override
+    public boolean skipsBatchPrefetch() {
+      return true;
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctionName.FOR_TESTING;
+    }
+
+    @Override
+    public SkyKeyInterner<SkipBatchPrefetchKey> getSkyKeyInterner() {
+      return interner;
+    }
+  }
 }

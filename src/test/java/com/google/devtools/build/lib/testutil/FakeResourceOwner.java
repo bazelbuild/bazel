@@ -16,17 +16,13 @@ package com.google.devtools.build.lib.testutil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
-import com.google.devtools.build.lib.actions.MiddlemanType;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection.DuplicateConstraintException;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo.ExecPropertiesException;
@@ -59,12 +55,7 @@ public class FakeResourceOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public RunfilesSupplier getRunfilesSupplier() {
-    return EmptyRunfilesSupplier.INSTANCE;
-  }
-
-  @Override
-  public boolean inputsDiscovered() {
+  public boolean inputsKnown() {
     return false;
   }
 
@@ -75,17 +66,17 @@ public class FakeResourceOwner implements ActionExecutionMetadata {
 
   @Override
   public ActionOwner getOwner() {
-    return ActionOwner.create(
-        null,
-        ImmutableList.of(),
+    return ActionOwner.createDummy(
+        /* label= */ null,
         Location.BUILTIN,
-        "fake",
-        "fake target kind",
-        "fake",
-        null,
-        null,
-        ImmutableMap.of(),
-        null);
+        /* targetKind= */ "fake target kind",
+        /* buildConfigurationMnemonic= */ "fake",
+        /* configurationChecksum= */ "fake",
+        /* buildConfigurationEvent= */ null,
+        /* isToolConfiguration= */ false,
+        /* executionPlatform= */ PlatformInfo.EMPTY_PLATFORM_INFO,
+        /* aspectDescriptors= */ ImmutableList.of(),
+        /* execProperties= */ ImmutableMap.of());
   }
 
   @Override
@@ -100,7 +91,7 @@ public class FakeResourceOwner implements ActionExecutionMetadata {
 
   @Override
   public String getKey(
-      ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander)
+      ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider)
       throws InterruptedException {
     return "fake key";
   }
@@ -122,6 +113,16 @@ public class FakeResourceOwner implements ActionExecutionMetadata {
 
   @Override
   public NestedSet<Artifact> getInputs() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  }
+
+  @Override
+  public NestedSet<Artifact> getOriginalInputs() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  }
+
+  @Override
+  public NestedSet<Artifact> getSchedulingDependencies() {
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
@@ -160,16 +161,6 @@ public class FakeResourceOwner implements ActionExecutionMetadata {
   @Override
   public NestedSet<Artifact> getMandatoryInputs() {
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  }
-
-  @Override
-  public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
-    return false;
-  }
-
-  @Override
-  public MiddlemanType getActionType() {
-    return MiddlemanType.NORMAL;
   }
 
   @Override

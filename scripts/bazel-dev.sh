@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -32,7 +32,8 @@ function usage() {
 BAZEL_REPO=${BAZEL_REPO:-https://github.com/bazelbuild/bazel}
 # Where to keep the Bazel repository. If you make changes here, be warned that
 # this script may overwrite or lose them.
-BAZEL_DIR=${BAZEL_DIR:-$HOME/os-bazel}
+PARENT_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
+BAZEL_DIR=${BAZEL_DIR:-${PARENT_DIR}}
 # Bazel to use to build local bazel binaries.
 BAZEL_BINARY=${BAZEL_BINARY:-$(which bazel)}
 

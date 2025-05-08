@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
+
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -25,7 +27,6 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.skyframe.PackageValue;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Optional;
@@ -62,23 +63,22 @@ public class TargetProviderForQueryEnvironment implements TargetProvider {
 
   private Optional<Package> getPackageFromWalkableGraph(PackageIdentifier pkgId)
       throws InterruptedException, NoSuchPackageException {
-
-    SkyKey packageKey = PackageValue.key(pkgId);
-    SkyValue skyValue = walkableGraph.getValue(packageKey);
+    SkyValue skyValue = walkableGraph.getValue(pkgId);
 
     if (skyValue != null) {
       PackageValue packageValue = (PackageValue) skyValue;
       return Optional.of(packageValue.getPackage());
     }
 
-    Exception exception = walkableGraph.getException(packageKey);
+    Exception exception = walkableGraph.getException(pkgId);
     if (exception != null) {
       // PackageFunction should be catching, swallowing, and rethrowing all transitive
       // errors as NoSuchPackageExceptions or constructing packages with errors.
-      Throwables.propagateIfPossible(exception, NoSuchPackageException.class);
+      throwIfInstanceOf(exception, NoSuchPackageException.class);
+      throwIfUnchecked(exception);
       throw new IllegalStateException("Unexpected Exception type from PackageValue for " + pkgId);
     }
-    if (walkableGraph.isCycle(packageKey)) {
+    if (walkableGraph.isCycle(pkgId)) {
       throw new BuildFileContainsErrorsException(
           pkgId, "Cycle encountered while loading package " + pkgId);
     }

@@ -13,12 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import javax.annotation.Nullable;
@@ -36,13 +37,10 @@ public class WorkspaceStatusValue extends BasicActionLookupValue {
   // There should only ever be one BuildInfo value in the graph.
   @SerializationConstant public static final BuildInfoKey BUILD_INFO_KEY = new BuildInfoKey();
 
-  WorkspaceStatusValue(
-      Artifact stableArtifact,
-      Artifact volatileArtifact,
-      WorkspaceStatusAction workspaceStatusAction) {
-    super(Actions.GeneratingActions.fromSingleAction(workspaceStatusAction, BUILD_INFO_KEY));
-    this.stableArtifact = stableArtifact;
-    this.volatileArtifact = volatileArtifact;
+  WorkspaceStatusValue(WorkspaceStatusAction workspaceStatusAction) {
+    super(ImmutableList.of(workspaceStatusAction));
+    this.stableArtifact = workspaceStatusAction.getStableStatus();
+    this.volatileArtifact = workspaceStatusAction.getVolatileStatus();
   }
 
   public Artifact getStableArtifact() {

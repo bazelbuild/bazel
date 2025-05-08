@@ -14,17 +14,18 @@
 
 #include "src/main/cpp/blaze_util_platform.h"
 
-#include <sys/types.h>
-#include <sys/resource.h>
-#include <sys/sysctl.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-
 #include <libproc.h>
 #include <pthread/spawn.h>
 #include <signal.h>
 #include <spawn.h>
 #include <stdlib.h>
+#include <sys/resource.h>
+#include <sys/socket.h>
+#include <sys/sysctl.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -95,7 +96,23 @@ static string DescriptionFromCFError(CFErrorRef cf_err) {
   return UTF8StringFromCFStringRef(cf_err_string);
 }
 
-string GetOutputRoot() {
+string GetCacheDir() {
+  // On macOS, the standard location for application caches is
+  // $HOME/Library/Caches. Bazel historically has not used this location, and
+  // instead has used /var/tmp, due to Unix domain socket path length
+  // limitations. These limitations are no longer relevant as we no longer
+  // create Unix domain sockets under the output base.
+  //
+  // However, respecting $XDG_CACHE_HOME is still useful as it allows users to
+  // easily override the cache directory, and is respected by many Linux derived
+  // tools.
+  //
+  // See also:
+  // https://stackoverflow.com/questions/3373948/equivalents-of-xdg-config-home-and-xdg-data-home-on-mac-os-x
+  string xdg_cache_home = GetPathEnv("XDG_CACHE_HOME");
+  if (!xdg_cache_home.empty()) {
+    return blaze_util::JoinPath(xdg_cache_home, "bazel");
+  }
   return "/var/tmp";
 }
 
@@ -135,16 +152,12 @@ string GetSelfPath(const char* argv0) {
 }
 
 uint64_t GetMillisecondsMonotonic() {
-  struct timeval ts = {};
-  if (gettimeofday(&ts, nullptr) < 0) {
+  uint64_t nsec = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+  if (nsec == 0) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "error calling gettimeofday: " << GetLastErrorString();
+        << "error calling clock_gettime_nsec_np: " << GetLastErrorString();
   }
-  return ts.tv_sec * 1000LL + ts.tv_usec / 1000LL;
-}
-
-uint64_t GetMillisecondsSinceProcessStart() {
-  return (clock() * 1000LL) / CLOCKS_PER_SEC;
+  return nsec / 1000000LL;
 }
 
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {

@@ -77,7 +77,7 @@ class TestSuiteImplicitTestsAccumulator {
       NonconfigurableAttributeMapper mapper = NonconfigurableAttributeMapper.of(rule);
       Set<String> testSuiteTags =
           ImmutableSet.<String>builder()
-              .addAll(mapper.get("tags", Type.STRING_LIST))
+              .addAll(mapper.get("tags", Types.STRING_LIST))
               .add(mapper.get("size", Type.STRING))
               .build();
       for (ImplicitTestsAccumulator acc : testSuiteImplicitTests.values()) {

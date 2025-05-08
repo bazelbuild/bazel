@@ -15,23 +15,31 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.escape.CharEscaperBuilder;
+import com.google.common.escape.Escaper;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.analysis.Runfiles.ConflictType;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedWriter;
@@ -44,6 +52,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /**
@@ -55,18 +64,27 @@ import javax.annotation.Nullable;
  * <p>This action carefully avoids building the manifest content in memory because it can be large.
  */
 @Immutable // if all ManifestWriter implementations are immutable
-public final class SourceManifestAction extends AbstractFileWriteAction {
+public final class SourceManifestAction extends AbstractFileWriteAction
+    implements AbstractFileWriteAction.FileContentsProvider {
 
   private static final String GUID = "07459553-a3d0-4d37-9d78-18ed942470f4";
 
   private static final Comparator<Map.Entry<PathFragment, Artifact>> ENTRY_COMPARATOR =
-      (path1, path2) -> path1.getKey().getPathString().compareTo(path2.getKey().getPathString());
+      Comparator.comparing(path -> path.getKey().getPathString());
+  private static final Escaper ROOT_RELATIVE_PATH_ESCAPER =
+      new CharEscaperBuilder()
+          .addEscape(' ', "\\s")
+          .addEscape('\n', "\\n")
+          .addEscape('\\', "\\b")
+          .toEscaper();
+  private static final Escaper TARGET_PATH_ESCAPER =
+      new CharEscaperBuilder().addEscape('\n', "\\n").addEscape('\\', "\\b").toEscaper();
 
+  private final Artifact repoMappingManifest;
   /**
    * Interface for defining manifest formatting and reporting specifics. Implementations must be
    * immutable.
    */
-  @VisibleForTesting
   interface ManifestWriter {
 
     /**
@@ -74,10 +92,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
      *
      * @param manifestWriter the output stream
      * @param rootRelativePath path of an entry relative to the manifest's root
-     * @param symlink (optional) symlink that resolves the above path
+     * @param symlinkTarget target of the entry at {@code rootRelativePath} if it is a symlink,
+     *     otherwise {@code null}
      */
     void writeEntry(
-        Writer manifestWriter, PathFragment rootRelativePath, @Nullable Artifact symlink)
+        Writer manifestWriter, PathFragment rootRelativePath, @Nullable PathFragment symlinkTarget)
         throws IOException;
 
     /** Fulfills {@link com.google.devtools.build.lib.actions.AbstractAction#getMnemonic()} */
@@ -94,6 +113,9 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
      * @return
      */
     boolean isRemotable();
+
+    /** Whether the manifest includes absolute paths to artifacts. */
+    boolean emitsAbsolutePaths();
   }
 
   /** The strategy we use to write manifest entries. */
@@ -118,7 +140,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   @VisibleForTesting
   SourceManifestAction(
       ManifestWriter manifestWriter, ActionOwner owner, Artifact primaryOutput, Runfiles runfiles) {
-    this(manifestWriter, owner, primaryOutput, runfiles, /*remotableSourceManifestActions=*/ false);
+    this(manifestWriter, owner, primaryOutput, runfiles, null, false);
   }
 
   /**
@@ -129,17 +151,20 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
    * @param owner the action owner
    * @param primaryOutput the file to which to write the manifest
    * @param runfiles runfiles
+   * @param repoMappingManifest the repository mapping manifest for runfiles
    */
   public SourceManifestAction(
       ManifestWriter manifestWriter,
       ActionOwner owner,
       Artifact primaryOutput,
       Runfiles runfiles,
+      @Nullable Artifact repoMappingManifest,
       boolean remotableSourceManifestActions) {
     // The real set of inputs is computed in #getInputs().
-    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput, false);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput);
     this.manifestWriter = manifestWriter;
     this.runfiles = runfiles;
+    this.repoMappingManifest = repoMappingManifest;
     this.remotableSourceManifestActions = remotableSourceManifestActions;
   }
 
@@ -178,9 +203,8 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   }
 
   @VisibleForTesting
-  public void writeOutputFile(OutputStream out, @Nullable EventHandler eventHandler)
-      throws IOException {
-    writeFile(out, runfiles.getRunfilesInputs(eventHandler, getOwner().getLocation()));
+  public void writeTo(OutputStream out, @Nullable EventHandler eventHandler) throws IOException {
+    writeFile(out, runfiles.getRunfilesInputs(repoMappingManifest));
   }
 
   /**
@@ -188,21 +212,46 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
    *
    * @return returns the file contents as a string.
    */
-  public String getFileContentsAsString(@Nullable EventHandler eventHandler) throws IOException {
+  @Override
+  public String getFileContents(@Nullable EventHandler eventHandler) throws IOException {
     ByteArrayOutputStream stream = new ByteArrayOutputStream();
-    writeOutputFile(stream, eventHandler);
-    return stream.toString(UTF_8);
+    writeTo(stream, eventHandler);
+    return stream.toString(ISO_8859_1);
   }
 
   @Override
   public String getStarlarkContent() throws IOException {
-    return getFileContentsAsString(null);
+    return getFileContents(null);
   }
 
   @Override
-  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    final Map<PathFragment, Artifact> runfilesInputs =
-        runfiles.getRunfilesInputs(ctx.getEventHandler(), getOwner().getLocation());
+  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
+      throws ExecException {
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    BiConsumer<ConflictType, String> eventReceiver =
+        runfiles.eventRunfilesConflictReceiver(eventHandler, getOwner().getLocation());
+    boolean[] seenNestedRunfilesTree = new boolean[] {false};
+    BiConsumer<ConflictType, String> receiver =
+        (conflictType, message) -> {
+          eventReceiver.accept(conflictType, message);
+          if (conflictType == ConflictType.NESTED_RUNFILES_TREE) {
+            seenNestedRunfilesTree[0] = true;
+          }
+        };
+
+    Map<PathFragment, Artifact> runfilesInputs =
+        runfiles.getRunfilesInputs(receiver, repoMappingManifest);
+    eventHandler.replayOn(ctx.getEventHandler());
+    if (seenNestedRunfilesTree[0]) {
+      FailureDetail failureDetail =
+          FailureDetail.newBuilder()
+              .setMessage("Cannot create input manifest for runfiles tree")
+              .setAnalysis(
+                  FailureDetails.Analysis.newBuilder()
+                      .setCode(FailureDetails.Analysis.Code.INVALID_RUNFILES_TREE))
+              .build();
+      throw new UserExecException(failureDetail);
+    }
     return out -> writeFile(out, runfilesInputs);
   }
 
@@ -223,7 +272,16 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
     List<Map.Entry<PathFragment, Artifact>> sortedManifest = new ArrayList<>(output.entrySet());
     sortedManifest.sort(ENTRY_COMPARATOR);
     for (Map.Entry<PathFragment, Artifact> line : sortedManifest) {
-      manifestWriter.writeEntry(manifestFile, line.getKey(), line.getValue());
+      Artifact artifact = line.getValue();
+      PathFragment symlinkTarget;
+      if (artifact == null) {
+        symlinkTarget = null;
+      } else if (artifact.isSymlink()) {
+        symlinkTarget = artifact.getPath().readSymbolicLink();
+      } else {
+        symlinkTarget = artifact.getPath().asFragment();
+      }
+      manifestWriter.writeEntry(manifestFile, line.getKey(), symlinkTarget);
     }
 
     manifestFile.flush();
@@ -242,18 +300,24 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable Artifact.ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     fp.addString(GUID);
     fp.addBoolean(remotableSourceManifestActions);
-    runfiles.fingerprint(fp);
+    runfiles.fingerprint(actionKeyContext, fp, manifestWriter.emitsAbsolutePaths());
+    fp.addBoolean(repoMappingManifest != null);
+    if (repoMappingManifest != null) {
+      fp.addPath(repoMappingManifest.getExecPath());
+    }
   }
 
   @Override
   public String describeKey() {
     return String.format(
         "GUID: %s\nremotableSourceManifestActions: %s\nrunfiles: %s\n",
-        GUID, remotableSourceManifestActions, runfiles.describeFingerprint());
+        GUID,
+        remotableSourceManifestActions,
+        runfiles.describeFingerprint(manifestWriter.emitsAbsolutePaths()));
   }
 
   /** Supported manifest writing strategies. */
@@ -264,21 +328,44 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
      *
      * <p>[rootRelativePath] [resolvingSymlink]
      *
+     * <p>If rootRelativePath contains spaces, then each backslash is replaced with '\b', each space
+     * is replaced with '\s' and the line is prefixed with a space.
+     *
      * <p>This strategy is suitable for creating an input manifest to a source view tree. Its output
      * is a valid input to {@link com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction}.
      */
     SOURCE_SYMLINKS {
       @Override
-      public void writeEntry(Writer manifestWriter, PathFragment rootRelativePath, Artifact symlink)
+      public void writeEntry(
+          Writer manifestWriter,
+          PathFragment rootRelativePath,
+          @Nullable PathFragment symlinkTarget)
           throws IOException {
-        manifestWriter.append(rootRelativePath.getPathString());
+        String rootRelativePathString = rootRelativePath.getPathString();
+        // Source paths with spaces require escaping. Target paths with spaces don't as consumers
+        // are expected to split on the first space. Newlines always need to be escaped.
+        // Note that if any of these characters are present, then we also need to escape the escape
+        // character (backslash) in both paths. We avoid doing so if none of the problematic
+        // characters are present for backwards compatibility with existing runfiles libraries. In
+        // particular, entries with a source path that contains neither spaces nor newlines and
+        // target paths that contain both spaces and backslashes require no escaping.
+        boolean needsEscaping =
+            rootRelativePathString.indexOf(' ') != -1
+                || rootRelativePathString.indexOf('\n') != -1
+                || (symlinkTarget != null && symlinkTarget.getPathString().indexOf('\n') != -1);
+        if (needsEscaping) {
+          manifestWriter.append(' ');
+          manifestWriter.append(ROOT_RELATIVE_PATH_ESCAPER.escape(rootRelativePathString));
+        } else {
+          manifestWriter.append(rootRelativePathString);
+        }
         // This trailing whitespace is REQUIRED to process the single entry line correctly.
         manifestWriter.append(' ');
-        if (symlink != null) {
-          if (symlink.isSymlink()) {
-            manifestWriter.append(symlink.getPath().readSymbolicLink().getPathString());
+        if (symlinkTarget != null) {
+          if (needsEscaping) {
+            manifestWriter.append(TARGET_PATH_ESCAPER.escape(symlinkTarget.getPathString()));
           } else {
-            manifestWriter.append(symlink.getPath().getPathString());
+            manifestWriter.append(symlinkTarget.getPathString());
           }
         }
         manifestWriter.append('\n');
@@ -299,6 +386,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
         // There is little gain to remoting these, since they include absolute path names inline.
         return false;
       }
+
+      @Override
+      public boolean emitsAbsolutePaths() {
+        return true;
+      }
     },
 
     /**
@@ -312,7 +404,10 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
      */
     SOURCES_ONLY {
       @Override
-      public void writeEntry(Writer manifestWriter, PathFragment rootRelativePath, Artifact symlink)
+      public void writeEntry(
+          Writer manifestWriter,
+          PathFragment rootRelativePath,
+          @Nullable PathFragment symlinkTarget)
           throws IOException {
         manifestWriter.append(rootRelativePath.getPathString());
         manifestWriter.append('\n');
@@ -333,6 +428,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
       public boolean isRemotable() {
         // Source-only symlink manifest has root-relative paths and does not include absolute paths.
         return true;
+      }
+
+      @Override
+      public boolean emitsAbsolutePaths() {
+        return false;
       }
     }
   }

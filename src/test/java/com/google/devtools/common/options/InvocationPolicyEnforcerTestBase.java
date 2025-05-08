@@ -44,7 +44,7 @@ public class InvocationPolicyEnforcerTestBase {
     }
   }
 
-  static InvocationPolicyEnforcer createOptionsPolicyEnforcer(
+  public static InvocationPolicyEnforcer createOptionsPolicyEnforcer(
       InvocationPolicy.Builder invocationPolicyBuilder) throws Exception {
     InvocationPolicy policyProto = invocationPolicyBuilder.build();
 

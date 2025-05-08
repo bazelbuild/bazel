@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.exec.util;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -23,14 +22,12 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.DelegateSpawn;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -45,6 +42,7 @@ public final class SpawnBuilder {
   private String mnemonic = "Mnemonic";
   private String progressMessage = "progress message";
   private String ownerLabel = "//dummy:label";
+  private String ownerRuleKind = "dummy-target-kind";
   @Nullable private Artifact ownerPrimaryOutput;
   @Nullable private PlatformInfo platform;
   private final List<String> args;
@@ -54,34 +52,11 @@ public final class SpawnBuilder {
   private final NestedSetBuilder<ActionInput> inputs = NestedSetBuilder.stableOrder();
   private final List<ActionInput> outputs = new ArrayList<>();
   @Nullable private Set<? extends ActionInput> mandatoryOutputs;
-  private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings =
-      new HashMap<>();
   private final NestedSetBuilder<ActionInput> tools = NestedSetBuilder.stableOrder();
 
-  private RunfilesSupplier runfilesSupplier = EmptyRunfilesSupplier.INSTANCE;
   private ResourceSet resourceSet = ResourceSet.ZERO;
-  private boolean stripOutputPaths;
-
-  /**
-   * A {@link DelegateSpawn} that supports output path stripping as described in {@link
-   * com.google.devtools.build.lib.actions.PathStripper}.
-   *
-   * <p>By overriding {@link #stripOutputPaths} - and only in test code - instead of adding an extra
-   * boolean in {@link SimpleSpawn}, we avoid further pressuring memory on large build graphs.
-   */
-  private static class PathStrippableSpawn extends DelegateSpawn {
-    private final boolean stripOutputPaths;
-
-    public PathStrippableSpawn(Spawn spawn, boolean stripOutputPaths) {
-      super(spawn);
-      this.stripOutputPaths = stripOutputPaths;
-    }
-
-    @Override
-    public boolean stripOutputPaths() {
-      return stripOutputPaths;
-    }
-  }
+  private PathMapper pathMapper = PathMapper.NOOP;
+  private boolean builtForToolConfiguration;
 
   public SpawnBuilder(String... args) {
     this.args = ImmutableList.copyOf(args);
@@ -90,21 +65,25 @@ public final class SpawnBuilder {
   public Spawn build() {
     ActionExecutionMetadata owner =
         new FakeOwner(
-            mnemonic, progressMessage, ownerLabel, ownerPrimaryOutput, platform, execProperties);
-    return new PathStrippableSpawn(
-        new SimpleSpawn(
-            owner,
-            ImmutableList.copyOf(args),
-            ImmutableMap.copyOf(environment),
-            ImmutableMap.copyOf(executionInfo),
-            runfilesSupplier,
-            ImmutableMap.copyOf(filesetMappings),
-            inputs.build(),
-            tools.build(),
-            ImmutableSet.copyOf(outputs),
-            mandatoryOutputs,
-            resourceSet),
-        stripOutputPaths);
+            mnemonic,
+            progressMessage,
+            ownerLabel,
+            ownerRuleKind,
+            ownerPrimaryOutput,
+            platform,
+            execProperties,
+            builtForToolConfiguration);
+    return new SimpleSpawn(
+        owner,
+        ImmutableList.copyOf(args),
+        ImmutableMap.copyOf(environment),
+        ImmutableMap.copyOf(executionInfo),
+        inputs.build(),
+        tools.build(),
+        ImmutableSet.copyOf(outputs),
+        mandatoryOutputs,
+        resourceSet,
+        pathMapper);
   }
 
   @CanIgnoreReturnValue
@@ -132,6 +111,12 @@ public final class SpawnBuilder {
   }
 
   @CanIgnoreReturnValue
+  public SpawnBuilder withOwnerRuleKind(String ownerRuleKind) {
+    this.ownerRuleKind = checkNotNull(ownerRuleKind);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
   public SpawnBuilder withOwnerPrimaryOutput(Artifact output) {
     ownerPrimaryOutput = checkNotNull(output);
     return this;
@@ -150,7 +135,7 @@ public final class SpawnBuilder {
   }
 
   @CanIgnoreReturnValue
-  public SpawnBuilder withExecProperties(ImmutableMap<String, String> execProperties) {
+  public SpawnBuilder withCombinedExecProperties(ImmutableMap<String, String> execProperties) {
     this.execProperties = execProperties;
     return this;
   }
@@ -168,10 +153,32 @@ public final class SpawnBuilder {
   }
 
   @CanIgnoreReturnValue
+  public SpawnBuilder withInputs(ActionInput... inputs) {
+    for (var input : inputs) {
+      this.inputs.add(input);
+    }
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public SpawnBuilder withInputs(Iterable<? extends ActionInput> inputs) {
+    for (var input : inputs) {
+      this.inputs.add(input);
+    }
+    return this;
+  }
+
+  @CanIgnoreReturnValue
   public SpawnBuilder withInputs(String... names) {
     for (String name : names) {
       this.inputs.add(ActionInputHelper.fromPath(name));
     }
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public SpawnBuilder withInputs(NestedSet<ActionInput> inputs) {
+    this.inputs.addTransitive(inputs);
     return this;
   }
 
@@ -208,22 +215,22 @@ public final class SpawnBuilder {
   }
 
   @CanIgnoreReturnValue
-  public SpawnBuilder withFilesetMapping(
-      Artifact fileset, ImmutableList<FilesetOutputSymlink> mappings) {
-    Preconditions.checkArgument(fileset.isFileset(), "Artifact %s is not fileset", fileset);
-    filesetMappings.put(fileset, mappings);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public SpawnBuilder withRunfilesSupplier(RunfilesSupplier runfilesSupplier) {
-    this.runfilesSupplier = runfilesSupplier;
-    return this;
-  }
-
-  @CanIgnoreReturnValue
   public SpawnBuilder withTool(ActionInput tool) {
     tools.add(tool);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public SpawnBuilder withTools(ActionInput... tools) {
+    for (ActionInput tool : tools) {
+      this.tools.add(tool);
+    }
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public SpawnBuilder withTools(NestedSet<ActionInput> tools) {
+    this.tools.addTransitive(tools);
     return this;
   }
 
@@ -234,8 +241,14 @@ public final class SpawnBuilder {
   }
 
   @CanIgnoreReturnValue
-  public SpawnBuilder stripOutputPaths(boolean strip) {
-    this.stripOutputPaths = strip;
+  public SpawnBuilder setPathMapper(PathMapper pathMapper) {
+    this.pathMapper = pathMapper;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public SpawnBuilder setBuiltForToolConfiguration(boolean builtForToolConfiguration) {
+    this.builtForToolConfiguration = builtForToolConfiguration;
     return this;
   }
 }

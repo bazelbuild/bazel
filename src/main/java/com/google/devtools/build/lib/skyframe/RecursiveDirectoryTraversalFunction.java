@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.errorprone.annotations.ForOverride;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -85,7 +85,7 @@ public abstract class RecursiveDirectoryTraversalFunction<
   protected abstract SkyKey getSkyKeyForSubdirectory(
       RepositoryName repository,
       RootedPath subdirectory,
-      ImmutableSet<PathFragment> excludedSubdirectoriesBeneathSubdirectory);
+      IgnoredSubdirectories excludedSubdirectoriesBeneathSubdirectory);
 
   /**
    * Called by {@link #visitDirectory} to compute the {@code TReturn} value it returns, as a
@@ -145,7 +145,7 @@ public abstract class RecursiveDirectoryTraversalFunction<
     Iterable<SkyKey> childDeps = processPackageDirectoryResult.getChildDeps();
     ConsumerT consumer = getInitialConsumer();
 
-    SkyframeIterableResult dependentSkyValues;
+    SkyframeLookupResult dependentSkyValues;
     if (processPackageDirectoryResult.packageExists()) {
       PathFragment rootRelativePath = recursivePkgKey.getRootedPath().getRootRelativePath();
       SkyKey packageErrorMessageKey =
@@ -155,13 +155,13 @@ public abstract class RecursiveDirectoryTraversalFunction<
       // NoSuchPackageException. Since we don't catch such an exception here, this SkyFunction will
       // return immediately with a missing value, and the NoSuchPackageException will propagate up.
       dependentSkyValues =
-          env.getOrderedValuesAndExceptions(
+          env.getValuesAndExceptions(
               Iterables.concat(ImmutableList.of(packageErrorMessageKey), childDeps));
       if (env.valuesMissing()) {
         return null;
       }
       PackageErrorMessageValue pkgErrorMessageValue =
-          (PackageErrorMessageValue) dependentSkyValues.next();
+          (PackageErrorMessageValue) dependentSkyValues.get(packageErrorMessageKey);
       if (pkgErrorMessageValue == null) {
         return null;
       }
@@ -185,15 +185,15 @@ public abstract class RecursiveDirectoryTraversalFunction<
           throw new IllegalStateException(pkgErrorMessageValue.getResult().toString());
       }
     } else {
-      dependentSkyValues = env.getOrderedValuesAndExceptions(childDeps);
+      dependentSkyValues = env.getValuesAndExceptions(childDeps);
       if (env.valuesMissing()) {
-      return null;
-    }
+        return null;
+      }
     }
     ImmutableMap.Builder<SkyKey, SkyValue> subdirectorySkyValuesFromDeps =
         ImmutableMap.builderWithExpectedSize(Iterables.size(childDeps));
     for (SkyKey skyKey : childDeps) {
-      SkyValue skyValue = dependentSkyValues.next();
+      SkyValue skyValue = dependentSkyValues.get(skyKey);
       if (skyValue == null) {
         return null;
       }

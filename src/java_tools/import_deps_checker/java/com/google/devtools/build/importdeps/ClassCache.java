@@ -104,10 +104,6 @@ public final class ClassCache implements Closeable {
       this.isDirectDep = isDirectDep;
     }
 
-    ZipFile getZipFile() {
-      return zipFile;
-    }
-
     @Nullable
     public AbstractClassEntryState getState(LazyClasspath classpath) {
       resolveIfNot(classpath);
@@ -254,8 +250,11 @@ public final class ClassCache implements Closeable {
         boolean populateMembers)
         throws IOException {
       this.populateMembers = populateMembers;
-      this.bootclasspath = new ClassIndex("boot classpath", bootclasspath, Predicates.alwaysTrue());
-      this.inputJars = new ClassIndex("input jars", inputJars, Predicates.alwaysTrue());
+      this.bootclasspath =
+          new ClassIndex(
+              "boot classpath", bootclasspath, Predicates.alwaysTrue(), /* isBoot= */ true);
+      this.inputJars =
+          new ClassIndex("input jars", inputJars, Predicates.alwaysTrue(), /* isBoot= */ false);
       this.regularClasspath =
           new ClassIndex(
               "regular classpath",
@@ -263,7 +262,8 @@ public final class ClassCache implements Closeable {
               jar ->
                   bootclasspath.contains(jar)
                       || inputJars.contains(jar)
-                      || directClasspath.contains(jar));
+                      || directClasspath.contains(jar),
+              /* isBoot= */ false);
       // Reflect runtime resolution order, with input before classpath similar to javac
       this.orderedClasspath =
           ImmutableList.of(this.bootclasspath, this.inputJars, this.regularClasspath);
@@ -303,11 +303,12 @@ public final class ClassCache implements Closeable {
     private final ImmutableMap<String, LazyClassEntry> classIndex;
     private final Closer closer;
 
-    public ClassIndex(String name, ImmutableSet<Path> jarFiles, Predicate<Path> isDirect)
+    public ClassIndex(
+        String name, ImmutableSet<Path> jarFiles, Predicate<Path> isDirect, boolean isBoot)
         throws IOException {
       this.name = name;
       this.closer = Closer.create();
-      classIndex = buildClassIndex(jarFiles, closer, isDirect);
+      classIndex = buildClassIndex(jarFiles, closer, isDirect, isBoot);
     }
 
     @Override
@@ -342,19 +343,23 @@ public final class ClassCache implements Closeable {
     }
 
     private static ImmutableMap<String, LazyClassEntry> buildClassIndex(
-        ImmutableSet<Path> jars, Closer closer, Predicate<Path> isDirect) throws IOException {
+        ImmutableSet<Path> jars, Closer closer, Predicate<Path> isDirect, boolean isBoot)
+        throws IOException {
       HashMap<String, LazyClassEntry> result = new HashMap<>();
       for (Path jarPath : jars) {
         boolean jarIsDirect = isDirect.test(jarPath);
         try {
           ZipFile zipFile = closer.register(new ZipFile(jarPath.toFile()));
-          zipFile
-              .stream()
+          zipFile.stream()
               .forEach(
                   entry -> {
                     String name = entry.getName();
                     if (!name.endsWith(".class")) {
                       return; // Not a class file.
+                    }
+                    if (isBoot && name.startsWith("org/jspecify/annotations")) {
+                      // For details on the JSpecify special case, see StrictJavaDepsPlugin.
+                      return;
                     }
                     String internalName = name.substring(0, name.lastIndexOf('.'));
                     result.computeIfAbsent(

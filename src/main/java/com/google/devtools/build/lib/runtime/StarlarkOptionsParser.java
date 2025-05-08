@@ -17,36 +17,38 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters.BUILD_SETTING_CONVERTERS;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static java.util.stream.Collectors.joining;
 
+import com.google.auto.value.AutoBuilder;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildSetting;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.SequencedSet;
 import java.util.TreeMap;
+import java.util.stream.Stream;
+import javax.annotation.Nullable;
 
 /**
  * An options parser for starlark defined options. Takes a mutable {@link OptionsParser} that has
@@ -55,95 +57,117 @@ import java.util.TreeMap;
  */
 public class StarlarkOptionsParser {
 
-  private final SkyframeExecutor skyframeExecutor;
-  private final PathFragment relativeWorkingDirectory;
-  private final ExtendedEventHandler reporter;
+  /**
+   * Interface for caller-specific logic to convert flag names to {@link Target}s.
+   *
+   * <p>The most important distinction is whether the caller is in a {@link
+   * com.google.devtools.build.skyframe.SkyFunction} evaluation environment.
+   */
+  @FunctionalInterface
+  public interface BuildSettingLoader {
+    /**
+     * Converts a flag name into a {@link Target}, or throws an exception if this can't be done.
+     *
+     * @param name the flag to lookup, expected to be a valid {@link Label}
+     * @return the {@link Target} corresponding to the flag, or null if the caller has to do more
+     *     work to retrieve the target (after which it'll call this parser again)
+     */
+    @Nullable
+    Target loadBuildSetting(String name) throws InterruptedException, TargetParsingException;
+  }
+
+  /** Create a new {@link Builder} instance for {@link StarlarkOptionsParser}. */
+  public static Builder builder() {
+    return new AutoBuilder_StarlarkOptionsParser_Builder().includeDefaultValues(false);
+  }
+
+  /** A helper class to create new instances of {@link StarlarkOptionsParser}. */
+  @AutoBuilder(ofClass = StarlarkOptionsParser.class)
+  public abstract static class Builder {
+    /** Set the {@link BuildSettingLoader} used to find flags. */
+    public abstract Builder buildSettingLoader(BuildSettingLoader buildSettingLoader);
+
+    /** Sets the native {@link OptionsParser} used for handling flags. */
+    public abstract Builder nativeOptionsParser(OptionsParser nativeOptionsParser);
+
+    /** Whether or not to report Starlark flags which are set to their default values. */
+    public abstract Builder includeDefaultValues(boolean includeDefaultValues);
+
+    /** Returns a new {@link StarlarkOptionsParser}. */
+    public abstract StarlarkOptionsParser build();
+  }
+
   private final OptionsParser nativeOptionsParser;
+
+  private final BuildSettingLoader buildSettingLoader;
+
+  // TODO: https://github.com/bazelbuild/bazel/issues/22365 - Unify these maps into a common data
+  // structure. Consider using OptionDefinition to simplify.
 
   // Result of #parse, store the parsed options and their values.
   private final Map<String, Object> starlarkOptions = new TreeMap<>();
+
+  // Map of starlark options to their {@link Scope.ScopeType}.
+  private final Map<String, String> scopes = new TreeMap<>();
+
   // Map of parsed starlark options to their loaded BuildSetting objects (used for canonicalization)
-  private final Map<String, BuildSetting> parsedBuildSettings = new HashMap<>();
-
-  /**
-   * {@link ExtendedEventHandler} override that passes through "normal" events but not events that
-   * would go to the build event proto.
-   *
-   * <p>Starlark flags are conceptually options but still need target pattern evaluation in {@link
-   * com.google.devtools.build.lib.skyframe.TargetPatternPhaseFunction} to translate their labels to
-   * actual targets. If we pass the {@link #post}able events that function calls, that would produce
-   * "target loaded" and "target configured" events in the build event proto output that consumers
-   * can confuse with actual targets requested by the build.
-   *
-   * <p>This is important because downstream services (like a continuous integration tool or build
-   * results dashboard) read these messages to reconcile which requested targets were built. If they
-   * determine Blaze tried to build {@code //foo //bar} then see a "target configured" message for
-   * some other target {@code //my_starlark_flag}, they might show misleading messages like "Built 3
-   * of 2 requested targets.".
-   *
-   * <p>Hence this class. By dropping those events, we restrict all info and error reporting logic
-   * to the options parsing pipeline.
-   */
-  private static class NonPostingEventHandler implements ExtendedEventHandler {
-    private final ExtendedEventHandler delegate;
-
-    NonPostingEventHandler(ExtendedEventHandler delegate) {
-      this.delegate = delegate;
-    }
-
-    @Override
-    public void handle(Event e) {
-      delegate.handle(e);
-    }
-
-    @Override
-    public void post(ExtendedEventHandler.Postable e) {}
-  }
+  private final Map<String, BuildSetting> parsedBuildSettings = new LinkedHashMap<>();
 
   // Local cache of build settings so we don't repeatedly load them.
   private final Map<String, Target> buildSettings = new HashMap<>();
 
-  private StarlarkOptionsParser(
-      SkyframeExecutor skyframeExecutor,
-      PathFragment relativeWorkingDirectory,
-      ExtendedEventHandler reporter,
-      OptionsParser nativeOptionsParser) {
-    this.skyframeExecutor = skyframeExecutor;
-    this.relativeWorkingDirectory = relativeWorkingDirectory;
-    this.reporter = new NonPostingEventHandler(reporter);
+  // The default value for each build setting.
+  private final Map<String, Object> buildSettingDefaults = new LinkedHashMap<>();
+
+  // whether options explicitly set to their default values are added to {@code starlarkOptions}
+  private final boolean includeDefaultValues;
+
+  protected StarlarkOptionsParser(
+      BuildSettingLoader buildSettingLoader,
+      OptionsParser nativeOptionsParser,
+      boolean includeDefaultValues) {
+    this.buildSettingLoader = buildSettingLoader;
     this.nativeOptionsParser = nativeOptionsParser;
+    this.includeDefaultValues = includeDefaultValues;
   }
 
-  public static StarlarkOptionsParser newStarlarkOptionsParser(
-      CommandEnvironment env, OptionsParser optionsParser) {
-    return new StarlarkOptionsParser(
-        env.getSkyframeExecutor(),
-        env.getRelativeWorkingDirectory(),
-        env.getReporter(),
-        optionsParser);
-  }
-
-  /** Parses all pre "--" residue for Starlark options. */
+  /**
+   * Parses all pre "--" residue for Starlark options.
+   *
+   * @return true if the flags are parsed, false if the {@link BuildSettingLoader} needs to do more
+   *     work to retrieve build setting targets (after which it'll call this method again)
+   */
   // TODO(blaze-configurability): This method somewhat reinvents the wheel of
   // OptionsParserImpl.identifyOptionAndPossibleArgument. Consider combining. This would probably
   // require multiple rounds of parsing to fit starlark-defined options into native option format.
   @VisibleForTesting
-  public void parse(ExtendedEventHandler eventHandler) throws OptionsParsingException {
-    parseGivenArgs(eventHandler, nativeOptionsParser.getSkippedArgs());
+  public boolean parse() throws InterruptedException, OptionsParsingException {
+    return parseGivenArgs(nativeOptionsParser.getSkippedArgs());
   }
 
+  /**
+   * Parses a specific set of flags.
+   *
+   * @return true if the flags are parsed, false if the {@link BuildSettingLoader} needs to do more
+   *     work to retrieve build setting targets (after which it'll call this method again)
+   */
   @VisibleForTesting
-  public void parseGivenArgs(ExtendedEventHandler eventHandler, List<String> args)
-      throws OptionsParsingException {
+  public boolean parseGivenArgs(List<String> args)
+      throws InterruptedException, OptionsParsingException {
     // Map of <option name (label), <unparsed option value, loaded option>>.
     Multimap<String, Pair<String, Target>> unparsedOptions = LinkedListMultimap.create();
 
+    boolean allTargetsAvailable = true;
     for (String arg : args) {
-      parseArg(arg, unparsedOptions, eventHandler);
+      if (!parseArg(arg, unparsedOptions)) {
+        allTargetsAvailable = false;
+      }
     }
 
-    if (unparsedOptions.isEmpty()) {
-      return;
+    if (!allTargetsAvailable) {
+      return false;
+    } else if (unparsedOptions.isEmpty()) {
+      return true;
     }
 
     // Map of flag label as a string to its loaded target and set value after parsing.
@@ -190,6 +214,7 @@ public class StarlarkOptionsParser {
     }
 
     Map<String, Object> parsedOptions = new HashMap<>();
+    Map<String, String> scopeTypeMap = new HashMap<>();
     for (String buildSetting : buildSettingWithTargetAndValue.keySet()) {
       Pair<Target, Object> buildSettingAndFinalValue =
           buildSettingWithTargetAndValue.get(buildSetting);
@@ -199,38 +224,56 @@ public class StarlarkOptionsParser {
       boolean allowsMultiple = buildSettingObject.allowsMultiple();
       parsedBuildSettings.put(buildSetting, buildSettingObject);
       Object value = buildSettingAndFinalValue.getSecond();
+      Object rawDefaultValue =
+          buildSettingTarget.getAssociatedRule().getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
       if (allowsMultiple) {
-        List<?> defaultValue =
-            ImmutableList.of(
-                Objects.requireNonNull(
-                    buildSettingTarget
-                        .getAssociatedRule()
-                        .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME)));
+        List<?> defaultValue = ImmutableList.of(Objects.requireNonNull(rawDefaultValue));
+        this.buildSettingDefaults.put(buildSetting, defaultValue);
         List<?> newValue = (List<?>) value;
-        if (!newValue.equals(defaultValue)) {
+        if (!newValue.equals(defaultValue) || includeDefaultValues) {
           parsedOptions.put(buildSetting, value);
         }
       } else {
-        if (!value.equals(
-            buildSettingTarget
-                .getAssociatedRule()
-                .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
+        if (rawDefaultValue != null) {
+          this.buildSettingDefaults.put(buildSetting, rawDefaultValue);
+        }
+        if (!value.equals(rawDefaultValue) || includeDefaultValues) {
           parsedOptions.put(buildSetting, buildSettingAndFinalValue.getSecond());
         }
       }
+
+      // TODO: b/384058698 - use NonConfigurableAttributeMapper to get the scope type.
+      String scopeType =
+          buildSettingTarget.getAssociatedRule().getAttr("scope") == null
+              ? "universal"
+              : buildSettingTarget.getAssociatedRule().getAttr("scope", Type.STRING).toString();
+      if (scopeType != null) {
+        scopeTypeMap.put(buildSetting, scopeType);
+      } else {
+        scopeTypeMap.put(buildSetting, "universal");
+      }
+      nativeOptionsParser.setScopesAttributes(ImmutableMap.copyOf(scopeTypeMap));
     }
+
     nativeOptionsParser.setStarlarkOptions(ImmutableMap.copyOf(parsedOptions));
     this.starlarkOptions.putAll(parsedOptions);
+    this.scopes.putAll(scopeTypeMap);
+    return true;
   }
 
-  private void parseArg(
-      String arg,
-      Multimap<String, Pair<String, Target>> unparsedOptions,
-      ExtendedEventHandler eventHandler)
-      throws OptionsParsingException {
+  /**
+   * Parses the given {@code flag=value} setting.
+   *
+   * @return true if parsing finishes, false if the {@link BuildSettingLoader} needs to do more work
+   *     to retrieve the build setting target
+   */
+  private boolean parseArg(String arg, Multimap<String, Pair<String, Target>> unparsedOptions)
+      throws InterruptedException, OptionsParsingException {
     if (!arg.startsWith("--")) {
       throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
     }
+    // This isn't resilient against labels with the "=" character in them, e.g.
+    // "//pkg/prefix=suffix". See https://bazel.build/concepts/labels#target-names.
     int equalsAt = arg.indexOf('=');
     String name = equalsAt == -1 ? arg.substring(2) : arg.substring(2, equalsAt);
     if (name.trim().isEmpty()) {
@@ -240,7 +283,10 @@ public class StarlarkOptionsParser {
 
     if (value != null) {
       // --flag=value or -flag=value form
-      Target buildSettingTarget = loadBuildSetting(name, eventHandler);
+      Target buildSettingTarget = loadBuildSetting(name);
+      if (buildSettingTarget == null) {
+        return false;
+      }
       // Use the canonical form to ensure we don't have
       // duplicate options getting into the starlark options map.
       unparsedOptions.put(
@@ -252,7 +298,10 @@ public class StarlarkOptionsParser {
         booleanValue = false;
         name = name.substring(2);
       }
-      Target buildSettingTarget = loadBuildSetting(name, eventHandler);
+      Target buildSettingTarget = loadBuildSetting(name);
+      if (buildSettingTarget == null) {
+        return false;
+      }
       BuildSetting current =
           buildSettingTarget.getAssociatedRule().getRuleClassObject().getBuildSetting();
       if (current.getType().equals(BOOLEAN)) {
@@ -270,52 +319,98 @@ public class StarlarkOptionsParser {
         throw new OptionsParsingException("Expected value after " + arg);
       }
     }
+    return true;
   }
 
-  private Target loadBuildSetting(String targetToBuild, ExtendedEventHandler eventHandler)
-      throws OptionsParsingException {
+  /**
+   * Returns the given build setting's {@link Target}, following (unconfigured) aliases if needed.
+   *
+   * @return the target, or null if the {@link BuildSettingLoader} needs to do more work to retrieve
+   *     the target
+   */
+  @Nullable
+  private Target loadBuildSetting(String targetToBuild)
+      throws InterruptedException, OptionsParsingException {
     if (buildSettings.containsKey(targetToBuild)) {
       return buildSettings.get(targetToBuild);
     }
 
-    Target buildSetting;
-    try {
-      TargetPatternPhaseValue result =
-          skyframeExecutor.loadTargetPatternsWithoutFilters(
-              reporter,
-              Collections.singletonList(targetToBuild),
-              relativeWorkingDirectory,
-              SkyframeExecutor.DEFAULT_THREAD_COUNT,
-              /*keepGoing=*/ false);
-      buildSetting =
-          Iterables.getOnlyElement(
-              result.getTargets(eventHandler, skyframeExecutor.getPackageManager()));
-    } catch (InterruptedException | TargetParsingException e) {
-      Thread.currentThread().interrupt();
+    Target target;
+    String targetToLoadNext = targetToBuild;
+    SequencedSet<Label> aliasChain = new LinkedHashSet<>();
+    while (true) {
+      try {
+        target = buildSettingLoader.loadBuildSetting(targetToLoadNext);
+        if (target == null) {
+          return null;
+        }
+      } catch (TargetParsingException e) {
+        throw new OptionsParsingException(
+            "Error loading option " + targetToBuild + ": " + e.getMessage(), targetToBuild, e);
+      }
+      if (!aliasChain.add(target.getLabel())) {
+        throw new OptionsParsingException(
+            String.format(
+                "Failed to load build setting '%s' due to a cycle in alias chain: %s",
+                targetToBuild,
+                formatAliasChain(Stream.concat(aliasChain.stream(), Stream.of(target.getLabel())))),
+            targetToBuild);
+      }
+      if (target.getAssociatedRule() == null) {
+        throw new OptionsParsingException(
+            String.format("Unrecognized option: %s", formatAliasChain(aliasChain.stream())),
+            targetToBuild);
+      }
+      if (target.getAssociatedRule().isBuildSetting()) {
+        break;
+      }
+      // Follow the unconfigured values of aliases.
+      if (target.getAssociatedRule().getRuleClass().equals("alias")) {
+        targetToLoadNext =
+            switch (target.getAssociatedRule().getAttr("actual")) {
+              case Label label -> label.getUnambiguousCanonicalForm();
+              case BuildType.SelectorList<?> ignored ->
+                  throw new OptionsParsingException(
+                      String.format(
+                          "Failed to load build setting '%s' as it resolves to an alias with an"
+                              + " actual value that uses select(): %s. This is not supported as"
+                              + " build settings are needed to determine the configuration the"
+                              + " select is evaluated in.",
+                          targetToBuild, formatAliasChain(aliasChain.stream())),
+                      targetToBuild);
+              case null, default ->
+                  throw new IllegalStateException(
+                      String.format(
+                          "Alias target '%s' with 'actual' attr value not equals to a label or a"
+                              + " selectorlist",
+                          target.getLabel()));
+            };
+        continue;
+      }
       throw new OptionsParsingException(
-          "Error loading option " + targetToBuild + ": " + e.getMessage(), targetToBuild, e);
+          String.format("Unrecognized option: %s", formatAliasChain(aliasChain.stream())),
+          targetToBuild);
     }
-    Rule associatedRule = buildSetting.getAssociatedRule();
-    if (associatedRule == null || associatedRule.getRuleClassObject().getBuildSetting() == null) {
-      throw new OptionsParsingException("Unrecognized option: " + targetToBuild, targetToBuild);
-    }
-    buildSettings.put(targetToBuild, buildSetting);
-    return buildSetting;
+    ;
+
+    buildSettings.put(targetToBuild, target);
+    return target;
   }
 
-  @VisibleForTesting
-  public static StarlarkOptionsParser newStarlarkOptionsParserForTesting(
-      SkyframeExecutor skyframeExecutor,
-      ExtendedEventHandler reporter,
-      PathFragment relativeWorkingDirectory,
-      OptionsParser nativeOptionsParser) {
-    return new StarlarkOptionsParser(
-        skyframeExecutor, relativeWorkingDirectory, reporter, nativeOptionsParser);
+  private static String formatAliasChain(Stream<Label> aliasChain) {
+    return aliasChain.map(Label::getCanonicalForm).collect(joining(" -> "));
   }
 
-  @VisibleForTesting
-  public OptionsParser getNativeOptionsParserFortesting() {
-    return nativeOptionsParser;
+  public ImmutableMap<String, Object> getStarlarkOptions() {
+    return ImmutableMap.copyOf(this.starlarkOptions);
+  }
+
+  public ImmutableMap<String, String> getScopesAttributes() {
+    return ImmutableMap.copyOf(this.scopes);
+  }
+
+  public ImmutableMap<String, Object> getDefaultValues() {
+    return ImmutableMap.copyOf(this.buildSettingDefaults);
   }
 
   public boolean checkIfParsedOptionAllowsMultiple(String option) {
@@ -325,6 +420,11 @@ public class StarlarkOptionsParser {
 
   public Type<?> getParsedOptionType(String option) {
     return parsedBuildSettings.get(option).getType();
+  }
+
+  @Nullable
+  public Object getDefaultValue(String option) {
+    return buildSettingDefaults.get(option);
   }
 
   /** Return a canoncalized list of the starlark options and values that this parser has parsed. */
@@ -342,7 +442,7 @@ public class StarlarkOptionsParser {
         for (Object singleValue : (List) starlarkOptionValue) {
           result.add(starlarkOptionString + singleValue);
         }
-      } else if (getParsedOptionType(starlarkOptionName).equals(Type.STRING_LIST)) {
+      } else if (getParsedOptionType(starlarkOptionName).equals(Types.STRING_LIST)) {
         result.add(
             starlarkOptionString + String.join(",", ((Iterable<String>) starlarkOptionValue)));
       } else {

@@ -63,8 +63,19 @@ public class DanglingSymlinkTest extends BuildIntegrationTestCase {
     Path fooBuildFile =
         write(
             "foo/BUILD",
-            "sh_binary(name = 'foo', srcs = ['foo.sh'])",
-            "genrule(name = 'top', srcs = [':foo'], outs = ['out'], cmd = 'touch $@')");
+            """
+            filegroup(
+                name = "foo",
+                srcs = ["foo.sh"],
+            )
+
+            genrule(
+                name = "top",
+                srcs = [":foo"],
+                outs = ["out"],
+                cmd = "touch $@",
+            )
+            """);
     Path fooShFile = fooBuildFile.getParentDirectory().getRelative("foo.sh");
     fooShFile.createSymbolicLink(PathFragment.create("foo.sh"));
 
@@ -78,13 +89,25 @@ public class DanglingSymlinkTest extends BuildIntegrationTestCase {
     Path fooBuildFile =
         write(
             "foo/BUILD",
-            "sh_binary(name = 'foo', srcs = ['foo.sh'])",
-            "genrule(name = 'top', srcs = [':foo'], outs = ['out'], cmd = 'touch $@')");
+            """
+            load('//test_defs:foo_binary.bzl', 'foo_binary')
+            foo_binary(
+                name = "foo",
+                srcs = ["foo.sh"],
+            )
+
+            genrule(
+                name = "top",
+                srcs = [":foo"],
+                outs = ["out"],
+                cmd = "touch $@",
+            )
+            """);
     Path fooShFile = fooBuildFile.getParentDirectory().getRelative("foo.sh");
     fooShFile.createSymbolicLink(PathFragment.create("doesnotexist"));
 
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:top"));
-    events.assertContainsError("Symlinking //foo:foo failed: missing input file '//foo:foo.sh'");
+    events.assertContainsError("missing input file '//foo:foo.sh'");
   }
 
   @Test
@@ -99,7 +122,7 @@ public class DanglingSymlinkTest extends BuildIntegrationTestCase {
 
   @Test
   public void globSymlinkCycle() throws Exception {
-    Path fooBuildFile = write("foo/BUILD", "sh_library(name = 'foo', srcs = glob(['*.sh']))");
+    Path fooBuildFile = write("foo/BUILD", "filegroup(name = 'foo', srcs = glob(['*.sh']))");
     fooBuildFile
         .getParentDirectory()
         .getChild("foo.sh")

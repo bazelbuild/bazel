@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.Settings;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import java.util.HashSet;
@@ -28,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
@@ -51,14 +52,59 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       StarlarkThread thread)
       throws EvalException {
     StarlarkSemantics semantics = thread.getSemantics();
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
+
     List<String> inputsList = Sequence.cast(inputs, String.class, "inputs");
     List<String> outputsList = Sequence.cast(outputs, String.class, "outputs");
-    validateBuildSettingKeys(inputsList, Settings.INPUTS);
-    validateBuildSettingKeys(outputsList, Settings.OUTPUTS);
-    BazelModuleContext moduleContext =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
+    validateBuildSettingKeys(
+        inputsList,
+        Settings.INPUTS,
+        /* allowIncompatibleAndExperimentalOptions= */ false,
+        moduleContext.packageContext());
+    validateBuildSettingKeys(
+        outputsList,
+        Settings.OUTPUTS,
+        /* allowIncompatibleAndExperimentalOptions= */ false,
+        moduleContext.packageContext());
     Location location = thread.getCallerLocation();
     return StarlarkDefinedConfigTransition.newRegularTransition(
+        implementation,
+        inputsList,
+        outputsList,
+        semantics,
+        moduleContext.label(),
+        location,
+        moduleContext.repoMapping());
+  }
+
+  @Override
+  public ConfigurationTransitionApi execTransition(
+      StarlarkCallable implementation,
+      Sequence<?> inputs, // <String> expected
+      Sequence<?> outputs, // <String> expected
+      StarlarkThread thread)
+      throws EvalException {
+    // TODO: blaze-configurability-team - When we relax this, add checks that regular usages of
+    // transitions (ie, rule and attribute) cannot use exec_transition.
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+
+    StarlarkSemantics semantics = thread.getSemantics();
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
+
+    List<String> inputsList = Sequence.cast(inputs, String.class, "inputs");
+    List<String> outputsList = Sequence.cast(outputs, String.class, "outputs");
+    validateBuildSettingKeys(
+        inputsList,
+        Settings.INPUTS,
+        /* allowIncompatibleAndExperimentalOptions= */ true,
+        moduleContext.packageContext());
+    validateBuildSettingKeys(
+        outputsList,
+        Settings.OUTPUTS,
+        /* allowIncompatibleAndExperimentalOptions= */ true,
+        moduleContext.packageContext());
+    Location location = thread.getCallerLocation();
+    return StarlarkDefinedConfigTransition.newExecTransition(
         implementation,
         inputsList,
         outputsList,
@@ -74,17 +120,24 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       Dict<?, ?> changedSettings, // <String, String> expected
       StarlarkThread thread)
       throws EvalException {
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
     Map<String, Object> changedSettingsMap =
         Dict.cast(changedSettings, String.class, Object.class, "changed_settings dict");
-    validateBuildSettingKeys(changedSettingsMap.keySet(), Settings.OUTPUTS);
-    BazelModuleContext moduleContext =
-        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
+    validateBuildSettingKeys(
+        changedSettingsMap.keySet(),
+        Settings.OUTPUTS,
+        /* allowIncompatibleAndExperimentalOptions= */ true,
+        moduleContext.packageContext());
     Location location = thread.getCallerLocation();
     return StarlarkDefinedConfigTransition.newAnalysisTestTransition(
         changedSettingsMap, moduleContext.repoMapping(), moduleContext.label(), location);
   }
 
-  private void validateBuildSettingKeys(Iterable<String> optionKeys, Settings keyErrorDescriptor)
+  private void validateBuildSettingKeys(
+      Iterable<String> optionKeys,
+      Settings keyErrorDescriptor,
+      boolean allowIncompatibleAndExperimentalOptions,
+      Label.PackageContext packageContext)
       throws EvalException {
 
     HashSet<String> processedOptions = Sets.newHashSet();
@@ -93,8 +146,16 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     for (String optionKey : optionKeys) {
       if (!optionKey.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
         try {
-          Label.parseAbsoluteUnchecked(optionKey);
-        } catch (IllegalArgumentException e) {
+          Label label = Label.parseWithRepoContext(optionKey, packageContext);
+          if (!label.getRepository().isVisible()) {
+            throw Starlark.errorf(
+                "invalid transition %s '%s': no repo visible as @%s from %s",
+                singularErrorDescriptor,
+                label,
+                label.getRepository().getName(),
+                label.getRepository().getOwnerRepoDisplayString());
+          }
+        } catch (LabelSyntaxException e) {
           throw Starlark.errorf(
               "invalid transition %s '%s'. If this is intended as a native option, "
                   + "it must begin with //command_line_option: %s",
@@ -102,7 +163,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
         }
       } else {
         String optionName = optionKey.substring(COMMAND_LINE_OPTION_PREFIX.length());
-        if (!validOptionName(optionName)) {
+        if (!allowIncompatibleAndExperimentalOptions && !validOptionName(optionName)) {
           throw Starlark.errorf(
               "Invalid transition %s '%s'. Cannot transition on --experimental_* or "
                   + "--incompatible_* options",
@@ -115,6 +176,13 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     }
   }
 
+  /**
+   * Flags that user-defined transitions aren't allowed to set.
+   *
+   * <p>Exec transitions are exempt from this because they already set many non-standard flags.
+   * Maybe that can change in a future migration, but that's their current semantics. See caller
+   * code for implementation details.
+   */
   private static boolean validOptionName(String optionName) {
     if (optionName.startsWith("experimental_")) {
       // Don't allow experimental flags.
@@ -123,8 +191,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
 
     if (optionName.equals("incompatible_enable_cc_toolchain_resolution")
         || optionName.equals("incompatible_enable_cgo_toolchain_resolution")
-        || optionName.equals("incompatible_enable_apple_toolchain_resolution")
-        || optionName.equals("incompatible_enable_android_toolchain_resolution")) {
+        || optionName.equals("incompatible_enable_apple_toolchain_resolution")) {
       // This is specifically allowed.
       return true;
     } else if (optionName.startsWith("incompatible_")) {

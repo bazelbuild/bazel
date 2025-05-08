@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import java.util.List;
@@ -30,29 +31,24 @@ import javax.annotation.Nullable;
  * data before exposing it to consumers.
  */
 public abstract class AbstractAttributeMapper implements AttributeMap {
-  final RuleClass ruleClass;
-  final Rule rule;
+  final AttributeProvider ruleClass;
+  final RuleOrMacroInstance rule;
   private final Label ruleLabel;
 
-  protected AbstractAttributeMapper(Rule rule) {
-    this.ruleClass = rule.getRuleClassObject();
+  protected AbstractAttributeMapper(RuleOrMacroInstance rule) {
+    this.ruleClass = rule.getAttributeProvider();
     this.ruleLabel = rule.getLabel();
     this.rule = rule;
   }
 
   @Override
-  public String getName() {
-    return ruleLabel.getName();
+  public String describeRule() {
+    return String.format("%s %s", this.rule.getAttributeProvider(), getLabel());
   }
 
   @Override
   public Label getLabel() {
     return ruleLabel;
-  }
-
-  @Override
-  public String getRuleClassName() {
-    return ruleClass.getName();
   }
 
   @Nullable
@@ -66,7 +62,9 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     if (value instanceof Attribute.ComputedDefault) {
       value = ((Attribute.ComputedDefault) value).getDefault(this);
     } else if (value instanceof Attribute.LateBoundDefault) {
-      value = ((Attribute.LateBoundDefault<?, ?>) value).getDefault();
+      value = ((Attribute.LateBoundDefault<?, ?>) value).getDefault(rule);
+    } else if (value instanceof MaterializingDefault) {
+      value = ((MaterializingDefault<?, ?>) value).getDefault();
     } else if (value instanceof SelectorList) {
       throw new IllegalArgumentException(
           String.format(
@@ -90,8 +88,8 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   @Nullable
   public <T> Attribute.ComputedDefault getComputedDefault(String attributeName, Type<T> type) {
     Object value = rule.getAttr(attributeName, type);
-    if (value instanceof Attribute.ComputedDefault) {
-      return (Attribute.ComputedDefault) value;
+    if (value instanceof Attribute.ComputedDefault computedDefault) {
+      return computedDefault;
     } else {
       return null;
     }
@@ -115,13 +113,20 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     }
   }
 
+  @Nullable
+  @SuppressWarnings("unchecked")
+  public <T> MaterializingDefault<?, T> getMaterializer(String attributeName, Type<T> type) {
+    Object value = rule.getAttr(attributeName, type);
+    if (value instanceof MaterializingDefault<?, ?>) {
+      return (MaterializingDefault<?, T>) value;
+    } else {
+      return null;
+    }
+  }
+
   @Override
   public Iterable<String> getAttributeNames() {
-    ImmutableList.Builder<String> names = ImmutableList.builder();
-    for (Attribute a : ruleClass.getAttributes()) {
-      names.add(a.getName());
-    }
-    return names.build();
+    return Lists.transform(ruleClass.getAttributes(), Attribute::getName);
   }
 
   @Nullable
@@ -143,28 +148,8 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getPackageDefaultHdrsCheck() {
-    return rule.getPackage().getDefaultHdrsCheck();
-  }
-
-  @Override
-  public boolean isPackageDefaultHdrsCheckSet() {
-    return rule.getPackage().isDefaultHdrsCheckSet();
-  }
-
-  @Override
-  public Boolean getPackageDefaultTestOnly() {
-    return rule.getPackage().getDefaultTestOnly();
-  }
-
-  @Override
-  public String getPackageDefaultDeprecation() {
-    return rule.getPackage().getDefaultDeprecation();
-  }
-
-  @Override
-  public ImmutableList<String> getPackageDefaultCopts() {
-    return rule.getPackage().getDefaultCopts();
+  public PackageArgs getPackageArgs() {
+    return rule.getPackageArgs();
   }
 
   @Override
@@ -217,13 +202,37 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
 
   @Override
   public final boolean isConfigurable(String attributeName) {
-    Attribute attrDef = getAttributeDefinition(attributeName);
-    return attrDef != null && getSelectorList(attributeName, attrDef.getType()) != null;
+    return isConfigurable(rule, attributeName);
   }
 
-  public static <T> boolean isConfigurable(Rule rule, String attributeName, Type<T> type) {
-    SelectorList<T> selectorMaybe = rule.getSelectorList(attributeName, type);
-    return selectorMaybe != null;
+  /**
+   * Check if an attribute is configurable (uses select) or, if it's a computed default, if any of
+   * its inputs are configurable.
+   */
+  public static boolean isConfigurable(RuleOrMacroInstance rule, String attributeName) {
+    return isConfigurable(rule, attributeName, /* includeComputedDefaults= */ true);
+  }
+
+  /**
+   * Checks if an attribute is uses select. If {@code includeComputedDefaults} is true, also returns
+   * true on computed defaults that have any configurable inputs.
+   */
+  public static boolean isConfigurable(
+      RuleOrMacroInstance rule, String attributeName, boolean includeComputedDefaults) {
+    Object attr = rule.getAttr(attributeName);
+    if (attr instanceof Attribute.ComputedDefault computedDefault) {
+      if (!includeComputedDefaults) {
+        return false;
+      }
+      for (String dep : computedDefault.dependencies()) {
+        if (isConfigurable(rule, dep)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    Attribute attrDef = rule.getAttributeProvider().getAttributeByNameMaybe(attributeName);
+    return attrDef != null && rule.getSelectorList(attributeName, attrDef.getType()) != null;
   }
 
   /**

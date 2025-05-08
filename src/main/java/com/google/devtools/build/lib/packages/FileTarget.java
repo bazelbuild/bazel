@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.util.FileType;
-import java.util.Set;
 
 /**
  * Common superclass for InputFile and OutputFile which provides implementation for the file
@@ -30,14 +28,10 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
   final Label label;
 
   /** Constructs a file with the given label, which must be in the given package. */
-  FileTarget(Package pkg, Label label) {
-    Preconditions.checkArgument(label.getPackageFragment().equals(pkg.getNameFragment()));
+  FileTarget(Packageoid pkg, Label label) {
+    Preconditions.checkArgument(
+        label.getPackageFragment().equals(pkg.getPackageIdentifier().getPackageFragment()));
     this.label = label;
-  }
-
-  @Override
-  public boolean isImmutable() {
-    return true; // immutable and Starlark-hashable
   }
 
   public String getFilename() {
@@ -50,23 +44,18 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
   }
 
   @Override
-  public String getName() {
-    return label.getName();
-  }
-
-  @Override
   public String filePathForFileTypeMatcher() {
     return getFilename();
   }
 
   @Override
-  public String toString() {
-    return getTargetKind() + "(" + label + ")"; // Just for debugging
+  public boolean isFile() {
+    return true;
   }
 
   @Override
-  public Set<DistributionType> getDistributions() {
-    return getPackage().getDefaultDistribs();
+  public String toString() {
+    return getTargetKind() + "(" + label + ")"; // Just for debugging
   }
 
   /**
@@ -83,6 +72,6 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
    */
   @Override
   public License getLicense() {
-    return getPackage().getDefaultLicense();
+    return getPackageDeclarations().getPackageArgs().license();
   }
 }

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Use labels to reference targets
 
+{% include "_buttons.html" %}
+
 In `BUILD` files and at the command line, Bazel uses *labels* to reference
 targets - for example, `//main:hello-world` or `//lib:hello-time`. Their syntax
 is:
@@ -12,7 +14,7 @@ is:
 ```
 
 If the target is a rule target, then `path/to/package` is the path from the
-workspace root (the directory containing the `WORKSPACE` file) to the directory
+workspace root (the directory containing the `MODULE.bazel` file) to the directory
 containing the `BUILD` file, and `target-name` is what you named the target
 in the `BUILD` file (the `name` attribute). If the target is a file target,
 then `path/to/package` is the path to the root of the package, and

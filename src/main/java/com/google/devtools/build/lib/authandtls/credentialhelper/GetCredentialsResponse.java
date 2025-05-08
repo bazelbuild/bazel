@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.authandtls.credentialhelper;
 
+import static java.util.Objects.requireNonNull;
+
+import com.google.auto.value.AutoBuilder;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -26,31 +29,53 @@ import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
+import java.time.DateTimeException;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.ResolverStyle;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Response from the {@code get} command of the <a
  * href="https://github.com/bazelbuild/proposals/blob/main/designs/2022-06-07-bazel-credential-helpers.md#proposal">Credential
  * Helper Protocol</a>.
+ *
+ * <p>See the <a
+ * href="https://github.com/EngFlow/credential-helper-spec/blob/main/schemas/get-credentials-response.schema.json">specification</a>.
+ *
+ * @param headers Returns the headers to attach to the request.
+ * @param expires Returns the time the credentials expire and must be revalidated.
  */
-@AutoValue
 @AutoValue.CopyAnnotations
 @Immutable
 @JsonAdapter(GetCredentialsResponse.GsonTypeAdapter.class)
-public abstract class GetCredentialsResponse {
-  /** Returns the headers to attach to the request. */
-  public abstract ImmutableMap<String, ImmutableList<String>> getHeaders();
+public record GetCredentialsResponse(
+    ImmutableMap<String, ImmutableList<String>> headers, Optional<Instant> expires) {
+  public GetCredentialsResponse {
+    requireNonNull(headers, "headers");
+    requireNonNull(expires, "expires");
+  }
+
+  public static final DateTimeFormatter RFC_3339_FORMATTER =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX")
+          .withZone(ZoneId.from(ZoneOffset.UTC))
+          .withResolverStyle(ResolverStyle.LENIENT);
 
   /** Returns a new builder for {@link GetCredentialsRequest}. */
   public static Builder newBuilder() {
-    return new AutoValue_GetCredentialsResponse.Builder();
+    return new AutoBuilder_GetCredentialsResponse_Builder();
   }
 
   /** Builder for {@link GetCredentialsResponse}. */
-  @AutoValue.Builder
+  @AutoBuilder
   public abstract static class Builder {
     public abstract ImmutableMap.Builder<String, ImmutableList<String>> headersBuilder();
+
+    public abstract Builder setExpires(Instant instant);
 
     /** Returns the newly constructed {@link GetCredentialsResponse}. */
     public abstract GetCredentialsResponse build();
@@ -65,7 +90,7 @@ public abstract class GetCredentialsResponse {
 
       writer.beginObject();
 
-      ImmutableMap<String, ImmutableList<String>> headers = response.getHeaders();
+      ImmutableMap<String, ImmutableList<String>> headers = response.headers();
       if (!headers.isEmpty()) {
         writer.name("headers");
         writer.beginObject();
@@ -80,6 +105,13 @@ public abstract class GetCredentialsResponse {
         }
         writer.endObject();
       }
+
+      var expires = response.expires();
+      if (expires.isPresent()) {
+        writer.name("expires");
+        writer.value(RFC_3339_FORMATTER.format(expires.get()));
+      }
+
       writer.endObject();
     }
 
@@ -98,7 +130,7 @@ public abstract class GetCredentialsResponse {
       while (reader.hasNext()) {
         String name = reader.nextName();
         switch (name) {
-          case "headers":
+          case "headers" -> {
             if (reader.peek() != JsonToken.BEGIN_OBJECT) {
               throw new JsonSyntaxException(
                   String.format(
@@ -139,12 +171,30 @@ public abstract class GetCredentialsResponse {
             }
 
             reader.endObject();
-            break;
-
-          default:
-            // We intentionally ignore unknown keys to achieve forward compatibility with responses
-            // coming from newer tools.
-            reader.skipValue();
+          }
+          case "expires" -> {
+            if (reader.peek() != JsonToken.STRING) {
+              throw new JsonSyntaxException(
+                  String.format(
+                      Locale.US,
+                      "Expected value of 'expires' to be a string, got %s",
+                      reader.peek()));
+            }
+            try {
+              response.setExpires(Instant.from(RFC_3339_FORMATTER.parse(reader.nextString())));
+            } catch (DateTimeException e) {
+              throw new JsonSyntaxException(
+                  String.format(
+                      Locale.US,
+                      "Expected value of 'expires' to be a RFC 3339 formatted timestamp: %s",
+                      e.getMessage()));
+            }
+          }
+          default ->
+              // We intentionally ignore unknown keys to achieve forward compatibility with
+              // responses
+              // coming from newer tools.
+              reader.skipValue();
         }
       }
       reader.endObject();

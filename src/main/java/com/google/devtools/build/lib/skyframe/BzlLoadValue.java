@@ -14,25 +14,40 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.cmdline.Label.labelCodec;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.Interner;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableTable;
+import com.google.devtools.build.lib.cmdline.BazelModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BzlVisibility;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Objects;
+import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import net.starlark.java.eval.Module;
 
 /**
- * A value that represents the .bzl module loaded by a Starlark {@code load()} statement.
+ * A value that represents the .bzl (or .scl) module loaded by a Starlark {@code load()} statement.
+ *
+ * <p>Note: Historically, all modules had the .bzl suffix, but this is no longer true now that Bazel
+ * supports the .scl dialect. In identifiers, code comments, and documentation, you should generally
+ * assume any "bzl" term could mean a .scl file as well.
  *
  * <p>The key consists of an absolute {@link Label} and the context in which the load occurs. The
  * Label should not reference the special {@code external} package.
@@ -47,12 +62,18 @@ public class BzlLoadValue implements SkyValue {
   // from the Module as client data?
   private final byte[] transitiveDigest; // of .bzl file and load dependencies
   private final BzlVisibility bzlVisibility;
+  private final ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappings;
 
   @VisibleForTesting
-  public BzlLoadValue(Module module, byte[] transitiveDigest, BzlVisibility bzlVisibility) {
+  public BzlLoadValue(
+      Module module,
+      byte[] transitiveDigest,
+      BzlVisibility bzlVisibility,
+      ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappings) {
     this.module = checkNotNull(module);
     this.transitiveDigest = checkNotNull(transitiveDigest);
     this.bzlVisibility = checkNotNull(bzlVisibility);
+    this.recordedRepoMappings = checkNotNull(recordedRepoMappings);
   }
 
   /** Returns the .bzl module. */
@@ -70,10 +91,22 @@ public class BzlLoadValue implements SkyValue {
     return bzlVisibility;
   }
 
-  private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
+  /**
+   * Returns the repo mapping entries used to laod this bzl file. Stored for correctness across
+   * Bazel server restarts.
+   */
+  public ImmutableTable<RepositoryName, String, RepositoryName> getRecordedRepoMappings() {
+    return recordedRepoMappings;
+  }
+
+  private static final SkyKeyInterner<Key> keyInterner = SkyKey.newInterner();
+
+  private abstract static sealed class KeyForLocalEval extends Key
+      permits KeyForBuild, KeyForBuiltins {}
 
   /** SkyKey for a Starlark load. */
-  public abstract static class Key implements SkyKey {
+  public abstract static sealed class Key implements BazelModuleKey
+      permits KeyForLocalEval, KeyForBzlmod, KeyForWorkspace {
     // Closed, for class-based equals()/hashCode().
     private Key() {}
 
@@ -84,7 +117,8 @@ public class BzlLoadValue implements SkyValue {
      * other keys to use {@code @_builtins}, but since no real repo by that name may be defined,
      * they won't evaluate to a successful result.)
      */
-    abstract Label getLabel();
+    @Override
+    public abstract Label getLabel();
 
     /** Returns true if this is a request for the special BUILD prelude file. */
     boolean isBuildPrelude() {
@@ -94,6 +128,22 @@ public class BzlLoadValue implements SkyValue {
     /** Returns true if this is a request for a builtins bzl file. */
     boolean isBuiltins() {
       return false;
+    }
+
+    /** Returns true if the requested file follows the .scl dialect. */
+    // Note: Just as with .bzl, the same .scl file can be referred to from multiple key types, for
+    // instance if a BUILD file and a module rule both load foo.scl. Conceptually, .scl files
+    // shouldn't depend on what kind of top-level file caused them to load, but in practice, this
+    // implementation quirk means that the .scl file will be loaded twice as separate copies.
+    //
+    // This shouldn't matter except in rare edge cases, such as if a Starlark function is loaded
+    // from both copies and compared for equality. Performance wise, it also means that all
+    // transitive .scl files will be double-loaded, but we don't expect that to be significant.
+    //
+    // The alternative is to use a separate key type just for .scl, but that complicates repo logic;
+    // see BzlLoadFunction#getRepositoryMapping.
+    final boolean isSclDialect() {
+      return getLabel().getName().endsWith(".scl");
     }
 
     /**
@@ -111,11 +161,6 @@ public class BzlLoadValue implements SkyValue {
      * given the Root in which to find its file.
      */
     abstract BzlCompileValue.Key getCompileKey(Root root);
-
-    @Override
-    public SkyFunctionName functionName() {
-      return SkyFunctions.BZL_LOAD;
-    }
 
     @Override
     public final boolean valueIsShareable() {
@@ -144,7 +189,10 @@ public class BzlLoadValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(getClass(), getLabel(), isBuildPrelude(), isBuiltins());
+      int result = HashCodes.hashObjects(getClass(), getLabel());
+      result = 31 * result + Boolean.hashCode(isBuildPrelude());
+      result = 31 * result + Boolean.hashCode(isBuiltins());
+      return result;
     }
 
     protected final MoreObjects.ToStringHelper toStringHelper() {
@@ -157,12 +205,17 @@ public class BzlLoadValue implements SkyValue {
     public String toString() {
       return toStringHelper().toString();
     }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return keyInterner;
+    }
   }
 
   /** A key for loading a .bzl during package loading (BUILD evaluation). */
   @Immutable
-  @AutoCodec.VisibleForSerialization
-  static final class KeyForBuild extends Key {
+  @VisibleForSerialization
+  static final class KeyForBuild extends KeyForLocalEval {
     private final Label label;
 
     /**
@@ -177,7 +230,7 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    Label getLabel() {
+    public Label getLabel() {
       return label;
     }
 
@@ -219,7 +272,7 @@ public class BzlLoadValue implements SkyValue {
   // are we reevaluating whether its loads are still valid? AI: fix if broken, improve this comment
   // if not broken.
   @Immutable
-  @AutoCodec.VisibleForSerialization
+  @VisibleForSerialization
   static final class KeyForWorkspace extends Key {
     private final Label label;
     private final int workspaceChunk;
@@ -232,7 +285,7 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    Label getLabel() {
+    public Label getLabel() {
       return label;
     }
 
@@ -265,7 +318,10 @@ public class BzlLoadValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(super.hashCode(), workspaceChunk, workspacePath);
+      int result = super.hashCode();
+      result = 31 * result + Integer.hashCode(workspaceChunk);
+      result = 31 * result + workspacePath.hashCode();
+      return result;
     }
   }
 
@@ -281,8 +337,8 @@ public class BzlLoadValue implements SkyValue {
    */
   // TODO(#11437): Prevent users from trying to declare a repo named "@_builtins".
   @Immutable
-  @AutoCodec.VisibleForSerialization
-  static final class KeyForBuiltins extends Key {
+  @VisibleForSerialization
+  static final class KeyForBuiltins extends KeyForLocalEval {
     private final Label label;
 
     private KeyForBuiltins(Label label) {
@@ -293,7 +349,7 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    Label getLabel() {
+    public Label getLabel() {
       return label;
     }
 
@@ -315,8 +371,8 @@ public class BzlLoadValue implements SkyValue {
 
   /** A key for loading a .bzl to get the repo rule required by Bzlmod generated repositories. */
   @Immutable
-  @AutoCodec.VisibleForSerialization
-  static final class KeyForBzlmod extends Key {
+  @VisibleForSerialization
+  static sealed class KeyForBzlmod extends Key permits KeyForBzlmodBootstrap {
     private final Label label;
 
     private KeyForBzlmod(Label label) {
@@ -324,7 +380,7 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    Label getLabel() {
+    public Label getLabel() {
       return label;
     }
 
@@ -339,9 +395,22 @@ public class BzlLoadValue implements SkyValue {
     }
   }
 
+  @Immutable
+  @VisibleForSerialization
+  static final class KeyForBzlmodBootstrap extends KeyForBzlmod {
+    private KeyForBzlmodBootstrap(Label label) {
+      super(label);
+    }
+
+    @Override
+    Key getKeyForLoad(Label loadLabel) {
+      return keyForBzlmodBootstrap(loadLabel);
+    }
+  }
+
   /** Constructs a key for loading a regular (non-workspace) .bzl file, from the .bzl's label. */
   public static Key keyForBuild(Label label) {
-    return keyInterner.intern(new KeyForBuild(label, /*isBuildPrelude=*/ false));
+    return keyInterner.intern(new KeyForBuild(label, /* isBuildPrelude= */ false));
   }
 
   /**
@@ -357,17 +426,68 @@ public class BzlLoadValue implements SkyValue {
   }
 
   /** Constructs a key for loading a .bzl file within the {@code @_builtins} pseudo-repository. */
-  static Key keyForBuiltins(Label label) {
+  public static Key keyForBuiltins(Label label) {
     return keyInterner.intern(new KeyForBuiltins(label));
   }
 
   /** Constructs a key for loading the special prelude .bzl. */
   static Key keyForBuildPrelude(Label label) {
-    return keyInterner.intern(new KeyForBuild(label, /*isBuildPrelude=*/ true));
+    return keyInterner.intern(new KeyForBuild(label, /* isBuildPrelude= */ true));
   }
 
   /** Constructs a key for loading a .bzl for Bzlmod repos */
   public static Key keyForBzlmod(Label label) {
     return keyInterner.intern(new KeyForBzlmod(label));
+  }
+
+  public static Key keyForBzlmodBootstrap(Label label) {
+    Preconditions.checkArgument(
+        label.getRepository().equals(RepositoryName.BAZEL_TOOLS),
+        "keyForBzlmodBootstrap must be called with a label in the bazel_tools repository");
+    return keyInterner.intern(new KeyForBzlmodBootstrap(label));
+  }
+
+  public static KeyCodec bzlLoadKeyCodec() {
+    return KeyCodec.INSTANCE;
+  }
+
+  @Keep
+  private static final class KeyCodec extends LeafObjectCodec<Key> {
+    private static final KeyCodec INSTANCE = new KeyCodec();
+
+    @Override
+    public Class<KeyForLocalEval> getEncodedClass() {
+      return KeyForLocalEval.class;
+    }
+
+    @Override
+    public void serialize(LeafSerializationContext context, Key obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serializeLeaf(obj.getLabel(), labelCodec(), codedOut);
+
+      switch (obj) {
+        case KeyForBuild forBuild -> {
+          codedOut.writeBoolNoTag(false);
+          codedOut.writeBoolNoTag(forBuild.isBuildPrelude());
+        }
+        case KeyForBuiltins forBuiltins -> {
+          codedOut.writeBoolNoTag(true);
+        }
+        default -> {
+          throw new UnsupportedOperationException("Key not expected for codec: " + obj);
+        }
+      }
+    }
+
+    @Override
+    public Key deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      Label label = context.deserializeLeaf(codedIn, labelCodec());
+      if (codedIn.readBool()) {
+        return keyForBuiltins(label);
+      } else {
+        return codedIn.readBool() ? keyForBuildPrelude(label) : keyForBuild(label);
+      }
+    }
   }
 }

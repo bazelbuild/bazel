@@ -59,11 +59,7 @@ public final class CheckUpToDateFilter implements Predicate<Action> {
    */
   @Override
   public boolean apply(Action action) {
-    if (action instanceof AlwaysOutOfDateAction) {
-      // Always allow fileset manifest action to execute because it identifies files included
-      // in the fileset during execution time.
-      return true;
-    } else if (action instanceof TestRunnerAction) {
+    if (action instanceof TestRunnerAction) {
       return allowTestActionExecution;
     } else {
       return allowBuildActionExecution;

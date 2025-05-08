@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -159,18 +160,24 @@ public final class EventCollectionApparatus {
     MoreAsserts.assertNoEvents(errors());
   }
 
+  public void assertNoWarnings() {
+    MoreAsserts.assertNoEvents(warnings());
+  }
+
   /**
-   * Utility method: Assert that the {@link #collector()} has received an
-   * info message with the {@code expectedMessage}.
+   * Utility method: Assert that the {@link #collector()} has received an info message with the
+   * {@code expectedMessage}.
    */
+  @CanIgnoreReturnValue
   public Event assertContainsInfo(String expectedMessage) {
     return MoreAsserts.assertContainsEvent(eventCollector, expectedMessage, EventKind.INFO);
   }
 
   /**
-   * Utility method: Assert that the {@link #collector()} has received an
-   * error with the {@code expectedMessage}.
+   * Utility method: Assert that the {@link #collector()} has received an error with the {@code
+   * expectedMessage}.
    */
+  @CanIgnoreReturnValue
   public Event assertContainsError(String expectedMessage) {
     return MoreAsserts.assertContainsEvent(eventCollector, expectedMessage, EventKind.ERROR);
   }
@@ -179,6 +186,7 @@ public final class EventCollectionApparatus {
    * Utility method: Assert that the {@link #collector()} has received an error that matches {@code
    * expectedPattern}.
    */
+  @CanIgnoreReturnValue
   public Event assertContainsError(Pattern expectedPattern) {
     return MoreAsserts.assertContainsEvent(eventCollector, expectedPattern, EventKind.ERROR);
   }
@@ -187,40 +195,25 @@ public final class EventCollectionApparatus {
    * Utility method: Assert that the {@link #collector()} has received a warning with the {@code
    * expectedMessage}.
    */
+  @CanIgnoreReturnValue
   public Event assertContainsWarning(String expectedMessage) {
     return MoreAsserts.assertContainsEvent(eventCollector, expectedMessage, EventKind.WARNING);
   }
 
   /**
-   * Utility method: Assert that the {@link #collector()} has received a
-   * debug message with the {@code expectedMessage}.
+   * Utility method: Assert that the {@link #collector()} has received a warning that matches {@code
+   * expectedPattern}.
    */
-  public Event assertContainsDebug(String expectedMessage) {
-    return MoreAsserts.assertContainsEvent(eventCollector, expectedMessage, EventKind.DEBUG);
+  @CanIgnoreReturnValue
+  public Event assertContainsWarning(Pattern expectedPattern) {
+    return MoreAsserts.assertContainsEvent(eventCollector, expectedPattern, EventKind.WARNING);
   }
 
-  /**
-   * Utility method: Assert that the {@link #collector()} has received an event of the given type
-   * and with the {@code expectedMessage}.
-   */
-  public Event assertContainsEvent(EventKind kind, String expectedMessage) {
-    return MoreAsserts.assertContainsEvent(eventCollector, expectedMessage, kind);
-  }
-
-  public List<Event> assertContainsEventWithFrequency(String expectedMessage,
-      int expectedFrequency) {
+  @CanIgnoreReturnValue
+  public List<Event> assertContainsEventWithFrequency(
+      String expectedMessage, int expectedFrequency) {
     return MoreAsserts.assertContainsEventWithFrequency(eventCollector, expectedMessage,
         expectedFrequency);
-  }
-
-  /**
-   * Utility method: Assert that the {@link #collector()} has received an
-   * event with the {@code expectedMessage} in quotes.
-   */
-
-  public Event assertContainsEventWithWordsInQuotes(String... words) {
-    return MoreAsserts.assertContainsEventWithWordsInQuotes(
-        eventCollector, words);
   }
 
   public void assertDoesNotContainEvent(String unexpectedEvent) {

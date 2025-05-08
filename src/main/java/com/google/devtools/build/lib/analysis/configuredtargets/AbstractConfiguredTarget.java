@@ -14,25 +14,23 @@
 
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -46,8 +44,13 @@ import net.starlark.java.eval.StarlarkSemantics;
  * default values.
  */
 public abstract class AbstractConfiguredTarget implements ConfiguredTarget, VisibilityProvider {
-  private final Label label;
-  private final BuildConfigurationKey configurationKey;
+  // This should really never be null, but is null in two cases.
+  // 1. MergedConfiguredTarget: these are ephemeral and never added to the Skyframe graph.
+  // 2. PackageSpecificationProvider.EMPTY: it is used here only to inject an empty
+  //    PackageSpecificationProvider.
+  // TODO(b/281522692): The existence of these cases suggest that there should be some additional
+  // abstraction that does not have a key.
+  private final ActionLookupKey actionLookupKey;
 
   private final NestedSet<PackageGroupContents> visibility;
 
@@ -61,7 +64,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
    * <p>If you respond to this key you are expected to return a list of actions belonging to this
    * configured target.
    */
-  public static final String ACTIONS_FIELD_NAME = "actions";
+  static final String ACTIONS_FIELD_NAME = "actions";
 
   // A set containing all field names which may be specially handled (and thus may not be
   // attributed to normal user-specified providers).
@@ -75,17 +78,23 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
           OutputGroupInfo.STARLARK_NAME,
           ACTIONS_FIELD_NAME);
 
-  public AbstractConfiguredTarget(Label label, BuildConfigurationKey configurationKey) {
-    this(label, configurationKey, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
-  }
+  private static final ImmutableSet<String> DEFAULT_PROVIDER_FIELDS =
+      ImmutableSet.of(
+          DEFAULT_RUNFILES_FIELD,
+          DATA_RUNFILES_FIELD,
+          FILES_FIELD,
+          FilesToRunProvider.STARLARK_NAME,
+          OutputGroupInfo.STARLARK_NAME);
 
   protected AbstractConfiguredTarget(
-      Label label,
-      BuildConfigurationKey configurationKey,
-      NestedSet<PackageGroupContents> visibility) {
-    this.label = label;
-    this.configurationKey = configurationKey;
+      ActionLookupKey actionLookupKey, NestedSet<PackageGroupContents> visibility) {
+    this.actionLookupKey = actionLookupKey;
     this.visibility = visibility;
+  }
+
+  @Override
+  public ActionLookupKey getLookupKey() {
+    return actionLookupKey;
   }
 
   @Override
@@ -99,21 +108,12 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   }
 
   @Override
-  public BuildConfigurationKey getConfigurationKey() {
-    return configurationKey;
-  }
-
-  @Override
-  public Label getLabel() {
-    return label;
-  }
-
-  @Override
   public String toString() {
     return "ConfiguredTarget(" + getLabel() + ", " + getConfigurationChecksum() + ")";
   }
 
   @Override
+  @Nullable
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
     AnalysisUtils.checkProvider(provider);
     if (provider.isAssignableFrom(getClass())) {
@@ -125,13 +125,17 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
 
   @Override
   public Object getValue(StarlarkSemantics semantics, String name) throws EvalException {
-    if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS)
-        && !SPECIAL_FIELD_NAMES.contains(name)) {
+    if (!SPECIAL_FIELD_NAMES.contains(name)) {
       throw Starlark.errorf(
-          "Accessing providers via the field syntax on structs is "
-              + "deprecated and will be removed soon. It may be temporarily re-enabled by setting "
-              + "--incompatible_disable_target_provider_fields=false. See "
-              + "https://github.com/bazelbuild/bazel/issues/9014 for details.");
+          "Accessing providers via the field syntax on structs is deprecated and removed.");
+    } else if (semantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS)
+        && DEFAULT_PROVIDER_FIELDS.contains(name)) {
+      throw Starlark.errorf(
+          "Accessing the default provider in this manner is deprecated and will be removed soon. "
+              + "It may be temporarily re-enabled by setting "
+              + "--incompatible_disable_target_default_provider_fields=false. See "
+              + "https://github.com/bazelbuild/bazel/issues/20183 for details.");
     }
     return getValue(name);
   }
@@ -139,46 +143,35 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   @Nullable
   @Override
   public Object getValue(String name) {
-    switch (name) {
-      case LABEL_FIELD:
-        return getLabel();
-      case ACTIONS_FIELD_NAME:
+    return switch (name) {
+      case LABEL_FIELD -> getLabel();
+      case ACTIONS_FIELD_NAME -> {
         // Depending on subclass, the 'actions' field will either be unsupported or of type
         // java.util.List, which needs to be converted to Sequence before being returned.
         Object result = get(name);
-        return result != null ? Starlark.fromJava(result, null) : null;
-      default:
-        return get(name);
-    }
+        yield result != null ? Starlark.fromJava(result, null) : null;
+      }
+      default -> get(name);
+    };
   }
 
   @Override
   public final Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
-    if (!(key instanceof Provider)) {
-      throw Starlark.errorf(
-          "Type Target only supports indexing by object constructors, got %s instead",
-          Starlark.type(key));
-    }
-    Provider constructor = (Provider) key;
+    // Only call `getKey()` on unexported Providers to avoid crashing. Users can write:
+    // rule(implementation = lambda ctx: ctx.attr.input[provider()], attr = {"input": ...})
+    Provider constructor = selectExportedProvider(key, "index");
     Object declaredProvider = get(constructor.getKey());
     if (declaredProvider != null) {
       return declaredProvider;
     }
     throw Starlark.errorf(
         "%s%s doesn't contain declared provider '%s'",
-        Starlark.repr(this),
-        getRuleClassString().isEmpty() ? "" : " (rule '" + getRuleClassString() + "')",
-        constructor.getPrintableName());
+        Starlark.repr(this), getRuleClassStringForError(), constructor.getPrintableName());
   }
 
   @Override
   public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
-    if (!(key instanceof Provider)) {
-      throw Starlark.errorf(
-          "Type Target only supports querying by object constructors, got %s instead",
-          Starlark.type(key));
-    }
-    return get(((Provider) key).getKey()) != null;
+    return get(selectExportedProvider(key, "query").getKey()) != null;
   }
 
   @Override
@@ -187,7 +180,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   }
 
   @Override
-  public final ImmutableCollection<String> getFieldNames() {
+  public final ImmutableList<String> getFieldNames() {
     ImmutableList.Builder<String> result = ImmutableList.builder();
     result.addAll(
         ImmutableList.of(
@@ -222,20 +215,14 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   /** Returns a value provided by this target. Only meant to use from Starlark. */
   @Override
   public final Object get(String providerKey) {
-    switch (providerKey) {
-      case FILES_FIELD:
-        return getDefaultProvider().getFiles();
-      case DEFAULT_RUNFILES_FIELD:
-        return getDefaultProvider().getDefaultRunfiles();
-      case DATA_RUNFILES_FIELD:
-        return getDefaultProvider().getDataRunfiles();
-      case FilesToRunProvider.STARLARK_NAME:
-        return getDefaultProvider().getFilesToRun();
-      case OutputGroupInfo.STARLARK_NAME:
-        return get(OutputGroupInfo.STARLARK_CONSTRUCTOR);
-      default:
-        return rawGetStarlarkProvider(providerKey);
-    }
+    return switch (providerKey) {
+      case FILES_FIELD -> getDefaultProvider().getFiles();
+      case DEFAULT_RUNFILES_FIELD -> getDefaultProvider().getDefaultRunfiles();
+      case DATA_RUNFILES_FIELD -> getDefaultProvider().getDataRunfiles();
+      case FilesToRunProvider.STARLARK_NAME -> getDefaultProvider().getFilesToRun();
+      case OutputGroupInfo.STARLARK_NAME -> get(OutputGroupInfo.STARLARK_CONSTRUCTOR);
+      default -> rawGetStarlarkProvider(providerKey);
+    };
   }
 
   /** Implement in subclasses to get a Starlark provider for a given {@code providerKey}. */
@@ -243,6 +230,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   protected abstract Info rawGetStarlarkProvider(Provider.Key providerKey);
 
   /** Implement in subclasses to get a Starlark provider for a given {@code providerKey}. */
+  @Nullable
   protected abstract Object rawGetStarlarkProvider(String providerKey);
 
   public String getRuleClassString() {
@@ -256,11 +244,78 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
     printer.append("<unknown target " + getLabel() + ">");
   }
 
+  private String getRuleClassStringForError() {
+    return getRuleClassString().isEmpty() ? "" : " (rule '" + getRuleClassString() + "')";
+  }
+
   /**
-   * Returns a map of provider names to their values. This is only intended to be called from the
-   * query dialects of Starlark. Implement in subclasses which can have providers.
+   * Selects the provider identified by {@code key}, throwing a Starlark error if the key is not a
+   * provider or not exported.
    */
-  public Dict<String, Object> getProvidersDict() {
-    return null;
+  private Provider selectExportedProvider(Object key, String operation) throws EvalException {
+    if (!(key instanceof Provider constructor)) {
+      throw Starlark.errorf(
+          "Type Target only supports %sing by object constructors, got %s instead",
+          operation, Starlark.type(key));
+    }
+    if (!constructor.isExported()) {
+      throw Starlark.errorf(
+          "%s%s only supports %sing by exported providers. Assign the provider a name "
+              + "in a top-level assignment statement.",
+          Starlark.repr(this), getRuleClassStringForError(), operation);
+    }
+    return constructor;
+  }
+
+  /**
+   * Returns a {@link Dict} of provider names to their values for a configured target, intended to
+   * be called from {@link #getProvidersDictForQuery}.
+   *
+   * <p>{@link #getProvidersDictForQuery} is intended to be used from Starlark query output methods,
+   * so all values must be accessible in Starlark. If the value of a provider is not convertible to
+   * a Starlark value, that name/value pair is left out of the {@link Dict}.
+   */
+  Dict<String, Object> toProvidersDictForQuery(TransitiveInfoProviderMap providers) {
+    Dict.Builder<String, Object> dict = Dict.builder();
+    for (int i = 0; i < providers.getProviderCount(); i++) {
+      tryAddProviderForQuery(
+          dict, providers.getProviderKeyAt(i), providers.getProviderInstanceAt(i));
+    }
+    // DefaultInfo is not stored as a provider, but Starlark targets still observe it on
+    // dependencies.
+    tryAddProviderForQuery(dict, DefaultInfo.PROVIDER.getKey(), DefaultInfo.build(this));
+    return dict.buildImmutable();
+  }
+
+  /**
+   * Attempts to add a provider instance to {@code dict} under an unspecified stringification of the
+   * given key. Takes no action if the provider instance is not a valid Starlark value or if the key
+   * is of an unknown type.
+   *
+   * <p>Intended to be called from {@link #getProvidersDictForQuery}.
+   */
+  static void tryAddProviderForQuery(
+      Dict.Builder<String, Object> dict, Object key, Object providerInstance) {
+    // The key may be of many types, but we need a string for the intended use.
+    String keyAsString;
+    if (key instanceof String string) {
+      keyAsString = string;
+    } else if (key instanceof Provider.Key) {
+      if (key instanceof StarlarkProvider.Key k) {
+        keyAsString = k.getExtensionLabel() + "%" + k.getExportedName();
+      } else {
+        keyAsString = key.toString();
+      }
+    } else if (key instanceof Class<?> aClass) {
+      keyAsString = aClass.getSimpleName();
+    } else {
+      // ???
+      return;
+    }
+    try {
+      dict.put(keyAsString, Starlark.fromJava(providerInstance, /* mutability= */ null));
+    } catch (Starlark.InvalidStarlarkValueException e) {
+      // This is OK. If this is not a valid StarlarkValue, we just leave it out of the map.
+    }
   }
 }
