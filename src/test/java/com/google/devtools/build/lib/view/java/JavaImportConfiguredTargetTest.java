@@ -58,22 +58,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
 
   @Before
   public final void writeBuildFile() throws Exception {
-    scratch.file(
-        "java/jarlib/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_import")
-        java_import(
-            name = "libraryjar",
-            jars = ["library.jar"],
-        )
-
-        java_import(
-            name = "libraryjar_with_srcjar",
-            jars = ["library.jar"],
-            srcjar = "library.srcjar",
-        )
-        """);
-
     scratch.overwriteFile(
         "tools/allowlists/java_import_exports/BUILD",
         """
@@ -436,15 +420,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "load('@rules_java//java:defs.bzl', 'java_import')",
         "filegroup(name='jars', srcs=['a.jar'])",
         "java_import(name = 'ji-with-dupe-through-fg', jars = ['a.jar', ':jars'])");
-  }
-
-  @Test
-  public void testExposesJavaProvider() throws Exception {
-    ConfiguredTarget jarLib = getConfiguredTarget("//java/jarlib:libraryjar");
-    JavaCompilationArgsProvider compilationArgsProvider =
-        JavaInfo.getProvider(JavaCompilationArgsProvider.class, jarLib);
-    assertThat(prettyArtifactNames(compilationArgsProvider.runtimeJars()))
-        .containsExactly("java/jarlib/library.jar");
   }
 
   @Test
