@@ -86,7 +86,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
                           .collect(toImmutableSet()));
 
       ToolchainResolutionDebugPrinter debugPrinter =
-          ToolchainResolutionDebugPrinter.create(debug, env.getListener());
+          ToolchainResolutionDebugPrinter.create(debug, env);
+      debugPrinter.startDebugging(
+          env.getListener(),
+          platformConfiguration.getTargetPlatform(),
+          key.configurationKey().getOptions().shortId(),
+          key.toolchainTypes());
 
       // Create keys for all platforms that will be used, and validate them early.
       // Do this early, to catch platform errors early.
@@ -120,8 +125,10 @@ public class ToolchainResolutionFunction implements SkyFunction {
           key.debugTarget());
 
       UnloadedToolchainContext unloadedToolchainContext = builder.build();
-      debugPrinter.reportSelectedToolchains(
-          unloadedToolchainContext.targetPlatform().label(),
+      debugPrinter.finishDebugging(
+          env.getListener(),
+          platformConfiguration.getTargetPlatform(),
+          key.configurationKey().getOptions().shortId(),
           unloadedToolchainContext.executionPlatform().label(),
           unloadedToolchainContext.toolchainTypeToResolved());
       return unloadedToolchainContext;
