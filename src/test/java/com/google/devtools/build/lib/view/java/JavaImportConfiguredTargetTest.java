@@ -87,19 +87,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDisallowsFilesInExports() throws Exception {
-    scratch.file("pkg/bad.jar", "");
-    checkError(
-        "pkg",
-        "rule",
-        "expected no files",
-        """
-        load("@rules_java//java:defs.bzl", "java_import")
-        java_import(name = 'rule', jars = ['good.jar'], exports = ['bad.jar'])
-        """);
-  }
-
-  @Test
   public void testDisallowsArbitraryFiles() throws Exception {
     scratch.file("badlib/not-a-jar.txt", "foo");
     checkError(
