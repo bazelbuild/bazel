@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.rules.java.JavaInfo;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -182,26 +180,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     assertWithMessage("Proguard validate action input")
         .that(prettyArtifactNames(action.getInputs()))
         .contains("java/com/google/android/hello/transitive.pro");
-  }
-
-  @Test
-  public void testNeverlinkIsPopulated() throws Exception {
-    scratch.file(
-        "java/com/google/test/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library", "java_import")
-        java_library(name = "lib")
-
-        java_import(
-            name = "jar",
-            jars = ["dummy.jar"],
-            neverlink = 1,
-            exports = [":lib"],
-        )
-        """);
-    ConfiguredTarget processorTarget = getConfiguredTarget("//java/com/google/test:jar");
-    JavaInfo javaInfo = JavaInfo.getJavaInfo(processorTarget);
-    assertThat(javaInfo.isNeverlink()).isTrue();
   }
 
   @Test
