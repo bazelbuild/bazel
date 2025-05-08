@@ -324,7 +324,6 @@ public final class ActionExecutionFunction implements SkyFunction {
       state.skyframeInputMetadataProvider =
           new SkyframeInputMetadataProvider(
               evaluator.get(),
-              env,
               skyframeActionExecutor.getPerBuildFileCache(),
               directories.getRelativeOutputPath());
       state.compositeInputMetadataProvider =
@@ -765,7 +764,7 @@ public final class ActionExecutionFunction implements SkyFunction {
 
         try (SilentCloseable c =
             Profiler.instance().profile(ProfilerTask.DISCOVER_INPUTS, "discoverInputs")) {
-          try (var unused = state.skyframeInputMetadataProvider.withSkyframeAllowed()) {
+          try (var unused = state.skyframeInputMetadataProvider.withSkyframeAllowed(env)) {
             state.discoveredInputs =
                 skyframeActionExecutor.discoverInputs(
                     action,
