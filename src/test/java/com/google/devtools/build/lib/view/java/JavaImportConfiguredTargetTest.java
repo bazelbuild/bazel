@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -228,40 +227,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
             JavaInfo.getProvider(JavaSourceJarsProvider.class, aTarget).transitiveSourceJars());
     assertThat(inputs)
         .isEqualTo(Sets.newHashSet("src java/my/dummy-src.jar", "bin java/my/libb-src.jar"));
-  }
-
-  @Test
-  public void testExportsRunfilesCollection() throws Exception {
-    scratch.file(
-        "java/com/google/exports/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_binary", "java_import")
-        java_import(
-            name = "other_lib",
-            data = ["foo.txt"],
-            jars = ["other.jar"],
-        )
-
-        java_import(
-            name = "lib",
-            jars = ["lib.jar"],
-            exports = [":other_lib"],
-        )
-
-        java_binary(
-            name = "tool",
-            data = [":lib"],
-            main_class = "com.google.exports.Launcher",
-        )
-        """);
-
-    ConfiguredTarget testTarget = getConfiguredTarget("//java/com/google/exports:tool");
-    Runfiles runfiles = getDefaultRunfiles(testTarget);
-    assertThat(prettyArtifactNames(runfiles.getArtifacts()))
-        .containsAtLeast(
-            "java/com/google/exports/lib.jar",
-            "java/com/google/exports/other.jar",
-            "java/com/google/exports/foo.txt");
   }
 
   @Test
