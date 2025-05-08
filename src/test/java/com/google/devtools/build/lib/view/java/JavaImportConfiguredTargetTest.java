@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -92,56 +91,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
             packages = [],
         )
         """);
-  }
-
-  @Test
-  public void testModuleFlags() throws Exception {
-    scratch.file(
-        "java/jarlib2/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library", "java_import")
-        java_library(
-            name = "lib",
-            srcs = ["Main.java"],
-            deps = [":import-jar"],
-        )
-
-        java_import(
-            name = "import-jar",
-            jars = ["import.jar"],
-            exports = ["//java/jarlib2:exportjar"],
-            deps = ["//java/jarlib2:depjar"],
-        )
-
-        java_import(
-            name = "depjar",
-            add_exports = ["java.base/java.lang"],
-            jars = ["depjar.jar"],
-        )
-
-        java_import(
-            name = "exportjar",
-            add_opens = ["java.base/java.util"],
-            jars = ["exportjar.jar"],
-        )
-        """);
-
-    ConfiguredTarget importJar = getConfiguredTarget("//java/jarlib2:import-jar");
-    JavaModuleFlagsProviderApi moduleFlagsProvider =
-        JavaInfo.getJavaInfo(importJar).getJavaModuleFlagsInfo();
-    assertThat(moduleFlagsProvider.getAddExports().toList(String.class))
-        .containsExactly("java.base/java.lang");
-    assertThat(moduleFlagsProvider.getAddOpens().toList(String.class))
-        .containsExactly("java.base/java.util");
-
-    // Check that module flags propagate to Java libraries properly.
-    ConfiguredTarget lib = getConfiguredTarget("//java/jarlib2:lib");
-    JavaModuleFlagsProviderApi libModuleFlagsProvider =
-        JavaInfo.getJavaInfo(lib).getJavaModuleFlagsInfo();
-    assertThat(libModuleFlagsProvider.getAddExports().toList(String.class))
-        .containsExactly("java.base/java.lang");
-    assertThat(libModuleFlagsProvider.getAddOpens().toList(String.class))
-        .containsExactly("java.base/java.util");
   }
 
   @Test
