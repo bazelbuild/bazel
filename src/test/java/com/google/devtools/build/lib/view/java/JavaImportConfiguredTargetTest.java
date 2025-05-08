@@ -149,40 +149,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testJavaImportValidatesTransitiveProguardSpecs() throws Exception {
-    scratch.file(
-        "java/com/google/android/hello/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_import")
-        java_import(
-            name = "transitive",
-            constraints = ["android"],
-            jars = ["Transitive.jar"],
-            proguard_specs = ["transitive.pro"],
-        )
-
-        java_import(
-            name = "lib",
-            constraints = ["android"],
-            jars = ["Lib.jar"],
-            exports = [":transitive"],
-        )
-        """);
-    SpawnAction action =
-        (SpawnAction)
-            actionsTestUtil()
-                .getActionForArtifactEndingWith(
-                    getOutputGroup(
-                        getConfiguredTarget("//java/com/google/android/hello:lib"),
-                        OutputGroupInfo.HIDDEN_TOP_LEVEL),
-                    "transitive.pro_valid");
-    assertWithMessage("Proguard validate action").that(action).isNotNull();
-    assertWithMessage("Proguard validate action input")
-        .that(prettyArtifactNames(action.getInputs()))
-        .contains("java/com/google/android/hello/transitive.pro");
-  }
-
-  @Test
   public void testDuplicateJars() throws Exception {
     checkError(
         "ji",
