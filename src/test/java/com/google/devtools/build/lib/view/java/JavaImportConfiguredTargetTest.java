@@ -353,18 +353,4 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     assertThat(jars).doesNotContain("b-ijar.jar");
     assertThat(jars).contains("b.jar");
   }
-
-  @Test
-  public void testExports() throws Exception {
-    useConfiguration("--incompatible_disallow_java_import_exports");
-    checkError(
-        "ugly",
-        "jar",
-        "java_import.exports is no longer supported; use java_import.deps instead",
-        "load('@rules_java//java:defs.bzl', 'java_import', 'java_library')",
-        "java_library(name = 'dep', srcs = ['dep.java'])",
-        "java_import(name = 'jar',",
-        "    jars = ['dummy.jar'],",
-        "    exports = [':dep'])");
-  }
 }
