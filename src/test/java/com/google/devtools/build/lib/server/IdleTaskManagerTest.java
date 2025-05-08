@@ -16,9 +16,10 @@ package com.google.devtools.build.lib.server;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Uninterruptibles;
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -27,80 +28,103 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class IdleTaskManagerTest {
   @Test
-  public void noRegisteredTasks_gcAndShrinkInterners() throws Exception {
-    IdleTaskManager manager = new IdleTaskManager(ImmutableList.of(), false);
-
-    long idleCalled = System.nanoTime();
-    manager.idle();
-    Thread.sleep(250); // give tasks a chance to run
-    manager.busy();
-    long busyReturned = System.nanoTime();
-
-    assertThat(idleCalled).isLessThan(manager.runGcAndMaybeShrinkInternersCalled);
-    assertThat(manager.runGcAndMaybeShrinkInternersCalled).isLessThan(busyReturned);
-  }
-
-  @Test
-  public void registeredTask_runSuccessfulTaskThenGcAndShrinkInterners() throws Exception {
-    AtomicLong taskCalled = new AtomicLong();
-    IdleTask task = () -> taskCalled.set(System.nanoTime());
-    IdleTaskManager manager = new IdleTaskManager(ImmutableList.of(task), false);
-
-    long idleCalled = System.nanoTime();
-    manager.idle();
-    Thread.sleep(250); // give tasks a chance to run
-    manager.busy();
-    long busyReturned = System.nanoTime();
-
-    assertThat(idleCalled).isLessThan(taskCalled.get());
-    assertThat(taskCalled.get()).isLessThan(manager.runGcAndMaybeShrinkInternersCalled);
-    assertThat(manager.runGcAndMaybeShrinkInternersCalled).isLessThan(busyReturned);
-  }
-
-  @Test
-  public void registeredTask_runFailedTaskThenGcAndShrinkInterners() throws Exception {
-    AtomicLong taskCalled = new AtomicLong();
+  public void registeredTask_runSuccessfulTask() throws Exception {
+    CountDownLatch taskRunning = new CountDownLatch(1);
+    AtomicBoolean taskDone = new AtomicBoolean();
     IdleTask task =
         () -> {
-          taskCalled.set(System.nanoTime());
-          throw new IdleTaskException(new RuntimeException("failed"));
+          taskRunning.countDown();
+          Uninterruptibles.sleepUninterruptibly(Duration.ofMillis(200));
+          taskDone.set(true);
         };
-    IdleTaskManager manager = new IdleTaskManager(ImmutableList.of(task), false);
+    IdleTaskManager manager = new IdleTaskManager(ImmutableList.of(task));
 
-    long idleCalled = System.nanoTime();
     manager.idle();
-    Thread.sleep(250); // give tasks a chance to run
+    taskRunning.await(); // wait for task to start
     manager.busy();
-    long busyReturned = System.nanoTime();
 
-    assertThat(idleCalled).isLessThan(taskCalled.get());
-    assertThat(taskCalled.get()).isLessThan(manager.runGcAndMaybeShrinkInternersCalled);
-    assertThat(manager.runGcAndMaybeShrinkInternersCalled).isLessThan(busyReturned);
+    assertThat(taskDone.get()).isTrue();
   }
 
   @Test
-  public void registeredTask_interruptTaskThenSkipGcAndShrinkInterners() throws Exception {
+  public void registeredTask_runFailedTask() throws Exception {
+    CountDownLatch taskRunning = new CountDownLatch(1);
+    AtomicBoolean taskDone = new AtomicBoolean();
+    IdleTask task =
+        () -> {
+          taskRunning.countDown();
+          Uninterruptibles.sleepUninterruptibly(Duration.ofMillis(200));
+          try {
+            throw new IdleTaskException(new RuntimeException("failed"));
+          } finally {
+            taskDone.set(true);
+          }
+        };
+    IdleTaskManager manager = new IdleTaskManager(ImmutableList.of(task));
+
+    manager.idle();
+    taskRunning.await(); // wait for task to start
+    manager.busy();
+
+    assertThat(taskDone.get()).isTrue();
+  }
+
+  @Test
+  public void registeredTask_interruptTask() throws Exception {
     CountDownLatch taskRunning = new CountDownLatch(1);
     AtomicBoolean taskInterrupted = new AtomicBoolean();
     IdleTask task =
         () -> {
           taskRunning.countDown();
           try {
-            while (true) {
-              Thread.sleep(1000);
-            }
+            Thread.sleep(Duration.ofDays(1));
           } catch (InterruptedException e) {
             taskInterrupted.set(true);
             throw e;
           }
         };
-    IdleTaskManager manager = new IdleTaskManager(ImmutableList.of(task), false);
+    IdleTaskManager manager = new IdleTaskManager(ImmutableList.of(task));
 
     manager.idle();
-    taskRunning.await();
+    taskRunning.await(); // wait for task to start
     manager.busy();
 
     assertThat(taskInterrupted.get()).isTrue();
-    assertThat(manager.runGcAndMaybeShrinkInternersCalled).isEqualTo(0);
+  }
+
+  @Test
+  public void registeredTask_multipleTasksRunSerially() throws Exception {
+    AtomicBoolean taskRunning = new AtomicBoolean(false);
+    AtomicBoolean concurrentTasksDetected = new AtomicBoolean(false);
+    CountDownLatch finishedTasks = new CountDownLatch(3);
+
+    ImmutableList<IdleTask> tasks =
+        ImmutableList.of(
+            () -> runTask(taskRunning, concurrentTasksDetected, finishedTasks),
+            () -> runTask(taskRunning, concurrentTasksDetected, finishedTasks),
+            () -> runTask(taskRunning, concurrentTasksDetected, finishedTasks));
+
+    IdleTaskManager manager = new IdleTaskManager(tasks);
+
+    manager.idle();
+    finishedTasks.await();
+    manager.busy();
+
+    assertThat(concurrentTasksDetected.get()).isFalse();
+  }
+
+  private static final void runTask(
+      AtomicBoolean taskRunning,
+      AtomicBoolean concurrentTasksDetected,
+      CountDownLatch finishedTasks)
+      throws InterruptedException {
+    if (!taskRunning.compareAndSet(false, true)) {
+      concurrentTasksDetected.set(true);
+    }
+    Thread.sleep(Duration.ofMillis(200)); // make it more likely that a bug will be caught
+    finishedTasks.countDown();
+    if (!taskRunning.compareAndSet(true, false)) {
+      concurrentTasksDetected.set(true);
+    }
   }
 }

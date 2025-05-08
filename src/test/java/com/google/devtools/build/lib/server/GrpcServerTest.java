@@ -322,8 +322,7 @@ public final class GrpcServerTest {
                 BlazeCommandResult.success(),
                 ImmutableList.of(
                     Any.pack(StringValue.of("foo")),
-                    Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")))),
-                true);
+                    Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")))));
           }
         };
     createServer(dispatcher);

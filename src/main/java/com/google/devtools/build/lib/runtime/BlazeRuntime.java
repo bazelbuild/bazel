@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
+import com.google.devtools.build.lib.server.GcAndInternerShrinkingIdleTask;
 import com.google.devtools.build.lib.server.GrpcServerImpl;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.InstallBaseGarbageCollectorIdleTask;
@@ -622,11 +623,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             .handle(Event.error("Error while creating memory profile file: " + e.getMessage()));
       }
     }
+
+    boolean stateKeptAfterBuild =
+        !env.getCommandName().equals("clean") && options.keepStateAfterBuild;
+    env.addIdleTask(new GcAndInternerShrinkingIdleTask(stateKeptAfterBuild));
+
     if (options.installBaseGcMaxAge != null && !options.installBaseGcMaxAge.isZero()) {
       env.addIdleTask(
           InstallBaseGarbageCollectorIdleTask.create(
               workspace.getDirectories().getInstallBase(), options.installBaseGcMaxAge));
     }
+
     if (options.actionCacheGcMaxAge != null && !options.actionCacheGcMaxAge.isZero()) {
       env.addIdleTask(
           workspace.getActionCacheGcIdleTask(
@@ -793,10 +800,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     actionKeyContext.clear();
     DebugLoggerConfigurator.flushServerLog();
     storedExitCode.set(null);
-    boolean keepStateAfterBuild =
-        !env.getCommandName().equals("clean") && commonOptions.keepStateAfterBuild;
     return BlazeCommandResult.withResponseExtensions(
-        finalCommandResult, env.getResponseExtensions(), keepStateAfterBuild);
+        finalCommandResult, env.getResponseExtensions());
   }
 
   /**

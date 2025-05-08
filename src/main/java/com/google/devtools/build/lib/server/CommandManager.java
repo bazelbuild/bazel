@@ -52,7 +52,7 @@ class CommandManager {
   CommandManager(boolean doIdleServerTasks, @Nullable String slowInterruptMessageSuffix) {
     this.doIdleServerTasks = doIdleServerTasks;
     this.slowInterruptMessageSuffix = slowInterruptMessageSuffix;
-    idle(ImmutableList.of(), /* stateKeptAfterBuild= */ true);
+    idle(ImmutableList.of());
   }
 
   void preemptEligibleCommands() {
@@ -141,11 +141,11 @@ class CommandManager {
     logger.atInfo().log("Starting command %s on thread %s", command.id, command.thread.getName());
   }
 
-  private void idle(ImmutableList<IdleTask> idleTasks, boolean stateKeptAfterBuild) {
+  private void idle(ImmutableList<IdleTask> idleTasks) {
     if (doIdleServerTasks) {
       synchronized (this) {
         checkState(idleTaskManager == null);
-        idleTaskManager = new IdleTaskManager(idleTasks, stateKeptAfterBuild);
+        idleTaskManager = new IdleTaskManager(idleTasks);
         idleTaskManager.idle();
       }
     }
@@ -194,7 +194,6 @@ class CommandManager {
     private final String id;
     private final boolean preemptible;
     private ImmutableList<IdleTask> idleTasks = ImmutableList.of();
-    private boolean stateKeptAfterBuild = true;
 
     private RunningCommand(boolean preemptible) {
       thread = Thread.currentThread();
@@ -207,7 +206,7 @@ class CommandManager {
       synchronized (runningCommandsMap) {
         runningCommandsMap.remove(id);
         if (runningCommandsMap.isEmpty()) {
-          idle(idleTasks, stateKeptAfterBuild);
+          idle(idleTasks);
         }
         runningCommandsMap.notify();
       }
@@ -224,9 +223,8 @@ class CommandManager {
     }
 
     /** Record tasks to be run by {@link IdleTaskManager}. */
-    void setIdleTasks(ImmutableList<IdleTask> idleTasks, boolean stateKeptAfterBuild) {
+    void setIdleTasks(ImmutableList<IdleTask> idleTasks) {
       this.idleTasks = idleTasks;
-      this.stateKeptAfterBuild = stateKeptAfterBuild;
     }
   }
 }

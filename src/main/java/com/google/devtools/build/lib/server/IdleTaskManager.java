@@ -16,17 +16,10 @@ package com.google.devtools.build.lib.server;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.devtools.build.lib.concurrent.PooledInterner;
-import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
-import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.lang.management.MemoryUsage;
 import java.util.ArrayList;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -37,13 +30,8 @@ import java.util.concurrent.TimeoutException;
 /**
  * Runs cleanup-related tasks during an idle period in the server.
  *
- * <p>By default, there is a single final task responsible for running garbage collection and
- * shrinking interner pools. Additional tasks may be added at construction time and execute serially
- * before the final task. When {@link #idle} is called, signaling the beginning of an idle period,
- * execution of idle tasks begins. When {@link #busy} is called, signaling the end of an idle
- * period, all pending idle tasks are interrupted.
- *
- * <p>A fresh instance must be constructed to manage each individual idle period.
+ * <p>A fresh instance must be constructed to manage each individual idle period. The idle period
+ * begins when {@link #idle} is called and ends when {@link #busy} is called.
  */
 public final class IdleTaskManager {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -87,19 +75,16 @@ public final class IdleTaskManager {
           1, new ThreadFactoryBuilder().setNameFormat("idle-server-tasks-%d").build());
 
   private final ImmutableList<IdleTask> registeredTasks;
-  private final boolean stateKeptAfterBuild;
 
   private final ArrayList<ScheduledFuture<?>> taskFutures = new ArrayList<>();
 
   /**
    * Creates a new {@link IdleTaskManager}.
    *
-   * @param idleTasks idle tasks registered during the previous build
-   * @param stateKeptAfterBuild whether state from the previous build was kept
+   * @param idleTasks tasks to run while idle
    */
-  public IdleTaskManager(ImmutableList<IdleTask> idleTasks, boolean stateKeptAfterBuild) {
+  public IdleTaskManager(ImmutableList<IdleTask> idleTasks) {
     this.registeredTasks = idleTasks;
-    this.stateKeptAfterBuild = stateKeptAfterBuild;
   }
 
   /**
@@ -116,17 +101,6 @@ public final class IdleTaskManager {
       taskFutures.add(
           executor.schedule(new IdleTaskWrapper(task), task.delay().toSeconds(), SECONDS));
     }
-
-    // Schedule the final task to run after everything else.
-    // Note that this is effectively enforced by the fact that the executor is single-threaded and
-    // executes tasks in the order they are scheduled.
-    taskFutures.add(
-        executor.schedule(
-            () -> runGcAndMaybeShrinkInterners(stateKeptAfterBuild),
-            // If state was kept after the build, wait for a few seconds before triggering GC, to
-            // avoid unnecessarily slowing down an immediately following incremental build.
-            stateKeptAfterBuild ? 10 : 0,
-            SECONDS));
   }
 
   /**
@@ -171,33 +145,5 @@ public final class IdleTaskManager {
     if (interrupted) {
       Thread.currentThread().interrupt();
     }
-  }
-
-  @VisibleForTesting long runGcAndMaybeShrinkInternersCalled;
-
-  private void runGcAndMaybeShrinkInterners(boolean stateKeptAfterBuild) {
-    runGcAndMaybeShrinkInternersCalled = System.nanoTime();
-
-    MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
-    MemoryUsage before = memBean.getHeapMemoryUsage();
-    try (var p = GoogleAutoProfilerUtils.logged("Idle GC")) {
-      System.gc();
-    }
-    // Shrinking interner pools can take multiple seconds for large builds, and is maximally
-    // effective for builds that don't keep state. Avoid running it if state was kept, or if the
-    // cleanup was interrupted in any case.
-    if (!Thread.interrupted() && !stateKeptAfterBuild) {
-      try (var p = GoogleAutoProfilerUtils.logged("Idle interner shrinking")) {
-        PooledInterner.shrinkAll();
-      }
-    }
-    MemoryUsage after = memBean.getHeapMemoryUsage();
-
-    logger.atInfo().log(
-        "[Idle GC] used: %s -> %s, committed: %s -> %s",
-        StringUtilities.prettyPrintBytes(before.getUsed()),
-        StringUtilities.prettyPrintBytes(after.getUsed()),
-        StringUtilities.prettyPrintBytes(before.getCommitted()),
-        StringUtilities.prettyPrintBytes(after.getCommitted()));
   }
 }
