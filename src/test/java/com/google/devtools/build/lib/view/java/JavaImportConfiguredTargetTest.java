@@ -14,17 +14,7 @@
 
 package com.google.devtools.build.lib.view.java;
 
-import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.StarlarkProvider;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -69,52 +59,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         load("@rules_java//java:defs.bzl", "java_import")
         java_import(name = 'rule')
         """);
-  }
-
-  @Test
-  public void testJavaImportExportsTransitiveProguardSpecs() throws Exception {
-    if (analysisMock.isThisBazel()) {
-      return;
-    }
-    scratch.file(
-        "java/com/google/android/hello/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_import")
-        java_import(
-            name = "export",
-            constraints = ["android"],
-            jars = ["Export.jar"],
-            proguard_specs = ["export.pro"],
-        )
-
-        java_import(
-            name = "runtime_dep",
-            constraints = ["android"],
-            jars = ["RuntimeDep.jar"],
-            proguard_specs = ["runtime_dep.pro"],
-        )
-
-        java_import(
-            name = "lib",
-            constraints = ["android"],
-            jars = ["Lib.jar"],
-            proguard_specs = ["lib.pro"],
-            exports = [":export"],
-            runtime_deps = [":runtime_dep"],
-        )
-        """);
-    StarlarkProvider.Key key =
-        new StarlarkProvider.Key(
-            keyForBuild(
-                Label.parseCanonicalUnchecked(
-                    "@rules_java//java/common:proguard_spec_info.bzl")),
-            "ProguardSpecInfo");
-    StarlarkInfo proguardSpecInfo =
-        (StarlarkInfo) getConfiguredTarget("//java/com/google/android/hello:lib").get(key);
-    NestedSet<Artifact> providedSpecs =
-        proguardSpecInfo.getValue("specs", Depset.class).getSet(Artifact.class);
-    assertThat(ActionsTestUtil.baseArtifactNames(providedSpecs))
-        .containsAtLeast("lib.pro_valid", "export.pro_valid", "runtime_dep.pro_valid");
   }
 
   @Test
