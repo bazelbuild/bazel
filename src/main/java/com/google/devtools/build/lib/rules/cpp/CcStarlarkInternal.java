@@ -181,6 +181,21 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
+      name = "dynamic_library_symlink2",
+      documented = false,
+      parameters = {
+        @Param(name = "actions"),
+        @Param(name = "library"),
+        @Param(name = "solib_directory"),
+        @Param(name = "path"),
+      })
+  public Artifact dynamicLibrarySymlinkAction2(
+      StarlarkActionFactory actions, Artifact library, String solibDirectory, String path) {
+    return SolibSymlinkAction.getDynamicLibrarySymlink(
+        actions.getRuleContext(), solibDirectory, library, PathFragment.create(path));
+  }
+
+  @StarlarkMethod(
       name = "dynamic_library_soname",
       documented = false,
       parameters = {
@@ -735,6 +750,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       if (value != null && value != Starlark.NONE) {
         builder.setObjectFiles(
             Sequence.cast(value, Artifact.class, "object_files").getImmutableList());
+      } else {
+        builder.setObjectFiles(null);
       }
     }
     if (libraryToLink.getFieldNames().contains("pic_object_files")) {
@@ -742,6 +759,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       if (value != null && value != Starlark.NONE) {
         builder.setPicObjectFiles(
             Sequence.cast(value, Artifact.class, "pic_object_files").getImmutableList());
+      } else {
+        builder.setPicObjectFiles(null);
       }
     }
     builder.setLtoCompilationContext(
