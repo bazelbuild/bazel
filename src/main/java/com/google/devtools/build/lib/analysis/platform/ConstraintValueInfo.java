@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -73,13 +74,19 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
    * method.
    */
   public ConfigMatchingProvider configMatchingProvider(PlatformInfo platformInfo) {
+    ConstraintValueInfo platformValue = platformInfo.constraints().get(this.constraint());
     return ConfigMatchingProvider.create(
         label,
         ImmutableMultimap.of(),
         ImmutableMap.of(),
         ImmutableSet.of(),
-        ConfigMatchingProvider.MatchResult.create(
-            platformInfo.constraints().hasConstraintValue(this)));
+        equals(platformValue)
+            ? MatchResult.MATCH
+            : new MatchResult.NoMatch(
+                new MatchResult.NoMatch.Diff(
+                    constraint().label(),
+                    label().getName(),
+                    platformValue != null ? platformValue.label().getName() : "<unset>")));
   }
 
   @Override
@@ -103,8 +110,7 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
     if (!(o instanceof ConstraintValueInfo that)) {
       return false;
     }
-    return Objects.equals(constraint, that.constraint)
-        && Objects.equals(label, that.label);
+    return Objects.equals(constraint, that.constraint) && Objects.equals(label, that.label);
   }
 
   @Override
