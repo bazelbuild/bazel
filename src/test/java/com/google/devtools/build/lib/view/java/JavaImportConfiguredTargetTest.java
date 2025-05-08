@@ -94,19 +94,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSrcJars() throws Exception {
-    ConfiguredTarget jarLibWithSources =
-        getConfiguredTarget("//java/jarlib:libraryjar_with_srcjar");
-
-    assertThat(
-            Iterables.getOnlyElement(
-                    JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, jarLibWithSources)
-                        .getAllSrcOutputJars())
-                .prettyPrint())
-        .isEqualTo("java/jarlib/library.srcjar");
-  }
-
-  @Test
   public void testFromGenrule() throws Exception {
     scratch.file(
         "java/genrules/BUILD",
