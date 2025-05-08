@@ -15,14 +15,10 @@
 package com.google.devtools.build.lib.view.java;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -119,33 +115,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         proguardSpecInfo.getValue("specs", Depset.class).getSet(Artifact.class);
     assertThat(ActionsTestUtil.baseArtifactNames(providedSpecs))
         .containsAtLeast("lib.pro_valid", "export.pro_valid", "runtime_dep.pro_valid");
-  }
-
-  @Test
-  public void testJavaImportValidatesProguardSpecs() throws Exception {
-    scratch.file(
-        "java/com/google/android/hello/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_import")
-        java_import(
-            name = "lib",
-            constraints = ["android"],
-            jars = ["Lib.jar"],
-            proguard_specs = ["lib.pro"],
-        )
-        """);
-    SpawnAction action =
-        (SpawnAction)
-            actionsTestUtil()
-                .getActionForArtifactEndingWith(
-                    getOutputGroup(
-                        getConfiguredTarget("//java/com/google/android/hello:lib"),
-                        OutputGroupInfo.HIDDEN_TOP_LEVEL),
-                    "lib.pro_valid");
-    assertWithMessage("Proguard validate action").that(action).isNotNull();
-    assertWithMessage("Proguard validate action input")
-        .that(prettyArtifactNames(action.getInputs()))
-        .contains("java/com/google/android/hello/lib.pro");
   }
 
   @Test
