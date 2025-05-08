@@ -1269,9 +1269,8 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         .hasMessageThat()
         .isEqualTo(
             """
-            in tag at /workspace/MODULE.bazel:2:10: no repository visible as '@other_repo' to the \
-            root module, but referenced by label '@other_repo//:foo' in attribute 'label' of tag \
-            'label'.\
+            in 'label' tag at /workspace/MODULE.bazel:2:10: no repository visible as '@other_repo' \
+            to the root module, but referenced by label '@other_repo//:foo' in attribute 'label'.\
             """);
   }
 
