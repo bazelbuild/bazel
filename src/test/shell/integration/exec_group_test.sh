@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -233,7 +233,7 @@ function test_target_test_properties_sh_test() {
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > ${pkg}/a.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo hello
 EOF
   chmod u+x ${pkg}/a.sh

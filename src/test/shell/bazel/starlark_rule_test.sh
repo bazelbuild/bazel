@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -127,7 +127,7 @@ foo = rule(
 EOF
 
   cat >bin.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo hello $0 > $1
 EOF
   chmod +x bin.sh

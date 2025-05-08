@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -827,7 +827,7 @@ sh_test(
 EOF
 
   cat > a/sleep.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 for i in {1..3}
 do
     echo "Sleeping $i..."
@@ -1249,7 +1249,7 @@ function test_nobuild_runfile_links() {
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
   add_rules_shell "MODULE.bazel"
   cat > test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 [[ -f ${RUNFILES_DIR}/_main/data/hello ]]
 [[ -f ${RUNFILES_DIR}/_main/data/world ]]

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -132,7 +132,7 @@ function test_nobuild_runfile_links() {
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
 
   cat > test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 [[ -f ${RUNFILES_DIR}/_main/data/hello ]]
 [[ -f ${RUNFILES_DIR}/_main/data/world ]]
@@ -175,14 +175,14 @@ function test_nobuild_runfile_links_with_run_under() {
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
 
   cat > hello.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -ex
 [[ -f $0.runfiles/_main/data/hello ]]
 exec "$@"
 EOF
 
   cat > world.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -ex
 [[ -f $0.runfiles/_main/data/world ]]
 exit 0

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -1556,7 +1556,7 @@ java_test(
 EOF
 
   cat > a/test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo 'Hello'
 EOF
   chmod a+x a/test.sh
@@ -2491,7 +2491,7 @@ sh_binary(
 )
 EOF
   cat > foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if ! [[ -f "$0.runfiles/_main/out.txt" ]]; then
   echo "runfile $0.runfiles/_main/out.txt not found" 1>&2
   exit 1

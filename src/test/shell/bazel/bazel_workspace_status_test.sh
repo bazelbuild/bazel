@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -24,7 +24,7 @@ function test_workspace_status_parameters() {
 
   local cmd=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat > $cmd <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo BUILD_SCM_STATUS funky
 EOF
@@ -50,7 +50,7 @@ function test_workspace_status_overrides() {
 
   local cmd=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat > $cmd <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo BUILD_USER fake_user
 echo BUILD_HOST fake_host
@@ -83,7 +83,7 @@ function test_workspace_status_cpp() {
 
   local cmd=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat > $cmd <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo BUILD_SCM_STATUS funky
 EOF
@@ -144,7 +144,7 @@ function test_stable_and_volatile_status() {
   create_new_workspace
   local wsc=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat >$wsc <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 cat $TEST_TMPDIR/status
 EOF
@@ -218,7 +218,7 @@ function test_env_var_in_workspace_status() {
   create_new_workspace
   local wsc=`mktemp $TEST_TMPDIR/wsc-XXXXXXXX`
   cat >$wsc <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo "STABLE_ENV" ${STABLE_VAR}
 echo "VOLATILE_ENV" ${VOLATILE_VAR}

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -1648,7 +1648,7 @@ sh_test(
 EOF
 
   cat > "${pkg}"/run.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eu
 
