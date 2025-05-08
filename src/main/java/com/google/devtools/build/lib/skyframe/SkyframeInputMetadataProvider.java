@@ -34,7 +34,6 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 
 /**
  * An {@link InputMetadataProvider} implementation that requests the metadata of derived artifacts
@@ -49,12 +48,11 @@ import javax.annotation.concurrent.GuardedBy;
  * <p>In theory, this would also work for source artifacts. However, the performance ramifications
  * of doing that are unknown.
  */
-public class SkyframeInputMetadataProvider implements InputMetadataProvider {
+final class SkyframeInputMetadataProvider implements InputMetadataProvider {
   private final MemoizingEvaluator evaluator;
 
-  @GuardedBy("envMonitor")
-  @Nullable
-  private SkyFunction.Environment env;
+  // Non-null while skyframe lookups are being allowed during input discovery.
+  @Nullable private SkyFunction.Environment env;
 
   private final Object envMonitor;
   private final InputMetadataProvider perBuild;
@@ -63,13 +61,9 @@ public class SkyframeInputMetadataProvider implements InputMetadataProvider {
   private final ConcurrentHashMap<String, ActionInput> seen;
   private boolean allowSkyframe;
 
-  public SkyframeInputMetadataProvider(
-      MemoizingEvaluator evaluator,
-      SkyFunction.Environment env,
-      InputMetadataProvider perBuild,
-      String relativeOutputPath) {
+  SkyframeInputMetadataProvider(
+      MemoizingEvaluator evaluator, InputMetadataProvider perBuild, String relativeOutputPath) {
     this.evaluator = evaluator;
-    this.env = env;
     this.envMonitor = new Object();
     this.perBuild = perBuild;
     this.relativeOutputPath = PathFragment.create(relativeOutputPath);
@@ -82,9 +76,17 @@ public class SkyframeInputMetadataProvider implements InputMetadataProvider {
    *
    * <p>This should only happen during input discovery, so we disallow it everywhere else.
    */
-  public SilentCloseable withSkyframeAllowed() {
+  // TODO: b/416449869 - Add test coverage for a new env being set after a skyframe restart.
+  SilentCloseable withSkyframeAllowed(SkyFunction.Environment env) {
+    // No need to synchronize with envMonitor here. This is called before input discovery begins,
+    // and the closeable is called after input discovery ends, so there are no concurrent calls to
+    // getInputMetadataChecked.
     allowSkyframe = true;
-    return () -> allowSkyframe = false;
+    this.env = env;
+    return () -> {
+      allowSkyframe = false;
+      this.env = null;
+    };
   }
 
   @Nullable
