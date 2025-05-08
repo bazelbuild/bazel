@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.server;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
@@ -32,13 +33,20 @@ import javax.annotation.concurrent.GuardedBy;
 class CommandManager {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  // The list of currently running commands.
+  // Note that, even though most commands run serially because of the output base lock, they're
+  // registered here before blocking for the lock, so the map is effectively unbounded.
   @GuardedBy("runningCommandsMap")
   private final Map<String, RunningCommand> runningCommandsMap = new HashMap<>();
 
-  private final AtomicLong interruptCounter = new AtomicLong(0);
   private final boolean doIdleServerTasks;
 
+  // The current IdleTaskManager. Null when a command is running or if idle tasks are disabled.
+  @GuardedBy("this")
+  @Nullable
   private IdleTaskManager idleTaskManager;
+
+  private final AtomicLong interruptCounter = new AtomicLong(0);
   @Nullable private final String slowInterruptMessageSuffix;
 
   CommandManager(boolean doIdleServerTasks, @Nullable String slowInterruptMessageSuffix) {
@@ -134,18 +142,22 @@ class CommandManager {
   }
 
   private void idle(ImmutableList<IdleTask> idleTasks, boolean stateKeptAfterBuild) {
-    Preconditions.checkState(idleTaskManager == null);
     if (doIdleServerTasks) {
-      idleTaskManager = new IdleTaskManager(idleTasks, stateKeptAfterBuild);
-      idleTaskManager.idle();
+      synchronized (this) {
+        checkState(idleTaskManager == null);
+        idleTaskManager = new IdleTaskManager(idleTasks, stateKeptAfterBuild);
+        idleTaskManager.idle();
+      }
     }
   }
 
   private void busy() {
     if (doIdleServerTasks) {
-      Preconditions.checkState(idleTaskManager != null);
-      idleTaskManager.busy();
-      idleTaskManager = null;
+      synchronized (this) {
+        checkState(idleTaskManager != null);
+        idleTaskManager.busy();
+        idleTaskManager = null;
+      }
     }
   }
 
