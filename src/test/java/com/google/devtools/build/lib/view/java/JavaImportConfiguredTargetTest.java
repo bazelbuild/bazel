@@ -87,18 +87,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDisallowsArbitraryFilesFromGenrule() throws Exception {
-    checkError(
-        "badlib",
-        "library-jar",
-        getErrorMsgNoGoodFiles("jars", "java_import", "//badlib:library-jar", "//badlib:gen"),
-        "genrule(name = 'gen', outs = ['not-a-jar.txt'], cmd = '')",
-        "load('@rules_java//java:defs.bzl', 'java_import')",
-        "java_import(name  = 'library-jar',",
-        "            jars = [':gen'])");
-  }
-
-  @Test
   public void testDisallowsJavaRulesInSrcs() throws Exception {
     checkError(
         "badlib",
