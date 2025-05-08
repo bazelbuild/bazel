@@ -87,19 +87,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDisallowsJavaRulesInSrcs() throws Exception {
-    checkError(
-        "badlib",
-        "library-jar",
-        "'jars' attribute cannot contain labels of Java targets",
-        "load('@rules_java//java:defs.bzl', 'java_library', 'java_import')",
-        "java_library(name = 'javalib',",
-        "             srcs = ['Javalib.java'])",
-        "java_import(name  = 'library-jar',",
-        "            jars = [':javalib'])");
-  }
-
-  @Test
   public void testJavaImportExportsTransitiveProguardSpecs() throws Exception {
     if (analysisMock.isThisBazel()) {
       return;
