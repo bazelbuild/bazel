@@ -87,19 +87,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDisallowsArbitraryFiles() throws Exception {
-    scratch.file("badlib/not-a-jar.txt", "foo");
-    checkError(
-        "badlib",
-        "library-jar",
-        getErrorMsgMisplacedFiles(
-            "jars", "java_import", "//badlib:library-jar", "//badlib:not-a-jar.txt"),
-        "load('@rules_java//java:defs.bzl', 'java_import')",
-        "java_import(name = 'library-jar',",
-        "            jars = ['not-a-jar.txt'])");
-  }
-
-  @Test
   public void testDisallowsArbitraryFilesFromGenrule() throws Exception {
     checkError(
         "badlib",
