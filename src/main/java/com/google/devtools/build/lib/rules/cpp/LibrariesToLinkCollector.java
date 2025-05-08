@@ -698,6 +698,8 @@ public class LibrariesToLinkCollector {
     // in --start-lib/--end-lib) to ensure consistency between the two link
     // steps.
     // start-lib/end-lib library: adds its input object files.
+    // TODO(bazel-team): Figure out if PicArchives are actually used. For it to be used, both
+    // linkingStatically and linkShared must me true, we must be in opt mode and cpu has to be k8.
     if (objects != null
         && CppHelper.getArchiveType(ccToolchainProvider.getCppConfiguration(), featureConfiguration)
             == ArchiveType.START_END_LIB) {

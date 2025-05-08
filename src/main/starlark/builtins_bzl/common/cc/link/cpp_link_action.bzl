@@ -69,8 +69,6 @@ def link_action(
     The function collects all object files, maps them with LTO mapping when present.
     It declares linkstamp object (but doesn't yet compile them).
 
-    All object files are wrapped with LegacyLinkerInputs.
-
     It prepares link build variables specific to linking actions and creates the
     action by calling `finalize_link_action`.
 
