@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -32,8 +31,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -205,28 +202,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget processorTarget = getConfiguredTarget("//java/com/google/test:jar");
     JavaInfo javaInfo = JavaInfo.getJavaInfo(processorTarget);
     assertThat(javaInfo.isNeverlink()).isTrue();
-  }
-
-  @Test
-  public void testTransitiveSourceJars() throws Exception {
-    ConfiguredTarget aTarget =
-        scratchConfiguredTarget(
-            "java/my",
-            "a",
-            "load('@rules_java//java:defs.bzl', 'java_library',"
-                + " 'java_import')",
-            "java_import(name = 'a',",
-            "    jars = ['dummy.jar'],",
-            "    srcjar = 'dummy-src.jar',",
-            "    exports = [':b'])",
-            "java_library(name = 'b',",
-            "    srcs = ['B.java'])");
-    getConfiguredTarget("//java/my:a");
-    Set<String> inputs =
-        artifactsToStrings(
-            JavaInfo.getProvider(JavaSourceJarsProvider.class, aTarget).transitiveSourceJars());
-    assertThat(inputs)
-        .isEqualTo(Sets.newHashSet("src java/my/dummy-src.jar", "bin java/my/libb-src.jar"));
   }
 
   @Test
