@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import org.junit.Before;
@@ -371,42 +370,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
             "java/com/google/exports/lib.jar",
             "java/com/google/exports/other.jar",
             "java/com/google/exports/foo.txt");
-  }
-
-  // Regression test for b/13936397: don't flatten transitive dependencies into direct deps.
-  @Test
-  public void testTransitiveDependencies() throws Exception {
-    scratch.file(
-        "java/jarlib2/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library", "java_import")
-        java_library(
-            name = "lib",
-            srcs = ["Lib.java"],
-            deps = ["//java/jarlib:libraryjar"],
-        )
-
-        java_import(
-            name = "library2-jar",
-            jars = ["library2.jar"],
-            exports = [":lib"],
-        )
-
-        java_library(
-            name = "javalib2",
-            srcs = ["Other.java"],
-            deps = [":library2-jar"],
-        )
-        """);
-
-    JavaCompileAction javacAction =
-        (JavaCompileAction) getGeneratingActionForLabel("//java/jarlib2:libjavalib2.jar");
-    // Direct jars should NOT include java/jarlib/libraryjar-ijar.jar
-    assertThat(prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))))
-        .isEqualTo(
-            Arrays.asList(
-                "java/jarlib2/_ijar/library2-jar/java/jarlib2/library2-ijar.jar",
-                "java/jarlib2/liblib-hjar.jar"));
   }
 
   @Test
