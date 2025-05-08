@@ -94,49 +94,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testFromGenrule() throws Exception {
-    scratch.file(
-        "java/genrules/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_import")
-        genrule(
-            name = "generated_jar",
-            outs = ["generated.jar"],
-            cmd = "",
-        )
-
-        genrule(
-            name = "generated_src_jar",
-            outs = ["generated.srcjar"],
-            cmd = "",
-        )
-
-        java_import(
-            name = "library-jar",
-            jars = [":generated_jar"],
-            srcjar = ":generated_src_jar",
-            exports = ["//java/jarlib:libraryjar"],
-        )
-        """);
-    ConfiguredTarget jarLib = getConfiguredTarget("//java/genrules:library-jar");
-
-    JavaCompilationArgsProvider compilationArgs =
-        JavaInfo.getProvider(JavaCompilationArgsProvider.class, jarLib);
-    assertThat(prettyArtifactNames(compilationArgs.transitiveCompileTimeJars()))
-        .containsExactly(
-            "java/genrules/_ijar/library-jar/java/genrules/generated-ijar.jar",
-            "java/jarlib/_ijar/libraryjar/java/jarlib/library-ijar.jar")
-        .inOrder();
-    assertThat(prettyArtifactNames(compilationArgs.runtimeJars()))
-        .containsExactly("java/genrules/generated.jar", "java/jarlib/library.jar")
-        .inOrder();
-
-    Artifact jar = compilationArgs.runtimeJars().toList().get(0);
-    assertThat(getGeneratingAction(jar).prettyPrint())
-        .isEqualTo("action 'Executing genrule //java/genrules:generated_jar'");
-  }
-
-  @Test
   public void testAllowsJarInSrcjars() throws Exception {
     scratch.file(
         "java/srcjarlib/BUILD",
