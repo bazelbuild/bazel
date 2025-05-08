@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.view.java;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
-import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getDirectJars;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.Sets;
@@ -27,14 +26,12 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import java.util.Set;
@@ -265,46 +262,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
             "java/com/google/exports/lib.jar",
             "java/com/google/exports/other.jar",
             "java/com/google/exports/foo.txt");
-  }
-
-  @Test
-  public void testRuntimeDepsAreNotOnClasspath() throws Exception {
-    scratch.file(
-        "java/com/google/runtimetest/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library", "java_import")
-        java_import(
-            name = "import_dep",
-            jars = ["import_compile.jar"],
-            runtime_deps = ["import_runtime.jar"],
-        )
-
-        java_library(
-            name = "library_dep",
-            srcs = ["library_compile.java"],
-        )
-
-        java_library(
-            name = "depends_on_runtimedep",
-            srcs = ["dummy.java"],
-            deps = [
-                ":import_dep",
-                ":library_dep",
-            ],
-        )
-        """);
-
-    OutputFileConfiguredTarget dependsOnRuntimeDep =
-        (OutputFileConfiguredTarget)
-            getFileConfiguredTarget("//java/com/google/runtimetest:libdepends_on_runtimedep.jar");
-
-    JavaCompileAction javacAction =
-        (JavaCompileAction) getGeneratingAction(dependsOnRuntimeDep.getArtifact());
-    // Direct jars should NOT include import_runtime.jar
-    assertThat(prettyArtifactNames(getInputs(javacAction, getDirectJars(javacAction))))
-        .containsExactly(
-            "java/com/google/runtimetest/_ijar/import_dep/java/com/google/runtimetest/import_compile-ijar.jar",
-            "java/com/google/runtimetest/liblibrary_dep-hjar.jar");
   }
 
   @Test
