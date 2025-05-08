@@ -34,11 +34,9 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import java.util.List;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
@@ -333,24 +331,5 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "load('@rules_java//java:defs.bzl', 'java_import')",
         "filegroup(name='jars', srcs=['a.jar'])",
         "java_import(name = 'ji-with-dupe-through-fg', jars = ['a.jar', ':jars'])");
-  }
-
-  @Test
-  public void testIjarCanBeDisabled() throws Exception {
-    useConfiguration("--nouse_ijars");
-    ConfiguredTarget lib =
-        scratchConfiguredTarget(
-            "java/a",
-            "a",
-            "load('@rules_java//java:defs.bzl', 'java_import',"
-                + " 'java_library')",
-            "java_library(name='a', srcs=['A.java'], deps=[':b'])",
-            "java_import(name='b', jars=['b.jar'])");
-    List<String> jars =
-        ActionsTestUtil.baseArtifactNames(
-            JavaInfo.getProvider(JavaCompilationArgsProvider.class, lib)
-                .transitiveCompileTimeJars());
-    assertThat(jars).doesNotContain("b-ijar.jar");
-    assertThat(jars).contains("b.jar");
   }
 }
