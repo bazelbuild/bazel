@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
+import com.google.devtools.build.lib.rules.platform.PlatformRule;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -170,7 +171,10 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
         Consumer<String> errorHandler =
             key.debug() ? message -> rejectedPlatforms.put(platformInfo.label(), message) : null;
         if (ConfigMatchingUtil.validate(
-            platformInfo.label(), platformInfo.requiredSettings(), errorHandler)) {
+            platformInfo.label(),
+            platformInfo.requiredSettings(),
+            errorHandler,
+            PlatformRule.REQUIRED_SETTINGS_ATTR)) {
           platformKeys.add(configuredTargetKey);
         }
       } catch (InvalidConfigurationException e) {
