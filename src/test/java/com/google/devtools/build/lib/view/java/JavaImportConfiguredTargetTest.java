@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyA
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getDirectJars;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -38,7 +37,6 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import java.util.List;
 import java.util.Set;
@@ -74,27 +72,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
             packages = [],
         )
         """);
-  }
-
-  @Test
-  public void testAllowsJarInSrcjars() throws Exception {
-    scratch.file(
-        "java/srcjarlib/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_import")
-        java_import(
-            name = "library-jar",
-            jars = ["somelib.jar"],
-            srcjar = "somelib-src.jar",
-        )
-        """);
-    ConfiguredTarget jarLib = getConfiguredTarget("//java/srcjarlib:library-jar");
-    assertThat(
-            Iterables.getOnlyElement(
-                    JavaInfo.getProvider(JavaRuleOutputJarsProvider.class, jarLib)
-                        .getAllSrcOutputJars())
-                .prettyPrint())
-        .isEqualTo("java/srcjarlib/somelib-src.jar");
   }
 
   @Test
