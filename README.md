@@ -1,58 +1,17 @@
-# [Bazel](https://bazel.build)
+# [MongoDB Bazel Fork](https://bazel.build)
 
-*{Fast, Correct} - Choose two*
+This is the MongoDB internal version of Bazel used for building mongodb/mongo. This is for any modifications that are needed that either wouldn't make sense or would take too long to upstream to Bazel's main repository.
 
-Build and test software of any size, quickly and reliably.
+## Building
 
-* **Speed up your builds and tests**:
-  Bazel rebuilds only what is necessary.
-  With advanced local and distributed caching, optimized dependency analysis and
-  parallel execution, you get fast and incremental builds.
+To build the MongoDB fork of Bazel through the CI pipeline, first clone the branch `release-7.5.0-mongo` then run:
 
-* **One tool, multiple languages**: Build and test Java, C++, Android, iOS, Go,
-  and a wide variety of other language platforms. Bazel runs on Windows, macOS,
-  and Linux.
+```
+evergreen patch -p mongodb-bazel --path mongo/evergreen.yml -y --browse
+```
 
-* **Scalable**: Bazel helps you scale your organization, codebase, and
-  continuous integration solution. It handles codebases of any size, in multiple
-  repositories or a huge monorepo.
+Then select the platforms you would like to build on.
 
-* **Extensible to your needs**: Easily add support for new languages and
-  platforms with Bazel's familiar extension language. Share and re-use language
-  rules written by the growing Bazel community.
+## Deploying
 
-## Getting Started
-
-  * [Install Bazel](https://bazel.build/install)
-  * [Get started with Bazel](https://bazel.build/start)
-  * Follow our tutorials:
-
-    - [Build C++](https://bazel.build/tutorials/cpp)
-    - [Build Java](https://bazel.build/tutorials/java)
-    - [Android](https://bazel.build/tutorials/android-app)
-    - [iOS](https://bazel.build/tutorials/ios-app)
-
-## Documentation
-
-  * [Bazel command line](https://bazel.build/docs/user-manual)
-  * [Rule reference](https://bazel.build/reference/be/overview)
-  * [Use the query command](https://bazel.build/reference/query)
-  * [Extend Bazel](https://bazel.build/rules/concepts)
-  * [Write tests](https://bazel.build/reference/test-encyclopedia)
-  * [Roadmap](https://bazel.build/community/roadmaps)
-  * [Who is using Bazel?](https://bazel.build/community/users)
-
-## Reporting a Vulnerability
-
-To report a security issue, please email security@bazel.build with a description
-of the issue, the steps you took to create the issue, affected versions, and, if
-known, mitigations for the issue. Our vulnerability management team will respond
-within 3 working days of your email. If the issue is confirmed as a
-vulnerability, we will open a Security Advisory. This project follows a 90 day
-disclosure timeline.
-
-## Contributing to Bazel
-
-See [CONTRIBUTING.md](CONTRIBUTING.md)
-
-[![Build status](https://badge.buildkite.com/1fd282f8ad98c3fb10758a821e5313576356709dd7d11e9618.svg?status=master)](https://buildkite.com/bazel/bazel-bazel)
+In the repository that you intend to use the Custom Bazel Binaries from this fork, modify `.bazeliskrc` and `.bazelversion` to point at the evergreen patch run that created them. If merging the commits to a mainline branch, a waterfall patch should always be used instead of a user-generated patch.
