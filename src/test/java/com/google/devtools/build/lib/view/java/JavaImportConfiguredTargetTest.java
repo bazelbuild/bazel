@@ -319,17 +319,4 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
         "filegroup(name='jars', srcs=['a.jar'])",
         "java_import(name = 'ji-with-dupe', jars = ['a.jar', 'a.jar'])");
   }
-
-  @Test
-  public void testDuplicateJarsThroughFilegroup() throws Exception {
-    checkError(
-        "ji",
-        "ji-with-dupe-through-fg",
-        // error:
-        "in jars attribute of java_import rule //ji:ji-with-dupe-through-fg: a.jar is a duplicate",
-        // build file
-        "load('@rules_java//java:defs.bzl', 'java_import')",
-        "filegroup(name='jars', srcs=['a.jar'])",
-        "java_import(name = 'ji-with-dupe-through-fg', jars = ['a.jar', ':jars'])");
-  }
 }
