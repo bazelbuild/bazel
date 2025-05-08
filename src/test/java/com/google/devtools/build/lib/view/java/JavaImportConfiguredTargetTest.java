@@ -87,19 +87,6 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPermitsEmptyJars() throws Exception {
-    useConfiguration("--incompatible_disallow_java_import_empty_jars=0");
-    scratchConfiguredTarget(
-        "pkg",
-        "rule",
-        """
-        load("@rules_java//java:defs.bzl", "java_import")
-        java_import(name = 'rule', jars = [])
-        """);
-    assertNoEvents();
-  }
-
-  @Test
   public void testDisallowsFilesInExports() throws Exception {
     scratch.file("pkg/bad.jar", "");
     checkError(
