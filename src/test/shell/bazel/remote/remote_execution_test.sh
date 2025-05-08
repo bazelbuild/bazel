@@ -3770,8 +3770,10 @@ EOF
 # remote execution regardless of whether they are added as a source directory or
 # via globbing.
 function test_source_directory() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 filegroup(
     name = "source_directory",
     srcs = ["dir"],
