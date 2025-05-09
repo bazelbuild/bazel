@@ -2008,6 +2008,19 @@ public abstract class CcModule
             stripIncludePrefix,
             additionalIncludeScanningRoots,
             1); // stackDepth = 1 is the caller of native cc_common.compile().
+    // Ensure that the CC toolchain type is present, regardless of what was passed as
+    // starlarkCcToolchainProvider.
+    if (starlarkActionFactoryApi.getRuleContext().useAutoExecGroups()
+        && !starlarkActionFactoryApi
+            .getRuleContext()
+            .getToolchainContexts()
+            .hasToolchainContext(getSemantics().getCppToolchainType())) {
+      throw Starlark.errorf(
+          "cc_common.compile requires the CC toolchain type (%s), but rule %s does not"
+              + " declare it",
+          getSemantics().getCppToolchainType(),
+          starlarkActionFactoryApi.getRuleContext().getRule().getRuleClass());
+    }
 
     List<Artifact> includeScanningRoots =
         getAdditionalIncludeScanningRoots(additionalIncludeScanningRoots, thread);
@@ -2252,6 +2265,19 @@ public abstract class CcModule
             stripIncludePrefix,
             additionalIncludeScanningRoots,
             1); // stackDepth = 1 is the caller of native cc_common.compile().
+    // Ensure that the CC toolchain type is present, regardless of what was passed as
+    // starlarkCcToolchainProvider.
+    if (starlarkActionFactoryApi.getRuleContext().useAutoExecGroups()
+        && !starlarkActionFactoryApi
+            .getRuleContext()
+            .getToolchainContexts()
+            .hasToolchainContext(getSemantics().getCppToolchainType())) {
+      throw Starlark.errorf(
+          "cc_common.compile requires the CC toolchain type (%s), but rule %s does not"
+              + " declare it",
+          getSemantics().getCppToolchainType(),
+          starlarkActionFactoryApi.getRuleContext().getRule().getRuleClass());
+    }
 
     List<Artifact> includeScanningRoots =
         getAdditionalIncludeScanningRoots(additionalIncludeScanningRoots, thread);
