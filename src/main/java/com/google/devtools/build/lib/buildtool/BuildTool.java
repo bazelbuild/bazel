@@ -1151,8 +1151,8 @@ public class BuildTool {
     /**
      * Determines the active directories matcher for remote analysis caching operations.
      *
-     * <p>For upload mode, optionally check the --experimental_working_set flag if the project file
-     * matcher is not present.
+     * <p>For upload mode, optionally check the --experimental_active_directories flag if the
+     * project file matcher is not present.
      */
     private static Optional<PathFragmentPrefixTrie> determineActiveDirectoriesMatcher(
         CommandEnvironment env,
@@ -1164,18 +1164,19 @@ public class BuildTool {
           return maybeProjectFileMatcher;
         case RemoteAnalysisCacheMode.UPLOAD:
         case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY:
-          // Upload or Dump mode: allow overriding the project file matcher with the working set
-          // flag.
-          List<String> workingSet = env.getOptions().getOptions(SkyfocusOptions.class).workingSet;
-          if (workingSet.isEmpty()) {
+          // Upload or Dump mode: allow overriding the project file matcher with the active
+          // directories flag.
+          List<String> activeDirectories =
+              env.getOptions().getOptions(SkyfocusOptions.class).activeDirectories;
+          if (activeDirectories.isEmpty()) {
             return maybeProjectFileMatcher;
           }
           env.getReporter()
               .handle(
                   Event.warn(
-                      "Specifying --experimental_working_set will override the active directories"
-                          + " specified in the PROJECT.scl file"));
-          return Optional.of(PathFragmentPrefixTrie.of(workingSet));
+                      "Specifying --experimental_active_directories will override the active"
+                          + " directories specified in the PROJECT.scl file"));
+          return Optional.of(PathFragmentPrefixTrie.of(activeDirectories));
         default:
           throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + mode);
       }

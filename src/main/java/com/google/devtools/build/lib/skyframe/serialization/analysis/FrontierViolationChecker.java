@@ -118,7 +118,9 @@ public final class FrontierViolationChecker {
                     FailureDetail.newBuilder()
                         .setMessage(event.getMessage())
                         .setSkyfocus(
-                            Skyfocus.newBuilder().setCode(Code.NON_WORKING_SET_CHANGE).build())
+                            Skyfocus.newBuilder()
+                                .setCode(Code.NON_ACTIVE_DIRECTORIES_CHANGE)
+                                .build())
                         .build()));
         LoggingUtil.logToRemote(java.util.logging.Level.WARNING, event.getMessage(), exception);
         throw exception;
@@ -147,7 +149,8 @@ public final class FrontierViolationChecker {
           DetailedExitCode.of(
               FailureDetail.newBuilder()
                   .setMessage(UPLOAD_BUILDS_DIRTY_WORKSPACE_ERROR)
-                  .setSkyfocus(Skyfocus.newBuilder().setCode(Code.NON_WORKING_SET_CHANGE).build())
+                  .setSkyfocus(
+                      Skyfocus.newBuilder().setCode(Code.NON_ACTIVE_DIRECTORIES_CHANGE).build())
                   .build()));
     }
 
@@ -187,7 +190,8 @@ public final class FrontierViolationChecker {
             DetailedExitCode.of(
                 FailureDetail.newBuilder()
                     .setMessage(STRICT_MESSAGE + violationsString)
-                    .setSkyfocus(Skyfocus.newBuilder().setCode(Code.NON_WORKING_SET_CHANGE).build())
+                    .setSkyfocus(
+                        Skyfocus.newBuilder().setCode(Code.NON_ACTIVE_DIRECTORIES_CHANGE).build())
                     .build()));
       }
       case DISABLED_FOR_TESTING -> throw new IllegalStateException("should have returned earlier.");

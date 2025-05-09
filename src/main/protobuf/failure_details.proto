@@ -404,9 +404,9 @@ message Skyfocus {
     // The defined working set cannot be used for the focused targets. For
     // example, this happens when the intersection of the working set and the
     // transitive closure of the focused target is empty.
-    INVALID_WORKING_SET = 0 [(metadata) = { exit_code: 2 }];
+    INVALID_ACTIVE_DIRECTORIES = 0 [(metadata) = { exit_code: 2 }];
     // The user needs to augment their working set to include the new file(s).
-    NON_WORKING_SET_CHANGE = 1 [(metadata) = { exit_code: 2 }];
+    NON_ACTIVE_DIRECTORIES_CHANGE = 1 [(metadata) = { exit_code: 2 }];
     CONFIGURATION_CHANGE = 2 [(metadata) = { exit_code: 2 }];
     DISALLOWED_OPERATION_ON_FOCUSED_GRAPH = 3 [(metadata) = { exit_code: 2 }];
   }

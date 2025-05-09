@@ -126,11 +126,11 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
   }
 
   @Test
-  public void serializingFrontierWithNoProjectFile_withWorkingSetFlag_serializesKeys()
+  public void serializingFrontierWithNoProjectFile_withActiveDirectoriesFlag_serializesKeys()
       throws Exception {
     setupScenarioWithConfiguredTargets();
 
-    addOptions("--experimental_working_set=foo");
+    addOptions("--experimental_active_directories=foo");
     addOptions(UPLOAD_MODE_OPTION);
 
     buildTarget("//foo:A");
@@ -143,10 +143,10 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
   }
 
   @Test
-  public void activeDirectoriesMatcher_workingSetFlag_takesPrecedenceOverProjectFile()
+  public void activeDirectoriesMatcher_activeDirectoriesFlag_takesPrecedenceOverProjectFile()
       throws Exception {
     // Tests that the result of the active directories matcher is the same regardless of whether
-    // the matcher is obtained from the working set flag or the PROJECT.scl file.
+    // the matcher is obtained from the active directories flag or the PROJECT.scl file.
     setupScenarioWithConfiguredTargets();
 
     writeProjectSclWithActiveDirs("foo");
@@ -158,22 +158,23 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
 
     getSkyframeExecutor().resetEvaluator();
 
-    addOptions("--experimental_working_set=bar"); // overrides the PROJECT.scl file.
+    addOptions("--experimental_active_directories=bar"); // overrides the PROJECT.scl file.
     buildTarget("//foo:A");
-    var serializedKeysWithWorkingSet =
+    var serializedKeysWithActiveDirectories =
         getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
-    assertThat(serializedKeysWithWorkingSet).isNotEmpty();
+    assertThat(serializedKeysWithActiveDirectories).isNotEmpty();
 
-    assertThat(serializedKeysWithWorkingSet).isNotEqualTo(serializedKeysWithProjectScl);
+    assertThat(serializedKeysWithActiveDirectories).isNotEqualTo(serializedKeysWithProjectScl);
     assertContainsEvent(
-        "Specifying --experimental_working_set will override the active directories specified in"
-            + " the PROJECT.scl file");
+        "Specifying --experimental_active_directories will override the active directories"
+            + " specified in the PROJECT.scl file");
   }
 
   @Test
-  public void activeDirectoriesMatcher_withProjectSclOrWorkingSet_areEquivalent() throws Exception {
+  public void activeDirectoriesMatcher_withProjectSclOrActiveDirectories_areEquivalent()
+      throws Exception {
     // Tests that the result of the active directories matcher is the same regardless of whether
-    // the matcher is obtained from the working set flag or the PROJECT.scl file.
+    // the matcher is obtained from the active directories flag or the PROJECT.scl file.
     setupScenarioWithConfiguredTargets();
 
     writeProjectSclWithActiveDirs(
@@ -198,7 +199,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
 
     getSkyframeExecutor().resetEvaluator();
 
-    addOptions("--experimental_working_set=foo,-bar,baz/qux,-baz/qux/quux,-zee,zee/yee");
+    addOptions("--experimental_active_directories=foo,-bar,baz/qux,-baz/qux/quux,-zee,zee/yee");
     buildTarget("//foo:A");
     assertThat(
             getCommandEnvironment()
@@ -206,10 +207,10 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
                 .getSerializedKeysCount())
         .isAtLeast(1);
 
-    RemoteAnalysisCachingDependenciesProvider providerWithWorkingSet =
+    RemoteAnalysisCachingDependenciesProvider providerWithActiveDirectories =
         getSkyframeExecutor().getRemoteAnalysisCachingDependenciesProvider();
 
-    assertThat(providerWithWorkingSet).isNotSameInstanceAs(providerWithProjectScl);
+    assertThat(providerWithActiveDirectories).isNotSameInstanceAs(providerWithProjectScl);
 
     ImmutableList<PackageIdentifier> testCases =
         ImmutableList.of(
@@ -224,12 +225,12 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
             PackageIdentifier.createInMainRepo("nonexistent"));
 
     for (PackageIdentifier testCase : testCases) {
-      var workingSetResult = providerWithWorkingSet.withinActiveDirectories(testCase);
+      var activeDirectoriesResult = providerWithActiveDirectories.withinActiveDirectories(testCase);
       var projectSclResult = providerWithProjectScl.withinActiveDirectories(testCase);
       assertWithMessage(
-              "for %s: working set: %s, projectScl: %s",
-              testCase, workingSetResult, projectSclResult)
-          .that(workingSetResult)
+              "for %s: active directories: %s, projectScl: %s",
+              testCase, activeDirectoriesResult, projectSclResult)
+          .that(activeDirectoriesResult)
           .isEqualTo(projectSclResult);
     }
   }

@@ -3829,18 +3829,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Given a set of {@link SkyKey}s that were deemed to have changed, check their intersection with
    * the {@link SkyframeFocuser} is non-empty.
    *
-   * <p>If it's non-empty, it means that there were changed files outside the working set, but
-   * within the transitive closure of the focused targets. The build cannot proceed normally because
-   * Skyfocus has removed the nodes and edges from the backing graph to build those files
+   * <p>If it's non-empty, it means that there were changed files outside the active directories,
+   * but within the transitive closure of the focused targets. The build cannot proceed normally
+   * because Skyfocus has removed the nodes and edges from the backing graph to build those files
    * incrementally
    *
    * <p>The only ways forward are to:
    *
    * <ol>
    *   <li>1) Present an error to the user on the files that have changed, and ask the user to
-   *       expand their working set to include these files.
-   *   <li>2) Automatically expand the working set and reset the analysis cache to rebuild the
-   *       Skyframe graph. (i.e. new build).
+   *       expand their active directories to include these files.
+   *   <li>2) Automatically expand the active directories and reset the analysis cache to rebuild
+   *       the Skyframe graph. (i.e. new build).
    * </ol>
    *
    * This function currently implements only option 1).
@@ -3886,8 +3886,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     StringBuilder message = new StringBuilder();
     message.append(
-        "Skyfocus detected changes outside of the working set. These files/directories must be"
-            + " added to the working set.");
+        "Skyfocus detected changes outside of the active directories. These files/directories must"
+            + " be added to the active directories.");
     message.append("\n");
     for (String path : intersection) {
       message.append(path);
@@ -3899,7 +3899,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             FailureDetail.newBuilder()
                 .setMessage(message.toString())
                 .setSkyfocus(
-                    Skyfocus.newBuilder().setCode(Skyfocus.Code.NON_WORKING_SET_CHANGE).build())
+                    Skyfocus.newBuilder()
+                        .setCode(Skyfocus.Code.NON_ACTIVE_DIRECTORIES_CHANGE)
+                        .build())
                 .build()));
   }
 
@@ -4317,27 +4319,31 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         Event.info(
             "--experimental_enable_skyfocus is enabled. "
                 + StringUtilities.capitalize(productName)
-                + " will reclaim memory not needed to build the working set. Run '"
+                + " will reclaim memory not needed to build the active directories. Run '"
                 + productName
-                + " dump --skyframe=working_set' to show the working set, after this command."));
+                + " dump --skyframe=active_directories' to show the active directories, after this"
+                + " command."));
 
     if (skyfocusOptions.frontierViolationCheck.equals(FrontierViolationCheck.STRICT)) {
-      reporter.handle(Event.warn("Changes outside of the working set will cause a build error."));
+      reporter.handle(
+          Event.warn("Changes outside of the active directories will cause a build error."));
     }
 
-    ImmutableSet<String> newUserDefinedWorkingSet = ImmutableSet.copyOf(skyfocusOptions.workingSet);
-    ImmutableSet<FileStateKey> activeWorkingSet = skyfocusState.workingSet();
+    ImmutableSet<String> newUserDefinedactiveDirectories =
+        ImmutableSet.copyOf(skyfocusOptions.activeDirectories);
+    ImmutableSet<FileStateKey> activeactiveDirectories = skyfocusState.activeDirectories();
 
-    if (!activeWorkingSet.isEmpty()) {
-      for (String s : newUserDefinedWorkingSet) {
+    if (!activeactiveDirectories.isEmpty()) {
+      for (String s : newUserDefinedactiveDirectories) {
         FileStateKey key = toFileStateKey(pkgLocator.get(), s);
-        if (!activeWorkingSet.contains(key)) {
-          // New working set contains new files. Unfortunately, this is a suboptimal path, and we
+        if (!activeactiveDirectories.contains(key)) {
+          // New active directories contains new files. Unfortunately, this is a suboptimal path,
+          // and we
           // have to re-run full analysis.
           reporter.handle(
               Event.warn(
-                  "Working set changed to include new files, discarding analysis cache. This can"
-                      + " be expensive, so choose your working set carefully."));
+                  "active directories changed to include new files, discarding analysis cache. This"
+                      + " can be expensive, so choose your active directories carefully."));
           resetEvaluator();
           break;
         }
@@ -4350,11 +4356,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   /**
    * Run Skyfocus. This only works if Skyfocus is enabled explicitly via the command-line flag, and
-   * focusing is necessary (e.g. new working set, or analysis cache was dropped).
+   * focusing is necessary (e.g. new active directories, or analysis cache was dropped).
    */
   public final void runSkyfocus(
       ImmutableSet<Label> topLevelTargets,
-      Optional<PathFragmentPrefixTrie> workingSetMatcher,
+      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher,
       Reporter reporter,
       @Nullable ActionCache actionCache,
       OptionsParsingResult options)
@@ -4386,9 +4392,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     Optional<SkyfocusState> maybeNewSkyfocusState =
-        SkyfocusExecutor.prepareWorkingSet(
+        SkyfocusExecutor.prepareActiveDirectories(
             topLevelTargets,
-            workingSetMatcher,
+            activeDirectoriesMatcher,
             (InMemoryMemoizingEvaluator) getEvaluator(),
             skyfocusState,
             packageManager,
@@ -4404,7 +4410,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Run Skyfocus!
     FocusResult focusResult =
         SkyfocusExecutor.execute(
-            newSkyfocusState.workingSet(),
+            newSkyfocusState.activeDirectories(),
             (InMemoryMemoizingEvaluator) getEvaluator(),
             reporter,
             actionCache);
@@ -4527,7 +4533,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         pos.println("Roots kept: " + focusResult.roots().size());
         focusResult.roots().forEach(k -> pos.println(k.getCanonicalName()));
 
-        pos.println("Leafs (including working set) kept: " + focusResult.leafs().size());
+        pos.println("Leafs (including active directories) kept: " + focusResult.leafs().size());
         focusResult.leafs().forEach(k -> pos.println("leaf: " + k.getCanonicalName()));
 
         pos.println("Rdeps kept: " + focusResult.rdeps().size());

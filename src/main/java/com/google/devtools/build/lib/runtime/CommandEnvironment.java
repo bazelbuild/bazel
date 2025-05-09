@@ -915,8 +915,8 @@ public class CommandEnvironment {
       skyframeExecutor.prepareForSkyfocus(
           options.getOptions(SkyfocusOptions.class), reporter, runtime.getProductName());
     } else if (getCommand().buildPhase().loads()
-        && !getSkyframeExecutor().getSkyfocusState().workingSet().isEmpty()) {
-      // A non-empty working set implies a focused Skyframe state.
+        && !getSkyframeExecutor().getSkyfocusState().activeDirectories().isEmpty()) {
+      // A non-empty active directories implies a focused Skyframe state.
       throw new AbruptExitException(
           DetailedExitCode.of(
               FailureDetail.newBuilder()

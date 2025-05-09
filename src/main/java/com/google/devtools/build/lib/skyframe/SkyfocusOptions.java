@@ -30,21 +30,21 @@ public final class SkyfocusOptions extends OptionsBase {
       effectTags = OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       help =
-          "If true, enable the use of --experimental_working_set to reduce Bazel's memory footprint"
-              + " for incremental builds. This feature is known as Skyfocus.")
+          "If true, enable the use of --experimental_active_directories to reduce Bazel's memory"
+              + " footprint for incremental builds. This feature is known as Skyfocus.")
   public boolean skyfocusEnabled;
 
   @Option(
-      name = "experimental_working_set",
+      name = "experimental_active_directories",
       defaultValue = "",
       effectTags = OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       converter = Converters.CommaSeparatedOptionListConverter.class,
       help =
-          "The working set for Skyfocus. Specify as comma-separated workspace root-relative paths."
-              + " This is a stateful flag. Defining a working set persists it for subsequent"
-              + " invocations, until it is redefined with a new set.")
-  public List<String> workingSet;
+          "Active directories for Skyfocus and remote analysis caching. Specify as comma-separated"
+              + " workspace root-relative paths. This is a stateful flag. Defining one persists it"
+              + " for subsequent invocations, until it is redefined with a new set.")
+  public List<String> activeDirectories;
 
   @Option(
       name = "experimental_skyfocus_dump_keys",
@@ -72,11 +72,12 @@ public final class SkyfocusOptions extends OptionsBase {
     NONE,
 
     /**
-     * Dump the counts and reductions of SkyKeys in the graph, working set, and verification set.
+     * Dump the counts and reductions of SkyKeys in the graph, active directories, and verification
+     * set.
      */
     COUNT,
 
-    /** Dump the string representation of SkyKeys in the working set and verification set. */
+    /** Dump the string representation of SkyKeys in the active directories and verification set. */
     VERBOSE,
   }
 
@@ -95,7 +96,7 @@ public final class SkyfocusOptions extends OptionsBase {
       converter = FrontierViolationCheckConverter.class,
       help =
           "Strategies to handle potential incorrectness from changes beyond the frontier (i.e."
-              + " outside the working set)")
+              + " outside the active directories)")
   public FrontierViolationCheck frontierViolationCheck;
 
   @Option(
@@ -108,20 +109,20 @@ public final class SkyfocusOptions extends OptionsBase {
 
   /**
    * Strategies for handing the "sad path" in Skyfocus and analysis caching, where it needs to
-   * handle changes outside of the working set. This usually requires some reanalysis to rebuild the
-   * dropped Skyframe nodes.
+   * handle changes outside of the active directories. This usually requires some reanalysis to
+   * rebuild the dropped Skyframe nodes.
    */
   public enum FrontierViolationCheck {
     /**
      * Strict mode. Makes the "sad path" explicit to the user, and how to avoid it. Errors out when
-     * Skyfocus detects a change outside of an active working set. Avoids automatic/graceful
+     * Skyfocus detects a change outside of an active active directories. Avoids automatic/graceful
      * handling for the user.
      */
     STRICT,
 
     /**
      * Warn mode. Attempt to handle the "sad path" gracefully. Emits warning messages when the user
-     * makes a change outside of the working set.
+     * makes a change outside of the active directories.
      */
     WARN,
 
