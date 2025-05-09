@@ -330,7 +330,8 @@ public final class CppConfiguration extends Fragment
     if (getFdoOptimizeLabel() != null
         || getFdoProfileLabel() != null
         || fdoPath != null
-        || getMemProfProfileLabel() != null) {
+        || getMemProfProfileLabel() != null
+        || getXFdoProfileLabel() != null) {
       return Label.parseCanonicalUnchecked(BAZEL_TOOLS_REPO + "//tools/zip:unzip_fdo");
     }
     return null;
