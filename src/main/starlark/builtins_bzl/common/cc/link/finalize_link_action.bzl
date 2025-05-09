@@ -13,6 +13,7 @@
 # limitations under the License.
 """Common functions that create C++ link and LTO indexing action."""
 
+load(":common/cc/link/create_libraries_to_link_values.bzl", "add_object_files_to_link", "process_objects_for_lto")
 load(":common/cc/link/libraries_to_link_collector.bzl", "LINKING_MODE", "collect_libraries_to_link")
 load(":common/cc/link/link_build_variables.bzl", "setup_common_linking_variables")
 load(":common/cc/link/target_types.bzl", "LINK_TARGET_TYPE", "USE_ARCHIVER", "USE_LINKER", "is_dynamic_library")
@@ -112,9 +113,25 @@ def finalize_link_action(
         toolchain_libraries_solib_dir = cc_toolchain.dynamic_runtime_solib_dir
 
     solib_dir = output.root.path + "/" + cc_toolchain._solib_dir
-    collected_libraries_to_link = collect_libraries_to_link(
+    libraries_to_link_values = []
+    expanded_linker_artifacts = []
+    lto_map = dict(lto_mapping)  # copy map, because following functions pop from it
+
+    if feature_configuration.is_enabled("use_lto_native_object_directory"):
+        shared_non_lto_obj_root_prefix = "shared.nonlto-obj"
+    else:
+        shared_non_lto_obj_root_prefix = "shared.nonlto"
+    object_file_inputs = process_objects_for_lto(
         object_file_inputs,
-        linkstamp_object_file_inputs,
+        lto_map,
+        allow_lto_indexing,
+        shared_non_lto_obj_root_prefix,
+        expanded_linker_artifacts,
+    )
+    add_object_files_to_link(object_file_inputs, libraries_to_link_values)
+    add_object_files_to_link(linkstamp_object_file_inputs, libraries_to_link_values)
+
+    collected_libraries_to_link = collect_libraries_to_link(
         libraries_to_link,
         cc_toolchain,
         feature_configuration,
@@ -127,14 +144,15 @@ def finalize_link_action(
         solib_dir,
         toolchain_libraries_solib_dir,
         allow_lto_indexing,
-        lto_mapping,
+        lto_map,
         # TODO(b/338618120): remove cheat using semantic or simplifying collect_libraries_to_link
         cc_internal.actions2ctx_cheat(actions).workspace_name,
     )
-
+    libraries_to_link_values.extend(collected_libraries_to_link.libraries_to_link)
+    expanded_linker_artifacts.extend(collected_libraries_to_link.expanded_linker_inputs)
     expanded_linker_artifacts = depset([
         lto_mapping.get(li, li)
-        for li in collected_libraries_to_link.expanded_linker_inputs
+        for li in expanded_linker_artifacts
     ])
 
     #  Add build variables necessary to template link args into the crosstool.
@@ -149,7 +167,7 @@ def finalize_link_action(
         user_link_flags = user_link_flags,
         runtime_library_search_directories =
             collected_libraries_to_link.all_runtime_library_search_directories,
-        libraries_to_link = collected_libraries_to_link.libraries_to_link,
+        libraries_to_link = libraries_to_link_values,
         library_search_directories = collected_libraries_to_link.library_search_directories,
     )
 

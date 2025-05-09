@@ -31,8 +31,6 @@ LINKING_MODE = struct(
 # just to determine a single property, for example link_type and linking_mode are passed in, just to
 # determine need_toolchain_libraries_rpath. Refining the signature will increase readability.
 def collect_libraries_to_link(
-        object_file_inputs,
-        linkstamp_object_file_inputs,
         libraries_to_link,
         cc_toolchain,
         feature_configuration,
@@ -58,8 +56,6 @@ def collect_libraries_to_link(
     to be wrapped with -Wl,-whole-archive and -Wl,-no-whole-archive.
 
     Args:
-      object_file_inputs: (list[File]) Direct object files
-      linkstamp_object_file_inputs: (list[File]) Linkstamp object files
       libraries_to_link: (list[LibraryToLink]) Libraries to link in.
       cc_toolchain: cc_toolchain providing some extra information in the conversion.
       feature_configuration: Feature configuration to be queried.
@@ -91,8 +87,6 @@ def collect_libraries_to_link(
 
     """
     return cc_internal.collect_libraries_to_link(
-        object_file_inputs,
-        linkstamp_object_file_inputs,
         libraries_to_link,
         cc_toolchain,
         feature_configuration,
@@ -437,15 +431,12 @@ def _add_static_input_link_options(
         # Outputs:
         libraries_to_link,
         expanded_linker_inputs):
-    """Processes static libraries and object files.
+    """Processes static libraries.
 
-    When start-end library is used, object files in static libraries are unpacked into following
+    When start-end library is used, static libraries are unpacked into following
     flavours of LibraryToLinkValues:
     - for_object_file
     - for_object_file_group
-
-    Similarly object file inputs are repacked into the above two flavours, specially handled
-    object file tree artifacts.
 
     When start-end library isn't used, static libraries are converted to for_static_library
     LibraryToLinkValue.
@@ -465,7 +456,6 @@ def _add_static_input_link_options(
     """
     artifact_cat = input.artifact_category
     if artifact_cat not in [
-        artifact_category.OBJECT_FILE,
         artifact_category.STATIC_LIBRARY,
         artifact_category.ALWAYSLINK_STATIC_LIBRARY,
     ]:
@@ -545,16 +535,8 @@ def _add_static_input_link_options(
 
         # No LTO indexing step, so use the LTO backend's generated artifact directly
         # instead of the bitcode object.
-        if artifact_cat == artifact_category.OBJECT_FILE:
-            if input.file.is_directory:
-                libraries_to_link.append(cc_internal.for_object_file_group([input_file], input_is_whole_archive))
-            else:
-                libraries_to_link.append(cc_internal.for_object_file(input_file.path, input_is_whole_archive))
-            if not input.is_linkstamp:
-                expanded_linker_inputs.append(input.file)
-        else:
-            libraries_to_link.append(cc_internal.for_static_library(input_file.path, input_is_whole_archive))
-            expanded_linker_inputs.append(input.file)
+        libraries_to_link.append(cc_internal.for_static_library(input_file.path, input_is_whole_archive))
+        expanded_linker_inputs.append(input.file)
 
 def _handled_by_lto_indexing(file, allow_lto_indexing, shared_non_lto_obj_root_prefix):
     """Returns true if this artifact is produced from a bitcode file.
