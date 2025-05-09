@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.List;
 import java.util.Map;
 
@@ -45,21 +46,28 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
    * errors, versus a more aggressive future approach could just propagate No.)
    */
   public sealed interface MatchResult {
+    @AutoCodec
     public record Match() implements MatchResult {}
 
     MatchResult MATCH = new Match();
 
+    @AutoCodec
     public record NoMatch(ImmutableList<Diff> diffs) implements MatchResult {
+      @AutoCodec.Instantiator
+      public NoMatch {}
+
       public NoMatch(Diff diff) {
         this(ImmutableList.of(diff));
       }
 
+      @AutoCodec
       public record Diff(Label what, String got, String want) {}
     }
 
     MatchResult ALREADY_REPORTED_NO_MATCH = new NoMatch(ImmutableList.of());
 
     /** Errors make the match question irresolvable. */
+    @AutoCodec
     public record InError(ImmutableList<String> errors) implements MatchResult {}
 
     static MatchResult combine(MatchResult previous, MatchResult current) {
