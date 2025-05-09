@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingOutputsApi;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -68,6 +69,23 @@ public class CcLinkingOutputs implements CcLinkingOutputsApi<Artifact, LtoBacken
 
   public boolean isEmpty() {
     return libraryToLink == null;
+  }
+
+  private static final ImmutableList<String> PIC_SUFFIXES =
+      ImmutableList.of(".pic.a", ".nopic.a", ".pic.lo");
+
+  /**
+   * Returns the library identifier of an artifact: a string that is different for different
+   * libraries, but is the same for the shared, static and pic versions of the same library.
+   */
+  public static String libraryIdentifierOf(Artifact libraryArtifact) {
+    String name = libraryArtifact.getRootRelativePath().getPathString();
+    for (String picSuffix : PIC_SUFFIXES) {
+      if (name.endsWith(picSuffix)) {
+        return name.substring(0, name.length() - picSuffix.length());
+      }
+    }
+    return FileSystemUtils.removeExtension(name);
   }
 
   public static Builder builder() {
