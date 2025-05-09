@@ -13,10 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.test;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.BazelRuleAnalysisThreadContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -27,10 +31,12 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.starlarkbuildapi.test.TestingModuleApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
@@ -180,5 +186,27 @@ public class StarlarkTestingModule implements TestingModuleApi {
     args.put("name", name);
     args.putAll(attrValues);
     starlarkRuleFunction.call(thread, Tuple.of(), args.buildImmutable());
+  }
+
+  @Override
+  @Nullable
+  public String failureOrNone(StarlarkCallable callable, StarlarkThread thread)
+      throws EvalException, InterruptedException {
+    StarlarkRuleContext ruleContext =
+        BazelRuleAnalysisThreadContext.fromOrFail(
+                thread, "testing.%s".formatted(FAILURE_OR_NONE_NAME))
+            .getRuleContext()
+            .getStarlarkRuleContext();
+    if (!ruleContext.getRuleContext().getRule().isAnalysisTest()) {
+      throw Starlark.errorf(
+          "testing.%s can only be called from an analysis_test", FAILURE_OR_NONE_NAME);
+    }
+    try {
+      Starlark.call(thread, callable, ImmutableList.of(), ImmutableMap.of());
+      return null;
+    } catch (EvalException e) {
+      // Distinguish between no failure and a failure with a null message.
+      return e.getMessage() != null ? e.getMessage() : "<no message>";
+    }
   }
 }
