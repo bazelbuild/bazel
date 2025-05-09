@@ -1112,6 +1112,7 @@ EOF
 
 function test_test_with_reserved_env_variable() {
   mkdir -p dir
+  add_rules_shell "MODULE.bazel"
 
   touch dir/test.sh
   chmod u+x dir/test.sh
