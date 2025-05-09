@@ -1116,6 +1116,7 @@ function test_test_with_reserved_env_variable() {
   touch dir/test.sh
   chmod u+x dir/test.sh
   cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'test',
     srcs = ['test.sh'],
