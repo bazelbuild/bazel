@@ -18,14 +18,17 @@ import static com.google.devtools.build.lib.analysis.config.BuildConfigurationVa
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.ProjectFileFeature.ANALYSIS_CACHING;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.ProjectFileFeature.SCL_CONFIG;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.ProjectFileFeature.SKYFOCUS;
+import static com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code.INCOMPATIBLE_OPTIONS;
 import static com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code.PROJECT_FILE_NOT_FOUND;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.OFF;
 
+import com.google.auto.value.AutoBuilder;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -87,7 +90,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 
 /** Performs target pattern eval, configuration creation, loading and analysis. */
 public final class AnalysisPhaseRunner {
@@ -188,6 +190,21 @@ public final class AnalysisPhaseRunner {
       checkArgument(activeDirectoriesMatcher != null, "activeDirectoriesMatcher cannot be null.");
       checkArgument(projectFile != null, "projectFile cannot be null.");
     }
+
+    public static Builder builder() {
+      return new AutoBuilder_AnalysisPhaseRunner_ProjectEvaluationResult_Builder();
+    }
+
+    @AutoBuilder
+    public interface Builder {
+      Builder buildOptions(ImmutableSet<String> buildOptions);
+
+      Builder activeDirectoriesMatcher(Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher);
+
+      Builder projectFile(Optional<Label> projectFile);
+
+      ProjectEvaluationResult build();
+    }
   }
 
   enum ProjectFileFeature {
@@ -205,7 +222,6 @@ public final class AnalysisPhaseRunner {
    *
    * <p>Shared by both Skymeld and non-Skymeld analysis.
    */
-  @Nullable
   static ProjectEvaluationResult evaluateProjectFile(
       BuildRequest request,
       BuildOptions buildOptions,
@@ -214,6 +230,11 @@ public final class AnalysisPhaseRunner {
       CommandEnvironment env)
       throws LoadingFailedException, InvalidConfigurationException {
     EnumSet<ProjectFileFeature> featureFlags = EnumSet.noneOf(ProjectFileFeature.class);
+    ProjectEvaluationResult.Builder resultBuilder =
+        ProjectEvaluationResult.builder()
+            .buildOptions(ImmutableSet.of())
+            .activeDirectoriesMatcher(Optional.empty())
+            .projectFile(Optional.empty());
 
     if (env.getCommand().buildPhase().executes()
         && env.getOptions().getOptions(RemoteAnalysisCachingOptions.class).mode != OFF) {
@@ -232,8 +253,20 @@ public final class AnalysisPhaseRunner {
     }
 
     if (featureFlags.isEmpty()) {
-      // All feature flags disabled.
-      return new ProjectEvaluationResult(ImmutableSet.of(), Optional.empty(), Optional.empty());
+      return resultBuilder.build();
+    }
+
+    if (featureFlags.contains(SKYFOCUS) && featureFlags.contains(ANALYSIS_CACHING)) {
+      String message =
+          "Skyfocus and remote analysis caching are incompatible. Enable one or the other.";
+      throw new LoadingFailedException(
+          message,
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setRemoteAnalysisCaching(
+                      RemoteAnalysisCaching.newBuilder().setCode(INCOMPATIBLE_OPTIONS))
+                  .build()));
     }
 
     Project.ActiveProjects activeProjects;
@@ -249,19 +282,14 @@ public final class AnalysisPhaseRunner {
           DetailedExitCode.of(ExitCode.PARSING_FAILURE, FailureDetail.getDefaultInstance()));
     }
 
-    if (featureFlags.contains(ANALYSIS_CACHING) && activeProjects.isEmpty()) {
-      env.getReporter()
-          .handle(
-              Event.info(
-                  "Disabling Skycache due to missing PROJECT.scl: "
-                      + targetPatternPhaseValue.getTargetLabels()));
-      return null;
-    }
-
-    PathFragmentPrefixTrie projectMatcher = null;
-
-    if (featureFlags.contains(ANALYSIS_CACHING) || featureFlags.contains(SKYFOCUS)) {
-      if (activeProjects.projectFiles().size() > 1 || activeProjects.partialProjectBuild()) {
+    if (featureFlags.contains(ANALYSIS_CACHING)) {
+      if (activeProjects.isEmpty()) {
+        env.getReporter()
+            .handle(
+                Event.info(
+                    "Disabling Skycache due to missing PROJECT.scl: "
+                        + targetPatternPhaseValue.getTargetLabels()));
+      } else if (activeProjects.projectFiles().size() > 1 || activeProjects.partialProjectBuild()) {
         String message =
             "Skycache only works on single-project builds. This is a %s. %s"
                 .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails());
@@ -273,14 +301,40 @@ public final class AnalysisPhaseRunner {
                     .setRemoteAnalysisCaching(
                         RemoteAnalysisCaching.newBuilder().setCode(PROJECT_FILE_NOT_FOUND))
                     .build()));
+      } else {
+        // Expect exactly one project file here.
+        PathFragmentPrefixTrie projectMatcher =
+            BuildTool.getWorkingSetMatcherForSkyfocus(
+                Iterables.getOnlyElement(activeProjects.projectFiles()),
+                env.getSkyframeExecutor(),
+                env.getReporter());
+
+        resultBuilder.activeDirectoriesMatcher(Optional.ofNullable(projectMatcher));
       }
-      projectMatcher =
+    } else if (featureFlags.contains(SKYFOCUS)) {
+      if (activeProjects.projectFiles().size() > 1 || activeProjects.partialProjectBuild()) {
+        String message =
+            "Skyfocus only works on single-project builds. This is a %s. %s"
+                .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails());
+        throw new LoadingFailedException(
+            message,
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage(message)
+                    .setRemoteAnalysisCaching(
+                        RemoteAnalysisCaching.newBuilder().setCode(PROJECT_FILE_NOT_FOUND))
+                    .build()));
+      }
+      // Either zero or one project files are expected here.
+      PathFragmentPrefixTrie projectMatcher =
           activeProjects.isEmpty()
               ? null // Skyfocus can work without a project directory matcher.
               : BuildTool.getWorkingSetMatcherForSkyfocus(
                   activeProjects.projectFiles().iterator().next(),
                   env.getSkyframeExecutor(),
                   env.getReporter());
+
+      resultBuilder.activeDirectoriesMatcher(Optional.ofNullable(projectMatcher));
     }
 
     if (featureFlags.contains(SCL_CONFIG) && !activeProjects.isEmpty()) {
@@ -295,18 +349,13 @@ public final class AnalysisPhaseRunner {
               request.getBuildOptions().enforceProjectConfigs,
               env.getReporter(),
               env.getSkyframeExecutor());
-      return new ProjectEvaluationResult(
-          options,
-          Optional.ofNullable(projectMatcher),
+      resultBuilder.buildOptions(options);
+      resultBuilder.projectFile(
           Optional.ofNullable(
               activeProjects.isEmpty() ? null : activeProjects.projectFiles().iterator().next()));
     }
 
-    return new ProjectEvaluationResult(
-        ImmutableSet.of(),
-        Optional.ofNullable(projectMatcher),
-        Optional.ofNullable(
-            activeProjects.isEmpty() ? null : activeProjects.projectFiles().iterator().next()));
+    return resultBuilder.build();
   }
 
   static void postAbortedEventsForSkippedTargets(

@@ -268,7 +268,7 @@ public class BuildTool {
           evaluateProjectFile(
               request, buildOptions, request.getUserOptions(), targetPatternPhaseValue, env);
 
-      if (projectEvaluationResult != null && !projectEvaluationResult.buildOptions().isEmpty()) {
+      if (!projectEvaluationResult.buildOptions().isEmpty()) {
         // First parse the native options from the project file.
         optionsParser.parse(
             PriorityCategory.COMMAND_LINE,
@@ -305,10 +305,8 @@ public class BuildTool {
       }
       buildOptions = runtime.createBuildOptions(optionsParser);
       var analysisCachingDeps =
-          projectEvaluationResult == null
-              ? DisabledDependenciesProvider.INSTANCE
-              : RemoteAnalysisCachingDependenciesProviderImpl.forAnalysis(
-                  env, projectEvaluationResult.activeDirectoriesMatcher());
+          RemoteAnalysisCachingDependenciesProviderImpl.forAnalysis(
+              env, projectEvaluationResult.activeDirectoriesMatcher());
 
       if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
         // a.k.a. Skymeld.
