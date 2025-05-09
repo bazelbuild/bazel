@@ -56,6 +56,10 @@ msys*)
   ;;
 esac
 
+# Disable MSYS path conversion.
+export MSYS2_ARG_CONV_EXCL='*'
+export MSYS_NO_PATHCONV=1
+
 if $is_windows; then
   export LC_ALL=C.utf8
 elif [[ "$(uname -s)" == "Linux" ]]; then
@@ -878,6 +882,50 @@ EOF
       || fail "Expected FOO to be visible to repo rules"
   diff unrelated1.txt unrelated4.txt \
       || fail "Expected unrelated action to not be rerun"
+}
+
+function test_repo_env_workspace_interpolation() {
+  setup_starlark_repository
+
+  cat > test.bzl <<'EOF'
+def _impl(ctx):
+  tool = "my_tool.bat" if "windows" in ctx.os.name else "my_tool"
+  result = ctx.execute([tool])
+  if result.return_code != 0:
+    fail("my_tool failed ({}, PATH = {}): {}".format(result.return_code, ctx.os.environ["PATH"], result.stderr))
+  ctx.file("out.txt", result.stdout)
+  ctx.file("BUILD", 'exports_files(["out.txt"])')
+
+repo = repository_rule(
+  implementation = _impl,
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "repoenv",
+  outs = ["repoenv.txt"],
+  srcs = ["@foo//:out.txt"],
+  cmd = "cp $< $@",
+)
+EOF
+  if "$is_windows"; then
+    local repo_env_path="%bazel_workspace%\\\\repo_tools;$PATH"
+  else
+    local repo_env_path="%bazel_workspace%/repo_tools:$PATH"
+  fi
+  cat > .bazelrc <<EOF
+common --repo_env=PATH="$repo_env_path"
+EOF
+
+  mkdir -p repo_tools
+  cat > repo_tools/my_tool.bat <<'EOF'
+echo Hello from my_tool
+EOF
+  cp repo_tools/my_tool.bat repo_tools/my_tool
+  chmod +x repo_tools/my_tool
+
+  bazel build //:repoenv &> $TEST_log || fail "Failed to build"
+  assert_contains "Hello from my_tool" `bazel info bazel-bin 2>/dev/null`/repoenv.txt
 }
 
 function test_repo_env_inverse() {
