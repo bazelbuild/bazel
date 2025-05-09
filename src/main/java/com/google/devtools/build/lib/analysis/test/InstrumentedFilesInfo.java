@@ -138,7 +138,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
    *
    * <p>This is useful for virtual include paths in C++, which get reported at the include location
    * and not the real source path. For example, the reported include source file can be
-   * "bazel-out/k8-fastbuild/bin/include/common/_virtual_includes/strategy/strategy.h", but its
+   * "bazel-out/k8-fastbuild/_v_inc/XXXXXXXX/strategy.h", but its
    * actual source path is "include/common/strategy.h".
    */
   NestedSet<Tuple> getReportedToActualSources() {
