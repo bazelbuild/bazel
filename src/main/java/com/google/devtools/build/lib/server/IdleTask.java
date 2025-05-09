@@ -17,10 +17,24 @@ import java.time.Duration;
 
 /** A task to be executed by {@link IdleTaskManager} while the server is idle. */
 public interface IdleTask {
-  /** A display name for the task. */
-  default String displayName() {
-    return "Anonymous";
+
+  /** The status of an idle task. */
+  public enum Status {
+    /** The task was never started. */
+    NOT_STARTED,
+    /** The task finished successfully. */
+    SUCCESS,
+    /** The task finished with an error. */
+    FAILURE,
+    /* The task was interrupted while running. */
+    INTERRUPTED
   }
+
+  /** The result of running an idle task. */
+  public record Result(String name, Status status, Duration runningTime) {}
+
+  /** A display name for the task. */
+  String displayName();
 
   /**
    * Returns how long to remain idle before executing the task.

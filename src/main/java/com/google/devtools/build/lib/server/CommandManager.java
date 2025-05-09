@@ -155,7 +155,7 @@ class CommandManager {
     if (doIdleServerTasks) {
       synchronized (this) {
         checkState(idleTaskManager != null);
-        idleTaskManager.busy();
+        var unused = idleTaskManager.busy();
         idleTaskManager = null;
       }
     }

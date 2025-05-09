@@ -294,8 +294,26 @@ public class BlazeRuntimeTest {
   public void addsIdleTasksFromModules() throws Exception {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
-    IdleTask fooTask = () -> {};
-    IdleTask barTask = () -> {};
+    IdleTask fooTask =
+        new IdleTask() {
+          @Override
+          public String displayName() {
+            return "foo";
+          }
+
+          @Override
+          public void run() {}
+        };
+    IdleTask barTask =
+        new IdleTask() {
+          @Override
+          public String displayName() {
+            return "bar";
+          }
+
+          @Override
+          public void run() {}
+        };
     env.addIdleTask(fooTask);
     env.addIdleTask(barTask);
     assertThat(

@@ -16,14 +16,18 @@ package com.google.devtools.build.lib.server;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
 
@@ -42,7 +46,7 @@ public final class IdleTaskManager {
     BUSY
   }
 
-  private static final class IdleTaskWrapper implements Runnable {
+  private static final class IdleTaskWrapper implements Callable<IdleTask.Result> {
     private final IdleTask task;
 
     IdleTaskWrapper(IdleTask task) {
@@ -50,18 +54,22 @@ public final class IdleTaskManager {
     }
 
     @Override
-    public void run() {
+    public IdleTask.Result call() {
       String name = task.displayName();
+      Stopwatch stopwatch = Stopwatch.createStarted();
       try {
         logger.atInfo().log("%s idle task started", name);
         task.run();
         logger.atInfo().log("%s idle task finished", name);
+        return new IdleTask.Result(name, IdleTask.Status.SUCCESS, stopwatch.elapsed());
       } catch (IdleTaskException e) {
         logger.atWarning().withCause(e.getCause()).log("%s idle task failed", name);
+        return new IdleTask.Result(name, IdleTask.Status.FAILURE, stopwatch.elapsed());
       } catch (InterruptedException e) {
         // There's no point in restoring the interrupt bit since this thread belongs to an executor
         // service that is shutting down.
         logger.atWarning().withCause(e).log("%s idle task interrupted", name);
+        return new IdleTask.Result(name, IdleTask.Status.INTERRUPTED, stopwatch.elapsed());
       }
     }
   }
@@ -74,9 +82,9 @@ public final class IdleTaskManager {
       new ScheduledThreadPoolExecutor(
           1, new ThreadFactoryBuilder().setNameFormat("idle-server-tasks-%d").build());
 
-  private final ImmutableList<IdleTask> registeredTasks;
+  private final ImmutableList<IdleTask> idleTasks;
 
-  private final ArrayList<ScheduledFuture<?>> taskFutures = new ArrayList<>();
+  private final ArrayList<Future<IdleTask.Result>> taskFutures;
 
   /**
    * Creates a new {@link IdleTaskManager}.
@@ -84,7 +92,8 @@ public final class IdleTaskManager {
    * @param idleTasks tasks to run while idle
    */
   public IdleTaskManager(ImmutableList<IdleTask> idleTasks) {
-    this.registeredTasks = idleTasks;
+    this.idleTasks = idleTasks;
+    this.taskFutures = new ArrayList<>(idleTasks.size());
   }
 
   /**
@@ -96,8 +105,7 @@ public final class IdleTaskManager {
     checkState(state == State.INITIALIZED);
     state = State.IDLE;
 
-    // Schedule tasks in the order they were registered.
-    for (IdleTask task : registeredTasks) {
+    for (IdleTask task : idleTasks) {
       taskFutures.add(
           executor.schedule(new IdleTaskWrapper(task), task.delay().toSeconds(), SECONDS));
     }
@@ -107,8 +115,10 @@ public final class IdleTaskManager {
    * Called by the main thread when the server gets to work.
    *
    * <p>Interrupts any pending idle tasks and blocks for their completion before returning.
+   *
+   * @return stats for each idle task, in the same order they were registered
    */
-  public synchronized void busy() {
+  public synchronized ImmutableList<IdleTask.Result> busy() {
     checkState(state == State.IDLE);
     state = State.BUSY;
 
@@ -126,24 +136,35 @@ public final class IdleTaskManager {
         interrupted = true;
       }
     }
+    if (interrupted) {
+      Thread.currentThread().interrupt();
+    }
 
-    for (ScheduledFuture<?> taskFuture : taskFutures) {
+    ImmutableList.Builder<IdleTask.Result> results =
+        ImmutableList.builderWithExpectedSize(idleTasks.size());
+
+    for (int i = 0; i < idleTasks.size(); i++) {
+      IdleTask task = idleTasks.get(i);
+      String name = task.displayName();
+      Future<IdleTask.Result> future = taskFutures.get(i);
+      IdleTask.Result result;
       try {
-        taskFuture.get(0, SECONDS);
+        // Don't wait: task might not have had a chance to start.
+        result = Uninterruptibles.getUninterruptibly(future, Duration.ZERO);
       } catch (ExecutionException e) {
         // Must be an unchecked exception since all checked exceptions thrown by an IdleTask are
         // handled by its IdleTaskWrapper.
         throw new IllegalStateException("Unexpected exception thrown by idle task", e.getCause());
-      } catch (TimeoutException | CancellationException e) {
-        // Expected if the task hadn't yet started running or was interrupted mid-run.
-      } catch (InterruptedException e) {
-        // We ourselves were interrupted, not the task.
-        interrupted = true;
+      } catch (TimeoutException e) {
+        // Task was never started.
+        result = new IdleTask.Result(name, IdleTask.Status.NOT_STARTED, Duration.ZERO);
+      } catch (CancellationException e) {
+        // Task was interrupted.
+        result = new IdleTask.Result(name, IdleTask.Status.INTERRUPTED, Duration.ZERO);
       }
+      results.add(result);
     }
 
-    if (interrupted) {
-      Thread.currentThread().interrupt();
-    }
+    return results.build();
   }
 }
