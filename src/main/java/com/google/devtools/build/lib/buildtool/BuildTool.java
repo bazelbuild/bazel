@@ -383,8 +383,6 @@ public class BuildTool {
       RemoteAnalysisCachingDependenciesProvider analysisCachingDeps)
       throws BuildFailedException,
           ViewCreationFailedException,
-          TargetParsingException,
-          LoadingFailedException,
           AbruptExitException,
           RepositoryMappingResolutionException,
           InterruptedException,
@@ -449,11 +447,11 @@ public class BuildTool {
               delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
         }
 
-        // Only run this post-build step for builds with SequencedSkyframeExecutor.
-        if (env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor) {
-          // Enabling this feature will disable Skymeld, so it only runs in the non-Skymeld path.
-          if (request.getBuildOptions().aqueryDumpAfterBuildFormat != null) {
-            try (SilentCloseable c = Profiler.instance().profile("postExecutionDumpSkyframe")) {
+        // Only run this post-build step for builds with SequencedSkyframeExecutor. Enabling the
+        // aquery dump format feature will disable Skymeld, so it only runs in the non-Skymeld path.
+        if ((env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor)
+            && request.getBuildOptions().aqueryDumpAfterBuildFormat != null) {
+          try (SilentCloseable c = Profiler.instance().profile("postExecutionDumpSkyframe")) {
               dumpSkyframeStateAfterBuild(
                   request.getOptions(BuildEventProtocolOptions.class),
                   request.getBuildOptions().aqueryDumpAfterBuildFormat,
@@ -461,11 +459,10 @@ public class BuildTool {
             } catch (CommandLineExpansionException | IOException | TemplateExpansionException e) {
               throw new PostExecutionDumpException(e);
             } catch (InvalidAqueryOutputFormatException e) {
-              throw new PostExecutionDumpException(
-                  "--skyframe_state must be used with "
-                      + "--output=proto|streamed_proto|textproto|jsonproto.",
-                  e);
-            }
+            throw new PostExecutionDumpException(
+                "--skyframe_state must be used with "
+                    + "--output=proto|streamed_proto|textproto|jsonproto.",
+                e);
           }
         }
       }
