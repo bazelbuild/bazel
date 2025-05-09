@@ -1133,7 +1133,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   private Iterable<PathFragment> getValidationIgnoredDirs() {
     List<PathFragment> cxxSystemIncludeDirs = getBuiltInIncludeDirectories();
-    return Iterables.concat(cxxSystemIncludeDirs, ccCompilationContext.getSystemIncludeDirs());
+    return Iterables.concat(
+        cxxSystemIncludeDirs,
+        ccCompilationContext.getSystemIncludeDirs(),
+        ccCompilationContext.getExternalIncludeDirs());
   }
 
   @VisibleForTesting
