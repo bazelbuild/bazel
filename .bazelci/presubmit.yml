@@ -41,8 +41,6 @@ tasks:
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
-      # TODO: b/380281737 - Re-enable when not flaky
-      - "-//src/test/shell/integration:aspect_test"
     include_json_profile:
       - build
       - test
@@ -86,8 +84,6 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # TODO: b/380281737 - Re-enable when not flaky
-      - "-//src/test/shell/integration:aspect_test"
     include_json_profile:
       - build
       - test
@@ -141,8 +137,6 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # TODO: b/380281737 - Re-enable when not flaky
-      - "-//src/test/shell/integration:aspect_test"
     include_json_profile:
       - build
       - test
@@ -185,8 +179,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/server:ServerTests"
       # Add back a few Apple specific tests
       - "+//src/test/shell/bazel/apple/..."
-      # TODO: b/380281737 - Re-enable when not flaky
-      - "-//src/test/shell/integration:aspect_test"
     include_json_profile:
       - build
       - test
@@ -226,8 +218,6 @@ tasks:
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_tar_test"
       - "-//src/test/shell/bazel:bazel_determinism_test"
-      # TODO: b/380281737 - Re-enable when not flaky
-      - "-//src/test/shell/integration:aspect_test"
     include_json_profile:
       - build
       - test
@@ -278,8 +268,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/remote:RemoteTests"
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
-      # TODO: b/380281737 - Re-enable when not flaky
-      - "-//src/test/shell/integration:aspect_test"
     include_json_profile:
       - build
       - test
@@ -352,8 +340,6 @@ tasks:
       # Flaky on rbe_ubuntu2004
       # https://github.com/bazelbuild/continuous-integration/issues/1631
       - "-//src/test/shell/bazel:bazel_sandboxing_networking_test"
-      # TODO: b/380281737 - Re-enable when not flaky
-      - "-//src/test/shell/integration:aspect_test"
     include_json_profile:
       - build
       - test
