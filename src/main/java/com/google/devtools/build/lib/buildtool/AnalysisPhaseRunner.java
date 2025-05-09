@@ -15,9 +15,10 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
-import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.ProjectFileFeature.ANALYSIS_CACHING;
-import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.ProjectFileFeature.SCL_CONFIG;
-import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.ProjectFileFeature.SKYFOCUS;
+import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.FeaturesUsingProjectFile.ANALYSIS_CACHING_DOWNLOAD;
+import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.FeaturesUsingProjectFile.ANALYSIS_CACHING_UPLOAD;
+import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.FeaturesUsingProjectFile.SCL_CONFIG;
+import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.FeaturesUsingProjectFile.SKYFOCUS;
 import static com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code.INCOMPATIBLE_OPTIONS;
 import static com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code.PROJECT_FILE_NOT_FOUND;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.OFF;
@@ -207,8 +208,9 @@ public final class AnalysisPhaseRunner {
     }
   }
 
-  enum ProjectFileFeature {
-    ANALYSIS_CACHING,
+  enum FeaturesUsingProjectFile {
+    ANALYSIS_CACHING_UPLOAD,
+    ANALYSIS_CACHING_DOWNLOAD,
     SCL_CONFIG,
     SKYFOCUS;
   }
@@ -229,18 +231,22 @@ public final class AnalysisPhaseRunner {
       TargetPatternPhaseValue targetPatternPhaseValue,
       CommandEnvironment env)
       throws LoadingFailedException, InvalidConfigurationException {
-    EnumSet<ProjectFileFeature> featureFlags = EnumSet.noneOf(ProjectFileFeature.class);
+    EnumSet<FeaturesUsingProjectFile> featureFlags = EnumSet.noneOf(FeaturesUsingProjectFile.class);
     ProjectEvaluationResult.Builder resultBuilder =
         ProjectEvaluationResult.builder()
             .buildOptions(ImmutableSet.of())
             .activeDirectoriesMatcher(Optional.empty())
             .projectFile(Optional.empty());
 
-    if (env.getCommand().buildPhase().executes()
-        && env.getOptions().getOptions(RemoteAnalysisCachingOptions.class).mode != OFF) {
+    if (env.getCommand().buildPhase().executes()) {
       // RemoteAnalysisCachingOptions is never null because it's a build command flag, and this
       // method only runs for build commands.
-      featureFlags.add(ANALYSIS_CACHING);
+      switch (env.getOptions().getOptions(RemoteAnalysisCachingOptions.class).mode) {
+        case DUMP_UPLOAD_MANIFEST_ONLY -> featureFlags.add(ANALYSIS_CACHING_UPLOAD);
+        case UPLOAD -> featureFlags.add(ANALYSIS_CACHING_UPLOAD);
+        case DOWNLOAD -> featureFlags.add(ANALYSIS_CACHING_DOWNLOAD);
+        case OFF -> {}
+      }
     }
 
     if (!Strings.isNullOrEmpty(buildOptions.get(CoreOptions.class).sclConfig)
@@ -256,7 +262,9 @@ public final class AnalysisPhaseRunner {
       return resultBuilder.build();
     }
 
-    if (featureFlags.contains(SKYFOCUS) && featureFlags.contains(ANALYSIS_CACHING)) {
+    if (featureFlags.contains(SKYFOCUS)
+        && (featureFlags.contains(ANALYSIS_CACHING_UPLOAD)
+            || featureFlags.contains(ANALYSIS_CACHING_DOWNLOAD))) {
       String message =
           "Skyfocus and remote analysis caching are incompatible. Enable one or the other.";
       throw new LoadingFailedException(
@@ -282,7 +290,10 @@ public final class AnalysisPhaseRunner {
           DetailedExitCode.of(ExitCode.PARSING_FAILURE, FailureDetail.getDefaultInstance()));
     }
 
-    if (featureFlags.contains(ANALYSIS_CACHING)) {
+    if (featureFlags.contains(ANALYSIS_CACHING_DOWNLOAD)) {
+      // Features that can work with exactly one project file.
+      // TODO(b/416450696): Remove this check once Skycache reader builds no longer need project
+      // files.
       if (activeProjects.isEmpty()) {
         env.getReporter()
             .handle(
@@ -302,19 +313,19 @@ public final class AnalysisPhaseRunner {
                         RemoteAnalysisCaching.newBuilder().setCode(PROJECT_FILE_NOT_FOUND))
                     .build()));
       } else {
-        // Expect exactly one project file here.
         PathFragmentPrefixTrie projectMatcher =
-            BuildTool.getWorkingSetMatcherForSkyfocus(
+            BuildTool.getActiveDirectoriesMatcher(
                 Iterables.getOnlyElement(activeProjects.projectFiles()),
                 env.getSkyframeExecutor(),
                 env.getReporter());
 
         resultBuilder.activeDirectoriesMatcher(Optional.ofNullable(projectMatcher));
       }
-    } else if (featureFlags.contains(SKYFOCUS)) {
+    } else if (featureFlags.contains(ANALYSIS_CACHING_UPLOAD) || featureFlags.contains(SKYFOCUS)) {
+      // Features that can work with zero or one project file.
       if (activeProjects.projectFiles().size() > 1 || activeProjects.partialProjectBuild()) {
         String message =
-            "Skyfocus only works on single-project builds. This is a %s. %s"
+            "This is a %s. %s"
                 .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails());
         throw new LoadingFailedException(
             message,
@@ -325,11 +336,10 @@ public final class AnalysisPhaseRunner {
                         RemoteAnalysisCaching.newBuilder().setCode(PROJECT_FILE_NOT_FOUND))
                     .build()));
       }
-      // Either zero or one project files are expected here.
       PathFragmentPrefixTrie projectMatcher =
           activeProjects.isEmpty()
-              ? null // Skyfocus can work without a project directory matcher.
-              : BuildTool.getWorkingSetMatcherForSkyfocus(
+              ? null
+              : BuildTool.getActiveDirectoriesMatcher(
                   activeProjects.projectFiles().iterator().next(),
                   env.getSkyframeExecutor(),
                   env.getReporter());

@@ -142,6 +142,7 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -1029,7 +1030,7 @@ public class BuildTool {
   }
 
   /** Returns the project directories found in a project file. */
-  public static PathFragmentPrefixTrie getWorkingSetMatcherForSkyfocus(
+  public static PathFragmentPrefixTrie getActiveDirectoriesMatcher(
       Label projectFile, SkyframeExecutor skyframeExecutor, ExtendedEventHandler eventHandler)
       throws InvalidConfigurationException {
     ProjectValue.Key key = new ProjectValue.Key(projectFile);
@@ -1101,23 +1102,26 @@ public class BuildTool {
     private final ExtendedEventHandler eventHandler;
 
     public static RemoteAnalysisCachingDependenciesProvider forAnalysis(
-        CommandEnvironment env, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
+        CommandEnvironment env, Optional<PathFragmentPrefixTrie> maybeActiveDirectoriesMatcher)
         throws InterruptedException, AbruptExitException {
       var options = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
       if (options == null
           || !env.getCommand().buildPhase().executes()
-          || activeDirectoriesMatcher.isEmpty()) {
+          || options.mode == RemoteAnalysisCacheMode.OFF) {
         return DisabledDependenciesProvider.INSTANCE;
       }
 
-      RemoteAnalysisCacheMode mode = options.mode;
-      if (mode == RemoteAnalysisCacheMode.OFF) {
+      Optional<PathFragmentPrefixTrie> maybeActiveDirectoriesMatcherFromFlags =
+          determineActiveDirectoriesMatcher(env, maybeActiveDirectoriesMatcher, options.mode);
+      if (maybeActiveDirectoriesMatcherFromFlags.isEmpty()) {
         return DisabledDependenciesProvider.INSTANCE;
       }
-
       var dependenciesProvider =
           new RemoteAnalysisCachingDependenciesProviderImpl(
-              env, activeDirectoriesMatcher.get(), options.mode, options.serializedFrontierProfile);
+              env,
+              maybeActiveDirectoriesMatcherFromFlags.get(),
+              options.mode,
+              options.serializedFrontierProfile);
 
       switch (options.mode) {
         case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY:
@@ -1128,8 +1132,6 @@ public class BuildTool {
         case RemoteAnalysisCacheMode.DOWNLOAD:
           if (dependenciesProvider.getAnalysisCacheClient() != null) {
             // If analysis cache service is non-null, skip frontier violation checks.
-            // TODO(b/411485521): send SkyKeys to the analysis cache service to
-            // check for invalidation.
             return dependenciesProvider;
           }
 
@@ -1143,6 +1145,39 @@ public class BuildTool {
               env.getEventBus());
         default:
           throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.mode);
+      }
+    }
+
+    /**
+     * Determines the active directories matcher for remote analysis caching operations.
+     *
+     * <p>For upload mode, optionally check the --experimental_working_set flag if the project file
+     * matcher is not present.
+     */
+    private static Optional<PathFragmentPrefixTrie> determineActiveDirectoriesMatcher(
+        CommandEnvironment env,
+        Optional<PathFragmentPrefixTrie> maybeProjectFileMatcher,
+        RemoteAnalysisCacheMode mode) {
+      switch (mode) {
+        case RemoteAnalysisCacheMode.DOWNLOAD:
+          // Download mode: use the project file matcher only.
+          return maybeProjectFileMatcher;
+        case RemoteAnalysisCacheMode.UPLOAD:
+        case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY:
+          // Upload or Dump mode: allow overriding the project file matcher with the working set
+          // flag.
+          List<String> workingSet = env.getOptions().getOptions(SkyfocusOptions.class).workingSet;
+          if (workingSet.isEmpty()) {
+            return maybeProjectFileMatcher;
+          }
+          env.getReporter()
+              .handle(
+                  Event.warn(
+                      "Specifying --experimental_working_set will override the active directories"
+                          + " specified in the PROJECT.scl file"));
+          return Optional.of(PathFragmentPrefixTrie.of(workingSet));
+        default:
+          throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + mode);
       }
     }
 
