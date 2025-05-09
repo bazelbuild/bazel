@@ -1084,6 +1084,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               "batch client",
               runtime.clock.currentTimeMillis(),
               Optional.of(startupOptionsFromCommandLine.build()),
+              /* idleTaskResultsSupplier= */ () -> ImmutableList.of(),
               /* commandExtensions= */ ImmutableList.of(),
               /* commandExtensionReporter= */ (ext) -> {});
       if (result.getExecRequest() == null) {

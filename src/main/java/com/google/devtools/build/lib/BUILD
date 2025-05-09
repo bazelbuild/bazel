@@ -217,10 +217,12 @@ java_library(
     ],
     deps = [
         ":runtime/blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib/server:idle_task",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/protobuf:invocation_policy_java_proto",
+        "//third_party:guava",
         "@com_google_protobuf//java/core",
     ],
 )

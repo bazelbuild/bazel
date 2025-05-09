@@ -612,6 +612,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
                 request.getClientDescription(),
                 clock.currentTimeMillis(),
                 Optional.of(startupOptions.build()),
+                commandManager::getIdleTaskResults,
                 request.getCommandExtensionsList(),
                 new RpcCommandExtensionReporter(command.getId(), responseCookie, observer));
       } catch (OptionsParsingException e) {

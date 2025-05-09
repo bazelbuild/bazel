@@ -46,6 +46,12 @@ class CommandManager {
   @Nullable
   private IdleTaskManager idleTaskManager;
 
+  // Idle task results from the most recent idle period. Null after a subsequent command retrieves
+  // them or if idle tasks are disabled.
+  @GuardedBy("this")
+  @Nullable
+  private ImmutableList<IdleTask.Result> idleTaskResults;
+
   private final AtomicLong interruptCounter = new AtomicLong(0);
   @Nullable private final String slowInterruptMessageSuffix;
 
@@ -155,7 +161,7 @@ class CommandManager {
     if (doIdleServerTasks) {
       synchronized (this) {
         checkState(idleTaskManager != null);
-        var unused = idleTaskManager.busy();
+        idleTaskResults = idleTaskManager.busy();
         idleTaskManager = null;
       }
     }
@@ -187,6 +193,19 @@ class CommandManager {
         new Thread(interruptWatcher, "interrupt-watcher-" + interruptCounter.incrementAndGet());
     interruptWatcherThread.setDaemon(true);
     interruptWatcherThread.start();
+  }
+
+  /**
+   * Returns idle task results returned by {@link IdleTaskManager} during the previous idle period,
+   * if available and not yet retrieved.
+   *
+   * <p>Clears the stored idle task results as a side effect.
+   */
+  @Nullable
+  public synchronized ImmutableList<IdleTask.Result> getIdleTaskResults() {
+    var result = idleTaskResults;
+    idleTaskResults = null;
+    return result;
   }
 
   final class RunningCommand implements AutoCloseable {
@@ -222,7 +241,7 @@ class CommandManager {
       return preemptible;
     }
 
-    /** Record tasks to be run by {@link IdleTaskManager}. */
+    /** Set idle tasks to be run by {@link IdleTaskManager} during the next idle period. */
     void setIdleTasks(ImmutableList<IdleTask> idleTasks) {
       this.idleTasks = idleTasks;
     }
