@@ -1337,7 +1337,7 @@ For more information on platforms or toolchains see https://bazel.build/concepts
     assertThat(getConfiguredTarget("//rule:me")).isNull();
     assertContainsEvent(
         "Unrecoverable errors resolving config_setting associated with"
-            + " //strange:strange_toolchain: For config_setting flagged, Feature flag"
+            + " //strange:strange_toolchain: For config_setting flagged: Feature flag"
             + " //strange:flag was accessed in a configuration it is not present in.");
   }
 
