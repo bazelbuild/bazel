@@ -184,7 +184,8 @@ public class ActionOutputDirectoryHelperTest {
     ArtifactPathResolver resolver =
         ArtifactPathResolver.createPathResolver(actionFileSystem, execRoot);
 
-    outputDirectoryHelper.createActionFsOutputDirectories(outputSet.actionOutputs(this), resolver);
+    outputDirectoryHelper.createActionFsOutputDirectories(
+        outputSet.actionOutputs(this), resolver, /* createTreeArtifactDirectories= */ true);
 
     Path outputRootPath = outputRoot.getRoot().asPath();
     assertThat(outputRootPath.exists()).isFalse();
@@ -228,7 +229,9 @@ public class ActionOutputDirectoryHelperTest {
     CreateOutputDirectoryException e =
         assertThrows(
             CreateOutputDirectoryException.class,
-            () -> outputDirectoryHelper.createActionFsOutputDirectories(outputs, pathResolver));
+            () ->
+                outputDirectoryHelper.createActionFsOutputDirectories(
+                    outputs, pathResolver, /* createTreeArtifactDirectories= */ false));
 
     assertThat(e.getDirectoryPath()).isEqualTo(outputRootPath.getRelative("dir"));
     assertThat(e).hasCauseThat().isSameInstanceAs(injectedException);
