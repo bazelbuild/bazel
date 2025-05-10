@@ -174,7 +174,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
-   * Returns whether this path is an ancestor of another path.
+   * Returns whether another path is an ancestor of this path.
    *
    * <p>A path is considered an ancestor of itself.
    */
@@ -186,7 +186,7 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
-   * Returns whether this path is an ancestor of another path.
+   * Returns whether another path is an ancestor of this path.
    *
    * <p>A path is considered an ancestor of itself.
    *

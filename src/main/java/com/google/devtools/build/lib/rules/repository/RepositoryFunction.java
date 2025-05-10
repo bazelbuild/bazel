@@ -178,6 +178,11 @@ public abstract class RepositoryFunction {
       Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env, SkyKey key)
       throws InterruptedException, RepositoryFunctionException;
 
+  public enum Reproducibility {
+    YES,
+    NO
+  }
+
   /**
    * The result of the {@link #fetch} method.
    *
@@ -186,8 +191,10 @@ public abstract class RepositoryFunction {
    *     The {@link #isAnyRecordedInputOutdated} method is responsible for checking the value added
    *     to that map when checking the content of a marker file. Not an ImmutableMap, because
    *     regrettably the values can be null sometimes.
+   * @param reproducible Whether the fetched repo contents are reproducible, hence cacheable.
    */
-  public record FetchResult(Map<? extends RepoRecordedInput, String> recordedInputValues) {}
+  public record FetchResult(
+      Map<? extends RepoRecordedInput, String> recordedInputValues, Reproducibility reproducible) {}
 
   protected static void ensureNativeRepoRuleEnabled(Rule rule, Environment env, String replacement)
       throws RepositoryFunctionException, InterruptedException {

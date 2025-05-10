@@ -416,6 +416,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_value_dirtiness_checker",
         "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_util",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:file_system_lock",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

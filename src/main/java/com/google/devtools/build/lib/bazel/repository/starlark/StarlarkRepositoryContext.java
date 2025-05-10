@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartExcept
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reproducibility;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
@@ -602,6 +603,50 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
+  }
+
+  @StarlarkMethod(
+      name = "repo_metadata",
+      doc =
+          """
+          Constructs an opaque object that can be returned from the repo rule's implementation \
+          function to provide metadata about its reproducibility.
+          """,
+      parameters = {
+        @Param(
+            name = "reproducible",
+            defaultValue = "False",
+            doc =
+                """
+                States that this repo can be reproducibly refetched; that is, if it were fetched \
+                another time with exactly the same input attributes, repo rule definition, watched \
+                files and environment variables, etc., then exactly the same output would be \
+                produced. This property needs to hold even if other untracked conditions change, \
+                such as information from the internet, the path of the workspace root, output from \
+                running arbitrary executables, etc. If set to True, this allows the fetched repo \
+                contents to be cached across workspaces. \
+                <p>Note that setting this to True does not guarantee caching in the repo contents \
+                cache; for example, local repo rules are never cached.
+                """,
+            positional = false,
+            named = true),
+        @Param(
+            name = "attrs_for_reproducibility",
+            defaultValue = "{}",
+            doc =
+                """
+                If <code>reproducible</code> is False, this can be specified to tell Bazel which \
+                attributes of the original repo rule to change to make it reproducible.
+                """,
+            positional = false,
+            named = true)
+      })
+  public RepoMetadata repoMetadata(boolean reproducible, Dict<?, ?> attrs) throws EvalException {
+    if (reproducible && !attrs.isEmpty()) {
+      throw Starlark.errorf(
+          "attrs_for_reproducibility can only be specified if reproducible is False");
+    }
+    return new RepoMetadata(reproducible ? Reproducibility.YES : Reproducibility.NO, attrs);
   }
 
   @Override
