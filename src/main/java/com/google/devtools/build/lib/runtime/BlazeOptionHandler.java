@@ -350,7 +350,13 @@ public final class BlazeOptionHandler {
     }
 
     @Override
-    public void post(ExtendedEventHandler.Postable e) {}
+    public void post(ExtendedEventHandler.Postable e) {
+      // Fetches of external repositories are not reported as BES events and important to surface
+      // in the CLI due to their long-running nature.
+      if (e instanceof FetchProgress) {
+        delegate.post(e);
+      }
+    }
   }
 
   /**
