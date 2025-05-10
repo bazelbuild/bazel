@@ -300,7 +300,13 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
   public static FileArtifactValue createFromInjectedDigest(
       FileArtifactValue metadata, @Nullable byte[] digest) {
-    return createForNormalFile(digest, metadata.getContentsProxy(), metadata.getSize());
+    var normalFileValue =
+        createForNormalFile(digest, metadata.getContentsProxy(), metadata.getSize());
+    if (metadata.getResolvedPath() != null) {
+      return createFromExistingWithResolvedPath(normalFileValue, metadata.getResolvedPath());
+    } else {
+      return normalFileValue;
+    }
   }
 
   @VisibleForTesting
@@ -750,7 +756,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     public void setContentsProxy(FileContentsProxy proxy) {
       this.proxy = proxy;
     }
-
 
     @Override
     public boolean equals(Object o) {
