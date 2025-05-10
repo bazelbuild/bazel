@@ -649,7 +649,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     assertThat(value.rejectedPlatforms())
         .containsEntry(
             Label.parseCanonicalUnchecked("//extra:required_platform"),
-            "mismatching config settings: optimized");
+            "mismatching required_settings: optimized");
   }
 
   @Test

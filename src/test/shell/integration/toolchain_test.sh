@@ -772,7 +772,7 @@ EOF
     --platform_mappings= \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log "Performing resolution of //${pkg}/toolchain:test_toolchain for target platform ${default_host_platform}"
-  expect_log "Rejected toolchain //${pkg}/demo:toolchain_invalid; mismatching config settings: optimized"
+  expect_log "Rejected toolchain //${pkg}/demo:toolchain_invalid; mismatching target_settings: optimized"
   expect_log "Toolchain //register/${pkg}:test_toolchain_1 (resolves to //register/${pkg}:test_toolchain_impl_1) is compatible with target platform, searching for execution platforms:"
   expect_log "Compatible execution platform ${default_host_platform}"
   expect_log "Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
@@ -3072,7 +3072,7 @@ function test_exec_platform_required_setting {
   expect_log "Selected execution platform //${pkg}/platforms:platform_basic"
 
   # Verify the debug log.
-  expect_log "Rejected execution platform //${pkg}/platforms:platform_opt; mismatching config settings: optimized"
+  expect_log "Rejected execution platform //${pkg}/platforms:platform_opt; mismatching required_settings: optimized"
 
   # Use the new exec platforms, with the reqired_settings version first.
   # Enable the config_setting.

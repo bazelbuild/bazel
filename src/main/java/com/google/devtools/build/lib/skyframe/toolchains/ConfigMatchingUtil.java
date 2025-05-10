@@ -30,17 +30,20 @@ public final class ConfigMatchingUtil {
   /**
    * Validates that the given {@link ConfigMatchingProvider} instances are all successful.
    *
-   * @return whether all instances are successful
    * @param label the source of the instances, for error reporting
    * @param configSettings the instances to check
    * @param errorHandler if non-null, an error message will be generated for each non-successful
    *     instance
+   * @param settingsAttribute the name of the attribute defining the config settings, to be used for
+   *     error reporting
+   * @return whether all instances are successful
    * @throws InvalidConfigurationException thrown if any instances are in an error state
    */
   public static boolean validate(
       Label label,
       ImmutableList<ConfigMatchingProvider> configSettings,
-      @Nullable Consumer<String> errorHandler)
+      @Nullable Consumer<String> errorHandler,
+      String settingsAttribute)
       throws InvalidConfigurationException {
     // Make sure the target setting matches but watch out for resolution errors.
     AccumulateResults accumulateResults =
@@ -70,7 +73,7 @@ public final class ConfigMatchingUtil {
               .distinct()
               .map(Label::getName)
               .collect(joining(", "));
-      String message = String.format("mismatching config settings: %s", nonMatchingList);
+      String message = String.format("mismatching %s: %s", settingsAttribute, nonMatchingList);
       errorHandler.accept(message);
     }
     return false;

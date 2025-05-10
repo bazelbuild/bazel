@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
+import com.google.devtools.build.lib.rules.platform.ToolchainRule;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
@@ -166,7 +167,10 @@ public class RegisteredToolchainsFunction implements SkyFunction {
                         toolchain.toolchainType().typeLabel(), toolchain.targetLabel(), message)
                 : null;
         if (ConfigMatchingUtil.validate(
-            toolchain.targetLabel(), toolchain.targetSettings(), errorHandler)) {
+            toolchain.targetLabel(),
+            toolchain.targetSettings(),
+            errorHandler,
+            ToolchainRule.TARGET_SETTING_ATTR)) {
           validToolchains.add(toolchain);
         }
       } catch (InvalidConfigurationException e) {
