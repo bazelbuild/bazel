@@ -165,7 +165,6 @@ class PyRemoteTest(test_base.TestBase):
         '--strategy=Javac=remote',
         '--strategy=Closure=remote',
         '--genrule_strategy=remote',
-        '--define=EXECUTOR=remote',
         '--remote_executor=grpc://localhost:' + str(self._worker_port),
         '--remote_cache=grpc://localhost:' + str(self._worker_port),
         '--remote_timeout=3600',
