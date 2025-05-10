@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.ensureSymbolicLink;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -1054,6 +1055,12 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     // Delete link, re-plant symlink
     getOutputPath("foo-link").delete();
+    buildTarget("//:foo-link");
+
+    assertSymlink("foo-link", PathFragment.create("/some/path"));
+
+    // Change link, re-plant symlink
+    ensureSymbolicLink(getOutputPath("foo-link"), "/another/path");
     buildTarget("//:foo-link");
 
     assertSymlink("foo-link", PathFragment.create("/some/path"));

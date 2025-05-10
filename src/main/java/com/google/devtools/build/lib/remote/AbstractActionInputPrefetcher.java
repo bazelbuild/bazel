@@ -742,7 +742,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
 
       var metadata = outputMetadataStore.getOutputMetadata(output);
-      if (!metadata.isRemote()) {
+      if (!metadata.isRemote() && metadata.getType() != FileStateType.SYMLINK) {
         continue;
       }
 

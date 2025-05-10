@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -281,7 +282,8 @@ public class RemoteOutputChecker implements OutputChecker {
     checkState(
         !(output instanceof Artifact && ((Artifact) output).isTreeArtifact()),
         "shouldDownloadOutput should not be called on a tree artifact");
-    return metadata.isRemote() && shouldDownloadOutput(output.getExecPath());
+    return (metadata.isRemote() || metadata.getType() == FileStateType.SYMLINK)
+        && shouldDownloadOutput(output.getExecPath());
   }
 
   /** Returns whether a remote {@link ActionInput} with the given path should be downloaded. */
@@ -294,7 +296,7 @@ public class RemoteOutputChecker implements OutputChecker {
   @Override
   public boolean shouldTrustMetadata(ActionInput file, FileArtifactValue metadata) {
     // Local metadata is always trusted.
-    if (!metadata.isRemote()) {
+    if (!metadata.isRemote() && metadata.getType() != FileStateType.SYMLINK) {
       return true;
     }
 
