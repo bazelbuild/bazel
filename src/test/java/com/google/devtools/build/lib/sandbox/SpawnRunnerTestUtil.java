@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
@@ -112,6 +113,11 @@ public final class SpawnRunnerTestUtil {
     @Override
     public InputMetadataProvider getInputMetadataProvider() {
       return mock(InputMetadataProvider.class);
+    }
+
+    @Override
+    public OutputMetadataStore getOutputMetadataStore() {
+      return mock(OutputMetadataStore.class);
     }
 
     @Override

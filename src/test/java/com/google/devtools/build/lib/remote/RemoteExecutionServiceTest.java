@@ -2699,7 +2699,8 @@ public class RemoteExecutionServiceTest {
         null,
         remoteOutputChecker,
         outputService,
-        Sets.newConcurrentHashSet());
+        Sets.newConcurrentHashSet(),
+        OutputPermissions.READONLY);
   }
 
   private RunfilesTree createRunfilesTree(String root, Collection<Artifact> artifacts) {

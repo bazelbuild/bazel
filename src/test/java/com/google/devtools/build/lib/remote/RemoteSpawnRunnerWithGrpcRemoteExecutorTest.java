@@ -354,7 +354,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             /* captureCorruptedOutputsDir= */ null,
             remoteOutputChecker,
             mock(OutputService.class),
-            Sets.newConcurrentHashSet());
+            Sets.newConcurrentHashSet(),
+            OutputPermissions.READONLY);
     client =
         new RemoteSpawnRunner(
             execRoot,
