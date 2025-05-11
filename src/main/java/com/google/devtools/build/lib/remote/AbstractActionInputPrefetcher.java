@@ -379,11 +379,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
       // Metadata may legitimately be missing, e.g. if this is an optional test output.
       FileArtifactValue metadata = metadataSupplier.getMetadata(input);
-      if (metadata == null) {
+      if (metadata == null || !metadata.isLazy()) {
         return immediateVoidFuture();
-      } else if (metadata.getType() == FileStateType.SYMLINK) {
-        return toListenableFuture(
-            plantRelativeSymlink(path, metadata.getUnresolvedSymlinkTarget()));
       }
 
       @Nullable Symlink symlink = maybeGetSymlink(input, metadata, metadataSupplier);
@@ -417,6 +414,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                       }
                       return Completable.error(t);
                     });
+      } else if (metadata.getType() == FileStateType.SYMLINK) {
+        result = plantRelativeSymlink(path, metadata.getUnresolvedSymlinkTarget());
       } else {
         result = Completable.complete();
       }
@@ -742,7 +741,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
 
       var metadata = outputMetadataStore.getOutputMetadata(output);
-      if (!metadata.isRemote() && metadata.getType() != FileStateType.SYMLINK) {
+      if (!metadata.isLazy()) {
         continue;
       }
 
