@@ -106,8 +106,7 @@ public class StandaloneTestStrategy extends TestStrategy {
           "cannot run local tests with --nobuild_runfile_manifests");
     }
     Map<String, String> testEnvironment =
-        createEnvironment(
-            actionExecutionContext, action, tmpDirRoot, executionOptions.splitXmlGeneration);
+        createEnvironment(actionExecutionContext, action, tmpDirRoot);
 
     Map<String, String> executionInfo = new TreeMap<>(action.getExecutionInfo());
     if (!action.shouldAcceptCachedResult()) {
@@ -197,7 +196,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       StandaloneTestResult result)
       throws IOException {
     return processTestAttempt(
-        attemptId, /*isLastAttempt=*/ false, actionExecutionContext, action, result);
+        attemptId, /* isLastAttempt= */ false, actionExecutionContext, action, result);
   }
 
   private void finalizeTest(
@@ -484,13 +483,12 @@ public class StandaloneTestStrategy extends TestStrategy {
       ActionExecutionContext actionExecutionContext,
       TestRunnerAction action,
       List<ActionInput> expandedCoverageDir,
-      Path tmpDirRoot,
-      boolean splitXmlGeneration) {
+      Path tmpDirRoot) {
     ImmutableList<String> args =
         ImmutableList.of(action.getCollectCoverageScript().getExecPathString());
 
     Map<String, String> testEnvironment =
-        createEnvironment(actionExecutionContext, action, tmpDirRoot, splitXmlGeneration);
+        createEnvironment(actionExecutionContext, action, tmpDirRoot);
 
     testEnvironment.put("TEST_SHARD_INDEX", Integer.toString(action.getShardNum()));
     testEnvironment.put(
@@ -518,21 +516,13 @@ public class StandaloneTestStrategy extends TestStrategy {
   }
 
   private static Map<String, String> createEnvironment(
-      ActionExecutionContext actionExecutionContext,
-      TestRunnerAction action,
-      Path tmpDirRoot,
-      boolean splitXmlGeneration) {
+      ActionExecutionContext actionExecutionContext, TestRunnerAction action, Path tmpDirRoot) {
     Path execRoot = actionExecutionContext.getExecRoot();
     ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
     Path runfilesDir = pathResolver.convertPath(action.getExecutionSettings().getRunfilesDir());
     Path tmpDir = pathResolver.convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
-    Map<String, String> testEnvironment =
-        setupEnvironment(
-            action, actionExecutionContext.getClientEnv(), execRoot, runfilesDir, tmpDir);
-    if (splitXmlGeneration) {
-      testEnvironment.put("EXPERIMENTAL_SPLIT_XML_GENERATION", "1");
-    }
-    return testEnvironment;
+    return setupEnvironment(
+        action, actionExecutionContext.getClientEnv(), execRoot, runfilesDir, tmpDir);
   }
 
   @Override
@@ -771,8 +761,7 @@ public class StandaloneTestStrategy extends TestStrategy {
               actionExecutionContext,
               testAction,
               ImmutableList.copyOf(expandedCoverageDir),
-              tmpDirRoot,
-              executionOptions.splitXmlGeneration);
+              tmpDirRoot);
       SpawnStrategyResolver spawnStrategyResolver =
           actionExecutionContext.getContext(SpawnStrategyResolver.class);
 
@@ -843,13 +832,11 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     Path xmlOutputPath = resolvedPaths.getXmlOutputPath();
 
-    // If the test did not create a test.xml, and --experimental_split_xml_generation is enabled,
-    // then we run a separate action to create a test.xml from test.log. We do this as a spawn
-    // rather than doing it locally in-process, as the test.log file may only exist remotely (when
-    // remote execution is enabled), and we do not want to have to download it.
-    if (executionOptions.splitXmlGeneration
-        && fileOutErr.getOutputPath().exists()
-        && !xmlOutputPath.exists()) {
+    // If the test did not create a test.xml, then we run a separate action to create a test.xml
+    // from test.log. We do this as a spawn rather than doing it locally in-process, as the test.log
+    // file may only exist remotely (when remote execution is enabled), and we do not want to have
+    // to download it.
+    if (fileOutErr.getOutputPath().exists() && !xmlOutputPath.exists()) {
       Spawn xmlGeneratingSpawn =
           createXmlGeneratingSpawn(testAction, spawn.getEnvironment(), spawnResults.get(0));
       SpawnStrategyResolver spawnStrategyResolver =
