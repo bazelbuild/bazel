@@ -19,6 +19,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnCache;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.TempPathGenerator;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Set;
@@ -189,7 +191,10 @@ final class RemoteActionContextProvider {
               captureCorruptedOutputsDir,
               remoteOutputChecker,
               outputService,
-              knownMissingCasDigests);
+              knownMissingCasDigests,
+              env.getOptions().getOptions(CoreOptions.class).experimentalWritableOutputs
+                  ? OutputPermissions.WRITABLE
+                  : OutputPermissions.READONLY);
       env.getEventBus().register(remoteExecutionService);
     }
 
