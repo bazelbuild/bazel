@@ -80,13 +80,17 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
         ImmutableMultimap.of(),
         ImmutableMap.of(),
         ImmutableSet.of(),
-        equals(platformValue)
-            ? MatchResult.MATCH
-            : new MatchResult.NoMatch(
-                new MatchResult.NoMatch.Diff(
-                    constraint().label(),
-                    label().getName(),
-                    platformValue != null ? platformValue.label().getName() : "<unset>")));
+        computeMatchResult(platformValue));
+  }
+
+  private MatchResult computeMatchResult(ConstraintValueInfo platformValue) {
+    return this.equals(platformValue)
+        ? MatchResult.MATCH
+        : new MatchResult.NoMatch(
+            MatchResult.NoMatch.Diff.what(constraint().label())
+                .want(label().getName())
+                .got(platformValue != null ? platformValue.label().getName() : "<unset>")
+                .build());
   }
 
   @Override

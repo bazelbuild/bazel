@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.auto.value.AutoBuilder;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.errorprone.annotations.DoNotCall;
 import java.util.List;
 import java.util.Map;
 
@@ -61,7 +63,22 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
       }
 
       @AutoCodec
-      public record Diff(Label what, String got, String want) {}
+      public record Diff(Label what, String got, String want) {
+        public static Builder what(Label what) {
+          return new AutoBuilder_ConfigMatchingProvider_MatchResult_NoMatch_Diff_Builder().what(what);
+        }
+
+        @AutoBuilder
+        public abstract static class Builder {
+          public abstract Builder what(Label what);
+
+          public abstract Builder got(String got);
+
+          public abstract Builder want(String want);
+
+          public abstract Diff build();
+        }
+      }
     }
 
     MatchResult ALREADY_REPORTED_NO_MATCH = new NoMatch(ImmutableList.of());

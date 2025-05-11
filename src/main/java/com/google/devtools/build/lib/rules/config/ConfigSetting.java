@@ -259,10 +259,11 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       var targetPlatformValue = targetPlatformConstraints.get(setting);
       if (!ruleConstraintValue.equals(targetPlatformValue)) {
         diffs.add(
-            new NoMatch.Diff(
-                setting.label(),
-                ruleConstraintValue.label().getName(),
-                targetPlatformValue != null ? targetPlatformValue.label().getName() : "<unset>"));
+            NoMatch.Diff.what(setting.label())
+                .want(ruleConstraintValue.label().getName())
+                .got(
+                    targetPlatformValue != null ? targetPlatformValue.label().getName() : "<unset>")
+                .build());
       }
     }
     return new NoMatch(diffs.build());
@@ -365,7 +366,10 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
         // If TestOptions isn't present then they were trimmed, so any test options set are
         // considered unset by default.
         return new NoMatch(
-            new NoMatch.Diff(toOptionLabel(optionName), expectedRawValue, "<test option trimmed>"));
+            NoMatch.Diff.what(toOptionLabel(optionName))
+                .want(expectedRawValue)
+                .got("<test option trimmed>")
+                .build());
       }
 
       // Report the unknown option as an error.
@@ -419,15 +423,20 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       return expectedValue == null
           ? MatchResult.MATCH
           : new NoMatch(
-              new NoMatch.Diff(toOptionLabel(optionName), expectedValue.toString(), "null"));
+              NoMatch.Diff.what(toOptionLabel(optionName))
+                  .want(expectedValue.toString())
+                  .got("null")
+                  .build());
 
       // Single-value case:
     } else if (!options.allowsMultipleValues(optionName)) {
       return actualValue.equals(expectedValue)
           ? MatchResult.MATCH
           : new NoMatch(
-              new NoMatch.Diff(
-                  toOptionLabel(optionName), expectedValue.toString(), actualValue.toString()));
+              NoMatch.Diff.what(toOptionLabel(optionName))
+                  .want(expectedValue.toString())
+                  .got(actualValue.toString())
+                  .build());
     }
 
     // Multi-value case:
@@ -440,10 +449,10 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       return actualList.isEmpty() && expectedList.isEmpty()
           ? MatchResult.MATCH
           : new NoMatch(
-              new NoMatch.Diff(
-                  toOptionLabel(optionName),
-                  expectedList.isEmpty() ? "<empty>" : expectedList.toString(),
-                  actualList.isEmpty() ? "<empty>" : actualList.toString()));
+              NoMatch.Diff.what(toOptionLabel(optionName))
+                  .want(expectedList.isEmpty() ? "<empty>" : expectedList.toString())
+                  .got(actualList.isEmpty() ? "<empty>" : actualList.toString())
+                  .build());
     }
 
     // Multi-value map:
@@ -458,25 +467,27 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
           return actualEntry.getValue().equals(expectedEntry.getValue())
               ? MatchResult.MATCH
               : new NoMatch(
-                  new NoMatch.Diff(
-                      toOptionLabel(optionName),
-                      "%s=%s".formatted(expectedEntry.getKey(), expectedEntry.getValue()),
-                      "%s=%s".formatted(actualEntry.getKey(), actualEntry.getValue())));
+                  NoMatch.Diff.what(toOptionLabel(optionName))
+                      .want("%s=%s".formatted(expectedEntry.getKey(), expectedEntry.getValue()))
+                      .got("%s=%s".formatted(actualEntry.getKey(), actualEntry.getValue()))
+                      .build());
         }
       }
       return new NoMatch(
-          new NoMatch.Diff(
-              toOptionLabel(optionName),
-              "%s=%s".formatted(expectedEntry.getKey(), expectedEntry.getValue()),
-              "<key %s not found>".formatted(expectedEntry.getKey())));
+          NoMatch.Diff.what(toOptionLabel(optionName))
+              .want("%s=%s".formatted(expectedEntry.getKey(), expectedEntry.getValue()))
+              .got("<key %s not found>".formatted(expectedEntry.getKey()))
+              .build());
     }
 
     // Multi-value list:
     return actualList.containsAll(expectedList)
         ? MatchResult.MATCH
         : new NoMatch(
-            new NoMatch.Diff(
-                toOptionLabel(optionName), expectedList.toString(), actualList.toString()));
+            NoMatch.Diff.what(toOptionLabel(optionName))
+                .want(expectedList.toString())
+                .got(actualList.toString())
+                .build());
   }
 
   private static final PackageIdentifier COMMAND_LINE_OPTIONS_PACKAGE =
@@ -572,7 +583,11 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             deferredErrors.add(provider.getError());
             continue;
           } else if (!provider.getFlagValue().equals(specifiedValue)) {
-            diffs.add(new NoMatch.Diff(specifiedLabel, provider.getFlagValue(), specifiedValue));
+            diffs.add(
+                NoMatch.Diff.what(specifiedLabel)
+                    .got(specifiedValue)
+                    .want(provider.getFlagValue())
+                    .build());
           }
         } else if (target.satisfies(BuildSettingProvider.REQUIRE_BUILD_SETTING_PROVIDER)) {
           // build setting
@@ -632,17 +647,17 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             } else if (!((List<?>) configurationValue)
                 .contains(Iterables.getOnlyElement(specifiedValueAsIterable))) {
               diffs.add(
-                  new NoMatch.Diff(
-                      specifiedLabel,
-                      configurationValue.toString(),
-                      convertedSpecifiedValue.toString()));
+                  NoMatch.Diff.what(specifiedLabel)
+                      .got(convertedSpecifiedValue.toString())
+                      .want(configurationValue.toString())
+                      .build());
             }
           } else if (!configurationValue.equals(convertedSpecifiedValue)) {
             diffs.add(
-                new NoMatch.Diff(
-                    specifiedLabel,
-                    configurationValue.toString(),
-                    convertedSpecifiedValue.toString()));
+                NoMatch.Diff.what(specifiedLabel)
+                    .got(convertedSpecifiedValue.toString())
+                    .want(configurationValue.toString())
+                    .build());
           }
         } else {
           // This should be configuration-independent error on the attributes of config_setting.

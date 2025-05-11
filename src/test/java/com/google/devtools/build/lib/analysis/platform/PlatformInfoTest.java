@@ -521,7 +521,9 @@ public class PlatformInfoTest extends BuildViewTestCase {
             ? MatchResult.MATCH
             : new MatchResult.NoMatch(
                 ImmutableList.of(
-                    new MatchResult.NoMatch.Diff(
-                        Label.parseCanonicalUnchecked("//fake"), "foo", "bar"))));
+                    MatchResult.NoMatch.Diff.what(Label.parseCanonicalUnchecked("//fake"))
+                        .want("foo")
+                        .got("bar")
+                        .build())));
   }
 }
