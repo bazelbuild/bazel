@@ -109,6 +109,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/http",
         "//src/main/java/com/google/devtools/build/lib/remote/logging",
         "//src/main/java/com/google/devtools/build/lib/remote/merkletree",
+        "//src/main/java/com/google/devtools/build/lib/remote/merkletree/v2",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/build/lib/remote/util:digest_utils",
