@@ -417,6 +417,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       } else if (metadata.getType() == FileStateType.SYMLINK) {
         result = plantRelativeSymlink(path, metadata.getUnresolvedSymlinkTarget());
       } else {
+        // This is a symlink to a local file.
+        checkState(metadata.getResolvedPath() != null);
+        checkState(!metadata.isRemote());
         result = Completable.complete();
       }
 
