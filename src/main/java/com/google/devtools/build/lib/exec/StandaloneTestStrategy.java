@@ -459,7 +459,7 @@ public class StandaloneTestStrategy extends TestStrategy {
                 .getExecPath()
                 .getCallablePathStringForOs(action.getExecutionSettings().getExecutionOs()),
             action.getTestLog().getExecPathString(),
-            action.getXmlOutputPath().getPathString(),
+            action.getTestXml().getExecPathString(),
             Integer.toString(result.getWallTimeInMs() / 1000),
             Integer.toString(result.exitCode()));
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
@@ -483,7 +483,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         /* inputs= */ NestedSetBuilder.create(
             Order.STABLE_ORDER, action.getTestXmlGeneratorScript(), action.getTestLog()),
         /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /* outputs= */ ImmutableSet.of(ActionInputHelper.fromPath(action.getXmlOutputPath())),
+        /* outputs= */ ImmutableSet.of(action.getTestXml()),
         /* mandatoryOutputs= */ null,
         SpawnAction.DEFAULT_RESOURCE_SET);
   }

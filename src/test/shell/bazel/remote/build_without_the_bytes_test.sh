@@ -699,6 +699,63 @@ EOF
   assert_exists bazel-bin/a/test
 }
 
+function test_download_regex_changed_with_action_cache_hit_for_test() {
+  # Regression test for #25762
+  # Test that changes to --remote_download_regex are effective when matching
+  # test.xml even when the test is cached.
+
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+
+  cat > a/test.sh <<'EOF'
+#!/bin/sh
+
+cat > "$XML_OUTPUT_FILE" <<EOF2
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="test" tests="1" failures="0" errors="0">
+    <testcase name="test_case" status="run">
+      <system-out>test_case succeeded.</system-out>
+    </testcase>
+  </testsuite>
+</testsuites>
+EOF2
+echo "hi" > "$TEST_UNDECLARED_OUTPUTS_DIR/out.txt"
+EOF
+
+  chmod +x a/test.sh
+
+  cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+  name = 'test',
+  srcs = [ 'test.sh' ],
+)
+EOF
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    //a:test >& $TEST_log || fail "Expected success"
+
+  rm -rf bazel-out bazel-testlogs
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    //a:test >& $TEST_log || fail "Expected success"
+
+  assert_not_exists bazel-testlogs/a/test/test.xml
+
+  bazel test \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    --remote_download_regex='.*/test.xml' \
+    //a:test >& $TEST_log || fail "Expected success"
+
+  assert_exists bazel-testlogs/a/test/test.xml
+}
+
 function do_test_non_test_toplevel_targets() {
   # Regression test for https://github.com/bazelbuild/bazel/issues/17190.
   #

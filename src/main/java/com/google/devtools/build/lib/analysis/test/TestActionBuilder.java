@@ -385,6 +385,8 @@ public final class TestActionBuilder {
 
         Artifact.DerivedArtifact testLog =
             ruleContext.getPackageRelativeArtifact(dir.getRelative("test.log"), root);
+        Artifact.DerivedArtifact testXml =
+            ruleContext.getPackageRelativeArtifact(dir.getRelative("test.xml"), root);
         Artifact.DerivedArtifact cacheStatus =
             ruleContext.getPackageRelativeArtifact(dir.getRelative("test.cache_status"), root);
 
@@ -418,6 +420,7 @@ public final class TestActionBuilder {
                 testXmlGeneratorExecutable,
                 collectCoverageScript,
                 testLog,
+                testXml,
                 cacheStatus,
                 coverageArtifact,
                 coverageDirectory,

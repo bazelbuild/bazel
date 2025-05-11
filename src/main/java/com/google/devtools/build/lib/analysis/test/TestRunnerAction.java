@@ -118,6 +118,7 @@ public class TestRunnerAction extends AbstractAction
   private final BuildConfigurationValue configuration;
   private final TestConfiguration testConfiguration;
   private final Artifact testLog;
+  private final Artifact testXml;
   private final Artifact cacheStatus;
   private final PathFragment testWarningsPath;
   private final PathFragment unusedRunfilesLogPath;
@@ -128,7 +129,6 @@ public class TestRunnerAction extends AbstractAction
   private final PathFragment undeclaredOutputsManifestPath;
   private final PathFragment undeclaredOutputsAnnotationsPath;
   private final PathFragment undeclaredOutputsAnnotationsPbPath;
-  private final PathFragment xmlOutputPath;
   @Nullable private final PathFragment testShard;
   private final PathFragment testExitSafe;
   private final PathFragment testStderr;
@@ -198,6 +198,7 @@ public class TestRunnerAction extends AbstractAction
       Artifact testXmlGeneratorScript, // Must be in inputs
       @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
       Artifact testLog,
+      Artifact testXml,
       Artifact cacheStatus,
       Artifact coverageArtifact,
       @Nullable Artifact coverageDirectory,
@@ -219,7 +220,12 @@ public class TestRunnerAction extends AbstractAction
         owner,
         inputs,
         nonNullAsSet(
-            testLog, cacheStatus, coverageArtifact, coverageDirectory, undeclaredOutputsDir));
+            testLog,
+            testXml,
+            cacheStatus,
+            coverageArtifact,
+            coverageDirectory,
+            undeclaredOutputsDir));
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
     this.runfilesTree = runfilesTree;
     this.testSetupScript = testSetupScript;
@@ -228,6 +234,7 @@ public class TestRunnerAction extends AbstractAction
     this.configuration = checkNotNull(configuration);
     this.testConfiguration = checkNotNull(configuration.getFragment(TestConfiguration.class));
     this.testLog = testLog;
+    this.testXml = testXml;
     this.cacheStatus = cacheStatus;
     this.coverageData = coverageArtifact;
     this.coverageDirectory = coverageDirectory;
@@ -246,7 +253,6 @@ public class TestRunnerAction extends AbstractAction
     this.testExitSafe = baseDir.getChild("test.exited_prematurely");
     // testShard Path should be set only if sharding is enabled.
     this.testShard = totalShards > 1 ? baseDir.getChild("test.shard") : null;
-    this.xmlOutputPath = baseDir.getChild("test.xml");
     this.testWarningsPath = baseDir.getChild("test.warnings");
     this.unusedRunfilesLogPath = baseDir.getChild("test.unused_runfiles_log");
     this.testStderr = baseDir.getChild("test.err");
@@ -283,7 +289,6 @@ public class TestRunnerAction extends AbstractAction
     ImmutableSet.Builder<PathFragment> filesToDeleteBuilder =
         ImmutableSet.<PathFragment>builder()
             .add(
-                xmlOutputPath,
                 testWarningsPath,
                 unusedRunfilesLogPath,
                 testStderr,
@@ -366,7 +371,7 @@ public class TestRunnerAction extends AbstractAction
 
   public List<ActionInput> getSpawnOutputs() {
     final List<ActionInput> outputs = new ArrayList<>();
-    outputs.add(ActionInputHelper.fromPath(getXmlOutputPath()));
+    outputs.add(testXml);
     outputs.add(ActionInputHelper.fromPath(getExitSafeFile()));
     if (isSharded()) {
       outputs.add(ActionInputHelper.fromPath(getTestShard()));
@@ -773,7 +778,7 @@ public class TestRunnerAction extends AbstractAction
       env.put("TEST_TOTAL_SHARDS", Integer.toString(getExecutionSettings().getTotalShards()));
       env.put("TEST_SHARD_STATUS_FILE", getTestShard().getPathString());
     }
-    env.put("XML_OUTPUT_FILE", getXmlOutputPath().getPathString());
+    env.put("XML_OUTPUT_FILE", testXml.getExecPathString());
 
     if (!configuration.runfilesEnabled()) {
       // If runfiles are disabled, tell remote-runtest.sh/local-runtest.sh about that.
@@ -830,6 +835,10 @@ public class TestRunnerAction extends AbstractAction
 
   public Artifact getTestLog() {
     return testLog;
+  }
+
+  public Artifact getTestXml() {
+    return testXml;
   }
 
   /** Returns all environment variables which must be set in order to run this test. */
@@ -904,11 +913,6 @@ public class TestRunnerAction extends AbstractAction
 
   public PathFragment getInfrastructureFailureFile() {
     return testInfrastructureFailure;
-  }
-
-  /** Returns path to the optionally created XML output file created by the test. */
-  public PathFragment getXmlOutputPath() {
-    return xmlOutputPath;
   }
 
   /** Returns coverage data artifact or null if code coverage was not requested. */
@@ -1183,7 +1187,7 @@ public class TestRunnerAction extends AbstractAction
 
     /** Returns path to the optionally created XML output file created by the test. */
     public Path getXmlOutputPath() {
-      return getPath(xmlOutputPath);
+      return getPath(testXml.getExecPath());
     }
 
     public Path getCoverageDirectory() {
