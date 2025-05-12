@@ -269,7 +269,9 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   @Nullable
   public final SkyValue getExistingValue(SkyKey key) {
     InMemoryNodeEntry entry = getExistingEntryAtCurrentlyEvaluatingVersion(key);
-    return isDone(entry) ? entry.getValue() : null;
+    // Use toValue() to guard against the node being rewound after we check that it's done. Calling
+    // getValue() in such a case would throw an exception, while toValue() returns the latest value.
+    return isDone(entry) ? entry.toValue() : null;
   }
 
   @Override
