@@ -5589,25 +5589,23 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
     assertThat(e)
         .hasMessageThat()
-        .contains("'a.o' does not have any of the allowed extensions .a, .lib, .pic.a, or .rlib");
+        .contains("'a.o' does not have any of the allowed extensions .a, .lib, .rlib");
     assertThat(e)
         .hasMessageThat()
-        .contains(
-            "'a.pic.o' does not have any of the allowed extensions .a, .lib, .pic.a, or .rlib");
+        .contains("'a.pic.o' does not have any of the allowed extensions .a, .lib, .rlib");
     assertThat(e)
         .hasMessageThat()
         .contains(
             "'a.ifso' does not have any of the allowed extensions .so, .dylib, .dll, .pyd, .wasm,"
-                + " .tgt, or .vpi");
+                + " .tgt, .vpi");
     assertThat(e)
         .hasMessageThat()
         .contains(
             "'a.lib' does not have any of the allowed extensions .so, .dylib, .dll, .pyd, .wasm,"
-                + " .tgt, or .vpi");
+                + " .tgt, .vpi");
     assertThat(e)
         .hasMessageThat()
-        .contains(
-            "'a.dll' does not have any of the allowed extensions .ifso, .tbd, .lib, or .dll.a");
+        .contains("'a.dll' does not have any of the allowed extensions .ifso, .tbd, .lib, .dll.a");
   }
 
   @Test

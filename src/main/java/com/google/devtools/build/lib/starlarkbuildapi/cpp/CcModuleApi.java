@@ -1624,7 +1624,6 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "create_library_to_link",
       doc = "Creates <code>LibraryToLink</code>",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "actions",
@@ -1737,7 +1736,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound"),
       })
-  LibraryToLinkT createLibraryLinkerInput(
+  default LibraryToLinkT createLibraryLinkerInput(
       Object actions,
       Object featureConfiguration,
       Object ccToolchainProvider,
@@ -1751,9 +1750,10 @@ public interface CcModuleApi<
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
-      Object mustKeepDebug,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      Object mustKeepDebug)
+      throws EvalException, InterruptedException {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "create_linker_input",

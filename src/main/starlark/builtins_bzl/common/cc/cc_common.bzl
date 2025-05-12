@@ -22,6 +22,7 @@ load(
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/compile/compile.bzl", "compile")
+load(":common/cc/link/create_library_to_link.bzl", "create_library_to_link")
 load(":common/cc/link/create_linking_context_from_compilation_outputs.bzl", "create_linking_context_from_compilation_outputs")
 load(":common/cc/link/link.bzl", "link")
 load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
@@ -277,7 +278,7 @@ def _create_library_to_link(
         lto_compilation_context = None
     if must_keep_debug != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    if must_keep_debug == _UNBOUND:
+    else:
         must_keep_debug = False
     if objects != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
@@ -305,7 +306,7 @@ def _create_library_to_link(
         kwargs["pic_objects"] = pic_objects
     if objects != _UNBOUND:
         kwargs["objects"] = objects
-    return cc_common_internal.create_library_to_link(
+    return create_library_to_link(
         **kwargs
     )
 
