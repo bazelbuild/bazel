@@ -1,5 +1,11 @@
 package(default_visibility = ["//visibility:public"])
 
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
+)
+
 config_setting(
     name = "windows",
     constraint_values = ["@platforms//os:windows"],

@@ -24,6 +24,13 @@ filegroup(
     visibility = ["//tools/cpp:__pkg__"],
 )
 
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
+)
+
+
 config_setting(
     name = "windows",
     constraint_values = ["@platforms//os:windows"],
@@ -85,6 +92,7 @@ filegroup(
         "BUILD.tools",
         ":aggregate-ddi",
         ":generate-modmap",
+        "wrapper.bzl",
     ],
     visibility = ["//tools/cpp:__pkg__"],
 )

@@ -95,7 +95,7 @@ def _create_cc_toolchain_info(
         build_info_files,
         objcopy_files,
         aggregate_ddi,
-        generate_modmap):
+        generate_modmap_wrapper):
     cc_toolchain_info = dict(
         needs_pic_for_dynamic_libraries = (lambda *, feature_configuration: True) if cpp_configuration.force_pic() else _needs_pic_for_dynamic_libraries,
         built_in_include_directories = built_in_include_directories,
@@ -118,6 +118,7 @@ def _create_cc_toolchain_info(
         strip_executable = strip_executable,
         ld_executable = ld_executable,
         gcov_executable = gcov_executable,
+        generate_modmap_wrapper = generate_modmap_wrapper,
         _as_files = as_files,
         _ar_files = ar_files,
         _strip_files = strip_files,
@@ -156,7 +157,6 @@ def _create_cc_toolchain_info(
         _cc_info = cc_info,
         _objcopy_files = objcopy_files,
         _aggregate_ddi = aggregate_ddi,
-        _generate_modmap = generate_modmap,
     )
     return cc_toolchain_info
 
@@ -201,6 +201,7 @@ CcToolchainInfo, _ = provider(
         "strip_executable": "The path to the strip binary.",
         "ld_executable": "The path to the ld binary.",
         "gcov_executable": "The path to the gcov binary.",
+        "generate_modmap_wrapper": "The generate_modmap wrapper",
         # Private fields used by Starlark.
         "_as_files": "INTERNAL API, DO NOT USE!",
         "_ar_files": "INTERNAL API, DO NOT USE!",
@@ -245,7 +246,7 @@ CcToolchainInfo, _ = provider(
         "_cc_info": "INTERNAL API, DO NOT USE!",
         "_objcopy_files": "INTERNAL API, DO NOT USE!",
         "_aggregate_ddi": "INTERNAL API, DO NOT USE!",
-        "_generate_modmap": "INTERNAL API, DO NOT USE!",
+
     },
     init = _create_cc_toolchain_info,
 )
