@@ -63,7 +63,7 @@ def _cc_library_impl(ctx):
         cxx_flags = cc_helper.get_copts(ctx, feature_configuration, additional_make_variable_substitutions, attr = "cxxopts"),
         defines = cc_helper.defines(ctx, additional_make_variable_substitutions),
         local_defines = cc_helper.local_defines(ctx, additional_make_variable_substitutions) + cc_helper.get_local_defines_for_runfiles_lookup(ctx, ctx.attr.deps + ctx.attr.implementation_deps),
-        system_includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
+        includes = cc_helper.include_dirs(ctx, additional_make_variable_substitutions),
         copts_filter = cc_helper.copts_filter(ctx, additional_make_variable_substitutions),
         purpose = "cc_library-compile",
         srcs = cc_helper.get_srcs(ctx),
