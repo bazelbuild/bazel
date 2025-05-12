@@ -2094,7 +2094,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
                 mnemonic = "OutputDir",
                 outputs = [out],
                 arguments = args,
-                command = 'while (($#)); do echo -n "$2" > $1; shift 2; done',
+                command = 'set -e; while (($#)); do mkdir -p "$(dirname "$1")"; echo -n "$2" > $1; shift 2; done',
             )
             return DefaultInfo(files = depset([out]))
 

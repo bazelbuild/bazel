@@ -13,17 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.IntStream.range;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
+import static org.mockito.Mockito.mockingDetails;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -34,11 +38,14 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
+import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.protobuf.ByteString;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import org.junit.ClassRule;
@@ -60,6 +67,11 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "--remote_download_minimal",
         "--dynamic_local_strategy=standalone",
         "--dynamic_remote_strategy=remote");
+  }
+
+  @Override
+  protected FileSystem createFileSystem() throws Exception {
+    return SpiedFileSystem.createSpy(super.createFileSystem());
   }
 
   @Override
@@ -1177,5 +1189,72 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     getOutputPath("tree").deleteTree();
     getOutputPath("out").delete();
     buildTarget("//:gen");
+  }
+
+  @Test
+  public void remoteTree_avoidsLocalIO() throws Exception {
+    writeOutputDirRule();
+    addOptions("--remote_download_regex=.*/dir-4/file-2");
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  content_map = {'dir-%d/file-%d' % (i, j): 'foo' for i in range(10) for j in range(10)},",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['foobar.txt'],",
+        "  cmd = 'touch $@',",
+        ")");
+
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    var spiedLocalFS = (SpiedFileSystem) fileSystem;
+    var fooPath = getOutputPath("foo").asFragment();
+    var childrenOfFooOperations =
+        mockingDetails(spiedLocalFS).getInvocations().stream()
+            .filter(
+                invocation ->
+                    !invocation.getMethod().getName().equals("getPath")
+                        && !invocation.getMethod().getName().equals("toDelegatePath")
+                        && invocation.getArguments().length != 0
+                        && invocation.getArgument(0) instanceof PathFragment)
+            .filter(
+                invocation ->
+                    invocation.getArguments().length != 0
+                        && invocation.getArgument(0) instanceof PathFragment path
+                        && path.startsWith(fooPath)
+                        && !path.equals(fooPath))
+            .toList();
+    assertThat(childrenOfFooOperations).isEmpty();
+
+    // Keep these assertions after the asserts
+    assertOutputDoesNotExist("foo/dir-4/file-1");
+    assertValidOutputFile("foo/dir-4/file-2", "foo");
+    assertOutputDoesNotExist("foo/dir-5/file-2");
+
+    var fooMetadata = getTreeArtifactValue(getArtifact("//:foo", "foo"));
+    assertThat(
+            fooMetadata.getChildren().stream()
+                .map(Artifact.TreeFileArtifact::getParentRelativePath))
+        .containsExactlyElementsIn(
+            range(0, 10)
+                .boxed()
+                .flatMap(
+                    i ->
+                        range(0, 10)
+                            .mapToObj(j -> PathFragment.create("dir-%d/file-%d".formatted(i, j))))
+                .collect(toImmutableSet()));
+    assertThat(
+            fooMetadata.getChildValues().values().stream()
+                .map(FileArtifactValue::getDigest)
+                .map(ByteString::copyFrom)
+                .distinct())
+        .containsExactly(
+            ByteString.copyFrom(
+                getDigestHashFunction().getHashFunction().hashString("foo", UTF_8).asBytes()));
   }
 }
