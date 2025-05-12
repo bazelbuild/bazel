@@ -679,9 +679,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         throw new ActionExecutionException(message, this, /* catastrophe= */ false, code);
       }
       usedCpp20Modules = computeUsedCpp20Modules(actionExecutionContext);
-      if (usedCpp20Modules == null) {
-        return null;
-      }
       commandLineKey = computeCommandLineKey(options);
       ImmutableList<PathFragment> systemIncludeDirs = getSystemIncludeDirs(options);
       boolean siblingLayout =
@@ -1672,7 +1669,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   /**
    * Dynamic dependencies handle for C++20 Modules.
-   * We use restart mechanism to ensure all required module files have been generated.
    */
   private Set<DerivedArtifact> computeUsedCpp20Modules(
       ActionExecutionContext actionExecutionContext)
@@ -1709,21 +1705,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     for (String modulePath : modulePathList) {
       if (moduleFileMap.containsKey(modulePath)) {
         usedModules.add(moduleFileMap.get(modulePath));
-      }
-    }
-    // use restart mechanism
-    var env = actionExecutionContext.getEnvironmentForDiscoveringInputs();
-    var skyKeys = Collections2.transform(usedModules, DerivedArtifact::getGeneratingActionKey);
-    var actionExecutionValues = env.getValuesAndExceptions(skyKeys);
-    if (env.valuesMissing()) {
-      return null;
-    }
-    for (DerivedArtifact module : usedModules) {
-      Preconditions.checkState(
-          module.isFileType(CppFileTypes.CPP_MODULE), "Non-module? %s", module);
-      var skyValue = actionExecutionValues.get(module.getGeneratingActionKey());
-      if (skyValue == null) {
-        return null;
       }
     }
     return usedModules;
