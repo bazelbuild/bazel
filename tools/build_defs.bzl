@@ -114,4 +114,3 @@ def _make_current_toolchain_rule(toolchain_type):
     )
 
 current_launcher_binary = _make_current_toolchain_rule("//tools/launcher:launcher_toolchain_type")
-current_launcher_maker_binary = _make_current_toolchain_rule("//tools/launcher:launcher_maker_toolchain_type")
