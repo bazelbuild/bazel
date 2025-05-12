@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.test;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.base.Preconditions;
@@ -66,9 +65,9 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     scratch.file(
         "tests/BUILD",
         "load('//test_defs:foo_test.bzl', 'foo_test')",
-        getPyLoad("py_binary"),
-        getPyLoad("py_test"),
-        "py_test(name = 'small_test_1',",
+        "load('//test_defs:foo_binary.bzl', 'foo_binary')",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_test(name = 'small_test_1',",
         "        srcs = ['small_test_1.py'],",
         "        data = [':xUnit'],",
         "        size = 'small',",
@@ -85,9 +84,9 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "        size = 'large',",
         "        tags = ['tag1'])",
         "",
-        "py_binary(name = 'notest',",
+        "foo_binary(name = 'notest',",
         "        srcs = ['notest.py'])",
-        "cc_library(name = 'xUnit')",
+        "foo_library(name = 'xUnit')",
         "",
         "test_suite(name = 'smallTests', tags=['small'])");
   }
