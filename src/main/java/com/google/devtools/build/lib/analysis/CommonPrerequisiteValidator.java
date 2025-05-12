@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper.attributeOrNull;
 
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
@@ -71,6 +70,52 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
 
   protected abstract boolean allowExperimentalDeps(RuleContext.Builder context);
 
+  /**
+   * Encapsulates the state of the visibility check for a single dependency edge.
+   *
+   * <p>This makes it easier to retain intermediate information for detailed diagnostics.
+   *
+   * <p>Throughout, if this edge is for an implicit dep of a rule or aspect, we call the latter the
+   * "owning rule" or "owning aspect" respectively. Normal edges have no owner in this sense.
+   */
+  private static class VisibilityCheckState {
+    /** Dependency target. */
+    ConfiguredTargetAndData prerequisite;
+
+    /** Consuming target. */
+    Rule consumer;
+
+    /** The rule that this edge is an implicit dep of (if applicable). */
+    @Nullable RuleClass owningRule;
+
+    /**
+     * The aspect that this edge is an implicit dep of (if applicable).
+     *
+     * <p>(Mutually exclusive with {@code owningRule}.)
+     */
+    @Nullable StarlarkAspectClass owningAspect;
+
+    /** Whether this edge is for an implicit dep. */
+    boolean isImplicitDep() {
+      return owningRule != null || owningAspect != null;
+    }
+
+    /** The .bzl of the owning rule or aspect (if applicable). */
+    @Nullable
+    Label getOwnerDefinitionBzl() {
+      return owningRule != null
+          ? owningRule.getRuleDefinitionEnvironmentLabel()
+          : owningAspect != null ? owningAspect.getExtensionLabel() : null;
+    }
+
+    /** The definition location of the owning rule or aspect (if applicable). */
+    @Nullable
+    PackageIdentifier getOwnerDefinitionLocation() {
+      Label bzlLabel = getOwnerDefinitionBzl();
+      return bzlLabel != null ? bzlLabel.getPackageIdentifier() : null;
+    }
+  }
+
   private void validateDirectPrerequisiteVisibility(
       RuleContext.Builder context, ConfiguredTargetAndData prerequisite, Attribute attribute) {
     String attrName = attribute.getName();
@@ -113,40 +158,37 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     // (We don't do the same for default values of non-implicit attributes. That would introduce a
     // semantic difference between omitting the attribute (allowing it to be populated by default),
     // vs. explicitly passing in a value that happens to be the same as its default.)
-    boolean validateWithRespectToAttributeDefinition =
-        attribute.isImplicit() && context.isStarlarkRuleOrAspect();
+    boolean isImplicitDep = attribute.isImplicit() && context.isStarlarkRuleOrAspect();
     // Also, the special $config_dependencies attribute is always validated as a normal dependency
     // even though it's technically implicit.
-    validateWithRespectToAttributeDefinition &=
-        !attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE);
+    isImplicitDep &= !attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE);
 
-    if (!validateWithRespectToAttributeDefinition) {
-      // Normal case: The attribute must be visible from the target.
-      if (!isVisibleToDeclaration(prerequisite, rule, checkExperimental)) {
-        reportVisibilityConflict(context, prerequisite, rule.getLabel());
-      }
-    } else {
-      // Determine the label of the .bzl where the rule or (main) aspect was exported.
-      Label implicitDefinition;
+    VisibilityCheckState state = new VisibilityCheckState();
+    state.prerequisite = prerequisite;
+    state.consumer = rule;
+
+    if (isImplicitDep) {
+      // Populate the state with the relevant rule or aspect's info.
       if (mainAspect != null) {
-        StarlarkAspectClass aspectClass = (StarlarkAspectClass) mainAspect.getAspectClass();
-        // Never null since we already checked that the aspect is Starlark-defined.
-        implicitDefinition = checkNotNull(aspectClass.getExtensionLabel());
+        state.owningAspect = ((StarlarkAspectClass) mainAspect.getAspectClass());
       } else {
-        // Never null since we already checked that the rule is a Starlark rule.
-        implicitDefinition =
-            checkNotNull(rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel());
+        state.owningRule = rule.getRuleClassObject();
       }
-      // Validate with respect to the defining .bzl.
+
       if (!isVisibleToLocation(
-          prerequisite, implicitDefinition.getPackageIdentifier(), checkExperimental)) {
+          prerequisite, state.getOwnerDefinitionLocation(), checkExperimental)) {
         // Failed. Validate with respect to the target anyway, for backwards compatibility.
         // TODO(bazel-team): When can this fallback be removed?
         if (!isVisibleToDeclaration(prerequisite, rule, checkExperimental)) {
           // True failure. In the error message, always suggest making the prerequisite visible from
           // the definition, not the target.
-          reportVisibilityConflict(context, prerequisite, implicitDefinition);
+          context.ruleError(generateVisibilityConflictMessage(state));
         }
+      }
+    } else {
+      // Normal case: Validate with respect to the target, only.
+      if (!isVisibleToDeclaration(prerequisite, rule, checkExperimental)) {
+        context.ruleError(generateVisibilityConflictMessage(state));
       }
     }
   }
@@ -305,12 +347,13 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     }
   }
 
-  private void reportVisibilityConflict(
-      RuleContext.Builder context, ConfiguredTargetAndData prerequisite, Label rule) {
-    // Visibility error:
-    //   target '//land:land' is not visible from
-    //   target '//red_delicious:apple'
-    // Recommendation: ...
+  private String generateVisibilityConflictMessage(VisibilityCheckState state) {
+    // TODO: https://github.com/bazelbuild/bazel/issues/25941 - Streamline this error message to
+    // eliminate redundancy, label quoting, newlines, the recommendation, and alias expansion, and
+    // to include a suggestion to pass --verbose_visibility_errors. Also make it so we don't emit
+    // "target 'foo.bzl'" when referring to the definition location of an attribute.
+    Label consumerOrOwnerLocation =
+        state.isImplicitDep() ? state.getOwnerDefinitionBzl() : state.consumer.getLabel();
     String errorMessage =
         String.format(
             "Visibility error:\n"
@@ -318,13 +361,18 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
                 + "target '%s'\n"
                 + "Recommendation: modify the visibility declaration if you think the dependency"
                 + " is legitimate. For more info see https://bazel.build/concepts/visibility",
-            AliasProvider.describeTargetWithAliases(prerequisite, TargetMode.WITHOUT_KIND), rule);
-
-    if (prerequisite.getTargetKind().equals(InputFile.targetKind())) {
+            AliasProvider.describeTargetWithAliases(state.prerequisite, TargetMode.WITHOUT_KIND),
+            consumerOrOwnerLocation.getCanonicalForm());
+    if (state.prerequisite.getTargetKind().equals(InputFile.targetKind())) {
       errorMessage +=
           ". To set the visibility of that source file target, use the exports_files() function";
     }
-    context.ruleError(errorMessage);
+    // TODO: https://github.com/bazelbuild/bazel/issues/25940 - ruleError() prefixes the message
+    // with a location that is the outermost stack frame of the innermost symbolic macro. Even
+    // absent any symbolic macros, this is a BUILD file location even though the target declaration
+    // may be many levels deep. Consider a more principled approach to reporting error locations for
+    // targets.
+    return errorMessage;
   }
 
   private void validateDirectPrerequisiteLocation(
