@@ -52,6 +52,6 @@ jobs:
         close-issue-reason: "not_planned"
         stale-pr-label: 'stale'
         exempt-pr-labels: 'not stale,awaiting-review,awaiting-PR-merge,P0,P1,P2'
-        exempt-draft-pr: true
+        exempt-draft-pr: false
         operations-per-run: 500
         ascending: true
