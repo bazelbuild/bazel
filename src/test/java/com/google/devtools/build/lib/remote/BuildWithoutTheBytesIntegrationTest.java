@@ -13,21 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.stream.IntStream.range;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
 import static org.mockito.Mockito.mockingDetails;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -1200,7 +1199,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "load(':output_dir.bzl', 'output_dir')",
         "output_dir(",
         "  name = 'foo',",
-        "  content_map = {'dir-%d/file-%d' % (i, j): 'foo' for i in range(10) for j in range(10)},",
+        "  content_map = {'dir-%d/file-%d' % (i, j): 'foo%d%d' % (i, j) for i in range(10) for j in range(10)},",
         ")",
         "genrule(",
         "  name = 'foobar',",
@@ -1229,32 +1228,32 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
                         && path.startsWith(fooPath)
                         && !path.equals(fooPath))
             .toList();
-    assertThat(childrenOfFooOperations).isEmpty();
+        assertThat(childrenOfFooOperations).isEmpty();
 
-    // Keep these assertions after the asserts
+    // Keep these assertions after the assertson spiedLocalFs as they result in additional IO.
     assertOutputDoesNotExist("foo/dir-4/file-1");
-    assertValidOutputFile("foo/dir-4/file-2", "foo");
+    assertValidOutputFile("foo/dir-4/file-2", "foo42");
     assertOutputDoesNotExist("foo/dir-5/file-2");
 
     var fooMetadata = getTreeArtifactValue(getArtifact("//:foo", "foo"));
-    assertThat(
-            fooMetadata.getChildren().stream()
-                .map(Artifact.TreeFileArtifact::getParentRelativePath))
-        .containsExactlyElementsIn(
-            range(0, 10)
-                .boxed()
-                .flatMap(
-                    i ->
-                        range(0, 10)
-                            .mapToObj(j -> PathFragment.create("dir-%d/file-%d".formatted(i, j))))
-                .collect(toImmutableSet()));
-    assertThat(
-            fooMetadata.getChildValues().values().stream()
-                .map(FileArtifactValue::getDigest)
-                .map(ByteString::copyFrom)
-                .distinct())
-        .containsExactly(
+    var expectedChildren = ImmutableMap.<String, ByteString>builder();
+    for (int i = 0; i < 10; i++) {
+      for (int j = 0; j < 10; j++) {
+        expectedChildren.put(
+            "dir-%d/file-%d".formatted(i, j),
             ByteString.copyFrom(
-                getDigestHashFunction().getHashFunction().hashString("foo", UTF_8).asBytes()));
+                getDigestHashFunction()
+                    .getHashFunction()
+                    .hashString("foo%d%d".formatted(i, j), UTF_8)
+                    .asBytes()));
+      }
+    }
+    assertThat(
+            fooMetadata.getChildValues().entrySet().stream()
+                .collect(
+                    toImmutableMap(
+                        e -> e.getKey().getParentRelativePath().getPathString(),
+                        e -> ByteString.copyFrom(e.getValue().getDigest()))))
+        .containsExactlyEntriesIn(expectedChildren.buildOrThrow());
   }
 }
