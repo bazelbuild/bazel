@@ -647,11 +647,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "link_type"),
         @Param(name = "linking_mode"),
         @Param(name = "is_native_deps"),
-        @Param(name = "need_whole_archive"),
         @Param(name = "solib_dir"),
         @Param(name = "toolchain_libraries_solib_dir"),
-        @Param(name = "allow_lto_indexing"),
-        @Param(name = "lto_mapping"),
         @Param(name = "workspace_name"),
       })
   public StructImpl collectLibrariesToLink(
@@ -663,11 +660,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       StructImpl linkType,
       String linkingMode,
       boolean isNativeDeps,
-      boolean needWholeArchive,
       String solibDir,
       String toolchainLibrariesSolibDir,
-      boolean allowLtoIndexing,
-      Dict<?, ?> ltoMapping,
       String workspaceName,
       StarlarkThread thread)
       throws EvalException {
@@ -680,11 +674,8 @@ public class CcStarlarkInternal implements StarlarkValue {
             LinkingMode.valueOf(Ascii.toUpperCase(linkingMode)),
             output,
             PathFragment.create(solibDir),
-            Dict.cast(ltoMapping, Artifact.class, Artifact.class, "lto_mapping"),
             featureConfiguration.getFeatureConfiguration(),
-            allowLtoIndexing,
             Sequence.cast(librariesToLink, LibraryToLink.class, "librariesToLink"),
-            needWholeArchive,
             workspaceName,
             dynamicLibrarySolibSymlinkOutput == Starlark.NONE
                 ? null
@@ -693,10 +684,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     return StructProvider.STRUCT.createStruct(
         Dict.immutableCopyOf(
             ImmutableMap.of(
-                "libraries_to_link",
-                    StarlarkList.immutableCopyOf(libs.getLibrariesToLinkValues().getValues()),
-                "expanded_linker_inputs",
-                    StarlarkList.immutableCopyOf(libs.getExpandedLinkerInputs().toList()),
                 "library_search_directories",
                     Depset.of(String.class, libs.getLibrarySearchDirectories()),
                 "all_runtime_library_search_directories",

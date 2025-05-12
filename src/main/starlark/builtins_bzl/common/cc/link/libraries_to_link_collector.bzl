@@ -13,7 +13,7 @@
 # limitations under the License.
 """Goes over LegacyLinkerInputs and produces LibraryToLinkValue-s."""
 
-load(":common/cc/cc_helper_internal.bzl", "artifact_category", "is_shared_library", "is_versioned_shared_library")
+load(":common/cc/cc_helper_internal.bzl", "artifact_category", "is_shared_library")
 load(":common/cc/link/target_types.bzl", "LINK_TARGET_TYPE", "is_dynamic_library")
 load(":common/paths.bzl", "paths")
 
@@ -39,11 +39,8 @@ def collect_libraries_to_link(
         link_type,
         linking_mode,
         is_native_deps,
-        need_whole_archive,
         solib_dir,
         toolchain_libraries_solib_dir,
-        allow_lto_indexing,
-        lto_mapping,
         workspace_name):
     """Goes over LegacyLinkerInputs and produces LibraryToLinkValue-s and rpaths.
 
@@ -95,11 +92,8 @@ def collect_libraries_to_link(
         link_type,
         linking_mode,
         is_native_deps,
-        need_whole_archive,
         solib_dir,
         toolchain_libraries_solib_dir,
-        allow_lto_indexing,
-        lto_mapping,
         workspace_name,
     )
 
@@ -114,11 +108,8 @@ def _collect_libraries_to_link(
         link_type,
         linking_mode,
         is_native_deps,
-        need_whole_archive,
         solib_dir,
         toolchain_libraries_solib_dir,
-        allow_lto_indexing,
-        lto_mapping,
         workspace_name):
     need_toolchain_libraries_rpath = (
         toolchain_libraries_solib_dir and
@@ -129,11 +120,6 @@ def _collect_libraries_to_link(
     # Collect LibrariesToLink
     library_search_directories = []
     rpath_roots_for_explicit_so_deps = {}
-    expanded_linker_inputs = []
-
-    # List of command line parameters that need to be placed *outside* of
-    # --whole-archive ... --no-whole-archive.
-    libraries_to_link = []
 
     # Calculate the correct relative value for the "-rpath" link option (which sets
     # the search path for finding shared libraries).
@@ -156,29 +142,19 @@ def _collect_libraries_to_link(
         potential_solib_parents = _find_potential_solib_parents(output, dynamic_library_solib_symlink_output, workspace_name)
         rpath_roots = [exec_root + solib_dir_path_string + "/" for exec_root in potential_solib_parents]
 
-    lto_map = dict(lto_mapping)  # We make a copy, to check all mapped files were used
-
     # include_solib_dir: bool, include_toolchain_libraries_solib_dir: bool
     # TODO(b/338618120): instead of returning include_solib_dir, and the paths inside _add_linker_inputs
     include_solib_dir, include_toolchain_libraries_solib_dir = _add_linker_inputs(
         linker_inputs,
         cc_toolchain,
         feature_configuration,
-        need_whole_archive,
         solib_dir,
         toolchain_libraries_solib_dir,
         rpath_roots,
-        allow_lto_indexing,
-        lto_map,
         # Outputs:
-        libraries_to_link,
-        expanded_linker_inputs,
         library_search_directories,
         rpath_roots_for_explicit_so_deps,
     )
-
-    if lto_map:
-        fail("Still have LTO objects left: %s" % lto_map)
 
     # Remove repetitions
     rpath_roots_for_explicit_so_deps = rpath_roots_for_explicit_so_deps.keys()
@@ -209,8 +185,6 @@ def _collect_libraries_to_link(
     )
 
     return struct(
-        libraries_to_link = libraries_to_link,
-        expanded_linker_inputs = expanded_linker_inputs,
         library_search_directories = depset(library_search_directories),
         all_runtime_library_search_directories = all_runtime_library_search_directories,
     )
@@ -219,15 +193,10 @@ def _add_linker_inputs(
         linker_inputs,
         cc_toolchain,
         feature_configuration,
-        need_whole_archive,
         solib_dir,
         toolchain_libraries_solib_dir,
         rpath_roots,
-        allow_lto_indexing,
-        lto_map,
         # Outputs:
-        libraries_to_link,
-        expanded_linker_inputs,
         library_search_directories,
         rpath_roots_for_explicit_so_deps):
     """
@@ -237,12 +206,9 @@ def _add_linker_inputs(
         linker_inputs: (list[LegacyLinkerInput]) Linker inputs
         cc_toolchain: cc_toolchain providing some extra information in the conversion.
         feature_configuration: Feature configuration to be queried.
-        need_whole_archive: (bool) Whether we need to use whole-archive for the link.
         solib_dir: (str) solib directory.
         toolchain_libraries_solib_dir: (str) Directory where toolchain stores language-runtime libraries (libstdc++, libc++ ...).
         rpath_roots: (list[str]) rpath roots (for example solib_dir)
-        allow_lto_indexing: bool) Is LTO indexing being done.
-        lto_map: (dict[File, File]) Map from bitcode files to object files. Used to replace all linker inputs.
         libraries_to_link: (list[LibraryToLinkValue]) Output collecting libraries to link.
         expanded_linker_inputs: (list[File]) Output collecting expanded linker inputs.
         library_search_directories: (list[str]) Output collecting library search directories.
@@ -254,10 +220,6 @@ def _add_linker_inputs(
 
     include_solib_dir, include_toolchain_libraries_solib_dir = False, False
     linked_libraries_paths = {}  # :dict[str, str]
-
-    # TODO(b/331164666): Remove CppHelper.getArchiveType
-    use_start_end_lib = (cc_toolchain._cpp_configuration.start_end_lib() and
-                         feature_configuration.is_enabled("supports_start_end_lib"))
 
     for input in linker_inputs:
         if (input.artifact_category in
@@ -294,22 +256,8 @@ def _add_linker_inputs(
                 toolchain_libraries_solib_dir,
                 rpath_roots,
                 # Outputs:
-                libraries_to_link,
-                expanded_linker_inputs,
                 library_search_directories,
                 rpath_roots_for_explicit_so_deps,
-            )
-        else:
-            _add_static_input_link_options(
-                input,
-                feature_configuration,
-                use_start_end_lib,
-                need_whole_archive,
-                lto_map,
-                allow_lto_indexing,
-                # Outputs:
-                libraries_to_link,
-                expanded_linker_inputs,
             )
 
     return include_solib_dir, include_toolchain_libraries_solib_dir
@@ -322,8 +270,6 @@ def _add_dynamic_input_link_options(
         rpath_roots,
 
         # Outputs:
-        libraries_to_link,
-        expanded_linker_inputs,
         library_search_directories,
         rpath_roots_for_explicit_so_deps):
     """Processes dynamic and interface libraries.
@@ -335,19 +281,12 @@ def _add_dynamic_input_link_options(
 
     Path to the library is added to `library_search_directories`.
 
-    One of three flavours of LibraryToLinkValue are appended to libraries_to_link:
-    - for_dynamic_library
-    - for_versioned_dynamic_library
-    - for_interface_library
-
     Args:
         input: (LegacyLinkerInput) Linker input
         feature_configuration: Feature configuration to be queried.
         solib_dir: (str) solib directory.
         toolchain_libraries_solib_dir: (list[str])
         rpath_roots: (list[str]) rpath roots (for example solib_dir)
-        libraries_to_link:  (list[LibraryToLinkValue]) Output collecting libraries to link.
-        expanded_linker_inputs:  (list[File]) Output collecting expanded linker inputs.
         library_search_directories: (list[str]) Output collecting library search directories.
         rpath_roots_for_explicit_so_deps: (list[str, None]) Output collecting rpaths.
 
@@ -357,8 +296,6 @@ def _add_dynamic_input_link_options(
     artifact_cat = input.artifact_category
     if artifact_cat not in [artifact_category.DYNAMIC_LIBRARY, artifact_category.INTERFACE_LIBRARY]:
         fail("Bad artifact category " + artifact_cat)
-
-    expanded_linker_inputs.append(input.file)
 
     if (feature_configuration.is_enabled("targets_windows") and
         feature_configuration.is_enabled("supports_interface_shared_libraries")):
@@ -397,164 +334,6 @@ def _add_dynamic_input_link_options(
                 rpath_roots_for_explicit_so_deps[rpath_root + artifact_path_under_solib] = None
 
     library_search_directories.append(lib_dir)
-
-    name = input_file.basename
-
-    # Use the normal shared library resolution rules if possible, otherwise treat as a versioned
-    # library that must use the exact name. e.g.:
-    # -lfoo -> libfoo.so
-    # -l:foo -> foo.so
-    # -l:libfoo.so.1 -> libfoo.so.1
-    has_compatible_name = (
-        name.startswith("lib") or
-        (not name.endswith(".so") and not name.endswith(".dylib") and not name.endswith(".dll"))
-    )
-    if is_shared_library(input_file) and has_compatible_name:
-        lib_name = name.removeprefix("lib").removesuffix(".so").removesuffix(".dylib").removesuffix(".dll")
-        libraries_to_link.append(cc_internal.for_dynamic_library(lib_name))
-    elif is_shared_library(input_file) or is_versioned_shared_library(input_file):
-        libraries_to_link.append(cc_internal.for_versioned_dynamic_library(name, input_file.path))
-    else:
-        # Interface shared objects have a non-standard extension
-        # that the linker won't be able to find.  So use the
-        # filename directly rather than a -l option.  Since the
-        #  library has an SONAME attribute, this will work fine.
-        libraries_to_link.append(cc_internal.for_interface_library(input_file.path))
-
-def _add_static_input_link_options(
-        input,
-        feature_configuration,
-        use_start_end_lib,
-        need_whole_archive,
-        lto_map,
-        allow_lto_indexing,
-        # Outputs:
-        libraries_to_link,
-        expanded_linker_inputs):
-    """Processes static libraries.
-
-    When start-end library is used, static libraries are unpacked into following
-    flavours of LibraryToLinkValues:
-    - for_object_file
-    - for_object_file_group
-
-    When start-end library isn't used, static libraries are converted to for_static_library
-    LibraryToLinkValue.
-
-    Either whole library or library's object files LegacyLinkerInputs are expanded
-    (added to expanded_linker_inputs).
-
-    Args:
-        input: (LegacyLinkerInput) Linker input
-        feature_configuration: Feature configuration to be queried.
-        use_start_end_lib: (bool) Whether to use start end lib.
-        need_whole_archive: (bool) Whether we need to use whole-archive for the link.
-        lto_map: (dict[File, File]) Map from bitcode files to object files. Used to replace all linker inputs.
-        allow_lto_indexing: bool) Is LTO indexing being done.
-        libraries_to_link:  (list[LibraryToLinkValue]) Output collecting libraries to link.
-        expanded_linker_inputs:  (list[File]) Output collecting expanded linker inputs.
-    """
-    artifact_cat = input.artifact_category
-    if artifact_cat not in [
-        artifact_category.STATIC_LIBRARY,
-        artifact_category.ALWAYSLINK_STATIC_LIBRARY,
-    ]:
-        fail("Bad artifact category " + artifact_cat)
-
-    # input.disable_whole_archive should only be true for libstdc++/libc++ etc.
-    input_is_whole_archive = not input.disable_whole_archive and (
-        artifact_cat == artifact_category.ALWAYSLINK_STATIC_LIBRARY or need_whole_archive
-    )
-
-    if feature_configuration.is_enabled("use_lto_native_object_directory"):
-        shared_non_lto_obj_root_prefix = "shared.nonlto-obj"
-    else:
-        shared_non_lto_obj_root_prefix = "shared.nonlto"
-
-    # If we had any LTO artifacts, lto_map whould be non-null. In that case,
-    # we should have created a thinlto_param_file which the LTO indexing
-    # step will populate with the exec paths that correspond to the LTO
-    # artifacts that the linker decided to include based on symbol resolution.
-    # Those files will be included directly in the link (and not wrapped
-    # in --start-lib/--end-lib) to ensure consistency between the two link
-    # steps.
-
-    # start-lib/end-lib library: adds its input object files.
-    # TODO(bazel-team): Figure out if PicArchives are actually used. For it to be used, both
-    # linkingStatically and linkShared must me true, we must be in opt mode and cpu has to be k8.
-    if (use_start_end_lib and
-        artifact_cat in [artifact_category.STATIC_LIBRARY, artifact_category.ALWAYSLINK_STATIC_LIBRARY] and
-        input.object_files != None):
-        archive_members = input.object_files
-        non_lto_archive_members = []
-        for archive_member in archive_members:
-            # When ltoMap is non-empty the backend artifact may be missing due to libraries that
-            # list .o files explicitly, or generate .o files from assembler.
-            member = lto_map.pop(archive_member, archive_member)
-
-            # Object files are always (LTO or no LTO) expanded (input to the action).
-            expanded_linker_inputs.append(member)
-
-            if (member != archive_member and
-                _handled_by_lto_indexing(member, allow_lto_indexing, shared_non_lto_obj_root_prefix)):
-                # The LTO artifacts that should be included in the final link
-                # are listed in the thinltoParamFile, generated by the LTO indexing.
-                continue
-
-            # No LTO indexing step, so use the LTO backend's generated artifact directly
-            # instead of the bitcode object.
-            non_lto_archive_members.append(member)
-
-        if input_is_whole_archive:
-            for member in non_lto_archive_members:
-                if member.is_directory:
-                    # TODO(b/78189629): This object filegroup is expanded at action time but wrapped
-                    # with --start/--end-lib. There's currently no way to force these objects to be
-                    # linked in.
-                    libraries_to_link.append(cc_internal.for_object_file_group([member], is_whole_archive = True))
-                else:
-                    # TODO(b/78189629): These each need to be their own LibraryToLinkValue so they're
-                    # not wrapped in --start/--end-lib (which lets the linker leave out objects with
-                    # unreferenced code).
-                    libraries_to_link.append(cc_internal.for_object_file(member.path, is_whole_archive = True))
-        elif non_lto_archive_members:
-            libraries_to_link.append(cc_internal.for_object_file_group(non_lto_archive_members, is_whole_archive = False))
-    else:
-        input_file = lto_map.pop(input.file, input.file)
-        if (input_file != input.file and
-            _handled_by_lto_indexing(input_file, allow_lto_indexing, shared_non_lto_obj_root_prefix)):
-            # The LTO artifacts that should be included in the final link
-            # are listed in the thinltoParamFile, generated by the LTO indexing.
-
-            # Even if this object file is being skipped for exposure as a build variable, it's
-            # still an input to this action.
-            # TODO(b/331164666): simplify like in then branch above - expand the original input,
-            #  instead creating a new one
-            expanded_linker_inputs.append(input_file)
-            return
-
-        # No LTO indexing step, so use the LTO backend's generated artifact directly
-        # instead of the bitcode object.
-        libraries_to_link.append(cc_internal.for_static_library(input_file.path, input_is_whole_archive))
-        expanded_linker_inputs.append(input.file)
-
-def _handled_by_lto_indexing(file, allow_lto_indexing, shared_non_lto_obj_root_prefix):
-    """Returns true if this artifact is produced from a bitcode file.
-
-    Returns true if this artifact is produced from a bitcode file that will be input to the LTO
-    indexing step, in which case that step will add it to the generated thinlto_param_file for
-    inclusion in the final link step if the linker decides to include it.
-
-    Args:
-      file: (File) an artifact produced by an LTO backend.
-      allow_lto_indexing: (bool)
-      shared_non_lto_obj_root_prefix: (str) the root prefix of where the shared non lto obj are stored
-    """
-
-    # If no LTO indexing is allowed for this link, then none are handled by LTO indexing.
-    # Otherwise, this may be from a linkstatic library that we decided not to include in
-    # LTO indexing because we are linking a test, to improve scalability when linking many tests.
-    return allow_lto_indexing and not file.short_path.startswith(shared_non_lto_obj_root_prefix)
 
 def _collect_toolchain_runtime_library_search_directories(
         cc_toolchain,
