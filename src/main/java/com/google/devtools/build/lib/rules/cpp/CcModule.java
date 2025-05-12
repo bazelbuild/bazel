@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationIn
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
+import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal.WrappedStarlarkActionFactory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
@@ -69,6 +70,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Expandable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
+import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.ExtraLinkTimeLibraryApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -897,27 +899,55 @@ public abstract class CcModule
   }
 
   /**
-   * Create an LTO backend that does not perform any cross-module optimization because Starlark does
-   * not have support for LTO indexing actions yet.
+   * Create an LTO backend, using the appropriate constructor depending on whether the associated
+   * ThinLTO link will utilize LTO indexing (therefore unique LTO backend actions), or not (and
+   * therefore the library being linked will create a set of shared LTO backends).
    *
    * <p>TODO(b/128341904): Do cross module optimization once there is Starlark support.
    */
   @Override
   public LtoBackendArtifacts createLtoBackendArtifacts(
-      StarlarkRuleContext starlarkRuleContext,
+      Object starlarkRuleContextObj,
+      Object actionsObj,
       String ltoOutputRootPrefixString,
       String ltoObjRootPrefixString,
       Artifact bitcodeFile,
+      Object allBitcodeFilesObj,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       Info ccToolchainInfo,
       StructImpl fdoContextStruct,
       boolean usePic,
       boolean shouldCreatePerObjectDebugInfo,
+      boolean createSharedNonLto,
       Sequence<?> argv,
       StarlarkThread thread)
       throws EvalException, InterruptedException, RuleErrorException {
     isCalledFromStarlarkCcCommon(thread);
-    RuleContext ruleContext = starlarkRuleContext.getRuleContext();
+    LinkActionConstruction actionConstruction;
+    // TODO(b/331164666): remove uses of `ctx`, cleanup uses of newActionConstruction
+    if (actionsObj instanceof StarlarkActionFactory actions) {
+      if (actions instanceof WrappedStarlarkActionFactory wrapped) {
+        actionConstruction = wrapped.construction;
+      } else {
+        actionConstruction = CppLinkActionBuilder.newActionConstruction(actions.getRuleContext());
+      }
+    } else if (starlarkRuleContextObj instanceof StarlarkRuleContext starlarkRuleContext) {
+      actionConstruction =
+          CppLinkActionBuilder.newActionConstruction(starlarkRuleContext.getRuleContext());
+    } else {
+      throw Starlark.errorf("'actions' parameter is mandatory ('ctx' deprecated).");
+    }
+    // Depending on whether LTO indexing is allowed, generate an LTO backend
+    // that will be fed the results of the indexing step, or a dummy LTO backend
+    // that simply compiles the bitcode into native code without any index-based
+    // cross module optimization.
+    if (createSharedNonLto) {
+      actionConstruction =
+          new LinkActionConstruction(
+              actionConstruction.getContext(),
+              actionConstruction.getConfig(),
+              /* shareableArtifacts= */ true);
+    }
     PathFragment ltoOutputRootPrefix = PathFragment.create(ltoOutputRootPrefixString);
     PathFragment ltoObjRootPrefix = PathFragment.create(ltoObjRootPrefixString);
     CcToolchainProvider ccToolchain =
@@ -928,8 +958,10 @@ public abstract class CcModule
             ltoOutputRootPrefix,
             ltoObjRootPrefix,
             bitcodeFile,
-            /* allBitcodeFiles= */ null,
-            CppLinkActionBuilder.newActionConstruction(ruleContext),
+            allBitcodeFilesObj == Starlark.NONE
+                ? null
+                : Depset.noneableCast(allBitcodeFilesObj, Artifact.class, "all_bitcode_files"),
+            actionConstruction,
             featureConfigurationForStarlark.getFeatureConfiguration(),
             ccToolchain,
             new FdoContext(fdoContextStruct),

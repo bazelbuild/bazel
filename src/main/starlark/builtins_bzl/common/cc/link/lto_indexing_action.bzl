@@ -16,6 +16,7 @@
 load(":common/cc/link/finalize_link_action.bzl", "finalize_link_action")
 load(":common/cc/link/libraries_to_link_collector.bzl", "LINKING_MODE")
 load(":common/cc/link/link_build_variables.bzl", "setup_lto_indexing_variables")
+load(":common/cc/link/lto_backends.bzl", "create_lto_backends")
 load(":common/cc/link/target_types.bzl", "LINK_TARGET_TYPE", "is_dynamic_library")
 
 cc_internal = _builtins.internal.cc_internal
@@ -94,7 +95,7 @@ def create_lto_artifacts_and_lto_indexing_action(
         lto_obj_root_prefix = lto_output_root_prefix + "-obj"
     object_file_inputs = compilation_outputs.pic_objects if use_pic else compilation_outputs.objects
 
-    all_lto_artifacts = cc_internal.create_lto_artifacts(
+    all_lto_artifacts = create_lto_backends(
         actions,
         lto_compilation_context,
         feature_configuration,

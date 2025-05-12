@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
@@ -761,53 +762,6 @@ public class CcStarlarkInternal implements StarlarkValue {
 
   // TODO(b/331164666): rewrite to Stalark using cc_common.create_lto_artifact
   @StarlarkMethod(
-      name = "create_lto_artifacts",
-      documented = false,
-      parameters = {
-        @Param(name = "actions"),
-        @Param(name = "lto_compilation_context"),
-        @Param(name = "feature_configuration"),
-        @Param(name = "cc_toolchain"),
-        @Param(name = "use_pic"),
-        @Param(name = "object_files"),
-        @Param(name = "lto_output_root_prefix"),
-        @Param(name = "lto_obj_root_prefix"),
-        @Param(name = "static_libraries_to_link"),
-        @Param(name = "allow_lto_indexing"),
-        @Param(name = "include_link_static_in_lto_indexing"),
-        @Param(name = "prefer_pic_libs"),
-      })
-  public Iterable<LtoBackendArtifacts> createLtoArtifacts(
-      WrappedStarlarkActionFactory actions,
-      LtoCompilationContext ltoCompilationContext,
-      FeatureConfigurationForStarlark featureConfiguration,
-      StarlarkInfo toolchain,
-      boolean usePicForLtoBackendActions,
-      Sequence<?> objectFiles,
-      String ltoOutputRootPrefix,
-      String ltoObjRootPrefix,
-      Sequence<?> staticLibrariesToLink,
-      boolean allowLtoIndexing,
-      boolean includeLinkStaticInLtoIndexing,
-      boolean preferPicLibs)
-      throws EvalException {
-    return CppLinkActionBuilder.createLtoArtifacts(
-        actions.construction,
-        ltoCompilationContext,
-        featureConfiguration.getFeatureConfiguration(),
-        CcToolchainProvider.create(toolchain),
-        usePicForLtoBackendActions,
-        Sequence.cast(objectFiles, Artifact.class, "object_files").getImmutableList(),
-        PathFragment.create(ltoOutputRootPrefix),
-        PathFragment.create(ltoObjRootPrefix),
-        Sequence.cast(staticLibrariesToLink, LibraryToLink.class, "static_libraries_to_link"),
-        allowLtoIndexing,
-        includeLinkStaticInLtoIndexing,
-        preferPicLibs);
-  }
-
-  // TODO(b/331164666): rewrite to Stalark using cc_common.create_lto_artifact
-  @StarlarkMethod(
       name = "create_shared_non_lto_artifacts",
       documented = false,
       parameters = {
@@ -843,8 +797,8 @@ public class CcStarlarkInternal implements StarlarkValue {
     return CcCompilationOutputs.EMPTY;
   }
 
-  private static class WrappedStarlarkActionFactory extends StarlarkActionFactory {
-    private final LinkActionConstruction construction;
+  static class WrappedStarlarkActionFactory extends StarlarkActionFactory {
+    final LinkActionConstruction construction;
 
     public WrappedStarlarkActionFactory(
         StarlarkActionFactory parent, LinkActionConstruction construction) {
@@ -902,5 +856,18 @@ public class CcStarlarkInternal implements StarlarkValue {
         .getRuleContext()
         .getRule()
         .getTargetKind();
+  }
+
+  @StarlarkMethod(
+      name = "collect_per_file_lto_backend_opts",
+      documented = false,
+      parameters = {@Param(name = "cpp_config"), @Param(name = "obj")})
+  public ImmutableList<String> collectPerFileLtoBackendOpts(
+      CppConfiguration cppConfiguration, Artifact objectFile) {
+    return cppConfiguration.getPerFileLtoBackendOpts().stream()
+        .filter(perLabelOptions -> perLabelOptions.isIncluded(objectFile))
+        .map(PerLabelOptions::getOptions)
+        .flatMap(options -> options.stream())
+        .collect(toImmutableList());
   }
 }
