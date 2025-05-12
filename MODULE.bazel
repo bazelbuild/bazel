@@ -33,7 +33,11 @@ bazel_dep(name = "rules_testing", version = "0.6.0")
 bazel_dep(name = "googletest", version = "1.15.2", repo_name = "com_google_googletest")
 bazel_dep(name = "with_cfg.bzl", version = "0.6.0")
 bazel_dep(name = "abseil-cpp", version = "20240722.0.bcr.2")
-bazel_dep(name = "rules_shell", version = "0.2.0")
+bazel_dep(name = "rules_shell", version = "0.3.0")
+
+# Keep in sync with MODULE.tools so that the correct version is available during
+# bootstrap.
+bazel_dep(name = "buildozer", version = "8.2.0.bcr.1")
 
 # Depend on apple_support first and then rules_cc so that the Xcode toolchain
 # from apple_support wins over the generic Unix toolchain from rules_cc.
