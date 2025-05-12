@@ -96,6 +96,7 @@ import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.FileSystemLock;
+import com.google.devtools.build.lib.util.FileSystemLock.LockMode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -1349,8 +1350,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       // base is still in use. It goes away when the server process dies.
       try {
         installBaseLock =
-            FileSystemLock.getShared(
-                nativeFs.getPath(installBase.replaceName(installBase.getBaseName() + ".lock")));
+            FileSystemLock.tryGet(
+                nativeFs.getPath(installBase.replaceName(installBase.getBaseName() + ".lock")),
+                LockMode.SHARED);
       } catch (IOException e) {
         throw createFilesystemExitException(
             "Failed to acquire shared lock on install base: " + e.getMessage(),
