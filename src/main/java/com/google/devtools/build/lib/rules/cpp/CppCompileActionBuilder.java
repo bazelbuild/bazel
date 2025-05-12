@@ -53,6 +53,9 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   private Artifact sourceFile;
   private final NestedSetBuilder<Artifact> mandatoryInputsBuilder;
   private Artifact outputFile;
+  private Artifact modmapFile;
+  private Artifact modmapInputFile;
+  private NestedSet<Artifact.DerivedArtifact> moduleFiles;
   private Artifact dwoFile;
   private Artifact ltoIndexingFile;
   private Artifact dotdFile;
@@ -131,6 +134,9 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.ccToolchain = other.ccToolchain;
     this.actionName = other.actionName;
     this.additionalOutputs = other.additionalOutputs;
+    this.moduleFiles = other.moduleFiles;
+    this.modmapFile = other.modmapFile;
+    this.modmapInputFile = other.modmapInputFile;
   }
 
   public CppCompileActionBuilder setSourceFile(Artifact sourceFile) {
@@ -318,7 +324,9 @@ public final class CppCompileActionBuilder implements StarlarkValue {
         cppSemantics,
         getBuiltinIncludeDirectories(),
         ccToolchain.getGrepIncludes(),
-        additionalOutputs);
+        additionalOutputs,
+        moduleFiles,
+        modmapInputFile);
   }
 
   private ImmutableList<Artifact> getBuiltinIncludeFiles() throws EvalException {
@@ -356,6 +364,19 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     if (!shouldScanIncludes && dotdFile == null && !shouldParseShowIncludes()) {
       realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
       realMandatoryInputsBuilder.addTransitive(additionalPrunableHeaders);
+    }
+    if (CppActionNames.CPP_MODULE_DEPS_SCANNING.equals(actionName)) {
+      // scan deps, do nothing
+    }
+    else if (CppCompileAction.isCpp20ModuleCompilationAction(actionName)
+            || CppFileTypes.CPP_SOURCE.matches(sourceFile.getExecPath())) {
+      // C++20 module compile and codegen
+      // or C++ source compile
+      if (featureConfiguration.isEnabled(CppRuleClasses.CPP_MODULES)) {
+        Preconditions.checkNotNull(modmapFile);
+        Preconditions.checkNotNull(modmapInputFile);
+        realMandatoryInputsBuilder.add(modmapFile).add(modmapInputFile);
+      }
     }
     return realMandatoryInputsBuilder.build();
   }
@@ -619,6 +640,23 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     return this;
   }
 
+    @CanIgnoreReturnValue
+    public CppCompileActionBuilder setModmapFile(Artifact modmapFile) {
+        this.modmapFile = modmapFile;
+        return this;
+    }
+
+    @CanIgnoreReturnValue
+    public CppCompileActionBuilder setModmapInputFile(Artifact modmapInputFile) {
+        this.modmapInputFile = modmapInputFile;
+        return this;
+    }
+
+    @CanIgnoreReturnValue
+    public CppCompileActionBuilder setModuleFiles(NestedSet<Artifact.DerivedArtifact> moduleFiles) {
+        this.moduleFiles = moduleFiles;
+        return this;
+    }
   ImmutableList<PathFragment> getBuiltinIncludeDirectories() throws EvalException {
     return ccToolchain.getBuiltInIncludeDirectories();
   }
