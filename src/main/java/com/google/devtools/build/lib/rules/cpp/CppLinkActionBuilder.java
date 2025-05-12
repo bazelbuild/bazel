@@ -27,7 +27,9 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -129,7 +131,7 @@ public class CppLinkActionBuilder {
       CcToolchainProvider toolchain,
       boolean usePicForLtoBackendActions,
       Artifact bitcodeFile,
-      @Nullable BitcodeFiles allBitcode,
+      @Nullable NestedSet<Artifact> allBitcode,
       PathFragment ltoOutputRootPrefix,
       PathFragment ltoObjRootPrefix,
       boolean createSharedNonLto,
@@ -147,7 +149,7 @@ public class CppLinkActionBuilder {
               linkActionConstruction.getConfig(),
               /* shareableArtifacts= */ true);
     }
-    BitcodeFiles bitcodeFiles = createSharedNonLto ? null : allBitcode;
+    NestedSet<Artifact> bitcodeFiles = createSharedNonLto ? null : allBitcode;
     return new LtoBackendArtifacts(
         ltoOutputRootPrefix,
         ltoObjRootPrefix,
@@ -213,9 +215,7 @@ public class CppLinkActionBuilder {
       }
     }
 
-    // Make this a NestedSet to return from LtoBackendAction.getAllowedDerivedInputs. For M binaries
-    // and N .o files, this is O(M*N). If we had nested sets of bitcode files, it would be O(M + N).
-    NestedSetBuilder<Artifact> allBitcode = NestedSetBuilder.stableOrder();
+    ImmutableList.Builder<Artifact> allBitcodeBuilder = ImmutableList.builder();
     // Since this link includes object files from another library, we know that library must be
     // statically linked, so we need to look at includeLinkStaticInLtoIndexing to decide whether
     // to include its objects in the LTO indexing for this target.
@@ -229,22 +229,26 @@ public class CppLinkActionBuilder {
         }
         for (Artifact objectFile : libObjectFiles) {
           if (compiled.contains(objectFile)) {
-            allBitcode.add(objectFile);
+            allBitcodeBuilder.add(objectFile);
           }
         }
       }
     }
     for (Artifact input : objectFiles) {
       if (ltoCompilationContext.containsBitcodeFile(input)) {
-        allBitcode.add(input);
+        allBitcodeBuilder.add(input);
       }
     }
-    BitcodeFiles bitcodeFiles = new BitcodeFiles(allBitcode.build());
-    if (bitcodeFiles.getFiles().toList().stream().anyMatch(Artifact::isTreeArtifact)
+    ImmutableList<Artifact> allBitcode = allBitcodeBuilder.build();
+    if (allBitcode.stream().anyMatch(Artifact::isTreeArtifact)
         && ltoOutputRootPrefix.equals(ltoObjRootPrefix)) {
       throw Starlark.errorf(
           "Thinlto with tree artifacts requires feature use_lto_native_object_directory.");
     }
+
+    // Make this a NestedSet to return from LtoBackendAction.getAllowedDerivedInputs. For M binaries
+    // and N .o files, this is O(M*N). If we had nested sets of bitcode files, it would be O(M + N).
+    NestedSet<Artifact> bitcodeFiles = NestedSetBuilder.wrap(Order.STABLE_ORDER, allBitcode);
     ImmutableList.Builder<LtoBackendArtifacts> ltoOutputs = ImmutableList.builder();
     for (LibraryToLink lib : staticLibrariesToLink) {
       boolean pic = lib.getEffectivePic(preferPicLibs);
@@ -306,7 +310,7 @@ public class CppLinkActionBuilder {
                 toolchain,
                 usePicForLtoBackendActions,
                 input,
-                bitcodeFiles,
+                !allowLtoIndexing ? null : bitcodeFiles,
                 ltoOutputRootPrefix,
                 ltoObjRootPrefix,
                 !allowLtoIndexing,
