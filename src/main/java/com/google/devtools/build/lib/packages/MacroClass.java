@@ -450,7 +450,7 @@ public final class MacroClass {
         }
         kwargs.put(attr.getName(), attrValue);
       }
-      try {
+      try (var updater = targetDefinitionContext.updateStartedThreadComputationSteps(thread)) {
         Object returnValue =
             Starlark.call(
                 thread,

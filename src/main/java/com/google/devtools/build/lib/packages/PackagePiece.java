@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageLimits;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.Package.Declarations;
@@ -216,7 +217,8 @@ public abstract sealed class PackagePiece extends Packageoid
         @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
         @Nullable Globber globber,
         boolean enableNameConflictChecking,
-        boolean trackFullMacroInformation) {
+        boolean trackFullMacroInformation,
+        PackageLimits packageLimits) {
       Metadata metadata =
           Metadata.builder()
               .packageIdentifier(identifier.getPackageIdentifier())
@@ -241,7 +243,8 @@ public abstract sealed class PackagePiece extends Packageoid
           generatorMap,
           globber,
           enableNameConflictChecking,
-          trackFullMacroInformation);
+          trackFullMacroInformation,
+          packageLimits);
     }
 
     /** A builder for {@link PackagePiece.ForBuildFile} objects. */
@@ -270,11 +273,6 @@ public abstract sealed class PackagePiece extends Packageoid
       }
 
       @Override
-      void setComputationSteps(long n) {
-        ((PackagePiece) pkg).computationSteps = n;
-      }
-
-      @Override
       @CanIgnoreReturnValue
       public Builder buildPartial() throws NoSuchPackageException {
         return (Builder) super.buildPartial();
@@ -290,6 +288,12 @@ public abstract sealed class PackagePiece extends Packageoid
         return (ForBuildFile) super.finishBuild();
       }
 
+      @Override
+      protected void packageoidInitializationHook() {
+        super.packageoidInitializationHook();
+        getPackagePiece().computationSteps = getComputationSteps();
+      }
+
       private Builder(
           ForBuildFile forBuildFile,
           boolean precomputeTransitiveLoads,
@@ -302,7 +306,8 @@ public abstract sealed class PackagePiece extends Packageoid
           @Nullable ImmutableMap<Location, String> generatorMap,
           @Nullable Globber globber,
           boolean enableNameConflictChecking,
-          boolean trackFullMacroInformation) {
+          boolean trackFullMacroInformation,
+          PackageLimits packageLimits) {
         super(
             forBuildFile.getMetadata(),
             forBuildFile,
@@ -318,7 +323,8 @@ public abstract sealed class PackagePiece extends Packageoid
             globber,
             enableNameConflictChecking,
             trackFullMacroInformation,
-            /* enableTargetMapSnapshotting= */ false);
+            /* enableTargetMapSnapshotting= */ false,
+            packageLimits);
       }
     }
   }
@@ -409,7 +415,8 @@ public abstract sealed class PackagePiece extends Packageoid
         PackageOverheadEstimator packageOverheadEstimator,
         @Nullable ImmutableMap<Location, String> generatorMap,
         boolean enableNameConflictChecking,
-        boolean trackFullMacroInformation) {
+        boolean trackFullMacroInformation,
+        PackageLimits packageLimits) {
       ForMacro forMacro = new ForMacro(evaluatedMacro, pieceForBuildFile);
       return new Builder(
           forMacro,
@@ -419,7 +426,8 @@ public abstract sealed class PackagePiece extends Packageoid
           packageOverheadEstimator,
           generatorMap,
           enableNameConflictChecking,
-          trackFullMacroInformation);
+          trackFullMacroInformation,
+          packageLimits);
     }
 
     /** A builder for {@link PackagePieceForMacro} objects. */
@@ -442,11 +450,6 @@ public abstract sealed class PackagePiece extends Packageoid
       }
 
       @Override
-      void setComputationSteps(long n) {
-        ((PackagePiece) pkg).computationSteps = n;
-      }
-
-      @Override
       @CanIgnoreReturnValue
       public Builder buildPartial() throws NoSuchPackageException {
         return (Builder) super.buildPartial();
@@ -459,6 +462,7 @@ public abstract sealed class PackagePiece extends Packageoid
 
       @Override
       protected void packageoidInitializationHook() {
+        getPackagePiece().computationSteps = getComputationSteps();
         getPackagePiece().macroNamespaceViolations =
             ImmutableSet.copyOf(recorder.getMacroNamespaceViolatingTargets().keySet());
       }
@@ -471,7 +475,8 @@ public abstract sealed class PackagePiece extends Packageoid
           PackageOverheadEstimator packageOverheadEstimator,
           @Nullable ImmutableMap<Location, String> generatorMap,
           boolean enableNameConflictChecking,
-          boolean trackFullMacroInformation) {
+          boolean trackFullMacroInformation,
+          PackageLimits packageLimits) {
         super(
             forMacro.getMetadata(),
             forMacro,
@@ -485,7 +490,8 @@ public abstract sealed class PackagePiece extends Packageoid
             /* globber= */ null,
             enableNameConflictChecking,
             trackFullMacroInformation,
-            /* enableTargetMapSnapshotting= */ false);
+            /* enableTargetMapSnapshotting= */ false,
+            packageLimits);
       }
     }
   }

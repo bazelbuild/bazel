@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageLimits;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViolationException;
 import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
@@ -709,7 +710,8 @@ public class Package extends Packageoid {
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
       @Nullable Globber globber,
       boolean enableNameConflictChecking,
-      boolean trackFullMacroInformation) {
+      boolean trackFullMacroInformation,
+      PackageLimits packageLimits) {
     // Determine whether this is for a repo rule package. We shouldn't actually have to do this
     // because newPackageBuilder() is supposed to only be called for normal packages. Unfortunately
     // serialization still uses the same code path for deserializing BUILD and WORKSPACE files,
@@ -742,7 +744,8 @@ public class Package extends Packageoid {
         generatorMap,
         globber,
         enableNameConflictChecking,
-        trackFullMacroInformation);
+        trackFullMacroInformation,
+        packageLimits);
   }
 
   public static Builder newExternalPackageBuilder(
@@ -752,7 +755,8 @@ public class Package extends Packageoid {
       RepositoryMapping mainRepoMapping,
       boolean noImplicitFileExport,
       boolean simplifyUnconditionalSelectsInRuleAttrs,
-      PackageOverheadEstimator packageOverheadEstimator) {
+      PackageOverheadEstimator packageOverheadEstimator,
+      PackageLimits packageLimits) {
     return new Builder(
         Metadata.builder()
             .packageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
@@ -774,7 +778,8 @@ public class Package extends Packageoid {
         /* generatorMap= */ null,
         /* globber= */ null,
         /* enableNameConflictChecking= */ true,
-        /* trackFullMacroInformation= */ true);
+        /* trackFullMacroInformation= */ true,
+        packageLimits);
   }
 
   // Bzlmod creates one fake package per external repository. The repos created by a given
@@ -814,7 +819,8 @@ public class Package extends Packageoid {
             /* generatorMap= */ null,
             /* globber= */ null,
             /* enableNameConflictChecking= */ true,
-            /* trackFullMacroInformation= */ true)
+            /* trackFullMacroInformation= */ true,
+            PackageLimits.DEFAULTS)
         .setLoads(ImmutableList.of());
   }
 
@@ -1168,7 +1174,8 @@ public class Package extends Packageoid {
         @Nullable Globber globber,
         boolean enableNameConflictChecking,
         boolean trackFullMacroInformation,
-        boolean enableTargetMapSnapshotting) {
+        boolean enableTargetMapSnapshotting,
+        PackageLimits packageLimits) {
       super(
           metadata,
           pkg,
@@ -1182,7 +1189,8 @@ public class Package extends Packageoid {
           globber,
           enableNameConflictChecking,
           trackFullMacroInformation,
-          enableTargetMapSnapshotting);
+          enableTargetMapSnapshotting,
+          packageLimits);
       this.precomputeTransitiveLoads = precomputeTransitiveLoads;
       this.noImplicitFileExport = noImplicitFileExport;
       if (metadata.getName().startsWith("javatests/")) {
@@ -1241,6 +1249,37 @@ public class Package extends Packageoid {
       PackageSettings DEFAULTS = new PackageSettings() {};
     }
 
+    /** A bundle of options affecting resource limits on package construction. */
+    public interface PackageLimits {
+      /**
+       * The maximum number of Starlark computation steps that are allowed to be executed while
+       * building a package (or, transitively, any package piece). If this limit is exceeded, the
+       * package or package piece immediately stops building.
+       *
+       * <p>Confusingly, for historical Google-specific reasons, this limit is <em>not</em> the same
+       * as {@code --max_computation_steps}.
+       *
+       * <ul>
+       *   <li>This limit (maxStarlarkComputationStepsPerPackage) is only set by Google-specific
+       *       logic, is currently not used in open-source Bazel, and exceeding the limit causes the
+       *       package builder to immediately stop and print a stack trace. The intent is to harden
+       *       infrastructure against runaway Starlark computations.
+       *   <li>By contrast, {@code --max_computation_steps} is enforced by {@link PackageFactory}
+       *       post-factum, after the package has been built. The intent is to enforce code health
+       *       by limiting the complexity of packages in a repo.
+       * </ul>
+       *
+       * <p>If lazy symbolic macro expansion is enabled, unless a complete {@link Package} is
+       * loaded, the limit is enforced only per package piece.
+       */
+      // TODO(b/417468797): merge with --max_computation_steps enforcement.
+      default long maxStarlarkComputationStepsPerPackage() {
+        return Long.MAX_VALUE;
+      }
+
+      public static final PackageLimits DEFAULTS = new PackageLimits() {};
+    }
+
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
     private final HashMap<RepositoryName, LinkedHashMap<String, RepositoryName>>
@@ -1291,7 +1330,8 @@ public class Package extends Packageoid {
         @Nullable ImmutableMap<Location, String> generatorMap,
         @Nullable Globber globber,
         boolean enableNameConflictChecking,
-        boolean trackFullMacroInformation) {
+        boolean trackFullMacroInformation,
+        PackageLimits packageLimits) {
       super(
           metadata,
           new Package(metadata),
@@ -1307,7 +1347,8 @@ public class Package extends Packageoid {
           globber,
           enableNameConflictChecking,
           trackFullMacroInformation,
-          /* enableTargetMapSnapshotting= */ true);
+          /* enableTargetMapSnapshotting= */ true,
+          packageLimits);
     }
 
     /** Retrieves this object from a Starlark thread. Returns null if not present. */
@@ -1410,12 +1451,6 @@ public class Package extends Packageoid {
       } else {
         return RepositoryMapping.createAllowingFallback(ImmutableMap.copyOf(mapping));
       }
-    }
-
-    /** Sets the number of Starlark computation steps executed by this BUILD file. */
-    @Override
-    void setComputationSteps(long n) {
-      getPackage().computationSteps = n;
     }
 
     void replaceTarget(Target newTarget) {
@@ -1599,6 +1634,7 @@ public class Package extends Packageoid {
     protected void packageoidInitializationHook() {
       super.packageoidInitializationHook();
       Package pkg = getPackage();
+      pkg.computationSteps = getComputationSteps();
       pkg.macroNamespaceViolatingTargets =
           ImmutableMap.copyOf(recorder.getMacroNamespaceViolatingTargets());
       pkg.targetsToDeclaringMacro =

@@ -190,12 +190,13 @@ public class PackageTest {
         /* configSettingVisibilityPolicy= */ null,
         /* globber= */ null,
         /* enableNameConflictChecking= */ true,
-        /* trackFullMacroInformation= */ false);
+        /* trackFullMacroInformation= */ false,
+        Package.Builder.PackageLimits.DEFAULTS);
   }
 
   private static Rule addRule(Package.Builder pkgBuilder, Label label, RuleClass ruleClass)
       throws Exception {
-    Rule rule = pkgBuilder.createRule(label, ruleClass, /* callstack= */ ImmutableList.of());
+    Rule rule = pkgBuilder.createRule(label, ruleClass, /* threadCallStack= */ ImmutableList.of());
     rule.populateOutputFiles(new StoredEventHandler(), pkgBuilder.getPackageIdentifier());
     pkgBuilder.addRule(rule);
     return rule;

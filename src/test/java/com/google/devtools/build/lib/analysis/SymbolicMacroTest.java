@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
@@ -2195,6 +2196,38 @@ my_macro = macro(
                         "_inner_impl",
                         Location.fromFileLineColumn("/workspace/pkg/inner.bzl", 2, 21)))
                 .build());
+  }
+
+  @Test
+  public void maxComputationSteps_enforcedInMacros() throws Exception {
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _impl(name, visibility):
+            # exceed max_computation_steps
+            for i in range(1000):
+                pass
+            native.cc_library(name = name, visibility = visibility)
+
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        """);
+    setBuildLanguageOptions("--max_computation_steps=100"); // sufficient for BUILD but not my_macro
+    reporter.removeHandler(failFastHandler);
+    NoSuchPackageException exception =
+        assertThrows(
+            NoSuchPackageException.class,
+            () ->
+                getPackageManager()
+                    .getPackage(reporter, PackageIdentifier.createInMainRepo("pkg")));
+    assertThat(exception)
+        .hasMessageThat()
+        .containsMatch("computation took 1\\d{3} steps, but --max_computation_steps=100");
   }
 
   @Test

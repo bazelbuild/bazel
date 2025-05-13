@@ -82,12 +82,29 @@ public final class StarlarkThread {
   }
 
   /**
+   * Increments the thread's number of executed Starlark computation steps by a specified delta.
+   * Intended to be used by callers that perform custom off-thread computation and that want to
+   * limit the sum of in-thread and off-thread computation steps to a common {@link
+   * #getMaxExecutionSteps} budget.
+   */
+  public void incrementExecutedSteps(long delta) {
+    this.steps += delta;
+  }
+
+  /**
    * Sets the maximum number of Starlark computation steps that may be executed by this thread (see
    * {@link #getExecutedSteps}). When the step counter reaches or exceeds this value, execution
    * fails with an EvalException.
    */
   public void setMaxExecutionSteps(long steps) {
     this.stepLimit = steps;
+  }
+
+  /**
+   * Returns the maximum number of Starlark computation steps that may be executed by this thread.
+   */
+  public long getMaxExecutionSteps() {
+    return stepLimit;
   }
 
   /**

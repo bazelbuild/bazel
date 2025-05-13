@@ -249,7 +249,8 @@ def fail_impl(name, visibility, **kwargs):
             /* configSettingVisibilityPolicy= */ null,
             /* globber= */ null,
             /* enableNameConflictChecking= */ true,
-            /* trackFullMacroInformation= */ false)
+            /* trackFullMacroInformation= */ false,
+            Package.Builder.PackageLimits.DEFAULTS)
         .setLoads(ImmutableList.of());
   }
 
@@ -266,7 +267,8 @@ def fail_impl(name, visibility, **kwargs):
         PackageOverheadEstimator.NOOP_ESTIMATOR,
         /* generatorMap= */ null,
         /* enableNameConflictChecking= */ true,
-        /* trackFullMacroInformation= */ false);
+        /* trackFullMacroInformation= */ false,
+        Package.Builder.PackageLimits.DEFAULTS);
   }
 
   @CanIgnoreReturnValue

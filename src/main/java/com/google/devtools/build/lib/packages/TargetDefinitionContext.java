@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageLimits;
 import com.google.devtools.build.lib.packages.Package.Metadata;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroFrame;
 import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
@@ -141,6 +142,8 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
 
   private final ImmutableMap<Location, String> generatorMap;
 
+  private final PackageLimits packageLimits;
+
   protected final TestSuiteImplicitTestsAccumulator testSuiteImplicitTestsAccumulator =
       new TestSuiteImplicitTestsAccumulator();
 
@@ -157,6 +160,8 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   @Nullable private FailureDetail failureDetailOverride = null;
 
   protected boolean alreadyBuilt = false;
+
+  private long computationSteps = 0;
 
   /** Retrieves this object from a Starlark thread. Returns null if not present. */
   @Nullable
@@ -272,6 +277,103 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
         what, participle, StringUtil.joinEnglishList(allowedUses));
   }
 
+  /**
+   * Returns an auto-closeable resource to synchronize the computation step count between this
+   * context and its thread which has started execution.
+   */
+  public StartedThreadComputationStepUpdater updateStartedThreadComputationSteps(
+      StarlarkThread thread) {
+    return new StartedThreadComputationStepUpdater(this, thread);
+  }
+
+  /**
+   * Returns an auto-closeable resource to synchronize the computation step count between this
+   * context and its thread whose execution is being paused, e.g. before pushing a new macro frame.
+   */
+  public PausedThreadComputationStepUpdater updatePausedThreadComputationSteps(
+      StarlarkThread thread) {
+    return new PausedThreadComputationStepUpdater(this, thread);
+  }
+
+  /**
+   * An auto-closeable resource to synchronize the computation step count between a {@link
+   * TargetDefinitionContext} and its thread which has started execution.
+   */
+  public static final class StartedThreadComputationStepUpdater implements AutoCloseable {
+    private final TargetDefinitionContext context;
+    private final StarlarkThread thread;
+    private boolean closed = false;
+
+    public StartedThreadComputationStepUpdater(
+        TargetDefinitionContext context, StarlarkThread thread) {
+      this.context = context;
+      this.thread = thread;
+      // Initialize the thread's computation step count to the context's total computation step
+      // count.
+      thread.incrementExecutedSteps(context.computationSteps);
+      long threadMaxExecutionSteps = context.packageLimits.maxStarlarkComputationStepsPerPackage();
+      if (threadMaxExecutionSteps < Long.MAX_VALUE) {
+        // StarlarkThread.setMaxExecutionSteps(limit) throws if we hit limit, but we want to allow
+        // hitting the limit (but not going over).
+        threadMaxExecutionSteps++;
+      }
+      thread.setMaxExecutionSteps(threadMaxExecutionSteps);
+    }
+
+    @Override
+    public void close() {
+      if (!closed) {
+        context.setComputationSteps(thread.getExecutedSteps());
+      }
+      closed = true;
+    }
+  }
+
+  /**
+   * An auto-closeable resource to synchronize the computation step count between a {@link
+   * TargetDefinitionContext} and its thread whose execution is being paused.
+   */
+  public static final class PausedThreadComputationStepUpdater implements AutoCloseable {
+    private final TargetDefinitionContext context;
+    private final StarlarkThread thread;
+    private boolean closed = false;
+
+    public PausedThreadComputationStepUpdater(
+        TargetDefinitionContext context, StarlarkThread thread) {
+      this.context = context;
+      this.thread = thread;
+      context.setComputationSteps(thread.getExecutedSteps());
+    }
+
+    @Override
+    public void close() {
+      if (!closed) {
+        checkState(
+            thread.getExecutedSteps() <= context.computationSteps,
+            "previously paused thread computation steps = %s cannot be greater than currently"
+                + " recorded computation steps = %s",
+            thread.getExecutedSteps(),
+            context.computationSteps);
+        thread.incrementExecutedSteps(context.computationSteps - thread.getExecutedSteps());
+      }
+      closed = true;
+    }
+  }
+
+  /**
+   * Sets the context's computation step count from the computation step count of the current
+   * thread.
+   */
+  private void setComputationSteps(long threadComputationSteps) {
+    checkState(
+        threadComputationSteps >= computationSteps,
+        "currently running thread computation steps = %s cannot be less than previously recorded"
+            + " computation steps = %s",
+        threadComputationSteps,
+        computationSteps);
+    computationSteps = threadComputationSteps;
+  }
+
   /** Returns the "generator_name" to use for a given call site location in a BUILD file. */
   @Nullable
   String getGeneratorNameByLocation(Location loc) {
@@ -316,7 +418,8 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
       @Nullable Globber globber,
       boolean enableNameConflictChecking,
       boolean trackFullMacroInformation,
-      boolean enableTargetMapSnapshotting) {
+      boolean enableTargetMapSnapshotting,
+      PackageLimits packageLimits) {
     super(() -> mainRepositoryMapping);
     this.metadata = metadata;
     this.pkg = pkg;
@@ -332,6 +435,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     this.recorder =
         new TargetRecorder(
             enableNameConflictChecking, trackFullMacroInformation, enableTargetMapSnapshotting);
+    this.packageLimits = packageLimits;
   }
 
   public Metadata getMetadata() {
@@ -742,16 +846,19 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     return null;
   }
 
+  /**
+   * Returns the number of Starlark computation steps executed thus far by threads performing
+   * evaluation of this packageoid, which are recorded by updaters created by {@link
+   * #updateStartedThreadComputationSteps} and {@link #updatePausedThreadComputationSteps}.
+   */
+  long getComputationSteps() {
+    return computationSteps;
+  }
+
   //
   // Packageoid (package or package piece) construction methods, intended for use only by
   // PackageFunction and friends.
   //
-
-  /**
-   * Sets the number of Starlark computation steps executed during the evaluation of this
-   * packageoid.
-   */
-  abstract void setComputationSteps(long n);
 
   @CanIgnoreReturnValue
   protected TargetDefinitionContext beforeBuild() throws NoSuchPackageException {

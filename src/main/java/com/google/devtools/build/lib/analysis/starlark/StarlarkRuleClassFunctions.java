@@ -1534,8 +1534,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         // isn't too big. Maybe this is unnecessary since we don't permit recursion. But in theory,
         // a big stack can crash under eager evaluation (where evaluation is on the Java call stack)
         // but not deferred evaluation, leading to a semantic difference.
-        MacroClass.executeMacroImplementation(
-            macroInstance, targetDefinitionContext, thread.getSemantics());
+        try (var updater = targetDefinitionContext.updatePausedThreadComputationSteps(thread)) {
+          MacroClass.executeMacroImplementation(
+              macroInstance, targetDefinitionContext, thread.getSemantics());
+        }
       }
 
       return Starlark.NONE;

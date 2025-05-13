@@ -246,6 +246,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Before
   @Override
   public final void initializeSkyframeExecutor() throws Exception {
+    when(mockPackageValidator.getPackageLimits())
+        .thenReturn(Package.Builder.PackageLimits.DEFAULTS);
     initializeSkyframeExecutor(
         /* doPackageLoadingChecks= */ true,
         /* diffAwarenessFactories= */ ImmutableList.of(),
@@ -332,6 +334,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     invalidatePackages(true);
     reset(mockPackageValidator);
+    when(mockPackageValidator.getPackageLimits())
+        .thenReturn(Package.Builder.PackageLimits.DEFAULTS);
 
     SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), getSkyKey("pkg"), /* keepGoing= */ false, reporter);
