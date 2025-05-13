@@ -1,0 +1,32 @@
+package com.google.devtools.common.options;
+
+import com.code_intelligence.jazzer.api.FuzzedDataProvider;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
+
+public class RegexPatternOptionFuzzTest {
+  public static void fuzzerTestOneInput(FuzzedDataProvider data) {
+    String needle = data.consumeString(30);
+    String haystack = data.consumeRemainingAsString();
+    Pattern originalPattern;
+    try {
+      originalPattern = Pattern.compile(needle, Pattern.DOTALL);
+    } catch (PatternSyntaxException e) {
+      // The fuzzer generated an invalid regex, skip it.
+      return;
+    }
+
+    Predicate<String> optimizedMatcher = RegexPatternOption.create(originalPattern).matcher();
+    if (optimizedMatcher.test(haystack) != originalPattern.matcher(haystack).matches()) {
+      throw new AssertionError("""
+Optimized matcher and original matcher differ in behavior:
+needle: '%s'
+haystack: '%s'
+originalPattern.matcher(haystack).matches(): %s
+optimizedMatcher.test(haystack): %s
+""".formatted(needle, haystack,
+          originalPattern.matcher(haystack).matches(), optimizedMatcher.test(haystack)));
+    }
+  }
+}

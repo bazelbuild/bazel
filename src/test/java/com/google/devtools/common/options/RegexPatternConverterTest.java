@@ -18,16 +18,19 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.testing.ConverterTester;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** A test for {@link RegexPatternConverter} */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class RegexPatternConverterTest {
   @Test
   public void consistentEqualsAndHashCodeForSamePattern() {
-    new ConverterTester(RegexPatternConverter.class, /*conversionContext=*/ null)
+    new ConverterTester(RegexPatternConverter.class, /* conversionContext= */ null)
         .addEqualityGroup("")
         .addEqualityGroup(".*")
         .addEqualityGroup("[^\\s]+")
@@ -39,7 +42,7 @@ public class RegexPatternConverterTest {
     String regex = "a";
     String semanticallyTheSame = "[a]";
 
-    new ConverterTester(RegexPatternConverter.class, /*conversionContext=*/ null)
+    new ConverterTester(RegexPatternConverter.class, /* conversionContext= */ null)
         .addEqualityGroup(regex)
         .addEqualityGroup(semanticallyTheSame)
         .testConvert();
@@ -60,5 +63,45 @@ public class RegexPatternConverterTest {
     OptionsParsingException e =
         assertThrows(OptionsParsingException.class, () -> new RegexPatternConverter().convert("{"));
     assertThat(e).hasMessageThat().startsWith("Not a valid regular expression:");
+  }
+
+  @Test
+  public void optimizedMatchingPredicate(
+      @TestParameter({
+            "",
+            "a",
+            "foo",
+            "foofoo",
+            "/coverage.dat",
+            "/coverage.data",
+            "/coverage1dat",
+            "/coverage1data",
+            "foo/coverage.dat",
+            "foo/coverage.data",
+            "foo/coverage1dat",
+            "foo/coverage1data",
+            "foo/test/a/coverage.dat",
+            "foo/test/.*/coverage.dat",
+            "]]\n",
+          })
+          String haystack,
+      @TestParameter({
+            ".*",
+            ".*?foo",
+            ".*+foo",
+            "^foo$",
+            ".*/coverage.dat",
+            ".*/coverage\\.dat",
+            ".*/test/.*/coverage\\.dat",
+            "$|",
+            "^",
+            ".]",
+            ".*]",
+          })
+          String needle) {
+    Pattern originalPattern = Pattern.compile(needle, Pattern.DOTALL);
+    Predicate<String> optimizedMatcher = RegexPatternOption.create(originalPattern).matcher();
+    assertThat(optimizedMatcher.test(haystack))
+        .isEqualTo(originalPattern.matcher(haystack).matches());
   }
 }
