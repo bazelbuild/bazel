@@ -21,7 +21,7 @@ load(":common/paths.bzl", "paths")
 
 cc_internal = _builtins.internal.cc_internal
 
-_VIRTUAL_INCLUDES_DIR = "_virtual_includes"
+_VIRTUAL_INCLUDES_DIR = "_v_inc"
 
 def _include_dir(directory, repo_path, sibling_repo_layout):
     if sibling_repo_layout:
@@ -107,7 +107,7 @@ def _compute_public_headers(
 
     module_map_headers = []
     virtual_to_original_headers_list = []
-    virtual_include_dir = paths.join(paths.join(cc_helper.package_source_root(label.workspace_name, label.package, is_sibling_repository_layout), _VIRTUAL_INCLUDES_DIR), label.name)
+    virtual_include_dir = paths.join(_VIRTUAL_INCLUDES_DIR, "%x" % hash(paths.join(cc_helper.package_source_root(label.workspace_name, label.package, is_sibling_repository_layout), label.name)))
     for original_header in public_headers_artifacts:
         repo_relative_path = _repo_relative_path(original_header)
         if not repo_relative_path.startswith(strip_prefix):
