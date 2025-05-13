@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
+import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.CombinedCache.createFailureDetail;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
@@ -119,6 +120,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -935,7 +937,13 @@ public class RemoteExecutionService {
                   progressStatusListener,
                   internalToUnicode(remotePathResolver.localPathToOutputPath(file.path())),
                   file.digest().getSizeBytes()));
-      return transform(future, (d) -> file, directExecutor());
+      return transformAsync(
+          future,
+          (d) -> {
+            tmpPath.chmod(OutputPermissions.READONLY.getPermissionsMode());
+            return immediateFuture(file);
+          },
+          directExecutor());
     } catch (IOException e) {
       return immediateFailedFuture(e);
     }
