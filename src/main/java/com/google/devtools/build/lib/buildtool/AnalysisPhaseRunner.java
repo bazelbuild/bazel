@@ -300,7 +300,8 @@ public final class AnalysisPhaseRunner {
                 Event.info(
                     "Disabling Skycache due to missing PROJECT.scl: "
                         + targetPatternPhaseValue.getTargetLabels()));
-      } else if (activeProjects.projectFiles().size() > 1 || activeProjects.partialProjectBuild()) {
+      } else if (activeProjects.projectFilesToTargetLabels().size() > 1
+          || activeProjects.partialProjectBuild()) {
         String message =
             "Skycache only works on single-project builds. This is a %s. %s"
                 .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails());
@@ -315,7 +316,7 @@ public final class AnalysisPhaseRunner {
       } else {
         PathFragmentPrefixTrie projectMatcher =
             BuildTool.getActiveDirectoriesMatcher(
-                Iterables.getOnlyElement(activeProjects.projectFiles()),
+                Iterables.getOnlyElement(activeProjects.projectFilesToTargetLabels().keySet()),
                 env.getSkyframeExecutor(),
                 env.getReporter());
 
@@ -323,7 +324,8 @@ public final class AnalysisPhaseRunner {
       }
     } else if (featureFlags.contains(ANALYSIS_CACHING_UPLOAD) || featureFlags.contains(SKYFOCUS)) {
       // Features that can work with zero or one project file.
-      if (activeProjects.projectFiles().size() > 1 || activeProjects.partialProjectBuild()) {
+      if (activeProjects.projectFilesToTargetLabels().size() > 1
+          || activeProjects.partialProjectBuild()) {
         String message =
             "This is a %s. %s"
                 .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails());
@@ -340,7 +342,7 @@ public final class AnalysisPhaseRunner {
           activeProjects.isEmpty()
               ? null
               : BuildTool.getActiveDirectoriesMatcher(
-                  activeProjects.projectFiles().iterator().next(),
+                  activeProjects.projectFilesToTargetLabels().keySet().iterator().next(),
                   env.getSkyframeExecutor(),
                   env.getReporter());
 
@@ -362,7 +364,9 @@ public final class AnalysisPhaseRunner {
       resultBuilder.buildOptions(options);
       resultBuilder.projectFile(
           Optional.ofNullable(
-              activeProjects.isEmpty() ? null : activeProjects.projectFiles().iterator().next()));
+              activeProjects.isEmpty()
+                  ? null
+                  : activeProjects.projectFilesToTargetLabels().keySet().iterator().next()));
     }
 
     return resultBuilder.build();
