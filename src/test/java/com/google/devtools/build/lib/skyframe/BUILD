@@ -2014,6 +2014,24 @@ java_test(
 )
 
 java_test(
+    name = "SourceDirectoryIntegrationTest",
+    timeout = "short",
+    srcs = ["SourceDirectoryIntegrationTest.java"],
+    jvm_flags = [
+        "-DBAZEL_TRACK_SOURCE_DIRECTORIES=1",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
     name = "FileArtifactValueTest",
     timeout = "short",
     srcs = ["FileArtifactValueTest.java"],

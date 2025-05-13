@@ -356,16 +356,12 @@ public final class ArtifactFunction implements SkyFunction {
         case DANGLING_SYMLINK:
         case FILE_OPERATION_FAILURE:
         case SYMLINK_CYCLE_OR_INFINITE_EXPANSION:
+        case CANNOT_CROSS_PACKAGE_BOUNDARY:
           throw new ArtifactFunctionException(
               SourceArtifactException.create(artifact, e), Transience.PERSISTENT);
         case INCONSISTENT_FILESYSTEM:
           throw new ArtifactFunctionException(
               SourceArtifactException.create(artifact, e), Transience.TRANSIENT);
-        case CANNOT_CROSS_PACKAGE_BOUNDARY:
-          throw new IllegalStateException(
-              String.format(
-                  "Package boundary mode was cross: %s %s %s" + artifact, fileValue, request),
-              e);
         case GENERATED_PATH_CONFLICT:
           throw new IllegalStateException(
               String.format(
