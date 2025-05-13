@@ -1508,7 +1508,8 @@ public class Package extends Packageoid {
      * <p>This does not run any macro that has already been evaluated. It *does* run macros that are
      * newly discovered during the operation of this method.
      */
-    public void expandAllRemainingMacros(StarlarkSemantics semantics) throws InterruptedException {
+    public void expandAllRemainingMacros(StarlarkSemantics semantics)
+        throws EvalException, InterruptedException {
       // TODO: #19922 - Protect against unreasonable macro stack depth and large numbers of symbolic
       // macros overall, for both the eager and deferred evaluation strategies.
 

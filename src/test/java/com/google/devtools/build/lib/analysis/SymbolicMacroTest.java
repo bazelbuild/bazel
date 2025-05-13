@@ -2197,6 +2197,55 @@ my_macro = macro(
                 .build());
   }
 
+  @Test
+  public void failingMacro_immediatelyThrowsEvalExceptionWithFullCallStack() throws Exception {
+    scratch.file(
+        "pkg/inner.bzl",
+        """
+        def _inner_impl(name, visibility, **kwargs):
+            fail("Inner macro failed")
+
+        inner_macro = macro(implementation = _inner_impl)
+        """);
+    scratch.file(
+        "pkg/outer.bzl",
+        """
+        load(":inner.bzl", "inner_macro")
+
+        def _outer_impl(name, visibility, **kwargs):
+            inner_macro(name  = name + "_inner", **kwargs)
+            fail("This should not be reached")
+
+        outer_macro = macro(implementation = _outer_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":outer.bzl", "outer_macro")
+
+        outer_macro(name = "foo")
+        fail("This should not be reached")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg.containsErrors()).isTrue();
+    assertDoesNotContainEvent("This should not be reached");
+    assertContainsEvent(
+"""
+\tFile "/workspace/pkg/BUILD", line 3, column 12, in <toplevel>
+\t\touter_macro(name = "foo")
+\tFile "/workspace/pkg/outer.bzl", line 7, column 1, in outer_macro
+\t\touter_macro = macro(implementation = _outer_impl)
+\tFile "/workspace/pkg/outer.bzl", line 4, column 16, in _outer_impl
+\t\tinner_macro(name  = name + "_inner", **kwargs)
+\tFile "/workspace/pkg/inner.bzl", line 4, column 1, in inner_macro
+\t\tinner_macro = macro(implementation = _inner_impl)
+\tFile "/workspace/pkg/inner.bzl", line 2, column 9, in _inner_impl
+\t\tfail("Inner macro failed")
+""");
+  }
+
   private void assertMacroHasAttributes(MacroInstance macro, ImmutableList<String> attributeNames) {
     for (String attributeName : attributeNames) {
       assertThat(
