@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import java.util.ArrayList;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -95,9 +97,27 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
      */
     @Nullable StarlarkAspectClass owningAspect;
 
+    boolean verboseVisibilityErrors = false;
+
     /** Whether this edge is for an implicit dep. */
     boolean isImplicitDep() {
       return owningRule != null || owningAspect != null;
+    }
+
+    /** The type of owner (if applicable). */
+    @Nullable
+    String getOwnerKind() {
+      return owningRule != null ? "rule" : owningAspect != null ? "aspect" : null;
+    }
+
+    /**
+     * The exported identifier of the owning rule or aspect (if applicable), e.g. {@code "my_rule"}.
+     */
+    @Nullable
+    String getOwnerName() {
+      return owningRule != null
+          ? owningRule.getName()
+          : owningAspect != null ? owningAspect.getExportedName() : null;
     }
 
     /** The .bzl of the owning rule or aspect (if applicable). */
@@ -166,6 +186,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     VisibilityCheckState state = new VisibilityCheckState();
     state.prerequisite = prerequisite;
     state.consumer = rule;
+    state.verboseVisibilityErrors = context.getConfiguration().verboseVisibilityErrors();
 
     if (isImplicitDep) {
       // Populate the state with the relevant rule or aspect's info.
@@ -348,24 +369,56 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
   }
 
   private String generateVisibilityConflictMessage(VisibilityCheckState state) {
-    // TODO: https://github.com/bazelbuild/bazel/issues/25941 - Streamline this error message to
-    // eliminate redundancy, label quoting, newlines, the recommendation, and alias expansion, and
-    // to include a suggestion to pass --verbose_visibility_errors. Also make it so we don't emit
-    // "target 'foo.bzl'" when referring to the definition location of an attribute.
-    Label consumerOrOwnerLocation =
-        state.isImplicitDep() ? state.getOwnerDefinitionBzl() : state.consumer.getLabel();
-    String errorMessage =
-        String.format(
-            "Visibility error:\n"
-                + "%s is not visible from\n"
-                + "target '%s'\n"
-                + "Recommendation: modify the visibility declaration if you think the dependency"
-                + " is legitimate. For more info see https://bazel.build/concepts/visibility",
-            AliasProvider.describeTargetWithAliases(state.prerequisite, TargetMode.WITHOUT_KIND),
-            consumerOrOwnerLocation.getCanonicalForm());
-    if (state.prerequisite.getTargetKind().equals(InputFile.targetKind())) {
-      errorMessage +=
-          ". To set the visibility of that source file target, use the exports_files() function";
+    String errorMessage;
+    if (!state.verboseVisibilityErrors) {
+      // TODO: https://github.com/bazelbuild/bazel/issues/25941 - Streamline this error message to
+      // eliminate redundancy, label quoting, newlines, the recommendation, and alias expansion, and
+      // to include a suggestion to pass --verbose_visibility_errors. Also make it so we don't emit
+      // "target 'foo.bzl'" when referring to the definition location of an attribute.
+      Label consumerOrOwnerLocation =
+          state.isImplicitDep() ? state.getOwnerDefinitionBzl() : state.consumer.getLabel();
+      errorMessage =
+          String.format(
+              "Visibility error:\n"
+                  + "%s is not visible from\n"
+                  + "target '%s'\n"
+                  + "Recommendation: modify the visibility declaration if you think the dependency"
+                  + " is legitimate. For more info see https://bazel.build/concepts/visibility",
+              AliasProvider.describeTargetWithAliases(state.prerequisite, TargetMode.WITHOUT_KIND),
+              consumerOrOwnerLocation.getCanonicalForm());
+      if (state.prerequisite.getTargetKind().equals(InputFile.targetKind())) {
+        errorMessage +=
+            ". To set the visibility of that source file target, use the exports_files() function";
+      }
+    } else {
+      String dependencyDesc = state.prerequisite.getTargetLabel().getCanonicalForm();
+      errorMessage =
+          String.format(
+              "dependency on target %s violates its visibility. Additional diagnostics:",
+              dependencyDesc);
+
+      ArrayList<String> bullets = new ArrayList<>();
+      maybeAddImplicitDepBullet(state, bullets);
+      // TODO: https://github.com/bazelbuild/bazel/issues/25933 - Add bullet points for explaining
+      // how we determine the consuming location. Requires recording delegation information on the
+      // VisibilityCheckState inside of isVisibleToDeclaration().
+      // TODO: https://github.com/bazelbuild/bazel/issues/25933 - Add bullet point for explaining
+      // the dependency's declared visibility with and without package group expansion, and with the
+      // conditional caveat that we don't care that the dependency is an alias.
+      maybeAddSamePackageDisclaimerBullet(state, bullets);
+      // TODO: https://github.com/bazelbuild/bazel/issues/25933 - Add bullet point for explaining
+      // that the dependency could've been exported to the consumer.
+      // TODO: https://github.com/bazelbuild/bazel/issues/25933 - Add bullet point for explaining
+      // that the consumer's transitive caller could see the dep, so maybe more delegation was
+      // needed.
+      addEditVisibilityBullet(state, bullets);
+
+      StringBuilder details = new StringBuilder();
+      for (String bullet : bullets) {
+        details.append("\n\n    * ");
+        details.append(bullet);
+      }
+      errorMessage += details.toString();
     }
     // TODO: https://github.com/bazelbuild/bazel/issues/25940 - ruleError() prefixes the message
     // with a location that is the outermost stack frame of the innermost symbolic macro. Even
@@ -373,6 +426,60 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     // may be many levels deep. Consider a more principled approach to reporting error locations for
     // targets.
     return errorMessage;
+  }
+
+  private void maybeAddImplicitDepBullet(VisibilityCheckState state, List<String> bullets) {
+    if (!state.isImplicitDep()) {
+      return;
+    }
+
+    bullets.add(
+        String.format(
+            """
+            The dependency is an implicit dependency of the consuming target's %s, %s, which is \
+            defined in %s. Since that file's package, %s, does not match the dependency's \
+            visibility, we are falling back on checking the consuming target itself. The following \
+            bullet points explain why the consuming target also did not match.\
+            """,
+            state.getOwnerKind(),
+            state.getOwnerName(),
+            state.getOwnerDefinitionBzl(),
+            state.getOwnerDefinitionLocation().getCanonicalForm()));
+  }
+
+  private void maybeAddSamePackageDisclaimerBullet(
+      VisibilityCheckState state, List<String> bullets) {
+    if (state.isImplicitDep()) {
+      // Don't emit the same-package message for implicit deps. That message is referring to the
+      // consuming target, but we only checked the consuming target as a fallback after the real
+      // problem was encountered: that the rule or aspect couldn't see the dep.
+      return;
+    }
+
+    PackageIdentifier dependencyLocation =
+        state.prerequisite.getTargetLabel().getPackageIdentifier();
+    PackageIdentifier consumerLocation = state.consumer.getLabel().getPackageIdentifier();
+    if (!consumerLocation.equals(dependencyLocation)) {
+      return;
+    }
+
+    bullets.add(
+        """
+        Although both targets live in the same package, they cannot automatically see each other \
+        because they are declared by different symbolic macros.\
+        """);
+  }
+
+  private void addEditVisibilityBullet(VisibilityCheckState state, List<String> bullets) {
+    boolean isSourceFile = state.prerequisite.getTargetKind().equals(InputFile.targetKind());
+    bullets.add(
+        String.format(
+            """
+            If you think the dependency%s is legitimate, consider updating its visibility \
+            declaration%s. For more info see https://bazel.build/concepts/visibility.\
+            """,
+            isSourceFile ? " on this source file" : "",
+            isSourceFile ? " using exports_files()" : ""));
   }
 
   private void validateDirectPrerequisiteLocation(

@@ -755,6 +755,10 @@ public class BuildConfigurationValue
     return options.checkVisibility;
   }
 
+  public boolean verboseVisibilityErrors() {
+    return options.verboseVisibilityErrors;
+  }
+
   public boolean checkTestonlyForOutputFiles() {
     return options.checkTestonlyForOutputFiles;
   }

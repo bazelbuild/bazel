@@ -877,4 +877,294 @@ public class VisibilityTest extends AnalysisTestCase {
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//otherpkg:it"));
   }
+
+  @Test
+  public void testVerboseDiagnostics_ruleImplicitDep() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        cc_library(
+            name = "tool",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file("rule/BUILD");
+    scratch.file(
+        "rule/defs.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {"_implicit_dep": attr.label(default="//tool:tool")},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//rule:defs.bzl", "my_rule")
+
+        my_rule(name = "foo")
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertContainsEvent(
+        """
+        * The dependency is an implicit dependency of the consuming target's rule, my_rule, which \
+        is defined in //rule:defs.bzl. Since that file's package, //rule, does not match\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_aspectImplicitDep() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        cc_library(
+            name = "tool",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file("aspect/BUILD");
+    scratch.file(
+        "aspect/defs.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        my_aspect = aspect(
+            implementation = _impl,
+            attrs = {"_implicit_dep": attr.label(default="//tool:tool")},
+        )
+        """);
+    scratch.file("rule/BUILD");
+    scratch.file(
+        "rule/defs.bzl",
+        """
+        load("//aspect:defs.bzl", "my_aspect")
+
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {"deps": attr.label_list(aspects=[my_aspect])},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//rule:defs.bzl", "my_rule")
+
+        cc_library(name = "dep")
+
+        my_rule(
+            name = "foo",
+            deps = [":dep"],
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertContainsEvent(
+        """
+        * The dependency is an implicit dependency of the consuming target's aspect, my_aspect, \
+        which is defined in //aspect:defs.bzl. Since that file's package, //aspect, does not\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_samePackageDisclaimer() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file("macro/BUILD");
+    scratch.file(
+        "macro/defs.bzl",
+        """
+        def _impl(name, visibility):
+            native.cc_library(
+                name = name,
+                deps = ["//pkg:tool"],
+            )
+
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//macro:defs.bzl", "my_macro")
+
+        cc_library(
+            name = "tool",
+            visibility = ["//visibility:private"],
+        )
+
+        my_macro(
+            name = "foo",
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertContainsEvent(
+        """
+        * Although both targets live in the same package, they cannot automatically see each other \
+        because they are declared by different symbolic macros.\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_samePackageDisclaimer_shownForImplicitDepOfMacro()
+      throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file("macro/BUILD");
+    scratch.file(
+        "macro/defs.bzl",
+        """
+        def _impl(name, visibility, _implicit_dep):
+            native.cc_library(
+                name = name,
+                deps = [_implicit_dep],
+            )
+
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {"_implicit_dep": attr.label(default="//pkg:tool", configurable=False)},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//macro:defs.bzl", "my_macro")
+
+        cc_library(
+            name = "tool",
+            visibility = ["//visibility:private"],
+        )
+
+        my_macro(
+            name = "foo",
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertContainsEvent(
+        """
+        * Although both targets live in the same package, they cannot automatically see each other \
+        because they are declared by different symbolic macros.\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_samePackageDisclaimer_notShownForImplicitDepOfRule()
+      throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file("rule/BUILD");
+    scratch.file(
+        "rule/defs.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {"_implicit_dep": attr.label(default="//pkg:tool")},
+        )
+        """);
+    scratch.file("macro/BUILD");
+    scratch.file(
+        "macro/defs.bzl",
+        """
+        load("//rule:defs.bzl", "my_rule")
+
+        def _impl(name, visibility):
+            my_rule(name = name)
+
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//macro:defs.bzl", "my_macro")
+
+        cc_library(
+            name = "tool",
+            visibility = ["//visibility:private"],
+        )
+
+        my_macro(name = "foo")
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertDoesNotContainEvent("both targets live in the same package");
+  }
+
+  @Test
+  public void testVerboseDiagnostics_editVisibilitySuggestion_forRuleTarget() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "dep/BUILD",
+        """
+        cc_library(
+            name = "dep",
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        cc_library(
+            name = "foo",
+            deps = ["//dep:dep"],
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertContainsEvent(
+        """
+        * If you think the dependency is legitimate, consider updating its visibility declaration.\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_editVisibilitySuggestion_forFileTarget() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "dep/BUILD",
+        """
+        exports_files(
+            ["dep"],
+            visibility = ["//visibility:private"],
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        cc_library(
+            name = "foo",
+            deps = ["//dep:dep"],
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
+    assertContainsEvent(
+        """
+        * If you think the dependency on this source file is legitimate, consider updating its \
+        visibility declaration using exports_files().\
+        """);
+  }
 }
