@@ -1806,4 +1806,4 @@ public final class CcCompilationHelper {
     return ImmutableList.of(dAction.getPrimaryOutput(), sdAction.getPrimaryOutput());
   }
 }
-// LINT.ThenChange(//third_party/bazel/src/main/java/com/google/devtools/build/lib/rules/cpp/CcStaticCompilationHelper.java)
+// LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/cpp/CcStaticCompilationHelper.java)
