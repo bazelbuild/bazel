@@ -20,7 +20,11 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockingDetails;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -47,6 +51,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.Arrays;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -1213,22 +1218,24 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     var spiedLocalFS = (SpiedFileSystem) fileSystem;
     var fooPath = getOutputPath("foo").asFragment();
+    verify(spiedLocalFS, times(1)).createDirectoryAndParents(fooPath.getChild("dir-4"));
+    verify(spiedLocalFS, times(1))
+        .renameTo(any(), eq(fooPath.getChild("dir-4").getChild("file-2")));
     var childrenOfFooOperations =
         mockingDetails(spiedLocalFS).getInvocations().stream()
             .filter(
                 invocation ->
-                    !invocation.getMethod().getName().equals("getPath")
+                    !invocation.isVerified()
+                        && !invocation.getMethod().getName().equals("getPath")
                         && !invocation.getMethod().getName().equals("toDelegatePath")
-                        && invocation.getArguments().length != 0
-                        && invocation.getArgument(0) instanceof PathFragment)
-            .filter(
-                invocation ->
-                    invocation.getArguments().length != 0
-                        && invocation.getArgument(0) instanceof PathFragment path
-                        && path.startsWith(fooPath)
-                        && !path.equals(fooPath))
+                        && Arrays.stream(invocation.getArguments())
+                            .anyMatch(
+                                argument ->
+                                    argument instanceof PathFragment path
+                                        && path.startsWith(fooPath)
+                                        && !path.equals(fooPath)))
             .toList();
-        assertThat(childrenOfFooOperations).isEmpty();
+    assertThat(childrenOfFooOperations).isEmpty();
 
     // Keep these assertions after the assertson spiedLocalFs as they result in additional IO.
     assertOutputDoesNotExist("foo/dir-4/file-1");

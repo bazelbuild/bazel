@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -65,7 +66,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.NavigableSet;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -112,6 +115,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   private final RemoteInMemoryFileSystem remoteOutputTree;
   // Concurrent access is rare and most builds don't have lost inputs.
   private final List<LostArtifacts> lostInputs = Collections.synchronizedList(new ArrayList<>(0));
+  private final NavigableSet<PathFragment> remoteTreeArtifactPaths = new TreeSet<>();
 
   @Nullable private ActionExecutionMetadata action = null;
 
@@ -512,6 +516,9 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
   @Override
   protected void setReadable(PathFragment path, boolean readable) throws IOException {
+    if (canSkipLocalFs(path)) {
+      return;
+    }
     path = resolveSymbolicLinks(path).asFragment();
     try {
       localFs.getPath(path).setReadable(readable);
@@ -522,6 +529,9 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
   @Override
   public void setWritable(PathFragment path, boolean writable) throws IOException {
+    if (canSkipLocalFs(path)) {
+      return;
+    }
     path = resolveSymbolicLinks(path).asFragment();
     try {
       localFs.getPath(path).setWritable(writable);
@@ -532,6 +542,9 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
   @Override
   protected void setExecutable(PathFragment path, boolean executable) throws IOException {
+    if (canSkipLocalFs(path)) {
+      return;
+    }
     path = resolveSymbolicLinks(path).asFragment();
     try {
       localFs.getPath(path).setExecutable(executable);
@@ -542,6 +555,9 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
   @Override
   protected void chmod(PathFragment path, int mode) throws IOException {
+    if (canSkipLocalFs(path)) {
+      return;
+    }
     path = resolveSymbolicLinks(path).asFragment();
     try {
       localFs.getPath(path).chmod(mode);
@@ -858,14 +874,16 @@ public class RemoteActionFileSystem extends AbstractFileSystem
         }
       }
 
-      try {
-        for (var entry : localFs.getPath(path).readdir(Symlinks.NOFOLLOW)) {
-          entry = maybeFollowSymlinkForDirent(path, entry, followSymlinks);
-          entries.put(entry.getName(), entry);
+      if (!canSkipLocalFs(path)) {
+        try {
+          for (var entry : localFs.getPath(path).readdir(Symlinks.NOFOLLOW)) {
+            entry = maybeFollowSymlinkForDirent(path, entry, followSymlinks);
+            entries.put(entry.getName(), entry);
+          }
+          exists = true;
+        } catch (FileNotFoundException ignored) {
+          // Will be rethrown below if directory does not exist in any of the sources.
         }
-        exists = true;
-      } catch (FileNotFoundException ignored) {
-        // Will be rethrown below if directory does not exist in any of the sources.
       }
     }
 
@@ -916,6 +934,27 @@ public class RemoteActionFileSystem extends AbstractFileSystem
       throw (LostInputsActionExecutionException)
           ActionExecutionException.fromExecException(mergedException.get(), action);
     }
+  }
+
+  /**
+   * Promises that the full contents of the given tree artifact are contained in the remote layer of
+   * the filesystem, which allows all local filesystem accesses to be skipped when consuming it.
+   *
+   * <p>Must not be called concurrently with any other fileystem operation.
+   */
+  @ThreadCompatible
+  public void markSubTreeAsFullyRemote(SpecialArtifact treeArtifact) {
+    checkArgument(treeArtifact.isTreeArtifact());
+    remoteTreeArtifactPaths.add(treeArtifact.getPath().asFragment());
+  }
+
+  private boolean canSkipLocalFs(PathFragment path) {
+    // Bazel ensures that artifact paths don't overlap, so no entry in the set
+    // is a prefix of any other. We can thus check whether any path in it is
+    // a prefix of the given path simply by checking the lexicographically
+    // preceding entry.
+    var floor = remoteTreeArtifactPaths.floor(path);
+    return floor != null && path.startsWith(floor);
   }
 
   static class RemoteInMemoryFileSystem extends InMemoryFileSystem {
