@@ -486,3 +486,8 @@ java_library(
     name = "cleaner",
     srcs = ["BazelCleaner.java"],
 )
+
+java_library(
+    name = "regex_util",
+    srcs = ["RegexUtil.java"],
+)

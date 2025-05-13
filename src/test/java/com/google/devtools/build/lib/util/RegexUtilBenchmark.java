@@ -1,4 +1,4 @@
-package com.google.devtools.common.options;
+package com.google.devtools.build.lib.util;
 
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -14,13 +14,13 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
-/** A benchmark for {@link RegexPatternOption#optimizedMatchingPredicate()}. */
+/** A benchmark for {@link RegexUtil#asOptimizedMatchingPredicate}. */
 @BenchmarkMode(Mode.Throughput)
 @State(Scope.Benchmark)
 @Warmup(iterations = 4, time = 2, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 4, time = 2, timeUnit = TimeUnit.SECONDS)
 @Fork(value = 3)
-public class RegexPatternOptionBenchmark {
+public class RegexUtilBenchmark {
   @Param({
     "bazel-out/darwin_arm64-opt-exec-ST-fad1763555eb/bin/src/main/java/com/google/devtools/build/lib/bazel/BazelServer",
     "bazel-out/darwin_arm64-fastbuild/testlogs/src/test/java/com/google/devtools/common/options/AllTests/test.log"
@@ -41,7 +41,7 @@ public class RegexPatternOptionBenchmark {
   @Setup
   public void compile() {
     originalPattern = Pattern.compile(needle);
-    optimizedMatcher = RegexPatternOption.create(originalPattern).matcher();
+    optimizedMatcher = RegexUtil.asOptimizedMatchingPredicate(originalPattern);
   }
 
   @Benchmark

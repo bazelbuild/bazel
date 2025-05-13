@@ -1,5 +1,5 @@
 load("@rules_fuzzing//fuzzing:java_defs.bzl", "java_fuzz_test")
-load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -37,8 +37,6 @@ java_test(
     srcs = glob(
         ["*.java"],
         exclude = [
-            "RegexPatternOptionBenchmark.java",
-            "RegexPatternOptionFuzzTest.java",
             "TestOptions.java",
             "InvocationPolicyEnforcerTestBase.java",
         ],
@@ -61,29 +59,5 @@ java_test(
         "//third_party:mockito",
         "//third_party:truth",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
-    ],
-)
-
-java_binary(
-    name = "RegexPatternOptionBenchmark",
-    srcs = ["RegexPatternOptionBenchmark.java"],
-    main_class = "org.openjdk.jmh.Main",
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/common/options:options_internal",
-        "//third_party:jmh",
-    ],
-)
-
-java_fuzz_test(
-    name = "RegexPatternOptionFuzzTest",
-    srcs = ["RegexPatternOptionFuzzTest.java"],
-    jvm_flags = [
-        "-Djazzer.disabled_hooks=com.code_intelligence.jazzer.sanitizers.RegexInjection",
-    ],
-    tags = ["no_windows"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/common/options:options_internal",
     ],
 )

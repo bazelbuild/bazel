@@ -50,6 +50,7 @@ java_library(
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/com/google/devtools/build/lib/util:regex_util",
         "//src/main/java/net/starlark/java/spelling",
         "//third_party:auto_value",
         "//third_party:caffeine",
