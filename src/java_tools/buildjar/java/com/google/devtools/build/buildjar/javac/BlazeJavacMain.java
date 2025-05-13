@@ -229,7 +229,10 @@ public class BlazeJavacMain {
           "compiler.warn.proc.processor.incompatible.source.version",
           // https://github.com/bazelbuild/bazel/issues/5985
           "compiler.warn.unknown.enum.constant",
-          "compiler.warn.unknown.enum.constant.reason");
+          "compiler.warn.unknown.enum.constant.reason",
+          // b/379318817
+          "compiler.warn.annotation.method.not.found",
+          "compiler.warn.annotation.method.not.found.reason");
 
   private static ImmutableList<FormattedDiagnostic> filterDiagnostics(
       boolean werror, ImmutableList<FormattedDiagnostic> diagnostics) {
