@@ -1386,9 +1386,27 @@ public class RemoteExecutionService {
       }
     }
 
+    Map<PathFragment, Artifact.SpecialArtifact> treeArtifactOutputs =
+        action.getSpawn().getOutputFiles().stream()
+            .filter(
+                output ->
+                    output instanceof Artifact.SpecialArtifact artifact
+                        && artifact.isTreeArtifact())
+            .collect(
+                toImmutableMap(
+                    ActionInput::getExecPath, artifact -> (Artifact.SpecialArtifact) artifact));
     for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-      PathFragment treeRootExecPath = entry.getKey().relativeTo(execRoot);
+      var treeArtifact =
+          treeArtifactOutputs.get(
+              action.getRemotePathResolver().localPathToExecPath(entry.getKey().asFragment()));
+      // treeArtifact can only be non-null if the output directories reported by the backend don't
+      // match the declared outputs. This situation is erroneous and the optimization below can
+      // safely be skipped.
+      if (remoteActionFileSystem != null && treeArtifact != null) {
+        remoteActionFileSystem.markSubTreeAsFullyRemote(treeArtifact);
+      }
 
+      PathFragment treeRootExecPath = entry.getKey().relativeTo(execRoot);
       for (FileMetadata file : entry.getValue().files()) {
         if (realToTmpPath.containsKey(file.path)) {
           continue;
