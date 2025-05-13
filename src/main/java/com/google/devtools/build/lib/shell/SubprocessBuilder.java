@@ -27,13 +27,9 @@ import java.io.IOException;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * A builder class that starts a subprocess.
- */
+/** A builder class that starts a subprocess. */
 public class SubprocessBuilder {
-  /**
-   * What to do with an output stream of the process.
-   */
+  /** What to do with an output stream of the process. */
   public enum StreamAction {
     /** Redirect to a file */
     REDIRECT,
@@ -46,6 +42,7 @@ public class SubprocessBuilder {
   }
 
   private final SubprocessFactory factory;
+  private final ImmutableMap<String, String> clientEnv;
   private ImmutableList<String> argv;
   private ImmutableMap<String, String> env;
   private StreamAction stdoutAction;
@@ -76,14 +73,15 @@ public class SubprocessBuilder {
         factory != null ? factory : subprocessFactoryImplementation();
   }
 
-  public SubprocessBuilder() {
-    this(defaultFactory);
+  public SubprocessBuilder(Map<String, String> clientEnv) {
+    this(clientEnv, defaultFactory);
   }
 
-  public SubprocessBuilder(SubprocessFactory factory) {
+  public SubprocessBuilder(Map<String, String> clientEnv, SubprocessFactory factory) {
     stdoutAction = StreamAction.STREAM;
     stderrAction = StreamAction.STREAM;
     this.factory = factory;
+    this.clientEnv = ImmutableMap.copyOf(clientEnv);
   }
 
   /**
@@ -231,6 +229,10 @@ public class SubprocessBuilder {
   public SubprocessBuilder setWorkingDirectory(File workingDirectory) {
     this.workingDirectory = workingDirectory;
     return this;
+  }
+
+  ImmutableMap<String, String> getClientEnv() {
+    return clientEnv;
   }
 
   public Subprocess start() throws IOException {

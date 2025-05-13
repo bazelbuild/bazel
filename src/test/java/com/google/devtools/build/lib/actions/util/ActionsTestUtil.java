@@ -363,7 +363,7 @@ public final class ActionsTestUtil {
       };
 
   public static final ActionTemplateExpansionKey NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER =
-      ActionTemplateExpansionValue.key(NULL_ARTIFACT_OWNER, /*actionIndex=*/ 0);
+      ActionTemplateExpansionValue.key(NULL_ARTIFACT_OWNER, /* actionIndex= */ 0);
 
   @SerializationConstant
   static final InMemoryFileSystem DUMMY_ARTIFACT_FILE_SYSTEM =
@@ -473,9 +473,7 @@ public final class ActionsTestUtil {
     }
 
     public MockAction(
-        Iterable<Artifact> inputs,
-        ImmutableSet<Artifact> outputs,
-        boolean isShareable) {
+        Iterable<Artifact> inputs, ImmutableSet<Artifact> outputs, boolean isShareable) {
       super(
           NULL_ACTION_OWNER,
           NestedSetBuilder.<Artifact>stableOrder().addAll(inputs).build(),

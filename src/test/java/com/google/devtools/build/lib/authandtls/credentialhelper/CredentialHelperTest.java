@@ -57,7 +57,11 @@ public class CredentialHelperTest {
         CredentialHelperEnvironment.newBuilder()
             .setEventReporter(reporter)
             .setWorkspacePath(fs.getPath(TEST_WORKSPACE_PATH))
-            .setClientEnvironment(env)
+            .setClientEnvironment(
+                ImmutableMap.<String, String>builder()
+                    .putAll(System.getenv())
+                    .putAll(env)
+                    .buildKeepingLast())
             .setHelperExecutionTimeout(Duration.ofSeconds(5))
             .build(),
         URI.create(uri));

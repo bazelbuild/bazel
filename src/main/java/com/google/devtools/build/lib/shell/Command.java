@@ -139,23 +139,23 @@ public final class Command implements DescribableExecutionUnit {
    * Creates a new {@link Command} for the given command line. The environment is inherited from the
    * current process, as is the working directory. No timeout is enforced. The command line is
    * executed exactly as given, without a shell. Subsequent calls to {@link #execute()} will use the
-   * JVM's working directory and environment.
+   * JVM's working directory and the Bazel client's environment.
    *
    * @param commandLineElements elements of raw command line to execute
+   * @param clientEnv the client's environment variables which will be inherited by the subprocess
    * @throws IllegalArgumentException if commandLine is null or empty
    */
-  public Command(String[] commandLineElements) {
-    this(commandLineElements, null, null, Duration.ZERO);
+  public Command(String[] commandLineElements, Map<String, String> clientEnv) {
+    this(commandLineElements, null, null, Duration.ZERO, clientEnv);
   }
 
-  /**
-   * Just like {@link #Command(String[], Map, File, Duration)}, but without a timeout.
-   */
+  /** Just like {@link #Command(String[], Map, File, Duration, Map)}, but without a timeout. */
   public Command(
       String[] commandLineElements,
       @Nullable Map<String, String> environmentVariables,
-      @Nullable File workingDirectory) {
-    this(commandLineElements, environmentVariables, workingDirectory, Duration.ZERO);
+      @Nullable File workingDirectory,
+      Map<String, String> clientEnv) {
+    this(commandLineElements, environmentVariables, workingDirectory, Duration.ZERO, clientEnv);
   }
 
   /**
@@ -181,6 +181,7 @@ public final class Command implements DescribableExecutionUnit {
    * @param workingDirectory working directory for the child process, or null to inherit it from the
    *     parent
    * @param timeout timeout; a value less than or equal to 0 is treated as no timeout
+   * @param clientEnv the client's environment variables, which may be inherited by the subprocess
    * @throws IllegalArgumentException if commandLine is null or empty
    */
   // TODO(ulfjack): Throw a special exception if there was a timeout.
@@ -188,7 +189,8 @@ public final class Command implements DescribableExecutionUnit {
       String[] commandLineElements,
       @Nullable Map<String, String> environmentVariables,
       @Nullable File workingDirectory,
-      Duration timeout) {
+      Duration timeout,
+      Map<String, String> clientEnv) {
     Preconditions.checkNotNull(commandLineElements);
     Preconditions.checkArgument(
         commandLineElements.length != 0, "cannot run an empty command line");
@@ -199,7 +201,7 @@ public final class Command implements DescribableExecutionUnit {
       commandLineElements[0] = new File(workingDirectory, commandLineElements[0]).getAbsolutePath();
     }
 
-    this.subprocessBuilder = new SubprocessBuilder();
+    this.subprocessBuilder = new SubprocessBuilder(clientEnv);
     subprocessBuilder.setArgv(ImmutableList.copyOf(commandLineElements));
     subprocessBuilder.setEnv(environmentVariables);
     subprocessBuilder.setWorkingDirectory(workingDirectory);
@@ -220,7 +222,8 @@ public final class Command implements DescribableExecutionUnit {
   }
 
   /** Returns the working directory to be used for execution, or null. */
-  @Nullable public File getWorkingDirectory() {
+  @Nullable
+  public File getWorkingDirectory() {
     return subprocessBuilder.getWorkingDirectory();
   }
 
@@ -259,8 +262,10 @@ public final class Command implements DescribableExecutionUnit {
   public CommandResult execute(OutputStream stdOut, OutputStream stdErr)
       throws CommandException, InterruptedException {
     return doExecute(
-        NO_INPUT, Consumers.createStreamingConsumers(stdOut, stdErr), KILL_SUBPROCESS_ON_INTERRUPT)
-            .get();
+            NO_INPUT,
+            Consumers.createStreamingConsumers(stdOut, stdErr),
+            KILL_SUBPROCESS_ON_INTERRUPT)
+        .get();
   }
 
   /**
@@ -272,7 +277,7 @@ public final class Command implements DescribableExecutionUnit {
    * @return {@link CommandResult} representing result of the execution
    * @throws ExecFailedException if {@link Runtime#exec(String[])} fails for any reason
    * @throws AbnormalTerminationException if an {@link IOException} is encountered while reading
-   *    from the process, or the process was terminated due to a signal
+   *     from the process, or the process was terminated due to a signal
    * @throws BadExitStatusException if the process exits with a non-zero status
    */
   public FutureCommandResult executeAsync() throws CommandException {
@@ -291,7 +296,7 @@ public final class Command implements DescribableExecutionUnit {
    * @return {@link CommandResult} representing result of the execution
    * @throws ExecFailedException if {@link Runtime#exec(String[])} fails for any reason
    * @throws AbnormalTerminationException if an {@link IOException} is encountered while reading
-   *    from the process, or the process was terminated due to a signal
+   *     from the process, or the process was terminated due to a signal
    * @throws BadExitStatusException if the process exits with a non-zero status
    */
   public FutureCommandResult executeAsync(OutputStream stdOut, OutputStream stdErr)
@@ -333,7 +338,7 @@ public final class Command implements DescribableExecutionUnit {
    * @return {@link CommandResult} representing result of the execution
    * @throws ExecFailedException if {@link Runtime#exec(String[])} fails for any reason
    * @throws AbnormalTerminationException if an {@link IOException} is encountered while reading
-   *    from the process, or the process was terminated due to a signal
+   *     from the process, or the process was terminated due to a signal
    * @throws BadExitStatusException if the process exits with a non-zero status
    */
   public FutureCommandResult executeAsync(
@@ -341,7 +346,7 @@ public final class Command implements DescribableExecutionUnit {
       OutputStream stdOut,
       OutputStream stdErr,
       boolean killSubprocessOnInterrupt)
-          throws CommandException {
+      throws CommandException {
     return doExecute(
         stdinInput, Consumers.createStreamingConsumers(stdOut, stdErr), killSubprocessOnInterrupt);
   }
@@ -363,15 +368,13 @@ public final class Command implements DescribableExecutionUnit {
     message.append(subprocessBuilder.getEnv());
     message.append("; working dir: ");
     File workingDirectory = subprocessBuilder.getWorkingDirectory();
-    message.append(workingDirectory == null ?
-                   "(current)" :
-                   workingDirectory.toString());
+    message.append(workingDirectory == null ? "(current)" : workingDirectory.toString());
     return message.toString();
   }
 
   private FutureCommandResult doExecute(
-      InputStream stdinInput, OutErrConsumers outErrConsumers, boolean killSubprocessOnInterrupt) 
-          throws ExecFailedException {
+      InputStream stdinInput, OutErrConsumers outErrConsumers, boolean killSubprocessOnInterrupt)
+      throws ExecFailedException {
     Preconditions.checkNotNull(stdinInput, "stdinInput");
     logCommand();
 

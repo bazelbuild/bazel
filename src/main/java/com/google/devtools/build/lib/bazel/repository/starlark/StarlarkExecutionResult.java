@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -104,25 +105,25 @@ final class StarlarkExecutionResult implements StarlarkValue {
    * Returns a Builder that can be used to execute a command and build an execution result.
    *
    * @param environment pass through the list of environment variables from the client to be passed
-   * to the execution environment.
+   *     to the execution environment.
    */
   public static Builder builder(Map<String, String> environment) {
     return new Builder(environment);
   }
 
-  /**
-   * A Builder class to build a {@link StarlarkExecutionResult} object by executing a command.
-   */
+  /** A Builder class to build a {@link StarlarkExecutionResult} object by executing a command. */
   static final class Builder {
 
     private final List<String> args = new ArrayList<>();
     private File directory = null;
     private final Map<String, String> envBuilder = Maps.newLinkedHashMap();
+    private final ImmutableMap<String, String> clientEnv;
     private long timeout = -1;
     private boolean executed = false;
     private boolean quiet;
 
     private Builder(Map<String, String> environment) {
+      clientEnv = ImmutableMap.copyOf(environment);
       envBuilder.putAll(environment);
     }
 
@@ -209,7 +210,8 @@ final class StarlarkExecutionResult implements StarlarkValue {
         for (int i = 0; i < args.size(); i++) {
           argsArray[i] = args.get(i);
         }
-        Command command = new Command(argsArray, envBuilder, directory, Duration.ofMillis(timeout));
+        Command command =
+            new Command(argsArray, envBuilder, directory, Duration.ofMillis(timeout), clientEnv);
         CommandResult result =
             command.execute(delegator.getOutputStream(), delegator.getErrorStream());
         return new StarlarkExecutionResult(

@@ -38,7 +38,7 @@ public class CommandUtilsTest {
     env.put("PATH", "/usr/bin:/bin:/sbin");
     env.put("FOO", "foo");
     File directory = new File("/tmp");
-    return new Command(args, env, directory);
+    return new Command(args, env, directory, System.getenv());
   }
 
   @Test
@@ -87,9 +87,10 @@ public class CommandUtilsTest {
     env.put("FOO", "foo");
     env.put("PATH", "/usr/bin:/bin:/sbin");
     CommandException exception =
-        assertThrows(CommandException.class, () -> new Command(args, env, null).execute());
+        assertThrows(
+            CommandException.class, () -> new Command(args, env, null, System.getenv()).execute());
     String message = CommandUtils.describeCommandFailure(false, exception);
-      String verboseMessage = CommandUtils.describeCommandFailure(true, exception);
+    String verboseMessage = CommandUtils.describeCommandFailure(true, exception);
     assertThat(message)
         .isEqualTo(
             "sh failed: error executing <shell command> command "

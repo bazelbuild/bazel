@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.shell;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
 import com.google.devtools.build.lib.util.StringEncoding;
@@ -42,7 +43,7 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
         argv.size() > 1
             ? escapeArgvRest(argv.subList(1, argv.size()), argv0.equals("cmd.exe"))
             : "";
-    byte[] env = convertEnvToNative(builder.getEnv());
+    byte[] env = convertEnvToNative(builder.getEnv(), builder.getClientEnv());
 
     String cwd = null;
     if (builder.getWorkingDirectory() != null) {
@@ -53,13 +54,7 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
 
     long nativeProcess =
         WindowsProcesses.createProcess(
-            argv0,
-            argvRest,
-            env,
-            cwd,
-            stdoutPath,
-            stderrPath,
-            builder.redirectErrorStream());
+            argv0, argvRest, env, cwd, stdoutPath, stderrPath, builder.redirectErrorStream());
     String error = WindowsProcesses.processGetLastError(nativeProcess);
     if (!error.isEmpty()) {
       WindowsProcesses.deleteProcess(nativeProcess);
@@ -123,7 +118,8 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
   }
 
   /** Converts an environment map to the format expected in lpEnvironment by CreateProcess(). */
-  private static byte[] convertEnvToNative(Map<String, String> envMap) {
+  private static byte[] convertEnvToNative(
+      Map<String, String> envMap, ImmutableMap<String, String> clientEnv) {
     Map<String, String> fullEnv = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 
     if (envMap != null) {
@@ -133,20 +129,20 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
       // regardless of whether the caller requested it or not.
       for (String env : ImmutableList.of("SYSTEMROOT", "SYSTEMDRIVE")) {
         if (fullEnv.getOrDefault(env, null) == null) {
-          String value = System.getenv(env);
+          String value = clientEnv.get(env);
           if (value != null) {
             fullEnv.put(env, value);
           }
         }
       }
     } else {
-      fullEnv.putAll(System.getenv());
+      fullEnv.putAll(clientEnv);
     }
 
     if (fullEnv.isEmpty()) {
       // Special case: CreateProcess() always expects the environment block to be terminated
-      // with two zeros.
-      return "\0".getBytes(StandardCharsets.UTF_16LE);
+      // with four zeros.
+      return "\0\0".getBytes(StandardCharsets.UTF_16LE);
     }
 
     StringBuilder result = new StringBuilder();

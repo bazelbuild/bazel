@@ -160,7 +160,7 @@ public final class IntegrationTestUtils {
       env.putAll(runfiles.getEnvVars());
       port = FreePortFinder.pickUnusedRandomPort();
       process =
-          new SubprocessBuilder()
+          new SubprocessBuilder(System.getenv())
               .setEnv(env.buildKeepingLast())
               .setStdout(stdoutPath.toFile())
               .setStderr(stderrPath.toFile())
