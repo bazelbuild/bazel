@@ -1537,8 +1537,7 @@ EOF
 function test_build_hello_world_with_remote_embedded_tool_targets() {
   write_hello_library_files
 
-  bazel build //java/main:main_deploy.jar --define EXECUTOR=remote \
-    &> $TEST_log || fail "build failed"
+  bazel build //java/main:main_deploy.jar &> $TEST_log || fail "build failed"
 }
 
 
