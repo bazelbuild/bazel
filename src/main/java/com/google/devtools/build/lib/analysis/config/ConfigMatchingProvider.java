@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.errorprone.annotations.DoNotCall;
 import java.util.List;
 import java.util.Map;
 
@@ -48,11 +47,22 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
    * errors, versus a more aggressive future approach could just propagate No.)
    */
   public sealed interface MatchResult {
+    /**
+     * The configuration matches.
+     *
+     * <p>Preferably use the shared {@link MatchResult#MATCH} instance of this class.
+     */
     @AutoCodec
     public record Match() implements MatchResult {}
 
     MatchResult MATCH = new Match();
 
+    /**
+     * The configuration does not match.
+     *
+     * @param diffs an optional list of diffs that describe the differences between the expected and
+     *     actual configuration
+     */
     @AutoCodec
     public record NoMatch(ImmutableList<Diff> diffs) implements MatchResult {
       @AutoCodec.Instantiator
@@ -62,12 +72,22 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
         this(ImmutableList.of(diff));
       }
 
+      /**
+       * A human-readable description of the difference between the expected and actual
+       * configuration.
+       *
+       * @param what the label of the constraint or setting that failed to match
+       * @param got the actual value of the setting
+       * @param want the expected value of the setting
+       */
       @AutoCodec
       public record Diff(Label what, String got, String want) {
         public static Builder what(Label what) {
-          return new AutoBuilder_ConfigMatchingProvider_MatchResult_NoMatch_Diff_Builder().what(what);
+          return new AutoBuilder_ConfigMatchingProvider_MatchResult_NoMatch_Diff_Builder()
+              .what(what);
         }
 
+        /** A builder for {@link Diff}. */
         @AutoBuilder
         public abstract static class Builder {
           public abstract Builder what(Label what);
@@ -81,6 +101,10 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
       }
     }
 
+    /**
+     * A result for the case in which an analysis error occurred that prevents the match from being
+     * evaluated.
+     */
     MatchResult ALREADY_REPORTED_NO_MATCH = new NoMatch(ImmutableList.of());
 
     /** Errors make the match question irresolvable. */
