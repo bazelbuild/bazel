@@ -16,6 +16,7 @@ The cc_common.create_library_to_link function.
 """
 
 load(":common/cc/cc_helper_internal.bzl", "is_versioned_shared_library")
+load(":common/cc/link/lto_backends.bzl", "create_shared_non_lto_artifacts")
 load(":common/paths.bzl", "paths")
 
 cc_common_internal = _builtins.internal.cc_common
@@ -144,8 +145,8 @@ def create_library_to_link(
     pic_objects = pic_objects or None
 
     if lto_compilation_context and static_library and objects != None:
-        shared_non_lto_backends = cc_internal.create_shared_non_lto_artifacts(
-            cc_internal.wrap_link_actions(actions),
+        shared_non_lto_backends = create_shared_non_lto_artifacts(
+            actions,
             lto_compilation_context,
             False,
             feature_configuration,

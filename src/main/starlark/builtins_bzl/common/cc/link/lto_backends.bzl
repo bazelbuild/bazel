@@ -138,3 +138,45 @@ def _backend_user_compile_flags(cpp_config, obj, context):
     argv.extend(cpp_config.lto_backend_options)
     argv.extend(cc_internal.collect_per_file_lto_backend_opts(cpp_config, obj))
     return argv
+
+def create_shared_non_lto_artifacts(
+        actions,
+        lto_compilation_context,
+        is_linker,
+        feature_configuration,
+        cc_toolchain,
+        use_pic,
+        object_file_inputs):
+    # Only create the shared LTO artifacts for a statically linked library that has bitcode files.
+    if not lto_compilation_context or is_linker:
+        return {}
+
+    lto_output_root_prefix = "shared.nonlto"
+    if feature_configuration.is_enabled("use_lto_native_object_directory"):
+        lto_obj_root_prefix = "shared.nonlto-obj"
+    else:
+        lto_obj_root_prefix = "shared.nonlto"
+    cpp_config = cc_toolchain._cpp_configuration
+    debug = should_create_per_object_debug_info(feature_configuration, cpp_config)
+
+    shared_non_lto_backends = {}
+    for obj in object_file_inputs:
+        if obj not in lto_compilation_context.lto_bitcode_inputs():
+            continue
+
+        backend_user_compile_flags = _backend_user_compile_flags(cpp_config, obj, lto_compilation_context)
+        shared_non_lto_backends[obj] = cc_common_internal.create_lto_backend_artifacts(
+            actions = actions,
+            lto_output_root_prefix = lto_output_root_prefix,
+            lto_obj_root_prefix = lto_obj_root_prefix,
+            bitcode_file = obj,
+            all_bitcode_files = None,
+            feature_configuration = feature_configuration,
+            cc_toolchain = cc_toolchain,
+            fdo_context = cc_toolchain._fdo_context,  #TODO: remove
+            use_pic = use_pic,
+            should_create_per_object_debug_info = debug,
+            create_shared_non_lto = True,
+            argv = backend_user_compile_flags,
+        )
+    return shared_non_lto_backends

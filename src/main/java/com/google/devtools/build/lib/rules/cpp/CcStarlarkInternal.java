@@ -779,38 +779,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     return builder.build();
   }
 
-  // TODO(b/331164666): rewrite to Stalark using cc_common.create_lto_artifact
-  @StarlarkMethod(
-      name = "create_shared_non_lto_artifacts",
-      documented = false,
-      parameters = {
-        @Param(name = "actions"),
-        @Param(name = "lto_compilation_context"),
-        @Param(name = "is_linker"),
-        @Param(name = "feature_configuration"),
-        @Param(name = "cc_toolchain"),
-        @Param(name = "use_pic"),
-        @Param(name = "object_files"),
-      })
-  public ImmutableMap<Artifact, LtoBackendArtifacts> createSharedNonLtoArtifacts(
-      WrappedStarlarkActionFactory actions,
-      LtoCompilationContext ltoCompilationContext,
-      boolean isLinker,
-      FeatureConfigurationForStarlark featureConfiguration,
-      StarlarkInfo toolchain,
-      boolean usePicForLtoBackendActions,
-      Sequence<?> objectFiles)
-      throws EvalException {
-    return CppLinkActionBuilder.createSharedNonLtoArtifacts(
-        actions.construction,
-        ltoCompilationContext,
-        isLinker,
-        featureConfiguration.getFeatureConfiguration(),
-        CcToolchainProvider.create(toolchain),
-        usePicForLtoBackendActions,
-        Sequence.cast(objectFiles, Artifact.class, "object_files").getImmutableList());
-  }
-
   @StarlarkMethod(name = "empty_compilation_outputs", documented = false)
   public CcCompilationOutputs getEmpty() {
     return CcCompilationOutputs.EMPTY;
