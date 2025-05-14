@@ -15,7 +15,7 @@ public final class RegexUtil {
   // possessive and reluctant quantifiers, which are the only possible characters after the ".*"
   // prefix that make it unsafe to drop.
   private static final Pattern EXTRACT_SUFFIX_MATCH =
-      Pattern.compile("\\^?\\.\\*(?<suffix>[^?+].*)?");
+      Pattern.compile("(?:\\^|\\\\A)*\\.\\*(?<suffix>[^?+].*)?");
 
   /**
    * Returns a {@link Predicate} that matches the input string against the regex pattern with the
@@ -25,7 +25,10 @@ public final class RegexUtil {
   public static Predicate<String> asOptimizedMatchingPredicate(Pattern regexPattern) {
     String pattern = regexPattern.pattern();
     if (pattern.contains("|") || pattern.contains("\\Q")) {
-      // Alternations make it so that appending "$" may not force a match to the end.
+      // Alternations make it so that appending "$" may not force a match to the end. While we could
+      // wrap the pattern in "(?:" + pattern + ")$", that would no longer be amenable to the regex
+      // engine's optimization pass exploited below - it only applies when the first node is a
+      // literal, not a group.
       // Unmatched \Q...\E sequences can have the same effect.
       return s -> regexPattern.matcher(s).matches();
     }
