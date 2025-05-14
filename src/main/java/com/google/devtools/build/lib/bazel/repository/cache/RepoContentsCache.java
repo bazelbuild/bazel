@@ -18,22 +18,50 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.server.IdleTask;
+import com.google.devtools.build.lib.server.IdleTaskException;
 import com.google.devtools.build.lib.util.FileSystemLock;
 import com.google.devtools.build.lib.util.FileSystemLock.LockMode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Comparator;
 import javax.annotation.Nullable;
 
-/** A cache directory that stores the contents of fetched repos across different workspaces. */
-public class RepoContentsCache {
+/**
+ * A cache directory that stores the contents of fetched repos across different workspaces.
+ *
+ * <p>The repo contents cache is laid out in two layers. The first layer is a lookup by "predeclared
+ * inputs hash", which is defined as the hash of all predeclared inputs of a repo (such as
+ * transitive bzl digest, repo attrs, starlark semantics, etc). Each distinct predeclared inputs
+ * hash is its own entry directory in the first layer.
+ *
+ * <p>Inside each entry directory are pairs of directories and files {@code <N, N.recorded_inputs>}
+ * where {@code N} is an integer. The file {@code N.recorded_inputs} contains the recorded inputs
+ * and their values of a cached repo, and the directory {@code N} contains the cached repo contents.
+ * There is also a file named {@code counter} that stores the next available {@code N} for this
+ * entry directory, and a file named {@code lock} to ensure exclusive access to the {@code counter}
+ * file.
+ *
+ * <p>On a cache hit (that is, the predeclared inputs hash matches, and recorded inputs are
+ * up-to-date), the recorded inputs file has its mtime updated. Cached repos whose recorded inputs
+ * file is older than {@code --repo_contents_cache_gc_max_age} are garbage collected.
+ */
+public final class RepoContentsCache {
   public static final String RECORDED_INPUTS_SUFFIX = ".recorded_inputs";
 
-  @Nullable private Path path;
+  /**
+   * The path to a "lock" file, relative to the root of the repo contents cache. While a shared lock
+   * is held, no garbage collection should happen. While an exclusive lock is held, no reads should
+   * happen.
+   */
+  public static final String LOCK_PATH = "gc_lock";
 
-  // TODO: wyv@ - implement garbage collection
+  @Nullable private Path path;
+  @Nullable private FileSystemLock sharedLock;
 
   public void setPath(@Nullable Path path) {
     this.path = path;
@@ -57,6 +85,15 @@ public class RepoContentsCache {
               0, recordedInputsFileBaseName.length() - RECORDED_INPUTS_SUFFIX.length());
       return new CandidateRepo(
           recordedInputsFile, recordedInputsFile.replaceName(contentsDirBaseName));
+    }
+
+    /** Updates the mtime of the recorded inputs file, to delay GC for this entry. */
+    public void touch() {
+      try {
+        recordedInputsFile.setLastModifiedTime(Instant.now().toEpochMilli());
+      } catch (IOException e) {
+        // swallow the exception. it's not a huge deal.
+      }
     }
   }
 
@@ -126,6 +163,74 @@ public class RepoContentsCache {
       String counter = Integer.toString(c + 1);
       FileSystemUtils.writeContent(counterFile, StandardCharsets.UTF_8, counter);
       return counter;
+    }
+  }
+
+  public void acquireSharedLock() throws IOException {
+    Preconditions.checkState(path != null);
+    Preconditions.checkState(sharedLock == null, "this process already has the shared lock");
+    sharedLock = FileSystemLock.get(path.getRelative(LOCK_PATH), LockMode.SHARED);
+  }
+
+  public void releaseSharedLock() throws IOException {
+    Preconditions.checkState(sharedLock != null);
+    sharedLock.close();
+    sharedLock = null;
+  }
+
+  /**
+   * Creates a garbage collection {@link IdleTask} that deletes cached repos who are last accessed
+   * more than {@code maxAge} ago, with an idle delay of {@code idleDelay}.
+   */
+  public IdleTask createGcIdleTask(Duration maxAge, Duration idleDelay) {
+    Preconditions.checkState(path != null);
+    return new IdleTask() {
+      @Override
+      public String displayName() {
+        return "Repo contents cache garbage collection";
+      }
+
+      @Override
+      public Duration delay() {
+        return idleDelay;
+      }
+
+      @Override
+      public void run() throws InterruptedException, IdleTaskException {
+        try {
+          try (var lock = FileSystemLock.tryGet(path.getRelative(LOCK_PATH), LockMode.EXCLUSIVE)) {
+            // If we can't grab the lock, abort GC. Someone will come along later.
+            runGc(maxAge);
+          }
+        } catch (IOException e) {
+          throw new IdleTaskException(e);
+        }
+      }
+    };
+  }
+
+  private void runGc(Duration maxAge) throws InterruptedException, IOException {
+    Preconditions.checkState(path != null);
+    Instant cutoff = Instant.now().minus(maxAge);
+    for (Path entryDir : path.getDirectoryEntries()) {
+      if (!entryDir.isDirectory()) {
+        continue;
+      }
+      for (Path recordedInputsFile : entryDir.getDirectoryEntries()) {
+        if (!recordedInputsFile.getBaseName().endsWith(RECORDED_INPUTS_SUFFIX)) {
+          continue;
+        }
+        if (Thread.interrupted()) {
+          throw new InterruptedException();
+        }
+
+        if (Instant.ofEpochMilli(recordedInputsFile.getLastModifiedTime()).isBefore(cutoff)) {
+          // Sorry buddy.
+          var candidateRepo = CandidateRepo.fromRecordedInputsFile(recordedInputsFile);
+          candidateRepo.contentsDir.deleteTree();
+          recordedInputsFile.delete();
+        }
+      }
     }
   }
 }

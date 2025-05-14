@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -26,6 +27,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.time.Duration;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 
@@ -63,6 +65,32 @@ public class RepositoryOptions extends OptionsBase {
           repo contents cache as well, unless '--repo_contents_cache=<some_path>' is also set.
           """)
   public PathFragment repoContentsCache;
+
+  @Option(
+      name = "repo_contents_cache_gc_max_age",
+      defaultValue = "14d",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = DurationConverter.class,
+      help =
+          """
+          Specifies the amount of time an entry in the repo contents cache can stay unused before \
+          it's garbage collected.
+          """)
+  public Duration repoContentsCacheGcMaxAge;
+
+  @Option(
+      name = "repo_contents_cache_gc_idle_delay",
+      defaultValue = "5m",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = DurationConverter.class,
+      help =
+          """
+          Specifies the amount of time the server must remain idle before garbage collection happens
+          to the repo contents cache.
+          """)
+  public Duration repoContentsCacheGcIdleDelay;
 
   @Option(
       name = "registry",
