@@ -17,6 +17,7 @@ public class RegexUtilTest {
   public void optimizedMatchingPredicate(
       @TestParameter({
             "",
+            ".",
             "a",
             "foo",
             "foofoo",
@@ -31,6 +32,9 @@ public class RegexUtilTest {
             "foo/test/a/coverage.dat",
             "foo/test/.*/coverage.dat",
             "]]\n",
+            "()",
+            "+",
+            "|",
           })
           String haystack,
       @TestParameter({
@@ -46,6 +50,15 @@ public class RegexUtilTest {
             ".]",
             ".*]",
             ".*^?^\\Q",
+            "foo|/coverage.dat",
+            ".*^|.*a",
+            "\\Q.",
+            ".*.",
+            ".*\\\\",
+            ".*()",
+            ".*|",
+            ".*^",
+            ".*+",
           })
           String needle) {
     Pattern originalPattern = Pattern.compile(needle, Pattern.DOTALL);
