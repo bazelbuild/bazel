@@ -14,15 +14,10 @@
 """Goes over LegacyLinkerInputs and produces LibraryToLinkValue-s."""
 
 load(":common/cc/cc_helper_internal.bzl", "artifact_category", "is_shared_library")
-load(":common/cc/link/target_types.bzl", "LINK_TARGET_TYPE", "is_dynamic_library")
+load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE", "is_dynamic_library")
 load(":common/paths.bzl", "paths")
 
 cc_internal = _builtins.internal.cc_internal
-
-LINKING_MODE = struct(
-    STATIC = "static",
-    DYNAMIC = "dynamic",
-)
 
 # TODO(b/338618120): This code is doing 2 distinct tasks and should be split accordingly: converting
 # LegacyLinkerInputs to LibraryToLinkValues and collecting rpaths for dynamic libraries.

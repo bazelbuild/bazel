@@ -14,10 +14,9 @@
 """Functions that create LTO indexing action."""
 
 load(":common/cc/link/finalize_link_action.bzl", "finalize_link_action")
-load(":common/cc/link/libraries_to_link_collector.bzl", "LINKING_MODE")
 load(":common/cc/link/link_build_variables.bzl", "setup_lto_indexing_variables")
 load(":common/cc/link/lto_backends.bzl", "create_lto_backends")
-load(":common/cc/link/target_types.bzl", "LINK_TARGET_TYPE", "is_dynamic_library")
+load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE", "is_dynamic_library")
 
 cc_internal = _builtins.internal.cc_internal
 

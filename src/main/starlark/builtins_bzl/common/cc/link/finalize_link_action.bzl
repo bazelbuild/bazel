@@ -14,9 +14,9 @@
 """Common functions that create C++ link and LTO indexing action."""
 
 load(":common/cc/link/create_libraries_to_link_values.bzl", "add_libraries_to_link", "add_object_files_to_link", "process_objects_for_lto")
-load(":common/cc/link/libraries_to_link_collector.bzl", "LINKING_MODE", "collect_libraries_to_link")
+load(":common/cc/link/libraries_to_link_collector.bzl", "collect_libraries_to_link")
 load(":common/cc/link/link_build_variables.bzl", "setup_common_linking_variables")
-load(":common/cc/link/target_types.bzl", "LINK_TARGET_TYPE", "USE_ARCHIVER", "USE_LINKER", "is_dynamic_library")
+load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE", "USE_ARCHIVER", "USE_LINKER", "is_dynamic_library")
 load(":common/cc/semantics.bzl", "semantics")
 
 cc_common_internal = _builtins.internal.cc_common
