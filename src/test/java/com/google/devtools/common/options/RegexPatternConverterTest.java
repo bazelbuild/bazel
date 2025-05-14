@@ -64,44 +64,4 @@ public class RegexPatternConverterTest {
         assertThrows(OptionsParsingException.class, () -> new RegexPatternConverter().convert("{"));
     assertThat(e).hasMessageThat().startsWith("Not a valid regular expression:");
   }
-
-  @Test
-  public void optimizedMatchingPredicate(
-      @TestParameter({
-            "",
-            "a",
-            "foo",
-            "foofoo",
-            "/coverage.dat",
-            "/coverage.data",
-            "/coverage1dat",
-            "/coverage1data",
-            "foo/coverage.dat",
-            "foo/coverage.data",
-            "foo/coverage1dat",
-            "foo/coverage1data",
-            "foo/test/a/coverage.dat",
-            "foo/test/.*/coverage.dat",
-            "]]\n",
-          })
-          String haystack,
-      @TestParameter({
-            ".*",
-            ".*?foo",
-            ".*+foo",
-            "^foo$",
-            ".*/coverage.dat",
-            ".*/coverage\\.dat",
-            ".*/test/.*/coverage\\.dat",
-            "$|",
-            "^",
-            ".]",
-            ".*]",
-          })
-          String needle) {
-    Pattern originalPattern = Pattern.compile(needle, Pattern.DOTALL);
-    Predicate<String> optimizedMatcher = RegexPatternOption.create(originalPattern).matcher();
-    assertThat(optimizedMatcher.test(haystack))
-        .isEqualTo(originalPattern.matcher(haystack).matches());
-  }
 }

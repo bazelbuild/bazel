@@ -24,8 +24,9 @@ public final class RegexUtil {
    */
   public static Predicate<String> asOptimizedMatchingPredicate(Pattern regexPattern) {
     String pattern = regexPattern.pattern();
-    if (pattern.contains("|")) {
+    if (pattern.contains("|") || pattern.contains("\\Q")) {
       // Alternations make it so that appending "$" may not force a match to the end.
+      // Unmatched \Q...\E sequences can have the same effect.
       return s -> regexPattern.matcher(s).matches();
     }
     // Recognize a pattern that starts with ".*" and drop it so that the engine sees the next part
