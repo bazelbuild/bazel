@@ -97,6 +97,15 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
      */
     @Nullable StarlarkAspectClass owningAspect;
 
+    /**
+     * A series of macros, innermost first, that the prerequisite was passed to.
+     *
+     * <p>Empty if no delegation occurs. Otherwise, the first entry is the macro that declared the
+     * consumer, and the last entry is the macro whose declaration location is tested against the
+     * prerequisite's visibility.
+     */
+    final ArrayList<MacroInstance> delegatedThrough = new ArrayList<>();
+
     boolean verboseVisibilityErrors = false;
 
     /** Whether this edge is for an implicit dep. */
@@ -200,7 +209,8 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
           prerequisite, state.getOwnerDefinitionLocation(), checkExperimental)) {
         // Failed. Validate with respect to the target anyway, for backwards compatibility.
         // TODO(bazel-team): When can this fallback be removed?
-        if (!isVisibleToDeclaration(prerequisite, rule, checkExperimental)) {
+        if (!isVisibleToDeclaration(
+            prerequisite, rule, checkExperimental, state.delegatedThrough)) {
           // True failure. In the error message, always suggest making the prerequisite visible from
           // the definition, not the target.
           context.ruleError(generateVisibilityConflictMessage(state));
@@ -208,7 +218,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       }
     } else {
       // Normal case: Validate with respect to the target, only.
-      if (!isVisibleToDeclaration(prerequisite, rule, checkExperimental)) {
+      if (!isVisibleToDeclaration(prerequisite, rule, checkExperimental, state.delegatedThrough)) {
         context.ruleError(generateVisibilityConflictMessage(state));
       }
     }
@@ -229,14 +239,16 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
    * that takes in the {@code prerequisite}'s label (not following {@code alias}es), then before
    * running the above logic we first substitute the symbolic macro for {@code
    * consumingDeclaration}. This reflects how the usage of the prerequisite was not really by the
-   * given declaration but rather its parent.
+   * given declaration but rather its parent. In this case, the symbolic macro is appended to {@code
+   * delegatedThrough} (and so on, recursively, for any further ancestors to which this applies).
    */
-  // TODO: #19922 - Consider replacing use of Object with a new interface abstracting Rule and
-  // MacroInstance.
+  // TODO: #19922 - Replace Object with RuleOrMacroInstance. Probably requires lifting a few
+  // accessors up to that interface.
   private boolean isVisibleToDeclaration(
       ConfiguredTargetAndData prerequisite,
       Object consumingDeclaration,
-      boolean checkExperimental) {
+      boolean checkExperimental,
+      List<MacroInstance> delegatedThrough) {
     PackageIdentifier consumingDeclarationPkg;
     @Nullable MacroInstance declaringMacro;
     if (consumingDeclaration instanceof Rule target) {
@@ -260,7 +272,9 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       declaringMacro.visitExplicitAttributeLabels(
           label -> declaringMacroWasGivenPrereqByCaller[0] |= label.equals(prereqLabel));
       if (declaringMacroWasGivenPrereqByCaller[0]) {
-        return isVisibleToDeclaration(prerequisite, declaringMacro, checkExperimental);
+        delegatedThrough.add(declaringMacro);
+        return isVisibleToDeclaration(
+            prerequisite, declaringMacro, checkExperimental, delegatedThrough);
       }
     }
 
@@ -271,8 +285,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
         // privileges as the consuming package's BUILD file.
         return true;
       }
-      PackageIdentifier macroLocation =
-          declaringMacro.getMacroClass().getDefiningBzlLabel().getPackageIdentifier();
+      PackageIdentifier macroLocation = declaringMacro.getDefinitionPackage();
       return isVisibleToLocation(prerequisite, macroLocation, checkExperimental);
     } else {
       return isVisibleToLocation(prerequisite, consumingDeclarationPkg, checkExperimental);
@@ -399,9 +412,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
 
       ArrayList<String> bullets = new ArrayList<>();
       maybeAddImplicitDepBullet(state, bullets);
-      // TODO: https://github.com/bazelbuild/bazel/issues/25933 - Add bullet points for explaining
-      // how we determine the consuming location. Requires recording delegation information on the
-      // VisibilityCheckState inside of isVisibleToDeclaration().
+      addConsumingLocationBullet(state, bullets);
       // TODO: https://github.com/bazelbuild/bazel/issues/25933 - Add bullet point for explaining
       // the dependency's declared visibility with and without package group expansion, and with the
       // conditional caveat that we don't care that the dependency is an alias.
@@ -445,6 +456,61 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
             state.getOwnerName(),
             state.getOwnerDefinitionBzl(),
             state.getOwnerDefinitionLocation().getCanonicalForm()));
+  }
+
+  private void addConsumingLocationBullet(VisibilityCheckState state, List<String> bullets) {
+    Rule consumer = state.consumer;
+    if (state.delegatedThrough.isEmpty()) {
+      // Simple case, report that we're checking the target's declaration location, which is the
+      // innermost macro or the BUILD file if not in a macro.
+      MacroInstance declaringMacro = consumer.getDeclaringMacro();
+      if (declaringMacro == null) {
+        bullets.add(
+            String.format(
+                "The location being checked is the package where the consuming target lives, %s.",
+                consumer.getDeclaringPackage().getCanonicalForm()));
+      } else {
+        bullets.add(
+            String.format(
+                """
+                Because the consuming target was declared in the body of the symbolic macro %s \
+                defined in %s, the location being checked is this file's package, %s.
+                """,
+                declaringMacro.getMacroClass().getName(),
+                declaringMacro.getMacroClass().getDefiningBzlLabel().getCanonicalForm(),
+                consumer.getDeclaringPackage().getCanonicalForm()));
+      }
+    } else {
+      // Delegation case. Get the outermost macro the dep was delegated through. The parent of that
+      // macro, which is either another macro or else the BUILD file, is the location we're
+      // checking.
+      MacroInstance outermostDelegated = state.delegatedThrough.getLast();
+      MacroInstance delegationParent = outermostDelegated.getParent();
+      String consumingLocation;
+      if (delegationParent == null) {
+        consumingLocation =
+            String.format(
+                "package %s",
+                outermostDelegated.getPackageMetadata().packageIdentifier().getCanonicalForm());
+      } else {
+        consumingLocation =
+            String.format(
+                "the body of the calling macro %s, defined in %s of package %s",
+                delegationParent.getMacroClass().getName(),
+                delegationParent.getMacroClass().getDefiningBzlLabel(),
+                delegationParent.getDefinitionPackage().getCanonicalForm());
+      }
+      bullets.add(
+          String.format(
+              """
+              Because the dependency was%s passed to the consuming target from an attribute of the \
+              symbolic macro %s, the location being checked is the place where this macro is \
+              declared: %s.
+              """,
+              state.delegatedThrough.size() > 1 ? " transitively" : "",
+              outermostDelegated.getLabel(),
+              consumingLocation));
+    }
   }
 
   private void maybeAddSamePackageDisclaimerBullet(
