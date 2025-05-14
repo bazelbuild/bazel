@@ -133,6 +133,17 @@ public class Rule extends RuleOrMacroInstance implements Target {
     return pkg.getDeclarations();
   }
 
+  /**
+   * Implements {@link RuleOrMacroClass#getDeclaringMacro} using {@link Target#getDeclaringMacro}.
+   *
+   * <p>This method cannot be called for rules in deserialized packages.
+   */
+  @Override
+  @Nullable
+  public MacroInstance getDeclaringMacro() {
+    return Target.super.getDeclaringMacro();
+  }
+
   public RuleClass getRuleClassObject() {
     return ruleClass;
   }

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleOrMacroInstance;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -209,8 +210,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
           prerequisite, state.getOwnerDefinitionLocation(), checkExperimental)) {
         // Failed. Validate with respect to the target anyway, for backwards compatibility.
         // TODO(bazel-team): When can this fallback be removed?
-        if (!isVisibleToDeclaration(
-            prerequisite, rule, checkExperimental, state.delegatedThrough)) {
+        if (!isVisibleToConsumer(prerequisite, rule, checkExperimental, state.delegatedThrough)) {
           // True failure. In the error message, always suggest making the prerequisite visible from
           // the definition, not the target.
           context.ruleError(generateVisibilityConflictMessage(state));
@@ -218,49 +218,37 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       }
     } else {
       // Normal case: Validate with respect to the target, only.
-      if (!isVisibleToDeclaration(prerequisite, rule, checkExperimental, state.delegatedThrough)) {
+      if (!isVisibleToConsumer(prerequisite, rule, checkExperimental, state.delegatedThrough)) {
         context.ruleError(generateVisibilityConflictMessage(state));
       }
     }
   }
 
   /**
-   * Returns whether {@code prerequisite} is visible to {@code consumingDeclaration}, which can be
-   * either a {@link Rule} target or a {@link MacroInstance}.
+   * Returns whether {@code prerequisite} is visible to {@code consumer}, which can be either a
+   * {@link Rule} target or a {@link MacroInstance}.
    *
-   * <p>In general, this passes if {@code consumingDeclaration}'s location is allowed by {@code
+   * <p>In general, this passes if {@code consumer}'s declaration location is allowed by {@code
    * prerequisite}'s visibility provider or the same-logical-package condition.
    *
-   * <p>In this context, the "location" of a target means the package containing the defining bzl
-   * (i.e. export label) of the symbolic macro that directly declares the target; or the target's
-   * package if it was not declared within any symbolic macro.
+   * <p>In this context, the "declaration location" of a target means the package containing the
+   * defining bzl (i.e. export label) of the symbolic macro that directly declares the target; or
+   * the target's package if it was not declared within any symbolic macro. Likewise for a macro
+   * instance.
    *
-   * <p>As a special case, if {@code consumingDeclaration} was directly created by a symbolic macro
-   * that takes in the {@code prerequisite}'s label (not following {@code alias}es), then before
-   * running the above logic we first substitute the symbolic macro for {@code
-   * consumingDeclaration}. This reflects how the usage of the prerequisite was not really by the
-   * given declaration but rather its parent. In this case, the symbolic macro is appended to {@code
-   * delegatedThrough} (and so on, recursively, for any further ancestors to which this applies).
+   * <p>As a special case, if {@code consumer} was directly created by a symbolic macro that takes
+   * in the {@code prerequisite}'s label (not following {@code alias}es), then before running the
+   * above logic we first substitute the symbolic macro for {@code consumer}. This reflects how the
+   * usage of the prerequisite was not really by the given declaration but rather its parent. In
+   * this case, the symbolic macro is appended to {@code delegatedThrough}. This process can repeat
+   * recursively.
    */
-  // TODO: #19922 - Replace Object with RuleOrMacroInstance. Probably requires lifting a few
-  // accessors up to that interface.
-  private boolean isVisibleToDeclaration(
+  private boolean isVisibleToConsumer(
       ConfiguredTargetAndData prerequisite,
-      Object consumingDeclaration,
+      RuleOrMacroInstance consumer,
       boolean checkExperimental,
       List<MacroInstance> delegatedThrough) {
-    PackageIdentifier consumingDeclarationPkg;
-    @Nullable MacroInstance declaringMacro;
-    if (consumingDeclaration instanceof Rule target) {
-      consumingDeclarationPkg = target.getPackageMetadata().packageIdentifier();
-      declaringMacro = target.getDeclaringMacro();
-    } else if (consumingDeclaration instanceof MacroInstance macroInstance) {
-      consumingDeclarationPkg = macroInstance.getPackageMetadata().packageIdentifier();
-      declaringMacro = macroInstance.getParent();
-    } else {
-      throw new IllegalArgumentException(
-          "Expected a Rule or MacroInstance, got " + consumingDeclaration.getClass().getName());
-    }
+    @Nullable MacroInstance declaringMacro = consumer.getDeclaringMacro();
 
     // Visibility delegation: If we're directly declared by a macro that took this prereq as an
     // argument from its own caller, then our location is moot, and it's the macro's usage that we
@@ -273,23 +261,25 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
           label -> declaringMacroWasGivenPrereqByCaller[0] |= label.equals(prereqLabel));
       if (declaringMacroWasGivenPrereqByCaller[0]) {
         delegatedThrough.add(declaringMacro);
-        return isVisibleToDeclaration(
+        return isVisibleToConsumer(
             prerequisite, declaringMacro, checkExperimental, delegatedThrough);
       }
     }
 
-    if (declaringMacro != null) {
-      if (declaringMacro.getMacroClass().isFinalizer()
-          && isVisibleToLocation(prerequisite, consumingDeclarationPkg, checkExperimental)) {
-        // Finalizers, unlike ordinary symbolic macros, are also granted the same visibility
-        // privileges as the consuming package's BUILD file.
+    // No delegation. Check visibility on our own merits.
+    PackageIdentifier packageOfConsumer = consumer.getPackageMetadata().packageIdentifier();
+
+    // Finalizers, in addition to their normal visibility privileges, also get the privileges of the
+    // BUILD file of the package they live in.
+    if (declaringMacro != null && declaringMacro.getMacroClass().isFinalizer()) {
+      if (isVisibleToLocation(prerequisite, packageOfConsumer, checkExperimental)) {
         return true;
       }
-      PackageIdentifier macroLocation = declaringMacro.getDefinitionPackage();
-      return isVisibleToLocation(prerequisite, macroLocation, checkExperimental);
-    } else {
-      return isVisibleToLocation(prerequisite, consumingDeclarationPkg, checkExperimental);
     }
+
+    PackageIdentifier declaringLocation =
+        declaringMacro != null ? declaringMacro.getDefinitionPackage() : packageOfConsumer;
+    return isVisibleToLocation(prerequisite, declaringLocation, checkExperimental);
   }
 
   /**
