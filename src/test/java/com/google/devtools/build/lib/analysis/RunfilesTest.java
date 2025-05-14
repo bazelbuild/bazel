@@ -29,17 +29,14 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.Runfiles.ConflictChecker;
 import com.google.devtools.build.lib.analysis.Runfiles.ConflictType;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.EnumSet;
@@ -48,7 +45,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.StarlarkList;
@@ -175,39 +171,14 @@ public class RunfilesTest extends FoundationTestCase {
     assertNoEvents();
   }
 
-  private static final class SimpleActionLookupKey implements ActionLookupKey {
-    private final String name;
-
-    SimpleActionLookupKey(String name) {
-      this.name = name;
-    }
-
-    @Override
-    public SkyFunctionName functionName() {
-      return SkyFunctionName.createHermetic(name);
-    }
-
-    @Nullable
-    @Override
-    public Label getLabel() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public BuildConfigurationKey getConfigurationKey() {
-      return null;
-    }
-  }
-
   @Test
   public void testPutDerivedArtifactWithDifferentOwner() throws Exception {
     ArtifactRoot root =
         ArtifactRoot.asDerivedRoot(scratch.dir("/workspace"), RootType.Output, "out");
     PathFragment path = PathFragment.create("src/foo.cc");
 
-    SimpleActionLookupKey owner1 = new SimpleActionLookupKey("//owner1");
-    SimpleActionLookupKey owner2 = new SimpleActionLookupKey("//owner2");
+    ActionLookupKey owner1 = ActionsTestUtil.createActionLookupKey("//owner1");
+    ActionLookupKey owner2 = ActionsTestUtil.createActionLookupKey("//owner2");
     Artifact artifact1 = DerivedArtifact.create(root, root.getExecPath().getRelative(path), owner1);
     Artifact artifact2 = DerivedArtifact.create(root, root.getExecPath().getRelative(path), owner2);
 

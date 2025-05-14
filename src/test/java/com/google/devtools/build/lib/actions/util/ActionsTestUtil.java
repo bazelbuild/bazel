@@ -1022,4 +1022,33 @@ public final class ActionsTestUtil {
     assertThat(buildConfigurationEvent.asStreamProto(/* unusedConverters= */ null).isInitialized())
         .isTrue();
   }
+
+  private static final class SimpleActionLookupKey implements ActionLookupKey {
+    private final String name;
+
+    SimpleActionLookupKey(String name) {
+      this.name = name;
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctionName.createHermetic(name);
+    }
+
+    @Nullable
+    @Override
+    public Label getLabel() {
+      return null;
+    }
+
+    @Nullable
+    @Override
+    public BuildConfigurationKey getConfigurationKey() {
+      return null;
+    }
+  }
+
+  public static ActionLookupKey createActionLookupKey(String name) {
+    return new SimpleActionLookupKey(name);
+  }
 }
