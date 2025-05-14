@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.actions.cache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.time.Instant.EPOCH;
 import static org.mockito.ArgumentMatchers.any;
@@ -266,19 +265,6 @@ public class CompactPersistentActionCacheTest {
     assertThat(newerCache.size()).isEqualTo(0);
   }
 
-  private void assertToStringIsntTooBig(int numRecords) {
-    for (int i = 0; i < numRecords; i++) {
-      putKey(Integer.toString(i));
-    }
-    String val = cache.toString();
-    assertThat(val).startsWith("Action cache (" + numRecords + " records):\n");
-    assertWithMessage(val).that(val.length()).isAtMost(2000);
-    // Cache was too big to print out fully.
-    if (numRecords > 10) {
-      assertThat(val).endsWith("...");
-    }
-  }
-
   @Test
   public void testTimestamps() throws IOException {
     clock.advance(Duration.ofDays(100));
@@ -408,12 +394,6 @@ public class CompactPersistentActionCacheTest {
     assertThat(cache.get("def")).isNotNull();
     assertThat(cache.get("ghi")).isNotNull();
     assertThat(cache.get("jkl")).isNotNull();
-  }
-
-  @Test
-  public void testToStringIsntTooBig() {
-    assertToStringIsntTooBig(3);
-    assertToStringIsntTooBig(3000);
   }
 
   enum IncompatibleFile {

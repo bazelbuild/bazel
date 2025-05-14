@@ -19,9 +19,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -38,9 +38,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -165,40 +163,40 @@ public interface ActionCache {
 
     @Override
     public String toString() {
-      if (isCorrupted()) {
-        return "      CORRUPTED\n";
-      }
-      StringBuilder builder = new StringBuilder();
-      builder.append("      digest = ").append(formatDigest(digest)).append("\n");
+      return MoreObjects.toStringHelper(this)
+          .add("digest", digest)
+          .add("discoveredInputPaths", discoveredInputPaths)
+          .add("outputFileMetadata", outputFileMetadata)
+          .add("outputTreeMetadata", outputTreeMetadata)
+          .toString();
+    }
 
+    void dump(PrintStream out) {
+      if (isCorrupted()) {
+        out.println("  CORRUPTED");
+        return;
+      }
+      out.format("  digest = %s\n", formatDigest(digest));
       if (discoveredInputPaths != null) {
-        List<String> fileInfo = Lists.newArrayListWithCapacity(discoveredInputPaths.size());
-        fileInfo.addAll(discoveredInputPaths);
-        Collections.sort(fileInfo);
-        for (String info : fileInfo) {
-          builder.append("      ").append(info).append("\n");
+        out.println("  discoveredInputPaths =");
+        for (String path : ImmutableList.sortedCopyOf(discoveredInputPaths)) {
+          out.format("    %s\n", path);
         }
       }
 
-      for (Map.Entry<String, FileArtifactValue> entry : outputFileMetadata.entrySet()) {
-        builder
-            .append("      ")
-            .append(entry.getKey())
-            .append(" = ")
-            .append(entry.getValue())
-            .append("\n");
+      if (!outputFileMetadata.isEmpty()) {
+        out.println("  outputFileMetadata =");
+        for (String path : ImmutableList.sortedCopyOf(outputFileMetadata.keySet())) {
+          out.format("    %s = %s\n", path, outputFileMetadata.get(path));
+        }
       }
 
-      for (Map.Entry<String, SerializableTreeArtifactValue> entry : outputTreeMetadata.entrySet()) {
-        builder
-            .append("      ")
-            .append(entry.getKey())
-            .append(" = ")
-            .append(entry.getValue())
-            .append("\n");
+      if (!outputTreeMetadata.isEmpty()) {
+        out.println("  outputTreeMetadata =");
+        for (String path : ImmutableList.sortedCopyOf(outputTreeMetadata.keySet())) {
+          out.format("    %s = %s\n", path, outputTreeMetadata.get(path));
+        }
       }
-
-      return builder.toString();
     }
 
     private static String formatDigest(byte[] digest) {
@@ -438,7 +436,7 @@ public interface ActionCache {
    */
   ActionCache trim(float threshold, Duration maxAge) throws IOException, InterruptedException;
 
-  /** Dumps action cache content into the given PrintStream. */
+  /** Dumps the action cache into a human-readable format. */
   void dump(PrintStream out);
 
   /** The number of entries in the cache. */
