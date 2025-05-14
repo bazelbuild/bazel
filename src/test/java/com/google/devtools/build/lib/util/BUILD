@@ -208,10 +208,13 @@ java_binary(
     ],
 )
 
+# Start fuzzing via
+#   bazel run //src/test/java/com/google/devtools/build/lib/util:RegexUtilFuzzTest_run
 java_fuzz_test(
     name = "RegexUtilFuzzTest",
     srcs = ["RegexUtilFuzzTest.java"],
     jvm_flags = [
+        "-Djazzer.instrumentation_includes=java.util.regex.*:com.google.devtools.build.lib.util.*",
         # The fuzz test intentionally passes untrusted input into Pattern#compile, don't report that fact.
         "-Djazzer.disabled_hooks=com.code_intelligence.jazzer.sanitizers.RegexInjection",
     ],
