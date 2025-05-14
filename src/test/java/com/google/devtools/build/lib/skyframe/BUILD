@@ -1906,7 +1906,6 @@ java_test(
 
 java_test(
     name = "SourceDirectoryIntegrationTest",
-    timeout = "short",
     srcs = ["SourceDirectoryIntegrationTest.java"],
     jvm_flags = [
         "-DBAZEL_TRACK_SOURCE_DIRECTORIES=1",
