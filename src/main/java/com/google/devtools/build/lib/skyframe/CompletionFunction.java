@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
@@ -442,9 +443,9 @@ public final class CompletionFunction<
     try {
       LostArtifacts lostOutputs;
       try (var ignored =
-          GoogleAutoProfilerUtils.logged(
+          GoogleAutoProfilerUtils.profiledAndLogged(
               "Informing important output handler of top-level outputs for " + label,
-              ImportantOutputHandler.LOG_THRESHOLD)) {
+              ProfilerTask.INFO)) {
         lostOutputs =
             importantOutputHandler.processOutputsAndGetLostArtifacts(
                 key.topLevelArtifactContext().expandFilesets()
