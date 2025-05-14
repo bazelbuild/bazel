@@ -1312,14 +1312,16 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     buildTarget("//:gen");
 
-    assertSymlink("foo-link", PathFragment.create("foo"));
+    // Just "foo" would also be acceptable here, matching the result of local execution of this
+    // genrule.
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
     assertValidOutputFile("foo-link", "hello\n");
 
     // Delete link, re-plant symlink
     getOutputPath("foo").delete();
     buildTarget("//:gen");
 
-    assertSymlink("foo-link", PathFragment.create("foo"));
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
     assertValidOutputFile("foo-link", "hello\n");
 
     // Delete target, re-download it
@@ -1327,7 +1329,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     buildTarget("//:gen");
 
-    assertSymlink("foo-link", PathFragment.create("foo"));
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
     assertValidOutputFile("foo-link", "hello\n");
   }
 
