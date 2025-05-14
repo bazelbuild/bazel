@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.VendorFileValue;
 import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
+import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache.CandidateRepo;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.NeverUpToDateRepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reproducibility;
 import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
@@ -216,7 +218,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       String predeclaredInputHash =
           DigestWriter.computePredeclaredInputHash(rule, starlarkSemantics);
 
-      if (shouldUseCachedRepos(env, handler, repoRoot, rule)) {
+      if (shouldUseCachedRepos(env, handler, rule)) {
         // Make sure marker file is up-to-date; correctly describes the current repository state
         var repoState = digestWriter.areRepositoryAndMarkerFileConsistent(handler, env);
         if (repoState == null) {
@@ -229,21 +231,22 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
         // Then check if the global repo contents cache has this.
         if (repoContentsCache.isEnabled()) {
-          repoState =
-              digestWriter.areRepositoryAndMarkerFileConsistent(
-                  handler, env, repoContentsCache.recordedInputsFile(predeclaredInputHash));
-          if (repoState == null) {
-            return null;
-          }
-          if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
-            var unused =
-                setupOverride(
-                    repoContentsCache.contentsDir(predeclaredInputHash).asFragment(),
-                    env,
-                    repoRoot,
-                    repositoryName);
-            return new RepositoryDirectoryValue.Success(
-                repoRoot, /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
+          for (CandidateRepo candidate :
+              repoContentsCache.getCandidateRepos(predeclaredInputHash)) {
+            repoState =
+                digestWriter.areRepositoryAndMarkerFileConsistent(
+                    handler, env, candidate.recordedInputsFile());
+            if (repoState == null) {
+              return null;
+            }
+            if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
+              if (setupOverride(candidate.contentsDir().asFragment(), env, repoRoot, repositoryName)
+                  == null) {
+                return null;
+              }
+              return new RepositoryDirectoryValue.Success(
+                  repoRoot, /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
+            }
           }
         }
       }
@@ -267,6 +270,21 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         // restart thus calling the possibly very slow (networking, decompression...) fetch()
         // operation again. So we write the marker file here immediately.
         digestWriter.writeMarkerFile(result.recordedInputValues());
+        if (repoContentsCache.isEnabled()
+            && result.reproducible() == Reproducibility.YES
+            && !handler.isLocal(rule)) {
+          // This repo is eligible for the repo contents cache.
+          try {
+            repoContentsCache.moveToCache(repoRoot, digestWriter.markerPath, predeclaredInputHash);
+          } catch (IOException e) {
+            throw new RepositoryFunctionException(
+                new IOException(
+                    "error moving repo @@%s into the repo contents cache: %s"
+                        .formatted(rule.getName(), e.getMessage()),
+                    e),
+                Transience.TRANSIENT);
+          }
+        }
         return new RepositoryDirectoryValue.Success(
             repoRoot, /* isFetchingDelayed= */ false, excludeRepoFromVendoring);
       }
@@ -418,8 +436,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   /* Determines whether we should use the cached repositories */
-  private boolean shouldUseCachedRepos(
-      Environment env, RepositoryFunction handler, Path repoRoot, Rule rule)
+  private boolean shouldUseCachedRepos(Environment env, RepositoryFunction handler, Rule rule)
       throws InterruptedException {
     boolean forceFetchEnabled = !FORCE_FETCH.get(env).isEmpty();
     boolean forceFetchConfigureEnabled =
@@ -434,9 +451,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     /* For the non-local repositories, do NOT use cache if:
      * 1) Force fetch is enabled (bazel sync, or bazel fetch --force), OR
-     * 2) Force fetch configure is enabled (bazel sync --configure), OR
-     * 3) Repository directory does not exist */
-    if (forceFetchEnabled || forceFetchConfigureEnabled || !repoRoot.exists()) {
+     * 2) Force fetch configure is enabled (bazel sync --configure) */
+    if (forceFetchEnabled || forceFetchConfigureEnabled) {
       return false;
     }
 
