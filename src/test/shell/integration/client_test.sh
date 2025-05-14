@@ -280,9 +280,9 @@ function test_output_user_root() {
   expect_log "$TEST_TMPDIR/user/[0-9a-f]\{32\}"
 
   # Test relative path
-  bazel --output_user_root=user info output_base >& $TEST_log \
+  bazel --output_user_root=../user info output_base >& $TEST_log \
       || fail "Expected success"
-  expect_log "$(pwd)/user/[0-9a-f]\{32\}"
+  expect_log "$(cd .. && pwd)/user/[0-9a-f]\{32\}"
 }
 
 function test_multiple_commands_same_output_base() {

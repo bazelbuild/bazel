@@ -65,6 +65,7 @@ import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
@@ -226,6 +227,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         checkNotNull(ignoredPackagesValue).asIgnoredSubdirectories();
 
     Map<RepoRecordedInput, String> recordedInputValues = new LinkedHashMap<>();
+    RepoMetadata repoMetadata;
     try (Mutability mu = Mutability.create("Starlark repository");
         StarlarkRepositoryContext starlarkRepositoryContext =
             new StarlarkRepositoryContext(
@@ -285,9 +287,18 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         starlarkRepositoryContext.markSuccessful();
       }
 
+      repoMetadata =
+          switch (result) {
+            case Dict<?, ?> dict -> new RepoMetadata(Reproducibility.NO, dict);
+            case RepoMetadata rm -> rm;
+            default -> RepoMetadata.NONREPRODUCIBLE;
+          };
       RepositoryResolvedEvent resolved =
           new RepositoryResolvedEvent(
-              rule, starlarkRepositoryContext.getAttr(), outputDirectory, result);
+              rule,
+              starlarkRepositoryContext.getAttr(),
+              outputDirectory,
+              repoMetadata.attrsForReproducibility());
       if (resolved.isNewInformationReturned()) {
         env.getListener().handle(Event.debug(resolved.getMessage()));
         env.getListener().handle(Event.debug(defInfo));
@@ -361,7 +372,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       }
     }
 
-    return new FetchResult(recordedInputValues);
+    return new FetchResult(recordedInputValues, repoMetadata.reproducible());
   }
 
   @SuppressWarnings("unchecked")

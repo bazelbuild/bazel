@@ -125,8 +125,10 @@ Authorization: Bearer RANDOM-TOKEN
 
 def _update_integrity_attr(ctx, attrs, download_info):
     # We don't need to override the integrity attribute if sha256 is already specified.
-    integrity_override = {} if ctx.attr.sha256 else {"integrity": download_info.integrity}
-    return update_attrs(ctx.attr, attrs.keys(), integrity_override)
+    if ctx.attr.sha256 or ctx.attr.integrity:
+        return ctx.repo_metadata(reproducible = True)
+    integrity_override = {"integrity": download_info.integrity}
+    return ctx.repo_metadata(attrs_for_reproducibility = update_attrs(ctx.attr, attrs.keys(), integrity_override))
 
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""

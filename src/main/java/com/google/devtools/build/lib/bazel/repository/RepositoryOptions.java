@@ -43,8 +43,26 @@ public class RepositoryOptions extends OptionsBase {
           "Specifies the cache location of the downloaded values obtained "
               + "during the fetching of external repositories. An empty string "
               + "as argument requests the cache to be disabled, "
-              + "otherwise the default of '<output_user_root>/cache/repos/v1' is used")
-  public PathFragment experimentalRepositoryCache;
+              + "otherwise the default of '<--output_user_root>/cache/repos/v1' is used")
+  public PathFragment repositoryCache;
+
+  @Option(
+      name = "repo_contents_cache",
+      oldName = "repository_contents_cache",
+      oldNameWarning = false,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help =
+          """
+          Specifies the location of the repo contents cache, which contains fetched repo \
+          directories shareable across workspaces. An empty string as argument requests the repo \
+          contents cache to be disabled, otherwise the default of '<--repository_cache>/contents' \
+          is used. Note that this means setting '--repository_cache=' would by default disable the \
+          repo contents cache as well, unless '--repo_contents_cache=<some_path>' is also set.
+          """)
+  public PathFragment repoContentsCache;
 
   @Option(
       name = "registry",
