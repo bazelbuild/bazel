@@ -60,7 +60,6 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/unix:srcs",
         "//src/test/java/com/google/devtools/build/lib/unsafe:srcs",
         "//src/test/java/com/google/devtools/build/lib/util:srcs",
-        "//src/test/java/com/google/devtools/build/lib/versioning:srcs",
         "//src/test/java/com/google/devtools/build/lib/vfs:srcs",
         "//src/test/java/com/google/devtools/build/lib/view/cpp:srcs",
         "//src/test/java/com/google/devtools/build/lib/view/java:srcs",
