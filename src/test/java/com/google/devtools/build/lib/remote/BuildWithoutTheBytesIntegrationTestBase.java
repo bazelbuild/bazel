@@ -927,6 +927,29 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void downloadMinimal_symlinkToGeneratedFile() throws Exception {
+    writeSymlinkRule();
+    write(
+        "BUILD",
+        "load(':symlink.bzl', 'symlink')",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "symlink(",
+        "  name = 'foo-link',",
+        "  target_artifact = ':foo',",
+        ")");
+
+    buildTarget("//:foo-link");
+
+    assertOutputsDoNotExist("//:foo");
+    assertOutputsDoNotExist("//:foo-link");
+  }
+
+  @Test
   public void downloadToplevel_symlinkToGeneratedFile() throws Exception {
     setDownloadToplevel();
     writeSymlinkRule();
