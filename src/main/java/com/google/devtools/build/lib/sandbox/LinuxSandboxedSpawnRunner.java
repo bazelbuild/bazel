@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -239,7 +238,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ForbiddenActionInputException, ExecException, InterruptedException {
+      throws IOException, ExecException, InterruptedException {
 
     // Each invocation of "exec" gets its own sandbox base.
     // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
@@ -449,7 +448,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   @Override
   public void verifyPostCondition(
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
-      throws IOException, ForbiddenActionInputException {
+      throws IOException {
     if (getSandboxOptions().useHermetic) {
       checkForConcurrentModifications(context);
     }
@@ -462,8 +461,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
   }
 
-  private void checkForConcurrentModifications(SpawnExecutionContext context)
-      throws IOException, ForbiddenActionInputException {
+  private void checkForConcurrentModifications(SpawnExecutionContext context) throws IOException {
     for (ActionInput input :
         context
             .getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)

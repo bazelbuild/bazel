@@ -396,11 +396,6 @@ java_library(
 )
 
 java_library(
-    name = "forbidden_action_input_exception",
-    srcs = ["ForbiddenActionInputException.java"],
-)
-
-java_library(
     name = "runfiles_metadata",
     srcs = ["RunfilesArtifactValue.java"],
     deps = [

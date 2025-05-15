@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
@@ -149,7 +148,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, IOException, InterruptedException, ForbiddenActionInputException {
+      throws ExecException, IOException, InterruptedException {
     context.report(
         SpawnSchedulingEvent.create(
             WorkerKey.makeWorkerTypeName(
@@ -371,7 +370,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       List<String> flagFiles,
       InputMetadataProvider inputFileCache,
       SpawnMetrics.Builder spawnMetrics)
-      throws ExecException, ForbiddenActionInputException, IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     WorkerOwner workerOwner = null;
     WorkResponse response;
     WorkRequest request;

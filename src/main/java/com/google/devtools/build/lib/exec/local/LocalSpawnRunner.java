@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
@@ -123,8 +122,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, InterruptedException, ExecException, ForbiddenActionInputException {
-
+      throws IOException, InterruptedException, ExecException {
     SpawnMetrics.Builder spawnMetrics = SpawnMetrics.Builder.forLocalExec();
     Stopwatch totalTimeStopwatch = Stopwatch.createStarted();
     Stopwatch setupTimeStopwatch = Stopwatch.createStarted();

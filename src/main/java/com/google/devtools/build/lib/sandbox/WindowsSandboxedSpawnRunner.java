@@ -18,7 +18,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.WindowsLocalEnvProvider;
@@ -55,7 +54,7 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ForbiddenActionInputException, InterruptedException {
+      throws IOException, InterruptedException {
     Path tmpDir = createActionTemp(execRoot);
     Path commandTmpDir = tmpDir.getRelative("work");
     commandTmpDir.createDirectory();

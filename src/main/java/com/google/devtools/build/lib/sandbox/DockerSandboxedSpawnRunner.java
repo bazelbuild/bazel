@@ -23,7 +23,6 @@ import com.google.common.collect.MoreCollectors;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -200,7 +199,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException, InterruptedException, ForbiddenActionInputException {
+      throws IOException, ExecException, InterruptedException {
     // Each invocation of "exec" gets its own sandbox base, execroot and temporary directory.
     Path sandboxPath =
         sandboxBase.getRelative(getName()).getRelative(Integer.toString(context.getId()));
