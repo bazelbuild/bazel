@@ -20,6 +20,7 @@ load(
     "is_versioned_shared_library_extension_valid",
     "should_create_per_object_debug_info",
     _artifact_category = "artifact_category",
+    _extensions = "extensions",
     _package_source_root = "package_source_root",
     _repository_exec_path = "repository_exec_path",
 )
@@ -35,6 +36,7 @@ coverage_common = _builtins.toplevel.coverage_common
 platform_common = _builtins.toplevel.platform_common
 
 artifact_category = _artifact_category
+extensions = _extensions
 
 # LINT.IfChange(linker_mode)
 linker_mode = struct(
@@ -301,62 +303,6 @@ def _is_non_empty_list_or_select(value, attr):
     else:
         fail("Only select or list is valid for {} attr".format(attr))
 
-CC_SOURCE = [".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl"]
-C_SOURCE = [".c"]
-OBJC_SOURCE = [".m"]
-OBJCPP_SOURCE = [".mm"]
-CLIF_INPUT_PROTO = [".ipb"]
-CLIF_OUTPUT_PROTO = [".opb"]
-CC_HEADER = [".h", ".hh", ".hpp", ".ipp", ".hxx", ".h++", ".inc", ".inl", ".tlh", ".tli", ".H", ".tcc"]
-ASSEMBLER_WITH_C_PREPROCESSOR = [".S"]
-ASSEMBLER = [".s", ".asm"]
-ARCHIVE = [".a", ".lib"]
-PIC_ARCHIVE = [".pic.a"]
-ALWAYSLINK_LIBRARY = [".lo"]
-ALWAYSLINK_PIC_LIBRARY = [".pic.lo"]
-SHARED_LIBRARY = [".so", ".dylib", ".dll", ".wasm"]
-INTERFACE_SHARED_LIBRARY = [".ifso", ".tbd", ".lib", ".dll.a"]
-OBJECT_FILE = [".o", ".obj"]
-PIC_OBJECT_FILE = [".pic.o"]
-
-CC_AND_OBJC = []
-CC_AND_OBJC.extend(CC_SOURCE)
-CC_AND_OBJC.extend(C_SOURCE)
-CC_AND_OBJC.extend(OBJC_SOURCE)
-CC_AND_OBJC.extend(OBJCPP_SOURCE)
-CC_AND_OBJC.extend(CC_HEADER)
-CC_AND_OBJC.extend(ASSEMBLER)
-CC_AND_OBJC.extend(ASSEMBLER_WITH_C_PREPROCESSOR)
-
-DISALLOWED_HDRS_FILES = []
-DISALLOWED_HDRS_FILES.extend(ARCHIVE)
-DISALLOWED_HDRS_FILES.extend(PIC_ARCHIVE)
-DISALLOWED_HDRS_FILES.extend(ALWAYSLINK_LIBRARY)
-DISALLOWED_HDRS_FILES.extend(ALWAYSLINK_PIC_LIBRARY)
-DISALLOWED_HDRS_FILES.extend(SHARED_LIBRARY)
-DISALLOWED_HDRS_FILES.extend(INTERFACE_SHARED_LIBRARY)
-DISALLOWED_HDRS_FILES.extend(OBJECT_FILE)
-DISALLOWED_HDRS_FILES.extend(PIC_OBJECT_FILE)
-
-extensions = struct(
-    CC_SOURCE = CC_SOURCE,
-    C_SOURCE = C_SOURCE,
-    CC_HEADER = CC_HEADER,
-    ASSEMBLER_WITH_C_PREPROCESSOR = ASSEMBLER_WITH_C_PREPROCESSOR,
-    # TODO(b/345158656): Remove ASSESMBLER_WITH_C_PREPROCESSOR after next blaze release
-    ASSESMBLER_WITH_C_PREPROCESSOR = ASSEMBLER_WITH_C_PREPROCESSOR,
-    ASSEMBLER = ASSEMBLER,
-    ARCHIVE = ARCHIVE,
-    PIC_ARCHIVE = PIC_ARCHIVE,
-    ALWAYSLINK_LIBRARY = ALWAYSLINK_LIBRARY,
-    ALWAYSLINK_PIC_LIBRARY = ALWAYSLINK_PIC_LIBRARY,
-    SHARED_LIBRARY = SHARED_LIBRARY,
-    OBJECT_FILE = OBJECT_FILE,
-    PIC_OBJECT_FILE = PIC_OBJECT_FILE,
-    CC_AND_OBJC = CC_AND_OBJC,
-    DISALLOWED_HDRS_FILES = DISALLOWED_HDRS_FILES,  # Also includes VERSIONED_SHARED_LIBRARY files.
-)
-
 def _collect_library_hidden_top_level_artifacts(
         ctx,
         files_to_compile):
@@ -448,21 +394,21 @@ def _build_precompiled_files(ctx):
         # end with ".nopic.o". (The ".nopic.o" extension is an undocumented
         # feature to give users at least some control over this.) Note that
         # some target platforms do not require shared library code to be PIC.
-        if _matches_extension(short_path, OBJECT_FILE):
+        if _matches_extension(short_path, extensions.OBJECT_FILE):
             objects.append(src)
             if not short_path.endswith(".nopic.o"):
                 pic_objects.append(src)
 
-            if _matches_extension(short_path, PIC_OBJECT_FILE):
+            if _matches_extension(short_path, extensions.PIC_OBJECT_FILE):
                 pic_objects.append(src)
 
-        elif _matches_extension(short_path, PIC_ARCHIVE):
+        elif _matches_extension(short_path, extensions.PIC_ARCHIVE):
             pic_static_libraries.append(src)
-        elif _matches_extension(short_path, ARCHIVE):
+        elif _matches_extension(short_path, extensions.ARCHIVE):
             static_libraries.append(src)
-        elif _matches_extension(short_path, ALWAYSLINK_PIC_LIBRARY):
+        elif _matches_extension(short_path, extensions.ALWAYSLINK_PIC_LIBRARY):
             pic_alwayslink_static_libraries.append(src)
-        elif _matches_extension(short_path, ALWAYSLINK_LIBRARY):
+        elif _matches_extension(short_path, extensions.ALWAYSLINK_LIBRARY):
             alwayslink_static_libraries.append(src)
         elif _is_valid_shared_library_artifact(src):
             shared_libraries.append(src)
@@ -990,10 +936,12 @@ def _calculate_artifact_label_map(attr_list, attr_name):
     for attr in attr_list:
         if DefaultInfo in attr:
             for artifact in attr[DefaultInfo].files.to_list():
-                if "." + artifact.extension not in CC_HEADER:
+                if "." + artifact.extension not in extensions.CC_HEADER:
                     old_label = artifact_label_map.get(artifact, None)
                     artifact_label_map[artifact] = attr.label
-                    if old_label != None and not _are_labels_equal(old_label, attr.label) and ("." + artifact.extension in CC_AND_OBJC or attr_name == "module_interfaces"):
+                    if old_label != None and not _are_labels_equal(old_label, attr.label) and (
+                        "." + artifact.extension in extensions.CC_AND_OBJC or attr_name == "module_interfaces"
+                    ):
                         fail(
                             "Artifact '{}' is duplicated (through '{}' and '{}')".format(artifact, old_label, attr),
                             attr = attr_name,
@@ -1022,7 +970,7 @@ def _get_private_hdrs(ctx):
     for src in ctx.attr.srcs:
         if DefaultInfo in src:
             for artifact in src[DefaultInfo].files.to_list():
-                if "." + artifact.extension in CC_HEADER:
+                if "." + artifact.extension in extensions.CC_HEADER:
                     artifact_label_map[artifact] = src.label
     return _map_to_list(artifact_label_map)
 
@@ -1034,7 +982,7 @@ def _get_public_hdrs(ctx):
     for hdr in ctx.attr.hdrs:
         if DefaultInfo in hdr:
             for artifact in hdr[DefaultInfo].files.to_list():
-                if _check_file_extension(artifact, DISALLOWED_HDRS_FILES, True):
+                if _check_file_extension(artifact, extensions.DISALLOWED_HDRS_FILES, True):
                     continue
                 artifact_label_map[artifact] = hdr.label
     return _map_to_list(artifact_label_map)
@@ -1091,11 +1039,11 @@ def _get_coverage_environment(ctx, cc_config, cc_toolchain):
     return env
 
 def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_files, virtual_to_original_headers = None):
-    extensions = CC_SOURCE + \
-                 C_SOURCE + \
-                 CC_HEADER + \
-                 ASSEMBLER_WITH_C_PREPROCESSOR + \
-                 ASSEMBLER
+    source_extensions = extensions.CC_SOURCE + \
+                        extensions.C_SOURCE + \
+                        extensions.CC_HEADER + \
+                        extensions.ASSEMBLER_WITH_C_PREPROCESSOR + \
+                        extensions.ASSEMBLER
     coverage_environment = {}
     if ctx.configuration.coverage_enabled:
         coverage_environment = _get_coverage_environment(ctx, cc_config, cc_toolchain)
@@ -1104,7 +1052,7 @@ def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_fi
         ctx = ctx,
         source_attributes = ["srcs", "hdrs"],
         dependency_attributes = ["implementation_deps", "deps", "data"],
-        extensions = extensions,
+        extensions = source_extensions,
         metadata_files = metadata_files,
         coverage_support_files = coverage_support_files,
         coverage_environment = coverage_environment,
