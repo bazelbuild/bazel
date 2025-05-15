@@ -452,7 +452,7 @@ public final class CcStaticCompilationHelper {
 
     if (shouldProcessHeaders
         && CcToolchainProvider.shouldProcessHeaders(featureConfiguration, cppConfiguration)
-        && !shouldProvideHeaderModules(featureConfiguration, privateHeaders, publicHeaders)
+        && !isHeaderModulesEnabled(featureConfiguration)
         && !isTextualInclude) {
       compilationUnitSources.put(
           privateHeader, CppSource.create(privateHeader, label, CppSource.Type.HEADER));
@@ -529,7 +529,7 @@ public final class CcStaticCompilationHelper {
         || isTextualInclude
         || !isHeader
         || !CcToolchainProvider.shouldProcessHeaders(featureConfiguration, cppConfiguration)
-        || shouldProvideHeaderModules(featureConfiguration, privateHeaders, publicHeaders)) {
+        || isHeaderModulesEnabled(featureConfiguration)) {
       return;
     }
 
@@ -906,6 +906,13 @@ public final class CcStaticCompilationHelper {
   public CcStaticCompilationHelper setPurpose(String purpose) {
     this.purpose = Preconditions.checkNotNull(purpose);
     return this;
+  }
+
+  /**
+   * @return whether providing header modules is enabled.
+   */
+  private static boolean isHeaderModulesEnabled(FeatureConfiguration featureConfiguration) {
+    return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
   }
 
   /**
