@@ -38,6 +38,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:spawn_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",

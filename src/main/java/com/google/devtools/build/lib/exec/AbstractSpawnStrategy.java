@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
@@ -321,6 +322,11 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
+    public OutputMetadataStore getOutputMetadataStore() {
+      return actionExecutionContext.getOutputMetadataStore();
+    }
+
+    @Override
     public <T extends ActionContext> T getContext(Class<T> identifyingType) {
       return actionExecutionContext.getContext(identifyingType);
     }
@@ -372,9 +378,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
           Profiler.instance().profile("AbstractSpawnStrategy.getInputMapping")) {
         inputMapping =
             spawnInputExpander.getInputMapping(
-                spawn,
-                actionExecutionContext.getInputMetadataProvider(),
-                baseDirectory);
+                spawn, actionExecutionContext.getInputMetadataProvider(), baseDirectory);
       }
 
       // Don't cache the input mapping if it is unlikely that it is used again.

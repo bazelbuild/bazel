@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -206,6 +207,11 @@ public interface SpawnRunner {
      * obtain file digests and sizes.
      */
     InputMetadataProvider getInputMetadataProvider();
+
+    /**
+     * The output file metadata store for this spawn's associated action.
+     */
+    OutputMetadataStore getOutputMetadataStore();
 
     /** A spawn input expander. */
     // TODO(moroten): This is only used for the remote cache and remote execution to optimize

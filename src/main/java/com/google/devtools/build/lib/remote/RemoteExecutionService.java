@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
+import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.CombinedCache.createFailureDetail;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
@@ -65,6 +66,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -113,6 +115,7 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.TempPathGenerator;
@@ -120,6 +123,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -162,6 +166,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -202,6 +207,7 @@ public class RemoteExecutionService {
 
   @Nullable private final Scrubber scrubber;
   private final Set<Digest> knownMissingCasDigests;
+  private final OutputPermissions outputPermissions;
 
   private Boolean useOutputPaths;
 
@@ -221,7 +227,8 @@ public class RemoteExecutionService {
       @Nullable Path captureCorruptedOutputsDir,
       @Nullable RemoteOutputChecker remoteOutputChecker,
       OutputService outputService,
-      Set<Digest> knownMissingCasDigests) {
+      Set<Digest> knownMissingCasDigests,
+      OutputPermissions outputPermissions) {
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
     this.execRoot = execRoot;
@@ -248,6 +255,7 @@ public class RemoteExecutionService {
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputService = outputService;
     this.knownMissingCasDigests = knownMissingCasDigests;
+    this.outputPermissions = outputPermissions;
   }
 
   private Command buildCommand(
@@ -938,7 +946,13 @@ public class RemoteExecutionService {
                   progressStatusListener,
                   internalToUnicode(remotePathResolver.localPathToOutputPath(file.path())),
                   file.digest().getSizeBytes()));
-      return transform(future, (d) -> file, directExecutor());
+      return transformAsync(
+          future,
+          (d) -> {
+            tmpPath.chmod(outputPermissions.getPermissionsMode());
+            return immediateFuture(file);
+          },
+          directExecutor());
     } catch (IOException e) {
       return immediateFailedFuture(e);
     }
@@ -1382,8 +1396,32 @@ public class RemoteExecutionService {
       }
     }
 
+    List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
+    var outputDirectories =
+        action.getSpawn().getOutputFiles().stream()
+            .filter(ActionInput::isDirectory)
+            .map(actionInput -> (Artifact.SpecialArtifact) actionInput)
+            .collect(toImmutableMap(ActionInput::getExecPath, Function.identity()));
     for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-      for (FileMetadata file : entry.getValue().files()) {
+      var directory = entry.getValue();
+      var treeExecPath =
+          action.getRemotePathResolver().localPathToExecPath(entry.getKey().asFragment());
+      var treeArtifact = outputDirectories.get(treeExecPath);
+      if (treeArtifact == null) {
+        throw new IOException(
+            "Reported output directory %s is not a valid output of the spawn %s"
+                .formatted(treeExecPath, action.getSpawn()));
+      }
+      context
+          .getSpawnExecutionContext()
+          .getOutputMetadataStore()
+          .injectTree(
+              treeArtifact,
+              constructTreeArtifactFromDirectoryMetadata(
+                  treeArtifact, directory, action.getRemotePathResolver(), expirationTime));
+
+      symlinksInDirectories.addAll(directory.symlinks());
+      for (FileMetadata file : directory.files()) {
         if (realToTmpPath.containsKey(file.path)) {
           continue;
         }
@@ -1394,17 +1432,8 @@ public class RemoteExecutionService {
           downloadsBuilder.add(
               downloadFile(
                   context, progressStatusListener, file, tmpPath, action.getRemotePathResolver()));
-        } else {
-          if (hasBazelOutputService) {
-            downloadsBuilder.add(immediateFuture(file));
-          } else {
-            checkNotNull(remoteActionFileSystem)
-                .injectRemoteFile(
-                    file.path().asFragment(),
-                    DigestUtil.toBinaryDigest(file.digest()),
-                    file.digest().getSizeBytes(),
-                    expirationTime);
-          }
+        } else if (hasBazelOutputService) {
+          downloadsBuilder.add(immediateFuture(file));
         }
       }
     }
@@ -1455,13 +1484,6 @@ public class RemoteExecutionService {
     } else {
       moveOutputsToFinalLocation(
           Iterables.transform(finishedDownloads, FileMetadata::path), realToTmpPath);
-    }
-
-    List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
-    for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-      for (SymlinkMetadata symlink : entry.getValue().symlinks()) {
-        symlinksInDirectories.add(symlink);
-      }
     }
 
     Iterable<SymlinkMetadata> symlinks =
@@ -1515,6 +1537,28 @@ public class RemoteExecutionService {
     }
 
     return null;
+  }
+
+  private TreeArtifactValue constructTreeArtifactFromDirectoryMetadata(
+      Artifact.SpecialArtifact treeArtifact,
+      DirectoryMetadata value,
+      RemotePathResolver remotePathResolver,
+      Instant expirationTime) {
+    var treeExecPath = treeArtifact.getExecPath();
+    var builder = TreeArtifactValue.newBuilder(treeArtifact);
+    for (var file : value.files()) {
+      var relativePath =
+          remotePathResolver.localPathToExecPath(file.path().asFragment()).relativeTo(treeExecPath);
+      builder.putChild(
+          TreeFileArtifact.createTreeOutput(treeArtifact, relativePath),
+          FileArtifactValue.createForRemoteFileWithMaterializationData(
+              DigestUtil.toBinaryDigest(file.digest()),
+              file.digest().getSizeBytes(),
+              /* locationIndex= */ 1,
+              expirationTime));
+    }
+    // TODO: Symlinks
+    return builder.build();
   }
 
   /** An ongoing local execution of a spawn. */
