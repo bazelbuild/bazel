@@ -711,12 +711,14 @@ public class ActionCacheChecker {
       outputs.add(output.getExecPath());
     }
     List<PathFragment> inputExecPaths = new ArrayList<>();
-    for (String path : entry.getDiscoveredInputPaths()) {
-      PathFragment execPath = PathFragment.create(path);
-      // Code assumes that action has only 1-2 outputs and ArrayList.contains() will be
-      // most efficient.
-      if (!outputs.contains(execPath)) {
-        inputExecPaths.add(execPath);
+    if (entry.discoversInputs()) {
+      for (String path : entry.getDiscoveredInputPaths()) {
+        PathFragment execPath = PathFragment.create(path);
+        // Code assumes that action has only 1-2 outputs and ArrayList.contains() will be most
+        // efficient.
+        if (!outputs.contains(execPath)) {
+          inputExecPaths.add(execPath);
+        }
       }
     }
 
