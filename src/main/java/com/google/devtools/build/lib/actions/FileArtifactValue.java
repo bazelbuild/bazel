@@ -16,14 +16,21 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.vfs.PathFragment.pathFragmentCodec;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.pkgcache.PackagePathCodecDependencies;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.HashCodes;
@@ -31,10 +38,14 @@ import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -917,6 +928,58 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
           .add("delegate", delegate)
           .add("resolvedPath", resolvedPath)
           .toString();
+    }
+  }
+
+  /**
+   * Codec that serializes the absolute {@link ResolvedSymlinkArtifactValue#resolvedPath} by finding
+   * its root in {@link PackagePathCodecDependencies} and relativizing.
+   */
+  // TODO: b/329460099 - This would not be necessary if we could store a source root relative path.
+  @Keep // Used reflectively.
+  private static final class ResolvedSymlinkArtifactValueCodec
+      implements ObjectCodec<ResolvedSymlinkArtifactValue> {
+
+    @Override
+    public Class<? extends ResolvedSymlinkArtifactValue> getEncodedClass() {
+      return ResolvedSymlinkArtifactValue.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, ResolvedSymlinkArtifactValue obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(obj.delegate, codedOut);
+
+      PathFragment resolvedPath = obj.resolvedPath;
+      ImmutableList<Root> roots =
+          context.getDependency(PackagePathCodecDependencies.class).getPackageRoots();
+      for (int i = 0; i < roots.size(); i++) {
+        Root root = roots.get(i);
+        if (root.contains(resolvedPath)) {
+          PathFragment relativePath = root.relativize(resolvedPath);
+          context.serializeLeaf(relativePath, pathFragmentCodec(), codedOut);
+          codedOut.write((byte) i);
+          return;
+        }
+      }
+      throw new SerializationException(resolvedPath + " is not under any package roots: " + roots);
+    }
+
+    @Override
+    public ResolvedSymlinkArtifactValue deserialize(
+        DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      FileArtifactValue delegate = context.deserialize(codedIn);
+      PathFragment relativePath = context.deserializeLeaf(codedIn, pathFragmentCodec());
+      int rootIndex = codedIn.readRawByte();
+      Root root =
+          context
+              .getDependency(PackagePathCodecDependencies.class)
+              .getPackageRoots()
+              .get(rootIndex);
+      PathFragment resolvedPath = root.getRelative(relativePath).asFragment();
+      return new ResolvedSymlinkArtifactValue(delegate, resolvedPath);
     }
   }
 
