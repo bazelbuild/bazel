@@ -2471,9 +2471,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /** Called after a single Skyframe evaluation that involves action execution. */
   private void cleanUpAfterSingleEvaluationWithActionExecution(ExtendedEventHandler eventHandler) {
     setExecutionProgressReceiver(null);
-
-    skyframeActionExecutor.executionOver();
     actionRewindStrategy.reset(eventHandler);
+    skyframeActionExecutor.executionOver();
   }
 
   /**

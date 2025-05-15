@@ -358,10 +358,11 @@ public final class ActionRewindStrategy {
    * rewind plans.
    */
   public void reset(ExtendedEventHandler eventHandler) {
-    ActionRewindingStats rewindingStats =
-        new ActionRewindingStats(
+    PostableActionRewindingStats rewindingStats =
+        new PostableActionRewindingStats(
             currentBuildLostInputRecords.size(),
             currentBuildLostOutputRecords.size(),
+            skyframeActionExecutor.getRewoundActionCount(),
             ImmutableList.copyOf(rewindEventSamples));
     eventHandler.post(rewindingStats);
     currentBuildLostInputRecords = ConcurrentHashMultiset.create();

@@ -480,6 +480,15 @@ public final class SkyframeActionExecutor {
   }
 
   /**
+   * Returns the count of actions rewound during the current build.
+   *
+   * <p>If an action is rewound multiple times, it is only counted once.
+   */
+  public int getRewoundActionCount() {
+    return rewoundActions.size();
+  }
+
+  /**
    * Determines whether the action should have its progress events emitted.
    *
    * <p>Returns {@code false} for rewound actions, indicating that their progress events should be
