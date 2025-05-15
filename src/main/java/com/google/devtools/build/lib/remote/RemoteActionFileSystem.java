@@ -371,7 +371,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   @Override
   protected InputStream getInputStream(PathFragment path) throws IOException {
     try {
-      materializeFileIfLazy(path);
+      materializeIfLazy(path);
     } catch (BulkTransferException e) {
       var newlyLostInputs = e.getLostArtifacts(inputArtifactData::getInput);
       if (!newlyLostInputs.isEmpty()) {
