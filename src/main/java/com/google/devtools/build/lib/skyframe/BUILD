@@ -157,7 +157,6 @@ java_library(
         ":package_lookup_function",
         ":package_lookup_value",
         ":package_progress_receiver",
-        ":package_roots_no_symlink_creation",
         ":package_value",
         ":pattern_expanding_error",
         ":precomputed_function",
@@ -218,6 +217,7 @@ java_library(
         ":transitive_traversal_function",
         ":transitive_traversal_value",
         ":tree_artifact_value",
+        ":virtual_package_roots",
         ":workspace_info",
         ":workspace_info_receiver",
         ":workspace_name_function",
@@ -1954,8 +1954,8 @@ java_library(
 )
 
 java_library(
-    name = "package_roots_no_symlink_creation",
-    srcs = ["PackageRootsNoSymlinkCreation.java"],
+    name = "virtual_package_roots",
+    srcs = ["VirtualPackageRoots.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

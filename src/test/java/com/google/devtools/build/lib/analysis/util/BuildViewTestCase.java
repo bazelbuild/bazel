@@ -153,7 +153,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
-import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
@@ -670,7 +669,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     view = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
     view.setConfigurationForTesting(targetConfig);
 
-    view.setArtifactRoots(new PackageRootsNoSymlinkCreation(Root.fromPath(rootDirectory)));
+    Root root = Root.fromPath(rootDirectory);
+    view.getArtifactFactory().setPackageRoots(pkgId -> root);
   }
 
   protected CachingAnalysisEnvironment getTestAnalysisEnvironment() throws InterruptedException {

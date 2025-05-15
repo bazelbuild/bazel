@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -28,12 +27,15 @@ import javax.annotation.Nullable;
  * in an {@link ArtifactResolver}.
  */
 public interface PackageRoots {
+
   /**
-   * Gets a map from {@link PackageIdentifier} to {@link Path}. If present, all known packages for
-   * this build are present in the map. Should only be needed for planting the symlink forest. If it
-   * is absent, planting the symlink forest is not necessary.
+   * Returns a map from {@link PackageIdentifier} to {@link Path}. Should only be needed for
+   * {@linkplain com.google.devtools.build.lib.buildtool.SymlinkForest planting the symlink forest}.
+   *
+   * <p>If {@link PackageIdentifier#EMPTY_PACKAGE_ID} is present, then all top-level path entries
+   * under the corresponding root are to be linked.
    */
-  Optional<ImmutableMap<PackageIdentifier, Root>> getPackageRootsMap();
+  ImmutableMap<PackageIdentifier, Root> getPackageRootsMap();
 
   PackageRootLookup getPackageRootLookup();
 
