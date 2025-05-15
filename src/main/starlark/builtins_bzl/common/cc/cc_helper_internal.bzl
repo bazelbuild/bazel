@@ -18,6 +18,8 @@ Utility functions for C++ rules that don't depend on cc_common.
 Only use those within C++ implementation. The others need to go through cc_common.
 """
 
+load(":common/paths.bzl", "paths")
+
 cc_common_internal = _builtins.internal.cc_common
 
 CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = [("", "devtools/rust/cc_interop"), ("", "third_party/crubit"), ("", "tools/build_defs/clif")]
@@ -127,6 +129,47 @@ def is_versioned_shared_library(file):
     if ".so." not in file.basename and ".dylib." not in file.basename:
         return False
     return is_versioned_shared_library_extension_valid(file.basename)
+
+def _is_repository_main(repository):
+    return repository == ""
+
+def package_source_root(repository, package, sibling_repository_layout):
+    """
+    Determines the source root for a given repository and package.
+
+    Args:
+      repository: The repository to get the source root for.
+      package: The package to get the source root for.
+      sibling_repository_layout: Whether the repository layout is a sibling repository layout.
+
+    Returns:
+      The source root for the given repository and package.
+    """
+    if _is_repository_main(repository) or sibling_repository_layout:
+        return package
+    if repository.startswith("@"):
+        repository = repository[1:]
+    return paths.get_relative(paths.get_relative("external", repository), package)
+
+def repository_exec_path(repository, sibling_repository_layout):
+    """
+    Determines the exec path for a given repository.
+
+    Args:
+      repository: The repository to get the exec path for.
+      sibling_repository_layout: Whether the repository layout is a sibling repository layout.
+
+    Returns:
+      The exec path for the given repository.
+    """
+    if _is_repository_main(repository):
+        return ""
+    prefix = "external"
+    if sibling_repository_layout:
+        prefix = ".."
+    if repository.startswith("@"):
+        repository = repository[1:]
+    return paths.get_relative(prefix, repository)
 
 def use_pic_for_binaries(cpp_config, feature_configuration):
     """

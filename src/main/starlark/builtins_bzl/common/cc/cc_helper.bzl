@@ -20,6 +20,8 @@ load(
     "is_versioned_shared_library_extension_valid",
     "should_create_per_object_debug_info",
     _artifact_category = "artifact_category",
+    _package_source_root = "package_source_root",
+    _repository_exec_path = "repository_exec_path",
 )
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/semantics.bzl", "semantics")
@@ -1041,28 +1043,8 @@ def _report_invalid_options(cc_toolchain, cpp_config):
     if cpp_config.grte_top() != None and cc_toolchain.sysroot == None:
         fail("The selected toolchain does not support setting --grte_top (it doesn't specify builtin_sysroot).")
 
-def _is_repository_main(repository):
-    return repository == ""
-
-def _repository_exec_path(repository, sibling_repository_layout):
-    if _is_repository_main(repository):
-        return ""
-    prefix = "external"
-    if sibling_repository_layout:
-        prefix = ".."
-    if repository.startswith("@"):
-        repository = repository[1:]
-    return paths.get_relative(prefix, repository)
-
 def _package_exec_path(ctx, package, sibling_repository_layout):
     return paths.get_relative(_repository_exec_path(ctx.label.workspace_name, sibling_repository_layout), package)
-
-def _package_source_root(repository, package, sibling_repository_layout):
-    if _is_repository_main(repository) or sibling_repository_layout:
-        return package
-    if repository.startswith("@"):
-        repository = repository[1:]
-    return paths.get_relative(paths.get_relative("external", repository), package)
 
 def _system_include_dirs(ctx, additional_make_variable_substitutions):
     result = []
