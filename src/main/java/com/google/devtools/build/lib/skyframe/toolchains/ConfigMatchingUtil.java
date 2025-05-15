@@ -53,11 +53,12 @@ public final class ConfigMatchingUtil {
       // would be better to just ensure toolchain resolution isn't transitively dependent on
       // feature flags at all.
       String message =
-          accumulateResults.errors().entrySet().stream()
+          accumulateResults.errors().asMap().entrySet().stream()
               .map(
                   entry ->
                       String.format(
-                          "For config_setting %s, %s", entry.getKey().getName(), entry.getValue()))
+                          "For config_setting %s: %s",
+                          entry.getKey().getName(), String.join(", ", entry.getValue())))
               .collect(joining("; "));
       throw new InvalidConfigurationException(
           "Unrecoverable errors resolving config_setting associated with "

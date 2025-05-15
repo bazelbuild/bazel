@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
@@ -75,8 +76,6 @@ import net.starlark.java.syntax.Location;
  * <p>Represents a configuration transition across a dependency edge defined in Starlark.
  */
 public abstract sealed class StarlarkDefinedConfigTransition implements ConfigurationTransitionApi {
-
-  public static final String COMMAND_LINE_OPTION_PREFIX = "//command_line_option:";
 
   /**
    * The two groups of build settings that are relevant for a {@link
@@ -136,7 +135,7 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
       throws LabelSyntaxException {
     String canonicalizedString = setting;
     // native options
-    if (setting.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
+    if (setting.startsWith(LabelConstants.COMMAND_LINE_OPTION_PREFIX)) {
       return canonicalizedString;
     }
     canonicalizedString =
@@ -498,7 +497,9 @@ public abstract sealed class StarlarkDefinedConfigTransition implements Configur
       }
       // See if the option's converter knows how to produce to Starlark values.
       OptionDefinition optionDef =
-          optionInfoMap.get(name.substring(COMMAND_LINE_OPTION_PREFIX.length())).getDefinition();
+          optionInfoMap
+              .get(name.substring(LabelConstants.COMMAND_LINE_OPTION_PREFIX.length()))
+              .getDefinition();
       if (!optionDef.getConverter().starlarkConvertible()) {
         throw new UnreadableInputSettingException(name, value.getClass());
       }

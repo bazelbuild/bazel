@@ -715,7 +715,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         .hasMessageThat()
         .contains(
             "Unrecoverable errors resolving config_setting associated with"
-                + " //extra:extra_toolchain: For config_setting flagged, Feature flag"
+                + " //extra:extra_toolchain: For config_setting flagged: Feature flag"
                 + " //extra:flag was accessed in a configuration it is not present in.");
   }
 

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.config;
 import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters.BUILD_SETTING_CONVERTERS;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -45,6 +46,8 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptionDetails;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult.NoMatch;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
@@ -52,6 +55,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -71,6 +75,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -136,14 +141,12 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     }
 
     BuildOptionDetails optionDetails = ruleContext.getConfiguration().getBuildOptionDetails();
-    boolean nativeFlagsMatch =
-        nativeFlagsMatch(nativeFlagSettings.entries(), optionDetails, ruleContext);
-
+    MatchResult nativeFlagsResult =
+        diffNativeFlags(nativeFlagSettings.entries(), optionDetails, ruleContext);
     UserDefinedFlagMatch userDefinedFlags =
         UserDefinedFlagMatch.fromAttributeValueAndPrerequisites(
             userDefinedFlagSettings, optionDetails, ruleContext);
-
-    boolean constraintValuesMatch = constraintValuesMatch(ruleContext);
+    MatchResult constraintValuesResult = diffConstraintValues(ruleContext);
 
     if (ruleContext.hasErrors()) {
       return null;
@@ -155,8 +158,9 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             nativeFlagSettings,
             userDefinedFlags.getSpecifiedFlagValues(),
             ImmutableSet.copyOf(constraintValueSettings),
-            ConfigMatchingProvider.MatchResult.merge(
-                userDefinedFlags.result(), nativeFlagsMatch && constraintValuesMatch));
+            Stream.of(userDefinedFlags.result(), nativeFlagsResult, constraintValuesResult)
+                .reduce(MatchResult::combine)
+                .get());
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
@@ -206,7 +210,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
    *
    * <p>May generate rule errors on bad settings (e.g. wrong target types).
    */
-  private static boolean constraintValuesMatch(RuleContext ruleContext) {
+  private static MatchResult diffConstraintValues(RuleContext ruleContext) {
     List<ConstraintValueInfo> constraintValues = new ArrayList<>();
     for (TransitiveInfoCollection dep :
         ruleContext.getPrerequisites(ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE)) {
@@ -219,11 +223,11 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       }
     }
     if (ruleContext.hasErrors()) {
-      return false;
+      return MatchResult.ALREADY_REPORTED_NO_MATCH;
     }
 
     if (constraintValues.isEmpty()) {
-      return true;
+      return MatchResult.MATCH;
     }
 
     // The set of constraint_values in a config_setting should never contain multiple
@@ -234,20 +238,35 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     } catch (ConstraintCollection.DuplicateConstraintException e) {
       ruleContext.ruleError(
           ConstraintCollection.DuplicateConstraintException.formatError(e.duplicateConstraints()));
-        return false;
+      return MatchResult.ALREADY_REPORTED_NO_MATCH;
     }
 
     if (ruleContext.getToolchainContext() == null) {
       ruleContext.attributeError(
           ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, "No target platform is present");
-      return false;
+      return MatchResult.ALREADY_REPORTED_NO_MATCH;
     }
 
-    return ruleContext
-        .getToolchainContext()
-        .targetPlatform()
-        .constraints()
-        .containsAll(constraintValues);
+    var targetPlatformConstraints =
+        ruleContext.getToolchainContext().targetPlatform().constraints();
+    if (targetPlatformConstraints.containsAll(constraintValues)) {
+      return MatchResult.MATCH;
+    }
+
+    var diffs = ImmutableList.<NoMatch.Diff>builder();
+    for (var ruleConstraintValue : constraintValues) {
+      var setting = ruleConstraintValue.constraint();
+      var targetPlatformValue = targetPlatformConstraints.get(setting);
+      if (!ruleConstraintValue.equals(targetPlatformValue)) {
+        diffs.add(
+            NoMatch.Diff.what(setting.label())
+                .want(ruleConstraintValue.label().getName())
+                .got(
+                    targetPlatformValue != null ? targetPlatformValue.label().getName() : "<unset>")
+                .build());
+      }
+    }
+    return new NoMatch(diffs.build());
   }
 
   /**
@@ -268,9 +287,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     }
   }
 
-  /**
-   * User error when value settings can't be properly parsed.
-   */
+  /** User error when value settings can't be properly parsed. */
   private static final String PARSE_ERROR_MESSAGE = "error while parsing configuration settings: ";
 
   /**
@@ -300,26 +317,24 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
    * Given a list of [flagName, flagValue] pairs for native Blaze flags, returns true if flagName ==
    * flagValue for every item in the list under this configuration, false otherwise.
    */
-  private static boolean nativeFlagsMatch(
+  private static MatchResult diffNativeFlags(
       Collection<Map.Entry<String, String>> expectedSettings,
       BuildOptionDetails options,
       RuleContext ruleContext) {
     // Rather than returning fast when we find a mismatch, continue looking at the other flags
     // to check they're indeed valid flag specifications.
-    boolean foundMismatch = false;
-
-    for (Map.Entry<String, String> setting : expectedSettings) {
-      String optionName = setting.getKey();
-      String expectedRawValue = setting.getValue();
-      if (!checkOptionValue(options, ruleContext, optionName, expectedRawValue)) {
-        foundMismatch = true;
-      }
-    }
-    return !foundMismatch;
+    return expectedSettings.stream()
+        .map(
+            entry -> {
+              String optionName = entry.getKey();
+              String expectedRawValue = entry.getValue();
+              return checkOptionValue(options, ruleContext, optionName, expectedRawValue);
+            })
+        .reduce(MatchResult.MATCH, MatchResult::combine);
   }
 
   /** Returns {@code true} if the option is set to the expected value in the configuration. */
-  private static boolean checkOptionValue(
+  private static MatchResult checkOptionValue(
       BuildOptionDetails options,
       RuleContext ruleContext,
       String optionName,
@@ -335,7 +350,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
                   + "select() on %s is not allowed. Use platform constraints instead:"
                   + " https://bazel.build/docs/configurable-attributes#platforms.",
               optionName));
-      return false;
+      return MatchResult.ALREADY_REPORTED_NO_MATCH;
     }
 
     if (DEPRECATED_FLAGS.contains(optionName) && ruleContext.getLabel().getRepository().isMain()) {
@@ -350,14 +365,18 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       if (isTestOption(optionName)) {
         // If TestOptions isn't present then they were trimmed, so any test options set are
         // considered unset by default.
-        return false;
+        return new NoMatch(
+            NoMatch.Diff.what(toOptionLabel(optionName))
+                .want(expectedRawValue)
+                .got("<test option trimmed>")
+                .build());
       }
 
       // Report the unknown option as an error.
       ruleContext.attributeError(
           ConfigSettingRule.SETTINGS_ATTRIBUTE,
           String.format(PARSE_ERROR_MESSAGE + "unknown option: '%s'", optionName));
-      return false;
+      return MatchResult.ALREADY_REPORTED_NO_MATCH;
     }
 
     OptionsParser parser;
@@ -367,7 +386,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     } catch (OptionsParsingException ex) {
       ruleContext.attributeError(
           ConfigSettingRule.SETTINGS_ATTRIBUTE, PARSE_ERROR_MESSAGE + ex.getMessage());
-      return false;
+      return MatchResult.ALREADY_REPORTED_NO_MATCH;
     }
 
     Object expectedParsedValue = parser.getOptions(optionClass).asMap().get(optionName);
@@ -397,15 +416,27 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
    * no options-parsing support for multiple values in a single clause, e.g. { 'define':
    * 'foo=1,bar=2' } expands to { "foo": "1,bar=2" }, not {"foo": 1, "bar": "2"}.
    */
-  private static boolean optionMatches(
+  private static MatchResult optionMatches(
       BuildOptionDetails options, String optionName, Object expectedValue) {
     Object actualValue = options.getOptionValue(optionName);
     if (actualValue == null) {
-      return expectedValue == null;
+      return expectedValue == null
+          ? MatchResult.MATCH
+          : new NoMatch(
+              NoMatch.Diff.what(toOptionLabel(optionName))
+                  .want(expectedValue.toString())
+                  .got("null")
+                  .build());
 
       // Single-value case:
     } else if (!options.allowsMultipleValues(optionName)) {
-      return actualValue.equals(expectedValue);
+      return actualValue.equals(expectedValue)
+          ? MatchResult.MATCH
+          : new NoMatch(
+              NoMatch.Diff.what(toOptionLabel(optionName))
+                  .want(expectedValue.toString())
+                  .got(actualValue.toString())
+                  .build());
     }
 
     // Multi-value case:
@@ -415,7 +446,13 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     List<?> expectedList = (List<?>) expectedValue;
 
     if (actualList.isEmpty() || expectedList.isEmpty()) {
-      return actualList.isEmpty() && expectedList.isEmpty();
+      return actualList.isEmpty() && expectedList.isEmpty()
+          ? MatchResult.MATCH
+          : new NoMatch(
+              NoMatch.Diff.what(toOptionLabel(optionName))
+                  .want(expectedList.isEmpty() ? "<empty>" : expectedList.toString())
+                  .got(actualList.isEmpty() ? "<empty>" : actualList.toString())
+                  .build());
     }
 
     // Multi-value map:
@@ -427,31 +464,54 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
         Map.Entry<?, ?> actualEntry = (Map.Entry<?, ?>) elem;
         if (actualEntry.getKey().equals(expectedEntry.getKey())) {
           // Found a key match!
-          return actualEntry.getValue().equals(expectedEntry.getValue());
+          return actualEntry.getValue().equals(expectedEntry.getValue())
+              ? MatchResult.MATCH
+              : new NoMatch(
+                  NoMatch.Diff.what(toOptionLabel(optionName))
+                      .want("%s=%s".formatted(expectedEntry.getKey(), expectedEntry.getValue()))
+                      .got("%s=%s".formatted(actualEntry.getKey(), actualEntry.getValue()))
+                      .build());
         }
       }
-      return false;
+      return new NoMatch(
+          NoMatch.Diff.what(toOptionLabel(optionName))
+              .want("%s=%s".formatted(expectedEntry.getKey(), expectedEntry.getValue()))
+              .got("<key %s not found>".formatted(expectedEntry.getKey()))
+              .build());
     }
 
     // Multi-value list:
-    return actualList.containsAll(expectedList);
+    return actualList.containsAll(expectedList)
+        ? MatchResult.MATCH
+        : new NoMatch(
+            NoMatch.Diff.what(toOptionLabel(optionName))
+                .want(expectedList.toString())
+                .got(actualList.toString())
+                .build());
+  }
+
+  private static final PackageIdentifier COMMAND_LINE_OPTIONS_PACKAGE =
+      PackageIdentifier.createInMainRepo(
+          CharMatcher.anyOf(":").trimTrailingFrom(LabelConstants.COMMAND_LINE_OPTION_PREFIX));
+
+  private static Label toOptionLabel(String optionName) {
+    return Label.createUnvalidated(COMMAND_LINE_OPTIONS_PACKAGE, optionName);
   }
 
   private static final class UserDefinedFlagMatch {
-    private final ConfigMatchingProvider.MatchResult result;
+    private final MatchResult result;
     private final ImmutableMap<Label, String> specifiedFlagValues;
 
     private static final Joiner QUOTED_COMMA_JOINER = Joiner.on("', '");
 
     private UserDefinedFlagMatch(
-        ConfigMatchingProvider.MatchResult result,
-        ImmutableMap<Label, String> specifiedFlagValues) {
+        MatchResult result, ImmutableMap<Label, String> specifiedFlagValues) {
       this.result = result;
       this.specifiedFlagValues = specifiedFlagValues;
     }
 
     /** Returns whether the specified flag values matched the actual flag values. */
-    public ConfigMatchingProvider.MatchResult result() {
+    public MatchResult result() {
       return result;
     }
 
@@ -486,7 +546,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
         RuleContext ruleContext) {
       Map<Label, String> specifiedFlagValues = new LinkedHashMap<>();
 
-      boolean matches = true;
+      ArrayList<NoMatch.Diff> diffs = new ArrayList<>();
       // Only configuration-dependent errors should be deferred.
       ArrayList<String> deferredErrors = new ArrayList<>();
       boolean foundDuplicate = false;
@@ -517,14 +577,17 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
                     "error while parsing user-defined configuration values: "
                         + "'%s' is not a valid value for '%s'",
                     specifiedValue, specifiedLabel));
-            matches = false;
             continue;
           }
           if (!Strings.isNullOrEmpty(provider.getError())) {
             deferredErrors.add(provider.getError());
             continue;
           } else if (!provider.getFlagValue().equals(specifiedValue)) {
-            matches = false;
+            diffs.add(
+                NoMatch.Diff.what(specifiedLabel)
+                    .got(specifiedValue)
+                    .want(provider.getFlagValue())
+                    .build());
           }
         } else if (target.satisfies(BuildSettingProvider.REQUIRE_BUILD_SETTING_PROVIDER)) {
           // build setting
@@ -544,7 +607,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             convertedSpecifiedValue =
                 BUILD_SETTING_CONVERTERS
                     .get(provider.getType())
-                    .convert(specifiedValue, /*conversionContext=*/ null);
+                    .convert(specifiedValue, /* conversionContext= */ null);
           } catch (OptionsParsingException e) {
             // This is a configuration-independent error on the attributes of config_setting.
             // So, is appropriate to error immediately.
@@ -554,7 +617,6 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
                     "error while parsing user-defined configuration values: "
                         + "'%s' cannot be converted to %s type %s",
                     specifiedValue, specifiedLabel, provider.getType()));
-            matches = false;
             continue;
           }
 
@@ -582,13 +644,20 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
                           + " allowed. If you want to match multiple values, consider Skylib's "
                           + "selects.config_setting_group",
                       specifiedValue, specifiedLabel));
-              matches = false;
             } else if (!((List<?>) configurationValue)
                 .contains(Iterables.getOnlyElement(specifiedValueAsIterable))) {
-              matches = false;
+              diffs.add(
+                  NoMatch.Diff.what(specifiedLabel)
+                      .got(convertedSpecifiedValue.toString())
+                      .want(configurationValue.toString())
+                      .build());
             }
           } else if (!configurationValue.equals(convertedSpecifiedValue)) {
-            matches = false;
+            diffs.add(
+                NoMatch.Diff.what(specifiedLabel)
+                    .got(convertedSpecifiedValue.toString())
+                    .want(configurationValue.toString())
+                    .build());
           }
         } else {
           // This should be configuration-independent error on the attributes of config_setting.
@@ -601,7 +670,6 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
                   "error while parsing user-defined configuration values: "
                       + "%s keys must be build settings or feature flags and %s is not",
                   ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, specifiedLabel));
-          matches = false;
         }
       }
 
@@ -623,17 +691,18 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
                     actualLabel, QUOTED_COMMA_JOINER.join(aliasList)));
           }
         }
-        matches = false;
       }
+      MatchResult matchResult;
       if (!deferredErrors.isEmpty()) {
-        return new UserDefinedFlagMatch(
-            ConfigMatchingProvider.MatchResult.InError.create(Joiner.on(", ").join(deferredErrors)),
-            ImmutableMap.copyOf(specifiedFlagValues));
+        matchResult = new MatchResult.InError(ImmutableList.copyOf(deferredErrors));
+      } else if (ruleContext.hasErrors()) {
+        matchResult = MatchResult.ALREADY_REPORTED_NO_MATCH;
+      } else if (!diffs.isEmpty()) {
+        matchResult = new NoMatch(ImmutableList.copyOf(diffs));
+      } else {
+        matchResult = MatchResult.MATCH;
       }
-
-      return new UserDefinedFlagMatch(
-          ConfigMatchingProvider.MatchResult.create(matches),
-          ImmutableMap.copyOf(specifiedFlagValues));
+      return new UserDefinedFlagMatch(matchResult, ImmutableMap.copyOf(specifiedFlagValues));
     }
   }
 
