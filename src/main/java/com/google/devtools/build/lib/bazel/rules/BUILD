@@ -83,6 +83,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/android",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/objc",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/proto",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/python",
