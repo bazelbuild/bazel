@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.rules.cpp.LibrariesToLinkCollector.CollectedLibrariesToLink;
@@ -99,7 +98,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   @SuppressWarnings("unchecked")
   public CcToolchainVariables getCcToolchainVariables(Dict<?, ?> buildVariables)
-      throws TypeException {
+      throws TypeException, EvalException {
 
     CcToolchainVariables.Builder ccToolchainVariables = CcToolchainVariables.builder();
     for (var entry : buildVariables.entrySet()) {
@@ -111,11 +110,9 @@ public class CcStarlarkInternal implements StarlarkValue {
         case Boolean b -> ccToolchainVariables.addBooleanValue(key, b);
         case Iterable<?> values -> {
           if (key.equals("libraries_to_link")) {
-            SequenceBuilder sb = new SequenceBuilder();
-            for (var v : (Iterable<VariableValue>) values) {
-              sb.addValue(v);
-            }
-            ccToolchainVariables.addCustomBuiltVariable(key, sb);
+            ccToolchainVariables.addSequenceVariable(
+                key,
+                Sequence.cast(values, VariableValue.class, "library_to_link").getImmutableList());
           } else {
             ccToolchainVariables.addStringSequenceVariable(key, (Iterable<String>) values);
           }

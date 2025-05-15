@@ -614,52 +614,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     VariableValue build();
   }
 
-  /** Builder for StringSequence. */
-  public static class StringSequenceBuilder implements VariableValueBuilder {
-
-    private final ImmutableList.Builder<String> values = ImmutableList.builder();
-
-    /** Adds a value to the sequence. */
-    @CanIgnoreReturnValue
-    public StringSequenceBuilder addValue(String value) {
-      values.add(value);
-      return this;
-    }
-
-    /** Returns an immutable string sequence. */
-    @Override
-    public StringSequence build() {
-      return StringSequence.of(values.build());
-    }
-  }
-
-  /** Builder for Sequence. */
-  public static class SequenceBuilder implements VariableValueBuilder {
-
-    private final ImmutableList.Builder<VariableValue> values = ImmutableList.builder();
-
-    /** Adds a value to the sequence. */
-    @CanIgnoreReturnValue
-    public SequenceBuilder addValue(VariableValue value) {
-      values.add(value);
-      return this;
-    }
-
-    /** Adds a value to the sequence. */
-    @CanIgnoreReturnValue
-    public SequenceBuilder addValue(VariableValueBuilder value) {
-      Preconditions.checkArgument(value != null, "Cannot use null builder for a sequence value");
-      values.add(value.build());
-      return this;
-    }
-
-    /** Returns an immutable sequence. */
-    @Override
-    public Sequence build() {
-      return new Sequence(values.build());
-    }
-  }
-
   /** Builder for StructureValue. */
   public static class StructureBuilder implements VariableValueBuilder {
 
@@ -1034,12 +988,12 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
   /** Sequence of arbitrary VariableValue objects. */
   @Immutable
-  private static final class Sequence extends VariableValueAdapter {
+  static final class Sequence extends VariableValueAdapter {
     private static final String SEQUENCE_VARIABLE_TYPE_NAME = "sequence";
 
     private final ImmutableList<VariableValue> values;
 
-    private Sequence(ImmutableList<VariableValue> values) {
+    Sequence(ImmutableList<VariableValue> values) {
       this.values = values;
     }
 
@@ -1351,7 +1305,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * never live outside of {@code expand}, as the object overhead is prohibitively expensive.
    */
   @Immutable
-  private static final class StringValue extends VariableValueAdapter {
+  static final class StringValue extends VariableValueAdapter {
     private static final String STRING_VARIABLE_TYPE_NAME = "string";
 
     private final String value;
@@ -1540,14 +1494,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       };
     }
 
-    /** Overrides a variable to expands {@code name} to {@code value} instead. */
-    @CanIgnoreReturnValue
-    public Builder overrideStringVariable(String name, String value) {
-      Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, value);
-      return this;
-    }
-
     /**
      * Add a sequence variable that expands {@code name} to {@code values}.
      *
@@ -1616,6 +1562,15 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
       variablesMap.put(name, new ArtifactSetSequence(values));
+      return this;
+    }
+
+    /** Adds a sequence variable that expands {@code name} to {@code sequence}. */
+    @CanIgnoreReturnValue
+    public Builder addSequenceVariable(String name, ImmutableList<VariableValue> sequence) {
+      checkVariableNotPresentAlready(name);
+      Preconditions.checkNotNull(sequence, "Cannot set null as a value for variable '%s'", name);
+      variablesMap.put(name, new Sequence(sequence));
       return this;
     }
 
