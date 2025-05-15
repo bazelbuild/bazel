@@ -17,23 +17,18 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Streams.stream;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -109,11 +104,9 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     implements PathCanonicalizer.Resolver {
   private final PathFragment execRoot;
   private final PathFragment outputBase;
-  private final InputMetadataProvider fileCache;
   private final InputMetadataProvider inputArtifactData;
   private final TreeArtifactDirectoryCache inputTreeArtifactDirectoryCache;
   private final PathCanonicalizer pathCanonicalizer;
-  private final ImmutableMap<PathFragment, Artifact> outputMapping;
   private final RemoteActionInputFetcher inputFetcher;
   private final FileSystem localFs;
   private final RemoteInMemoryFileSystem remoteOutputTree;
@@ -246,8 +239,6 @@ public class RemoteActionFileSystem extends AbstractFileSystem
       PathFragment execRootFragment,
       String relativeOutputPath,
       InputMetadataProvider inputArtifactData,
-      Iterable<Artifact> outputArtifacts,
-      InputMetadataProvider fileCache,
       RemoteActionInputFetcher inputFetcher) {
     super(localFs.getDigestFunction());
     this.execRoot = checkNotNull(execRootFragment, "execRootFragment");
@@ -255,9 +246,6 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     this.inputArtifactData = checkNotNull(inputArtifactData, "inputArtifactData");
     this.inputTreeArtifactDirectoryCache = new TreeArtifactDirectoryCache();
     this.pathCanonicalizer = new PathCanonicalizer(this);
-    this.outputMapping =
-        stream(outputArtifacts).collect(toImmutableMap(Artifact::getExecPath, a -> a));
-    this.fileCache = checkNotNull(fileCache, "fileCache");
     this.inputFetcher = checkNotNull(inputFetcher, "inputFetcher");
     this.localFs = checkNotNull(localFs, "localFs");
     this.remoteOutputTree = new RemoteInMemoryFileSystem(getDigestFunction());
@@ -380,7 +368,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   @Override
   protected InputStream getInputStream(PathFragment path) throws IOException {
     try {
-      downloadFileIfRemote(path);
+      downloadIfRemote(path);
     } catch (BulkTransferException e) {
       var newlyLostInputs = e.getLostArtifacts(inputArtifactData::getInput);
       if (!newlyLostInputs.isEmpty()) {
@@ -388,9 +376,32 @@ public class RemoteActionFileSystem extends AbstractFileSystem
       }
       throw e;
     }
-    // TODO(tjgq): Consider only falling back to the local filesystem for source (non-output) files.
-    // See getMetadata() for why this isn't currently possible.
     return localFs.getPath(path).getInputStream();
+  }
+
+  private void downloadIfRemote(PathFragment path) throws IOException {
+    if (!isRemote(path)) {
+      return;
+    }
+    PathFragment execPath = path.relativeTo(execRoot);
+    ActionInput input = inputArtifactData.getInput(execPath.getPathString());
+    if (input == null) {
+      // TODO(tjgq): Also look up the remote output tree.
+      return;
+    }
+
+    try {
+      getFromFuture(
+          inputFetcher.prefetchFiles(
+              action,
+              ImmutableList.of(input),
+              inputArtifactData,
+              Priority.CRITICAL,
+              Reason.INPUTS));
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IOException(String.format("Received interrupt while fetching file '%s'", path), e);
+    }
   }
 
   @Override
@@ -743,54 +754,6 @@ public class RemoteActionFileSystem extends AbstractFileSystem
         return m;
       }
     };
-  }
-
-  @Nullable
-  @VisibleForTesting
-  ActionInput getInput(String execPath) {
-    ActionInput input = inputArtifactData.getInput(execPath);
-    if (input != null) {
-      return input;
-    }
-    input = outputMapping.get(PathFragment.create(execPath));
-    if (input != null) {
-      return input;
-    }
-    if (!isOutput(execRoot.getRelative(execPath))) {
-      return fileCache.getInput(execPath);
-    }
-    return null;
-  }
-
-  @Nullable
-  @VisibleForTesting
-  FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
-    return inputArtifactData.getInputMetadata(input);
-  }
-
-  private void downloadFileIfRemote(PathFragment path) throws IOException {
-    if (!isRemote(path)) {
-      return;
-    }
-    PathFragment execPath = path.relativeTo(execRoot);
-    try {
-      ActionInput input = getInput(execPath.getPathString());
-      if (input == null) {
-        // For undeclared outputs, getInput returns null as there's no artifact associated with the
-        // path. Therefore, we synthesize one here just so we're able to call prefetchFiles.
-        input = ActionInputHelper.fromPath(execPath);
-      }
-      getFromFuture(
-          inputFetcher.prefetchFiles(
-              action,
-              ImmutableList.of(input),
-              inputArtifactData,
-              Priority.CRITICAL,
-              Reason.INPUTS));
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new IOException(String.format("Received interrupt while fetching file '%s'", path), e);
-    }
   }
 
   private boolean isOutput(PathFragment path) {
