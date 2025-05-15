@@ -269,16 +269,18 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
   public void testLinkshared() throws Exception {
     targetName = "bin.so";
     createBuildFiles("linkshared = 1,");
-    setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC);
-    useConfiguration();
+    setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC, MockCcSupport.USER_COMPILE_FLAGS);
+    useConfiguration("--linkopt=alinkopt");
 
     SpawnAction linkAction = getLinkAction();
     String rootExecPath = getRootExecPath();
 
-    Action backendAction =
-        getPredecessorByInputName(
-            linkAction, "pkg/bin.so.lto/" + rootExecPath + "/pkg/_objs/bin.so/binfile.pic.o");
+    LtoBackendAction backendAction =
+        (LtoBackendAction)
+            getPredecessorByInputName(
+                linkAction, "pkg/bin.so.lto/" + rootExecPath + "/pkg/_objs/bin.so/binfile.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
+    assertThat(backendAction.getArguments()).doesNotContain("alinkopt");
   }
 
   @Test
@@ -579,8 +581,10 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     setupThinLTOCrosstool(
         CppRuleClasses.SUPPORTS_PIC,
         CppRuleClasses.THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS,
-        CppRuleClasses.PER_OBJECT_DEBUG_INFO);
-    useConfiguration("--features=thin_lto_linkstatic_tests_use_shared_nonlto_backends");
+        CppRuleClasses.PER_OBJECT_DEBUG_INFO,
+        MockCcSupport.USER_COMPILE_FLAGS);
+    useConfiguration(
+        "--features=thin_lto_linkstatic_tests_use_shared_nonlto_backends", "--linkopt=alinkopt");
 
     ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin_test");
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
@@ -599,6 +603,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
                 linkAction,
                 "shared.nonlto/" + rootExecPath1 + "/pkg/_objs/bin_test/bin_test.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
+    assertThat(backendAction.getArguments()).doesNotContain("alinkopt");
 
     backendAction =
         (LtoBackendAction)
@@ -606,6 +611,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
                 linkAction, "shared.nonlto/" + rootExecPath1 + "/pkg/_objs/lib/libfile.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
     assertThat(backendAction.getArguments()).contains("-fPIC");
+    assertThat(backendAction.getArguments()).doesNotContain("alinkopt");
 
     LtoBackendAction backendAction2 =
         (LtoBackendAction)
@@ -622,8 +628,10 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
 
     setupThinLTOCrosstool(
         CppRuleClasses.SUPPORTS_PIC,
-        CppRuleClasses.THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS);
-    useConfiguration("--features=thin_lto_linkstatic_tests_use_shared_nonlto_backends");
+        CppRuleClasses.THIN_LTO_LINKSTATIC_TESTS_USE_SHARED_NONLTO_BACKENDS,
+        MockCcSupport.USER_COMPILE_FLAGS);
+    useConfiguration(
+        "--features=thin_lto_linkstatic_tests_use_shared_nonlto_backends", "--linkopt=alinkopt");
 
     ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin");
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
@@ -635,6 +643,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
             getPredecessorByInputName(
                 linkAction, "shared.nonlto/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
+    assertThat(backendAction.getArguments()).doesNotContain("alinkopt");
   }
 
   @Test
@@ -643,8 +652,10 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
 
     setupThinLTOCrosstool(
         CppRuleClasses.THIN_LTO_ALL_LINKSTATIC_USE_SHARED_NONLTO_BACKENDS,
-        CppRuleClasses.SUPPORTS_PIC);
-    useConfiguration("--features=thin_lto_all_linkstatic_use_shared_nonlto_backends");
+        CppRuleClasses.SUPPORTS_PIC,
+        MockCcSupport.USER_COMPILE_FLAGS);
+    useConfiguration(
+        "--features=thin_lto_all_linkstatic_use_shared_nonlto_backends", "--linkopt=alinkopt");
 
     ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin");
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
@@ -657,6 +668,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
             getPredecessorByInputName(
                 linkAction, "shared.nonlto/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
+    assertThat(backendAction.getArguments()).doesNotContain("alinkopt");
   }
 
   private Action getPredecessorByInputName(Action action, String str) {
@@ -960,7 +972,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     createBuildFiles();
 
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC, MockCcSupport.USER_COMPILE_FLAGS);
-    useConfiguration("--ltobackendopt=anltobackendopt");
+    useConfiguration("--ltobackendopt=anltobackendopt", "--linkopt=alinkopt");
 
     /*
     We follow the chain from the final product backwards.
@@ -983,6 +995,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
     assertThat(backendAction.getArguments())
         .containsAtLeast("--default-compile-flag", "anltobackendopt");
+    assertThat(backendAction.getArguments()).doesNotContain("alinkopt");
   }
 
   @Test
@@ -1020,6 +1033,37 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
                 linkAction, "pkg/bin.lto/" + rootExecPath + "/pkg/_objs/lib/libfile.pic.o");
     assertThat(backendAction.getArguments()).doesNotContain("ltobackendopt1");
     assertThat(backendAction.getArguments()).contains("ltobackendopt2");
+  }
+
+  @Test
+  public void testLinkOpt() throws Exception {
+    createBuildFiles();
+
+    setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC);
+    useConfiguration("--linkopt=alinkopt");
+
+    /*
+    We follow the chain from the final product backwards.
+
+    binary <=[Link]=
+    .lto/...o <=[LTOBackend]=
+    {.o.thinlto.bc,.o.imports} <=[LTOIndexing]=
+    .o <= [CppCompile] .cc
+    */
+    ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin");
+
+    Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
+    String rootExecPath = pkgArtifact.getRoot().getExecPathString();
+
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
+    assertThat(linkAction.getOutputs()).containsExactly(pkgArtifact);
+
+    LtoBackendAction backendAction =
+        (LtoBackendAction)
+            getPredecessorByInputName(
+                linkAction, "pkg/bin.lto/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o");
+    assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
+    assertThat(backendAction.getArguments()).doesNotContain("alinkopt");
   }
 
   @Test
