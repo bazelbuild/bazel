@@ -422,8 +422,7 @@ public final class Converters {
     @Override
     public RegexPatternOption convert(String input) throws OptionsParsingException {
       try {
-        return RegexPatternOption.create(
-            Pattern.compile(input, Pattern.DOTALL | Pattern.UNIX_LINES));
+        return RegexPatternOption.create(Pattern.compile(input, Pattern.DOTALL));
       } catch (PatternSyntaxException e) {
         throw new OptionsParsingException("Not a valid regular expression: " + e.getMessage());
       }

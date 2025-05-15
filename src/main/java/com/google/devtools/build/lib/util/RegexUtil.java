@@ -20,7 +20,7 @@ public final class RegexUtil {
   /**
    * Returns a {@link Predicate} that matches the input string against the regex pattern with the
    * same semantics as {@link Matcher#matches()}, but more optimized and as if the pattern was
-   * compiled with {@link Pattern#DOTALL} and {@link Pattern#UNIX_LINES}.
+   * compiled with {@link Pattern#DOTALL}.
    */
   public static Predicate<String> asOptimizedMatchingPredicate(Pattern regexPattern) {
     String pattern = regexPattern.pattern();
@@ -54,10 +54,7 @@ public final class RegexUtil {
     // Turn the "match" pattern into an equivalent "find" pattern, since these are the only ones
     // that benefit from the Boyer-Moore optimization in the Java regex engine.
     // https://github.com/openjdk/jdk/blob/50dced88ff1aed23bb4c8fe9e4a08e6cc200b897/src/java.base/share/classes/java/util/regex/Pattern.java#L1959-L1969
-    // Guard against the surprising edge case where $ can match right before a single final line
-    // terminator (only \n due to Pattern.UNIX_LINES).
-    Pattern compiled =
-        Pattern.compile(suffixPattern + "$(?!\n)", Pattern.DOTALL | Pattern.UNIX_LINES);
+    Pattern compiled = Pattern.compile(suffixPattern + "\\z", Pattern.DOTALL);
     return s -> compiled.matcher(s).find();
   }
 

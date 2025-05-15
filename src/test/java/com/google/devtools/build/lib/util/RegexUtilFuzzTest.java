@@ -15,7 +15,7 @@ public class RegexUtilFuzzTest {
     String haystack = data.consumeRemainingAsString();
     Pattern originalPattern;
     try {
-      originalPattern = Pattern.compile(needle, Pattern.DOTALL | Pattern.UNIX_LINES);
+      originalPattern = Pattern.compile(needle, Pattern.DOTALL);
     } catch (PatternSyntaxException e) {
       // The fuzzer generated an invalid regex, skip it.
       return;
