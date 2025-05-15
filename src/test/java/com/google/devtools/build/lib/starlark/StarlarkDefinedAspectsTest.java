@@ -1975,7 +1975,7 @@ my_rule = rule(
         MyAspect = aspect(
             implementation=_impl,
             attrs = { '_my_attr' : attr.label(default=
-                     configuration_field(fragment='cpp', name = 'cc_toolchain')) },
+                     configuration_field(fragment = "coverage", name = "output_generator")) },
         )
         my_rule = rule(
             implementation=_rule_impl,

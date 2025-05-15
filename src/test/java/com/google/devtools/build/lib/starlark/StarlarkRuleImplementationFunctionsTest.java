@@ -2979,7 +2979,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
           attrs = {
             '_attr': attr.label(
                 cfg = foo_transition,
-                default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})
+                default = configuration_field(fragment = "coverage", name = "output_generator"))})
         """);
 
     scratch.file(
