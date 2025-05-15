@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkValue;
 
 /** A source file that is an input to a c++ compilation. */
-public abstract class CppSource {
+public abstract class CppSource implements StarlarkValue {
   private final Artifact source;
   private final Label label;
 
@@ -54,6 +56,22 @@ public abstract class CppSource {
    * Returns the type of this source.
    */
   abstract Type getType();
+
+  @Override
+  public boolean isImmutable() {
+    return true;
+  }
+
+  @Override
+  public void repr(Printer printer) {
+    printer.append("CppSource(type=");
+    printer.append(getType().name());
+    printer.append(", label=");
+    printer.append(label.toString());
+    printer.append(", source=");
+    printer.append(source.getExecPathString());
+    printer.append(")");
+  }
 
   private static class SourceCppSource extends CppSource {
 

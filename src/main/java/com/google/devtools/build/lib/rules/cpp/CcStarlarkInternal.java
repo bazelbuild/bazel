@@ -362,6 +362,33 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
+      name = "create_cpp_source",
+      doc = "Creates a CppSource instance.",
+      parameters = {
+        @Param(
+            name = "source",
+            positional = false,
+            named = true,
+            doc = "The source file.",
+            allowedTypes = {@ParamType(type = Artifact.class)}),
+        @Param(
+            name = "label",
+            positional = false,
+            named = true,
+            doc = "The label of the source file.",
+            allowedTypes = {@ParamType(type = Label.class)}),
+        @Param(
+            name = "type",
+            positional = false,
+            named = true,
+            doc = "The type of the source file.",
+            allowedTypes = {@ParamType(type = String.class)})
+      })
+  public CppSource createCppSource(Artifact source, Label label, String type) {
+    return CppSource.create(source, label, CppSource.Type.valueOf(type));
+  }
+
+  @StarlarkMethod(
       name = "create_umbrella_header_action",
       documented = false,
       parameters = {
