@@ -40,6 +40,8 @@ public class UnifiedMemory extends UnifiedController implements Controller.Memor
   @Override
   public void setMaxBytes(long bytes) throws IOException {
     Files.writeString(path.resolve("memory.max"), Long.toString(bytes));
+    // Also set swap max to 0 so that memory.max is respected.
+    Files.writeString(path.resolve("memory.swap.max"), Long.toString(0L));
   }
 
   @Override
