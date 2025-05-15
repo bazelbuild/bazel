@@ -1652,13 +1652,12 @@ EOF
 set -eu
 
 JAVA=\$1
-[[ "\$JAVA" =~ ^(/|[^/]+$) ]] || JAVA="\$PWD/\$JAVA"
+[[ "\$JAVA" =~ ^(/|[^/]+$) ]] || JAVA="\$PWD/\${JAVA//external/..}"
 "\${JAVA}" -fullversion
 EOF
   chmod +x "${pkg}"/run.sh
 
   bazel test //"${pkg}":bar --test_output=all --verbose_failures >& "$TEST_log" \
-      --legacy_external_runfiles \
       || fail "Expected success"
 }
 
@@ -1756,7 +1755,7 @@ function test_jni() {
   expect_log "hello 123"
 }
 
-function test_jni_external_repo_legacy_external_runfiles() {
+function test_jni_external_repo_runfiles() {
   # Skip on MS Windows, see details in test_jni
   uname -s | grep -q MSYS_NT && return
   # Skip on Darwin, see details in test_jni
@@ -1764,22 +1763,7 @@ function test_jni_external_repo_legacy_external_runfiles() {
 
   setup_jni_targets "my_other_repo"
 
-  bazel run --legacy_external_runfiles //test:app >> $TEST_log || {
-    find bazel-bin/ | native # helpful for debugging
-    fail "bazel run command failed"
-  }
-  expect_log "hello 123"
-}
-
-function test_jni_external_repo_no_legacy_external_runfiles() {
-  # Skip on MS Windows, see details in test_jni
-  uname -s | grep -q MSYS_NT && return
-  # Skip on Darwin, see details in test_jni
-  uname -s | grep -q Darwin && return
-
-  setup_jni_targets "my_other_repo"
-
-  bazel run --nolegacy_external_runfiles //test:app >> $TEST_log || {
+  bazel run //test:app >> $TEST_log || {
     find bazel-bin/ | native # helpful for debugging
     fail "bazel run command failed"
   }

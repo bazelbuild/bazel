@@ -119,11 +119,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     }
 
     @Override
-    public boolean isLegacyExternalRunfiles() {
-      return wrapped.isLegacyExternalRunfiles();
-    }
-
-    @Override
     public boolean isMappingCached() {
       return wrapped.isMappingCached();
     }

@@ -52,47 +52,6 @@ EOF
   [[ -x bazel-bin/foo/foo.runfiles/_main/foo/foo ]] || fail "No foo executable under _main"
 }
 
-function test_legacy_runfiles_change() {
-  cat >> MODULE.bazel <<EOF
-new_local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
-new_local_repository(
-    name = "bar",
-    path = ".",
-    build_file = "//:BUILD",
-)
-EOF
-  add_rules_cc "MODULE.bazel"
-
-  cat > BUILD <<EOF
-load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-
-exports_files(glob(["*"]))
-
-cc_binary(
-    name = "thing",
-    srcs = ["thing.cc"],
-    data = ["@bar//:thing.cc"],
-)
-EOF
-  cat > thing.cc <<EOF
-int main() { return 0; }
-EOF
-  bazel build --legacy_external_runfiles //:thing &> $TEST_log \
-    || fail "Build failed"
-  [[ -d bazel-bin/thing.runfiles/_main/external/+new_local_repository+bar ]] \
-    || fail "bar not found"
-
-  bazel build --nolegacy_external_runfiles //:thing &> $TEST_log \
-    || fail "Build failed"
-  [[ ! -d bazel-bin/thing.runfiles/_main/external/+new_local_repository+bar ]] \
-    || fail "Old bar still found"
-
-  bazel build --legacy_external_runfiles //:thing &> $TEST_log \
-    || fail "Build failed"
-  [[ -d bazel-bin/thing.runfiles/_main/external/+new_local_repository+bar ]] \
-    || fail "bar not recreated"
-}
-
 function test_enable_runfiles_change() {
 
   mkdir data && echo "hello" > data/hello && echo "world" > data/world

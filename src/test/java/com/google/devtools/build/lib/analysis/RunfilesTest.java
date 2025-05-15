@@ -263,29 +263,6 @@ public class RunfilesTest extends FoundationTestCase {
   }
 
   @Test
-  public void testLegacyRunfilesStructure() {
-    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
-    PathFragment workspaceName = PathFragment.create("wsname");
-    PathFragment pathB = PathFragment.create("repo/b");
-    PathFragment legacyPathB = LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(pathB);
-    PathFragment runfilesPathB = LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX.getRelative(pathB);
-    Artifact artifactB = ActionsTestUtil.createArtifactWithRootRelativePath(root, legacyPathB);
-
-    Runfiles.ManifestBuilder builder = new Runfiles.ManifestBuilder(workspaceName, true);
-
-    Map<PathFragment, Artifact> inputManifest = Maps.newHashMap();
-    inputManifest.put(runfilesPathB, artifactB);
-    Runfiles.ConflictChecker checker = eventConflictChecker(Runfiles.ConflictPolicy.WARN);
-    builder.addUnderWorkspace(inputManifest, checker);
-
-    assertThat(builder.build().entrySet())
-        .containsExactly(
-            Maps.immutableEntry(workspaceName.getRelative(legacyPathB), artifactB),
-            Maps.immutableEntry(PathFragment.create("repo/b"), artifactB));
-    assertNoEvents();
-  }
-
-  @Test
   public void testRunfileAdded() {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     PathFragment workspaceName = PathFragment.create("wsname");
@@ -294,7 +271,7 @@ public class RunfilesTest extends FoundationTestCase {
     PathFragment runfilesPathB = LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX.getRelative(pathB);
     Artifact artifactB = ActionsTestUtil.createArtifactWithRootRelativePath(root, legacyPathB);
 
-    Runfiles.ManifestBuilder builder = new Runfiles.ManifestBuilder(workspaceName, false);
+    Runfiles.ManifestBuilder builder = new Runfiles.ManifestBuilder(workspaceName);
 
     Map<PathFragment, Artifact> inputManifest = ImmutableMap.of(runfilesPathB, artifactB);
     Runfiles.ConflictChecker checker = eventConflictChecker(Runfiles.ConflictPolicy.WARN);
