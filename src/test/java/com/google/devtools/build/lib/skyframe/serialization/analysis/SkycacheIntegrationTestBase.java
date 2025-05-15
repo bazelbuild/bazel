@@ -65,7 +65,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 
-public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCase {
+public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCase {
 
   protected static final String UPLOAD_MODE_OPTION =
       "--experimental_remote_analysis_cache_mode=upload";
@@ -382,7 +382,6 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         .doesNotContain("com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue");
   }
 
-  
   @Override
   protected Path createTestRoot(FileSystem fileSystem) {
     try {
@@ -485,7 +484,6 @@ genrule(
     assertThat(exception).hasMessageThat().contains(BuildView.UPLOAD_BUILDS_MUST_BE_COLD);
   }
 
-  
   @Test
   public void cquery_succeedsAndDoesNotTriggerUpload() throws Exception {
     setupScenarioWithConfiguredTargets();

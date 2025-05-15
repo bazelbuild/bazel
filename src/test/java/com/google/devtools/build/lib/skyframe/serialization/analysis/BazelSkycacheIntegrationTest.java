@@ -30,7 +30,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public final class FrontierSerializerTest extends FrontierSerializerTestBase {
+public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestBase {
   private final LongVersionGetter versionGetter = mock(LongVersionGetter.class);
 
   @Before
