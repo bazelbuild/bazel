@@ -154,7 +154,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   /**
-   * Returns whether the file contents are materialized lazily, for example because they exist
+   * Returns whether the file contents are materialized lazily, for example, because they exist
    * remotely.
    */
   public boolean isLazy() {
