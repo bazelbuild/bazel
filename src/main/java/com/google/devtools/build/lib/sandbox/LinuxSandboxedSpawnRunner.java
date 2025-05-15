@@ -208,11 +208,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   private boolean useHermeticTmp() {
-    if (!getSandboxOptions().sandboxHermeticTmp) {
-      // No hermetic /tmp requested, so let's not do it
-      return false;
-    }
-
     if (getSandboxOptions().useHermetic) {
       // The hermetic sandbox is, well, already hermetic. Also, it creates an empty /tmp by default
       // so nothing needs to be done to achieve a /tmp that is also hermetic.
@@ -223,7 +218,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         getSandboxOptions().sandboxAdditionalMounts.stream()
             .anyMatch(e -> e.getKey().equals("/tmp"));
     if (tmpExplicitlyBindMounted) {
-      // An explicit mount on /tmp is likely an explicit way to make it non-hermetic.
+      // An explicit mount on /tmp is an explicit way to make it non-hermetic.
       return false;
     }
 
