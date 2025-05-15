@@ -30,6 +30,7 @@ load(
     "tool_path",
     "with_feature_set",
 )
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 
 _FEATURE_NAMES = struct(
     cpp_modules = "cpp_modules",

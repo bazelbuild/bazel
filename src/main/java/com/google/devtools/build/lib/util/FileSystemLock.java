@@ -38,7 +38,8 @@ public final class FileSystemLock implements AutoCloseable {
     }
   }
 
-  private enum LockMode {
+  /** The mode of a lock. */
+  public enum LockMode {
     SHARED,
     EXCLUSIVE;
 
@@ -56,41 +57,36 @@ public final class FileSystemLock implements AutoCloseable {
     this.lock = lock;
   }
 
-  /**
-   * Acquires shared access to the lock file.
-   *
-   * @param path the path to the lock file
-   * @throws AlreadyLockedException if the lock is already exclusively held by another process
-   * @throws IOException if another error occurred
-   */
-  public static FileSystemLock getShared(Path path) throws IOException {
-    return get(path, LockMode.SHARED);
+  private static FileChannel prepareChannel(Path path) throws IOException {
+    path.getParentDirectory().createDirectoryAndParents();
+    return FileChannel.open(
+        // Correctly handle non-ASCII paths by converting from the internal string encoding.
+        java.nio.file.Path.of(StringEncoding.internalToPlatform(path.getPathString())),
+        StandardOpenOption.READ,
+        StandardOpenOption.WRITE,
+        StandardOpenOption.CREATE);
   }
 
   /**
-   * Acquires exclusive access to the lock file.
+   * Tries to acquires a lock on the given path with the given mode. Throws an exception if the lock
+   * is already held by another process.
    *
-   * @param path the path to the lock file
    * @throws LockAlreadyHeldException if the lock is already exclusively held by another process
    * @throws IOException if another error occurred
    */
-  public static FileSystemLock getExclusive(Path path) throws IOException {
-    return get(path, LockMode.EXCLUSIVE);
-  }
-
-  private static FileSystemLock get(Path path, LockMode mode) throws IOException {
-    path.getParentDirectory().createDirectoryAndParents();
-    FileChannel channel =
-        FileChannel.open(
-            // Correctly handle non-ASCII paths by converting from the internal string encoding.
-            java.nio.file.Path.of(StringEncoding.internalToPlatform(path.getPathString())),
-            StandardOpenOption.READ,
-            StandardOpenOption.WRITE,
-            StandardOpenOption.CREATE);
+  public static FileSystemLock tryGet(Path path, LockMode mode) throws IOException {
+    FileChannel channel = prepareChannel(path);
     FileLock lock = channel.tryLock(0, Long.MAX_VALUE, mode == LockMode.SHARED);
     if (lock == null) {
       throw new LockAlreadyHeldException(mode, path);
     }
+    return new FileSystemLock(channel, lock);
+  }
+
+  /** Acquires a lock on the given path with the given mode. Blocks until the lock is acquired. */
+  public static FileSystemLock get(Path path, LockMode mode) throws IOException {
+    FileChannel channel = prepareChannel(path);
+    FileLock lock = channel.lock(0, Long.MAX_VALUE, mode == LockMode.SHARED);
     return new FileSystemLock(channel, lock);
   }
 

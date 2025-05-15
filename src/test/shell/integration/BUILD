@@ -1,4 +1,6 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_shell//shell:sh_library.bzl", "sh_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:workspace_deps.bzl", "gen_workspace_stanza")
 
 package(default_visibility = ["//visibility:private"])

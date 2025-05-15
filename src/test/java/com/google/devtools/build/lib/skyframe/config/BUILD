@@ -14,8 +14,8 @@ filegroup(
 )
 
 java_test(
-    name = "FlagSetsFunctionTest",
-    srcs = ["FlagSetsFunctionTest.java"],
+    name = "FlagSetFunctionTest",
+    srcs = ["FlagSetFunctionTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime/config_flag_definitions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -24,6 +24,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:project_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config:sky_functions",

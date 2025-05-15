@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getRootCause;
 import static com.google.common.util.concurrent.Futures.getDone;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -24,7 +23,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Longs;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
@@ -215,19 +213,10 @@ public final class SkyValueRetriever {
         switch (nextState) {
           case InitialQuery unused:
             {
-              SerializationResult<ByteString> keyBytes =
-                  codecs.serializeMemoizedAndBlocking(
-                      fingerprintValueService, key, /* profileCollector= */ null);
-              ListenableFuture<Void> keyWriteStatus = keyBytes.getFutureToBlockWritesOn();
-              if (keyWriteStatus != null) {
-                // Nothing depends directly on the status of this write.
-                Futures.addCallback(
-                    keyWriteStatus, FutureHelpers.FAILURE_REPORTING_CALLBACK, directExecutor());
-              }
-
               PackedFingerprint cacheKey =
-                  fingerprintValueService.fingerprint(
-                      frontierNodeVersion.concat(keyBytes.getObject().toByteArray()));
+                  SkyKeySerializationHelper.computeFingerprint(
+                      codecs, fingerprintValueService, key, frontierNodeVersion);
+
               ListenableFuture<?> responseFuture;
               if (analysisCacheClient == null) {
                 ListenableFuture<byte[]> futureValueBytes;

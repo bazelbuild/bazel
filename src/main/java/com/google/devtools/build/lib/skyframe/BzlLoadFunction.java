@@ -71,6 +71,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -814,6 +815,8 @@ public class BzlLoadFunction implements SkyFunction {
             env.getListener(),
             programLoads,
             pkg,
+            ruleClassProvider::isPackageUnderExperimental,
+            builtins.starlarkSemantics.getBool(BuildLanguageOptions.ALLOW_EXPERIMENTAL_LOADS),
             repoMapping,
             key.isSclDialect(),
             isSclFlagEnabled,
@@ -1110,6 +1113,9 @@ public class BzlLoadFunction implements SkyFunction {
   /**
    * Validates a label appearing in a {@code load()} statement, throwing {@link
    * LabelSyntaxException} on failure.
+   *
+   * <p>This does not enforce restrictions on loading experimental .bzls ({@code
+   * --allow_experimental_loads}).
    */
   public static void checkValidLoadLabel(Label label, StarlarkSemantics starlarkSemantics)
       throws LabelSyntaxException {
@@ -1127,6 +1133,10 @@ public class BzlLoadFunction implements SkyFunction {
    * base}, the file's package. If any label is malformed, the function reports one or more errors
    * to the handler and returns null.
    *
+   * <p>If {@code allowExperimentalLoads} is false, a load of an experimental bzl is only tolerated
+   * if the {@code base} package is also experimental (as determined by the {@code
+   * isUnderExperimental} predicate).
+   *
    * <p>If {@code withinSclDialect} is true, the labels are validated according to the rules of the
    * .scl dialect: Only strings beginning with {@code //} are allowed (no repo syntax, no relative
    * labels), and only .scl files may be loaded (not .bzl). If {@code isSclFlagEnabled} is true,
@@ -1137,11 +1147,14 @@ public class BzlLoadFunction implements SkyFunction {
       EventHandler handler,
       ImmutableList<Pair<String, Location>> loads,
       PackageIdentifier base,
+      Predicate<PackageIdentifier> isUnderExperimental,
+      boolean allowExperimentalLoads,
       RepositoryMapping repoMapping,
       boolean withinSclDialect,
       boolean isSclFlagEnabled,
       @Nullable Label.RepoMappingRecorder repoMappingRecorder) {
     boolean ok = true;
+    boolean baseWithinExperimental = isUnderExperimental.test(base);
 
     ImmutableList.Builder<Label> loadLabels = ImmutableList.builderWithExpectedSize(loads.size());
     for (Pair<String, Location> load : loads) {
@@ -1160,6 +1173,12 @@ public class BzlLoadFunction implements SkyFunction {
             /* fromBuiltinsRepo= */ StarlarkBuiltinsValue.isBuiltinsRepo(base.getRepository()),
             /* withinSclDialect= */ withinSclDialect,
             /* mentionSclInErrorMessage= */ isSclFlagEnabled);
+        if (!allowExperimentalLoads
+            && !baseWithinExperimental
+            && isUnderExperimental.test(label.getPackageIdentifier())) {
+          throw new LabelSyntaxException(
+              "Cannot load an experimental Starlark file from a non-experimental package");
+        }
         loadLabels.add(label);
       } catch (LabelSyntaxException ex) {
         handler.handle(Event.error(load.second, "in load statement: " + ex.getMessage()));
@@ -1180,12 +1199,16 @@ public class BzlLoadFunction implements SkyFunction {
       EventHandler handler,
       ImmutableList<Pair<String, Location>> loads,
       PackageIdentifier base,
+      Predicate<PackageIdentifier> isUnderExperimental,
       RepositoryMapping repoMapping,
       StarlarkSemantics starlarkSemantics) {
     return getLoadLabels(
         handler,
         loads,
         base,
+        isUnderExperimental,
+        /* allowExperimentalLoads= */ starlarkSemantics.getBool(
+            BuildLanguageOptions.ALLOW_EXPERIMENTAL_LOADS),
         repoMapping,
         /* withinSclDialect= */ false,
         /* isSclFlagEnabled= */ starlarkSemantics.getBool(

@@ -39,6 +39,7 @@ def _mk_pb2_third_party_bazel_src_main_protobuf_project_project_Project(**kwargs
         "buildable_units": kwargs.get("buildable_units", []),
         "enforcement_policy": kwargs.get("enforcement_policy", []),
         "project_directories": kwargs.get("project_directories", []),
+        "always_allowed_configs": kwargs.get("always_allowed_configs", []),
     })
 
 pb2_third_party_bazel_src_main_protobuf_project_project = struct(

@@ -136,6 +136,7 @@ public class CommandEnvironment {
   private final HttpDownloader httpDownloader;
   private final DelegatingDownloader delegatingDownloader;
   private final RemoteAnalysisCachingEventListener remoteAnalysisCachingEventListener;
+  @Nullable private final ImmutableList<IdleTask.Result> idleTaskResultsFromPreviousIdlePeriod;
   private final ImmutableList.Builder<IdleTask> idleTasks = ImmutableList.builder();
   private final ResourceManager resourceManager;
 
@@ -229,8 +230,9 @@ public class CommandEnvironment {
       List<String> warnings,
       long waitTimeInMs,
       long commandStartTime,
-      List<Any> commandExtensions,
+      @Nullable ImmutableList<IdleTask.Result> idleTaskResultsFromPreviousIdlePeriod,
       Consumer<String> shutdownReasonConsumer,
+      List<Any> commandExtensions,
       CommandExtensionReporter commandExtensionReporter,
       int attemptNumber,
       @Nullable String buildRequestIdOverride,
@@ -248,6 +250,7 @@ public class CommandEnvironment {
     this.options = options;
     this.invocationPolicy = invocationPolicy;
     this.packageLocator = packageLocator;
+    this.idleTaskResultsFromPreviousIdlePeriod = idleTaskResultsFromPreviousIdlePeriod;
     this.shutdownReasonConsumer = shutdownReasonConsumer;
     this.syscallCache = syscallCache;
     this.quiescingExecutors = quiescingExecutors;
@@ -912,8 +915,8 @@ public class CommandEnvironment {
       skyframeExecutor.prepareForSkyfocus(
           options.getOptions(SkyfocusOptions.class), reporter, runtime.getProductName());
     } else if (getCommand().buildPhase().loads()
-        && !getSkyframeExecutor().getSkyfocusState().workingSet().isEmpty()) {
-      // A non-empty working set implies a focused Skyframe state.
+        && !getSkyframeExecutor().getSkyfocusState().activeDirectories().isEmpty()) {
+      // A non-empty active directories implies a focused Skyframe state.
       throw new AbruptExitException(
           DetailedExitCode.of(
               FailureDetail.newBuilder()
@@ -1067,10 +1070,15 @@ public class CommandEnvironment {
   }
 
   /**
-   * Registers a task to be executed following this command, while the server is idle.
-   *
-   * <p>See {@link IdleServerTasks} for details.
+   * Retrieves the idle tasks stats from a previous idle period, if this command was preceded by
+   * one.
    */
+  @Nullable
+  public ImmutableList<IdleTask.Result> getIdleTaskResultsFromPreviousIdlePeriod() {
+    return idleTaskResultsFromPreviousIdlePeriod;
+  }
+
+  /** Registers a task to be executed during an idle period following this command. */
   public void addIdleTask(IdleTask idleTask) {
     idleTasks.add(idleTask);
   }

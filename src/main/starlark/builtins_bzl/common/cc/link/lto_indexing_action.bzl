@@ -14,9 +14,9 @@
 """Functions that create LTO indexing action."""
 
 load(":common/cc/link/finalize_link_action.bzl", "finalize_link_action")
-load(":common/cc/link/libraries_to_link_collector.bzl", "LINKING_MODE")
 load(":common/cc/link/link_build_variables.bzl", "setup_lto_indexing_variables")
-load(":common/cc/link/target_types.bzl", "LINK_TARGET_TYPE", "is_dynamic_library")
+load(":common/cc/link/lto_backends.bzl", "create_lto_backends")
+load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE", "is_dynamic_library")
 
 cc_internal = _builtins.internal.cc_internal
 
@@ -94,7 +94,7 @@ def create_lto_artifacts_and_lto_indexing_action(
         lto_obj_root_prefix = lto_output_root_prefix + "-obj"
     object_file_inputs = compilation_outputs.pic_objects if use_pic else compilation_outputs.objects
 
-    all_lto_artifacts = cc_internal.create_lto_artifacts(
+    all_lto_artifacts = create_lto_backends(
         actions,
         lto_compilation_context,
         feature_configuration,
@@ -169,16 +169,24 @@ def _lto_indexing_action(
     ]
 
     lto_mapping = {}
+    static_library_artifacts = set()
     for lib in static_libraries_to_link:
         pic = (prefer_pic_libs and lib.pic_static_library != None) or lib.static_library == None
         if pic:
+            library_artifact = lib.pic_static_library
             objects = lib.pic_objects_private()
             shared_non_lto_backends = lib.pic_shared_non_lto_backends()
             lib_lto_compilation_context = lib.pic_lto_compilation_context()
         else:
+            library_artifact = lib.static_library
             objects = lib.objects_private()
             shared_non_lto_backends = lib.shared_non_lto_backends()
             lib_lto_compilation_context = lib.lto_compilation_context()
+        if library_artifact in static_library_artifacts:
+            # Duplicated static libraries are linked just once and don't error out.
+            # TODO(b/413333884): Clean up violations and error out
+            continue
+        static_library_artifacts.add(library_artifact)
         if objects == None:
             continue
         for a in objects:

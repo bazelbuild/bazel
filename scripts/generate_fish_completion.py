@@ -102,9 +102,14 @@ class BazelCompletionWriter(object):
 
   def _get_bazel_output(self, args):
     return subprocess.check_output(
-        (self._bazel, '--output_user_root={}'.format(self._output_user_root)) +
-        tuple(args),
-        universal_newlines=True)
+        (
+            self._bazel,
+            '--batch',
+            '--output_user_root={}'.format(self._output_user_root),
+        )
+        + tuple(args),
+        universal_newlines=True,
+    )
 
   def _get_options_from_bazel(self, bazel_args, **kwargs):
     output = self._get_bazel_output(bazel_args)

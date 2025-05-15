@@ -24,7 +24,7 @@ Symbolic macros
 *   Take typed attributes, which in turn means automatic label and select
     conversion.
 *   Are more readable
-*   Will soon have [lazy evaluation](macros.md/laziness)
+*   Will soon have [lazy evaluation](macros.md#laziness)
 
 ## Usage {:#usage}
 

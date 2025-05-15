@@ -1,3 +1,39 @@
+## Release 9.0.0-pre.20250426.1 (2025-05-08)
+
+```
+Baseline: f2424778bf6b3043fc5729b6545c8189066f4ff7
+```
+
+Incompatible changes:
+
+  - When remote execution fails and an action is executed locally,
+    modifications of its inputs during execution are now checked
+    according to the value of the
+    `--guard_against_concurrent_changes` flag rather than as if that
+    flag was set to `full`.
+  - accessing struct providers is not supported anymore
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Chi Wang, Fabian Meumertzheim, Greg, Markus Hofbauer, Xdng Yng.
+
+## Release 9.0.0-pre.20250421.1 (2025-04-29)
+
+```
+Baseline: e8c6e40d53b90ac71cf634561e69d4dec3a2934a
+```
+
+Incompatible changes:
+
+  - struct providers are not supported in aspects
+
+Important changes:
+
+  - The (deprecated) `output_licenses` attribute is now a string
+    list rather than an internal data type. The only visible change
+    may be that some query output may change from printing capitalized
+    values of inputs will now show lower case.
+
+This release contains contributions from many people at Google, as well as Ankush Chudiwal, Benji Vos, Fabian Meumertzheim.
+
 ## Release 9.0.0-pre.20250414.1 (2025-04-22)
 
 ```

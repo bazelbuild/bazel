@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -300,7 +301,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         .containsExactly(RuleVisibility.PUBLIC_LABEL);
     assertThat(((VisibilityLicenseSpecifiedInputFile) exportFileTarget).isLicenseSpecified())
         .isTrue();
-    assertThat(exportFileTarget.getLicense()).containsExactly("restricted");
+    assertThat(exportFileTarget.getLicense().getLicenseTypes())
+        .containsExactly(LicenseType.RESTRICTED);
 
     // A is an input file with private visibility
     Target inputFileTarget = pkg.getTarget("A");

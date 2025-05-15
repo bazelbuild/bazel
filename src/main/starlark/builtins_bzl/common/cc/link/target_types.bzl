@@ -19,6 +19,11 @@ load(":common/cc/cc_helper_internal.bzl", "artifact_category")
 USE_LINKER = "linker"
 USE_ARCHIVER = "archiver"
 
+LINKING_MODE = struct(
+    STATIC = "static",
+    DYNAMIC = "dynamic",
+)
+
 LINK_TARGET_TYPE = struct(
     # A normal static archive.
     STATIC_LIBRARY = struct(

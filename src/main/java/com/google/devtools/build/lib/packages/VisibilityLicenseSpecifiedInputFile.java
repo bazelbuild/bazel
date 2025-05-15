@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -25,14 +24,14 @@ import net.starlark.java.syntax.Location;
 public final class VisibilityLicenseSpecifiedInputFile extends InputFile {
 
   @Nullable private final RuleVisibility visibility;
-  @Nullable private final List<String> license;
+  @Nullable private final License license;
 
   VisibilityLicenseSpecifiedInputFile(
       Packageoid pkg,
       Label label,
       Location location,
       @Nullable RuleVisibility visibility,
-      @Nullable List<String> license) {
+      @Nullable License license) {
     super(pkg, label, location);
     this.visibility = visibility;
     this.license = license;
@@ -51,14 +50,12 @@ public final class VisibilityLicenseSpecifiedInputFile extends InputFile {
 
   @Override
   public boolean isLicenseSpecified() {
-    return license != null && !license.isEmpty();
+    return license != null && license.isSpecified();
   }
 
   @Override
-  @Nullable
-  public List<String> getLicense() {
-    // XXXif (license != null) {
-    if (this.isLicenseSpecified()) {
+  public License getLicense() {
+    if (license != null) {
       return license;
     } else {
       return getPackageDeclarations().getPackageArgs().license();

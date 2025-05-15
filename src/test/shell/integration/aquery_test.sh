@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -424,7 +424,7 @@ foo(
 )
 EOF
   cat > "$pkg/tool.sh" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo "$1" > "$2"
 EOF
   chmod +x "$pkg/tool.sh"

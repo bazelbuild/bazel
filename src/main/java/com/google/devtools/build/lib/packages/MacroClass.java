@@ -345,7 +345,10 @@ public final class MacroClass {
    * default as expected.
    */
   private static boolean shouldForceDefaultToNone(Attribute attr) {
-    return attr.hasComputedDefault() || attr.isLateBound() || attr.isMaterializing();
+    return attr.hasComputedDefault()
+        || attr.isLateBound()
+        || attr.isMaterializing()
+        || attr.getType() == BuildType.LICENSE;
   }
 
   /**
@@ -384,7 +387,7 @@ public final class MacroClass {
       MacroInstance macro,
       TargetDefinitionContext targetDefinitionContext,
       StarlarkSemantics semantics)
-      throws InterruptedException {
+      throws EvalException, InterruptedException {
     // Ensure we're not expanding a (possibly indirect) recursive macro. This is morally analogous
     // to StarlarkThread#isRecursiveCall, except in this context, recursion is through the chain of
     // macro instantiations, which may or may not actually be concurrently executing on the stack
@@ -447,7 +450,7 @@ public final class MacroClass {
         }
         kwargs.put(attr.getName(), attrValue);
       }
-      try {
+      try (var updater = targetDefinitionContext.updateStartedThreadComputationSteps(thread)) {
         Object returnValue =
             Starlark.call(
                 thread,
@@ -460,12 +463,19 @@ public final class MacroClass {
               macro.getName(), Starlark.repr(returnValue));
         }
       } catch (EvalException ex) { // from either call() or non-None return
-        targetDefinitionContext
-            .getLocalEventHandler()
-            .handle(
-                Package.error(
-                    /* location= */ null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
-        targetDefinitionContext.setContainsErrors();
+        if (ex.getCallStack().isEmpty()
+            || ex.getCallStack().getFirst().location.file().endsWith(".bzl")) {
+          // If the call stack starts at a .bzl file (i.e. at the macro definition), prepend the
+          // call stacks of all outer threads to it, so that the user understands how the failing
+          // macro was instantiated.
+          throw new EvalException(ex.getMessage(), ex.getCause())
+              .withCallStack(
+                  ImmutableList.<StarlarkThread.CallStackEntry>builder()
+                      .addAll(macro.reconstructParentCallStack())
+                      .addAll(ex.getCallStack())
+                      .build());
+        }
+        throw ex;
       } finally {
         // Restore the previously running symbolic macro's state (if any).
         @Nullable MacroFrame top = targetDefinitionContext.setCurrentMacroFrame(parentMacroFrame);

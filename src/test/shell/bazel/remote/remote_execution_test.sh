@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -827,7 +827,7 @@ sh_test(
 EOF
 
   cat > a/sleep.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 for i in {1..3}
 do
     echo "Sleeping $i..."
@@ -1249,7 +1249,7 @@ function test_nobuild_runfile_links() {
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
   add_rules_shell "MODULE.bazel"
   cat > test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 [[ -f ${RUNFILES_DIR}/_main/data/hello ]]
 [[ -f ${RUNFILES_DIR}/_main/data/world ]]
@@ -3764,6 +3764,122 @@ EOF
     --experimental_output_paths=strip \
     //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
   assert_contains "input" bazel-bin/a/my_rule
+}
+
+# Verifies that the contents of a directory have the same representation with
+# remote execution regardless of whether they are added as a source directory or
+# via globbing.
+function test_source_directory() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+filegroup(
+    name = "source_directory",
+    srcs = ["dir"],
+)
+
+filegroup(
+    name = "glob",
+    srcs = glob(["dir/**"]),
+)
+
+sh_binary(
+    name = "tool_with_source_directory",
+    srcs = ["tool.sh"],
+    data = [":source_directory"],
+)
+
+sh_binary(
+    name = "tool_with_glob",
+    srcs = ["tool.sh"],
+    data = [":glob"],
+)
+
+GENRULE_COMMAND_TEMPLATE = """
+[[ -f a/dir/file.txt ]] || { echo "a/dir/file.txt is not a file"; exit 1; }
+[[ ! -L a/dir/file.txt ]] || { echo "a/dir/file.txt is a symlink"; exit 1; }
+[[ -f a/dir/subdir/file.txt ]] || { echo "a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L a/dir/subdir/file.txt ]] || { echo "a/dir/subdir/file.txt is a symlink"; exit 1; }
+[[ -f a/dir/symlink.txt ]] || { echo "a/dir/symlink.txt is not a file"; exit 1; }
+[[ ! -L a/dir/symlink.txt ]] || { echo "a/dir/symlink.txt is a symlink"; exit 1; }
+[[ -f a/dir/symlink_dir/file.txt ]] || { echo "a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L a/dir/symlink_dir ]] || { echo "a/dir/symlink_dir is a symlink"; exit 1; }
+[[ ! -e a/dir/empty_dir ]] || { echo "a/dir/empty_dir exists"; exit 1; }
+[[ ! -e a/dir/symlink_empty_dir ]] || { echo "a/dir/symlink_empty_dir exists"; exit 1; }
+
+runfiles_prefix=$(execpath %s).runfiles/_main
+[[ -f $$runfiles_prefix/a/dir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/file.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/file.txt is a symlink"; exit 1; }
+[[ -f $$runfiles_prefix/a/dir/subdir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/subdir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/subdir/file.txt is a symlink"; exit 1; }
+[[ -f $$runfiles_prefix/a/dir/symlink.txt ]] || { echo "$$runfiles_prefix/a/dir/symlink.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/symlink.txt ]] || { echo "$$runfiles_prefix/a/dir/symlink.txt is a symlink"; exit 1; }
+[[ -f $$runfiles_prefix/a/dir/symlink_dir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/symlink_dir ]] || { echo "$$runfiles_prefix/a/dir/symlink_dir is a symlink"; exit 1; }
+[[ ! -e $$runfiles_prefix/a/dir/empty_dir ]] || { echo "$$runfiles_prefix/a/dir/empty_dir exists"; exit 1; }
+[[ ! -e $$runfiles_prefix/a/dir/symlink_empty_dir ]] || { echo "$$runfiles_prefix/a/dir/symlink_empty_dir exists"; exit 1; }
+
+touch $@
+"""
+
+genrule(
+    name = "gen_source_directory",
+    srcs = [":source_directory"],
+    tools = [":tool_with_source_directory"],
+    outs = ["out1"],
+    cmd = GENRULE_COMMAND_TEMPLATE % ":tool_with_source_directory",
+)
+
+genrule(
+    name = "gen_glob",
+    srcs = [":glob"],
+    tools = [":tool_with_glob"],
+    outs = ["out2"],
+    cmd = GENRULE_COMMAND_TEMPLATE % ":tool_with_glob",
+)
+EOF
+  mkdir -p a/dir
+  touch a/tool.sh
+  chmod +x a/tool.sh
+  touch a/dir/file.txt
+  ln -s file.txt a/dir/symlink.txt
+  mkdir -p a/dir/subdir
+  touch a/dir/subdir/file.txt
+  ln -s subdir a/dir/symlink_dir
+  mkdir a/dir/empty_dir
+  ln -s empty_dir a/dir/symlink_empty_dir
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:gen_glob >& $TEST_log || fail "Failed to build //a:gen_glob"
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:gen_source_directory >& $TEST_log || fail "Failed to build //a:gen_source_directory"
+}
+
+# TODO: Turn this into a more targeted test after enabling proper source
+#  directory tracking (#25834) - it is not specific to remote execution.
+function test_source_directory_dangling_symlink() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+    name = "gen",
+    srcs = ["dir"],
+    outs = ["out"],
+    cmd = """
+touch $@
+""",
+)
+EOF
+  mkdir -p a/dir
+  ln -s does_not_exist a/dir/symlink.txt
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:gen >& $TEST_log && fail "build //a:gen should fail"
+  expect_log "The file type of 'a/dir/symlink.txt' is not supported."
 }
 
 run_suite "Remote execution and remote cache tests"

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
@@ -2195,6 +2196,87 @@ my_macro = macro(
                         "_inner_impl",
                         Location.fromFileLineColumn("/workspace/pkg/inner.bzl", 2, 21)))
                 .build());
+  }
+
+  @Test
+  public void maxComputationSteps_enforcedInMacros() throws Exception {
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _impl(name, visibility):
+            # exceed max_computation_steps
+            for i in range(1000):
+                pass
+            native.cc_library(name = name, visibility = visibility)
+
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        """);
+    setBuildLanguageOptions("--max_computation_steps=100"); // sufficient for BUILD but not my_macro
+    reporter.removeHandler(failFastHandler);
+    NoSuchPackageException exception =
+        assertThrows(
+            NoSuchPackageException.class,
+            () ->
+                getPackageManager()
+                    .getPackage(reporter, PackageIdentifier.createInMainRepo("pkg")));
+    assertThat(exception)
+        .hasMessageThat()
+        .containsMatch("computation took 1\\d{3} steps, but --max_computation_steps=100");
+  }
+
+  @Test
+  public void failingMacro_immediatelyThrowsEvalExceptionWithFullCallStack() throws Exception {
+    scratch.file(
+        "pkg/inner.bzl",
+        """
+        def _inner_impl(name, visibility, **kwargs):
+            fail("Inner macro failed")
+
+        inner_macro = macro(implementation = _inner_impl)
+        """);
+    scratch.file(
+        "pkg/outer.bzl",
+        """
+        load(":inner.bzl", "inner_macro")
+
+        def _outer_impl(name, visibility, **kwargs):
+            inner_macro(name  = name + "_inner", **kwargs)
+            fail("This should not be reached")
+
+        outer_macro = macro(implementation = _outer_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":outer.bzl", "outer_macro")
+
+        outer_macro(name = "foo")
+        fail("This should not be reached")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg.containsErrors()).isTrue();
+    assertDoesNotContainEvent("This should not be reached");
+    assertContainsEvent(
+"""
+\tFile "/workspace/pkg/BUILD", line 3, column 12, in <toplevel>
+\t\touter_macro(name = "foo")
+\tFile "/workspace/pkg/outer.bzl", line 7, column 1, in outer_macro
+\t\touter_macro = macro(implementation = _outer_impl)
+\tFile "/workspace/pkg/outer.bzl", line 4, column 16, in _outer_impl
+\t\tinner_macro(name  = name + "_inner", **kwargs)
+\tFile "/workspace/pkg/inner.bzl", line 4, column 1, in inner_macro
+\t\tinner_macro = macro(implementation = _inner_impl)
+\tFile "/workspace/pkg/inner.bzl", line 2, column 9, in _inner_impl
+\t\tfail("Inner macro failed")
+""");
   }
 
   private void assertMacroHasAttributes(MacroInstance macro, ImmutableList<String> attributeNames) {

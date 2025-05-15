@@ -63,6 +63,7 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -97,9 +98,10 @@ public class ActionCacheCheckerTest {
     Clock clock = new ManualClock();
     Path cacheRoot = scratch.resolve("/cache_root");
     Path corruptedCacheRoot = scratch.resolve("/corrupted_cache_root");
+    Path tmpDir = scratch.resolve("/cache_tmp_dir");
 
     execRoot = scratch.resolve("/output");
-    cache = new CorruptibleActionCache(cacheRoot, corruptedCacheRoot, clock);
+    cache = new CorruptibleActionCache(cacheRoot, corruptedCacheRoot, tmpDir, clock);
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ false);
     digestHashFunction = DigestHashFunction.SHA256;
     fileSystem = new InMemoryFileSystem(digestHashFunction);
@@ -1567,11 +1569,11 @@ public class ActionCacheCheckerTest {
     private final CompactPersistentActionCache delegate;
     private boolean corrupted = false;
 
-    CorruptibleActionCache(Path cacheRoot, Path corruptedCacheRoot, Clock clock)
+    CorruptibleActionCache(Path cacheRoot, Path corruptedCacheRoot, Path tmpDir, Clock clock)
         throws IOException {
       this.delegate =
           CompactPersistentActionCache.create(
-              cacheRoot, corruptedCacheRoot, clock, NullEventHandler.INSTANCE);
+              cacheRoot, corruptedCacheRoot, tmpDir, clock, NullEventHandler.INSTANCE);
     }
 
     void corruptAllEntries() {
@@ -1606,6 +1608,12 @@ public class ActionCacheCheckerTest {
     @Override
     public void clear() {
       delegate.clear();
+    }
+
+    @Override
+    public ActionCache trim(float threshold, Duration maxAge)
+        throws IOException, InterruptedException {
+      return delegate.trim(threshold, maxAge);
     }
 
     @Override

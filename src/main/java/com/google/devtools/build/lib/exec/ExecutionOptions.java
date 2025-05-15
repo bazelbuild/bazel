@@ -42,18 +42,15 @@ import java.util.Objects;
 /**
  * Options affecting the execution phase of a build.
  *
- * These options are interpreted by the BuildTool to choose an Executor to
- * be used for the build.
+ * <p>These options are interpreted by the BuildTool to choose an Executor to be used for the build.
  *
- * Note: from the user's point of view, the characteristic function of this
- * set of options is indistinguishable from that of the BuildRequestOptions:
- * they are all per-request.  The difference is only apparent in the
- * implementation: these options are used only by the lib.exec machinery, which
- * affects how C++ and Java compilation occur.  (The BuildRequestOptions
- * contain a mixture of "semantic" options affecting the choice of targets to
- * build, and "non-semantic" options affecting the lib.actions machinery.)
- * Ideally, the user would be unaware of the difference.  For now, the usage
- * strings are identical modulo "part 1", "part 2".
+ * <p>Note: from the user's point of view, the characteristic function of this set of options is
+ * indistinguishable from that of the BuildRequestOptions: they are all per-request. The difference
+ * is only apparent in the implementation: these options are used only by the lib.exec machinery,
+ * which affects how C++ and Java compilation occur. (The BuildRequestOptions contain a mixture of
+ * "semantic" options affecting the choice of targets to build, and "non-semantic" options affecting
+ * the lib.actions machinery.) Ideally, the user would be unaware of the difference. For now, the
+ * usage strings are identical modulo "part 1", "part 2".
  */
 public class ExecutionOptions extends OptionsBase {
 
@@ -435,15 +432,14 @@ public class ExecutionOptions extends OptionsBase {
   public long cacheSizeForComputedFileDigests;
 
   @Option(
-    name = "experimental_enable_critical_path_profiling",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "If set (the default), critical path profiling is enabled for the execution phase. "
-            + "This has a slight overhead in RAM and CPU, and may prevent Bazel from making certain"
-            + " aggressive RAM optimizations in some cases."
-  )
+      name = "experimental_enable_critical_path_profiling",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set (the default), critical path profiling is enabled for the execution phase. This"
+              + " has a slight overhead in RAM and CPU, and may prevent Bazel from making certain"
+              + " aggressive RAM optimizations in some cases.")
   public boolean enableCriticalPathProfiling;
 
   @Option(
@@ -451,8 +447,7 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       defaultValue = "false",
-      help = "Enable a modernized summary of the build stats."
-  )
+      help = "Enable a modernized summary of the build stats.")
   public boolean statsSummary;
 
   @Option(
@@ -545,6 +540,16 @@ public class ExecutionOptions extends OptionsBase {
               + " conditions. A new invocation id will be generated for each attempt.")
   public int remoteRetryOnTransientCacheError;
 
+  @Option(
+      name = "allow_one_action_on_resource_unavailable",
+      defaultValue = "true", // TODO: b/405364605 - Flip internally and change the default to false.
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "If set, allow at least one action to run even if the resource is not enough or"
+              + " unavailable.")
+  public boolean allowOneActionOnResourceUnavailable;
+
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
     SUMMARY, // Provide summary output only.
@@ -567,6 +572,7 @@ public class ExecutionOptions extends OptionsBase {
     DETAILED, // Print information only about failed test cases.
     NONE, // Do not print summary.
     TESTCASE; // Print summary in test case resolution, do not print detailed information about
+
     // failed test cases.
 
     /** Converts to {@link TestSummaryFormat}. */

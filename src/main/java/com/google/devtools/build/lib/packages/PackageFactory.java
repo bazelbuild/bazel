@@ -221,7 +221,8 @@ public final class PackageFactory {
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
         starlarkSemantics.getBool(
             BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
-        packageOverheadEstimator);
+        packageOverheadEstimator,
+        packageValidator.getPackageLimits());
   }
 
   // This function is public only for the benefit of skyframe.PackageFunction,
@@ -259,7 +260,8 @@ public final class PackageFactory {
         configSettingVisibilityPolicy,
         globber,
         /* enableNameConflictChecking= */ true,
-        /* trackFullMacroInformation= */ true);
+        /* trackFullMacroInformation= */ true,
+        packageValidator.getPackageLimits());
   }
 
   // This function is public only for the benefit of skyframe.PackageFunction, which is morally part
@@ -296,7 +298,8 @@ public final class PackageFactory {
         configSettingVisibilityPolicy,
         globber,
         /* enableNameConflictChecking= */ true,
-        /* trackFullMacroInformation= */ true);
+        /* trackFullMacroInformation= */ true,
+        packageValidator.getPackageLimits());
   }
 
   /** Returns a new {@link NonSkyframeGlobber}. */
@@ -490,9 +493,8 @@ public final class PackageFactory {
       // StarlarkRuleClassFunctions#createRule. So we set it here as a thread-local to be retrieved
       // by StarlarkTestingModule#analysisTest.
       thread.setThreadLocal(RuleDefinitionEnvironment.class, ruleClassProvider);
-      packageValidator.configureThreadWhileLoading(thread);
 
-      try {
+      try (var updater = pkgBuilder.updateStartedThreadComputationSteps(thread)) {
         Starlark.execFileProgram(buildFileProgram, module, thread);
       } catch (EvalException ex) {
         pkgBuilder
@@ -510,7 +512,6 @@ public final class PackageFactory {
           throw ex;
         }
       }
-      pkgBuilder.setComputationSteps(thread.getExecutedSteps());
     }
   }
 

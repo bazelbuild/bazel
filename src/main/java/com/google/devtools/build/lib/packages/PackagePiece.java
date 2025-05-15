@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageLimits;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.Package.Declarations;
@@ -152,6 +153,10 @@ public abstract sealed class PackagePiece extends Packageoid
     private final PackagePieceIdentifier.ForBuildFile identifier;
     private final Metadata metadata;
     private final Declarations declarations;
+    // Can be changed during BUILD file evaluation due to exports_files() modifying its visibility.
+    // Cannot be in declarations because, since it's a Target, it holds a back reference to this
+    // PackagePiece.ForBuildFile object.
+    private InputFile buildFile;
 
     @Override
     public PackagePieceIdentifier.ForBuildFile getIdentifier() {
@@ -171,6 +176,11 @@ public abstract sealed class PackagePiece extends Packageoid
     @Override
     public Package.Declarations getDeclarations() {
       return declarations;
+    }
+
+    @Override
+    public InputFile getBuildFile() {
+      return buildFile;
     }
 
     @Override
@@ -207,7 +217,8 @@ public abstract sealed class PackagePiece extends Packageoid
         @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
         @Nullable Globber globber,
         boolean enableNameConflictChecking,
-        boolean trackFullMacroInformation) {
+        boolean trackFullMacroInformation,
+        PackageLimits packageLimits) {
       Metadata metadata =
           Metadata.builder()
               .packageIdentifier(identifier.getPackageIdentifier())
@@ -232,7 +243,8 @@ public abstract sealed class PackagePiece extends Packageoid
           generatorMap,
           globber,
           enableNameConflictChecking,
-          trackFullMacroInformation);
+          trackFullMacroInformation,
+          packageLimits);
     }
 
     /** A builder for {@link PackagePiece.ForBuildFile} objects. */
@@ -261,19 +273,25 @@ public abstract sealed class PackagePiece extends Packageoid
       }
 
       @Override
-      void setComputationSteps(long n) {
-        ((PackagePiece) pkg).computationSteps = n;
-      }
-
-      @Override
       @CanIgnoreReturnValue
       public Builder buildPartial() throws NoSuchPackageException {
         return (Builder) super.buildPartial();
       }
 
       @Override
+      protected void setBuildFile(InputFile buildFile) {
+        ((ForBuildFile) pkg).buildFile = checkNotNull(buildFile);
+      }
+
+      @Override
       public ForBuildFile finishBuild() {
         return (ForBuildFile) super.finishBuild();
+      }
+
+      @Override
+      protected void packageoidInitializationHook() {
+        super.packageoidInitializationHook();
+        getPackagePiece().computationSteps = getComputationSteps();
       }
 
       private Builder(
@@ -288,7 +306,8 @@ public abstract sealed class PackagePiece extends Packageoid
           @Nullable ImmutableMap<Location, String> generatorMap,
           @Nullable Globber globber,
           boolean enableNameConflictChecking,
-          boolean trackFullMacroInformation) {
+          boolean trackFullMacroInformation,
+          PackageLimits packageLimits) {
         super(
             forBuildFile.getMetadata(),
             forBuildFile,
@@ -304,7 +323,8 @@ public abstract sealed class PackagePiece extends Packageoid
             globber,
             enableNameConflictChecking,
             trackFullMacroInformation,
-            /* enableTargetMapSnapshotting= */ false);
+            /* enableTargetMapSnapshotting= */ false,
+            packageLimits);
       }
     }
   }
@@ -335,6 +355,11 @@ public abstract sealed class PackagePiece extends Packageoid
     @Override
     public Declarations getDeclarations() {
       return pieceForBuildFile.getDeclarations();
+    }
+
+    @Override
+    public InputFile getBuildFile() {
+      return pieceForBuildFile.getBuildFile();
     }
 
     public MacroInstance getEvaluatedMacro() {
@@ -390,7 +415,8 @@ public abstract sealed class PackagePiece extends Packageoid
         PackageOverheadEstimator packageOverheadEstimator,
         @Nullable ImmutableMap<Location, String> generatorMap,
         boolean enableNameConflictChecking,
-        boolean trackFullMacroInformation) {
+        boolean trackFullMacroInformation,
+        PackageLimits packageLimits) {
       ForMacro forMacro = new ForMacro(evaluatedMacro, pieceForBuildFile);
       return new Builder(
           forMacro,
@@ -400,7 +426,8 @@ public abstract sealed class PackagePiece extends Packageoid
           packageOverheadEstimator,
           generatorMap,
           enableNameConflictChecking,
-          trackFullMacroInformation);
+          trackFullMacroInformation,
+          packageLimits);
     }
 
     /** A builder for {@link PackagePieceForMacro} objects. */
@@ -423,11 +450,6 @@ public abstract sealed class PackagePiece extends Packageoid
       }
 
       @Override
-      void setComputationSteps(long n) {
-        ((PackagePiece) pkg).computationSteps = n;
-      }
-
-      @Override
       @CanIgnoreReturnValue
       public Builder buildPartial() throws NoSuchPackageException {
         return (Builder) super.buildPartial();
@@ -440,6 +462,7 @@ public abstract sealed class PackagePiece extends Packageoid
 
       @Override
       protected void packageoidInitializationHook() {
+        getPackagePiece().computationSteps = getComputationSteps();
         getPackagePiece().macroNamespaceViolations =
             ImmutableSet.copyOf(recorder.getMacroNamespaceViolatingTargets().keySet());
       }
@@ -452,7 +475,8 @@ public abstract sealed class PackagePiece extends Packageoid
           PackageOverheadEstimator packageOverheadEstimator,
           @Nullable ImmutableMap<Location, String> generatorMap,
           boolean enableNameConflictChecking,
-          boolean trackFullMacroInformation) {
+          boolean trackFullMacroInformation,
+          PackageLimits packageLimits) {
         super(
             forMacro.getMetadata(),
             forMacro,
@@ -466,7 +490,8 @@ public abstract sealed class PackagePiece extends Packageoid
             /* globber= */ null,
             enableNameConflictChecking,
             trackFullMacroInformation,
-            /* enableTargetMapSnapshotting= */ false);
+            /* enableTargetMapSnapshotting= */ false,
+            packageLimits);
       }
     }
   }

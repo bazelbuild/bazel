@@ -49,7 +49,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -180,7 +179,7 @@ public class IncrementalPackageRoots implements PackageRoots {
 
   /** There is currently no use case for this method, and it should not be called. */
   @Override
-  public Optional<ImmutableMap<PackageIdentifier, Root>> getPackageRootsMap() {
+  public ImmutableMap<PackageIdentifier, Root> getPackageRootsMap() {
     throw new UnsupportedOperationException(
         "IncrementalPackageRoots does not provide the package roots map directly.");
   }

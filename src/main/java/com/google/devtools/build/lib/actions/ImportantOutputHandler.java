@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skyframe.rewinding.LostInputOwners;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
@@ -36,14 +35,24 @@ public interface ImportantOutputHandler extends ActionContext {
    * <p>The handler may verify that remotely stored outputs are still available. Returns a map from
    * digest to output for any artifacts that need to be regenerated via action rewinding.
    *
-   * @param outputs top-level outputs
-   * @param metadataProvider provides metadata for artifacts in {@code outputs} and their expansions
+   * @param importantOutputs top-level outputs, excluding {@linkplain
+   *     com.google.devtools.build.lib.analysis.OutputGroupInfo#HIDDEN_OUTPUT_GROUP_PREFIX hidden
+   *     output groups}
+   * @param importantMetadataProvider provides metadata for artifacts in {@code importantOutputs}
+   *     and their expansions
+   * @param fullMetadataProvider like {@code importantMetadataProvider}, but additionally provides
+   *     metadata for artifacts in {@linkplain
+   *     com.google.devtools.build.lib.analysis.OutputGroupInfo#HIDDEN_OUTPUT_GROUP_PREFIX hidden
+   *     output groups} and their expansions
    * @return any artifacts that need to be regenerated via action rewinding
    * @throws ImportantOutputException for an issue processing the outputs, not including lost
    *     outputs which are reported in the returned {@link LostArtifacts}
    */
+  // TODO: jhorvitz - Find a cleaner way than passing two InputMetadataProviders.
   LostArtifacts processOutputsAndGetLostArtifacts(
-      Iterable<Artifact> outputs, InputMetadataProvider metadataProvider)
+      Iterable<Artifact> importantOutputs,
+      InputMetadataProvider importantMetadataProvider,
+      InputMetadataProvider fullMetadataProvider)
       throws ImportantOutputException, InterruptedException;
 
   /**
@@ -99,13 +108,6 @@ public interface ImportantOutputHandler extends ActionContext {
    */
   void processWorkspaceStatusOutputs(Path stableOutput, Path volatileOutput)
       throws ImportantOutputException, InterruptedException;
-
-  /**
-   * A threshold to pass to {@link
-   * com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils#logged(String, Duration)} for
-   * profiling {@link ImportantOutputHandler} operations.
-   */
-  Duration LOG_THRESHOLD = Duration.ofMillis(100);
 
   /**
    * Represents artifacts that need to be regenerated via action rewinding, optionally along with

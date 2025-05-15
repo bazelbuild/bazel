@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageLimits;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViolationException;
 import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
@@ -145,6 +146,11 @@ public class Package extends Packageoid {
   private final Metadata metadata;
 
   private final Declarations declarations;
+
+  // Can be changed during BUILD file evaluation due to exports_files() modifying its visibility.
+  // Cannot be in Declarations because, since it's a Target, it holds a back reference to this
+  // Package object.
+  private InputFile buildFile;
 
   // ==== Fields specific to external package / WORKSPACE logic ====
 
@@ -293,16 +299,9 @@ public class Package extends Packageoid {
     return getDeclarations().getWorkspaceName();
   }
 
-  /** Convenience wrapper for {@link Declarations#getBuildFile} */
+  @Override
   public InputFile getBuildFile() {
-    // To support declarations mocking, use getDeclarations() instead of directly using the field.
-    return getDeclarations().getBuildFile();
-  }
-
-  /** Convenience wrapper for {@link Declarations#getBuildFileLabel} */
-  public Label getBuildFileLabel() {
-    // To support declarations mocking, use getDeclarations() instead of directly using the field.
-    return getDeclarations().getBuildFileLabel();
+    return buildFile;
   }
 
   /** Convenience wrapper for {@link Declarations#getPackageArgs} */
@@ -711,7 +710,8 @@ public class Package extends Packageoid {
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
       @Nullable Globber globber,
       boolean enableNameConflictChecking,
-      boolean trackFullMacroInformation) {
+      boolean trackFullMacroInformation,
+      PackageLimits packageLimits) {
     // Determine whether this is for a repo rule package. We shouldn't actually have to do this
     // because newPackageBuilder() is supposed to only be called for normal packages. Unfortunately
     // serialization still uses the same code path for deserializing BUILD and WORKSPACE files,
@@ -744,7 +744,8 @@ public class Package extends Packageoid {
         generatorMap,
         globber,
         enableNameConflictChecking,
-        trackFullMacroInformation);
+        trackFullMacroInformation,
+        packageLimits);
   }
 
   public static Builder newExternalPackageBuilder(
@@ -754,7 +755,8 @@ public class Package extends Packageoid {
       RepositoryMapping mainRepoMapping,
       boolean noImplicitFileExport,
       boolean simplifyUnconditionalSelectsInRuleAttrs,
-      PackageOverheadEstimator packageOverheadEstimator) {
+      PackageOverheadEstimator packageOverheadEstimator,
+      PackageLimits packageLimits) {
     return new Builder(
         Metadata.builder()
             .packageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
@@ -776,7 +778,8 @@ public class Package extends Packageoid {
         /* generatorMap= */ null,
         /* globber= */ null,
         /* enableNameConflictChecking= */ true,
-        /* trackFullMacroInformation= */ true);
+        /* trackFullMacroInformation= */ true,
+        packageLimits);
   }
 
   // Bzlmod creates one fake package per external repository. The repos created by a given
@@ -816,7 +819,8 @@ public class Package extends Packageoid {
             /* generatorMap= */ null,
             /* globber= */ null,
             /* enableNameConflictChecking= */ true,
-            /* trackFullMacroInformation= */ true)
+            /* trackFullMacroInformation= */ true,
+            PackageLimits.DEFAULTS)
         .setLoads(ImmutableList.of());
   }
 
@@ -1024,12 +1028,12 @@ public class Package extends Packageoid {
       // We create an InputFile corresponding to the BUILD file in Builder's constructor. However,
       // the visibility of this target may be overridden with an exports_files directive, so we wait
       // until now to obtain the current instance from the targets map.
-      pkg.getDeclarations().buildFile =
-          Preconditions.checkNotNull(
-              (InputFile) recorder.getTargetMap().get(metadata.buildFileLabel().getName()));
+      setBuildFile((InputFile) recorder.getTargetMap().get(metadata.buildFileLabel().getName()));
 
       super.beforeBuild();
     }
+
+    protected abstract void setBuildFile(InputFile buildFile);
 
     @CanIgnoreReturnValue
     @Override
@@ -1170,7 +1174,8 @@ public class Package extends Packageoid {
         @Nullable Globber globber,
         boolean enableNameConflictChecking,
         boolean trackFullMacroInformation,
-        boolean enableTargetMapSnapshotting) {
+        boolean enableTargetMapSnapshotting,
+        PackageLimits packageLimits) {
       super(
           metadata,
           pkg,
@@ -1184,7 +1189,8 @@ public class Package extends Packageoid {
           globber,
           enableNameConflictChecking,
           trackFullMacroInformation,
-          enableTargetMapSnapshotting);
+          enableTargetMapSnapshotting,
+          packageLimits);
       this.precomputeTransitiveLoads = precomputeTransitiveLoads;
       this.noImplicitFileExport = noImplicitFileExport;
       if (metadata.getName().startsWith("javatests/")) {
@@ -1243,6 +1249,37 @@ public class Package extends Packageoid {
       PackageSettings DEFAULTS = new PackageSettings() {};
     }
 
+    /** A bundle of options affecting resource limits on package construction. */
+    public interface PackageLimits {
+      /**
+       * The maximum number of Starlark computation steps that are allowed to be executed while
+       * building a package (or, transitively, any package piece). If this limit is exceeded, the
+       * package or package piece immediately stops building.
+       *
+       * <p>Confusingly, for historical Google-specific reasons, this limit is <em>not</em> the same
+       * as {@code --max_computation_steps}.
+       *
+       * <ul>
+       *   <li>This limit (maxStarlarkComputationStepsPerPackage) is only set by Google-specific
+       *       logic, is currently not used in open-source Bazel, and exceeding the limit causes the
+       *       package builder to immediately stop and print a stack trace. The intent is to harden
+       *       infrastructure against runaway Starlark computations.
+       *   <li>By contrast, {@code --max_computation_steps} is enforced by {@link PackageFactory}
+       *       post-factum, after the package has been built. The intent is to enforce code health
+       *       by limiting the complexity of packages in a repo.
+       * </ul>
+       *
+       * <p>If lazy symbolic macro expansion is enabled, unless a complete {@link Package} is
+       * loaded, the limit is enforced only per package piece.
+       */
+      // TODO(b/417468797): merge with --max_computation_steps enforcement.
+      default long maxStarlarkComputationStepsPerPackage() {
+        return Long.MAX_VALUE;
+      }
+
+      public static final PackageLimits DEFAULTS = new PackageLimits() {};
+    }
+
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
     private final HashMap<RepositoryName, LinkedHashMap<String, RepositoryName>>
@@ -1293,7 +1330,8 @@ public class Package extends Packageoid {
         @Nullable ImmutableMap<Location, String> generatorMap,
         @Nullable Globber globber,
         boolean enableNameConflictChecking,
-        boolean trackFullMacroInformation) {
+        boolean trackFullMacroInformation,
+        PackageLimits packageLimits) {
       super(
           metadata,
           new Package(metadata),
@@ -1309,7 +1347,8 @@ public class Package extends Packageoid {
           globber,
           enableNameConflictChecking,
           trackFullMacroInformation,
-          /* enableTargetMapSnapshotting= */ true);
+          /* enableTargetMapSnapshotting= */ true,
+          packageLimits);
     }
 
     /** Retrieves this object from a Starlark thread. Returns null if not present. */
@@ -1414,12 +1453,6 @@ public class Package extends Packageoid {
       }
     }
 
-    /** Sets the number of Starlark computation steps executed by this BUILD file. */
-    @Override
-    void setComputationSteps(long n) {
-      getPackage().computationSteps = n;
-    }
-
     void replaceTarget(Target newTarget) {
       Preconditions.checkArgument(
           newTarget.getPackage() == pkg, // pointer comparison since we're constructing `pkg`
@@ -1510,7 +1543,8 @@ public class Package extends Packageoid {
      * <p>This does not run any macro that has already been evaluated. It *does* run macros that are
      * newly discovered during the operation of this method.
      */
-    public void expandAllRemainingMacros(StarlarkSemantics semantics) throws InterruptedException {
+    public void expandAllRemainingMacros(StarlarkSemantics semantics)
+        throws EvalException, InterruptedException {
       // TODO: #19922 - Protect against unreasonable macro stack depth and large numbers of symbolic
       // macros overall, for both the eager and deferred evaluation strategies.
 
@@ -1587,6 +1621,11 @@ public class Package extends Packageoid {
     }
 
     @Override
+    protected void setBuildFile(InputFile buildFile) {
+      ((Package) pkg).buildFile = checkNotNull(buildFile);
+    }
+
+    @Override
     public Package finishBuild() {
       return (Package) super.finishBuild();
     }
@@ -1595,6 +1634,7 @@ public class Package extends Packageoid {
     protected void packageoidInitializationHook() {
       super.packageoidInitializationHook();
       Package pkg = getPackage();
+      pkg.computationSteps = getComputationSteps();
       pkg.macroNamespaceViolatingTargets =
           ImmutableMap.copyOf(recorder.getMacroNamespaceViolatingTargets());
       pkg.targetsToDeclaringMacro =
@@ -1810,9 +1850,10 @@ public class Package extends Packageoid {
   }
 
   /**
-   * A collection of data about a package that is known after BUILD file evaluation has completed
-   * and which doesn't require expanding any symbolic macros. Treated as immutable after BUILD file
-   * evaluation has completed.
+   * A collection of data about a package that is known after BUILD file evaluation has completed,
+   * which doesn't require expanding any symbolic macros, and which transitively doesn't hold
+   * references to {@link Package} or {@link PackagePiece} objects. Treated as immutable after BUILD
+   * file evaluation has completed.
    *
    * <p>This class should not be extended - it's only non-final for mocking!
    */
@@ -1821,9 +1862,6 @@ public class Package extends Packageoid {
     // Starlark evaluation of the WORKSPACE file has finished.
     // TODO(bazel-team): move to Metadata when WORKSPACE file logic is deleted.
     private String workspaceName;
-
-    // Can be changed during BUILD file evaluation due to exports_files() modifying its visibility.
-    private InputFile buildFile;
 
     // Mutated during BUILD file evaluation (but not by symbolic macro evaluation).
     private PackageArgs packageArgs = PackageArgs.DEFAULT;
@@ -1842,22 +1880,6 @@ public class Package extends Packageoid {
      */
     public String getWorkspaceName() {
       return workspaceName;
-    }
-
-    /** Returns the InputFile target for this package's BUILD file. */
-    public InputFile getBuildFile() {
-      return buildFile;
-    }
-
-    /**
-     * Returns the label of this package's BUILD file.
-     *
-     * <p>Typically <code>getBuildFileLabel().getName().equals("BUILD")</code> -- though not
-     * necessarily: data in a subdirectory of a test package may use a different filename to avoid
-     * inadvertently creating a new package.
-     */
-    public Label getBuildFileLabel() {
-      return buildFile.getLabel();
     }
 
     /**
@@ -1895,9 +1917,14 @@ public class Package extends Packageoid {
      * <p>If only the count of transitively loaded files is needed, use {@link
      * #countTransitivelyLoadedStarlarkFiles}. For a customized online visitation, use {@link
      * #visitLoadGraph}.
+     *
+     * <p>This method can only be used after the Package or PackagePiece has been fully initialized
+     * (i.e. after {@link TargetDefinitionContext#finishBuild} has been called).
      */
     public ImmutableList<Label> getOrComputeTransitivelyLoadedStarlarkFiles() {
-      return transitiveLoads != null ? transitiveLoads : computeTransitiveLoads(directLoads);
+      return transitiveLoads != null
+          ? transitiveLoads
+          : computeTransitiveLoads(checkNotNull(directLoads));
     }
 
     /**
@@ -1905,6 +1932,9 @@ public class Package extends Packageoid {
      *
      * <p>If transitive loads are not {@linkplain PackageSettings#precomputeTransitiveLoads
      * precomputed}, performs a traversal over the load graph to count them.
+     *
+     * <p>This method can only be used after the Package or PackagePiece has been fully initialized
+     * (i.e. after {@link TargetDefinitionContext#finishBuild} has been called).
      */
     public int countTransitivelyLoadedStarlarkFiles() {
       if (transitiveLoads != null) {
@@ -1921,6 +1951,9 @@ public class Package extends Packageoid {
      * <p>If transitive loads were {@linkplain PackageSettings#precomputeTransitiveLoads
      * precomputed}, each file is passed to {@link LoadGraphVisitor#visit} once regardless of its
      * return value.
+     *
+     * <p>This method can only be used after the Package or PackagePiece has been fully initialized
+     * (i.e. after {@link TargetDefinitionContext#finishBuild} has been called).
      */
     public <E1 extends Exception, E2 extends Exception> void visitLoadGraph(
         LoadGraphVisitor<E1, E2> visitor) throws E1, E2 {

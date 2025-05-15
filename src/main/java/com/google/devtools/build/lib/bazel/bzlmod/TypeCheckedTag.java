@@ -66,7 +66,8 @@ public class TypeCheckedTag implements Structure {
       if (attrIndex == null) {
         throw ExternalDepsException.withMessage(
             Code.BAD_MODULE,
-            "in tag at %s, unknown attribute %s provided%s",
+            "in '%s' tag at %s, unknown attribute %s provided%s",
+            tag.getTagName(),
             tag.getLocation(),
             attrValue.getKey(),
             SpellChecker.didYouMean(attrValue.getKey(), tagClass.attributeIndices().keySet()));
@@ -80,7 +81,8 @@ public class TypeCheckedTag implements Structure {
         throw ExternalDepsException.withCauseAndMessage(
             Code.BAD_MODULE,
             e,
-            "in tag at %s, error converting value for attribute %s",
+            "in '%s' tag at %s, error converting value for attribute %s",
+            tag.getTagName(),
             tag.getLocation(),
             attr.getPublicName());
       }
@@ -89,7 +91,8 @@ public class TypeCheckedTag implements Structure {
       if (attr.checkAllowedValues() && !attr.getAllowedValues().apply(nativeValue)) {
         throw ExternalDepsException.withMessage(
             Code.BAD_MODULE,
-            "in tag at %s, the value for attribute %s %s",
+            "in '%s' tag at %s, the value for attribute %s %s",
+            tag.getTagName(),
             tag.getLocation(),
             attr.getPublicName(),
             attr.getAllowedValues().getErrorReason(nativeValue));
@@ -105,7 +108,8 @@ public class TypeCheckedTag implements Structure {
       if (attr.isMandatory() && attrValues[i] == null) {
         throw ExternalDepsException.withMessage(
             Code.BAD_MODULE,
-            "in tag at %s, mandatory attribute %s isn't being specified",
+            "in '%s' tag at %s, mandatory attribute %s isn't being specified",
+            tag.getTagName(),
             tag.getLocation(),
             attr.getPublicName());
       }
@@ -117,10 +121,14 @@ public class TypeCheckedTag implements Structure {
             attr.getPublicName(),
             attrValues[i],
             String.format("to the %s", moduleDisplayString),
-            String.format("tag '%s'", tag.getTagName()));
+            /* what= */ "");
       } catch (EvalException e) {
         throw ExternalDepsException.withMessage(
-            Code.BAD_MODULE, "in tag at %s: %s", tag.getLocation(), e.getMessage());
+            Code.BAD_MODULE,
+            "in '%s' tag at %s: %s",
+            tag.getTagName(),
+            tag.getLocation(),
+            e.getMessage());
       }
     }
     return new TypeCheckedTag(

@@ -79,6 +79,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote:store",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
         "//src/main/java/com/google/devtools/build/lib/runtime/events",
+        "//src/main/java/com/google/devtools/build/lib/server:gc_and_interner_shrinking_idle_task",
         "//src/main/java/com/google/devtools/build/lib/server:idle_task",
         "//src/main/java/com/google/devtools/build/lib/server:install_base_garbage_collector",
         "//src/main/java/com/google/devtools/build/lib/skyframe:analysis_progress_receiver",

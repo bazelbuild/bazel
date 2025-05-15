@@ -347,12 +347,6 @@ bazel_fragments["CppOptions"] = fragment(
     },
 )
 
-bazel_fragments["GenQueryConfiguration$GenQueryOptions"] = fragment(
-    propagate = [
-        "//command_line_option:experimental_skip_ttvs_for_genquery",
-    ],
-)
-
 def _java_options(settings):
     ans = {}
     if settings["//command_line_option:host_jvmopt"] == []:
@@ -488,12 +482,6 @@ bazel_fragments["PythonOptions"] = fragment(
 bazel_fragments["ShellConfiguration$Options"] = fragment(
     propagate = [
         "//command_line_option:shell_executable",
-    ],
-)
-
-bazel_fragments["GenQueryConfiguration$GenQueryOptions"] = fragment(
-    propagate = [
-        "//command_line_option:experimental_skip_ttvs_for_genquery",
     ],
 )
 

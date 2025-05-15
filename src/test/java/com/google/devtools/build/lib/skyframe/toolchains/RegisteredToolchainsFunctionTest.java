@@ -655,7 +655,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         .containsCell(
             testToolchainTypeLabel,
             Label.parseCanonicalUnchecked("//extra:extra_toolchain"),
-            "mismatching config settings: optimized");
+            "mismatching target_settings: optimized");
   }
 
   @Test

@@ -100,8 +100,10 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
 
     @Override
     public LostArtifacts processOutputsAndGetLostArtifacts(
-        Iterable<Artifact> outputs, InputMetadataProvider metadataProvider) {
-      return getLostOutputs(outputs, metadataProvider);
+        Iterable<Artifact> importantOutputs,
+        InputMetadataProvider importantMetadataProvider,
+        InputMetadataProvider fullMetadataProvider) {
+      return getLostOutputs(importantOutputs, importantMetadataProvider);
     }
 
     @Override

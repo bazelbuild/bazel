@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -49,6 +49,7 @@ http_archive(
     type = 'zip',
 )
 EOF
+  add_rules_shell "MODULE.bazel"
 }
 
 function setup_starlark_repository() {
@@ -142,8 +143,10 @@ http_archive(
     sha256 = '$sha256'
 )
 EOF
+    add_rules_shell "MODULE.bazel"
 
     cat > zoo/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
@@ -266,6 +269,7 @@ http_archive(
     type = 'zip',
     )
 EOF
+  add_rules_shell "MODULE.bazel"
 
   # Fetch; as we did not specify a hash, we expect bazel to tell us the hash
   # in an info message.
@@ -303,6 +307,7 @@ http_archive(
     sha256 = '${sha256}',
 )
 EOF
+  add_rules_shell "MODULE.bazel"
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
         --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
     || fail "expected fetch to succeed"
@@ -499,6 +504,7 @@ http_archive(
     type = 'zip',
 )
 EOF
+  add_rules_shell "MODULE.bazel"
 
   # Without the default canonical id, cache entry will still match by sha256, even if url is
   # changed.

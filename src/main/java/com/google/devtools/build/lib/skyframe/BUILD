@@ -157,7 +157,6 @@ java_library(
         ":package_lookup_function",
         ":package_lookup_value",
         ":package_progress_receiver",
-        ":package_roots_no_symlink_creation",
         ":package_value",
         ":pattern_expanding_error",
         ":precomputed_function",
@@ -218,6 +217,7 @@ java_library(
         ":transitive_traversal_function",
         ":transitive_traversal_value",
         ":tree_artifact_value",
+        ":virtual_package_roots",
         ":workspace_info",
         ":workspace_info_receiver",
         ":workspace_name_function",
@@ -342,7 +342,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/resolved_file_value",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_file_helper",
-        "//src/main/java/com/google/devtools/build/lib/rules/genquery:genquery_configuration",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:genquery_package_providers",
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:actiongraph_v2",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
@@ -1302,6 +1301,7 @@ java_library(
     deps = [
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect:simple_target_pattern_matcher",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -1954,8 +1954,8 @@ java_library(
 )
 
 java_library(
-    name = "package_roots_no_symlink_creation",
-    srcs = ["PackageRootsNoSymlinkCreation.java"],
+    name = "virtual_package_roots",
+    srcs = ["VirtualPackageRoots.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

@@ -330,7 +330,8 @@ public final class CppConfiguration extends Fragment
     if (getFdoOptimizeLabel() != null
         || getFdoProfileLabel() != null
         || fdoPath != null
-        || getMemProfProfileLabel() != null) {
+        || getMemProfProfileLabel() != null
+        || getXFdoProfileLabel() != null) {
       return Label.parseCanonicalUnchecked(BAZEL_TOOLS_REPO + "//tools/zip:unzip_fdo");
     }
     return null;
@@ -364,6 +365,7 @@ public final class CppConfiguration extends Fragment
   }
 
   /** Returns the set of command-line LTO backend options. */
+  @StarlarkMethod(name = "lto_backend_options", documented = false, structField = true)
   public ImmutableList<String> getLtoBackendOptions() {
     return ltobackendOptions;
   }

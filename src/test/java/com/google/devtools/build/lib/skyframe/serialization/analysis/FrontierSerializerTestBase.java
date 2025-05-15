@@ -109,7 +109,8 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
   }
 
   @Test
-  public void serializingFrontierWithNoProjectFile_hasError() throws Exception {
+  public void serializingFrontierWithNoProjectFile_hasNoError_withNothingSerialized()
+      throws Exception {
     write(
         "foo/BUILD",
         """
@@ -117,7 +118,121 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         """);
     addOptions(UPLOAD_MODE_OPTION);
     buildTarget("//foo:empty");
-    events.assertContainsInfo("Disabling Skycache due to missing PROJECT.scl: [//foo:empty]");
+    assertThat(
+            getCommandEnvironment()
+                .getRemoteAnalysisCachingEventListener()
+                .getSerializedKeysCount())
+        .isEqualTo(0);
+  }
+
+  @Test
+  public void serializingFrontierWithNoProjectFile_withActiveDirectoriesFlag_serializesKeys()
+      throws Exception {
+    setupScenarioWithConfiguredTargets();
+
+    addOptions("--experimental_active_directories=foo");
+    addOptions(UPLOAD_MODE_OPTION);
+
+    buildTarget("//foo:A");
+
+    assertThat(
+            getCommandEnvironment()
+                .getRemoteAnalysisCachingEventListener()
+                .getSerializedKeysCount())
+        .isAtLeast(1);
+  }
+
+  @Test
+  public void activeDirectoriesMatcher_activeDirectoriesFlag_takesPrecedenceOverProjectFile()
+      throws Exception {
+    // Tests that the result of the active directories matcher is the same regardless of whether
+    // the matcher is obtained from the active directories flag or the PROJECT.scl file.
+    setupScenarioWithConfiguredTargets();
+
+    writeProjectSclWithActiveDirs("foo");
+    addOptions(UPLOAD_MODE_OPTION);
+    buildTarget("//foo:A");
+    var serializedKeysWithProjectScl =
+        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
+    assertThat(serializedKeysWithProjectScl).isNotEmpty();
+
+    getSkyframeExecutor().resetEvaluator();
+
+    addOptions("--experimental_active_directories=bar"); // overrides the PROJECT.scl file.
+    buildTarget("//foo:A");
+    var serializedKeysWithActiveDirectories =
+        getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys();
+    assertThat(serializedKeysWithActiveDirectories).isNotEmpty();
+
+    assertThat(serializedKeysWithActiveDirectories).isNotEqualTo(serializedKeysWithProjectScl);
+    assertContainsEvent(
+        "Specifying --experimental_active_directories will override the active directories"
+            + " specified in the PROJECT.scl file");
+  }
+
+  @Test
+  public void activeDirectoriesMatcher_withProjectSclOrActiveDirectories_areEquivalent()
+      throws Exception {
+    // Tests that the result of the active directories matcher is the same regardless of whether
+    // the matcher is obtained from the active directories flag or the PROJECT.scl file.
+    setupScenarioWithConfiguredTargets();
+
+    writeProjectSclWithActiveDirs(
+        /* path= */ "foo",
+        /* activeDirs...= */
+        "foo",
+        "-bar",
+        "baz/qux",
+        "-baz/qux/quux",
+        "-zee",
+        "zee/yee");
+    addOptions(UPLOAD_MODE_OPTION);
+    buildTarget("//foo:A");
+    assertThat(
+            getCommandEnvironment()
+                .getRemoteAnalysisCachingEventListener()
+                .getSerializedKeysCount())
+        .isAtLeast(1);
+
+    RemoteAnalysisCachingDependenciesProvider providerWithProjectScl =
+        getSkyframeExecutor().getRemoteAnalysisCachingDependenciesProvider();
+
+    getSkyframeExecutor().resetEvaluator();
+
+    addOptions("--experimental_active_directories=foo,-bar,baz/qux,-baz/qux/quux,-zee,zee/yee");
+    buildTarget("//foo:A");
+    assertThat(
+            getCommandEnvironment()
+                .getRemoteAnalysisCachingEventListener()
+                .getSerializedKeysCount())
+        .isAtLeast(1);
+
+    RemoteAnalysisCachingDependenciesProvider providerWithActiveDirectories =
+        getSkyframeExecutor().getRemoteAnalysisCachingDependenciesProvider();
+
+    assertThat(providerWithActiveDirectories).isNotSameInstanceAs(providerWithProjectScl);
+
+    ImmutableList<PackageIdentifier> testCases =
+        ImmutableList.of(
+            PackageIdentifier.createInMainRepo("foo"),
+            PackageIdentifier.createInMainRepo("foo/bar"),
+            PackageIdentifier.createInMainRepo("bar"),
+            PackageIdentifier.createInMainRepo("baz/qux"),
+            PackageIdentifier.createInMainRepo("baz/qux/quux"),
+            PackageIdentifier.createInMainRepo("zee"),
+            PackageIdentifier.createInMainRepo("zee/yee"),
+            PackageIdentifier.createInMainRepo(""),
+            PackageIdentifier.createInMainRepo("nonexistent"));
+
+    for (PackageIdentifier testCase : testCases) {
+      var activeDirectoriesResult = providerWithActiveDirectories.withinActiveDirectories(testCase);
+      var projectSclResult = providerWithProjectScl.withinActiveDirectories(testCase);
+      assertWithMessage(
+              "for %s: active directories: %s, projectScl: %s",
+              testCase, activeDirectoriesResult, projectSclResult)
+          .that(activeDirectoriesResult)
+          .isEqualTo(projectSclResult);
+    }
   }
 
   @Test
@@ -152,9 +267,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
     addOptions(UPLOAD_MODE_OPTION);
     LoadingFailedException exception =
         assertThrows(LoadingFailedException.class, () -> buildTarget("//foo:empty", "//bar:empty"));
-    assertThat(exception)
-        .hasMessageThat()
-        .contains("Skycache only works on single-project builds. This is a multi-project build");
+    assertThat(exception).hasMessageThat().contains("This is a multi-project build");
   }
 
   @Test
@@ -441,9 +554,9 @@ genrule(
 
     var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
     // //bar:C, //bar:H, //bar:E
-    assertThat(listener.getAnalysisNodeCacheHits()).isEqualTo(3);
+    assertThat(listener.getCacheHits()).hasSize(3);
     // //bar:F is not in the project boundary, but it's in the active set, so it wasn't cached.
-    assertThat(listener.getAnalysisNodeCacheMisses()).isAtLeast(1);
+    assertThat(listener.getCacheMisses()).isNotEmpty();
   }
 
   @Test
@@ -689,20 +802,6 @@ filegroup(name = "F", srcs = ["//foo:G"])
 filegroup(name = "H")
 filegroup(name = "I")
 """);
-  }
-
-  protected static <T> ImmutableSet<T> filterKeys(Set<SkyKey> from, Class<? extends T> klass) {
-    return from.stream().filter(klass::isInstance).map(klass::cast).collect(toImmutableSet());
-  }
-
-  protected static ImmutableSet<Label> getLabels(Set<ActionLookupKey> from) {
-    return from.stream().map(ActionLookupKey::getLabel).collect(toImmutableSet());
-  }
-
-  protected static ImmutableSet<Label> getOwningLabels(Set<ActionLookupData> from) {
-    return from.stream()
-        .map(data -> data.getActionLookupKey().getLabel())
-        .collect(toImmutableSet());
   }
 
   @Test
@@ -1253,5 +1352,19 @@ consumer_rule(
         BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
       builder.setSyscallCache(syscallCache);
     }
+  }
+
+  protected static <T> ImmutableSet<T> filterKeys(Set<SkyKey> from, Class<? extends T> klass) {
+    return from.stream().filter(klass::isInstance).map(klass::cast).collect(toImmutableSet());
+  }
+
+  protected static ImmutableSet<Label> getLabels(Set<ActionLookupKey> from) {
+    return from.stream().map(ActionLookupKey::getLabel).collect(toImmutableSet());
+  }
+
+  protected static ImmutableSet<Label> getOwningLabels(Set<ActionLookupData> from) {
+    return from.stream()
+        .map(data -> data.getActionLookupKey().getLabel())
+        .collect(toImmutableSet());
   }
 }

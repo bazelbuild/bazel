@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
+import com.google.devtools.build.lib.server.GcAndInternerShrinkingIdleTask;
 import com.google.devtools.build.lib.server.GrpcServerImpl;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.InstallBaseGarbageCollectorIdleTask;
@@ -95,6 +96,7 @@ import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.FileSystemLock;
+import com.google.devtools.build.lib.util.FileSystemLock.LockMode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -622,10 +624,23 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             .handle(Event.error("Error while creating memory profile file: " + e.getMessage()));
       }
     }
-    if (!options.installBaseGcMaxAge.isZero()) {
+
+    boolean stateKeptAfterBuild =
+        !env.getCommandName().equals("clean") && options.keepStateAfterBuild;
+    env.addIdleTask(new GcAndInternerShrinkingIdleTask(stateKeptAfterBuild));
+
+    if (options.installBaseGcMaxAge != null && !options.installBaseGcMaxAge.isZero()) {
       env.addIdleTask(
           InstallBaseGarbageCollectorIdleTask.create(
               workspace.getDirectories().getInstallBase(), options.installBaseGcMaxAge));
+    }
+
+    if (options.actionCacheGcMaxAge != null && !options.actionCacheGcMaxAge.isZero()) {
+      env.addIdleTask(
+          workspace.getActionCacheGcIdleTask(
+              options.actionCacheGcIdleDelay,
+              options.actionCacheGcThreshold / 100.0f,
+              options.actionCacheGcMaxAge));
     }
   }
 
@@ -786,10 +801,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     actionKeyContext.clear();
     DebugLoggerConfigurator.flushServerLog();
     storedExitCode.set(null);
-    boolean keepStateAfterBuild =
-        !env.getCommandName().equals("clean") && commonOptions.keepStateAfterBuild;
     return BlazeCommandResult.withResponseExtensions(
-        finalCommandResult, env.getResponseExtensions(), keepStateAfterBuild);
+        finalCommandResult, env.getResponseExtensions());
   }
 
   /**
@@ -1072,6 +1085,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               "batch client",
               runtime.clock.currentTimeMillis(),
               Optional.of(startupOptionsFromCommandLine.build()),
+              /* idleTaskResultsSupplier= */ () -> ImmutableList.of(),
               /* commandExtensions= */ ImmutableList.of(),
               /* commandExtensionReporter= */ (ext) -> {});
       if (result.getExecRequest() == null) {
@@ -1336,8 +1350,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       // base is still in use. It goes away when the server process dies.
       try {
         installBaseLock =
-            FileSystemLock.getShared(
-                nativeFs.getPath(installBase.replaceName(installBase.getBaseName() + ".lock")));
+            FileSystemLock.tryGet(
+                nativeFs.getPath(installBase.replaceName(installBase.getBaseName() + ".lock")),
+                LockMode.SHARED);
       } catch (IOException e) {
         throw createFilesystemExitException(
             "Failed to acquire shared lock on install base: " + e.getMessage(),

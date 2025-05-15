@@ -96,7 +96,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -180,10 +179,7 @@ public final class ActionExecutionFunction implements SkyFunction {
         cachingDependenciesSupplier.get();
     if (remoteCachingDependencies.isRemoteFetchEnabled()) {
       switch (fetchRemoteSkyValue(
-          actionLookupData,
-          env,
-          remoteCachingDependencies,
-          StateWithSerializationStateProvider::new)) {
+          actionLookupData, env, remoteCachingDependencies, InputDiscoveryState::new)) {
         case SkyValueRetriever.Restart unused:
           return null;
         case SkyValueRetriever.RetrievedValue v:
@@ -324,20 +320,20 @@ public final class ActionExecutionFunction implements SkyFunction {
     if (checkedInputs != null) {
       checkState(!state.hasArtifactData(), "%s %s", state, action);
       state.inputArtifactData = checkedInputs.actionInputMap;
+      state.actionInputMetadataProvider = new ActionInputMetadataProvider(state.inputArtifactData);
       state.skyframeInputMetadataProvider =
           new SkyframeInputMetadataProvider(
               evaluator.get(),
-              env,
               skyframeActionExecutor.getPerBuildFileCache(),
               directories.getRelativeOutputPath());
-      state.pairInputMetadataProvider =
+      state.compositeInputMetadataProvider =
           new DelegatingPairInputMetadataProvider(
-              state.inputArtifactData, state.skyframeInputMetadataProvider);
+              state.actionInputMetadataProvider, state.skyframeInputMetadataProvider);
       if (skyframeActionExecutor.actionFileSystemType().isEnabled()) {
         state.actionFileSystem =
             skyframeActionExecutor.createActionFileSystem(
                 directories.getRelativeOutputPath(),
-                state.pairInputMetadataProvider,
+                state.compositeInputMetadataProvider,
                 action.getOutputs());
       }
     }
@@ -379,9 +375,9 @@ public final class ActionExecutionFunction implements SkyFunction {
       return null;
     }
 
-    // We're done with the action. Clear the memo fields of the NestedSets to save some memory.
-    action.getInputs().clearMemo();
-    allInputs.clearMemo();
+    // We're done with the action. Clear the cached NestedSet list representations to save memory.
+    action.getInputs().clearCachedListRepresentation();
+    allInputs.clearCachedListRepresentation();
 
     // After the action execution is finalized, unregister the outputs from the consumed set to save
     // memory.
@@ -724,9 +720,6 @@ public final class ActionExecutionFunction implements SkyFunction {
         ArtifactPathResolver.createPathResolver(
             state.actionFileSystem, skyframeActionExecutor.getExecRoot());
 
-    ActionInputMetadataProvider inputMetadataProvider =
-        new ActionInputMetadataProvider(state.inputArtifactData);
-
     ActionOutputMetadataStore outputMetadataStore =
         ActionOutputMetadataStore.create(
             skyframeActionExecutor.useArchivedTreeArtifacts(action),
@@ -742,7 +735,7 @@ public final class ActionExecutionFunction implements SkyFunction {
           skyframeActionExecutor.checkActionCache(
               env.getListener(),
               action,
-              inputMetadataProvider,
+              state.actionInputMetadataProvider,
               outputMetadataStore,
               pathResolver,
               actionStartTime,
@@ -753,7 +746,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     if (state.token == null) {
       RichArtifactData reconstructedRichArtifactData =
           action instanceof RichDataProducingAction rdpa
-              ? rdpa.reconstructRichDataOnActionCacheHit(inputMetadataProvider)
+              ? rdpa.reconstructRichDataOnActionCacheHit(state.actionInputMetadataProvider)
               : null;
       return ActionExecutionValue.create(
           outputMetadataStore, reconstructedRichArtifactData, action);
@@ -771,13 +764,12 @@ public final class ActionExecutionFunction implements SkyFunction {
 
         try (SilentCloseable c =
             Profiler.instance().profile(ProfilerTask.DISCOVER_INPUTS, "discoverInputs")) {
-          try (var unused = state.skyframeInputMetadataProvider.withSkyframeAllowed()) {
+          try (var unused = state.skyframeInputMetadataProvider.withSkyframeAllowed(env)) {
             state.discoveredInputs =
                 skyframeActionExecutor.discoverInputs(
                     action,
                     actionLookupData,
-                    inputMetadataProvider,
-                    state.skyframeInputMetadataProvider,
+                    state.compositeInputMetadataProvider,
                     env,
                     state.actionFileSystem);
           }
@@ -817,8 +809,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     return skyframeActionExecutor.executeAction(
         env,
         action,
-        inputMetadataProvider,
-        state.skyframeInputMetadataProvider,
+        state.compositeInputMetadataProvider,
         outputMetadataStore,
         actionStartTime,
         actionLookupData,
@@ -1200,21 +1191,6 @@ public final class ActionExecutionFunction implements SkyFunction {
         MoreObjects.firstNonNull(input.getOwner(), actionLabel), detailedExitCode);
   }
 
-  private static class StateWithSerializationStateProvider extends InputDiscoveryState
-      implements SerializableSkyKeyComputeState {
-    private SerializationState serializationState = INITIAL_STATE;
-
-    @Override
-    public SerializationState getSerializationState() {
-      return serializationState;
-    }
-
-    @Override
-    public void setSerializationState(SerializationState state) {
-      this.serializationState = state;
-    }
-  }
-
   /**
    * State to save work across restarts of ActionExecutionFunction due to missing values in the
    * graph for actions that discover inputs. There are three places where we save work, all for
@@ -1231,20 +1207,36 @@ public final class ActionExecutionFunction implements SkyFunction {
    *       execution.
    * </ol>
    */
-  static class InputDiscoveryState implements SkyKeyComputeState {
+  static class InputDiscoveryState implements SerializableSkyKeyComputeState {
     AllInputs allInputs;
 
     /** Mutable map containing metadata for known artifacts. */
     ActionInputMap inputArtifactData = null;
 
+    /** A thin wrapper around ActionInputMap for Fileset-related caching. */
+    ActionInputMetadataProvider actionInputMetadataProvider = null;
+
     /** An input metadata provider that does Skyframe lookups. */
     SkyframeInputMetadataProvider skyframeInputMetadataProvider = null;
 
     /**
-     * An input metadata provider combining {@code inputArtifactData} and {@code
-     * skyframeInputMetadataProvider}.
+     * The input metadata provider that knows everything required to look up action inputs. It
+     * consists of these parts:
+     *
+     * <ul>
+     *   <li>The set of direct action inputs ({@link #inputArtifactData})
+     *   <li>Skyframe lookups for generated artifacts that are not direct inputs
+     *   <li>File system lookups for source artifacts that are not direct inputs
+     * </ul>
+     *
+     * The latter two exist to support input discovery, when an action may well read files that are
+     * not direct inputs. The metadata is actually in Skyframe so we could conceivably create the
+     * equivalent of an {@link ActionInputMap} with scheduling dependencies and then these two would
+     * not be needed. However, it would incur a huge performance hit because the most significant
+     * use of input discovery is C++ include scanning, where the vast majority of scheduling
+     * dependencies are not actually accessed.
      */
-    DelegatingPairInputMetadataProvider pairInputMetadataProvider = null;
+    DelegatingPairInputMetadataProvider compositeInputMetadataProvider = null;
 
     Token token = null;
     NestedSet<Artifact> discoveredInputs = null;
@@ -1253,6 +1245,8 @@ public final class ActionExecutionFunction implements SkyFunction {
     boolean actionInputCollectedEventSent = false;
 
     boolean checkedForConsumedArtifactRegistration = false;
+
+    private SerializationState serializationState = INITIAL_STATE;
 
     boolean hasCollectedInputs() {
       return allInputs != null;
@@ -1266,6 +1260,16 @@ public final class ActionExecutionFunction implements SkyFunction {
       // If token is null because there was an action cache hit, this method is never called again
       // because we return immediately.
       return token != null;
+    }
+
+    @Override
+    public SerializationState getSerializationState() {
+      return serializationState;
+    }
+
+    @Override
+    public void setSerializationState(SerializationState state) {
+      this.serializationState = state;
     }
 
     @Override
@@ -1425,6 +1429,7 @@ public final class ActionExecutionFunction implements SkyFunction {
             action.prettyPrint(), key);
         if (firstActionExecutionException == null) {
           firstActionExecutionException = e;
+          transitiveCauses.add(e.getRootCauses());
         }
       } else {
         for (Artifact input : associatedInputs) {

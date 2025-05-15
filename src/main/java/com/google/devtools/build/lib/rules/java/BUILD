@@ -17,7 +17,6 @@ java_library(
         "JavaInfo.java",
         "JavaPluginsFlagAliasRule.java",
         "JavaStarlarkCommon.java",
-        "ProguardSpecProvider.java",
     ],
     deps = [
         ":java-compilation",

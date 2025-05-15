@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import com.google.common.eventbus.AllowConcurrentEvents;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.No
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Restart;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
-import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Set;
@@ -53,11 +53,11 @@ public class RemoteAnalysisCachingEventListener {
   private final Set<SkyKey> serializedKeys = ConcurrentHashMap.newKeySet();
   private final Set<SkyKey> cacheHits = ConcurrentHashMap.newKeySet();
   private final Set<SkyKey> cacheMisses = ConcurrentHashMap.newKeySet();
-  private final AtomicInteger analysisCacheHits = new AtomicInteger();
-  private final AtomicInteger analysisCacheMisses = new AtomicInteger();
-  private final AtomicInteger executionCacheHits = new AtomicInteger();
-  private final AtomicInteger executionCacheMisses = new AtomicInteger();
   private final Set<SerializationException> serializationExceptions = ConcurrentHashMap.newKeySet();
+  private final ConcurrentHashMap<SkyFunctionName, AtomicInteger> hitsBySkyFunctionName =
+      new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<SkyFunctionName, AtomicInteger> missesBySkyFunctionName =
+      new ConcurrentHashMap<>();
 
   private final AtomicReference<FrontierNodeVersion> skyValueVersion = new AtomicReference<>();
 
@@ -103,21 +103,17 @@ public class RemoteAnalysisCachingEventListener {
         if (!cacheHits.add(key)) {
           return;
         }
-        if (isExecutionNode(key)) {
-          executionCacheHits.incrementAndGet();
-        } else {
-          analysisCacheHits.incrementAndGet();
-        }
+        hitsBySkyFunctionName
+            .computeIfAbsent(key.functionName(), k -> new AtomicInteger())
+            .incrementAndGet();
       }
       case NoCachedData unusedNoCachedData -> {
         if (!cacheMisses.add(key)) {
           return;
         }
-        if (isExecutionNode(key)) {
-          executionCacheMisses.incrementAndGet();
-        } else {
-          analysisCacheMisses.incrementAndGet();
-        }
+        missesBySkyFunctionName
+            .computeIfAbsent(key.functionName(), k -> new AtomicInteger())
+            .incrementAndGet();
       }
       case Restart unusedRestart ->
           throw new IllegalStateException(
@@ -125,40 +121,14 @@ public class RemoteAnalysisCachingEventListener {
     }
   }
 
-  private static boolean isExecutionNode(SkyKey key) {
-    return key instanceof ExecutionPhaseSkyKey;
+  /** Returns the number of cache hits grouped by SkyFunction name. */
+  public ImmutableMap<SkyFunctionName, AtomicInteger> getHitsBySkyFunctionName() {
+    return ImmutableMap.copyOf(hitsBySkyFunctionName);
   }
 
-  /**
-   * Returns the number of successful analysis SkyValue retrievals from the {@link
-   * com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService} .
-   */
-  public int getAnalysisNodeCacheHits() {
-    return analysisCacheHits.get();
-  }
-
-  /**
-   * Returns the number of successful analysis SkyValue retrievals from the {@link
-   * com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService} .
-   */
-  public int getAnalysisNodeCacheMisses() {
-    return analysisCacheMisses.get();
-  }
-
-  /**
-   * Returns the number of unsuccessful execution SkyValue retrievals from the {@link
-   * com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService} .
-   */
-  public int getExecutionNodeCacheHits() {
-    return executionCacheHits.get();
-  }
-
-  /**
-   * Returns the number of unsuccessful execution SkyValue retrievals from the {@link
-   * com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService} .
-   */
-  public int getExecutionNodeCacheMisses() {
-    return executionCacheMisses.get();
+  /** Returns the number of cache misses grouped by SkyFunction name. */
+  public ImmutableMap<SkyFunctionName, AtomicInteger> getMissesBySkyFunctionName() {
+    return ImmutableMap.copyOf(missesBySkyFunctionName);
   }
 
   /** Records a {@link SerializationException} encountered during SkyValue retrievals. */

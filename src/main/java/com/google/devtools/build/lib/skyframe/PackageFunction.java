@@ -1164,6 +1164,7 @@ public abstract class PackageFunction implements SkyFunction {
                 env.getListener(),
                 programLoads,
                 packageId,
+                packageFactory.getRuleClassProvider()::isPackageUnderExperimental,
                 repositoryMapping,
                 starlarkBuiltinsValue.starlarkSemantics);
         if (loadLabels == null) {
@@ -1278,8 +1279,15 @@ public abstract class PackageFunction implements SkyFunction {
             loadedModules,
             starlarkBuiltinsValue.starlarkSemantics);
         if (packagePieceId == null) {
-          ((Package.Builder) pkgBuilder)
-              .expandAllRemainingMacros(starlarkBuiltinsValue.starlarkSemantics);
+          try {
+            ((Package.Builder) pkgBuilder)
+                .expandAllRemainingMacros(starlarkBuiltinsValue.starlarkSemantics);
+          } catch (EvalException ex) {
+            pkgBuilder
+                .getLocalEventHandler()
+                .handle(Package.error(null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
+            pkgBuilder.setContainsErrors();
+          }
         }
       } else {
         // Execution not attempted due to static errors.

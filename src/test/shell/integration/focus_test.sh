@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2023 The Bazel Authors. All rights reserved.
 #
@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# An end-to-end test for Skyfocus & working sets.
+# An end-to-end test for Skyfocus & active directories.
 
 # --- begin runfiles.bash initialization ---
 set -euo pipefail
@@ -85,7 +85,7 @@ EOF
   bazel build //${pkg}:g\
     --experimental_skyfocus_dump_keys=count \
     --experimental_skyfocus_dump_post_gc_stats \
-    --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1
+    --experimental_active_directories=${pkg}/in.txt >$TEST_log 2>&1
 
   expect_log "Focusing on .\+ roots, .\+ leafs"
   expect_log "Rdep edges: .\+ -> .\+"
@@ -110,7 +110,7 @@ EOF
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
   bazel build //${pkg}:g \
     --experimental_skyfocus_dump_keys=verbose \
-    --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1
+    --experimental_active_directories=${pkg}/in.txt >$TEST_log 2>&1
 
   expect_log "Focusing on .\+ roots, .\+ leafs"
 
@@ -145,7 +145,7 @@ EOF
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
   bazel build //${pkg}:g \
     --experimental_skyfocus_dump_keys=count \
-    --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1
+    --experimental_active_directories=${pkg}/in.txt >$TEST_log 2>&1
 
   # Dumps counts
   expect_log "Roots kept: .\+"
@@ -177,7 +177,7 @@ genrule(
 EOF
 
   bazel build //${pkg}:g \
-    --experimental_working_set=${pkg}/in.txt \
+    --experimental_active_directories=${pkg}/in.txt \
     --profile=/tmp/profile.log &> "$TEST_log" || fail "expected success"
   grep '"ph":"X"' /tmp/profile.log > "$TEST_log" \
     || fail "Missing profile file."
@@ -187,7 +187,7 @@ EOF
   expect_log '"focus.sweep"'
 }
 
-function test_info_supports_printing_working_set() {
+function test_info_supports_printing_active_directories() {
   local -r pkg=${FUNCNAME[0]}
   mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
   mkdir -p ${pkg}
@@ -203,34 +203,34 @@ genrule(
 )
 EOF
 
-  # Initial build with working set.
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt
-  bazel dump --skyframe=working_set &> "$TEST_log"
+  # Initial build with active directories.
+  bazel build //${pkg}:g --experimental_active_directories=${pkg}/in.txt
+  bazel dump --skyframe=active_directories &> "$TEST_log"
   expect_log "${pkg}/in.txt"
 
-  # Working set is expanded.
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/in2.txt
-  bazel dump --skyframe=working_set &> "$TEST_log"
+  # active directories is expanded.
+  bazel build //${pkg}:g --experimental_active_directories=${pkg}/in.txt,${pkg}/in2.txt
+  bazel dump --skyframe=active_directories &> "$TEST_log"
   expect_log "${pkg}/in.txt"
   expect_log "${pkg}/in2.txt"
 
-  # Working set can be defined with files not in the downward transitive
-  # closure but `dump --skyframe=working_set` will not report it.
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/in2.txt,${pkg}/not.used
-  bazel dump --skyframe=working_set &> "$TEST_log"
+  # active directories can be defined with files not in the downward transitive
+  # closure but `dump --skyframe=active_directories` will not report it.
+  bazel build //${pkg}:g --experimental_active_directories=${pkg}/in.txt,${pkg}/in2.txt,${pkg}/not.used
+  bazel dump --skyframe=active_directories &> "$TEST_log"
   expect_log "${pkg}/in.txt"
   expect_log "${pkg}/in2.txt"
   expect_not_log "${pkg}/not.used"
 
   # The active set is retained for subsequent builds that don't pass the flag.
   bazel build //${pkg}:g
-  bazel dump --skyframe=working_set &> "$TEST_log"
+  bazel dump --skyframe=active_directories &> "$TEST_log"
   expect_log "${pkg}/in.txt"
   expect_log "${pkg}/in2.txt"
   expect_not_log "${pkg}/not.used"
 }
 
-function test_glob_inputs_change_with_dir_in_working_set() {
+function test_glob_inputs_change_with_dir_in_active_directories() {
   local -r pkg=${FUNCNAME[0]}
   mkdir -p ${pkg}
   touch ${pkg}/in.txt ${pkg}/in2.txt ${pkg}/in3.txt
@@ -244,9 +244,9 @@ EOF
 
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
 
-  # Define the working set as ${pkg}, which will exclude the
+  # Define the active directories as ${pkg}, which will exclude the
   # DIRECTORY_LISTING_STATE($pkg) in the verification set.
-  bazel build //${pkg}:g --experimental_working_set=${pkg}
+  bazel build //${pkg}:g --experimental_active_directories=${pkg}
   assert_contains "in.txt" $out
   assert_contains "in2.txt" $out
   assert_contains "in3.txt" $out
@@ -260,7 +260,7 @@ EOF
   assert_not_contains "in3.txt" $out
 }
 
-function test_errors_after_glob_inputs_change_without_dir_in_working_set() {
+function test_errors_after_glob_inputs_change_without_dir_in_active_directories() {
   local -r pkg=${FUNCNAME[0]}
   mkdir -p ${pkg}
   touch ${pkg}/in.txt ${pkg}/in2.txt ${pkg}/in3.txt
@@ -274,9 +274,9 @@ EOF
 
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
 
-  # Define the working set as ${pkg}/BUILD only, which will cause
+  # Define the active directories as ${pkg}/BUILD only, which will cause
   # DIRECTORY_LISTING_STATE($pkg) to be in the verification set.
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/BUILD
+  bazel build //${pkg}:g --experimental_active_directories=${pkg}/BUILD
   assert_contains "in.txt" $out
   assert_contains "in2.txt" $out
   assert_contains "in3.txt" $out
@@ -285,7 +285,7 @@ EOF
   # DIRECTORY_LISTING_STATE($pkg) in the verification set has changed.
   rm ${pkg}/in3.txt
   bazel build //${pkg}:g &>"$TEST_log" && fail "expected build to fail"
-  expect_log "detected changes outside of the working set"
+  expect_log "detected changes outside of the active directories"
   expect_log "${pkg}"
 }
 
@@ -345,7 +345,7 @@ simple_rule = rule(
 EOF
 
   out=$(bazel info "${PRODUCT_NAME}-bin")/${pkg}/my_rule.txt
-  bazel build //${pkg}:my_rule --experimental_working_set=${pkg}/in.txt \
+  bazel build //${pkg}:my_rule --experimental_active_directories=${pkg}/in.txt \
     || fail "expected build to succeed"
 
   assert_contains "value=default_val" ${out}
@@ -397,9 +397,9 @@ EOF
 
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
   # Verify that Skyfocus handles the symlinks/files edges correctly, and that
-  # using the linked file in the working set should work, even though the
+  # using the linked file in the active directories should work, even though the
   # symlinks are used as the genrule inputs.
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/subdir/in.txt \
+  bazel build //${pkg}:g --experimental_active_directories=${pkg}/in.txt,${pkg}/subdir/in.txt \
     || fail "expected build to succeed"
 
   echo "a change" >> ${pkg}/in.txt
@@ -410,7 +410,7 @@ EOF
   bazel build //${pkg}:g || fail "expected build to succeed"
   assert_contains "final change" ${out}
 
-  # Yes, this means that you symlinks that used to link to the working set
+  # Yes, this means that you symlinks that used to link to the active directories
   # can be relinked to something else, and the build will still work.
   # Not a correctness issue.
   mkdir -p ${pkg}/new_subdir
@@ -425,7 +425,7 @@ EOF
   assert_contains "new file 2" ${out}
 }
 
-function test_symlinks_as_working_set() {
+function test_symlinks_as_active_directories() {
   if "$is_windows"; then
     # TODO(b/332825970): fix this
     return
@@ -453,7 +453,7 @@ genrule(
 EOF
 
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/single.symlink,${pkg}/dir.symlink \
+  bazel build //${pkg}:g --experimental_active_directories=${pkg}/single.symlink,${pkg}/dir.symlink \
     || fail "expected build to succeed"
 
   echo "a change" >> ${pkg}/in.txt
@@ -482,7 +482,7 @@ sh_test(
 EOF
 
   bazel test //${pkg}:g || fail "expected to succeed"
-  bazel dump --skyframe=working_set &> "$TEST_log" || fail "expected to succeed"
+  bazel dump --skyframe=active_directories &> "$TEST_log" || fail "expected to succeed"
   expect_log "${pkg}/in.sh"
   expect_log "${pkg}/BUILD"
 }

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.LabelPrinter;
+import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
@@ -337,6 +338,21 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
                 createValueElement(doc, dictType.getValueType(), entry.getValue(), labelPrinter));
           }
         }
+      }
+    } else if (type == BuildType.LICENSE) {
+      elem = createSingleValueElement(doc, "license", hasMultipleValues);
+      if (!hasMultipleValues) {
+        License license = (License) Iterables.getOnlyElement(values);
+
+        Element exceptions =
+            createValueElement(doc, BuildType.LABEL_LIST, license.getExceptions(), labelPrinter);
+        exceptions.setAttribute("name", "exceptions");
+        elem.appendChild(exceptions);
+
+        Element licenseTypes =
+            createValueElement(doc, Types.STRING_LIST, license.getLicenseTypes(), labelPrinter);
+        licenseTypes.setAttribute("name", "license-types");
+        elem.appendChild(licenseTypes);
       }
     } else { // INTEGER STRING LABEL OUTPUT
       elem = createSingleValueElement(doc, type.toString(), hasMultipleValues);

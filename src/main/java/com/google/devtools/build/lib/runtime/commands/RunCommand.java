@@ -725,7 +725,7 @@ public class RunCommand implements BlazeCommand {
     Path devirtualizedRunfilesDir =
         settings.getRunfilesDir() != null
             ? settings.getRunfilesDir().devirtualize()
-            : devirtualizedExecRoot;
+            : builtTargets.targetToRunRunfilesDir.getParentDirectory().devirtualize();
 
     ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
     Path tmpDirRoot =

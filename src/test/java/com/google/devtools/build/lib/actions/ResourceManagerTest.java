@@ -137,7 +137,8 @@ public final class ResourceManagerTest {
     return acquire(ram, cpu, extraResources, tests, ResourcePriority.LOCAL);
   }
 
-  private void release(ResourceHandle resourceHandle) throws IOException, InterruptedException {
+  private void release(ResourceHandle resourceHandle)
+      throws IOException, InterruptedException, UserExecException {
     manager.releaseResources(resourceHandle.getRequest(), /* worker= */ null);
   }
 
@@ -161,11 +162,14 @@ public final class ResourceManagerTest {
   }
 
   @Test
-  public void testOverBudgetRequests() throws Exception {
+  public void allowOneActionOnResourceUnavailable_success() throws Exception {
     assertThat(manager.inUse()).isFalse();
 
-    // When nothing is consuming RAM,
-    // Then Resource Manager will successfully acquire an over-budget request for RAM:
+    // TODO: b/405364605 - Add a test for false case after we start throwing an exception.
+    manager.setAllowOneActionOnResourceUnavailable(true);
+
+    // When nothing is consuming RAM, then ResourceManager will successfully acquire an over-budget
+    // request for RAM if allow_one_action_on_resource_unavailable is set to true.
     double bigRam = 10000.0;
     ResourceHandle bigRamHandle = acquire(bigRam, 0, 0);
     // When RAM is consumed,
@@ -197,6 +201,16 @@ public final class ResourceManagerTest {
     assertThat(manager.inUse()).isTrue();
     release(bigGpuHandle);
     assertThat(manager.inUse()).isFalse();
+  }
+
+  @Test
+  public void noAllowOneActionOnResourceUnavailable_exception() throws Exception {
+    assertThat(manager.inUse()).isFalse();
+
+    // When nothing is consuming RAM, then ResourceManager should fail to acquire an over-budget
+    // request for RAM, when allow_one_action_on_resource_unavailable is not explicitly set.
+    double bigRam = 10000.0;
+    assertThrows(UserExecException.class, () -> acquire(bigRam, 0, 0));
   }
 
   @Test
@@ -336,10 +350,14 @@ public final class ResourceManagerTest {
   @SuppressWarnings("ThreadPriorityCheck")
   public void testConcurrentLargeRequests() throws Exception {
     assertThat(manager.inUse()).isFalse();
+
+    double requestedRam = 700;
+    double requestedCpu = 0.7;
+
     TestThread thread1 =
         new TestThread(
             () -> {
-              ResourceHandle handle1 = acquire(2000, 2, 0);
+              ResourceHandle handle1 = acquire(requestedRam, requestedCpu, 0);
               sync.await();
               validate(1);
               sync.await();
@@ -349,7 +367,8 @@ public final class ResourceManagerTest {
               }
               release(handle1);
               assertThat(manager.getWaitCount()).isEqualTo(0);
-              ResourceHandle handle2 = acquire(2000, 2, 0); // Will be blocked by the thread2.
+              ResourceHandle handle2 =
+                  acquire(requestedRam, requestedCpu, 0); // Will be blocked by the thread2.
               validate(3);
               release(handle2);
             });
@@ -357,8 +376,9 @@ public final class ResourceManagerTest {
         new TestThread(
             () -> {
               sync2.await();
-              assertThat(isAvailable(manager, 2000, 2, 0)).isFalse();
-              ResourceHandle handle = acquire(2000, 2, 0); // Will be blocked by the thread1.
+              assertThat(isAvailable(manager, requestedRam, requestedCpu, 0)).isFalse();
+              ResourceHandle handle =
+                  acquire(requestedRam, requestedCpu, 0); // Will be blocked by the thread1.
               validate(2);
               sync2.await();
               // Wait till other thread will be locked.
@@ -386,14 +406,14 @@ public final class ResourceManagerTest {
     assertThat(manager.inUse()).isFalse();
     // Acquire a small amount of resources so that future requests can block (the initial request
     // always succeeds even if it's for too much).
-    TestThread smallThread = new TestThread(() -> acquire(1, 0, 0));
+    TestThread smallThread = new TestThread(() -> acquire(400, 0, 0));
     smallThread.start();
     smallThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
     TestThread thread1 =
         new TestThread(
             () -> {
               Thread.currentThread().interrupt();
-              assertThrows(InterruptedException.class, () -> acquire(1999, 0, 0));
+              assertThrows(InterruptedException.class, () -> acquire(700, 0, 0));
             });
     thread1.start();
     thread1.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
@@ -404,7 +424,7 @@ public final class ResourceManagerTest {
     TestThread thread2 =
         new TestThread(
             () -> {
-              ResourceHandle handle = acquire(1999, 0, 0);
+              ResourceHandle handle = acquire(700, 0, 0);
               release(handle);
             });
     thread2.start();
@@ -808,7 +828,8 @@ public final class ResourceManagerTest {
     assertThat(e).hasCauseThat().hasMessageThat().contains("is still alive");
   }
 
-  synchronized boolean isAvailable(ResourceManager rm, double ram, double cpu, int localTestCount) {
+  synchronized boolean isAvailable(ResourceManager rm, double ram, double cpu, int localTestCount)
+      throws UserExecException {
     return rm.areResourcesAvailable(ResourceSet.create(ram, cpu, localTestCount));
   }
 

@@ -366,6 +366,7 @@ public class BuildView {
     }
     skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
         remoteAnalysisCachingDependenciesProvider);
+    skyframeExecutor.invalidateWithExternalService(eventHandler);
 
     getArtifactFactory().noteAnalysisStarting();
     SkyframeAnalysisResult skyframeAnalysisResult;

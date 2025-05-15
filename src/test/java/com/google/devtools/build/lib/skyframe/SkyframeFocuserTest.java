@@ -191,7 +191,7 @@ public final class SkyframeFocuserTest extends BuildViewTestCase {
     // cat -> dog -> civet*
     //          \-> hamster
     //
-    // *Only civet in the working set.
+    // *Only civet in the active directories.
     createEdgesAndMarkDone(graph, civet, ImmutableList.of(), ImmutableList.of(dog));
     createEdgesAndMarkDone(graph, hamster, ImmutableList.of(), ImmutableList.of(dog));
     createEdgesAndMarkDone(graph, dog, ImmutableList.of(civet, hamster), ImmutableList.of(cat));

@@ -259,7 +259,7 @@ public abstract class Root implements Comparable<Root> {
   }
 
   /** Serialization dependencies for {@link RootCodec}. */
-  public static class RootCodecDependencies {
+  public static final class RootCodecDependencies {
     private final ImmutableList<Root> likelyPopularRoots;
 
     /** Convenience constructor for an instance with no likely roots. */
@@ -288,6 +288,10 @@ public abstract class Root implements Comparable<Root> {
       this.likelyPopularRoots = ImmutableList.copyOf(likelyPopularRoots);
       // max length 255; value at index i encoded as number i + 1; value 0 means "not one of these".
       Preconditions.checkArgument(this.likelyPopularRoots.size() < 256);
+    }
+
+    public ImmutableList<Root> getLikelyPopularRoots() {
+      return likelyPopularRoots;
     }
   }
 

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.RuleClass.DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME;
@@ -246,31 +247,37 @@ public class BaseRuleClasses {
           // Input files for every test action
           .add(
               attr("$test_wrapper", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .cfg(
+                      ExecutionTransitionFactory.createFactory(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/test:test_wrapper")))
           .add(
               attr("$xml_writer", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .cfg(
+                      ExecutionTransitionFactory.createFactory(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/test:xml_writer")))
           .add(
               attr("$test_runtime", LABEL_LIST)
-                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .cfg(
+                      ExecutionTransitionFactory.createFactory(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                   .value(getTestRuntimeLabelList(env)))
           .add(
               attr("$test_setup_script", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .cfg(
+                      ExecutionTransitionFactory.createFactory(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/test:test_setup")))
           .add(
               attr("$xml_generator_script", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .cfg(
+                      ExecutionTransitionFactory.createFactory(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/test:test_xml_generator")))
           .add(
               attr("$collect_coverage_script", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .cfg(
+                      ExecutionTransitionFactory.createFactory(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/test:collect_coverage")))
           // Input files for test actions collecting code coverage
@@ -281,7 +288,8 @@ public class BaseRuleClasses {
           // Used in the one-per-build coverage report generation action.
           .add(
               attr(":coverage_report_generator", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .cfg(
+                      ExecutionTransitionFactory.createFactory(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                   .value(
                       coverageReportGeneratorAttribute(
                           env.getToolsLabel(DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
@@ -300,7 +308,8 @@ public class BaseRuleClasses {
           // RunCommand.java to self-transition --run_under to the exec configuration.
           .add(
               attr(":run_under_exec_config", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory("test"))
+                  .cfg(
+                      ExecutionTransitionFactory.createFactory(DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                   .value(RUN_UNDER_EXEC_CONFIG)
                   .skipPrereqValidatorCheck())
           .add(
@@ -454,15 +463,11 @@ public class BaseRuleClasses {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return commonCoreAndStarlarkAttributes(builder)
           .add(
-              // TODO: b/148549967 - Remove for Bazel 9.0
-              attr("licenses", STRING_LIST)
-                  .undocumented("deprecated")
-                  .nonconfigurable("historically not configurable"))
+              attr("licenses", LICENSE)
+                  .nonconfigurable("Used in core loading phase logic with no access to configs"))
           .add(
               // TODO: b/148549967 - Remove for Bazel 9.0
-              attr("distribs", STRING_LIST)
-                  .undocumented("deprecated")
-                  .nonconfigurable("deprecated - no op"))
+              attr("distribs", STRING_LIST).nonconfigurable("deprecated - no op"))
           // Any rule that provides its own meaning for the "target_compatible_with" attribute
           // has to be excluded in `IncompatibleTargetChecker`.
           .add(

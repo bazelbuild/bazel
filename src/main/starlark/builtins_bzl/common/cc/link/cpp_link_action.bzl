@@ -16,6 +16,7 @@
 load(":common/cc/cc_helper_internal.bzl", "artifact_category")
 load(":common/cc/link/finalize_link_action.bzl", "finalize_link_action")
 load(":common/cc/link/link_build_variables.bzl", "setup_linking_variables")
+load(":common/cc/link/lto_backends.bzl", "create_shared_non_lto_artifacts")
 load(":common/cc/link/target_types.bzl", "LINK_TARGET_TYPE", "USE_ARCHIVER", "USE_LINKER", "is_dynamic_library")
 load(":common/paths.bzl", "paths")
 
@@ -160,7 +161,7 @@ def link_action(
             library_identifier = library_identifier,
             object_files = combined_object_artifacts if use_archiver else [],
             lto_compilation_context = lto_compilation_context if use_archiver else [],
-            shared_non_lto_backends = cc_internal.create_shared_non_lto_artifacts(
+            shared_non_lto_backends = create_shared_non_lto_artifacts(
                 actions,
                 lto_compilation_context,
                 link_type.linker_or_archiver == USE_LINKER,

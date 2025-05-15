@@ -43,4 +43,9 @@ message Project {
   // Blaze uses this to remove flags from build graph dependencies for flags
   // that are defined as "project-only scoe".
   repeated string project_directories = 5 [(.protolark.used_in_blaze) = true];
+
+  // --configs that are always allowed. Permit all flags that derive from any
+  // --config set here.
+  repeated string always_allowed_configs = 6
+      [(.protolark.used_in_blaze) = true];
 }

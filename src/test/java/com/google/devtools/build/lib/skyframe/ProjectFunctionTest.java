@@ -35,6 +35,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+    writeProjectSclDefinition("test/project_proto.scl");
   }
 
   @Test
@@ -226,31 +227,6 @@ public class ProjectFunctionTest extends BuildViewTestCase {
   @Test
   public void projectFunction_buildableUnitsFormat() throws Exception {
     scratch.file(
-        "test/project_proto.scl",
-        """
-        project_pb2 = struct(
-         Project = struct(
-            create = lambda name, enforcement_policy, project_directories, buildable_units: struct(
-               name = name,
-               enforcement_policy = enforcement_policy,
-               project_directories = project_directories,
-               buildable_units = buildable_units,
-            )
-          )
-        )
-        buildable_unit_pb2 = struct(
-          BuildableUnit = struct(
-            create = lambda name, target_patterns, flags, description, is_default: struct(
-              name = name,
-              target_patterns = target_patterns,
-              flags = flags,
-              description = description,
-              is_default = is_default,
-            )
-          )
-        )
-        """);
-    scratch.file(
         "test/PROJECT.scl",
         """
         load(
@@ -262,6 +238,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
           name = "test",
           enforcement_policy = "warn",
           project_directories = [ "//test/..."],
+          always_allowed_configs = ["--config=foo"],
           buildable_units = [
               buildable_unit_pb2.BuildableUnit.create(
                   name = "default",
@@ -293,7 +270,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isFalse();
     ProjectValue value = result.get(key);
     assertThat(value.getEnforcementPolicy()).isEqualTo(ProjectValue.EnforcementPolicy.WARN);
-    assertThat(value.getAlwaysAllowedConfigs()).isNull();
+    assertThat(value.getAlwaysAllowedConfigs()).isEqualTo(ImmutableList.of("--config=foo"));
     assertThat(value.getActualProjectFile()).isEqualTo(Label.parseCanonical("//test:PROJECT.scl"));
     assertThat(value.getBuildableUnits().get("default").isDefault()).isTrue();
     assertThat(value.getBuildableUnits().get("non_default").isDefault()).isFalse();
@@ -318,6 +295,337 @@ public class ProjectFunctionTest extends BuildViewTestCase {
                 "non default",
                 ImmutableList.of("--define=bar=baz"),
                 false));
+  }
+
+  @Test
+  public void duplicateBuildableUnitNames() throws Exception {
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = "test",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(name = "foo"),
+              buildable_unit_pb2.BuildableUnit.create(name = "foo"),
+          ],
+        )
+        """);
+
+    scratch.file("test/BUILD");
+    ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
+    EvaluationResult<ProjectValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter);
+
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .isEqualTo(
+            "buildable_unit name='foo' is repeated. Buildable units must have unique names.");
+  }
+
+  @Test
+  public void buildableUnitSchemaDefaults() throws Exception {
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = "test",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(name = "foo"),
+          ],
+        )
+        """);
+
+    scratch.file("test/BUILD");
+    ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
+    EvaluationResult<ProjectValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter);
+
+    assertThat(result.hasError()).isFalse();
+
+    // Project-wide defaults:
+    assertThat(result.get(key).getEnforcementPolicy())
+        .isEqualTo(ProjectValue.EnforcementPolicy.WARN);
+    assertThat(result.get(key).getAlwaysAllowedConfigs()).isNull();
+    assertThat(result.get(key).getProjectDirectories()).hasSize(1);
+    assertThat(result.get(key).getProjectDirectories().get("default")).isEmpty();
+
+    // Buildable unit defaults:
+    assertThat(result.get(key).getBuildableUnits().get("foo").targetPatternMatcher().isEmpty())
+        .isTrue();
+    assertThat(result.get(key).getBuildableUnits().get("foo").flags()).isEmpty();
+    assertThat(result.get(key).getBuildableUnits().get("foo").description()).isEqualTo("foo");
+    assertThat(result.get(key).getBuildableUnits().get("foo").isDefault()).isFalse();
+  }
+
+  /** Asserts that a PROJECT.scl with the given contexts fails with the given message. */
+  private void assertParseError(String projectFileContents, String expectedError) throws Exception {
+    scratch.file("test/PROJECT.scl", projectFileContents);
+    scratch.file("test/BUILD");
+
+    ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
+    EvaluationResult<ProjectValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter);
+
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException()).hasMessageThat().matches(expectedError);
+  }
+
+  @Test
+  public void projectNameTypeError_notCurrentlyParsedSoNotYetAnError() throws Exception {
+    // TODO: b/415068036 - update when/if we start reading project(name = "foo") to catch type
+    // errors.
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = 123,
+          buildable_units = [],
+        )
+        """);
+
+    scratch.file("test/BUILD");
+    ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
+    EvaluationResult<ProjectValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter);
+
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
+  public void buildableUnitFieldTypeError() throws Exception {
+    assertParseError(
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = "test",
+          buildable_units = "bad value",
+        )
+        """,
+        "buildable_units must be a list of buildable unit definitions, got .*String");
+  }
+
+  @Test
+  public void builableUnitEntryTypeError() throws Exception {
+    assertParseError(
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = "test",
+          buildable_units = [
+              "bad value",
+          ],
+        )
+        """,
+        "buildable_units entries must be structured objects, got .*String");
+  }
+
+  @Test
+  public void buildableUnitNameTypeError() throws Exception {
+    assertParseError(
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = "test",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = 2,
+                  target_patterns = [
+                      "//test/...",
+                  ],
+                  description = "default",
+                  flags = ["--define=foo=bar"],
+                  is_default = True,
+              ),
+          ],
+        )
+        """,
+        "buildable_unit names must be strings, got .*Int32");
+  }
+
+  @Test
+  public void buildableUnitTargetPatternsFieldTypeError() throws Exception {
+    assertParseError(
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = "test",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "default",
+                  target_patterns = 1,
+                  description = "default",
+                  flags = ["--define=foo=bar"],
+                  is_default = True,
+              ),
+          ],
+        )
+        """,
+        "target_patterns must be a list of strings, got .*Int32");
+  }
+
+  @Test
+  public void buildableUnitTargetPatternsEntryTypeError() throws Exception {
+    assertParseError(
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = "test",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "default",
+                  target_patterns = [2, 3],
+                  description = "default",
+                  flags = ["--define=foo=bar"],
+                  is_default = True,
+              ),
+          ],
+        )
+        """,
+        "target_patterns entries must be strings, got .*Int32");
+  }
+
+  @Test
+  public void buildableUnitDescriptionTypeError() throws Exception {
+    assertParseError(
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = "test",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "default",
+                  target_patterns = [
+                      "//test/...",
+                  ],
+                  description = 123,
+                  flags = ["--define=foo=bar"],
+                  is_default = True,
+              ),
+          ],
+        )
+        """,
+        "buildable_unit descriptions must be strings, got .*Int32");
+  }
+
+  @Test
+  public void buildableUnitFlagsFieldTypeError() throws Exception {
+    assertParseError(
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = "test",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "default",
+                  target_patterns = [
+                      "//test/...",
+                  ],
+                  description = "default",
+                  flags = "bad value",
+                  is_default = True,
+              ),
+          ],
+        )
+        """,
+        "flags must be a list of strings, got .*String");
+  }
+
+  @Test
+  public void buildableUnitFlagsEntryTypeError() throws Exception {
+    assertParseError(
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = "test",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "default",
+                  target_patterns = [
+                      "//test/...",
+                  ],
+                  description = "default",
+                  flags = [123],
+                  is_default = True,
+              ),
+          ],
+        )
+        """,
+        "flags entries must be strings, got .*Int32");
+  }
+
+  @Test
+  public void buildableUnitIsDefaultTypeError() throws Exception {
+    assertParseError(
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = "test",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "default",
+                  target_patterns = [
+                      "//test/...",
+                  ],
+                  description = "default",
+                  flags = ["--define=foo=bar"],
+                  is_default = "not valid",
+              ),
+          ],
+        )
+        """,
+        "is_default must be a boolean, got .*String");
   }
 
   @Test

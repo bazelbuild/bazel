@@ -34,9 +34,13 @@ class TestWrapperTest(test_base.TestBase):
 
   def _CreateMockWorkspace(self):
     self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "rules_python", version = "0.40.0")']
+    )
+    self.ScratchFile(
         'foo/BUILD',
         [
             'load(":native_test.bzl", "bat_test", "exe_test")',
+            'load("@rules_python//python:py_test.bzl", "py_test")',
             'bat_test(',
             '    name = "passing_test",',
             '    content = ["@exit /B 0"],',
@@ -676,17 +680,30 @@ class TestWrapperTest(test_base.TestBase):
   # See https://github.com/bazelbuild/bazel/issues/8088
   def testRunningTestFromExternalRepo(self):
     rule_definition = [
+        'bazel_dep(name = "rules_python", version = "0.40.0")',
+        'local_repository = use_repo_rule(',
         (
-            'local_repository ='
-            ' use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl",'
+            '   "@bazel_tools//tools/build_defs/repo:local.bzl",'
             ' "local_repository")'
         ),
         'local_repository(name = "a", path = "a")',
     ]
     self.ScratchFile('MODULE.bazel', rule_definition)
-    self.ScratchFile('BUILD', ['py_test(name = "x", srcs = ["x.py"])'])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_python//python:py_test.bzl", "py_test")',
+            'py_test(name = "x", srcs = ["x.py"])',
+        ],
+    )
     self.ScratchFile('a/REPO.bazel')
-    self.ScratchFile('a/BUILD', ['py_test(name = "x", srcs = ["x.py"])'])
+    self.ScratchFile(
+        'a/BUILD',
+        [
+            'load("@rules_python//python:py_test.bzl", "py_test")',
+            'py_test(name = "x", srcs = ["x.py"])',
+        ],
+    )
     self.ScratchFile('x.py')
     self.ScratchFile('a/x.py')
 

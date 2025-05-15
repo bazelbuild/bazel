@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.collect.SimpleTargetPatternMatcher;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -90,12 +92,13 @@ public final class ProjectValue implements SkyValue {
         ImmutableList<String> targetPatterns,
         String description,
         ImmutableList<String> flags,
-        boolean isDefault) {
+        boolean isDefault)
+        throws LabelSyntaxException {
       return new AutoValue_ProjectValue_BuildableUnit(
-          targetPatterns, description, flags, isDefault);
+          SimpleTargetPatternMatcher.create(targetPatterns), description, flags, isDefault);
     }
 
-    public abstract ImmutableList<String> targetPatterns();
+    public abstract SimpleTargetPatternMatcher targetPatternMatcher();
 
     public abstract String description();
 

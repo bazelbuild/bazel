@@ -29,12 +29,12 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 
 /**
  * An {@link InputMetadataProvider} implementation that requests the metadata of derived artifacts
@@ -49,31 +49,96 @@ import javax.annotation.concurrent.GuardedBy;
  * <p>In theory, this would also work for source artifacts. However, the performance ramifications
  * of doing that are unknown.
  */
-public class SkyframeInputMetadataProvider implements InputMetadataProvider {
+final class SkyframeInputMetadataProvider implements InputMetadataProvider {
+  // Not static since it uses "env" and "envMonitor". This works out because "env" is always
+  // updated to the Environment instance from the last restart and SkyframeLookup closes over
+  // SkyframeInputMetadataProvider and not "env".
+  private class SkyframeLookup {
+    private final SkyKey key;
+    private volatile SkyValue value;
+
+    public SkyframeLookup(SkyKey key) {
+      this.key = key;
+      this.value = null;
+    }
+
+    private SkyValue tryLookup() throws InterruptedException, MissingDepExecException {
+      if (value != null) {
+        return value;
+      }
+
+      // We reuse envMonitor to guard SkyframeLookup.value. It's the simplest: we need a lock for
+      // "env" that ensures that only one thread calls methods on it and thus a simple
+      // synchronized" block won't work so if we wanted to guard "value" separately, we'd have to
+      // have two nested "synchronized" blocks which sounds like more trouble than it's worth.
+      synchronized (envMonitor) {
+        // We use .getExistingValue() to spare a Skyframe edge. This is correct because these are
+        // always transitive dependencies (it's not a property that's inherently true, though, it's
+        // just how actions that discover inputs happen to be implemented)
+        SkyValue localValue = evaluator.getExistingValue(key);
+        if (localValue == null) {
+          // This can only happen if a transitive dependency was rewound but the re-evaluation
+          // resulted in an error or the rewinding is in progress.
+          //
+          // env is set to null once any missing values are detected. This is a work-around for a
+          // semi-bug in include scanning where the include scanner might continue processing after
+          // the action has already ended. This is problematic because lookups against an
+          // environment crash once the associated action is done. Instead, any subsequent lookups
+          // throw MissingDepExecException without adding a dependency edge. At worst, this can only
+          // result in a superfluous restart.
+          if (env == null) {
+            throw new MissingDepExecException();
+          }
+          localValue = env.getValue(key);
+          if (localValue == null) {
+            env = null;
+            throw new MissingDepExecException();
+          }
+          // This can happen if the evaluation of "value" finished between the getExistingValue()
+          // call and the getValue() one. In this case, "value" is good. We move on.
+        }
+
+        value = localValue;
+        return localValue;
+      }
+    }
+  }
+
   private final MemoizingEvaluator evaluator;
 
-  @GuardedBy("envMonitor")
-  @Nullable
-  private SkyFunction.Environment env;
+  // Non-null while skyframe lookups are being allowed during input discovery.
+  @Nullable private SkyFunction.Environment env;
 
   private final Object envMonitor;
   private final InputMetadataProvider perBuild;
   private final PathFragment relativeOutputPath;
 
   private final ConcurrentHashMap<String, ActionInput> seen;
+
+  /**
+   * A cache so that we don't need to look up any SkyValue twice.
+   *
+   * <p>This is necessary because action rewinding means that even though a {@code getValue()} call
+   * returned the appropriate value alright, subsequent calls with the same {@code SkyKey} may not
+   * do so. So theoretically, every call to {@link #getInputMetadata(ActionInput)} should be
+   * prepared to handle a {@code MissingDepExecException}.
+   *
+   * <p>Sadly, that's not the case and the invariant we have is that the <b>first</b> call over the
+   * course of the evaluation of an action with any given {@code ActionInput} handles that case, the
+   * subsequent ones not necessarily. This cache is there to make sure that that's alright.
+   */
+  private final ConcurrentHashMap<SkyKey, SkyframeLookup> skyframeLookups;
+
   private boolean allowSkyframe;
 
-  public SkyframeInputMetadataProvider(
-      MemoizingEvaluator evaluator,
-      SkyFunction.Environment env,
-      InputMetadataProvider perBuild,
-      String relativeOutputPath) {
+  SkyframeInputMetadataProvider(
+      MemoizingEvaluator evaluator, InputMetadataProvider perBuild, String relativeOutputPath) {
     this.evaluator = evaluator;
-    this.env = env;
     this.envMonitor = new Object();
     this.perBuild = perBuild;
     this.relativeOutputPath = PathFragment.create(relativeOutputPath);
     this.seen = new ConcurrentHashMap<>();
+    this.skyframeLookups = new ConcurrentHashMap<>();
     this.allowSkyframe = false;
   }
 
@@ -82,9 +147,17 @@ public class SkyframeInputMetadataProvider implements InputMetadataProvider {
    *
    * <p>This should only happen during input discovery, so we disallow it everywhere else.
    */
-  public SilentCloseable withSkyframeAllowed() {
+  // TODO: b/416449869 - Add test coverage for a new env being set after a skyframe restart.
+  SilentCloseable withSkyframeAllowed(SkyFunction.Environment env) {
+    // No need to synchronize with envMonitor here. This is called before input discovery begins,
+    // and the closeable is called after input discovery ends, so there are no concurrent calls to
+    // getInputMetadataChecked.
     allowSkyframe = true;
-    return () -> allowSkyframe = false;
+    this.env = env;
+    return () -> {
+      allowSkyframe = false;
+      this.env = null;
+    };
   }
 
   @Nullable
@@ -111,34 +184,9 @@ public class SkyframeInputMetadataProvider implements InputMetadataProvider {
       return null;
     }
 
-    // We use .getExistingValue() to spare a Skyframe edge. This is correct because these are always
-    // transitive dependencies (it's not a property that's inherently true, though, it's just how
-    // actions that discover inputs happen to be implemented)
-    SkyValue value = evaluator.getExistingValue(Artifact.key(artifact));
-    if (value == null) {
-      synchronized (envMonitor) {
-        // This can only happen if a transitive dependency was rewound but the re-evaluation
-        // resulted in an error or the rewinding is in progress.
-        //
-        // env is set to null once any missing values are detected. This is a work-around for a
-        // semi-bug in include scanning where the include scanner might continue processing after
-        // the action has already ended. This is problematic because lookups against an environment
-        // crash once the associated action is done. Instead, any subsequent lookups throw
-        // MissingDepExecException without adding a dependency edge. At worst, this can only result
-        // in a superfluous restart.
-        if (env == null) {
-          throw new MissingDepExecException();
-        }
-        value = env.getValue(Artifact.key(artifact));
-        if (value == null) {
-          env = null;
-          throw new MissingDepExecException();
-        }
-        // This can happen if the evaluation of "value" finished between the getExistingValue()
-        // call and the getValue() one. In this case, "value" is good. We move on.
-      }
-    }
-
+    SkyKey key = Artifact.key(artifact);
+    SkyframeLookup lookup = skyframeLookups.computeIfAbsent(key, SkyframeLookup::new);
+    SkyValue value = lookup.tryLookup();
     seen.put(artifact.getExecPathString(), artifact);
     ActionExecutionValue actionExecutionValue = (ActionExecutionValue) value;
     return actionExecutionValue.getExistingFileArtifactValue(artifact);

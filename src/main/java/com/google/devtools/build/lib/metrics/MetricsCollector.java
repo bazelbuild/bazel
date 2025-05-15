@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics.GarbageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.NetworkMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.RemoteAnalysisCacheStatistics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
@@ -330,6 +331,12 @@ class MetricsCollector {
 
     addSkyframeStats(buildGraphMetrics);
 
+    RemoteAnalysisCacheStatistics remoteAnalysisCacheStatistics =
+        RemoteAnalysisCacheStatistics.newBuilder()
+            .setCacheHits(env.getRemoteAnalysisCachingEventListener().getCacheHits().size())
+            .setCacheMisses(env.getRemoteAnalysisCachingEventListener().getCacheMisses().size())
+            .build();
+
     BuildMetrics.Builder buildMetrics =
         BuildMetrics.newBuilder()
             .setActionSummary(finishActionSummary())
@@ -342,7 +349,8 @@ class MetricsCollector {
             .setBuildGraphMetrics(buildGraphMetrics.build())
             .addAllWorkerMetrics(workerMetrics)
             .setWorkerPoolMetrics(createWorkerPoolMetrics(workerProcessMetrics))
-            .setDynamicExecutionMetrics(dynamicExecutionStats.toMetrics());
+            .setDynamicExecutionMetrics(dynamicExecutionStats.toMetrics())
+            .setRemoteAnalysisCacheStatistics(remoteAnalysisCacheStatistics);
 
     NetworkMetrics networkMetrics = NetworkMetricsCollector.instance().collectMetrics();
     if (networkMetrics != null) {

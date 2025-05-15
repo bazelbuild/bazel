@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_java//java:defs.bzl", _java_import = "java_import")
 
 def distrib_java_import(name, visibility = None, enable_distributions = [], **kwargs):
@@ -42,8 +44,7 @@ def distrib_java_import(name, visibility = None, enable_distributions = [], **kw
 def distrib_cc_library(name, visibility = None, enable_distributions = [], **kwargs):
     """A macro for cc_library rule to support distributions build (eg. Debian)"""
     checked_in_name = name + "_checked_in"
-
-    native.cc_library(name = checked_in_name, visibility = visibility, **kwargs)
+    cc_library(name = checked_in_name, visibility = visibility, **kwargs)
 
     conditions = {
         "//conditions:default": ":" + checked_in_name,
@@ -57,8 +58,7 @@ def distrib_cc_library(name, visibility = None, enable_distributions = [], **kwa
 def distrib_cc_binary(name, visibility = None, enable_distributions = [], **kwargs):
     """A macro for cc_binary rule to support distributions build (eg. Debian)"""
     checked_in_name = name + "_checked_in"
-
-    native.cc_binary(name = checked_in_name, visibility = visibility, **kwargs)
+    cc_binary(name = checked_in_name, visibility = visibility, **kwargs)
 
     conditions = {
         "//conditions:default": ":" + checked_in_name,

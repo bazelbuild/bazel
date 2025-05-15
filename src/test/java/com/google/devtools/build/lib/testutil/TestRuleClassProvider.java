@@ -119,15 +119,15 @@ public class TestRuleClassProvider {
     ConfigRules.INSTANCE.init(builder);
   }
 
-  private static class MinimalPrerequisiteValidator extends CommonPrerequisiteValidator {
+  public static class MinimalPrerequisiteValidator extends CommonPrerequisiteValidator {
     @Override
-    public boolean isSameLogicalPackage(
+    protected boolean isSameLogicalPackage(
         PackageIdentifier thisPackage, PackageIdentifier prerequisitePackage) {
       return thisPackage.equals(prerequisitePackage);
     }
 
     @Override
-    protected boolean packageUnderExperimental(PackageIdentifier packageIdentifier) {
+    public boolean packageUnderExperimental(PackageIdentifier packageIdentifier) {
       return false;
     }
 

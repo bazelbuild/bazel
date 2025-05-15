@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -95,9 +95,11 @@ function test_windows_argument_escaping() {
     return # Run test only on Windows.
   fi
 
+  add_rules_shell "MODULE.bazel"
   local -r pkg="pkg${LINENO}"
   mkdir $pkg
   cat >$pkg/BUILD <<eof
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
   name = "a",
   srcs = [":a.sh"],

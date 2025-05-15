@@ -15,6 +15,8 @@
 """Mock toolchains for starlark tests for cc_static_library"""
 
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
 load("@rules_testing//lib:util.bzl", "util")
 load(
     "//tools/cpp:cc_toolchain_config_lib.bzl",
@@ -137,8 +139,7 @@ def mock_cc_toolchain(name, provide_validate_static_library = True):
         name = all_files,
         srcs = [archiver],
     )
-
-    native.cc_toolchain(
+    cc_toolchain(
         name = name + "_cc_toolchain",
         toolchain_config = name + "_config",
         all_files = all_files,

@@ -23,9 +23,8 @@ load(
     _use_pic_for_dynamic_libs = "use_pic_for_dynamic_libs",
 )
 load(":common/cc/link/cpp_link_action.bzl", "link_action")
-load(":common/cc/link/libraries_to_link_collector.bzl", "LINKING_MODE")
 load(":common/cc/link/lto_indexing_action.bzl", "create_lto_artifacts_and_lto_indexing_action")
-load(":common/cc/link/target_types.bzl", "LINK_TARGET_TYPE", "USE_ARCHIVER", "is_dynamic_library")
+load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE", "USE_ARCHIVER", "is_dynamic_library")
 load(":common/paths.bzl", "paths")
 
 cc_internal = _builtins.internal.cc_internal

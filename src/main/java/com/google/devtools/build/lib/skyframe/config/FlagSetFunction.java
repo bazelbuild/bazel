@@ -18,6 +18,7 @@ import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -39,9 +40,10 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.GlobalRcUtils;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -86,7 +88,7 @@ public final class FlagSetFunction implements SkyFunction {
     // return them in the Skyvalue for the caller to emit.
     ImmutableSet.Builder<Event> persistentMessages = ImmutableSet.builder();
     ImmutableSet<String> sclConfigAsStarlarkList =
-        getSclConfig(key, projectValue, persistentMessages);
+        getSclConfig(key, projectValue, persistentMessages, key.getTargets());
     return FlagSetValue.create(sclConfigAsStarlarkList, persistentMessages.build());
   }
 
@@ -95,7 +97,10 @@ public final class FlagSetFunction implements SkyFunction {
    * --scl_config}. Flags are a list of strings (not parsed through the options parser).
    */
   private static ImmutableSet<String> getSclConfig(
-      FlagSetValue.Key key, ProjectValue sclContent, ImmutableSet.Builder<Event> persistentMessages)
+      FlagSetValue.Key key,
+      ProjectValue sclContent,
+      ImmutableSet.Builder<Event> persistentMessages,
+      Set<Label> targets)
       throws FlagSetFunctionException {
     Label projectFile = key.getProjectFile();
     String sclConfigName = key.getSclConfig();
@@ -111,12 +116,24 @@ public final class FlagSetFunction implements SkyFunction {
     ImmutableList<String> sclConfigValue = null;
     if (sclConfigName.isEmpty()) {
       // If there's no --scl_config, try to use the default_config.
-      // TODO: b/b/409382048 - apply correct default config semantics.
-      var firstDefault =
-          sclContent.getBuildableUnits().entrySet().stream()
-              .filter(entry -> entry.getValue().isDefault())
-              .findFirst();
-      if (firstDefault.isEmpty()) {
+      ImmutableMap<String, ProjectValue.BuildableUnit> buildableUnits =
+          sclContent.getBuildableUnits();
+
+      ImmutableList<ProjectValue.BuildableUnit> defaultBuildableUnits =
+          filterProjects(targets, buildableUnits);
+
+      // check that all targets resolves to the same set of flags.
+      // orders of flags should not matter here.
+      ImmutableList<ProjectValue.BuildableUnit> resolvedDefaultBuildableUnit =
+          resolveSingleMatchingDefaultBuildableUnitForAllTargets(defaultBuildableUnits);
+      if (resolvedDefaultBuildableUnit.size() > 1) {
+        throw new FlagSetFunctionException(
+            new UnsupportedConfigException(
+                "Building target(s) with different configurations are not supported."),
+            Transience.PERSISTENT);
+      }
+
+      if (resolvedDefaultBuildableUnit.isEmpty()) {
         throw new FlagSetFunctionException(
             new UnsupportedConfigException(
                 String.format(
@@ -126,8 +143,8 @@ public final class FlagSetFunction implements SkyFunction {
                     supportedConfigsDesc(projectFile, configs))),
             Transience.PERSISTENT);
       }
-      sclConfigValue = firstDefault.get().getValue().flags();
-      sclConfigNameForMessage = firstDefault.get().getKey();
+      sclConfigValue = resolvedDefaultBuildableUnit.get(0).flags();
+      sclConfigNameForMessage = resolvedDefaultBuildableUnit.get(0).description();
     } else {
       if (!configs.containsKey(sclConfigName)) {
         // The user set --scl_config to an unknown config.
@@ -174,23 +191,78 @@ public final class FlagSetFunction implements SkyFunction {
   }
 
   /**
-   * Returns all {@link BuildableUnit buildable units} that contain {@code specificTarget} in the
-   * {@code targetPatterns} field.
+   * Returns all default {@link BuildableUnit buildable units} that contain the specific target
+   * in the {@code targetPatterns} field. If there are multiple matching default buildable units, an
+   * exception will be thrown.
    */
-  // TODO: b/409378610 - Actually implement this: currently it returns **all** BuildableUnits.
-  @SuppressWarnings("unused")
-  private static ImmutableList<BuildableUnit> filterProjects(
-      ImmutableList<BuildableUnit> buildableUnits, Label targetToBuild) {
-    return buildableUnits;
+  private static ImmutableList<ProjectValue.BuildableUnit> filterProjects(
+      Set<Label> targets, ImmutableMap<String, ProjectValue.BuildableUnit> buildableUnits)
+      throws FlagSetFunctionException {
+    Map<Label, ProjectValue.BuildableUnit> targetsAndMatchingDefaultBuildableUnits =
+        new HashMap<>();
+    for (Label target : targets) {
+      for (ProjectValue.BuildableUnit buildableUnit : buildableUnits.values()) {
+        if (doesBuildableUnitMatchTarget(buildableUnit, target)) {
+          if (buildableUnit.isDefault()) {
+            if (targetsAndMatchingDefaultBuildableUnits.put(target, buildableUnit) != null) {
+              throw new FlagSetFunctionException(
+                  new UnsupportedConfigException(
+                      String.format(
+                          "Multiple matching default configs found for target %s. Please check your"
+                              + " project file and ensure that for target %s, there should be only"
+                              + " 1 matching default config.",
+                          target, target)),
+                  Transience.PERSISTENT);
+            }
+          }
+        }
+      }
+    }
+
+    return ImmutableList.copyOf(targetsAndMatchingDefaultBuildableUnits.values());
   }
 
   /**
-   * Returns {@code true} iff the {@code specificTarget} matches any of the given patterns. Patterns
-   * are processed in order: if a later negative pattern removes the target it will not be matched.
+   * Takes a list of default buildable units and compare the flags values of all buildable units. If
+   * the flags from buildable units are different, it returns multiple buildable units. If the flags
+   * from all buildable units are the same, it returns the first matching buildable unit. The
+   * consumer of this method should check that there are no more than 1 buildable unit returned.
+   */
+  private static ImmutableList<ProjectValue.BuildableUnit>
+      resolveSingleMatchingDefaultBuildableUnitForAllTargets(
+          ImmutableList<ProjectValue.BuildableUnit> defaultBuildableUnitsForAllTargets) {
+    if (defaultBuildableUnitsForAllTargets.isEmpty()) {
+      return ImmutableList.of();
+    }
+
+    ImmutableList.Builder<ProjectValue.BuildableUnit> resolvedBuildableUnits =
+        ImmutableList.builder();
+
+    ImmutableList<String> firstBuildableUnitFlags =
+        defaultBuildableUnitsForAllTargets.get(0).flags();
+
+    for (int i = 1; i < defaultBuildableUnitsForAllTargets.size(); i++) {
+      if (!firstBuildableUnitFlags.equals(defaultBuildableUnitsForAllTargets.get(i).flags())) {
+        resolvedBuildableUnits.add(defaultBuildableUnitsForAllTargets.get(i));
+      }
+    }
+
+    if (resolvedBuildableUnits.build().isEmpty()) {
+      resolvedBuildableUnits.add(defaultBuildableUnitsForAllTargets.get(0));
+    }
+    return resolvedBuildableUnits.build();
+  }
+
+  /**
+   * Returns {@code true} iff the {@code specificTarget} matches the target patterns in the {@link
+   * BuildableUnit}.
    */
   @VisibleForTesting
-  static boolean isTargetInPattern(List<String> targetPatterns, Label specificTarget) {
-    return false;
+  static boolean doesBuildableUnitMatchTarget(BuildableUnit buildableUnit, Label specificTarget) {
+    if (buildableUnit.targetPatternMatcher().isEmpty()) {
+      return true;
+    }
+    return buildableUnit.targetPatternMatcher().contains(specificTarget);
   }
 
   private static ImmutableList<String> getBuildOptionsAsStrings(BuildOptions targetOptions) {
@@ -405,17 +477,23 @@ public final class FlagSetFunction implements SkyFunction {
   private static String supportedConfigsDesc(
       Label projectFile, Map<String, ProjectValue.BuildableUnit> configs) {
     String ans = "\nThis project supports:\n";
+    int longestNameLength =
+        configs.keySet().stream().map(String::length).max(Integer::compareTo).get();
     for (var configInfo : configs.entrySet()) {
-      ans += String.format("  --scl_config=%s: [", configInfo.getKey());
-      for (String flag : configInfo.getValue().flags()) {
-        ans += String.format("\"%s\"", flag);
-      }
-      ans += "]\n";
+      ans +=
+          String.format(
+              "  --scl_config=%s -> ", Strings.padEnd(configInfo.getKey(), longestNameLength, ' '));
+      String desc = configInfo.getValue().description();
+      // Add user-friendly description if specified, else list of applied flags.
+      ans +=
+          desc.isEmpty() || desc.equals(configInfo.getKey())
+              ? String.format("[%s]", String.join(" ", configInfo.getValue().flags()))
+              : desc;
+      ans += "\n";
     }
     ans += String.format("\nThis policy is defined in %s.\n", projectFile.toPathFragment());
     return ans;
   }
-
 
   private static final class FlagSetFunctionException extends SkyFunctionException {
     FlagSetFunctionException(Exception cause, Transience transience) {
@@ -428,5 +506,4 @@ public final class FlagSetFunction implements SkyFunction {
       super(msg);
     }
   }
-
 }

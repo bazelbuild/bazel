@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2024 The Bazel Authors. All rights reserved.
 #
@@ -126,7 +126,7 @@ EOF
 
   touch other/other.sh
   cat > other/other.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo hi
 EOF
 
@@ -159,7 +159,7 @@ EOF
 
   touch other/other.sh
   cat > other/other.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo hi
 EOF
 
