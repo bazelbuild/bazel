@@ -15,7 +15,11 @@
 """Compilation helper for C++ rules."""
 
 load(":common/cc/cc_common.bzl", "cc_common")
-load(":common/cc/cc_helper.bzl", "cc_helper")
+load(
+    ":common/cc/cc_helper_internal.bzl",
+    "package_source_root",
+    "repository_exec_path",
+)
 load(":common/cc/semantics.bzl", "USE_EXEC_ROOT_FOR_VIRTUAL_INCLUDES_SYMLINKS")
 load(":common/paths.bzl", "paths")
 
@@ -107,7 +111,7 @@ def _compute_public_headers(
 
     module_map_headers = []
     virtual_to_original_headers_list = []
-    virtual_include_dir = paths.join(paths.join(cc_helper.package_source_root(label.workspace_name, label.package, is_sibling_repository_layout), _VIRTUAL_INCLUDES_DIR), label.name)
+    virtual_include_dir = paths.join(paths.join(package_source_root(label.workspace_name, label.package, is_sibling_repository_layout), _VIRTUAL_INCLUDES_DIR), label.name)
     for original_header in public_headers_artifacts:
         repo_relative_path = _repo_relative_path(original_header)
         if not repo_relative_path.startswith(strip_prefix):
@@ -144,7 +148,7 @@ def _generates_header_module(feature_configuration, public_headers, private_head
            generate_action
 
 def _header_module_artifact(actions, label, is_sibling_repository_layout, suffix, extension):
-    object_dir = paths.join(paths.join(cc_helper.package_source_root(label.workspace_name, label.package, is_sibling_repository_layout), "_objs"), label.name)
+    object_dir = paths.join(paths.join(package_source_root(label.workspace_name, label.package, is_sibling_repository_layout), "_objs"), label.name)
     base_name = label.name.split("/")[-1]
     output_path = paths.join(object_dir, base_name + suffix + extension)
     return actions.declare_shareable_artifact(output_path)
@@ -219,7 +223,7 @@ def _init_cc_compilation_context(
     # we might pick up stale generated files.
     sibling_repo_layout = config.is_sibling_repository_layout()
     repo_name = label.workspace_name
-    repo_path = cc_helper.repository_exec_path(repo_name, sibling_repo_layout)
+    repo_path = repository_exec_path(repo_name, sibling_repo_layout)
     gen_include_dir = _include_dir(genfiles_dir, repo_path, sibling_repo_layout)
     bin_include_dir = _include_dir(binfiles_dir, repo_path, sibling_repo_layout)
     quote_include_dirs_for_context = [repo_path, gen_include_dir, bin_include_dir] + quote_include_dirs
