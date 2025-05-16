@@ -1290,7 +1290,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     PathFragment outputUserRoot = startupOptions.outputUserRoot;
     PathFragment installBase = startupOptions.installBase;
     PathFragment outputBase = startupOptions.outputBase;
-    PathFragment realExecRootBase = outputBase.getRelative(ServerDirectories.EXECROOT);
+    PathFragment execRootBase = outputBase.getRelative(ServerDirectories.EXECROOT);
 
     // Force JNI linking before the first real use of JNI to emit a helpful error message now that
     // we have the install base path handy.
@@ -1314,14 +1314,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     FileSystem nativeFs = null;
     Optional<Root> virtualSourceRoot = Optional.empty();
-    Optional<Path> virtualExecRootBase = Optional.empty();
     for (BlazeModule module : blazeModules) {
-      ModuleFileSystem moduleFs = module.getFileSystem(options, realExecRootBase);
+      ModuleFileSystem moduleFs = module.getFileSystem(options);
       if (moduleFs != null) {
         Preconditions.checkState(nativeFs == null, "more than one module returns a file system");
         nativeFs = moduleFs.fileSystem();
         virtualSourceRoot = moduleFs.virtualSourceRoot();
-        virtualExecRootBase = moduleFs.virtualExecRootBase();
       }
     }
 
@@ -1415,7 +1413,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     Path outputUserRootPath = fs.getPath(outputUserRoot);
     Path installBasePath = fs.getPath(installBase);
     Path outputBasePath = fs.getPath(outputBase);
-    Path execRootBasePath = virtualExecRootBase.orElseGet(() -> fs.getPath(realExecRootBase));
+    Path execRootBasePath = fs.getPath(execRootBase);
     Path workspaceDirectoryPath = null;
     if (!workspaceDirectory.equals(PathFragment.EMPTY_FRAGMENT)) {
       workspaceDirectoryPath = nativeFs.getPath(workspaceDirectory);
