@@ -1,4 +1,4 @@
-# Copyright 2024 The Bazel Authors. All rights reserved.
+# Copyright 2025 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,22 +13,18 @@
 # limitations under the License.
 """Goes over LegacyLinkerInputs and produces LibraryToLinkValue-s."""
 
-load(":common/cc/cc_helper_internal.bzl", "artifact_category", "is_shared_library")
+load(":common/cc/cc_helper_internal.bzl", "is_shared_library")
 load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE", "is_dynamic_library")
 load(":common/paths.bzl", "paths")
 
-cc_internal = _builtins.internal.cc_internal
-
-# TODO(b/338618120): This code is doing 2 distinct tasks and should be split accordingly: converting
-# LegacyLinkerInputs to LibraryToLinkValues and collecting rpaths for dynamic libraries.
-
-# TODO(b/338618120): Refine the signature of collect_libraries_to_link. Large objects are passed in
+# TODO(b/338618120): Refine the signature of collect_solib_dirs. Large objects are passed in
 # just to determine a single property, for example link_type and linking_mode are passed in, just to
 # determine need_toolchain_libraries_rpath. Refining the signature will increase readability.
-def collect_libraries_to_link(
-        libraries_to_link,
+def collect_solib_dirs(
+        libraries,
         cc_toolchain,
         feature_configuration,
+        prefer_static_libs,
         output,
         dynamic_library_solib_symlink_output,
         link_type,
@@ -48,9 +44,11 @@ def collect_libraries_to_link(
     to be wrapped with -Wl,-whole-archive and -Wl,-no-whole-archive.
 
     Args:
-      libraries_to_link: (list[LibraryToLink]) Libraries to link in.
+      libraries: (list[LibraryToLink]) Libraries to link in.
       cc_toolchain: cc_toolchain providing some extra information in the conversion.
       feature_configuration: Feature configuration to be queried.
+      prefer_static_libs: (bool) Prefer static libraries.
+          Used to select dynamic libraries from the whole set.
       output: (File) The linker's output.
       dynamic_library_solib_symlink_output: (None|File) Symlink to the dynamic library being created.
       link_type: (LINK_TARGET_TYPE) The type of ELF file to be created (.a, .so, .lo, executable).
@@ -78,34 +76,6 @@ def collect_libraries_to_link(
       Both depsets of directories are exposed to the link_build_variables.
 
     """
-    return cc_internal.collect_libraries_to_link(
-        libraries_to_link,
-        cc_toolchain,
-        feature_configuration,
-        output,
-        dynamic_library_solib_symlink_output,
-        link_type,
-        linking_mode,
-        is_native_deps,
-        solib_dir,
-        toolchain_libraries_solib_dir,
-        workspace_name,
-    )
-
-# A pure Starlark implementation of collect_libraries_to_link at the moment unused,
-# because it causes a regression
-def _collect_libraries_to_link(
-        linker_inputs,
-        cc_toolchain,
-        feature_configuration,
-        output,
-        dynamic_library_solib_symlink_output,
-        link_type,
-        linking_mode,
-        is_native_deps,
-        solib_dir,
-        toolchain_libraries_solib_dir,
-        workspace_name):
     need_toolchain_libraries_rpath = (
         toolchain_libraries_solib_dir and
         (is_dynamic_library(link_type) or
@@ -139,8 +109,9 @@ def _collect_libraries_to_link(
 
     # include_solib_dir: bool, include_toolchain_libraries_solib_dir: bool
     # TODO(b/338618120): instead of returning include_solib_dir, and the paths inside _add_linker_inputs
-    include_solib_dir, include_toolchain_libraries_solib_dir = _add_linker_inputs(
-        linker_inputs,
+    include_solib_dir, include_toolchain_libraries_solib_dir = _collect_solib_dirs_from_libraries(
+        libraries,
+        prefer_static_libs,
         cc_toolchain,
         feature_configuration,
         solib_dir,
@@ -179,13 +150,11 @@ def _collect_libraries_to_link(
         transitive = transitive_runtime_library_search_directories,
     )
 
-    return struct(
-        library_search_directories = depset(library_search_directories),
-        all_runtime_library_search_directories = all_runtime_library_search_directories,
-    )
+    return depset(library_search_directories), all_runtime_library_search_directories
 
-def _add_linker_inputs(
-        linker_inputs,
+def _collect_solib_dirs_from_libraries(
+        libraries,
+        prefer_static_libs,
         cc_toolchain,
         feature_configuration,
         solib_dir,
@@ -198,14 +167,13 @@ def _add_linker_inputs(
     Goes over all linker_inputs transforming them and collecting rpath_roots.
 
     Args:
-        linker_inputs: (list[LegacyLinkerInput]) Linker inputs
+        libraries: (list[LegacyLinkerInput]) Linker inputs
+        prefer_static_libs: (bool) Prefer static libraries.
         cc_toolchain: cc_toolchain providing some extra information in the conversion.
         feature_configuration: Feature configuration to be queried.
         solib_dir: (str) solib directory.
         toolchain_libraries_solib_dir: (str) Directory where toolchain stores language-runtime libraries (libstdc++, libc++ ...).
         rpath_roots: (list[str]) rpath roots (for example solib_dir)
-        libraries_to_link: (list[LibraryToLinkValue]) Output collecting libraries to link.
-        expanded_linker_inputs: (list[File]) Output collecting expanded linker inputs.
         library_search_directories: (list[str]) Output collecting library search directories.
         rpath_roots_for_explicit_so_deps: (dict[str, None]) Output collecting rpaths.
 
@@ -216,119 +184,85 @@ def _add_linker_inputs(
     include_solib_dir, include_toolchain_libraries_solib_dir = False, False
     linked_libraries_paths = {}  # :dict[str, str]
 
-    for input in linker_inputs:
-        if (input.artifact_category in
-            [artifact_category.DYNAMIC_LIBRARY, artifact_category.INTERFACE_LIBRARY]):
-            original_lib_dir = input.original_file.dirname
-            library_identifier = input.library_identifier
-            previous_lib_dir = linked_libraries_paths.get(library_identifier, None)
+    dont_copy_dynamic_libraries_to_binary = not feature_configuration.is_enabled("copy_dynamic_libraries_to_binary")
 
-            if not previous_lib_dir:
-                linked_libraries_paths[library_identifier] = original_lib_dir
-            elif previous_lib_dir != original_lib_dir:
-                fail(("You are trying to link the same dynamic library %s built in a different" +
-                      " configuration. Previously registered instance had path %s, current one" +
-                      " has path %s") %
-                     (library_identifier, previous_lib_dir, original_lib_dir))
+    # On Windows, dynamic library (dll) cannot be linked directly when using toolchains that
+    # support interface library (eg. MSVC). If the user is doing so, it is only to be referenced
+    # in other places (such as copy_dynamic_libraries_to_binary); skip adding it.
+    windows_shared_libraries = (feature_configuration.is_enabled("targets_windows") and
+                                feature_configuration.is_enabled("supports_interface_shared_libraries"))
+    solib_dir_split = reversed(solib_dir.split("/"))
 
-            lib_dir = input.file.dirname
+    for library in libraries:
+        static_lib = (prefer_static_libs and
+                      (library.static_library != None or library.pic_static_library != None) or
+                      (library.interface_library == None and library.dynamic_library == None))
+        if static_lib:
+            continue
+        if library.interface_library:
+            input_file = library.interface_library
+            original_file = library.resolved_symlink_interface_library or input_file
+        else:
+            input_file = library.dynamic_library
+            original_file = library.resolved_symlink_dynamic_library or input_file
 
-            # When COPY_DYNAMIC_LIBRARIES_TO_BINARY is enabled, dynamic libraries are not symlinked
-            # under solib_dir, so don't check it and don't include solib_dir.
-            if not feature_configuration.is_enabled("copy_dynamic_libraries_to_binary"):
-                # The first fragment is bazel-out, and the second may contain a configuration mnemonic.
-                # We should always add the default solib dir because that's where libraries will be found
-                # e.g., in remote execution, so we ignore the first two fragments.
-                if lib_dir.split("/")[2:] == solib_dir.split("/")[2:]:
-                    include_solib_dir = True
-                if lib_dir == toolchain_libraries_solib_dir:
-                    include_toolchain_libraries_solib_dir = True
+        original_lib_dir = original_file.dirname
+        library_identifier = library.library_identifier()
+        previous_lib_dir = linked_libraries_paths.setdefault(library_identifier, original_lib_dir)
 
-            _add_dynamic_input_link_options(
-                input,
-                feature_configuration,
-                solib_dir,
-                toolchain_libraries_solib_dir,
-                rpath_roots,
-                # Outputs:
-                library_search_directories,
-                rpath_roots_for_explicit_so_deps,
-            )
+        if previous_lib_dir != original_lib_dir:
+            fail(("You are trying to link the same dynamic library %s built in a different" +
+                  " configuration. Previously registered instance had path %s, current one" +
+                  " has path %s") %
+                 (library_identifier, previous_lib_dir, original_lib_dir))
+
+        lib_dir = input_file.dirname
+
+        # When COPY_DYNAMIC_LIBRARIES_TO_BINARY is enabled, dynamic libraries are not symlinked
+        # under solib_dir, so don't check it and don't include solib_dir.
+        if dont_copy_dynamic_libraries_to_binary:
+            # The first fragment is bazel-out, and the second may contain a configuration mnemonic.
+            # We should always add the default solib dir because that's where libraries will be found
+            # e.g., in remote execution, so we ignore the first two fragments.
+            if not include_solib_dir and lib_dir.split("/")[2:] == solib_dir.split("/")[2:]:
+                include_solib_dir = True
+            if lib_dir == toolchain_libraries_solib_dir:
+                include_toolchain_libraries_solib_dir = True
+
+        if windows_shared_libraries:
+            if is_shared_library(input_file):
+                continue
+
+        lib_dir = input_file.dirname
+        if lib_dir != solib_dir and (not toolchain_libraries_solib_dir or toolchain_libraries_solib_dir != lib_dir):
+            # TODO(b/338618120): the code should be optimized to first get unique library_search_directories and
+            # then compute relative paths, i.e. rpath_roots_for_explicit_so_deps
+            # TODO(b/331164666): this is a duplication of _get_relative function implemented below
+            dotdots = ""
+            common_parent = solib_dir
+            for seg in solib_dir_split:
+                if lib_dir.startswith(common_parent + "/"):
+                    break
+                dotdots += "../"
+                common_parent = common_parent[:-len(seg) - 1]
+
+            #  When all dynamic deps are built in transitioned configurations, the default solib dir is
+            #  not created. While resolving paths, the dynamic linker stops at the first directory that
+            #  does not exist, even when followed by "../". We thus have to normalize the relative path.
+            for rpath_root in rpath_roots:
+                normalized_path_to_root = paths.normalize(rpath_root + dotdots + paths.relativize(lib_dir, common_parent))
+                rpath_roots_for_explicit_so_deps[normalized_path_to_root] = None
+
+            # Unless running locally, libraries will be available under the root relative path, so we
+            # should add that to the rpath as well.
+            if input_file.short_path.startswith("_solib_"):
+                artifact_path_under_solib = input_file.short_path.split("/")[1]
+                for rpath_root in rpath_roots:
+                    rpath_roots_for_explicit_so_deps[rpath_root + artifact_path_under_solib] = None
+
+        library_search_directories.append(lib_dir)
 
     return include_solib_dir, include_toolchain_libraries_solib_dir
-
-def _add_dynamic_input_link_options(
-        input,
-        feature_configuration,
-        solib_dir,
-        toolchain_libraries_solib_dir,
-        rpath_roots,
-
-        # Outputs:
-        library_search_directories,
-        rpath_roots_for_explicit_so_deps):
-    """Processes dynamic and interface libraries.
-
-    The LegacyLinkerInput is always expanded (added to expanded_linker_inputs).
-
-    When library is not in solib_dir or toolchain_libraries_solib_dir, a relative path from
-    the solib_dir to the library is added to `rpath_roots_for_explicit_so_deps` (for each rpath_root).
-
-    Path to the library is added to `library_search_directories`.
-
-    Args:
-        input: (LegacyLinkerInput) Linker input
-        feature_configuration: Feature configuration to be queried.
-        solib_dir: (str) solib directory.
-        toolchain_libraries_solib_dir: (list[str])
-        rpath_roots: (list[str]) rpath roots (for example solib_dir)
-        library_search_directories: (list[str]) Output collecting library search directories.
-        rpath_roots_for_explicit_so_deps: (list[str, None]) Output collecting rpaths.
-
-    Returns:
-        None
-    """
-    artifact_cat = input.artifact_category
-    if artifact_cat not in [artifact_category.DYNAMIC_LIBRARY, artifact_category.INTERFACE_LIBRARY]:
-        fail("Bad artifact category " + artifact_cat)
-
-    if (feature_configuration.is_enabled("targets_windows") and
-        feature_configuration.is_enabled("supports_interface_shared_libraries")):
-        # On Windows, dynamic library (dll) cannot be linked directly when using toolchains that
-        # support interface library (eg. MSVC). If the user is doing so, it is only to be referenced
-        # in other places (such as copy_dynamic_libraries_to_binary); skip adding it.
-        if is_shared_library(input.file):
-            return
-
-    input_file = input.file
-    lib_dir = input_file.dirname
-    if lib_dir != solib_dir and (not toolchain_libraries_solib_dir or toolchain_libraries_solib_dir != lib_dir):
-        # TODO(b/338618120): the code should be optimized to first get unique library_search_directories and
-        # then compute relative paths, i.e. rpath_roots_for_explicit_so_deps
-        # TODO(b/331164666): this is a duplication of _get_relative function implemented below
-        dotdots = ""
-        common_parent = solib_dir
-        for seg in reversed(common_parent.split("/")):
-            if paths.starts_with(lib_dir, common_parent):
-                break
-            dotdots += "../"
-            common_parent = common_parent[:-len(seg) - 1]
-
-        #  When all dynamic deps are built in transitioned configurations, the default solib dir is
-        #  not created. While resolving paths, the dynamic linker stops at the first directory that
-        #  does not exist, even when followed by "../". We thus have to normalize the relative path.
-        for rpath_root in rpath_roots:
-            normalized_path_to_root = paths.normalize(rpath_root + dotdots + paths.relativize(lib_dir, common_parent))
-            rpath_roots_for_explicit_so_deps[normalized_path_to_root] = None
-
-        # Unless running locally, libraries will be available under the root relative path, so we
-        # should add that to the rpath as well.
-        if input_file.short_path.startswith("_solib_"):
-            artifact_path_under_solib = input_file.short_path.split("/")[1]
-            for rpath_root in rpath_roots:
-                rpath_roots_for_explicit_so_deps[rpath_root + artifact_path_under_solib] = None
-
-    library_search_directories.append(lib_dir)
 
 def _collect_toolchain_runtime_library_search_directories(
         cc_toolchain,
@@ -418,16 +352,17 @@ def _find_potential_solib_parents(output, dynamic_library_solib_symlink_output, 
         # Cases 1, 3, 4, 5, 7, and 8b are covered by an rpath that walks up the root relative path.
         # Cases 2 and 6 covered by walking into file.runfiles/main_repo.
         # Case 8a is covered by walking up some_repo/pkg and then into main_repo.
-        is_external = output.short_path.startswith("../")
-        uses_legacy_repository_layout = output.short_path.startswith("../external")
+        path = output.short_path
+        is_external = path.startswith("../")
+        uses_legacy_repository_layout = is_external and output.path.split("/")[3] == "external"
 
         # Handles cases 1, 3, 4, 5, and 7.
-        solib_parents.append("../" * (len(output.short_path.split("/")) - 1))
+        solib_parents.append("../" * (len(path.split("/")) - 1 - (2 if is_external and not uses_legacy_repository_layout else 0)))
 
         # Handle cases 2 and 6.
         if is_external and not uses_legacy_repository_layout:
             # Case 6b
-            solib_repository_name = output.short_path.split("/")[1]
+            solib_repository_name = path.split("/")[1]
         else:
             # Cases 2 and 6a
             solib_repository_name = workspace_name
@@ -437,7 +372,7 @@ def _find_potential_solib_parents(output, dynamic_library_solib_symlink_output, 
             # Handles case 8a. The runfiles path is of the form ../some_repo/pkg/file and we need to
             # walk up some_repo/pkg and then down into main_repo.
             solib_parents.append(
-                "../" * (len(output.root.path.split("/")) - 2) + workspace_name + "/",
+                "../" * (len(output.root.path.split("/")) - 1) + workspace_name + "/",
             )
 
     return solib_parents

@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.cpp.LibrariesToLinkCollector.getRelative;
-import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -24,7 +22,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,56 +29,6 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
-
-  @Test
-  public void getRalitive_returnsRelativePaths() {
-    assertThat(getRelative(PathFragment.create("foo"), PathFragment.create("foo/bar/baz")))
-        .isEqualTo(PathFragment.create("bar/baz"));
-    assertThat(getRelative(PathFragment.create("foo/bar"), PathFragment.create("foo/bar/baz")))
-        .isEqualTo(PathFragment.create("baz"));
-    assertThat(getRelative(PathFragment.create(""), PathFragment.create("foo")))
-        .isEqualTo(PathFragment.create("foo"));
-    assertThat(getRelative(PathFragment.create(""), PathFragment.create("foo/bar")))
-        .isEqualTo(PathFragment.create("foo/bar"));
-    assertThat(
-            getRelative(PathFragment.create("foo/bar"), PathFragment.create("foo/bar"))
-                .getPathString())
-        .isEmpty();
-
-    assertThat(getRelative(PathFragment.create("foo/bar/baz"), PathFragment.create("foo")))
-        .isEqualTo(PathFragment.create("../.."));
-    assertThat(getRelative(PathFragment.create("foo/bar/baz"), PathFragment.create("foo/bar")))
-        .isEqualTo(PathFragment.create(".."));
-    assertThat(getRelative(PathFragment.create("foo"), PathFragment.create("")))
-        .isEqualTo(PathFragment.create(".."));
-    assertThat(getRelative(PathFragment.create("foo/bar"), PathFragment.create("")))
-        .isEqualTo(PathFragment.create("../.."));
-    assertThat(getRelative(PathFragment.create("foo/baz"), PathFragment.create("foo/bar")))
-        .isEqualTo(PathFragment.create("../bar"));
-    assertThat(getRelative(PathFragment.create("bar"), PathFragment.create("foo")))
-        .isEqualTo(PathFragment.create("../foo"));
-
-    assertThat(getRelative(PathFragment.create("foo"), PathFragment.create("../foo")))
-        .isEqualTo(PathFragment.create("../../foo"));
-    assertThat(getRelative(PathFragment.create(".."), PathFragment.create("../../foo")))
-        .isEqualTo(PathFragment.create("../foo"));
-    assertThat(getRelative(PathFragment.create("../bar"), PathFragment.create("../../foo")))
-        .isEqualTo(PathFragment.create("../../foo"));
-  }
-
-  @Test
-  public void getRelative_throwsOnInvalidCases() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> getRelative(PathFragment.create("/bar"), PathFragment.create("/foo")));
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> getRelative(PathFragment.create(".."), PathFragment.create("")));
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> getRelative(PathFragment.create("../../bar"), PathFragment.create("../foo")));
-  }
-
   /* TODO: Add an integration test (maybe in cc_integration_test.sh) when a modular toolchain config
   is available.*/
   @Test

@@ -13,8 +13,8 @@
 # limitations under the License.
 """Common functions that create C++ link and LTO indexing action."""
 
+load(":common/cc/link/collect_solib_dirs.bzl", "collect_solib_dirs")
 load(":common/cc/link/create_libraries_to_link_values.bzl", "add_libraries_to_link", "add_object_files_to_link", "process_objects_for_lto")
-load(":common/cc/link/libraries_to_link_collector.bzl", "collect_libraries_to_link")
 load(":common/cc/link/link_build_variables.bzl", "setup_common_linking_variables")
 load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE", "USE_ARCHIVER", "USE_LINKER", "is_dynamic_library")
 load(":common/cc/semantics.bzl", "semantics")
@@ -163,10 +163,11 @@ def finalize_link_action(
         for li in expanded_linker_artifacts
     ])
 
-    collected_libraries_to_link = collect_libraries_to_link(
+    library_search_directories, all_runtime_library_search_directories = collect_solib_dirs(
         libraries_to_link,
         cc_toolchain,
         feature_configuration,
+        prefer_static_libs,
         output,
         dynamic_library_solib_symlink_output,
         link_type,
@@ -188,10 +189,9 @@ def finalize_link_action(
         must_keep_debug = must_keep_debug,
         use_test_only_flags = use_test_only_flags,
         user_link_flags = user_link_flags,
-        runtime_library_search_directories =
-            collected_libraries_to_link.all_runtime_library_search_directories,
+        runtime_library_search_directories = all_runtime_library_search_directories,
         libraries_to_link = libraries_to_link_values,
-        library_search_directories = collected_libraries_to_link.library_search_directories,
+        library_search_directories = library_search_directories,
     )
 
     build_variables = build_variables | additional_build_variables
