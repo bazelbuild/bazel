@@ -53,7 +53,6 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -94,12 +93,6 @@ public sealed class JavaInfo extends NativeInfo
       }
     }
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  }
-
-  public static Optional<JavaCompilationArgsProvider> getCompilationArgsProvider(
-      TransitiveInfoCollection target) throws RuleErrorException {
-    return Optional.ofNullable(getJavaInfo(target))
-        .map(javaInfo -> javaInfo.providerJavaCompilationArgs);
   }
 
   public static CcInfo ccInfo(TransitiveInfoCollection target) throws RuleErrorException {
@@ -565,9 +558,9 @@ public sealed class JavaInfo extends NativeInfo
     public JavaInfo wrap(Info info) throws RuleErrorException {
       if (info instanceof JavaInfo javaInfo) {
         return javaInfo;
-      } else if (info instanceof StructImpl) {
+      } else if (info instanceof StructImpl structImpl) {
         try {
-          return makeNewInstance((StructImpl) info);
+          return makeNewInstance(structImpl);
         } catch (EvalException | TypeException e) {
           throw new RuleErrorException(e);
         }
