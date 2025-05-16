@@ -1,5 +1,4 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
-load("@rules_java//java:java_plugin.bzl", "java_plugin")
 load(":java_opt_binary.bzl", "java_opt_binary")
 
 package(
@@ -51,20 +50,8 @@ java_opt_binary(
     srcs = ["BazelHashFunctionsBenchmark.java"],
     main_class = "org.openjdk.jmh.Main",
     deps = [
-        ":jmh",
         "//src/main/java/com/google/devtools/build/lib/vfs/bazel",
         "//third_party:guava",
+        "//third_party:jmh",
     ],
-)
-
-java_library(
-    name = "jmh",
-    exported_plugins = [":jmh_benchmark_processor"],
-    exports = ["@maven//:org_openjdk_jmh_jmh_core"],
-)
-
-java_plugin(
-    name = "jmh_benchmark_processor",
-    processor_class = "org.openjdk.jmh.generators.BenchmarkProcessor",
-    deps = ["@maven//:org_openjdk_jmh_jmh_generator_annprocess"],
 )

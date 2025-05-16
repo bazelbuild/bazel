@@ -314,11 +314,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       FileOutErr outErr = context.getFileOutErr();
       String actionType = spawn.getResourceOwner().getMnemonic();
       if (localExecutionOptions.allowedLocalAction != null
-          && !localExecutionOptions
-              .allowedLocalAction
-              .regexPattern()
-              .matcher(actionType)
-              .matches()) {
+          && !localExecutionOptions.allowedLocalAction.matcher().test(actionType)) {
         setState(State.PERMANENT_ERROR);
         outErr
             .getErrorStream()
