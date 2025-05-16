@@ -75,7 +75,7 @@ public class RepositoryOptions extends OptionsBase {
       help =
           """
           Specifies the amount of time an entry in the repo contents cache can stay unused before \
-          it's garbage collected.
+          it's garbage collected. If set to zero, garbage collection is disabled.
           """)
   public Duration repoContentsCacheGcMaxAge;
 
@@ -88,7 +88,7 @@ public class RepositoryOptions extends OptionsBase {
       help =
           """
           Specifies the amount of time the server must remain idle before garbage collection happens
-          to the repo contents cache.
+          to the repo contents cache. If set to zero, garbage collection is disabled.
           """)
   public Duration repoContentsCacheGcIdleDelay;
 

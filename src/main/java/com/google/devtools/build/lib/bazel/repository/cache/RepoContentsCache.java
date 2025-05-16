@@ -90,7 +90,7 @@ public final class RepoContentsCache {
     /** Updates the mtime of the recorded inputs file, to delay GC for this entry. */
     public void touch() {
       try {
-        recordedInputsFile.setLastModifiedTime(Instant.now().toEpochMilli());
+        recordedInputsFile.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
       } catch (IOException e) {
         // swallow the exception. it's not a huge deal.
       }
@@ -211,9 +211,25 @@ public final class RepoContentsCache {
 
   private void runGc(Duration maxAge) throws InterruptedException, IOException {
     Preconditions.checkState(path != null);
-    Instant cutoff = Instant.now().minus(maxAge);
+
+    path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+    Instant cutoff = Instant.ofEpochMilli(path.getLastModifiedTime()).minus(maxAge);
+    // Since deleting entire directories could take a bit of time, we create a "trash" directory
+    // where we move the garbage directories to (which should be very fast). Then we can delete
+    // this trash directory altogether at the end. This makes the GC process safe against being
+    // interrupted in the middle (any undeleted trash will get deleted by the next GC).
+    // Also be sure to name this trashDir something that couldn't ever be a predeclared inputs hash
+    // (starting with an underscore should suffice).
+    Path trashDir = path.getChild("_trash");
+    trashDir.createDirectoryAndParents();
+    // To make sure we don't get a name clash when moving things into the trash, we use the current
+    // time as an entry prefix and keep a counter. If the user is messing around with the system
+    // clock, then $DEITY help them.
+    String trashEntryPrefix = path.getLastModifiedTime() + ".";
+    int trashCounter = 1;
+
     for (Path entryDir : path.getDirectoryEntries()) {
-      if (!entryDir.isDirectory()) {
+      if (!entryDir.isDirectory() || entryDir.equals(trashDir)) {
         continue;
       }
       for (Path recordedInputsFile : entryDir.getDirectoryEntries()) {
@@ -225,12 +241,14 @@ public final class RepoContentsCache {
         }
 
         if (Instant.ofEpochMilli(recordedInputsFile.getLastModifiedTime()).isBefore(cutoff)) {
-          // Sorry buddy.
-          var candidateRepo = CandidateRepo.fromRecordedInputsFile(recordedInputsFile);
-          candidateRepo.contentsDir.deleteTree();
+          // Sorry buddy, you're out.
           recordedInputsFile.delete();
+          var repoDir = CandidateRepo.fromRecordedInputsFile(recordedInputsFile).contentsDir;
+          repoDir.renameTo(trashDir.getChild(trashEntryPrefix + (trashCounter++)));
         }
       }
     }
+
+    trashDir.deleteTree();
   }
 }
