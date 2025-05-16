@@ -3564,6 +3564,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           pathEntriesWithoutDiffInformation,
           options.getOptions(PackageOptions.class).checkOutputFiles,
           repoOptions != null && repoOptions.checkExternalRepositoryFiles,
+          options.getOptions(PackageOptions.class).checkNonOutputExternalFiles,
           fsvcThreads);
     }
     handleClientEnvironmentChanges();
@@ -3640,6 +3641,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Set<Pair<Root, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation,
       boolean checkOutputFiles,
       boolean checkExternalRepositoryFiles,
+      boolean checkNonoutputExternalFiles,
       int fsvcThreads)
       throws InterruptedException, AbruptExitException {
 
@@ -3648,7 +3650,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         || (checkOutputFiles && externalFilesKnowledge.anyOutputFilesSeen)
         || (checkExternalRepositoryFiles && repositoryHelpersHolder != null)
         || (checkExternalRepositoryFiles && externalFilesKnowledge.anyFilesInExternalReposSeen)
-        || externalFilesKnowledge.tooManyNonOutputExternalFilesSeen) {
+        || (checkNonoutputExternalFiles && externalFilesKnowledge.tooManyNonOutputExternalFilesSeen)) {
       // We freshly compute knowledge of the presence of external files in the skyframe graph. We
       // use a fresh ExternalFilesHelper instance and only set the real instance's knowledge *after*
       // we are done with the graph scan, lest an interrupt during the graph scan causes us to
@@ -3728,7 +3730,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // think the graph needs to be scanned.
       externalFilesHelper.setExternalFilesKnowledge(
           tmpExternalFilesHelper.getExternalFilesKnowledge());
-    } else if (!externalFilesKnowledge.nonOutputExternalFilesSeen.isEmpty()) {
+    } else if (checkNonoutputExternalFiles && !externalFilesKnowledge.nonOutputExternalFilesSeen.isEmpty()) {
       logger.atInfo().log(
           "About to scan %d external files",
           externalFilesKnowledge.nonOutputExternalFilesSeen.size());
