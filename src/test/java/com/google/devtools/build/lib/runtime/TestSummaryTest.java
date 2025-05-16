@@ -551,6 +551,7 @@ public class TestSummaryTest {
             .addChild(newDetail("apple", TestCase.Status.FAILED, 1000L))
             .addChild(newDetail("banana", TestCase.Status.PASSED, 1000L))
             .addChild(newDetail("cherry", TestCase.Status.ERROR, 1000L))
+            .addChild(newDetail("sugarcane", Status.SKIPPED, 0))
             .build();
 
     TestSummary summary =
@@ -562,6 +563,7 @@ public class TestSummaryTest {
     verify(printer).print(find("FAILED.*apple"));
     verify(printer).print(find("PASSED.*banana"));
     verify(printer).print(find("ERROR.*cherry"));
+    verify(printer).print(find("SKIPPED.*sugarcane"));
   }
 
   @Test
@@ -571,6 +573,7 @@ public class TestSummaryTest {
             .setName("tests")
             .setRunDurationMillis(5000L)
             .addChild(newDetail("apple", TestCase.Status.PASSED, 1000L))
+            .addChild(newDetail("banana", Status.SKIPPED, 0))
             .build();
 
     TestSummary summary =
@@ -580,6 +583,7 @@ public class TestSummaryTest {
     TestSummaryPrinter.print(summary, printer, Path::getPathString, true, true);
     verify(printer).print(contains("//package:name"));
     verify(printer).print(find("PASSED.*apple"));
+    verify(printer).print(find("SKIPPED.*banana"));
   }
 
   @Test
@@ -591,12 +595,13 @@ public class TestSummaryTest {
             .addChild(newDetail("apple", TestCase.Status.FAILED, 1000L))
             .addChild(newDetail("banana", TestCase.Status.PASSED, 1000L))
             .addChild(newDetail("cherry", TestCase.Status.ERROR, 1000L))
+            .addChild(newDetail("sugarcane", Status.SKIPPED, 0))
             .build();
 
     TestSummary summary =
         getTemplateBuilder().collectTestCases(rootCase).setStatus(BlazeTestStatus.FAILED).build();
 
-    assertThat(summary.getTotalTestCases()).isEqualTo(3);
+    assertThat(summary.getTotalTestCases()).isEqualTo(4);
   }
 
   @Test
