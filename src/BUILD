@@ -182,16 +182,22 @@ filegroup(
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
-# This program patches the app manifest of the java.exe launcher to force its
-# active code page to UTF-8 on Windows 1903 and later, which is required for
-# proper support of Unicode characters outside the system code page.
-# The JDK currently (as of JDK 23) doesn't support this natively:
-# https://mail.openjdk.org/pipermail/core-libs-dev/2024-November/133773.html
+# Reads the app manifest of a Windows executable.
 cc_binary(
-    name = "patch_java_manifest_for_utf8",
-    srcs = ["patch_java_manifest_for_utf8.cc"],
+    name = "read_manifest",
+    srcs = ["read_manifest.cc"],
     tags = ["manual"],
     target_compatible_with = ["@platforms//os:windows"],
+    visibility = ["//src/java_tools:__subpackages__"],
+)
+
+# Updates the app manifest of a Windows executable.
+cc_binary(
+    name = "write_manifest",
+    srcs = ["write_manifest.cc"],
+    tags = ["manual"],
+    target_compatible_with = ["@platforms//os:windows"],
+    visibility = ["//src/java_tools:__subpackages__"],
 )
 
 sh_binary(
@@ -199,7 +205,8 @@ sh_binary(
     srcs = ["minimize_jdk.sh"],
     data = select({
         "@platforms//os:windows": [
-            ":patch_java_manifest_for_utf8",
+            ":read_manifest",
+            ":write_manifest",
         ],
         "//conditions:default": [],
     }),
