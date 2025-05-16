@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2022 The Bazel Authors. All rights reserved.
 #
@@ -51,11 +51,11 @@ exports_files([
 ])
 EOF
   cat <<EOF > compatible_test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 exit 0
 EOF
   cat <<EOF > incompatible_test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 exit 1
 EOF
   chmod +x compatible_test.sh

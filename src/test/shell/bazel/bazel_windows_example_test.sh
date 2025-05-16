@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -353,6 +353,7 @@ function test_native_python_with_python3() {
 }
 
 function test_python_test_with_data() {
+  add_rules_python "MODULE.bazel"
   touch BUILD
 
   mkdir data
@@ -370,6 +371,7 @@ EOF
 
   mkdir src
   cat >src/BUILD <<EOF
+load("@rules_python//python:py_test.bzl", "py_test")
 py_test(
   name = "data_test",
   srcs = ["data_test.py"],

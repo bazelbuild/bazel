@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -343,14 +343,6 @@ function test_resource_flags_syntax() {
       --local_ram_resources="${ram}" \
       --local_test_jobs="${threads}" \
       || fail "Empty build failed"
-}
-
-function test_track_directory_crossing_package() {
-  mkdir -p foo/dir/subdir
-  touch foo/dir/subdir/BUILD
-  echo "filegroup(name = 'foo', srcs = ['dir'])" > foo/BUILD
-  bazel build //foo >& "$TEST_log" && fail "Expected fail"
-  expect_log "Directory artifact foo/dir crosses package boundary into"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/14723

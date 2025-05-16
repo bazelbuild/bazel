@@ -15,20 +15,16 @@
 package com.google.testing.junit.runner.internal.junit4;
 
 import com.google.testing.junit.runner.util.TestNameProvider;
-import javax.inject.Inject;
-import javax.inject.Singleton;
 import org.junit.runner.Description;
 import org.junit.runner.notification.RunListener;
 
 /**
  * A listener to get the name of a JUnit4 test.
  */
-@Singleton
 public class JUnit4TestNameListener extends RunListener {
   private final ThreadLocal<Description> runningTest = new ThreadLocal<>();
   private final SettableCurrentRunningTest currentRunningTest;
 
-  @Inject
   public JUnit4TestNameListener(SettableCurrentRunningTest currentRunningTest) {
     this.currentRunningTest = currentRunningTest;
   }

@@ -479,8 +479,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
     if (executable == null) {
       return runfiles;
     }
-    return new Runfiles.Builder(
-            ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
+    return new Runfiles.Builder(ruleContext.getWorkspaceName())
         .addArtifact(executable)
         .merge(runfiles)
         .build();

@@ -43,9 +43,11 @@ import sun.misc.Unsafe;
  * operations.
  *
  * <p>This class is thread-safe.
+ *
+ * <p>Non-final for mockability.
  */
 @SuppressWarnings("SunApi") // TODO: b/359688989 - clean this up
-public final class RequestBatcher<RequestT, ResponseT> {
+public class RequestBatcher<RequestT, ResponseT> {
   /* This class employs concurrent workers that perform the following cycle:
    *
    *   1. Collect all available request-response pairs from the queue up to `maxBatchSize`.

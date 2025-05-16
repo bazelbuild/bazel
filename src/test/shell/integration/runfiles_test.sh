@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -596,7 +596,7 @@ sh_test(
 EOF
   if "$is_windows"; then
     cat > pkg/foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$(cat $'pkg/a b .txt')" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
@@ -604,7 +604,7 @@ fi
 EOF
   else
     cat > pkg/foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$(cat $'pkg/a \n \\ b .txt')" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
@@ -618,6 +618,7 @@ EOF
 }
 
 function test_special_chars_in_runfiles_target_paths() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   if "$is_windows"; then
     cat > pkg/constants.bzl <<'EOF'
@@ -646,6 +647,8 @@ spaces = rule(
 EOF
   cat > pkg/BUILD <<'EOF'
 load(":defs.bzl", "spaces")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 spaces(name = "spaces")
 sh_test(
     name = "foo",
@@ -654,7 +657,7 @@ sh_test(
 )
 EOF
   cat > pkg/foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$(cat pkg/data.txt)" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
@@ -690,7 +693,9 @@ spaces = rule(
 )
 EOF
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load(":defs.bzl", "spaces")
+
 spaces(name = "spaces")
 sh_test(
     name = "foo",
@@ -700,7 +705,7 @@ sh_test(
 EOF
   if "$is_windows"; then
     cat > pkg/foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$(cat $'pkg/a b .txt')" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
@@ -708,7 +713,7 @@ fi
 EOF
   else
     cat > pkg/foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$(cat $'pkg/a \n \\ b .txt')" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
@@ -757,7 +762,7 @@ genrule(
 )
 EOF
   cat > pkg/tool.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 # --- begin runfiles.bash initialization v3 ---
 # Copy-pasted from the Bazel Bash runfiles library v3.
 set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash

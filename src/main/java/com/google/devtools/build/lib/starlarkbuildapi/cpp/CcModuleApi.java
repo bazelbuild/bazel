@@ -940,13 +940,6 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
         @Param(
-            name = "only_for_dynamic_libs",
-            positional = false,
-            named = true,
-            documented = false,
-            allowedTypes = {@ParamType(type = Boolean.class)},
-            defaultValue = "unbound"),
-        @Param(
             name = "link_artifact_name_suffix",
             positional = false,
             named = true,
@@ -1019,7 +1012,6 @@ public interface CcModuleApi<
       Object wholeArchive,
       Object additionalLinkstampDefines,
       Object alwaysLink,
-      Object onlyForDynamicLibs,
       Object linkArtifactNameSuffix,
       Object mainOutput,
       Object useShareableArtifactFactory,
@@ -1632,7 +1624,6 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "create_library_to_link",
       doc = "Creates <code>LibraryToLink</code>",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "actions",
@@ -1745,7 +1736,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound"),
       })
-  LibraryToLinkT createLibraryLinkerInput(
+  default LibraryToLinkT createLibraryLinkerInput(
       Object actions,
       Object featureConfiguration,
       Object ccToolchainProvider,
@@ -1759,9 +1750,10 @@ public interface CcModuleApi<
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
-      Object mustKeepDebug,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      Object mustKeepDebug)
+      throws EvalException, InterruptedException {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "create_linker_input",
@@ -2534,7 +2526,18 @@ public interface CcModuleApi<
       documented = false,
       useStarlarkThread = true,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, documented = false),
+        @Param(
+            name = "ctx",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "None"),
+        @Param(
+            name = "actions",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "None"),
         @Param(
             name = "lto_output_root_prefix",
             positional = false,
@@ -2542,6 +2545,12 @@ public interface CcModuleApi<
             documented = false),
         @Param(name = "lto_obj_root_prefix", positional = false, named = true, documented = false),
         @Param(name = "bitcode_file", positional = false, named = true, documented = false),
+        @Param(
+            name = "all_bitcode_files",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "None"),
         @Param(
             name = "feature_configuration",
             positional = false,
@@ -2555,18 +2564,27 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             documented = false),
+        @Param(
+            name = "create_shared_non_lto",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "False"),
         @Param(name = "argv", positional = false, named = true, documented = false),
       })
   LtoBackendArtifactsT createLtoBackendArtifacts(
-      StarlarkRuleContextT starlarkRuleContext,
+      Object starlarkRuleContextObj,
+      Object actionsObj,
       String ltoOutputRootPrefixString,
       String ltoObjRootPrefixString,
       FileT bitcodeFile,
+      Object allBitcodeFilesObj,
       FeatureConfigurationT featureConfigurationForStarlark,
       Info ccToolchain,
       StructImpl fdoContextStruct,
       boolean usePic,
       boolean shouldCreatePerObjectDebugInfo,
+      boolean createSharedNonLto,
       Sequence<?> argv,
       StarlarkThread thread)
       throws EvalException, InterruptedException, RuleErrorException;

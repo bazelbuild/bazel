@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import java.time.Instant;
 import javax.annotation.Nullable;
 
@@ -24,6 +25,7 @@ import javax.annotation.Nullable;
 public final class SpawnExecutedEvent implements ExtendedEventHandler.Postable {
   private final Spawn spawn;
   private final InputMetadataProvider inputMetadataProvider;
+  @Nullable private final FileSystem actionFileSystem;
   private final FileOutErr fileOutErr;
   private final SpawnResult result;
   private final Instant startTimeInstant;
@@ -32,12 +34,14 @@ public final class SpawnExecutedEvent implements ExtendedEventHandler.Postable {
   public SpawnExecutedEvent(
       Spawn spawn,
       InputMetadataProvider inputMetadataProvider,
+      @Nullable FileSystem actionFileSystem,
       FileOutErr fileOutErr,
       SpawnResult result,
       Instant startTimeInstant,
       @Nullable String spawnIdentifier) {
     this.spawn = Preconditions.checkNotNull(spawn);
     this.inputMetadataProvider = inputMetadataProvider;
+    this.actionFileSystem = actionFileSystem;
     this.fileOutErr = fileOutErr;
     this.result = Preconditions.checkNotNull(result);
     this.startTimeInstant = startTimeInstant;
@@ -52,6 +56,11 @@ public final class SpawnExecutedEvent implements ExtendedEventHandler.Postable {
   /** Returns the input metadata provider containing information about the inputs of the Spawn. */
   public InputMetadataProvider getInputMetadataProvider() {
     return inputMetadataProvider;
+  }
+
+  @Nullable
+  public FileSystem getActionFileSystem() {
+    return actionFileSystem;
   }
 
   /** Returns the action. */

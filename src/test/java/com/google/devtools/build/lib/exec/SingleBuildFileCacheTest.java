@@ -71,7 +71,9 @@ public class SingleBuildFileCacheTest {
             return null;
           }
         };
-    underTest = new SingleBuildFileCache("/", fs, SyscallCache.NO_CACHE);
+    underTest =
+        new SingleBuildFileCache(
+            "/", PathFragment.create("dummy-output-path"), fs, SyscallCache.NO_CACHE);
     FileSystemUtils.createEmptyFile(fs.getPath("/empty"));
   }
 

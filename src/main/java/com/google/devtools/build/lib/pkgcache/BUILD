@@ -19,6 +19,7 @@ java_library(
         ["*.java"],
         exclude = [
             "QueryTransitivePackagePreloader.java",
+            "PackagePathCodecDependencies.java",
         ],
     ),
     deps = [
@@ -49,5 +50,14 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "package_path_codec_dependencies",
+    srcs = ["PackagePathCodecDependencies.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
     ],
 )

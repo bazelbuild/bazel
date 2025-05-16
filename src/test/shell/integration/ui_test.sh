@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -747,7 +747,7 @@ EOF
   expect_log "ERROR: 'run' only works with tests with one shard"
   # If we would print this again after the run failed, we would overwrite the
   # error message above.
-  expect_log_n "INFO: Build completed successfully, [4567] total actions" 1
+  expect_log_n "INFO: Build completed successfully, [4-9] total actions" 1
 }
 
 function test_exit_code_reported() {

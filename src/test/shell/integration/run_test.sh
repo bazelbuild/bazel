@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -527,7 +527,7 @@ sh_test(name = "x", srcs = ["x.sh"])
 sh_binary(name = "control", srcs = ["x.sh"])
 eof
   cat > a/x.sh <<'eof'
-#!/bin/bash
+#!/usr/bin/env bash
 read -n5 FOO
 echo "foo=($FOO)"
 eof
@@ -773,7 +773,7 @@ sh_binary(
 )
 EOF
   cat > "$pkg/foo.sh" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo build_id=\"${BUILD_ID}\"
 EOF
 
@@ -800,7 +800,7 @@ sh_binary(
 )
 EOF
   cat > "$pkg/foo.sh" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo execroot=\"${BUILD_EXECROOT}\"
 EOF
 
@@ -831,7 +831,7 @@ sh_binary(
 )
 EOF
   cat > "$pkg/foo.sh" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -866,7 +866,7 @@ sh_binary(
 )
 EOF
   cat > "$pkg/foo.sh" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 

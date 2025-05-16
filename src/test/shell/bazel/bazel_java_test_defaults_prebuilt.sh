@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2023 The Bazel Authors. All rights reserved.
 #
@@ -55,8 +55,9 @@ esac
 
 # PREBUILT_TOOLCHAIN_CONFIGURATION shall use prebuilt ijar and singlejar binaries.
 function test_default_java_toolchain_prebuiltToolchain() {
+  add_rules_java "MODULE.bazel"
   cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "PREBUILT_TOOLCHAIN_CONFIGURATION")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain", "PREBUILT_TOOLCHAIN_CONFIGURATION")
 default_java_toolchain(
   name = "prebuilt_toolchain",
   configuration = PREBUILT_TOOLCHAIN_CONFIGURATION,

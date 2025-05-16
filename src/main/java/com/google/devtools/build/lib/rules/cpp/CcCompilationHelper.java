@@ -436,7 +436,7 @@ public final class CcCompilationHelper {
 
     if (shouldProcessHeaders
         && CcToolchainProvider.shouldProcessHeaders(featureConfiguration, cppConfiguration)
-        && !shouldProvideHeaderModules()
+        && !isHeaderModulesEnabled()
         && !isTextualInclude) {
       compilationUnitSources.put(
           privateHeader, CppSource.create(privateHeader, label, CppSource.Type.HEADER));
@@ -512,7 +512,7 @@ public final class CcCompilationHelper {
         || isTextualInclude
         || !isHeader
         || !CcToolchainProvider.shouldProcessHeaders(featureConfiguration, cppConfiguration)
-        || shouldProvideHeaderModules()) {
+        || isHeaderModulesEnabled()) {
       return;
     }
 
@@ -862,7 +862,18 @@ public final class CcCompilationHelper {
     return this;
   }
 
-  /** @return whether we want to provide header modules for the current target. */
+  /**
+   * @return whether providing header modules is enabled.
+   */
+  private boolean isHeaderModulesEnabled() {
+    return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
+  }
+
+  /**
+   * @return whether we want to provide header modules for the current target.
+   *     <p>This is the case if a) header modules are enabled and b) there are public or private
+   *     headers so the header module would not be empty.
+   */
   private boolean shouldProvideHeaderModules() {
     return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
         && (!publicHeaders.isEmpty() || !privateHeaders.isEmpty());
@@ -1806,4 +1817,4 @@ public final class CcCompilationHelper {
     return ImmutableList.of(dAction.getPrimaryOutput(), sdAction.getPrimaryOutput());
   }
 }
-// LINT.ThenChange(//third_party/bazel/src/main/java/com/google/devtools/build/lib/rules/cpp/CcStaticCompilationHelper.java)
+// LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/cpp/CcStaticCompilationHelper.java)

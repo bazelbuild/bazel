@@ -14,6 +14,9 @@
 
 """Temporary implementation of a rule that aliases the value of --java_launcher flag"""
 
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+
 _providers = (
     [CcInfo, getattr(cc_common, "launcher_provider")] if hasattr(cc_common, "launcher_provider") else [CcInfo]
 )

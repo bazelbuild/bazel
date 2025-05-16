@@ -17,7 +17,7 @@
 
 """Module extension to declare Android runtime dependencies for Bazel."""
 
-load("//tools/build_defs/repo:http.bzl", "http_archive", "http_jar")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_jar")
 
 def _remote_android_tools_extensions_impl(module_ctx):
     http_archive(

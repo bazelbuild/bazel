@@ -315,6 +315,8 @@ message ExecLogEntry {
   //
   // See SpawnLogReconstructor#reconstructRunfilesDir for details.
   message RunfilesTree {
+    reserved 7;
+
     // The runfiles tree path.
     string path = 1;
     // The entry ID of the set of artifacts in the runfiles tree that are
@@ -340,11 +342,6 @@ message ExecLogEntry {
     // The "_repo_mapping" file at the root of the runfiles tree, if it exists.
     // Only the digest is stored as the relative path is fixed.
     File repo_mapping_manifest = 6;
-    // Whether the runfiles tree contains external runfiles at their legacy
-    // locations (e.g. _main/external/bazel_tools/tools/bash/runfiles.bash)
-    // in addition to the default locations (e.g.
-    // bazel_tools/tools/bash/runfiles.bash).
-    bool legacy_external_runfiles = 7;
   }
 
   // A spawn output.

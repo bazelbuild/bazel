@@ -38,12 +38,10 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.MillisSinceEpochToNanosConverter;
@@ -75,7 +73,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
@@ -83,9 +80,6 @@ import com.google.protobuf.util.Timestamps;
 import io.grpc.Status.Code;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.SortedMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -186,7 +180,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
+      throws ExecException, InterruptedException, IOException {
     Preconditions.checkArgument(
         remoteExecutionService.mayBeExecutedRemotely(spawn),
         "Spawn can't be executed remotely. This is a bug.");
@@ -558,7 +552,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   }
 
   private static SpawnResult execLocally(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
+      throws ExecException, InterruptedException, IOException {
     RemoteLocalFallbackRegistry localFallbackRegistry =
         context.getContext(RemoteLocalFallbackRegistry.class);
     checkNotNull(localFallbackRegistry, "Expected a RemoteLocalFallbackRegistry to be registered");
@@ -584,7 +578,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       boolean uploadLocalResults,
       IOException cause,
       FailureReason reason)
-      throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
+      throws ExecException, InterruptedException, IOException {
     // Regardless of cause, if we are interrupted, we should stop without displaying a user-visible
     // failure/stack trace.
     if (Thread.currentThread().isInterrupted()) {
@@ -700,47 +694,15 @@ public class RemoteSpawnRunner implements SpawnRunner {
         .build();
   }
 
-  private Map<Path, Long> getInputCtimes(SortedMap<PathFragment, ActionInput> inputMap) {
-    HashMap<Path, Long> ctimes = new HashMap<>();
-    for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
-      ActionInput input = e.getValue();
-      if (input instanceof VirtualActionInput) {
-        continue;
-      }
-      Path path = execRoot.getRelative(input.getExecPathString());
-      try {
-        ctimes.put(path, path.stat().getLastChangeTime());
-      } catch (IOException ex) {
-        // Put a token value indicating an exception; this is used so that if the exception
-        // is raised both before and after the execution, it is ignored, but if it is raised only
-        // one of the times, it triggers a remote cache upload skip.
-        ctimes.put(path, -1L);
-      }
-    }
-    return ctimes;
-  }
-
   @VisibleForTesting
   SpawnResult execLocallyAndUpload(
       RemoteAction action, Spawn spawn, SpawnExecutionContext context, boolean uploadLocalResults)
-      throws ExecException, IOException, ForbiddenActionInputException, InterruptedException {
-    Map<Path, Long> ctimesBefore = getInputCtimes(action.getInputMap(true));
+      throws ExecException, IOException, InterruptedException {
     SpawnResult result = execLocally(spawn, context);
-    Map<Path, Long> ctimesAfter = getInputCtimes(action.getInputMap(true));
-    uploadLocalResults =
-        uploadLocalResults && Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
-    if (!uploadLocalResults) {
-      return result;
+    if (uploadLocalResults && Status.SUCCESS.equals(result.status()) && result.exitCode() == 0) {
+      remoteExecutionService.uploadOutputs(
+          action, result, () -> {}, remoteOptions.guardAgainstConcurrentChanges);
     }
-
-    for (Map.Entry<Path, Long> e : ctimesBefore.entrySet()) {
-      // Skip uploading to remote cache, because an input was modified during execution.
-      if (!ctimesAfter.get(e.getKey()).equals(e.getValue())) {
-        return result;
-      }
-    }
-
-    remoteExecutionService.uploadOutputs(action, result, () -> {});
     return result;
   }
 

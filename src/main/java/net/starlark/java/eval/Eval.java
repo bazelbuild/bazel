@@ -181,16 +181,14 @@ final class Eval {
       defaults[i - (nparams - defaults.length)] = defaultValue;
 
       // Typecheck the default value
-      if (functionType != null) {
-        StarlarkType parameterType = functionType.getParameterTypeByPos(i);
-        if (!TypeChecker.isValueSubtypeOf(defaultValue, parameterType)) {
-          throw Starlark.errorf(
-              "%s(): parameter '%s' has default value of type '%s', declares '%s'",
-              rfn.getName(),
-              rfn.getParameterNames().get(i),
-              TypeChecker.type(defaultValue),
-              parameterType);
-        }
+      StarlarkType parameterType = functionType.getParameterTypeByPos(i);
+      if (!TypeChecker.isValueSubtypeOf(defaultValue, parameterType)) {
+        throw Starlark.errorf(
+            "%s(): parameter '%s' has default value of type '%s', declares '%s'",
+            rfn.getName(),
+            rfn.getParameterNames().get(i),
+            TypeChecker.type(defaultValue),
+            parameterType);
       }
     }
     if (defaults == null) {

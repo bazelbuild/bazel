@@ -63,13 +63,16 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
 
   @Override
   public LostArtifacts processOutputsAndGetLostArtifacts(
-      Iterable<Artifact> outputs, InputMetadataProvider metadataProvider)
+      Iterable<Artifact> importantOutputs,
+      InputMetadataProvider importantMetadataProvider,
+      InputMetadataProvider fullMetadataProvider)
       throws ImportantOutputException, InterruptedException {
+    // Use the full metadata provider since we want to include runfiles trees.
     try {
-      ensureToplevelArtifacts(outputs, metadataProvider);
+      ensureToplevelArtifacts(importantOutputs, fullMetadataProvider);
     } catch (IOException e) {
       if (e instanceof BulkTransferException bulkTransferException) {
-        var lostArtifacts = bulkTransferException.getLostArtifacts(metadataProvider::getInput);
+        var lostArtifacts = bulkTransferException.getLostArtifacts(fullMetadataProvider::getInput);
         if (!lostArtifacts.isEmpty()) {
           return lostArtifacts;
         }

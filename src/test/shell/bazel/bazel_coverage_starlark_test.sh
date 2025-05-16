@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2021 The Bazel Authors. All rights reserved.
 #
@@ -49,7 +49,7 @@ function test_starlark_rule_without_lcov_merger() {
 def _impl(ctx):
     output = ctx.actions.declare_file(ctx.attr.name)
     ctx.actions.write(output, """\
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [[ ! -r extra ]]; then
   echo "extra file not found" >&2

@@ -56,7 +56,7 @@ public class ProjectResolutionTest extends BuildViewTestCase {
     var projectFiles =
         Project.getProjectFiles(
             ImmutableList.of(Label.parseCanonical("//pkg:f")), getSkyframeExecutor(), reporter);
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//pkg:" + PROJECT_FILE_NAME));
   }
 
@@ -71,7 +71,7 @@ public class ProjectResolutionTest extends BuildViewTestCase {
         Project.getProjectFiles(
             ImmutableList.of(Label.parseCanonical("//foo/bar:f")), getSkyframeExecutor(), reporter);
 
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//foo/bar:" + PROJECT_FILE_NAME));
   }
 
@@ -87,7 +87,7 @@ public class ProjectResolutionTest extends BuildViewTestCase {
                 Label.parseCanonical("//foo:parent"), Label.parseCanonical("//foo/bar:child")),
             getSkyframeExecutor(),
             reporter);
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//foo:" + PROJECT_FILE_NAME));
   }
 
@@ -103,13 +103,13 @@ public class ProjectResolutionTest extends BuildViewTestCase {
             ImmutableList.of(Label.parseCanonical("//foo:f"), Label.parseCanonical("//bar:g")),
             getSkyframeExecutor(),
             reporter);
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(
             Label.parseCanonical("//foo:" + PROJECT_FILE_NAME),
             Label.parseCanonical("//bar:" + PROJECT_FILE_NAME));
     assertThat(projectFiles.differentProjectsDetails())
         .contains(
-            """
+"""
 Targets have different project settings:
   - //foo:f -> //foo:PROJECT.scl
   - //bar:g -> //bar:PROJECT.scl\
@@ -127,11 +127,11 @@ Targets have different project settings:
             ImmutableList.of(Label.parseCanonical("//foo:f"), Label.parseCanonical("//bar:g")),
             getSkyframeExecutor(),
             reporter);
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//foo:" + PROJECT_FILE_NAME));
     assertThat(projectFiles.differentProjectsDetails())
         .contains(
-            """
+"""
 Targets have different project settings:
   - //foo:f -> //foo:PROJECT.scl
   - //bar:g -> no project file\
@@ -151,7 +151,7 @@ Targets have different project settings:
             ImmutableList.of(Label.parseCanonical("//pkg/subdir:fake_target")),
             getSkyframeExecutor(),
             reporter);
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//pkg:" + PROJECT_FILE_NAME));
   }
 
@@ -171,7 +171,7 @@ Targets have different project settings:
     var projectFiles =
         Project.getProjectFiles(
             ImmutableList.of(Label.parseCanonical("//pkg:f")), getSkyframeExecutor(), reporter);
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//canonical:PROJECT.scl"));
   }
 
@@ -304,7 +304,7 @@ Targets have different project settings:
     var projectFiles =
         Project.getProjectFiles(
             ImmutableList.of(Label.parseCanonical("//pkg:f")), getSkyframeExecutor(), reporter);
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//canonical:PROJECT.scl"));
   }
 
@@ -334,7 +334,7 @@ Targets have different project settings:
             ImmutableList.of(Label.parseCanonical("//pkg1:f"), Label.parseCanonical("//pkg2:g")),
             getSkyframeExecutor(),
             reporter);
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//canonical:PROJECT.scl"));
   }
 
@@ -368,7 +368,7 @@ Targets have different project settings:
             reporter);
     assertThat(projectFiles.differentProjectsDetails())
         .contains(
-            """
+"""
 Targets have different project settings:
   - //pkg1:f -> //canonical1:PROJECT.scl
   - //pkg2:g -> //canonical2:PROJECT.scl\

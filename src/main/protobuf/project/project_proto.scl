@@ -1,0 +1,57 @@
+# DO NOT EDIT!
+"""Generated with Protolark."""
+
+### Generated code for third_party/bazel/src/main/protobuf/project/buildable_unit.proto below:
+
+def _mk_pb2_third_party_bazel_src_main_protobuf_project_buildable_unit_BuildableUnit(**kwargs):
+    return struct(**{
+        "name": kwargs.get("name", []),
+        "target_patterns": kwargs.get("target_patterns", []),
+        "flags": kwargs.get("flags", []),
+        "description": kwargs.get("description", []),
+        "is_default": kwargs.get("is_default", []),
+    })
+
+pb2_third_party_bazel_src_main_protobuf_project_buildable_unit = struct(
+    BuildableUnit = struct(
+        create = _mk_pb2_third_party_bazel_src_main_protobuf_project_buildable_unit_BuildableUnit,
+    ),
+)
+
+### Generated code for third_party/bazel/src/main/protobuf/project/enforcement_policy.proto below:
+
+# buildifier: disable=name-conventions
+_enum_pb2_third_party_bazel_src_main_protobuf_project_enforcement_policy_EnforcementPolicy = struct(**{
+    "ENFORCEMENT_POLICY_UNSPECIFIED": 0,
+    "WARN": 1,
+    "COMPATIBLE": 2,
+    "STRICT": 3,
+})
+
+pb2_third_party_bazel_src_main_protobuf_project_enforcement_policy = struct(
+    EnforcementPolicy = _enum_pb2_third_party_bazel_src_main_protobuf_project_enforcement_policy_EnforcementPolicy,
+)
+
+### Generated code for third_party/bazel/src/main/protobuf/project/project.proto below:
+
+def _mk_pb2_third_party_bazel_src_main_protobuf_project_project_Project(**kwargs):
+    return struct(**{
+        "buildable_units": kwargs.get("buildable_units", []),
+        "enforcement_policy": kwargs.get("enforcement_policy", []),
+        "project_directories": kwargs.get("project_directories", []),
+        "always_allowed_configs": kwargs.get("always_allowed_configs", []),
+    })
+
+pb2_third_party_bazel_src_main_protobuf_project_project = struct(
+    Project = struct(
+        create = _mk_pb2_third_party_bazel_src_main_protobuf_project_project_Project,
+    ),
+)
+
+### Shortened aliases for nicer API below:
+
+buildable_unit_pb2 = pb2_third_party_bazel_src_main_protobuf_project_buildable_unit
+enforcement_policy_pb2 = pb2_third_party_bazel_src_main_protobuf_project_enforcement_policy
+project_pb2 = pb2_third_party_bazel_src_main_protobuf_project_project
+
+#pragma protolark-generated-from: third_party/bazel/src/main/protobuf/project/project.proto

@@ -144,8 +144,6 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableMap.Builder<SkyKey, SkyValue> fileValues =
-        ImmutableMap.builderWithExpectedSize(directoryValue.getDirents().size());
     for (SkyKey skyKey : skyKeys) {
       SkyValue value = fileValuesResult.get(skyKey);
       if (value == null) {
@@ -154,7 +152,6 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
                 "SkyValue " + skyKey + " was missing, this should never happen"));
         return null;
       }
-      fileValues.put(skyKey, value);
     }
 
     // Link x/y/z to /some/path/to/y/z.
@@ -166,12 +163,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     fileHandler.finishFile(rule, outputDirectory, recordedInputValues);
     env.getListener().post(resolve(rule));
 
-    return new FetchResult(
-        RepositoryDirectoryValue.builder()
-            .setPath(outputDirectory)
-            .setSourceDir(directoryValue)
-            .setFileValues(fileValues.buildOrThrow()),
-        recordedInputValues);
+    return new FetchResult(recordedInputValues, Reproducibility.YES);
   }
 
   @Override

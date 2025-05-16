@@ -225,7 +225,7 @@ public abstract class Link {
     public LinkerOrArchiver linkerOrArchiver() {
       return linkerOrArchiver;
     }
-    
+
     /** Returns an {@code ArtifactCategory} identifying the artifact type this link action emits. */
     public ArtifactCategory getLinkerOutput() {
       return linkerOutput;
@@ -288,14 +288,5 @@ public abstract class Link {
   public enum ArchiveType {
     REGULAR,        // Put the archive itself on the linker command line.
     START_END_LIB   // Put the object files enclosed by --start-lib / --end-lib on the command line
-  }
-
-  static boolean useStartEndLib(LegacyLinkerInput linkerInput, ArchiveType archiveType) {
-    // TODO(bazel-team): Figure out if PicArchives are actually used. For it to be used, both
-    // linkingStatically and linkShared must me true, we must be in opt mode and cpu has to be k8.
-    return archiveType == ArchiveType.START_END_LIB
-        && (linkerInput.getArtifactCategory() == ArtifactCategory.STATIC_LIBRARY
-            || linkerInput.getArtifactCategory() == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY)
-        && linkerInput.containsObjectFiles();
   }
 }

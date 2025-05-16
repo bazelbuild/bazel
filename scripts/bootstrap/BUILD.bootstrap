@@ -1,4 +1,4 @@
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 
 # This toolchain is used to bootstrap Bazel.
 default_java_toolchain(

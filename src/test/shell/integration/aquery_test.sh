@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -424,7 +424,7 @@ foo(
 )
 EOF
   cat > "$pkg/tool.sh" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo "$1" > "$2"
 EOF
   chmod +x "$pkg/tool.sh"
@@ -1261,7 +1261,7 @@ def _my_jpl_aspect_imp(target, ctx):
 
 my_jpl_aspect = aspect(
   attr_aspects = ['deps', 'exports'],
-  required_aspect_providers = [['proto_java']],
+  required_aspect_providers = [],
   attrs = {
     'aspect_param': attr.string(default = 'x', values = ['x', 'y'])
   },

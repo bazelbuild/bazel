@@ -1,3 +1,6 @@
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 licenses(["notice"])
 
 filegroup(

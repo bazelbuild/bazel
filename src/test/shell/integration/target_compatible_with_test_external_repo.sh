@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -51,13 +51,13 @@ function set_up() {
   add_rules_shell "target_skipping/MODULE.bazel"
   add_rules_cc "target_skipping/MODULE.bazel"
   cat > target_skipping/pass.sh <<EOF || fail "couldn't create pass.sh"
-#!/bin/bash
+#!/usr/bin/env bash
 exit 0
 EOF
   chmod +x target_skipping/pass.sh
 
   cat > target_skipping/fail.sh <<EOF || fail "couldn't create fail.sh"
-#!/bin/bash
+#!/usr/bin/env bash
 exit 1
 EOF
   chmod +x target_skipping/fail.sh

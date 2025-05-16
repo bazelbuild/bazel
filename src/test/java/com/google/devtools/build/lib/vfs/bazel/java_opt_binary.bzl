@@ -18,6 +18,7 @@ A wrapper around java_binary that forces it to be built with `-c opt`.
 This is useful for benchmark targets.
 """
 
+load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@with_cfg.bzl", "with_cfg")
 
-java_opt_binary, _java_opt_binary = with_cfg(native.java_binary).set("compilation_mode", "opt").build()
+java_opt_binary, _java_opt_binary = with_cfg(java_binary).set("compilation_mode", "opt").build()

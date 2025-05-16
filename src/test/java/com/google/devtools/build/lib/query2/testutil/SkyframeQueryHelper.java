@@ -89,6 +89,8 @@ import java.util.UUID;
 
 /** An implementation of AbstractQueryHelper to support testing bazel query. */
 public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
+  private static final String FAKE_INSTALL_MD5_STRING = "abcedf1234567890abcedf1234567890";
+
   protected SkyframeExecutor skyframeExecutor;
   protected FileSystem fileSystem =
       new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
@@ -124,7 +126,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                 outputBase,
                 outputBase.getRelative(ServerDirectories.EXECROOT),
                 useVirtualSourceRoot() ? Root.fromPath(rootDirectory) : null,
-                /* installMD5= */ null),
+                FAKE_INSTALL_MD5_STRING),
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());

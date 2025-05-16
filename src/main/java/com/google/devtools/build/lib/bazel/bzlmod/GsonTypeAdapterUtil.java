@@ -25,7 +25,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -445,7 +445,7 @@ public final class GsonTypeAdapterUtil {
           return Optional.empty();
         }
         try {
-          return Optional.of(Checksum.fromString(RepositoryCache.KeyType.SHA256, checksumString));
+          return Optional.of(Checksum.fromString(DownloadCache.KeyType.SHA256, checksumString));
         } catch (Checksum.InvalidChecksumException e) {
           throw new JsonParseException(String.format("Invalid checksum: %s", checksumString), e);
         }

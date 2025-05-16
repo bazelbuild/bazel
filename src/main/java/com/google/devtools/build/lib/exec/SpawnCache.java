@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -166,7 +165,7 @@ public interface SpawnCache extends ActionContext {
    * instance's {@link CacheHandle#store} is a no-op.
    */
   CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, IOException, InterruptedException, ForbiddenActionInputException;
+      throws ExecException, IOException, InterruptedException;
 
   /**
    * Returns whether this cache implementation makes sense to use together with dynamic execution.

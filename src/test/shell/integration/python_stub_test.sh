@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -136,7 +136,7 @@ sh_binary(
 EOF
 
   cat > python_through_bash/outer.sh << EOF
-#!/bin/bash
+#!/usr/bin/env bash
 # * Bazel run guarantees that our CWD is the runfiles directory itself, so a
 #   relative path will work.
 # * We can't use the usual shell runfiles library because it doesn't work in the

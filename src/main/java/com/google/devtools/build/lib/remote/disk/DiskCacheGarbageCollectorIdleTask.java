@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.Colle
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.CollectionStats;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.server.IdleTask;
+import com.google.devtools.build.lib.server.IdleTaskException;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
@@ -78,6 +79,11 @@ public final class DiskCacheGarbageCollectorIdleTask implements IdleTask {
     return new DiskCacheGarbageCollectorIdleTask(delay, gc);
   }
 
+  @Override
+  public String displayName() {
+    return "Disk cache garbage collector";
+  }
+
   @VisibleForTesting
   public DiskCacheGarbageCollector getGarbageCollector() {
     return gc;
@@ -89,15 +95,12 @@ public final class DiskCacheGarbageCollectorIdleTask implements IdleTask {
   }
 
   @Override
-  public void run() {
+  public void run() throws IdleTaskException, InterruptedException {
     try {
-      logger.atInfo().log("Disk cache garbage collection started");
       CollectionStats stats = gc.run();
       logger.atInfo().log("%s", stats.displayString());
     } catch (IOException e) {
-      logger.atInfo().withCause(e).log("Disk cache garbage collection failed");
-    } catch (InterruptedException e) {
-      logger.atInfo().withCause(e).log("Disk cache garbage collection interrupted");
+      throw new IdleTaskException(e);
     }
   }
 }

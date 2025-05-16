@@ -156,9 +156,7 @@ public class RuleClass implements RuleClassData {
   public static final DeclaredExecGroup DEFAULT_TEST_RUNNER_EXEC_GROUP =
       DeclaredExecGroup.builder()
           .addToolchainType(
-              ToolchainTypeRequirement.builder(PlatformConstants.DEFAULT_TEST_TOOLCHAIN_TYPE)
-                  .mandatory(false)
-                  .build())
+              ToolchainTypeRequirement.create(PlatformConstants.DEFAULT_TEST_TOOLCHAIN_TYPE))
           .build();
 
   /** Interface for determining whether a rule needs toolchain resolution or not. */

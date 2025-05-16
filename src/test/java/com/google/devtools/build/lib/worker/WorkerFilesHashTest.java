@@ -171,6 +171,12 @@ public final class WorkerFilesHashTest {
         return null;
       }
 
+      @Nullable
+      @Override
+      public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
+        return null;
+      }
+
       @Override
       @Nullable
       public FilesetOutputTree getFileset(ActionInput input) {

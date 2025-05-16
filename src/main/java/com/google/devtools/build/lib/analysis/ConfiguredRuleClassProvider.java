@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintS
 import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
@@ -760,6 +761,11 @@ public /*final*/ class ConfiguredRuleClassProvider
   @Override
   public Label getPreludeLabel() {
     return preludeLabel;
+  }
+
+  @Override
+  public boolean isPackageUnderExperimental(PackageIdentifier packageIdentifier) {
+    return prerequisiteValidator.packageUnderExperimental(packageIdentifier);
   }
 
   @Override

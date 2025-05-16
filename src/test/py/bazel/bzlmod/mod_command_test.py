@@ -1270,7 +1270,6 @@ class ModCommandTest(test_base.TestBase):
       self.assertEqual(
           [
               'include("//:firstProd.MODULE.bazel")',
-              '',  # formatted despite no extension usages!
               'include("//:second.MODULE.bazel")',
               '',
           ],

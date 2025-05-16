@@ -17,8 +17,8 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.skyframe.NotComparableSkyValue;
 
 /**
  * A Skyframe value representing a package.
@@ -29,7 +29,7 @@ import com.google.devtools.build.skyframe.NotComparableSkyValue;
 @AutoCodec(explicitlyAllowClass = Package.class)
 @Immutable
 @ThreadSafe
-public class PackageValue implements NotComparableSkyValue {
+public class PackageValue implements PackageoidValue {
   private final Package pkg;
 
   public PackageValue(Package pkg) {
@@ -45,6 +45,11 @@ public class PackageValue implements NotComparableSkyValue {
    */
   public Package getPackage() {
     return pkg;
+  }
+
+  @Override
+  public Packageoid getPackageoid() {
+    return getPackage();
   }
 
   @Override

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,7 +30,7 @@ function test_server_javabase() {
   MAGIC="the cake is a lie"
 
   cat << EOF > test_server_javabase/bin/java
-#!/bin/bash
+#!/usr/bin/env bash
 echo "$MAGIC"
 EOF
   chmod +x test_server_javabase/bin/java
@@ -242,7 +242,7 @@ EOF
   touch zoo/bin/java
 
   cat << EOF > BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
     name = "toolchain",
     # Implicitly use the host_javabase bootclasspath, since the target doesn't

@@ -705,69 +705,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCompileExports() throws Exception {
-    JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
-    scratch.file(
-        "java/test/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_library")
-        load(":custom_rule.bzl", "java_custom_library")
-
-        java_custom_library(
-            name = "custom",
-            srcs = ["Main.java"],
-            exports = [":dep"],
-        )
-
-        java_library(
-            name = "dep",
-            srcs = ["Dep.java"],
-        )
-        """);
-    scratch.file(
-        "java/test/custom_rule.bzl",
-        "load('@rules_java//java:defs.bzl', 'java_common')",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('amazing.jar')",
-        "  exports = [export[java_common.provider] for export in ctx.attr.exports]",
-        "  compilation_provider = java_common.compile(",
-        "    ctx,",
-        "    source_files = ctx.files.srcs,",
-        "    output = output_jar,",
-        "    exports = exports,",
-        "    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
-        "  )",
-        "  return [",
-        "      DefaultInfo(",
-        "          files = depset([output_jar]),",
-        "      ),",
-        "      compilation_provider",
-        "  ]",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  outputs = {",
-        "    'output': 'amazing.jar',",
-        "  },",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files=['.java']),",
-        "    'exports': attr.label_list(),",
-        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "  },",
-        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
-        "  fragments = ['java']",
-        ")");
-
-    JavaInfo info = JavaInfo.getJavaInfo(getConfiguredTarget("//java/test:custom"));
-    assertThat(prettyArtifactNames(info.getTransitiveSourceJars().getSet(Artifact.class)))
-        .containsExactly("java/test/amazing-src.jar", "java/test/libdep-src.jar");
-    JavaCompilationArgsProvider provider = info.getProvider(JavaCompilationArgsProvider.class);
-    assertThat(prettyArtifactNames(provider.directCompileTimeJars()))
-        .containsExactly("java/test/amazing-hjar.jar", "java/test/libdep-hjar.jar");
-    assertThat(prettyArtifactNames(provider.compileTimeJavaDependencyArtifacts()))
-        .containsExactly("java/test/amazing-hjar.jdeps", "java/test/libdep-hjar.jdeps");
-  }
-
-  @Test
   public void testCompileOutputJarHasManifestProto() throws Exception {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(

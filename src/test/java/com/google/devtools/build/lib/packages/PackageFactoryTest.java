@@ -1770,7 +1770,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file("lib/BUILD");
     scratch.file(
         "lib/macro.bzl",
-        """
+"""
 def _impl(name, visibility):
     native.cc_library(name = name, visibility = native.package_default_visibility())
 my_macro = macro(implementation = _impl)
@@ -1799,7 +1799,7 @@ my_macro = macro(implementation = _impl)
     scratch.file("lib/BUILD");
     scratch.file(
         "lib/macro.bzl",
-        """
+"""
 def _impl(name, visibility):
     native.cc_library(name = name, visibility = native.package_default_visibility())
 my_macro = macro(implementation = _impl)
@@ -1823,7 +1823,7 @@ my_macro = macro(implementation = _impl)
     scratch.file("lib/BUILD");
     scratch.file(
         "lib/macro.bzl",
-        """
+"""
 def _impl(name, visibility):
     native.cc_library(name = name, visibility = native.package_default_visibility())
 my_macro = macro(implementation = _impl)

@@ -77,7 +77,7 @@ public final class ActionLookupValuesTraversal {
     }
     if (isActionLookupValue) {
       ActionLookupValue alv = (ActionLookupValue) value;
-      int numActions = alv.getNumActions();
+      int numActions = alv.getActions().size();
       actionCount.add(numActions);
       if (isConfiguredTarget) {
         actionCountNotIncludingAspects.add(numActions);

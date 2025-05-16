@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -172,8 +173,16 @@ public final class TargetRecorder {
    *     created in, based on the macro stack maintained herein. If false, we only record the
    *     definition location associated with said macro, as supplied by the caller via {@link
    *     #putAllTargetsToDeclaringPackage}.
+   * @param enableTargetMapSnapshotting whether to use a snapshottable map as the targets map;
+   *     required for {@link TargetDefinitionContext#getRulesSnapshotView}, which is used by {@code
+   *     native.existing_rules()} machinery in the context of a {@link Package.Builder}. If false,
+   *     {@link #unwrapSnapshottableBiMap} cannot be called (since in that case the target map is
+   *     not snapshottable in the first place).
    */
-  public TargetRecorder(boolean enableNameConflictChecking, boolean trackFullMacroInformation) {
+  public TargetRecorder(
+      boolean enableNameConflictChecking,
+      boolean trackFullMacroInformation,
+      boolean enableTargetMapSnapshotting) {
     if (enableNameConflictChecking) {
       this.ruleLabels = new HashMap<>();
       this.rulesCreatedInMacros = new HashSet<>();
@@ -190,6 +199,10 @@ public final class TargetRecorder {
       this.targetsToDeclaringMacro = null;
       this.targetsToDeclaringPackage = new LinkedHashMap<>();
     }
+    this.targetMap =
+        enableTargetMapSnapshotting
+            ? new SnapshottableBiMap<>(target -> target instanceof Rule)
+            : HashBiMap.create();
   }
 
   public Map<String, Target> getTargetMap() {
@@ -346,7 +359,18 @@ public final class TargetRecorder {
     return targetMap.get(name);
   }
 
-  public void unwrapSnapshottableBiMap() {
+  /**
+   * Transforms the target map in-place from a {@link SnapshottableBiMap} to its backing mutable
+   * bimap. Intended only for use by {@link Package.Builder#beforeBuild} to allow removal of certain
+   * broken targets from the map.
+   *
+   * <p>After this method has been called, {@link #getTargetMap} will return a map which is
+   * non-snapshottable, but which does allow removal.
+   *
+   * @throws IllegalStateException if this object was constructed with {@code
+   *     enableTargetMapSnapshotting == false} or if this method had already been called.
+   */
+  void unwrapSnapshottableBiMap() {
     Preconditions.checkState(targetMap instanceof SnapshottableBiMap<?, ?>);
     this.targetMap = ((SnapshottableBiMap<String, Target>) targetMap).getUnderlyingBiMap();
   }

@@ -59,8 +59,8 @@ public class StreamedTestOutputTest {
     try (StreamedTestOutput underTest =
         new StreamedTestOutput(OutErr.create(out, err), fileSystem.getPath("/myfile"))) {}
 
-    assertThat(out.toString(StandardCharsets.UTF_8.name())).isEqualTo("random\nlines\n");
-    assertThat(err.toString(StandardCharsets.UTF_8.name())).isEmpty();
+    assertThat(out.toString(StandardCharsets.UTF_8)).isEqualTo("random\nlines\n");
+    assertThat(err.toString(StandardCharsets.UTF_8)).isEmpty();
   }
 
   @Test
@@ -80,9 +80,8 @@ public class StreamedTestOutputTest {
     try (StreamedTestOutput underTest =
         new StreamedTestOutput(OutErr.create(out, err), fileSystem.getPath("/myfile"))) {}
 
-    assertThat(out.toString(StandardCharsets.UTF_8.name()))
-        .isEqualTo("included" + System.lineSeparator() + "lines" + System.lineSeparator());
-    assertThat(err.toString(StandardCharsets.UTF_8.name())).isEmpty();
+    assertThat(out.toString(StandardCharsets.UTF_8)).isEqualTo("included\nlines\n");
+    assertThat(err.toString(StandardCharsets.UTF_8)).isEmpty();
   }
 
   @Test
@@ -136,7 +135,7 @@ public class StreamedTestOutputTest {
       assertThat(Thread.interrupted()).isTrue();
     }
 
-    assertThat(out.toString(StandardCharsets.UTF_8.name())).isEqualTo("blahblahblah");
-    assertThat(err.toString(StandardCharsets.UTF_8.name())).isEmpty();
+    assertThat(out.toString(StandardCharsets.UTF_8)).isEqualTo("blahblahblah");
+    assertThat(err.toString(StandardCharsets.UTF_8)).isEmpty();
   }
 }

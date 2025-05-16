@@ -218,13 +218,11 @@ final class MutableStarlarkList<E> extends StarlarkList<E> {
   @Override
   public StarlarkList<E> unsafeOptimizeMemoryLayout() {
     Preconditions.checkState(mutability.isFrozen());
-    // Canonicalize our Mutability, on the off-chance the old one may be freed.
-    mutability = Mutability.IMMUTABLE;
     if (elems.length > size) {
       // shrink the Object array
       elems = Arrays.copyOf(elems, size);
     }
     // Give the caller an immutable specialization of StarlarkList.
-    return wrap(mutability, elems);
+    return wrap(Mutability.IMMUTABLE, elems);
   }
 }

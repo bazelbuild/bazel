@@ -14,15 +14,12 @@
 package com.google.devtools.build.lib.server;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
 
 /** An {@link IdleTask} to run a {@link InstallBaseGarbageCollector}. */
 public final class InstallBaseGarbageCollectorIdleTask implements IdleTask {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
   private final InstallBaseGarbageCollector gc;
 
   private InstallBaseGarbageCollectorIdleTask(InstallBaseGarbageCollector gc) {
@@ -41,20 +38,22 @@ public final class InstallBaseGarbageCollectorIdleTask implements IdleTask {
         new InstallBaseGarbageCollector(installBase.getParentDirectory(), installBase, maxAge));
   }
 
+  @Override
+  public String displayName() {
+    return "Install base garbage collector";
+  }
+
   @VisibleForTesting
   public InstallBaseGarbageCollector getGarbageCollector() {
     return gc;
   }
 
   @Override
-  public void run() {
+  public void run() throws IdleTaskException, InterruptedException {
     try {
-      logger.atInfo().log("Install base garbage collection started");
       gc.run();
     } catch (IOException e) {
-      logger.atInfo().withCause(e).log("Install base garbage collection failed");
-    } catch (InterruptedException e) {
-      logger.atInfo().withCause(e).log("Install base garbage collection interrupted");
+      throw new IdleTaskException(e);
     }
   }
 }

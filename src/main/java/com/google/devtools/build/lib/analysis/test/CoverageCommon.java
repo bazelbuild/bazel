@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.starlarkbuildapi.test.CoverageCommonApi;
 import com.google.devtools.build.lib.starlarkbuildapi.test.InstrumentedFilesInfoApi;
 import com.google.devtools.build.lib.util.FileType;
@@ -166,7 +165,8 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         /* rootFiles= */ ImmutableList.of(),
         /* coverageSupportFiles= */ supportFiles,
         /* coverageEnvironment= */ environment,
-        /* withBaselineCoverage= */ !TargetUtils.isTestRule(ruleContext.getTarget()),
+        /* withBaselineCoverage= */ InstrumentedFilesCollector.shouldIncludeLocalSources(
+            ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget()),
         /* reportedToActualSources= */ reportedToActualSources,
         /* additionalMetadata= */ metadataFiles);
   }

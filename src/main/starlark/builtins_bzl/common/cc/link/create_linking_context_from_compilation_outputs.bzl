@@ -18,8 +18,7 @@ Used to prepare a single library for linking. See also: cc_common.link
 """
 
 load(":common/cc/link/cc_linking_helper.bzl", "create_cc_link_actions")
-load(":common/cc/link/libraries_to_link_collector.bzl", "LINKING_MODE")
-load(":common/cc/link/target_types.bzl", "LINK_TARGET_TYPE")
+load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE")
 
 cc_internal = _builtins.internal.cc_internal
 cc_common_internal = _builtins.internal.cc_common

@@ -587,7 +587,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
 
     @Override
-    public Collection<Artifact> getOutputFiles() {
+    public Collection<? extends ActionInput> getOutputFiles() {
       return reportOutputs ? super.getOutputFiles() : ImmutableSet.of();
     }
   }

@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.server;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
@@ -32,19 +33,32 @@ import javax.annotation.concurrent.GuardedBy;
 class CommandManager {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  // The list of currently running commands.
+  // Note that, even though most commands run serially because of the output base lock, they're
+  // registered here before blocking for the lock, so the map is effectively unbounded.
   @GuardedBy("runningCommandsMap")
   private final Map<String, RunningCommand> runningCommandsMap = new HashMap<>();
 
-  private final AtomicLong interruptCounter = new AtomicLong(0);
   private final boolean doIdleServerTasks;
 
+  // The current IdleTaskManager. Null when a command is running or if idle tasks are disabled.
+  @GuardedBy("this")
+  @Nullable
   private IdleTaskManager idleTaskManager;
+
+  // Idle task results from the most recent idle period. Null after a subsequent command retrieves
+  // them or if idle tasks are disabled.
+  @GuardedBy("this")
+  @Nullable
+  private ImmutableList<IdleTask.Result> idleTaskResults;
+
+  private final AtomicLong interruptCounter = new AtomicLong(0);
   @Nullable private final String slowInterruptMessageSuffix;
 
   CommandManager(boolean doIdleServerTasks, @Nullable String slowInterruptMessageSuffix) {
     this.doIdleServerTasks = doIdleServerTasks;
     this.slowInterruptMessageSuffix = slowInterruptMessageSuffix;
-    idle(ImmutableList.of(), /* stateKeptAfterBuild= */ true);
+    idle(ImmutableList.of());
   }
 
   void preemptEligibleCommands() {
@@ -133,19 +147,23 @@ class CommandManager {
     logger.atInfo().log("Starting command %s on thread %s", command.id, command.thread.getName());
   }
 
-  private void idle(ImmutableList<IdleTask> idleTasks, boolean stateKeptAfterBuild) {
-    Preconditions.checkState(idleTaskManager == null);
+  private void idle(ImmutableList<IdleTask> idleTasks) {
     if (doIdleServerTasks) {
-      idleTaskManager = new IdleTaskManager(idleTasks, stateKeptAfterBuild);
-      idleTaskManager.idle();
+      synchronized (this) {
+        checkState(idleTaskManager == null);
+        idleTaskManager = new IdleTaskManager(idleTasks);
+        idleTaskManager.idle();
+      }
     }
   }
 
   private void busy() {
     if (doIdleServerTasks) {
-      Preconditions.checkState(idleTaskManager != null);
-      idleTaskManager.busy();
-      idleTaskManager = null;
+      synchronized (this) {
+        checkState(idleTaskManager != null);
+        idleTaskResults = idleTaskManager.busy();
+        idleTaskManager = null;
+      }
     }
   }
 
@@ -177,12 +195,24 @@ class CommandManager {
     interruptWatcherThread.start();
   }
 
+  /**
+   * Returns idle task results returned by {@link IdleTaskManager} during the previous idle period,
+   * if available and not yet retrieved.
+   *
+   * <p>Clears the stored idle task results as a side effect.
+   */
+  @Nullable
+  public synchronized ImmutableList<IdleTask.Result> getIdleTaskResults() {
+    var result = idleTaskResults;
+    idleTaskResults = null;
+    return result;
+  }
+
   final class RunningCommand implements AutoCloseable {
     private final Thread thread;
     private final String id;
     private final boolean preemptible;
     private ImmutableList<IdleTask> idleTasks = ImmutableList.of();
-    private boolean stateKeptAfterBuild = true;
 
     private RunningCommand(boolean preemptible) {
       thread = Thread.currentThread();
@@ -195,7 +225,7 @@ class CommandManager {
       synchronized (runningCommandsMap) {
         runningCommandsMap.remove(id);
         if (runningCommandsMap.isEmpty()) {
-          idle(idleTasks, stateKeptAfterBuild);
+          idle(idleTasks);
         }
         runningCommandsMap.notify();
       }
@@ -211,10 +241,9 @@ class CommandManager {
       return preemptible;
     }
 
-    /** Record tasks to be run by {@link IdleTaskManager}. */
-    void setIdleTasks(ImmutableList<IdleTask> idleTasks, boolean stateKeptAfterBuild) {
+    /** Set idle tasks to be run by {@link IdleTaskManager} during the next idle period. */
+    void setIdleTasks(ImmutableList<IdleTask> idleTasks) {
       this.idleTasks = idleTasks;
-      this.stateKeptAfterBuild = stateKeptAfterBuild;
     }
   }
 }

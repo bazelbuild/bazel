@@ -683,11 +683,6 @@ public class BuildConfigurationValue
     return options.buildRunfileManifests && options.buildRunfileLinks;
   }
 
-  /** Returns if we are building external runfiles symlinks using the old-style structure. */
-  public boolean legacyExternalRunfiles() {
-    return options.legacyExternalRunfiles;
-  }
-
   /**
    * Returns true if Runfiles should merge in FilesToBuild from deps when collecting data runfiles.
    */
@@ -753,6 +748,10 @@ public class BuildConfigurationValue
 
   public boolean checkVisibility() {
     return options.checkVisibility;
+  }
+
+  public boolean verboseVisibilityErrors() {
+    return options.verboseVisibilityErrors;
   }
 
   public boolean checkTestonlyForOutputFiles() {

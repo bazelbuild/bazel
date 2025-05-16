@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.analysis.Fron
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.FRONTIER_CANDIDATE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.LongVersionGetterTestInjection.getVersionGetterForTesting;
 import static com.google.devtools.build.lib.util.TestType.isInTest;
-import static java.util.concurrent.ForkJoinPool.commonPool;
+import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -62,7 +62,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
@@ -86,10 +85,6 @@ public final class FrontierSerializer {
       Reporter reporter,
       EventBus eventBus)
       throws InterruptedException {
-    // Starts initializing ObjectCodecs in a background thread as it can take some time.
-    var futureCodecs = new FutureTask<>(dependenciesProvider::getObjectCodecs);
-    commonPool().execute(futureCodecs);
-
     var stopwatch = new ResettingStopwatch(Stopwatch.createStarted());
     InMemoryGraph graph = skyframeExecutor.getEvaluator().getInMemoryGraph();
 
@@ -110,21 +105,7 @@ public final class FrontierSerializer {
       return Optional.empty();
     }
 
-    ObjectCodecs codecs;
-    try {
-      codecs = futureCodecs.get();
-    } catch (ExecutionException e) {
-      // No exceptions are expected here.
-      throw new IllegalStateException("failed to initialize ObjectCodecs", e.getCause());
-    }
-    if (codecs == null) {
-      String message = "serialization not supported";
-      reporter.error(null, message);
-      return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
-    }
-
-    reporter.handle(Event.info(String.format("Initializing codecs took %s\n", stopwatch)));
-
+    ObjectCodecs codecs = requireNonNull(dependenciesProvider.getObjectCodecs());
     FrontierNodeVersion frontierVersion;
     try {
       frontierVersion = dependenciesProvider.getSkyValueVersion();

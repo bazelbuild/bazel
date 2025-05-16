@@ -544,8 +544,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
           ExecLogEntry.RunfilesTree.Builder builder =
               ExecLogEntry.RunfilesTree.newBuilder()
-                  .setPath(runfilesTree.getExecPath().getPathString())
-                  .setLegacyExternalRunfiles(runfilesTree.isLegacyExternalRunfiles());
+                  .setPath(runfilesTree.getExecPath().getPathString());
 
           builder.setInputSetId(
               logInputSet(

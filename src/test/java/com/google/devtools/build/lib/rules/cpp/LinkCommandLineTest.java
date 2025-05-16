@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -149,11 +148,11 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
   public void testLibrariesToLink() throws Exception {
     CcToolchainVariables.Builder variables =
         getMockBuildVariables()
-            .addCustomBuiltVariable(
+            .addSequenceVariable(
                 LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                new SequenceBuilder()
-                    .addValue(LibraryToLinkValue.forStaticLibrary("foo", false))
-                    .addValue(LibraryToLinkValue.forStaticLibrary("bar", true)));
+                ImmutableList.of(
+                    LibraryToLinkValue.forStaticLibrary("foo", false),
+                    LibraryToLinkValue.forStaticLibrary("bar", true)));
 
     LinkCommandLine linkConfig =
         minimalConfiguration(variables)
@@ -324,11 +323,11 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
             .addStringVariable(LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), "a/FakeOutput")
             .addStringVariable(
                 LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(), "some/file.params")
-            .addCustomBuiltVariable(
+            .addSequenceVariable(
                 LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                new CcToolchainVariables.SequenceBuilder()
-                    .addValue(LibraryToLinkValue.forObjectFile("foo.o", false))
-                    .addValue(LibraryToLinkValue.forObjectFile("bar.o", false)));
+                ImmutableList.of(
+                    LibraryToLinkValue.forObjectFile("foo.o", false),
+                    LibraryToLinkValue.forObjectFile("bar.o", false)));
 
     LinkCommandLine linkConfig =
         minimalConfiguration(variables)
@@ -386,12 +385,11 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
                 getMockBuildVariables()
                     .addStringVariable(
                         LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(), "some/file.params")
-                    .addCustomBuiltVariable(
+                    .addSequenceVariable(
                         LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                        new CcToolchainVariables.SequenceBuilder()
-                            .addValue(
-                                LibraryToLinkValue.forObjectFileGroup(
-                                    ImmutableList.of(testTreeArtifact), false))))
+                        ImmutableList.of(
+                            LibraryToLinkValue.forObjectFileGroup(
+                                ImmutableList.of(testTreeArtifact), false))))
             .forceToolPath("foo/bar/gcc")
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
             .setSplitCommandLine(true)

@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.util.function.Predicate;
 
 /**
@@ -49,6 +50,11 @@ public class ActionCacheTestHelper {
 
         @Override
         public void clear() {}
+
+        @Override
+        public ActionCache trim(float threshold, Duration maxAge) {
+          throw new UnsupportedOperationException();
+        }
 
         @Override
         public void dump(PrintStream out) {}

@@ -74,7 +74,8 @@ final class WorkspaceFactoryTestHelper {
                     BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
                 starlarkSemantics.getBool(
                     BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
-                PackageOverheadEstimator.NOOP_ESTIMATOR)
+                PackageOverheadEstimator.NOOP_ESTIMATOR,
+                Package.Builder.PackageLimits.DEFAULTS)
             .setLoads(ImmutableList.of());
     WorkspaceFactory factory =
         new WorkspaceFactory(

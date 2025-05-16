@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -218,7 +218,7 @@ EOF
   bazel build --internal_spawn_scheduler --genrule_strategy=dynamic \
     --dynamic_remote_strategy=sandboxed \
     --dynamic_local_strategy=standalone \
-    --noincompatible_sandbox_hermetic_tmp \
+    --sandbox_add_mount_pair=/tmp \
     --experimental_dynamic_ignore_local_signals=8,9,10 \
     --experimental_local_lockfree_output \
     --experimental_local_execution_delay=0 \

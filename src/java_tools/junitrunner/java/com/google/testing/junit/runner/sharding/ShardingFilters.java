@@ -17,7 +17,6 @@ package com.google.testing.junit.runner.sharding;
 import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
 import java.util.Collection;
 import java.util.Locale;
-import javax.inject.Inject;
 import org.junit.runner.Description;
 import org.junit.runner.manipulation.Filter;
 
@@ -71,7 +70,6 @@ public class ShardingFilters {
    * Creates a factory with the given sharding environment and sharding
    * strategy.
    */
-  @Inject
   public ShardingFilters(ShardingEnvironment shardingEnvironment,
       ShardingFilterFactory defaultShardingStrategy) {
     this.shardingEnvironment = shardingEnvironment;

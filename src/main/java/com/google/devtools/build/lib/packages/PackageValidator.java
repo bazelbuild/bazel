@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import net.starlark.java.eval.StarlarkThread;
 
 /** Provides loaded-package validation functionality. */
 public interface PackageValidator {
@@ -40,7 +39,21 @@ public interface PackageValidator {
     }
   }
 
-  default void configureThreadWhileLoading(StarlarkThread thread) {}
+  /** Thrown when a package piece is deemed invalid. */
+  class InvalidPackagePieceException extends NoSuchPackagePieceException {
+    public InvalidPackagePieceException(PackagePieceIdentifier packagePieceId, String message) {
+      super(packagePieceId, message);
+    }
+
+    public InvalidPackagePieceException(
+        PackagePieceIdentifier packagePieceId, String message, DetailedExitCode detailedExitCode) {
+      super(packagePieceId, message, detailedExitCode);
+    }
+  }
+
+  default Package.Builder.PackageLimits getPackageLimits() {
+    return Package.Builder.PackageLimits.DEFAULTS;
+  }
 
   /**
    * Validates a loaded package. Throws {@link InvalidPackageException} if the package is deemed

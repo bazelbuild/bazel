@@ -46,7 +46,6 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
     NullPointerTester tester =
         new NullPointerTester()
             .setDefault(RuleContext.class, ruleContext)
-            .setDefault(CcCommon.class, new CcCommon(ruleContext))
             .setDefault(CppSemantics.class, MockCppSemantics.INSTANCE)
             .setDefault(CcToolchainProvider.class, ccToolchain)
             .setDefault(BuildConfigurationValue.class, ruleContext.getConfiguration())

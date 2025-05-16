@@ -253,7 +253,6 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:experimental_writable_outputs",
         "//command_line_option:build_runfile_manifests",
         "//command_line_option:build_runfile_links",
-        "//command_line_option:legacy_external_runfiles",
         "//command_line_option:experimental_remotable_source_manifests",
         "//command_line_option:incompatible_always_include_files_in_data",
         "//command_line_option:experimental_strict_fileset_output",
@@ -317,11 +316,9 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:experimental_use_cpp_compile_action_args_params_file",
         "//command_line_option:experimental_unsupported_and_brittle_include_scanning",
         "//command_line_option:incompatible_use_cpp_compile_header_mnemonic",
-        "//command_line_option:experimental_starlark_cc_import",
         "//command_line_option:experimental_cpp_compile_resource_estimation",
         "//command_line_option:experimental_generate_llvm_lcov",
         "//command_line_option:experimental_omitfp",
-        "//command_line_option:experimental_platform_cc_test",
         "//command_line_option:experimental_save_feature_state",
         "//command_line_option:experimental_use_llvm_covmap",
         "//command_line_option:experimental_starlark_compiling",
@@ -347,12 +344,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:linkopt": settings["//command_line_option:host_linkopt"],
         "//command_line_option:strip": "always",
     },
-)
-
-bazel_fragments["GenQueryConfiguration$GenQueryOptions"] = fragment(
-    propagate = [
-        "//command_line_option:experimental_skip_ttvs_for_genquery",
-    ],
 )
 
 def _java_options(settings):
@@ -490,12 +481,6 @@ bazel_fragments["PythonOptions"] = fragment(
 bazel_fragments["ShellConfiguration$Options"] = fragment(
     propagate = [
         "//command_line_option:shell_executable",
-    ],
-)
-
-bazel_fragments["GenQueryConfiguration$GenQueryOptions"] = fragment(
-    propagate = [
-        "//command_line_option:experimental_skip_ttvs_for_genquery",
     ],
 )
 

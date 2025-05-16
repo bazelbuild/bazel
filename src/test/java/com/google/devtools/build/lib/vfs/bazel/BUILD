@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("@rules_java//java:java_plugin.bzl", "java_plugin")
 load(":java_opt_binary.bzl", "java_opt_binary")
 
 package(

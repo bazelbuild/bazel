@@ -45,11 +45,9 @@ import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Output service implementation for the remote build without local output service daemon. */
@@ -60,7 +58,6 @@ public class RemoteOutputService implements OutputService {
   @Nullable private RemoteOutputChecker remoteOutputChecker;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private LeaseService leaseService;
-  @Nullable private Supplier<InputMetadataProvider> fileCacheSupplier;
 
   RemoteOutputService(BlazeDirectories directories) {
     this.directories = checkNotNull(directories);
@@ -78,10 +75,6 @@ public class RemoteOutputService implements OutputService {
     this.leaseService = leaseService;
   }
 
-  void setFileCacheSupplier(Supplier<InputMetadataProvider> fileCacheSupplier) {
-    this.fileCacheSupplier = fileCacheSupplier;
-  }
-
   @Override
   public ActionFileSystemType actionFileSystemType() {
     return actionInputFetcher != null
@@ -96,7 +89,7 @@ public class RemoteOutputService implements OutputService {
       PathFragment execRootFragment,
       String relativeOutputPath,
       ImmutableList<Root> sourceRoots,
-      ActionInputMap inputArtifactData,
+      InputMetadataProvider inputArtifactData,
       Iterable<Artifact> outputArtifacts,
       boolean rewindingEnabled) {
     checkNotNull(actionInputFetcher, "actionInputFetcher");
@@ -105,8 +98,6 @@ public class RemoteOutputService implements OutputService {
         execRootFragment,
         relativeOutputPath,
         inputArtifactData,
-        outputArtifacts,
-        fileCacheSupplier.get(),
         actionInputFetcher);
   }
 
@@ -114,9 +105,7 @@ public class RemoteOutputService implements OutputService {
   public void updateActionFileSystemContext(
       ActionExecutionMetadata action,
       FileSystem actionFileSystem,
-      Environment env,
-      OutputMetadataStore outputMetadataStore,
-      Map<Artifact, FilesetOutputTree> filesets) {
+      OutputMetadataStore outputMetadataStore) {
     ((RemoteActionFileSystem) actionFileSystem).updateContext(action);
   }
 
@@ -231,13 +220,7 @@ public class RemoteOutputService implements OutputService {
       Map<Artifact, FilesetOutputTree> filesets) {
     FileSystem remoteFileSystem =
         new RemoteActionFileSystem(
-            fileSystem,
-            execRoot,
-            relativeOutputPath,
-            actionInputMap,
-            ImmutableList.of(),
-            fileCacheSupplier.get(),
-            actionInputFetcher);
+            fileSystem, execRoot, relativeOutputPath, actionInputMap, actionInputFetcher);
     return ArtifactPathResolver.createPathResolver(remoteFileSystem, fileSystem.getPath(execRoot));
   }
 

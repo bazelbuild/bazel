@@ -1,4 +1,5 @@
 load("@bazel_tools//tools/build_rules:test_rules.bzl", "file_test")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("//src/main/res:win_res.bzl", "windows_resources")
 
 filegroup(

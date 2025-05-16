@@ -44,6 +44,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -259,6 +260,7 @@ public class IndexRegistry implements Registry {
   /** Represents fields in {@code source.json} for each archive-type version of a module. */
   private static class ArchiveSourceJson {
     URL url;
+    List<String> mirrorUrls;
     String integrity;
     String stripPrefix;
     Map<String, String> patches;
@@ -446,8 +448,13 @@ public class IndexRegistry implements Registry {
         urls.add(constructUrl(mirror, sourceUrl.getAuthority(), sourceUrl.getFile()));
       }
     }
-    // Finally add the original source URL itself.
+    // Add the original source URL itself.
     urls.add(sourceUrl.toString());
+
+    // Add mirror_urls from source.json as backups after the primary url.
+    if (sourceJson.mirrorUrls != null) {
+      urls.addAll(sourceJson.mirrorUrls);
+    }
 
     // Build remote patches as key-value pairs of "url" => "integrity".
     ImmutableMap.Builder<String, String> remotePatches = new ImmutableMap.Builder<>();

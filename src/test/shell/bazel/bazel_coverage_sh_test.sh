@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -53,7 +53,7 @@ sh_library(
 )
 EOF
   cat <<EOF > orange-test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 
 java/com/google/orange/orange-bin
 EOF
@@ -168,7 +168,7 @@ sh_test(
 )
 EOF
   cat <<EOF > num-test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 
 examples/cpp/num-world
 EOF
@@ -317,7 +317,7 @@ sh_test(
 )
 EOF
   cat <<EOF > num-test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 
 examples/cpp/num-world
 java/com/google/orange/orange-bin
@@ -529,7 +529,7 @@ sh_test(
 )
 EOF
   cat <<'EOF' > pull-test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 touch $COVERAGE_DIR/foo.txt
 # We need a non-empty coverage.dat file for the checks below to work.
 echo "FN:2,com/google/orange/orangeLib::<init> ()V" > $COVERAGE_OUTPUT_FILE

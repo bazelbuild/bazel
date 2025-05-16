@@ -119,11 +119,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     }
 
     @Override
-    public boolean isLegacyExternalRunfiles() {
-      return wrapped.isLegacyExternalRunfiles();
-    }
-
-    @Override
     public boolean isMappingCached() {
       return wrapped.isMappingCached();
     }
@@ -160,7 +155,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     @Nullable
     @Override
     public FileArtifactValue getInputMetadataChecked(ActionInput input)
-        throws IOException, MissingDepExecException {
+        throws InterruptedException, IOException, MissingDepExecException {
       return wrapped.getInputMetadataChecked(input);
     }
 
@@ -168,6 +163,12 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     @Override
     public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
       return wrapped.getTreeMetadata(actionInput);
+    }
+
+    @Nullable
+    @Override
+    public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
+      return wrapped.getEnclosingTreeMetadata(execPath);
     }
 
     @Nullable
@@ -202,12 +203,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     public ImmutableList<RunfilesTree> getRunfilesTrees() {
       return ImmutableList.of(overriddenTree);
     }
-
-    @Override
-    public FileSystem getFileSystemForInputResolution() {
-      return wrapped.getFileSystemForInputResolution();
-    }
-
   }
 
   /** Enum for --subcommands flag */
@@ -318,7 +313,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       InputMetadataProvider actionInputFileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
-      OutputMetadataStore outputMetadataStore,
       boolean rewindingEnabled,
       LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
@@ -334,7 +328,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionInputFileCache,
         actionInputPrefetcher,
         actionKeyContext,
-        outputMetadataStore,
+        null,
         rewindingEnabled,
         lostInputsCheck,
         fileOutErr,

@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.LabelPrinter;
@@ -1148,10 +1149,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
     Multimap<PackageIdentifier, Label> packageIdToLabelMap = ArrayListMultimap.create();
     labels.forEach(label -> packageIdToLabelMap.put(label.getPackageIdentifier(), label));
+
+    packageSemaphore.acquireAll(packageIdToLabelMap.keySet());
     Map<PackageIdentifier, Package> packageIdToPackageMap =
         bulkGetPackages(packageIdToLabelMap.keySet());
     ImmutableMap.Builder<Label, Target> resultBuilder = ImmutableMap.builder();
-    packageSemaphore.acquireAll(packageIdToLabelMap.keySet());
     try {
       for (PackageIdentifier pkgId : packageIdToLabelMap.keySet()) {
         Package pkg = packageIdToPackageMap.get(pkgId);
@@ -1185,6 +1187,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       pkgResults.put(pkgId, Preconditions.checkNotNull(pkgValue.getPackage(), pkgId));
     }
     return pkgResults.buildOrThrow();
+  }
+
+  public ImmutableSet<PackageIdentifier> bulkIsPackage(Iterable<PackageIdentifier> pkgIds)
+      throws InconsistentFilesystemException, InterruptedException {
+    return graphBackedRecursivePackageProvider.bulkIsPackage(eventHandler, pkgIds);
   }
 
   @Override

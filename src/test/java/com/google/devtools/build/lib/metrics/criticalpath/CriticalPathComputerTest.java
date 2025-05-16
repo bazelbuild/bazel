@@ -1152,6 +1152,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
             new TestFileOutErr(),
             spawnResult,
             Instant.now(),

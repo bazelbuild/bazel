@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -169,16 +170,13 @@ final class PersistentStringIndexer implements StringIndexer {
     }
   }
 
-  @Override
-  public String toString() {
+  public void dump(PrintStream out) {
     lock.lock();
     try {
-      StringBuilder builder = new StringBuilder();
-      builder.append("size = ").append(size()).append("\n");
-      for (Map.Entry<String, Integer> entry : stringToInt.entrySet()) {
-        builder.append(entry.getKey()).append(" <==> ").append(entry.getValue()).append("\n");
+      out.format("String indexer (%d records):\n", size());
+      for (int i = 0; i < size(); i++) {
+        out.format("  %s <=> %s\n", i, getStringForIndex(i));
       }
-      return builder.toString();
     } finally {
       lock.unlock();
     }

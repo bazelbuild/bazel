@@ -69,11 +69,12 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
@@ -104,6 +105,7 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -375,7 +377,7 @@ public class RemoteExecutionService {
       ToolSignature toolSignature,
       @Nullable SpawnScrubber spawnScrubber,
       RemotePathResolver remotePathResolver)
-      throws IOException, ForbiddenActionInputException {
+      throws IOException {
     // Add output directories to inputs so that they are created as empty directories by the
     // executor. The spec only requires the executor to create the parent directory of an output
     // directory, which differs from the behavior of both local and sandboxed execution.
@@ -440,7 +442,7 @@ public class RemoteExecutionService {
       InputMetadataProvider inputMetadataProvider,
       ArtifactPathResolver artifactPathResolver,
       @Nullable SpawnScrubber spawnScrubber)
-      throws IOException, ForbiddenActionInputException {
+      throws IOException {
     // Deduplicate concurrent computations for the same node. It's not possible to use
     // MerkleTreeCache#get(key, loader) because the loading computation may cause other nodes to be
     // recursively looked up, which is not allowed. Instead, use a future as described at
@@ -463,8 +465,6 @@ public class RemoteExecutionService {
       Throwable cause = checkNotNull(e.getCause());
       if (cause instanceof IOException ioException) {
         throw ioException;
-      } else if (cause instanceof ForbiddenActionInputException forbiddenActionInputException) {
-        throw forbiddenActionInputException;
       } else {
         checkState(cause instanceof RuntimeException);
         throw (RuntimeException) cause;
@@ -478,7 +478,7 @@ public class RemoteExecutionService {
       InputMetadataProvider inputMetadataProvider,
       ArtifactPathResolver artifactPathResolver,
       @Nullable SpawnScrubber scrubber)
-      throws IOException, ForbiddenActionInputException {
+      throws IOException {
     ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
     subMerkleTrees.add(
         MerkleTree.build(
@@ -621,7 +621,7 @@ public class RemoteExecutionService {
 
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ExecException, ForbiddenActionInputException, InterruptedException {
+      throws IOException, ExecException, InterruptedException {
     maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.REMOTE_SETUP);
     try {
       // Create a remote path resolver that is aware of the spawn's path mapper, which rewrites
@@ -1800,7 +1800,6 @@ public class RemoteExecutionService {
             }
 
             return UploadManifest.create(
-                remoteOptions,
                 combinedCache.getRemoteCacheCapabilities(),
                 digestUtil,
                 action.getRemotePathResolver(),
@@ -1833,7 +1832,11 @@ public class RemoteExecutionService {
   }
 
   /** Upload outputs of a remote action which was executed locally to remote cache. */
-  public void uploadOutputs(RemoteAction action, SpawnResult spawnResult, Runnable onUploadComplete)
+  public void uploadOutputs(
+      RemoteAction action,
+      SpawnResult spawnResult,
+      Runnable onUploadComplete,
+      ConcurrentChangesCheckLevel concurrentChangesCheckLevel)
       throws InterruptedException, ExecException {
     checkState(!shutdown.get(), "shutdown");
     checkState(
@@ -1842,6 +1845,19 @@ public class RemoteExecutionService {
     checkState(
         SpawnResult.Status.SUCCESS.equals(spawnResult.status()) && spawnResult.exitCode() == 0,
         "shouldn't upload outputs of failed local action");
+
+    try (SilentCloseable c = Profiler.instance().profile("checkForConcurrentModifications")) {
+      checkForConcurrentModifications(action, concurrentChangesCheckLevel);
+    } catch (IOException e) {
+      report(
+          Event.warn(
+              String.format(
+                  "%s: Skipping uploading outputs because of concurrent modifications with"
+                      + " --guard_against_concurrent_changes enabled: %s",
+                  action.getSpawn().getTargetLabel(), e.getMessage())));
+      onUploadComplete.run();
+      return;
+    }
 
     if (remoteOptions.remoteCacheAsync
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
@@ -1890,6 +1906,40 @@ public class RemoteExecutionService {
     }
   }
 
+  private void checkForConcurrentModifications(
+      RemoteAction action, ConcurrentChangesCheckLevel level) throws IOException {
+    if (level == ConcurrentChangesCheckLevel.OFF) {
+      return;
+    }
+
+    // As this check runs after the action has been executed, we can reuse the input map if it
+    // has already been created with willAccessRepeatedly = true, but do not need to force its
+    // retention.
+    for (ActionInput input : action.getInputMap(/* willAccessRepeatedly= */ false).values()) {
+      // In lite mode, only check source artifacts in the main repository for modifications.
+      // Non-source artifacts are made read-only after execution, and external repositories are
+      // rarely modified, with local_repository being the notable exception.
+      // TODO: Find a way to include repositories that are symlinks to source directories.
+      // On Bazel itself, this reduces the number of wasModifiedSinceDigest calls by 99% compared to
+      // the full check. By not checking output files, this mode also avoids spurious false
+      // positives (see https://github.com/bazelbuild/bazel/issues/3360).
+      if (level == ConcurrentChangesCheckLevel.LITE
+          && !(input instanceof Artifact artifact
+              && artifact.isSourceArtifact()
+              && !artifact.getRoot().isExternal())) {
+        continue;
+      } else if (input instanceof VirtualActionInput) {
+        continue;
+      }
+      FileArtifactValue metadata =
+          action.getSpawnExecutionContext().getInputMetadataProvider().getInputMetadata(input);
+      Path path = execRoot.getRelative(input.getExecPath());
+      if (metadata.wasModifiedSinceDigest(path)) {
+        throw new IOException(path + " was modified during execution");
+      }
+    }
+  }
+
   private void reportUploadError(Throwable error) {
     if (buildInterrupted.get()) {
       // If build interrupted, ignores all the errors
@@ -1907,7 +1957,7 @@ public class RemoteExecutionService {
    * <p>Must be called before calling {@link #executeRemotely}.
    */
   public void uploadInputsIfNotPresent(RemoteAction action, boolean force)
-      throws IOException, ExecException, ForbiddenActionInputException, InterruptedException {
+      throws IOException, ExecException, InterruptedException {
     checkState(!shutdown.get(), "shutdown");
     checkState(mayBeExecutedRemotely(action.getSpawn()), "spawn can't be executed remotely");
 

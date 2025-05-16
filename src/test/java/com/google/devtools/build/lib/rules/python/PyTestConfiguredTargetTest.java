@@ -95,7 +95,7 @@ public class PyTestConfiguredTargetTest extends PyExecutableConfiguredTargetTest
     if (analysisMock.isThisBazel()) {
       assertThat(error).hasMessageThat().contains("name 'py_test' is not defined");
     } else {
-      assertThat(error).hasMessageThat().contains("Rule is unimplemented.");
+      assertThat(error).hasMessageThat().contains("Rule 'py_test' is unimplemented.");
     }
   }
 }

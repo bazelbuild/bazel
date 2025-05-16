@@ -43,6 +43,7 @@ public interface Target extends TargetData {
   }
 
   /** Returns the Package.Metadata of the package to which this target belongs. */
+  // Overlaps signature of RuleOrMacroInstance#getPackageMetadata.
   Package.Metadata getPackageMetadata();
 
   /** Returns the Package.Declarations of the package to which this target belongs. */
@@ -55,6 +56,7 @@ public interface Target extends TargetData {
    *
    * <p>For targets in deserialized packages, throws {@link IllegalStateException}.
    */
+  // Overlaps RuleorMacroInstance#getDeclaringMacro.
   @Nullable
   default MacroInstance getDeclaringMacro() {
     Packageoid packageoid = getPackageoid();
@@ -79,6 +81,12 @@ public interface Target extends TargetData {
    * the innermost running symbolic macro. For targets not in any symbolic macro, this is the same
    * as the package the target lives in.
    */
+  // TODO(bazel-team): Clean up terminology throughout Target, RuleOrMacroInstance, MacroInstance,
+  // CommonPrerequisiteInvalidator, etc., to be consistent. "Definition location" is the place where
+  // a macro's .bzl code lives. "Declaration location" is the place where a target or macro instance
+  // has its visibility checked (assuming no delegation applies) -- the definition location of its
+  // declaring macro, or the BUILD file if not in a macro. "Declaring package" is perhaps ambiguous
+  // and could mean either the declaration location or the package the target lives in.
   default PackageIdentifier getDeclaringPackage() {
     Packageoid packageoid = getPackageoid();
     if (packageoid instanceof Package pkg) {

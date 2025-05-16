@@ -1,3 +1,6 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 # Scripts for IDE / Environment support for Bazel
 package(default_visibility = ["//visibility:private"])
 

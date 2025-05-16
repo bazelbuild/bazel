@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.bazel.coverage.CoverageReportActionBuilder.ArgsFunc;
 import com.google.devtools.build.lib.bazel.coverage.CoverageReportActionBuilder.LocationFunc;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
 /**
@@ -41,7 +40,6 @@ public record CoverageArgs(
     FilesToRunProvider reportGenerator,
     String workspaceName,
     boolean htmlReport,
-    @Nullable PathFragment coverageDir,
     @Nullable Artifact lcovOutput) {
   public CoverageArgs {
     requireNonNull(directories, "directories");
@@ -71,14 +69,10 @@ public record CoverageArgs(
         reportGenerator,
         workspaceName,
         htmlReport,
-        /* coverageDir= */ null,
         /* lcovOutput= */ null);
   }
 
-  public static CoverageArgs createCopyWithCoverageDirAndLcovOutput(
-      CoverageArgs args,
-      PathFragment coverageDir,
-      Artifact lcovOutput) {
+  public static CoverageArgs createCopyWithLcovOutput(CoverageArgs args, Artifact lcovOutput) {
     return new CoverageArgs(
         args.directories(),
         args.coverageArtifacts(),
@@ -88,7 +82,6 @@ public record CoverageArgs(
         args.reportGenerator(),
         args.workspaceName(),
         args.htmlReport(),
-        coverageDir,
         lcovOutput);
   }
 }

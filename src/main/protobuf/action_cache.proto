@@ -33,13 +33,24 @@ message ActionCacheStatistics {
 
   // Reasons for not finding an action in the cache.
   enum MissReason {
-    DIFFERENT_ACTION_KEY = 0;
-    DIFFERENT_DEPS = 1;
-    DIFFERENT_ENVIRONMENT = 2;
-    DIFFERENT_FILES = 3;
+    DIFFERENT_ACTION_KEY = 0;   // currently not used
+    DIFFERENT_DEPS = 1;         // currently not used
+    DIFFERENT_ENVIRONMENT = 2;  // currently not used
+    DIFFERENT_FILES = 3;        // currently not used
+
+    // A cache entry was found, but it was corrupted and we ignored it.
     CORRUPTED_CACHE_ENTRY = 4;
+
+    // No cache entry was found.
     NOT_CACHED = 5;
+
+    // Unconditional execution was requested.
     UNCONDITIONAL_EXECUTION = 6;
+
+    // A cache entry was found, but it contained a different digest.
+    // This could be due to a change in the command line, input or output file
+    // paths or contents, environment variables, or certain build flags.
+    DIGEST_MISMATCH = 7;
   }
 
   // Detailed information for a particular miss reason.

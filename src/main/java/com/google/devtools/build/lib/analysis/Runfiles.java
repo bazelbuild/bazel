@@ -195,27 +195,19 @@ public final class Runfiles implements RunfilesApi {
   /** Policy for this Runfiles tree */
   private ConflictPolicy conflictPolicy;
 
-  /**
-   * If external runfiles should be created under .runfiles/wsname/external/repo as well as
-   * .runfiles/repo.
-   */
-  private final boolean legacyExternalRunfiles;
-
   private Runfiles(
       String prefix,
       NestedSet<Artifact> artifacts,
       NestedSet<SymlinkEntry> symlinks,
       NestedSet<SymlinkEntry> rootSymlinks,
       EmptyFilesSupplier emptyFilesSupplier,
-      ConflictPolicy conflictPolicy,
-      boolean legacyExternalRunfiles) {
+      ConflictPolicy conflictPolicy) {
     this.prefix = prefix;
     this.artifacts = Preconditions.checkNotNull(artifacts);
     this.symlinks = Preconditions.checkNotNull(symlinks);
     this.rootSymlinks = Preconditions.checkNotNull(rootSymlinks);
     this.emptyFilesSupplier = Preconditions.checkNotNull(emptyFilesSupplier);
     this.conflictPolicy = conflictPolicy;
-    this.legacyExternalRunfiles = legacyExternalRunfiles;
   }
 
   @Override
@@ -264,12 +256,7 @@ public final class Runfiles implements RunfilesApi {
     Set<PathFragment> manifestKeys =
         Streams.concat(
                 symlinks.toList().stream().map(SymlinkEntry::getPath),
-                artifacts.toList().stream()
-                    .map(
-                        artifact ->
-                            legacyExternalRunfiles
-                                ? artifact.getOutputDirRelativePath(false)
-                                : artifact.getRunfilesPath()))
+                artifacts.toList().stream().map(Artifact::getRunfilesPath))
             .collect(ImmutableSet.toImmutableSet());
     return emptyFilesSupplier.getExtraPaths(manifestKeys);
   }
@@ -412,8 +399,7 @@ public final class Runfiles implements RunfilesApi {
     // Copy manifest map to another manifest map, prepending the workspace name to every path.
     // E.g. for workspace "myworkspace", the runfile entry "mylib.so"->"/path/to/mylib.so" becomes
     // "myworkspace/mylib.so"->"/path/to/mylib.so".
-    ManifestBuilder builder =
-        new ManifestBuilder(PathFragment.create(prefix), legacyExternalRunfiles);
+    ManifestBuilder builder = new ManifestBuilder(PathFragment.create(prefix));
     builder.addUnderWorkspace(manifest, checker);
     builder.addRootSymlinks(getRootSymlinksAsMap(checker), checker);
     if (repoMappingManifest != null) {
@@ -422,29 +408,19 @@ public final class Runfiles implements RunfilesApi {
     return builder.build();
   }
 
-  public boolean isLegacyExternalRunfiles() {
-    return legacyExternalRunfiles;
-  }
-
-  /**
-   * Helper class to handle munging the paths of external artifacts.
-   */
+  /** Helper class to handle munging the paths of external artifacts. */
   @VisibleForTesting
   static final class ManifestBuilder {
     // Manifest of paths to artifacts. Path fragments are relative to the .runfiles directory.
     private final SortedMap<PathFragment, Artifact> manifest;
     private final PathFragment workspaceName;
-    private final boolean legacyExternalRunfiles;
-    // Whether we saw the local workspace name in the runfiles. If legacyExternalRunfiles is true,
-    // then this is true, as anything under external/ will also have a runfile under the local
-    // workspace.
-    private boolean sawWorkspaceName;
 
-    ManifestBuilder(PathFragment workspaceName, boolean legacyExternalRunfiles) {
+    // Whether we saw the local workspace name in the runfiles.
+    private boolean sawWorkspaceName = false;
+
+    ManifestBuilder(PathFragment workspaceName) {
       this.manifest = new TreeMap<>();
       this.workspaceName = workspaceName;
-      this.legacyExternalRunfiles = legacyExternalRunfiles;
-      this.sawWorkspaceName = legacyExternalRunfiles;
     }
 
     /** Adds a map under the workspaceName. */
@@ -455,9 +431,6 @@ public final class Runfiles implements RunfilesApi {
           sawWorkspaceName = true;
           checker.put(manifest, workspaceName.getRelative(path), entry.getValue());
         } else {
-          if (legacyExternalRunfiles) {
-            checker.put(manifest, getLegacyExternalPath(path), entry.getValue());
-          }
           // Always add the non-legacy .runfiles/repo/whatever path.
           checker.put(manifest, getExternalPath(path), entry.getValue());
         }
@@ -486,12 +459,6 @@ public final class Runfiles implements RunfilesApi {
 
     private PathFragment getExternalPath(PathFragment path) {
       return checkForWorkspace(path.subFragment(1));
-    }
-
-    private PathFragment getLegacyExternalPath(PathFragment path) {
-      return workspaceName
-          .getRelative(LabelConstants.EXTERNAL_PATH_PREFIX)
-          .getRelative(checkForWorkspace(path.subFragment(1)));
     }
 
     private PathFragment checkForWorkspace(PathFragment path) {
@@ -671,35 +638,20 @@ public final class Runfiles implements RunfilesApi {
     /** Build the Runfiles object with this policy */
     private ConflictPolicy conflictPolicy = ConflictPolicy.IGNORE;
 
-    private final boolean legacyExternalRunfiles;
-
     /**
      * Only used for Runfiles.EMPTY.
      */
     private Builder() {
       this.prefix = "";
-      this.legacyExternalRunfiles = false;
-    }
-
-    /**
-     * Creates a builder with the given suffix. Transitional constructor so that new rules don't
-     * accidentally depend on the legacy repository structure, until that option is removed.
-     *
-     * @param workspace is the string specified in workspace() in the WORKSPACE file.
-     */
-    public Builder(String workspace) {
-      this(workspace, false);
     }
 
     /**
      * Creates a builder with the given suffix.
      *
-     * @param prefix is the string specified in workspace() in the WORKSPACE file.
-     * @param legacyExternalRunfiles if the wsname/external/repo symlinks should also be created.
+     * @param workspace is the string specified in workspace() in the WORKSPACE file.
      */
-    public Builder(String prefix, boolean legacyExternalRunfiles) {
-      this.prefix = prefix;
-      this.legacyExternalRunfiles = legacyExternalRunfiles;
+    public Builder(String workspace) {
+      this.prefix = workspace;
     }
 
     /**
@@ -712,8 +664,7 @@ public final class Runfiles implements RunfilesApi {
           symlinksBuilder.build(),
           rootSymlinksBuilder.build(),
           emptyFilesSupplier,
-          conflictPolicy,
-          legacyExternalRunfiles);
+          conflictPolicy);
     }
 
     /** Adds an artifact to the internal collection of artifacts. */
@@ -1030,7 +981,7 @@ public final class Runfiles implements RunfilesApi {
     } else if (o.isEmpty()) {
       return this;
     }
-    return new Runfiles.Builder(prefix, false)
+    return new Runfiles.Builder(prefix)
         .merge(this)
         .merge(o)
         .build()
@@ -1048,7 +999,7 @@ public final class Runfiles implements RunfilesApi {
     // and `x.merge(y)` in Starlark.
     Runfiles uniqueNonEmptyMergee = null;
     if (!this.isEmpty()) {
-      builder = new Builder(prefix, false).merge(this);
+      builder = new Builder(prefix).merge(this);
       uniqueNonEmptyMergee = this;
     }
 
@@ -1056,7 +1007,7 @@ public final class Runfiles implements RunfilesApi {
     for (Runfiles runfiles : runfilesSequence) {
       if (!runfiles.isEmpty()) {
         if (builder == null) {
-          builder = new Builder(runfiles.prefix, /* legacyExternalRunfiles= */ false);
+          builder = new Builder(runfiles.prefix);
           uniqueNonEmptyMergee = runfiles;
         } else {
           uniqueNonEmptyMergee = null;
@@ -1078,7 +1029,6 @@ public final class Runfiles implements RunfilesApi {
   public void fingerprint(
       ActionKeyContext actionKeyContext, Fingerprint fp, boolean digestAbsolutePaths) {
     fp.addInt(conflictPolicy.ordinal());
-    fp.addBoolean(legacyExternalRunfiles);
     fp.addString(prefix);
 
     actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, symlinks);
@@ -1094,7 +1044,6 @@ public final class Runfiles implements RunfilesApi {
   /** Describes the inputs {@link #fingerprint} uses to aid describeKey() descriptions. */
   String describeFingerprint(boolean digestAbsolutePaths) {
     return String.format("conflictPolicy: %s\n", conflictPolicy)
-        + String.format("legacyExternalRunfiles: %s\n", legacyExternalRunfiles)
         + String.format("prefix: %s\n", prefix)
         + String.format(
             "symlinks: %s\n", describeNestedSetFingerprint(SYMLINK_ENTRY_MAP_FN, symlinks))

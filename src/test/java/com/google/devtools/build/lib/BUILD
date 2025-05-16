@@ -1,3 +1,5 @@
+load("@rules_java//java:java_library.bzl", "java_library")
+
 package(
     default_visibility = [
         ":__subpackages__",
@@ -58,7 +60,6 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/unix:srcs",
         "//src/test/java/com/google/devtools/build/lib/unsafe:srcs",
         "//src/test/java/com/google/devtools/build/lib/util:srcs",
-        "//src/test/java/com/google/devtools/build/lib/versioning:srcs",
         "//src/test/java/com/google/devtools/build/lib/vfs:srcs",
         "//src/test/java/com/google/devtools/build/lib/view/cpp:srcs",
         "//src/test/java/com/google/devtools/build/lib/view/java:srcs",

@@ -16,7 +16,6 @@ package com.google.testing.junit.runner.junit4;
 
 import java.util.Arrays;
 import java.util.List;
-import javax.inject.Singleton;
 
 /**
  * Utility classes which hold state or are, for testing purposes, implemented with non-static
@@ -40,11 +39,9 @@ public final class JUnit4InstanceModules {
       this.args = Arrays.asList(args);
     }
 
-    @Singleton
     JUnit4Options options() {
       return JUnit4Options.parse(System.getenv(), args);
     }
-
   }
 
   private JUnit4InstanceModules() {}

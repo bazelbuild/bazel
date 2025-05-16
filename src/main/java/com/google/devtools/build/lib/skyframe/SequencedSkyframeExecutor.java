@@ -518,7 +518,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
           SkyKeyStats ruleStat =
               ruleStats.computeIfAbsent(
                   ruleClassId.key(), k -> new SkyKeyStats(k, ruleClassId.name()));
-          ruleStat.countWithActions(ctValue.getNumActions());
+          ruleStat.countWithActions(ctValue.getActions().size());
         }
       } else if (functionName.equals(SkyFunctions.ASPECT)) {
         AspectValue aspectValue = (AspectValue) value;
@@ -531,7 +531,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         SkyKeyStats aspectStat =
             aspectStats.computeIfAbsent(
                 aspectClass.getKey(), k -> new SkyKeyStats(k, aspectClass.getName()));
-        aspectStat.countWithActions(aspectValue.getNumActions());
+        aspectStat.countWithActions(aspectValue.getActions().size());
       }
 
       // We record rules and aspects again here so function count is correct.

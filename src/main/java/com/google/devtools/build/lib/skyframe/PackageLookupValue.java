@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.BuildFileName;
-import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -70,11 +69,6 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   protected PackageLookupValue() {}
-
-  public static PackageLookupValue successfulExternalPackageLookup(
-      RepositoryDirectoryValue repository, Root root, BuildFileName buildFileName) {
-    return SuccessfulExternalPackageLookupValue.create(repository, root, buildFileName);
-  }
 
   public static PackageLookupValue success(Root root, BuildFileName buildFileName) {
     return SuccessfulPackageLookupValue.create(root, buildFileName);
@@ -226,48 +220,6 @@ public abstract class PackageLookupValue implements SkyValue {
     @Override
     public int hashCode() {
       return Objects.hashCode(root.hashCode(), buildFileName.hashCode());
-    }
-  }
-
-  /** Successful lookup value for a package in an external repo. */
-  @AutoCodec
-  public static class SuccessfulExternalPackageLookupValue extends SuccessfulPackageLookupValue {
-    private static final Interner<SuccessfulExternalPackageLookupValue> INTERNER =
-        BlazeInterners.newWeakInterner();
-
-    /**
-     * The repository value, so as to be sensitive to changes to realpaths of external repositories.
-     */
-    private final RepositoryDirectoryValue repository;
-
-    SuccessfulExternalPackageLookupValue(
-        RepositoryDirectoryValue repository, Root root, BuildFileName buildFileName) {
-      super(root, buildFileName);
-      this.repository = repository;
-    }
-
-    @AutoCodec.Instantiator
-    @VisibleForSerialization
-    static SuccessfulExternalPackageLookupValue create(
-        RepositoryDirectoryValue repository, Root root, BuildFileName buildFileName) {
-      return INTERNER.intern(
-          new SuccessfulExternalPackageLookupValue(repository, root, buildFileName));
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (!(obj instanceof SuccessfulExternalPackageLookupValue other)) {
-        return false;
-      }
-      if (!super.equals(obj)) {
-        return false;
-      }
-      return repository.equals(other.repository);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(super.hashCode(), repository);
     }
   }
 

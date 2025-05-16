@@ -17,6 +17,25 @@ import java.time.Duration;
 
 /** A task to be executed by {@link IdleTaskManager} while the server is idle. */
 public interface IdleTask {
+
+  /** The status of an idle task. */
+  public enum Status {
+    /** The task was never started. */
+    NOT_STARTED,
+    /** The task finished successfully. */
+    SUCCESS,
+    /** The task finished with an error. */
+    FAILURE,
+    /* The task was interrupted while running. */
+    INTERRUPTED
+  }
+
+  /** The result of running an idle task. */
+  public record Result(String name, Status status, Duration runningTime) {}
+
+  /** A display name for the task. */
+  String displayName();
+
   /**
    * Returns how long to remain idle before executing the task.
    *
@@ -28,11 +47,15 @@ public interface IdleTask {
   }
 
   /**
-   * Starts executing the task.
+   * Executes the task.
    *
-   * <p>This method will be called in a dedicated thread. It should be designed to return early in
-   * response to an interrupt, but is not required to do so. Either way, {@link IdleTaskManager}
-   * must wait for it to return before leaving the idle period.
+   * <p>Implementations are encouraged to handle interruption promptly by throwing {@link
+   * InterruptedException}, but are not required to do so, and may instead opt to complete normally.
+   * Either way, the {@link IdleTaskManager} will wait for the task to finish before leaving the
+   * idle period, so the task may assume that a subsequent command will not interfere with it.
+   *
+   * @throws InterruptedException if the task is interrupted
+   * @throws IdleTaskException if the task fails for a reason other than interruption
    */
-  void run();
+  void run() throws IdleTaskException, InterruptedException;
 }

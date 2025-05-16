@@ -500,7 +500,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
 
     @Override
     public Target getBuildFileTarget(Target originalTarget) {
-      return originalTarget.getPackageDeclarations().getBuildFile();
+      return originalTarget.getPackageoid().getBuildFile();
     }
 
     @Override

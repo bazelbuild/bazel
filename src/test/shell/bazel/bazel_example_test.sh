@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -57,6 +57,7 @@ EOF
   add_rules_java "MODULE.bazel"
   add_rules_python "MODULE.bazel"
   add_rules_shell "MODULE.bazel"
+  add_rules_cc "MODULE.bazel"
 }
 
 #
@@ -137,7 +138,7 @@ function test_native_python_with_zip() {
     || fail "//examples/py_native:bin execution failed"
   expect_log "Fib(5) == 8"
   # Using python <zipfile> to run the python package
-  python ./bazel-bin/examples/py_native/bin >& $TEST_log \
+  python3 ./bazel-bin/examples/py_native/bin >& $TEST_log \
     || fail "//examples/py_native:bin execution failed"
   expect_log "Fib(5) == 8"
   assert_test_ok //examples/py_native:test --build_python_zip

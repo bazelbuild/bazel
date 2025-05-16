@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -89,7 +90,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       PathFragment ltoOutputRootPrefix,
       PathFragment ltoObjRootPrefix,
       Artifact bitcodeFile,
-      @Nullable BitcodeFiles allBitcodeFiles,
+      @Nullable NestedSet<Artifact> allBitcodeFiles,
       LinkActionConstruction linkActionConstruction,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
@@ -122,6 +123,10 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
         featureConfiguration,
         userCompileFlags);
     CcToolchainVariables buildVariables = buildVariablesBuilder.build();
+    BitcodeFiles bitcodeFiles = null;
+    if (allBitcodeFiles != null) {
+      bitcodeFiles = new BitcodeFiles(allBitcodeFiles);
+    }
     if (bitcodeFile.isTreeArtifact()) {
       objectFile = linkActionConstruction.createTreeArtifact(obj);
       if (createSharedNonLto) {
@@ -143,7 +148,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
           builder,
           buildVariables,
           usePic,
-          allBitcodeFiles);
+          bitcodeFiles);
     } else {
       objectFile = linkActionConstruction.create(obj);
       if (createSharedNonLto) {
@@ -172,7 +177,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
           linkActionConstruction.getContext(),
           featureConfiguration,
           usePic,
-          allBitcodeFiles);
+          bitcodeFiles);
     }
   }
 

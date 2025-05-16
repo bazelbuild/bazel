@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -524,7 +524,7 @@ function write_test_xml_timeout_files() {
   add_rules_shell "MODULE.bazel"
 
   cat <<'EOF' > dir/test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 echo "xmltest"
 echo -n "before "
 # Invalid XML character
@@ -859,7 +859,7 @@ function setup_undeclared_outputs_test() {
   add_rules_shell "MODULE.bazel"
 
   cat <<'EOF' > dir/test.sh
-#!/bin/bash
+#!/usr/bin/env bash
 mkdir -p "$TEST_UNDECLARED_OUTPUTS_DIR/deeply/nested"
 echo "some text" > "$TEST_UNDECLARED_OUTPUTS_DIR/text.txt"
 echo "<!DOCTYPE html>" > "$TEST_UNDECLARED_OUTPUTS_DIR/deeply/nested/index.html"
@@ -1108,6 +1108,26 @@ sh_test(
 EOF
   bazel test --nobuild_runfile_manifests //dir:test >& $TEST_log && fail "should have failed"
   expect_log "cannot run local tests with --nobuild_runfile_manifests"
+}
+
+function test_test_with_reserved_env_variable() {
+  mkdir -p dir
+  add_rules_shell "MODULE.bazel"
+
+  touch dir/test.sh
+  chmod u+x dir/test.sh
+  cat <<'EOF' > dir/BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(
+    name = 'test',
+    srcs = ['test.sh'],
+    env = {
+      "TEST_NAME": "foo"
+    },
+)
+EOF
+  bazel test //dir:test >& $TEST_log && fail "should have failed"
+  expect_log "cannot set env variable TEST_NAME=foo because TEST_NAME is reserved"
 }
 
 function test_run_from_external_repo_sibling_repository_layout() {

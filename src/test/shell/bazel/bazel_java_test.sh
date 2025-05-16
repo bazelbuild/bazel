@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -1582,8 +1582,7 @@ EOF
 function test_build_hello_world_with_remote_embedded_tool_targets() {
   write_hello_library_files
 
-  bazel build //java/main:main_deploy.jar --define EXECUTOR=remote \
-    &> $TEST_log || fail "build failed"
+  bazel build //java/main:main_deploy.jar &> $TEST_log || fail "build failed"
 }
 
 
@@ -1648,18 +1647,17 @@ sh_test(
 EOF
 
   cat > "${pkg}"/run.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eu
 
 JAVA=\$1
-[[ "\$JAVA" =~ ^(/|[^/]+$) ]] || JAVA="\$PWD/\$JAVA"
+[[ "\$JAVA" =~ ^(/|[^/]+$) ]] || JAVA="\$PWD/\${JAVA//external/..}"
 "\${JAVA}" -fullversion
 EOF
   chmod +x "${pkg}"/run.sh
 
   bazel test //"${pkg}":bar --test_output=all --verbose_failures >& "$TEST_log" \
-      --legacy_external_runfiles \
       || fail "Expected success"
 }
 
@@ -1757,7 +1755,7 @@ function test_jni() {
   expect_log "hello 123"
 }
 
-function test_jni_external_repo_legacy_external_runfiles() {
+function test_jni_external_repo_runfiles() {
   # Skip on MS Windows, see details in test_jni
   uname -s | grep -q MSYS_NT && return
   # Skip on Darwin, see details in test_jni
@@ -1765,22 +1763,7 @@ function test_jni_external_repo_legacy_external_runfiles() {
 
   setup_jni_targets "my_other_repo"
 
-  bazel run --legacy_external_runfiles //test:app >> $TEST_log || {
-    find bazel-bin/ | native # helpful for debugging
-    fail "bazel run command failed"
-  }
-  expect_log "hello 123"
-}
-
-function test_jni_external_repo_no_legacy_external_runfiles() {
-  # Skip on MS Windows, see details in test_jni
-  uname -s | grep -q MSYS_NT && return
-  # Skip on Darwin, see details in test_jni
-  uname -s | grep -q Darwin && return
-
-  setup_jni_targets "my_other_repo"
-
-  bazel run --nolegacy_external_runfiles //test:app >> $TEST_log || {
+  bazel run //test:app >> $TEST_log || {
     find bazel-bin/ | native # helpful for debugging
     fail "bazel run command failed"
   }
@@ -2143,7 +2126,7 @@ function test_sandboxed_multiplexing() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
 load("@rules_java//java:java_library.bzl", "java_library")
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 
 default_java_toolchain(
     name = "java_toolchain",
@@ -2171,7 +2154,7 @@ EOF
 function test_sandboxed_multiplexing_hermetic_paths_in_diagnostics() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 load("@rules_java//java:java_library.bzl", "java_library")
 
 default_java_toolchain(
@@ -2410,7 +2393,7 @@ EOF
 function test_one_version_allowlist() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 
 default_java_toolchain(

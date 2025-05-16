@@ -15,10 +15,10 @@ package com.google.devtools.build.lib.rules.genrule;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -266,7 +266,7 @@ public class GenRuleBaseRule implements RuleDefinition {
         See <a href="${link common-definitions#binary.output_licenses}"><code>common attributes
         </code></a>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("output_licenses", LICENSE))
+        .add(attr("output_licenses", STRING_LIST))
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(executable) -->
         Declare output to be executable.

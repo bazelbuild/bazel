@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 /**
  * Writes the JUnit test nodes and their results into Ant-JUnit XML. Ant-JUnit XML is not a
@@ -59,7 +58,6 @@ public final class AntXmlResultWriter implements XmlResultWriter {
 
   private int testSuiteId;
 
-  @Inject
   public AntXmlResultWriter() {}
 
   @Override

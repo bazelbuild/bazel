@@ -17,7 +17,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
@@ -786,115 +785,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testDefaultInfoFilesAddedToCcBinaryTargetRunfiles() throws Exception {
-    scratch.file(
-        "test/starlark/extension.bzl",
-        """
-        def custom_rule_impl(ctx):
-          out = ctx.actions.declare_file(ctx.attr.name + '.out')
-          ctx.actions.write(out, 'foobar')
-          return [DefaultInfo(files = depset([out]))]
-
-        custom_rule = rule(implementation = custom_rule_impl)
-        """);
-
-    scratch.file(
-        "test/starlark/BUILD",
-        """
-        load('//test/starlark:extension.bzl', 'custom_rule')
-
-        custom_rule(name = 'cr')
-        cc_binary(name = 'binary', data = [':cr'])
-        """);
-
-    useConfiguration("--incompatible_always_include_files_in_data");
-    ConfiguredTarget target = getConfiguredTarget("//test/starlark:binary");
-
-    assertThat(target.getLabel().toString()).isEqualTo("//test/starlark:binary");
-    assertThat(
-            ActionsTestUtil.baseArtifactNames(
-                target.getProvider(RunfilesProvider.class).getDefaultRunfiles().getAllArtifacts()))
-        .contains("cr.out");
-    assertThat(
-            ActionsTestUtil.baseArtifactNames(
-                target.getProvider(RunfilesProvider.class).getDataRunfiles().getAllArtifacts()))
-        .contains("cr.out");
-  }
-
-  @Test
-  public void testDefaultInfoFilesAddedToJavaBinaryTargetRunfiles() throws Exception {
-    scratch.file(
-        "test/starlark/extension.bzl",
-        """
-        def custom_rule_impl(ctx):
-          out = ctx.actions.declare_file(ctx.attr.name + '.out')
-          ctx.actions.write(out, 'foobar')
-          return [DefaultInfo(files = depset([out]))]
-
-        custom_rule = rule(implementation = custom_rule_impl)
-        """);
-
-    scratch.file(
-        "test/starlark/BUILD",
-        """
-        load("@rules_java//java:defs.bzl", "java_binary")
-        load('//test/starlark:extension.bzl', 'custom_rule')
-
-        custom_rule(name = 'cr')
-        java_binary(name = 'binary', data = [':cr'], srcs = ['Foo.java'], main_class = 'Foo')
-        """);
-
-    useConfiguration("--incompatible_always_include_files_in_data");
-    ConfiguredTarget target = getConfiguredTarget("//test/starlark:binary");
-
-    assertThat(target.getLabel().toString()).isEqualTo("//test/starlark:binary");
-    assertThat(
-            ActionsTestUtil.baseArtifactNames(
-                target.getProvider(RunfilesProvider.class).getDefaultRunfiles().getAllArtifacts()))
-        .contains("cr.out");
-    assertThat(
-            ActionsTestUtil.baseArtifactNames(
-                target.getProvider(RunfilesProvider.class).getDataRunfiles().getAllArtifacts()))
-        .contains("cr.out");
-  }
-
-  @Test
-  public void testDefaultInfoFilesAddedToPyBinaryTargetRunfiles() throws Exception {
-    scratch.file(
-        "test/starlark/extension.bzl",
-        """
-        def custom_rule_impl(ctx):
-          out = ctx.actions.declare_file(ctx.attr.name + '.out')
-          ctx.actions.write(out, 'foobar')
-          return [DefaultInfo(files = depset([out]))]
-
-        custom_rule = rule(implementation = custom_rule_impl)
-        """);
-
-    scratch.file(
-        "test/starlark/BUILD",
-        getPyLoad("py_binary"),
-        "load('//test/starlark:extension.bzl', 'custom_rule')",
-        "",
-        "custom_rule(name = 'cr')",
-        "py_binary(name = 'binary', data = [':cr'], srcs = ['binary.py'])");
-
-    useConfiguration("--incompatible_always_include_files_in_data");
-    ConfiguredTarget target = getConfiguredTarget("//test/starlark:binary");
-
-    assertThat(target.getLabel().toString()).isEqualTo("//test/starlark:binary");
-    assertThat(
-            ActionsTestUtil.baseArtifactNames(
-                target.getProvider(RunfilesProvider.class).getDefaultRunfiles().getAllArtifacts()))
-        .contains("cr.out");
-    assertThat(
-            ActionsTestUtil.baseArtifactNames(
-                target.getProvider(RunfilesProvider.class).getDataRunfiles().getAllArtifacts()))
-        .contains("cr.out");
-  }
-
-  @Test
-  public void testDefaultInfoFilesAddedToShBinaryTargetRunfiles() throws Exception {
+  public void testDefaultInfoFilesAddedToFooBinaryTargetRunfiles() throws Exception {
     scratch.file(
         "test/starlark/extension.bzl",
         """
@@ -1398,13 +1289,14 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/extension.bzl",
         """
+        MyInfo = provider()
         def rule_impl(ctx):
           return []
 
         dependent_rule = rule(implementation = rule_impl)
 
         main_rule = rule(implementation = rule_impl,
-            attrs = {'dependencies': attr.label_list(providers = ['some_provider'],
+            attrs = {'dependencies': attr.label_list(providers = [MyInfo],
                 allow_files=True)})
         """);
 
@@ -1412,7 +1304,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "test",
         "b",
         "in dependencies attribute of main_rule rule //test:b: "
-            + "'//test:a' does not have mandatory providers: 'some_provider'",
+            + "'//test:a' does not have mandatory providers: 'MyInfo'",
         "load('//test/starlark:extension.bzl', 'dependent_rule')",
         "load('//test/starlark:extension.bzl', 'main_rule')",
         "",
@@ -3590,7 +3482,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testDisableTargetProviderFields() throws Exception {
-    setBuildLanguageOptions("--incompatible_disable_target_provider_fields=true");
     scratch.file(
         "test/starlark/rule.bzl",
         """
@@ -3620,17 +3511,13 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test/starlark:r");
     assertContainsEvent(
-        "Accessing providers via the field syntax on structs is deprecated and will be removed "
-            + "soon. It may be temporarily re-enabled by setting "
-            + "--incompatible_disable_target_provider_fields=false. "
-            + "See https://github.com/bazelbuild/bazel/issues/9014 for details.");
+        "Accessing providers via the field syntax on structs is deprecated and removed.");
   }
 
   // Verifies that non-provider fields on the 'target' type are still available even with
   // --incompatible_disable_target_provider_fields.
   @Test
   public void testDisableTargetProviderFields_actionsField() throws Exception {
-    setBuildLanguageOptions("--incompatible_disable_target_provider_fields=true");
     scratch.file(
         "test/starlark/rule.bzl",
         """

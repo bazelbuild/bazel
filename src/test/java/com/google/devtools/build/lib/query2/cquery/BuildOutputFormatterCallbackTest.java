@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.OUTPUT;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -88,7 +89,7 @@ public class BuildOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             env.getAccessor(),
             LabelPrinter.legacy());
     env.evaluateQuery(expression, callback);
-    return Arrays.asList(output.toString().split(System.lineSeparator()));
+    return Arrays.asList(output.toString(UTF_8).split("\n"));
   }
 
   @Test

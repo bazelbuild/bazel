@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.rules.filegroup;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -60,7 +60,7 @@ public final class FilegroupRule implements RuleDefinition {
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("data", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE).dontCheckConstraints())
-        .add(attr("output_licenses", LICENSE))
+        .add(attr("output_licenses", STRING_LIST))
         /*<!-- #BLAZE_RULE(filegroup).ATTRIBUTE(path) -->
         An optional string to set a path to the files in the group, relative to the package path.
         <p>

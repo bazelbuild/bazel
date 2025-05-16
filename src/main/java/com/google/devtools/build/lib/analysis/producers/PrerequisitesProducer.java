@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computeAspectCollection;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computeAspectCollectionNoAspectsFiltering;
+import static com.google.devtools.build.lib.analysis.producers.AttributeConfiguration.Kind.NULL_TRANSITION_KEYS;
 import static com.google.devtools.build.lib.analysis.producers.AttributeConfiguration.Kind.VISIBILITY;
 import static com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData.SPLIT_DEP_ORDERING;
 import static java.util.Arrays.copyOfRange;
@@ -186,7 +187,12 @@ final class PrerequisitesProducer
     }
     // `configuration.kind()` was `NULL_TRANSITION_KEYS`. This is only used when the target is in
     // the same package as the parent and not configurable so this should never happen.
-    throw new IllegalStateException(error);
+    if (configuration.kind() == NULL_TRANSITION_KEYS) {
+      throw new IllegalStateException(error);
+    }
+    // We expect to return silently with --keep_going because of repeated access to a previously
+    // failed evaluations due to invalid select(). This way instead of seeing a crash, users would
+    // see a proper reported error.
   }
 
   @Override

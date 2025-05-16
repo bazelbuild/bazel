@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -56,7 +56,7 @@ add_to_bazelrc "build --package_path=%workspace%"
 function test_directory_args_inspection() {
   mkdir -p package
   cat > package/makes_tree_artifacts.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 my_dir=\$1
 
 touch \$my_dir/a.txt
@@ -66,7 +66,7 @@ EOF
   chmod 755 package/makes_tree_artifacts.sh
 
   cat > package/write.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 output_file=\$1
 shift;
 
@@ -137,7 +137,7 @@ EOF
 function test_directory_args_inspection_param_file() {
   mkdir -p package
   cat > package/makes_tree_artifacts.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 my_dir=\$1
 
 touch \$my_dir/a.txt
@@ -147,7 +147,7 @@ EOF
   chmod 755 package/makes_tree_artifacts.sh
 
   cat > package/write.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 param_file=\$1
 shift;
@@ -346,7 +346,7 @@ function test_aspect_requires_aspect_no_action_conflict() {
   mkdir -p "${package}"
 
   cat > "${package}/write.sh" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 output_file=\$1
 unused_file=\$2
 

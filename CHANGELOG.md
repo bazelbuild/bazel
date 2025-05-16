@@ -1,3 +1,103 @@
+## Release 9.0.0-pre.20250506.6 (2025-05-15)
+
+```
+Baseline: e64ed65d1aec268a06c72dac6419878fe191817a
+
+Cherry picks:
+
+   + 9c44416948308c7eefe5c5d5422ef5579c9ee438:
+     Filter out duplicated static libraries in LTO
+   + 6d7087bf26a945376e88d24b81e5a145841f55f0:
+     Automated rollback of commit
+     0d773a14ee24ceb9e61128067db5b6d1e6e6e5fe.
+   + b41dc939d31d638462792d1f606d83bf7cef1d8f:
+     Set the current `SkyFunction.Environment` in
+     `SkyframeInputMetadataProvider` for subsequent input discovery
+     attempts.
+   + 3a31e852882fe791f27b2eb13cacdf39bb8e4659:
+     Support looking up fileset targets in
+     `ActionInputMetadataProvider#getInput`.
+   + ee1dd9042990ef27c47949c131e76621415ca31a:
+     Fix a check-then-act race in
+     `MemoizingEvaluator#getExistingValue`.
+   + e65ee99c8a63a7a0054591ed5635cd875a29f37f:
+     Memoize Skyframe lookups in SkyframeInputMetadataProvider.
+```
+
+Incompatible changes:
+
+  - The `--verbose_explanations` flag is now a no-op: the additional
+    information it produced wasn't useful enough to justify the
+    memory cost of the additional bookkeeping.
+
+Important changes:
+
+  - The deprecated License type is replaced with a string List.
+    This is a non-functional change for Bazel, but it does remove
+    some code.
+  - User-provided repo names may now start with a number.
+
+This release contains contributions from many people at Google, as well as Benji Vos, Dmitry Ivankov, Fabian Meumertzheim, helly25, Ian Stapleton Cordasco, Javier Maestro, Marcus Eagan, xndcn.
+
+## Release 9.0.0-pre.20250426.1 (2025-05-08)
+
+```
+Baseline: f2424778bf6b3043fc5729b6545c8189066f4ff7
+```
+
+Incompatible changes:
+
+  - When remote execution fails and an action is executed locally,
+    modifications of its inputs during execution are now checked
+    according to the value of the
+    `--guard_against_concurrent_changes` flag rather than as if that
+    flag was set to `full`.
+  - accessing struct providers is not supported anymore
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Chi Wang, Fabian Meumertzheim, Greg, Markus Hofbauer, Xdng Yng.
+
+## Release 9.0.0-pre.20250421.1 (2025-04-29)
+
+```
+Baseline: e8c6e40d53b90ac71cf634561e69d4dec3a2934a
+```
+
+Incompatible changes:
+
+  - struct providers are not supported in aspects
+
+Important changes:
+
+  - The (deprecated) `output_licenses` attribute is now a string
+    list rather than an internal data type. The only visible change
+    may be that some query output may change from printing capitalized
+    values of inputs will now show lower case.
+
+This release contains contributions from many people at Google, as well as Ankush Chudiwal, Benji Vos, Fabian Meumertzheim.
+
+## Release 9.0.0-pre.20250414.1 (2025-04-22)
+
+```
+Baseline: 1b0cb1fa37ded09fdd1daf32b19253516e0d0694
+```
+
+Important changes:
+
+  - Soft deprecate bazel startup option --write_command_log. User
+    should switch to use command option with the same name or look at
+    the build event messages.
+  - Add better defaults for mobile-install flags
+
+This release contains contributions from many people at Google, as well as Alex Fax, Chi Wang, David Sanderson, Fabian Meumertzheim, Peter Li, PikachuHy.
+
+## Release 8.2.1 (2025-04-17)
+
+```
+
+Release Notes:
+
+```
+
 ## Release 9.0.0-pre.20250408.2 (2025-04-15)
 
 ```

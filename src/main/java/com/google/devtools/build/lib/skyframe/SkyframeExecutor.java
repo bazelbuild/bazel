@@ -27,6 +27,8 @@ import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.NONE;
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.WITH_TRAVERSAL;
 import static com.google.devtools.build.lib.skyframe.SkyfocusExecutor.toFileStateKey;
 import static com.google.devtools.build.lib.skyframe.SkyfocusState.DISABLED;
+import static java.util.stream.Collectors.counting;
+import static java.util.stream.Collectors.groupingBy;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -156,6 +158,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -177,8 +180,7 @@ import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
-import com.google.devtools.build.lib.rules.genquery.GenQueryConfiguration.GenQueryOptions;
-import com.google.devtools.build.lib.rules.genquery.GenQueryDirectPackageProviderFactory;
+import com.google.devtools.build.lib.rules.genquery.GenQueryPackageProviderFactory;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileFunction;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.MemoryPressureOptions;
@@ -522,15 +524,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider =
       DisabledDependenciesProvider.INSTANCE;
 
+  private final Set<SkyKey> deserializedKeysFromRemoteAnalysisCache = new HashSet<>();
+
   /** Non-null only when analysis caching mode is upload/download. */
   @Nullable private ModifiedFileSet diffFromEvaluatingVersion;
 
   private final AtomicInteger analysisCount = new AtomicInteger();
-
-  public void setRemoteAnalysisCachingDependenciesProvider(
-      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider) {
-    this.remoteAnalysisCachingDependenciesProvider = remoteAnalysisCachingDependenciesProvider;
-  }
 
   /** Returns how many times analysis has been run during the life of this bazel server instance. */
   public int getAndIncrementAnalysisCount() {
@@ -551,6 +550,63 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE
   public RemoteAnalysisCachingDependenciesProvider getRemoteAnalysisCachingDependenciesProvider() {
     return remoteAnalysisCachingDependenciesProvider;
+  }
+
+  public void setRemoteAnalysisCachingDependenciesProvider(
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider) {
+    this.remoteAnalysisCachingDependenciesProvider = remoteAnalysisCachingDependenciesProvider;
+  }
+
+  public Set<SkyKey> getDeserializedKeysFromRemoteAnalysisCache() {
+    return deserializedKeysFromRemoteAnalysisCache;
+  }
+
+  /**
+   * Invalidates the given keys with an external remote analysis service.
+   *
+   * <p>This is a no-op if remote analysis caching is disabled.
+   */
+  public void invalidateWithExternalService(ExtendedEventHandler eventHandler) {
+    if (!isRemoteAnalysisCachingEnabled()) {
+      return;
+    }
+    ImmutableSet<SkyKey> keysToInvalidate =
+        remoteAnalysisCachingDependenciesProvider.lookupKeysToInvalidate(
+            deserializedKeysFromRemoteAnalysisCache);
+
+    // Log a sample of the invalidated SkyKeys to the INFO log.
+    if (keysToInvalidate.isEmpty()) {
+      return;
+    }
+
+    int maxKeysToLog = 20;
+    if (keysToInvalidate.size() > maxKeysToLog) {
+      logger.atInfo().log(
+          "Invalidating %d keys, but only logging first %s.",
+          keysToInvalidate.size(), maxKeysToLog);
+    }
+    int i = 0;
+    for (SkyKey key : keysToInvalidate) {
+      if (i++ > maxKeysToLog) {
+        break;
+      }
+      logger.atInfo().log("Invalidating key: %s", key.getCanonicalName());
+    }
+
+    // In Bazel UI, report the number of invalidated SkyKeys by SkyFunction.
+    Map<SkyFunctionName, Long> countsByFunctionName =
+        keysToInvalidate.stream().collect(groupingBy(SkyKey::functionName, counting()));
+    if (!countsByFunctionName.isEmpty()) {
+      eventHandler.handle(
+          Event.info(
+              String.format("Invalidation counts by SkyFunction: %s", countsByFunctionName)));
+    }
+
+    // Remove the keys from the set of deserialized keys so that we don't try to upload them again.
+    deserializedKeysFromRemoteAnalysisCache.removeAll(keysToInvalidate);
+    // `delete` is used instead of `invalidate` because the latter marks the nodes as `changed`,
+    // which is not allowed for hermetic SkyFunctions
+    getEvaluator().delete(keysToInvalidate::contains);
   }
 
   @VisibleForTesting
@@ -782,9 +838,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             this::getExistingPackage));
     map.put(SkyFunctions.BUILD_TOP_LEVEL_ASPECTS_DETAILS, new LoadTopLevelAspectsFunction());
-    map.put(
-        GenQueryDirectPackageProviderFactory.GENQUERY_SCOPE,
-        GenQueryDirectPackageProviderFactory.FUNCTION);
+    map.put(GenQueryPackageProviderFactory.GENQUERY_SCOPE, GenQueryPackageProviderFactory.FUNCTION);
     map.put(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING, new ActionLookupConflictFindingFunction());
     map.put(
         SkyFunctions.TOP_LEVEL_ACTION_LOOKUP_CONFLICT_FINDING,
@@ -1351,7 +1405,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   private static boolean hasActions(ConfiguredObjectValue value) {
-    return value instanceof ActionLookupValue alv && alv.getNumActions() > 0;
+    return value instanceof ActionLookupValue alv && !alv.getActions().isEmpty();
   }
 
   /** Tracks how long it takes to clear the analysis cache. */
@@ -2319,11 +2373,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private PackageRoots getPackageRoots() {
     Root virtualSourceRoot = directories.getVirtualSourceRoot();
-    return virtualSourceRoot == null
-            || outputService == null
-            || outputService.actionFileSystemType().shouldDoTopLevelOutputSetup()
-        ? new MapAsPackageRoots(collectPackageRoots())
-        : new PackageRootsNoSymlinkCreation(checkNotNull(virtualSourceRoot));
+    return virtualSourceRoot != null
+        ? new VirtualPackageRoots(virtualSourceRoot)
+        : new MapAsPackageRoots(collectPackageRoots());
   }
 
   @Nullable
@@ -2419,9 +2471,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /** Called after a single Skyframe evaluation that involves action execution. */
   private void cleanUpAfterSingleEvaluationWithActionExecution(ExtendedEventHandler eventHandler) {
     setExecutionProgressReceiver(null);
-
-    skyframeActionExecutor.executionOver();
     actionRewindStrategy.reset(eventHandler);
+    skyframeActionExecutor.executionOver();
   }
 
   /**
@@ -3266,13 +3317,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // package should have been added to the InMemoryGraph. So it is safe to remove relevant
       // labels from weak interner.
       LabelInterner labelInterner = Label.getLabelInterner();
+      // TODO(https://github.com/bazelbuild/bazel/issues/23852): also intern labels in package
+      // pieces for macros.
       if (labelInterner.enabled()
           && skyKey.functionName().equals(SkyFunctions.PACKAGE)
           && newValue != null
           && directDeps != null) {
-        checkState(newValue instanceof PackageValue, newValue);
+        checkState(newValue instanceof PackageoidValue, newValue);
 
-        Package pkg = ((PackageValue) newValue).getPackage();
+        Packageoid pkg = ((PackageoidValue) newValue).getPackageoid();
+        // Lock is keyed by package id, not by package piece id, because we cannot easily look up a
+        // package piece from a target label (and even if we could, it is possible - although it is
+        // an error state - for package pieces in the same package to collide and declare targets
+        // with the same label).
         Lock writeLock = labelInterner.getLockForLabelTransferToPool(pkg.getPackageIdentifier());
         writeLock.lock();
         try {
@@ -3322,13 +3379,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       if (!t.getRuleClassString().equals("genquery")) {
         return;
       }
-      BuildOptions options = t.getConfigurationKey().getOptions();
-      var genQueryOptions = options.get(GenQueryOptions.class);
-      if (genQueryOptions == null || !genQueryOptions.skipTtvs) {
-        return;
-      }
       for (SkyKey key : directDeps.getAllElementsAsIterable()) {
-        if (key instanceof GenQueryDirectPackageProviderFactory.Key) {
+        if (key instanceof GenQueryPackageProviderFactory.Key) {
           // The following call can occur several times for the same GENQUERY_SCOPE key in a single
           // Skyframe evaluation, because multiple genquery configured targets may have deps on the
           // same GENQUERY_SCOPE node. It is #removeIfDone and not merely #remove because not-done
@@ -3482,7 +3534,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           workspaceInfo = modifiedFileSet.getWorkspaceInfo();
           workspaceInfoFromDiffReceiver.syncWorkspaceInfoFromDiff(
               pathEntry.asPath().asFragment(), workspaceInfo);
-
+          // TODO(b/355127312): no longer needed when analysis cache service is the only choice.
           var remoteAnalysisCachingOptions = options.getOptions(RemoteAnalysisCachingOptions.class);
           if (remoteAnalysisCachingOptions != null
               && remoteAnalysisCachingOptions.mode.requiresBackendConnectivity()) {
@@ -3774,18 +3826,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Given a set of {@link SkyKey}s that were deemed to have changed, check their intersection with
    * the {@link SkyframeFocuser} is non-empty.
    *
-   * <p>If it's non-empty, it means that there were changed files outside the working set, but
-   * within the transitive closure of the focused targets. The build cannot proceed normally because
-   * Skyfocus has removed the nodes and edges from the backing graph to build those files
+   * <p>If it's non-empty, it means that there were changed files outside the active directories,
+   * but within the transitive closure of the focused targets. The build cannot proceed normally
+   * because Skyfocus has removed the nodes and edges from the backing graph to build those files
    * incrementally
    *
    * <p>The only ways forward are to:
    *
    * <ol>
    *   <li>1) Present an error to the user on the files that have changed, and ask the user to
-   *       expand their working set to include these files.
-   *   <li>2) Automatically expand the working set and reset the analysis cache to rebuild the
-   *       Skyframe graph. (i.e. new build).
+   *       expand their active directories to include these files.
+   *   <li>2) Automatically expand the active directories and reset the analysis cache to rebuild
+   *       the Skyframe graph. (i.e. new build).
    * </ol>
    *
    * This function currently implements only option 1).
@@ -3831,8 +3883,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     StringBuilder message = new StringBuilder();
     message.append(
-        "Skyfocus detected changes outside of the working set. These files/directories must be"
-            + " added to the working set.");
+        "Skyfocus detected changes outside of the active directories. These files/directories must"
+            + " be added to the active directories.");
     message.append("\n");
     for (String path : intersection) {
       message.append(path);
@@ -3844,7 +3896,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             FailureDetail.newBuilder()
                 .setMessage(message.toString())
                 .setSkyfocus(
-                    Skyfocus.newBuilder().setCode(Skyfocus.Code.NON_WORKING_SET_CHANGE).build())
+                    Skyfocus.newBuilder()
+                        .setCode(Skyfocus.Code.NON_ACTIVE_DIRECTORIES_CHANGE)
+                        .build())
                 .build()));
   }
 
@@ -4262,27 +4316,31 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         Event.info(
             "--experimental_enable_skyfocus is enabled. "
                 + StringUtilities.capitalize(productName)
-                + " will reclaim memory not needed to build the working set. Run '"
+                + " will reclaim memory not needed to build the active directories. Run '"
                 + productName
-                + " dump --skyframe=working_set' to show the working set, after this command."));
+                + " dump --skyframe=active_directories' to show the active directories, after this"
+                + " command."));
 
     if (skyfocusOptions.frontierViolationCheck.equals(FrontierViolationCheck.STRICT)) {
-      reporter.handle(Event.warn("Changes outside of the working set will cause a build error."));
+      reporter.handle(
+          Event.warn("Changes outside of the active directories will cause a build error."));
     }
 
-    ImmutableSet<String> newUserDefinedWorkingSet = ImmutableSet.copyOf(skyfocusOptions.workingSet);
-    ImmutableSet<FileStateKey> activeWorkingSet = skyfocusState.workingSet();
+    ImmutableSet<String> newUserDefinedactiveDirectories =
+        ImmutableSet.copyOf(skyfocusOptions.activeDirectories);
+    ImmutableSet<FileStateKey> activeactiveDirectories = skyfocusState.activeDirectories();
 
-    if (!activeWorkingSet.isEmpty()) {
-      for (String s : newUserDefinedWorkingSet) {
+    if (!activeactiveDirectories.isEmpty()) {
+      for (String s : newUserDefinedactiveDirectories) {
         FileStateKey key = toFileStateKey(pkgLocator.get(), s);
-        if (!activeWorkingSet.contains(key)) {
-          // New working set contains new files. Unfortunately, this is a suboptimal path, and we
+        if (!activeactiveDirectories.contains(key)) {
+          // New active directories contains new files. Unfortunately, this is a suboptimal path,
+          // and we
           // have to re-run full analysis.
           reporter.handle(
               Event.warn(
-                  "Working set changed to include new files, discarding analysis cache. This can"
-                      + " be expensive, so choose your working set carefully."));
+                  "active directories changed to include new files, discarding analysis cache. This"
+                      + " can be expensive, so choose your active directories carefully."));
           resetEvaluator();
           break;
         }
@@ -4295,11 +4353,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   /**
    * Run Skyfocus. This only works if Skyfocus is enabled explicitly via the command-line flag, and
-   * focusing is necessary (e.g. new working set, or analysis cache was dropped).
+   * focusing is necessary (e.g. new active directories, or analysis cache was dropped).
    */
   public final void runSkyfocus(
       ImmutableSet<Label> topLevelTargets,
-      Optional<PathFragmentPrefixTrie> workingSetMatcher,
+      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher,
       Reporter reporter,
       @Nullable ActionCache actionCache,
       OptionsParsingResult options)
@@ -4331,9 +4389,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     Optional<SkyfocusState> maybeNewSkyfocusState =
-        SkyfocusExecutor.prepareWorkingSet(
+        SkyfocusExecutor.prepareActiveDirectories(
             topLevelTargets,
-            workingSetMatcher,
+            activeDirectoriesMatcher,
             (InMemoryMemoizingEvaluator) getEvaluator(),
             skyfocusState,
             packageManager,
@@ -4349,7 +4407,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Run Skyfocus!
     FocusResult focusResult =
         SkyfocusExecutor.execute(
-            newSkyfocusState.workingSet(),
+            newSkyfocusState.activeDirectories(),
             (InMemoryMemoizingEvaluator) getEvaluator(),
             reporter,
             actionCache);
@@ -4472,7 +4530,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         pos.println("Roots kept: " + focusResult.roots().size());
         focusResult.roots().forEach(k -> pos.println(k.getCanonicalName()));
 
-        pos.println("Leafs (including working set) kept: " + focusResult.leafs().size());
+        pos.println("Leafs (including active directories) kept: " + focusResult.leafs().size());
         focusResult.leafs().forEach(k -> pos.println("leaf: " + k.getCanonicalName()));
 
         pos.println("Rdeps kept: " + focusResult.rdeps().size());

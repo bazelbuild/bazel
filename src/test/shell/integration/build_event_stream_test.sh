@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -1086,10 +1086,10 @@ function test_loading_failure() {
   # being expanded.
   (bazel build --build_event_text_file=$TEST_log \
          //does/not/exist && fail "build failure expected") || true
-  expect_log_once 'aborted'
+  expect_log_once 'aborted\ {'
   expect_log_once 'reason: LOADING_FAILURE'
   expect_log 'description.*BUILD file not found'
-  expect_not_log 'expanded'
+  expect_not_log 'expanded\ {'
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'
 }
@@ -1544,7 +1544,7 @@ sh_test(name="a", srcs=["a.sh"])
 EOF
 
   cat > a/a.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 exit 0
 EOF
 

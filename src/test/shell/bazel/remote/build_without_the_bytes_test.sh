@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -1556,7 +1556,7 @@ java_test(
 EOF
 
   cat > a/test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo 'Hello'
 EOF
   chmod a+x a/test.sh
@@ -2062,6 +2062,65 @@ EOF
   fi
 }
 
+function test_retry_build_if_remote_executor_is_unavailable() {
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = 'foo',
+  srcs = ['foo.in'],
+  outs = ['foo.out'],
+  cmd = 'cat $(SRCS) > $@',
+)
+
+genrule(
+  name = 'bar',
+  srcs = ['foo.out', 'bar.in'],
+  outs = ['bar.out'],
+  cmd = 'cat $(SRCS) > $@',
+  tags = ['no-remote-exec'],
+)
+EOF
+
+  echo foo > a/foo.in
+  echo bar > a/bar.in
+
+  # Populate remote cache
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  # Clean build, foo.out isn't downloaded
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  if [[ -f bazel-bin/a/foo.out ]]; then
+    fail "Expected intermediate output bazel-bin/a/foo.out to not be downloaded"
+  fi
+
+  # Make the remote worker unavailable
+  stop_worker
+  start_worker --unavailable
+
+  echo "updated bar" > a/bar.in
+
+  # Incremental build triggers remote cache error but Bazel automatically retries the build and reruns the generating
+  # actions locally for missing blobs
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_local_fallback \
+      --remote_download_minimal \
+      --experimental_remote_cache_eviction_retries=1 \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  expect_log "Found transient remote cache error, retrying the build..."
+}
+
 function test_remote_cache_eviction_retries_toplevel_artifacts() {
   mkdir -p a
 
@@ -2432,7 +2491,7 @@ sh_binary(
 )
 EOF
   cat > foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if ! [[ -f "$0.runfiles/_main/out.txt" ]]; then
   echo "runfile $0.runfiles/_main/out.txt not found" 1>&2
   exit 1

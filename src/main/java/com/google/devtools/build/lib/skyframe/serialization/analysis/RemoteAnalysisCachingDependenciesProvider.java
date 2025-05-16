@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
+import java.util.Set;
 
 /**
  * An interface providing the functionalities used for analysis caching serialization and
@@ -68,6 +70,13 @@ public interface RemoteAnalysisCachingDependenciesProvider {
   void setTopLevelConfigChecksum(String checksum);
 
   ModifiedFileSet getDiffFromEvaluatingVersion();
+
+  /**
+   * Returns the set of SkyKeys to be invalidated.
+   *
+   * <p>May call the remote analysis cache to get the set of keys to invalidate.
+   */
+  ImmutableSet<SkyKey> lookupKeysToInvalidate(Set<SkyKey> existingCachedKeys);
 
   /** A stub dependencies provider for when analysis caching is disabled. */
   final class DisabledDependenciesProvider implements RemoteAnalysisCachingDependenciesProvider {
@@ -128,6 +137,11 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
     @Override
     public ModifiedFileSet getDiffFromEvaluatingVersion() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ImmutableSet<SkyKey> lookupKeysToInvalidate(Set<SkyKey> existingCachedKeys) {
       throw new UnsupportedOperationException();
     }
   }

@@ -174,7 +174,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:lost_input_owners",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
@@ -201,7 +200,6 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party:auto_value",
-        "//third_party:checker_framework_annotations",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -398,11 +396,6 @@ java_library(
 )
 
 java_library(
-    name = "forbidden_action_input_exception",
-    srcs = ["ForbiddenActionInputException.java"],
-)
-
-java_library(
     name = "runfiles_metadata",
     srcs = ["RunfilesArtifactValue.java"],
     deps = [
@@ -436,6 +429,7 @@ java_library(
         ":has_digest",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache:package_path_codec_dependencies",
         "//src/main/java/com/google/devtools/build/lib/skyframe:filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",

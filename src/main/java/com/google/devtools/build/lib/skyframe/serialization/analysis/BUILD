@@ -17,7 +17,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//src/main/java/com/google/devtools/build/skyframe:execution_phase_skykey",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
     ],
@@ -33,6 +32,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
         "@com_google_protobuf//:protobuf_java",
     ],
 )
@@ -276,5 +276,20 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/versioning:long_version_getter",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "analysis_cache_invalidator",
+    srcs = ["AnalysisCacheInvalidator.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )

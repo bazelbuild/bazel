@@ -426,6 +426,9 @@ java_library(
             "ProviderCodecTest.java",
         ],
     ),
+    runtime_deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect:iterable_codecs",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",

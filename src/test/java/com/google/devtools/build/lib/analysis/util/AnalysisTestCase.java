@@ -123,8 +123,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     CPU_K8,
     // Flags from TestConstants.PRODUCT_SPECIFIC_FLAGS.
     PRODUCT_SPECIFIC_FLAGS,
-    // The --nolegacy_external_runfiles flag.
-    NO_LEGACY_EXTERNAL_RUNFILES
   }
 
   /** Helper class to make it easy to enable and disable flags. */
@@ -306,9 +304,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     if (defaultFlags().contains(Flag.PRODUCT_SPECIFIC_FLAGS)) {
       optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     }
-    if (defaultFlags().contains(Flag.NO_LEGACY_EXTERNAL_RUNFILES)) {
-      optionsParser.parse("--nolegacy_external_runfiles");
-    }
     optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     optionsParser.parse(args);
 
@@ -320,8 +315,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return new FlagBuilder()
         .with(Flag.PUBLIC_VISIBILITY)
         .with(Flag.CPU_K8)
-        .with(Flag.PRODUCT_SPECIFIC_FLAGS)
-        .with(Flag.NO_LEGACY_EXTERNAL_RUNFILES);
+        .with(Flag.PRODUCT_SPECIFIC_FLAGS);
   }
 
   protected Action getGeneratingAction(Artifact artifact) {

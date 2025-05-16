@@ -23,13 +23,13 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 /** Ensures that a target's prerequisites are visible to it and match its testonly status. */
 public class BazelPrerequisiteValidator extends CommonPrerequisiteValidator {
   @Override
-  public boolean isSameLogicalPackage(
+  protected boolean isSameLogicalPackage(
       PackageIdentifier thisPackage, PackageIdentifier prerequisitePackage) {
     return thisPackage.equals(prerequisitePackage);
   }
 
   @Override
-  protected boolean packageUnderExperimental(PackageIdentifier packageIdentifier) {
+  public boolean packageUnderExperimental(PackageIdentifier packageIdentifier) {
     return false;
   }
 

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.skyframe.SkyfocusOptions.FrontierViolationCheck.DISABLED_FOR_TESTING;
 
 import com.google.common.base.Joiner;
@@ -91,7 +90,13 @@ public final class FrontierViolationChecker {
     Preconditions.checkArgument(provider.mode().requiresBackendConnectivity());
 
     if (check == DISABLED_FOR_TESTING) {
-      checkState(TestType.isInTest());
+      if (!TestType.isInTest()) {
+        eventHandler.handle(
+            Event.warn(
+                "Frontier violation check explicitly disabled at user request. This may well result"
+                    + " in incorrect builds and should only be used if you know what you are"
+                    + " doing."));
+      }
       return provider;
     }
 
@@ -113,7 +118,9 @@ public final class FrontierViolationChecker {
                     FailureDetail.newBuilder()
                         .setMessage(event.getMessage())
                         .setSkyfocus(
-                            Skyfocus.newBuilder().setCode(Code.NON_WORKING_SET_CHANGE).build())
+                            Skyfocus.newBuilder()
+                                .setCode(Code.NON_ACTIVE_DIRECTORIES_CHANGE)
+                                .build())
                         .build()));
         LoggingUtil.logToRemote(java.util.logging.Level.WARNING, event.getMessage(), exception);
         throw exception;
@@ -142,7 +149,8 @@ public final class FrontierViolationChecker {
           DetailedExitCode.of(
               FailureDetail.newBuilder()
                   .setMessage(UPLOAD_BUILDS_DIRTY_WORKSPACE_ERROR)
-                  .setSkyfocus(Skyfocus.newBuilder().setCode(Code.NON_WORKING_SET_CHANGE).build())
+                  .setSkyfocus(
+                      Skyfocus.newBuilder().setCode(Code.NON_ACTIVE_DIRECTORIES_CHANGE).build())
                   .build()));
     }
 
@@ -182,7 +190,8 @@ public final class FrontierViolationChecker {
             DetailedExitCode.of(
                 FailureDetail.newBuilder()
                     .setMessage(STRICT_MESSAGE + violationsString)
-                    .setSkyfocus(Skyfocus.newBuilder().setCode(Code.NON_WORKING_SET_CHANGE).build())
+                    .setSkyfocus(
+                        Skyfocus.newBuilder().setCode(Code.NON_ACTIVE_DIRECTORIES_CHANGE).build())
                     .build()));
       }
       case DISABLED_FOR_TESTING -> throw new IllegalStateException("should have returned earlier.");
@@ -191,8 +200,7 @@ public final class FrontierViolationChecker {
 
   public static void accumulateCacheHitsAcrossInvocations(
       RemoteAnalysisCachingEventListener listener) {
-    accumulatedCacheHits.getAndAdd(listener.getAnalysisNodeCacheHits());
-    accumulatedCacheHits.getAndAdd(listener.getExecutionNodeCacheHits());
+    accumulatedCacheHits.getAndAdd(listener.getCacheHits().size());
   }
 
   /**

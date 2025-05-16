@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -245,6 +245,37 @@ EOF
 EOF
   bazel run //pkg:bin >$TEST_log 2>&1 || fail "Should build"
   expect_log "changed"
+}
+
+function test_unicode_in_path() {
+  mkdir -p pkg
+  cat >pkg/BUILD <<'EOF'
+load(":defs.bzl", "my_rule")
+
+my_rule(name = "my_rule")
+EOF
+  cat >pkg/defs.bzl <<'EOF'
+def _my_rule_impl(ctx):
+  out = ctx.actions.declare_file(ctx.attr.name)
+  ctx.actions.run_shell(
+    outputs = [out],
+    command = "touch $1",
+    arguments = [out.path],
+    use_default_shell_env = True,
+  )
+  return DefaultInfo(
+    files = depset(direct = [out]),
+  )
+
+my_rule = rule(_my_rule_impl)
+EOF
+
+  # MSYS2 uses : as a path separator even on Windows.
+  export PATH="$PATH:äöüÄÖÜß🌱"
+  # Restart the server since PATH is taken from the server environment on Windows.
+  bazel shutdown > /dev/null 2>&1 || fail "Should shutdown"
+
+  bazel build //pkg:my_rule >$TEST_log 2>&1 || fail "Should build"
 }
 
 run_suite "Tests for handling of Unicode filenames"

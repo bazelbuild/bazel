@@ -8,7 +8,7 @@ Book: /_book.yaml
 IMPORTANT: This tutorial is for [*symbolic macros*](/extending/macros) – the new
 macro system introduced in Bazel 8. If you need to support older Bazel versions,
 you will want to write a [legacy macro](/extending/legacy-macros) instead; take
-a look at [Creating a Legacy Macro](../legacy-macro-tutorial).
+a look at [Creating a Legacy Macro](legacy-macro-tutorial).
 
 Imagine that you need to run a tool as part of your build. For example, you
 may want to generate or preprocess a source file, or compress a binary. In this

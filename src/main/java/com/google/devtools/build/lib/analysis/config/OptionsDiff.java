@@ -246,7 +246,7 @@ public final class OptionsDiff {
   public String prettyPrint() {
     StringBuilder toReturn = new StringBuilder();
     for (String diff : getPrettyPrintList()) {
-      toReturn.append(diff).append(System.lineSeparator());
+      toReturn.append(diff).append("\n");
     }
     return toReturn.toString();
   }

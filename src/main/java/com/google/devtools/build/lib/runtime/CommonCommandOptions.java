@@ -24,6 +24,7 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.Converters.DurationConverter;
+import com.google.devtools.common.options.Converters.PercentageConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -117,6 +118,42 @@ public class CommonCommandOptions extends OptionsBase {
               + " If nonzero, the server will attempt to garbage collect other install bases when"
               + " idle.")
   public Duration installBaseGcMaxAge;
+
+  @Option(
+      name = "experimental_action_cache_gc_idle_delay",
+      defaultValue = "5m",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      converter = DurationConverter.class,
+      help =
+          "How long the server must remain idle before a garbage collection of the action cache is"
+              + " attempted. Ineffectual unless --experimental_action_cache_gc_max_age is nonzero.")
+  public Duration actionCacheGcIdleDelay;
+
+  @Option(
+      name = "experimental_action_cache_gc_threshold",
+      defaultValue = "10",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      converter = PercentageConverter.class,
+      help =
+          "The percentage of stale action cache entries required for garbage collection to be"
+              + " triggered. Ineffectual unless --experimental_action_cache_gc_max_age is nonzero.")
+  public int actionCacheGcThreshold;
+
+  @Option(
+      name = "experimental_action_cache_gc_max_age",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      converter = DurationConverter.class,
+      help =
+          "If set to a nonzero value, the action cache will be periodically garbage collected to"
+              + " remove entries older than this age. Garbage collection occurs in the background"
+              + " once the server has become idle, as determined by the"
+              + " --experimental_action_cache_gc_idle_delay and"
+              + " --experimental_action_cache_gc_threshold flags.")
+  public Duration actionCacheGcMaxAge;
 
   /** Converter for UUID. Accepts values as specified by {@link UUID#fromString(String)}. */
   public static class UUIDConverter extends Converter.Contextless<UUID> {

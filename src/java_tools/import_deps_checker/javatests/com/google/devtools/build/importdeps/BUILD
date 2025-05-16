@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps:tests.bzl", "create_golden_test")
 
 # Description:

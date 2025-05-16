@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
@@ -443,57 +443,6 @@ EOF
       || fail "bazel build failed"
   cat bazel-bin/test/out.txt &> $TEST_log
   expect_log "Tool output"
-}
-
-function test_external_runfiles() {
-  cat >> MODULE.bazel <<EOF
-local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
-local_repository(
-  name = "repo2",
-  path = "repo2"
-)
-EOF
-  mkdir repo2
-  touch repo2/REPO.bazel
-  cat > repo2/BUILD <<EOF
-package(default_visibility=["//visibility:public"])
-filegroup(name="r2files", srcs=["r2.txt"])
-EOF
-  touch repo2/r2.txt
-
-  mkdir py
-  cat > py/BUILD <<EOF
-load("@rules_python//python:py_binary.bzl", "py_binary")
-
-py_binary(
-  name = "foo", srcs=["foo.py"],
-  data = ["@repo2//:r2files"],
-)
-EOF
-  touch py/foo.py
-
-  # We're testing for this flag's behavior, so force it to true.
-  # TODO(https://github.com/bazelbuild/bazel/issues/12821): Remove this test
-  # when this behavior is removed
-  bazel build --legacy_external_runfiles=true //py:foo
-  if "$is_windows"; then
-    exe=".exe"
-  else
-    exe=""
-  fi
-
-  cp bazel-bin/py/foo$exe.runfiles_manifest runfiles_manifest
-  assert_contains _main/external/+local_repository+repo2/r2.txt runfiles_manifest \
-    "runfiles manifest didn't have external path mapping"
-
-  # By default, Python binaries are put into zip files on Windows and don't
-  # have a real runfiles tree.
-  if ! "$is_windows"; then
-    find bazel-bin/py/foo.runfiles > runfiles_listing
-    assert_contains bazel-bin/py/foo.runfiles/_main/external/+local_repository+repo2/r2.txt \
-      runfiles_listing \
-      "runfiles didn't have external links"
-  fi
 }
 
 function test_incompatible_python_disallow_native_rules_external_repos() {

@@ -424,22 +424,7 @@ public final class Actions {
   public static ActionAnalysisMetadata getAction(
       WalkableGraph graph, ActionLookupData actionLookupData) throws InterruptedException {
     var actionLookupKey = actionLookupData.getActionLookupKey();
-
-    // In analysis caching build with cache hits, deserialized ActionLookupValues do not contain
-    // actions, so the generating action for the artifact does not exist in the graph. It would
-    // require a reanalysis of the entire configured target subgraph to produce the action,
-    // nullifying the benefits of analysis caching.
-    //
-    // In practice this should be fine for critical path computation and execution graph log,
-    // because this represents a pruned subgraph for the action and there was no work done other
-    // than deserialization.
-    if (graph.getValue(actionLookupKey) instanceof ActionLookupValue actionLookupValue) {
-      // Not all ActionLookupKeys resolve to an ActionLookupValue, e.g. RemoteConfiguredTargetValue.
-      if (actionLookupValue.getNumActions() > 0) {
-        return actionLookupValue.getActions().get(actionLookupData.getActionIndex());
-      }
-    }
-
-    return null;
+    var actionLookupValue = (ActionLookupValue) graph.getValue(actionLookupKey);
+    return actionLookupValue.getActions().get(actionLookupData.getActionIndex());
   }
 }

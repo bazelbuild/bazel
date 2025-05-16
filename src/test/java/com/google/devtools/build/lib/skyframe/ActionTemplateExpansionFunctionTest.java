@@ -385,7 +385,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
     ActionTemplateExpansionValue actionTemplateExpansionValue = result.get(templateKey);
     ImmutableList.Builder<Action> actionList = ImmutableList.builder();
-    for (int i = 0; i < actionTemplateExpansionValue.getNumActions(); i++) {
+    for (int i = 0; i < actionTemplateExpansionValue.getActions().size(); i++) {
       actionList.add(actionTemplateExpansionValue.getAction(i));
     }
     return actionList.build();

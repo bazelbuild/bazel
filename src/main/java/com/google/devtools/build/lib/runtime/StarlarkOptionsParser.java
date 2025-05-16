@@ -272,6 +272,8 @@ public class StarlarkOptionsParser {
     if (!arg.startsWith("--")) {
       throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
     }
+    // This isn't resilient against labels with the "=" character in them, e.g.
+    // "//pkg/prefix=suffix". See https://bazel.build/concepts/labels#target-names.
     int equalsAt = arg.indexOf('=');
     String name = equalsAt == -1 ? arg.substring(2) : arg.substring(2, equalsAt);
     if (name.trim().isEmpty()) {

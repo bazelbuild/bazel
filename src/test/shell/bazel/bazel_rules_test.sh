@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -105,7 +105,7 @@ function test_extra_action() {
   # action file. This file is a proto, but I don't want to bother implementing
   # a program that parses the proto here.
   cat > mypkg/echoer.sh << 'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 # --- begin runfiles.bash initialization ---
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then

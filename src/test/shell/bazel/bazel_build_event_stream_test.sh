@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -196,7 +196,7 @@ sh_binary(
 EOF
 
   cat > a/arg.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 COUNTER=1
 for i in "$@"; do
@@ -234,7 +234,7 @@ sh_binary(
 EOF
 
   cat > a/arg.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 COUNTER=1
 for i in "$@"; do
@@ -276,7 +276,7 @@ sh_test(
 EOF
 
   cat > a/arg_test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 COUNTER=1
 for i in "$@"; do
@@ -314,7 +314,7 @@ sh_test(
 EOF
 
   cat > a/arg_test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 COUNTER=1
 for i in "$@"; do

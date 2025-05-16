@@ -263,7 +263,8 @@ slightly between different versions of clang.
     ```
 
     Make sure that `/usr/bin/clang` and `/usr/bin/ld` are the correct paths for
-    your system.
+    your system. Note that the compiler is referenced by the name "gcc" for
+    historic reasons.
 
 6.  Run the build again. Bazel throws the following error:
 
@@ -418,6 +419,9 @@ slightly between different versions of clang.
         provides = [CcToolchainConfigInfo],
     )
     ```
+
+    Note that this code uses the GNU C++ library libstdc++. If you want to use
+    the LLVM C++ library, use "-lc++" instead of "-lstdc++".
 
 8.  Running `bazel build //main:hello-world`, it should finally build the binary
     successfully for host.

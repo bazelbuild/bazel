@@ -36,7 +36,7 @@ public class FakeLoadTarget implements Target {
   public FakeLoadTarget(Label label, Packageoid pkg) {
     this.label = Preconditions.checkNotNull(label);
     // Fake load targets should be in the same package piece as the package's BUILD file.
-    this.pkg = Preconditions.checkNotNull(pkg).getDeclarations().getBuildFile().getPackageoid();
+    this.pkg = Preconditions.checkNotNull(pkg).getBuildFile().getPackageoid();
   }
 
   @Override
@@ -76,7 +76,7 @@ public class FakeLoadTarget implements Target {
 
   @Override
   public Location getLocation() {
-    return getPackageDeclarations().getBuildFile().getLocation();
+    return getPackageoid().getBuildFile().getLocation();
   }
 
   @Override

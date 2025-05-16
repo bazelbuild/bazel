@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.DirectoryExpander;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
@@ -767,23 +768,24 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
   }
 
+  /** Denotes that the following two elements are an object and format string. */
+  @SerializationConstant @VisibleForSerialization
+  public static final Object SINGLE_FORMATTED_ARG_MARKER =
+      new Object() {
+        @Override
+        public String toString() {
+          return "SINGLE_FORMATTED_ARG_MARKER";
+        }
+      };
+
   /** Representation of a single formatted argument originating from {@code Args.add} */
   private static final class SingleFormattedArg {
-
-    /** Denotes that the following two elements are an object and format string. */
-    private static final Object MARKER =
-        new Object() {
-          @Override
-          public String toString() {
-            return "SINGLE_FORMATTED_ARG_MARKER";
-          }
-        };
 
     private static final UUID SINGLE_FORMATTED_ARG_UUID =
         UUID.fromString("8cb96642-a235-4fe0-b3ed-ebfdae8a0bd9");
 
     static void push(List<Object> arguments, Object object, String format) {
-      arguments.add(MARKER);
+      arguments.add(SINGLE_FORMATTED_ARG_MARKER);
       arguments.add(object);
       arguments.add(format);
     }
@@ -793,7 +795,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
      *
      * @param arguments result of {@link #rawArgsAsList}
      * @param argi index in {@code arguments} at which the {@link SingleFormattedArg} begins; should
-     *     be directly preceded by {@link #MARKER}
+     *     be directly preceded by {@link #SINGLE_FORMATTED_ARG_MARKER}
      * @param builder the {@link PreprocessedCommandLine.Builder} in which to add a preprocessed
      *     representation of this arg
      * @param mainRepoMapping the repository mapping to use for formatting labels if needed
@@ -929,7 +931,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
             ((VectorArg) arg)
                 .preprocess(
                     arguments, argi, builder, inputMetadataProvider, pathMapper, mainRepoMapping);
-      } else if (arg == SingleFormattedArg.MARKER) {
+      } else if (arg == SINGLE_FORMATTED_ARG_MARKER) {
         argi = SingleFormattedArg.preprocess(arguments, argi, builder, mainRepoMapping);
       } else {
         builder.addArg(expandToCommandLine(arg, mainRepoMapping));
@@ -1020,7 +1022,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
                 ((VectorArg) arg)
                     .preprocess(
                         arguments, argi, line, inputMetadataProvider, pathMapper, mainRepoMapping);
-          } else if (arg == SingleFormattedArg.MARKER) {
+          } else if (arg == SINGLE_FORMATTED_ARG_MARKER) {
             argi = SingleFormattedArg.preprocess(arguments, argi, line, mainRepoMapping);
           } else {
             line.addArg(expandToCommandLine(arg, mainRepoMapping));
@@ -1062,7 +1064,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
                     fingerprint,
                     inputMetadataProvider,
                     effectiveOutputPathsMode);
-      } else if (arg == SingleFormattedArg.MARKER) {
+      } else if (arg == SINGLE_FORMATTED_ARG_MARKER) {
         argi = SingleFormattedArg.addToFingerprint(arguments, argi, fingerprint);
       } else {
         addSingleObjectToFingerprint(fingerprint, arg);

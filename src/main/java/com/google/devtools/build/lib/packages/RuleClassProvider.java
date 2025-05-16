@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Map;
 
@@ -28,6 +29,9 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
 
   /** Label referencing the prelude file. */
   Label getPreludeLabel();
+
+  /** Returns true if a package location is considered to be experimental. */
+  boolean isPackageUnderExperimental(PackageIdentifier packageIdentifier);
 
   /** The default runfiles prefix (may be overwritten by the WORKSPACE file). */
   String getRunfilesPrefix();

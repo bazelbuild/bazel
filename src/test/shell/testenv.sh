@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -312,9 +312,6 @@ common --enable_bzlmod
 
 # Disable WORKSPACE in all shell integration tests
 common --noenable_workspace
-
-# Verify compatibility before the flip (https://github.com/bazelbuild/bazel/issues/12821)
-common --nolegacy_external_runfiles
 
 # Support JDK 21, data dependencies that get compiled and used tools need to be
 # run with 21 runtime.

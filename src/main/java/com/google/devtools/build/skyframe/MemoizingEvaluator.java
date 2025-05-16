@@ -281,8 +281,8 @@ public interface MemoizingEvaluator {
   boolean skyfocusSupported();
 
   /**
-   * Enables Skyfocus, a graph optimizer for Skyframe with working sets, by remembering the root
-   * nodes.
+   * Enables Skyfocus, a graph optimizer for Skyframe with active directoriess, by remembering the
+   * root nodes.
    */
   void rememberTopLevelEvaluations(boolean remember);
 

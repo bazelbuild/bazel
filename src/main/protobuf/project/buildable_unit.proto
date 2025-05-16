@@ -1,0 +1,60 @@
+// Copyright 2025 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+edition = "2023";
+
+package build_project;
+
+import "devtools/starlark/protolark/proto/protolark.proto";
+
+// Definition of how to build and test a set of targets.
+//
+message BuildableUnit {
+  string name = 1 [(.protolark.used_in_blaze) = true];
+  // List of inclusive and exclusive target patterns.
+  //
+  // This merges BuildableUnit::build_pattern and BuildableUnit::test_pattern.
+  // It doesn't try to distinguish build vs. test because the initial blueprints
+  // we're focusing on don't need that distinction and it's not obvious we need
+  // to model that complexity. If we eventually do, we could add fields like
+  // test_only_patterns or split binaries/tests into different buildable units.
+  repeated string target_patterns = 2 [(.protolark.used_in_blaze) = true];
+
+  // The set of build/test flags to apply to this buildable unit's targets. If
+  // BuildableUnit.default is set, blaze builds add these flags to
+  // matching targets by default. If not set, "$ blaze build //foo
+  // --scl_config=<buildable_unit_name>" explicitly sets them.
+  //
+  // Only supports "output-affecting" flags that configure build rule actions.
+  repeated string flags = 3 [(.protolark.used_in_blaze) = true];
+
+  // Don't yet support .blueprint's test_lang_filter, test_tag_filter, or
+  // test_size_filter flags. We're only focusing now on "simple" blueprints that
+  // don't require them, and want to see how simple we can keep the
+  // configuration model.
+
+  // User-friendly descripion of this buildable unit's purpose. Blaze shows this
+  // to users who don't invoke builds with canonical project flags. Meant to
+  // replace "how to build this project" team docs.
+  string description = 4 [(.protolark.used_in_blaze) = true];
+
+  // If true, "$ blaze build //foo" calls that don't explicitly set
+  // --scl_config=<bu_name> add this buildable unit's flags, iff
+  //
+  //   a) //foo matches its target_pattern list and
+  //   b) no other matching unit sets default=1.
+  //
+  // Fails apppropriately on unsound matches. Default value is false.
+  bool is_default = 5 [(.protolark.used_in_blaze) = true];
+}

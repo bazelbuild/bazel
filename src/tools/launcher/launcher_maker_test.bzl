@@ -13,6 +13,8 @@
 # limitations under the License.
 """ Creates a test for launcher_maker windows tool """
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 def _impl(ctx):
     launch_info = ctx.actions.args().use_param_file("%s", use_always = True).set_param_file_format("multiline")
     launch_info.add("foo_key=bar")
@@ -41,7 +43,7 @@ _launcher_maker_test = rule(
 
 def launcher_maker_test(name):
     launcher_exe = name + "_base.exe"
-    native.cc_binary(
+    cc_binary(
         name = launcher_exe,
         srcs = ["launcher_maker_test.cc"],
         deps = [

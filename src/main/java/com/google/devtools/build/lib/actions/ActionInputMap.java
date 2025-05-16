@@ -307,10 +307,6 @@ public final class ActionInputMap implements InputMetadataProvider {
     return getTreeMetadata(input.getExecPath());
   }
 
-  /**
-   * Returns the {@link TreeArtifactValue} for the given path, or {@code null} if no such tree
-   * artifact exists.
-   */
   @Nullable
   public TreeArtifactValue getTreeMetadata(PathFragment execPath) {
     int index = getIndex(execPath.getPathString());
@@ -321,13 +317,9 @@ public final class ActionInputMap implements InputMetadataProvider {
     return value instanceof TreeArtifactValue treeValue ? treeValue : null;
   }
 
-  /**
-   * Returns the {@link TreeArtifactValue} for the shortest prefix of the given path, possibly the
-   * path itself, that corresponds to a tree artifact; or {@code null} if no such tree artifact
-   * exists.
-   */
   @Nullable
-  public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
+  @Override
+  public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
     return treeArtifactsRoot.findTreeArtifactNodeAtPrefix(execPath);
   }
 

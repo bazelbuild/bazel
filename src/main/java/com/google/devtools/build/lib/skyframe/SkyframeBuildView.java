@@ -1512,11 +1512,6 @@ public final class SkyframeBuildView {
               return;
             }
           }
-          if (alv.getNumActions() == 0) {
-            // No actions in deserialized action lookup values, and calling #getActions will
-            // cause an NPE.
-            return;
-          }
 
           // During multithreaded operation, this is only set to true, so no concurrency issues.
           someActionLookupValueEvaluated = true;

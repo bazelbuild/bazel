@@ -480,6 +480,7 @@ public final class BlazeCommandDispatcherTest {
                     "test client",
                     runtime.getClock().currentTimeMillis(),
                     /* startupOptionsTaggedWithBazelRc= */ Optional.empty(),
+                    /* idleTaskResultsSupplier= */ () -> ImmutableList.of(),
                     /* commandExtensions= */ ImmutableList.of(),
                     /* commandExtensionReporter= */ (ext) -> {}));
 

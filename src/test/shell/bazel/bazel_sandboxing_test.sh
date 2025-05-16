@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -176,7 +176,7 @@ EOF
     && fail "build should have failed with hermetic sandbox" || true
   expect_log "child exited normally with code 1"
 
-  bazel build --verbose_failures --sandbox_debug --incompatible_sandbox_hermetic_tmp :broken &> $TEST_log \
+  bazel build --verbose_failures --sandbox_debug :broken &> $TEST_log \
     && fail "build should have failed with hermetic sandbox /tmp" || true
   expect_log "child exited normally with code 1"
 }
@@ -203,7 +203,7 @@ mkdata = rule(
 EOF
 
   cat > mkdata_test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -696,7 +696,7 @@ EOF
 
 function test_hermetic_tmp_under_tmp {
   if [[ "$(uname -s)" != Linux ]]; then
-    echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
+    echo "Skipping test: hermetic /tmp is only supported in Linux" 1>&2
     return 0
   fi
 
@@ -782,7 +782,6 @@ EOF
   bazel \
     --output_base="${temp_dir}/output-base" \
     build \
-    --incompatible_sandbox_hermetic_tmp \
     --package_path="%workspace%:${temp_dir}/package-path" \
     //a:t || fail "build failed"
 }

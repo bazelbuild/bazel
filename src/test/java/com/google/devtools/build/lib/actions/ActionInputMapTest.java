@@ -342,9 +342,9 @@ public final class ActionInputMapTest {
     ActionInput file = ActionInputHelper.fromPath("some/file");
     map.put(file, TestMetadata.create(1));
 
-    assertThat(map.getTreeMetadataForPrefix(file.getExecPath())).isNull();
-    assertThat(map.getTreeMetadataForPrefix(file.getExecPath().getParentDirectory())).isNull();
-    assertThat(map.getTreeMetadataForPrefix(file.getExecPath().getChild("under"))).isNull();
+    assertThat(map.getEnclosingTreeMetadata(file.getExecPath())).isNull();
+    assertThat(map.getEnclosingTreeMetadata(file.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getEnclosingTreeMetadata(file.getExecPath().getChild("under"))).isNull();
   }
 
   @Test
@@ -353,9 +353,9 @@ public final class ActionInputMapTest {
     TreeArtifactValue treeValue = TreeArtifactValue.newBuilder(tree).build();
     map.putTreeArtifact(tree, treeValue);
 
-    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getParentDirectory())).isNull();
-    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath())).isEqualTo(treeValue);
-    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getChild("under")))
+    assertThat(map.getEnclosingTreeMetadata(tree.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getEnclosingTreeMetadata(tree.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getEnclosingTreeMetadata(tree.getExecPath().getChild("under")))
         .isEqualTo(treeValue);
   }
 
@@ -367,12 +367,12 @@ public final class ActionInputMapTest {
         TreeArtifactValue.newBuilder(tree).putChild(child, TestMetadata.create(1)).build();
     map.putTreeArtifact(tree, treeValue);
 
-    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getParentDirectory())).isNull();
-    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath())).isEqualTo(treeValue);
-    assertThat(map.getTreeMetadataForPrefix(child.getExecPath())).isEqualTo(treeValue);
-    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getParentDirectory()))
+    assertThat(map.getEnclosingTreeMetadata(tree.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getEnclosingTreeMetadata(tree.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getEnclosingTreeMetadata(child.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getEnclosingTreeMetadata(child.getExecPath().getParentDirectory()))
         .isEqualTo(treeValue);
-    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getChild("under")))
+    assertThat(map.getEnclosingTreeMetadata(child.getExecPath().getChild("under")))
         .isEqualTo(treeValue);
   }
 

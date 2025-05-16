@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
+import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -75,30 +76,56 @@ public class VendorManager {
           continue;
         }
 
-        // At this point, the repo should exist under external dir, but check if the vendor src is
-        // already up-to-date.
         Path markerUnderExternal = externalRepoRoot.getChild(repo.getMarkerFileName());
         Path markerUnderVendor = vendorDirectory.getChild(repo.getMarkerFileName());
-        if (isRepoUpToDate(markerUnderVendor, markerUnderExternal)) {
+        // If the marker file doesn't exist under outputBase/external, then the repo is either local
+        // (which cannot be in this case since local repos aren't vendored) or in the repo contents
+        // cache.
+        boolean isCached = !markerUnderExternal.exists();
+        Path actualMarkerFile;
+        if (isCached) {
+          Path cacheRepoDir = repoUnderExternal.resolveSymbolicLinks();
+          actualMarkerFile =
+              cacheRepoDir.replaceName(
+                  cacheRepoDir.getBaseName() + RepoContentsCache.RECORDED_INPUTS_SUFFIX);
+        } else {
+          actualMarkerFile = markerUnderExternal;
+        }
+
+        // At this point, the repo should exist under external dir, but check if the vendor src is
+        // already up-to-date.
+        if (isRepoUpToDate(markerUnderVendor, actualMarkerFile)) {
           continue;
         }
 
-        // Actually vendor the repo:
+        // Actually vendor the repo. If the repo is cached, copy it; otherwise move it.
         // 1. Clean up existing marker file and vendor dir.
         markerUnderVendor.delete();
         repoUnderVendor.deleteTree();
         repoUnderVendor.createDirectory();
-        // 2. Move the marker file to a temporary one under vendor dir.
-        Path tMarker = vendorDirectory.getChild(repo.getMarkerFileName() + ".tmp");
-        FileSystemUtils.moveFile(markerUnderExternal, tMarker);
-        // 3. Move the external repo to vendor dir. It's fine if this step fails or is interrupted,
-        // because the marker file under external is gone anyway.
-        FileSystemUtils.moveTreesBelow(repoUnderExternal, repoUnderVendor);
+        // 2. Copy/move the marker file to a temporary one under vendor dir.
+        Path temporaryMarker = vendorDirectory.getChild(repo.getMarkerFileName() + ".tmp");
+        if (isCached) {
+          FileSystemUtils.copyFile(actualMarkerFile, temporaryMarker);
+        } else {
+          FileSystemUtils.moveFile(actualMarkerFile, temporaryMarker);
+        }
+        // 3. Move/copy the external repo to vendor dir. Note that, in the "move" case, it's fine if
+        // this step fails or is interrupted, because the marker file under external is gone anyway.
+        if (isCached) {
+          FileSystemUtils.copyTreesBelow(repoUnderExternal.resolveSymbolicLinks(), repoUnderVendor);
+        } else {
+          try {
+            repoUnderExternal.renameTo(repoUnderVendor);
+          } catch (IOException e) {
+            FileSystemUtils.moveTreesBelow(repoUnderExternal, repoUnderVendor);
+          }
+        }
         // 4. Re-plant symlinks pointing a path under the external root to a relative path
         // to make sure the vendor src keep working after being moved or output base changed
         replantSymlinks(repoUnderVendor, externalRepoRoot);
-        // 5. Rename the temporary marker file after the move is done.
-        tMarker.renameTo(markerUnderVendor);
+        // 5. Rename the temporary marker file after the move/copy is done.
+        temporaryMarker.renameTo(markerUnderVendor);
         // 6. Leave a symlink in external dir to keep things working.
         repoUnderExternal.deleteTree();
         FileSystemUtils.ensureSymbolicLink(repoUnderExternal, repoUnderVendor);

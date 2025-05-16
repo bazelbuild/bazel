@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -280,9 +280,9 @@ function test_output_user_root() {
   expect_log "$TEST_TMPDIR/user/[0-9a-f]\{32\}"
 
   # Test relative path
-  bazel --output_user_root=user info output_base >& $TEST_log \
+  bazel --output_user_root=../user info output_base >& $TEST_log \
       || fail "Expected success"
-  expect_log "$(pwd)/user/[0-9a-f]\{32\}"
+  expect_log "$(cd .. && pwd)/user/[0-9a-f]\{32\}"
 }
 
 function test_multiple_commands_same_output_base() {
@@ -324,7 +324,7 @@ EOF
     pid[$i]="${!}"
   done
 
-  # The various Bazel invocations are are now competing to run.  Wait for them
+  # The various Bazel invocations are now competing to run.  Wait for them
   # to start, in any order, and then allow them to proceed, recording the order
   # in which they actually started running the command.
   declare -a order
@@ -427,7 +427,7 @@ EOF
   # - one of "read" or "write"
   # - the path to the fifo
   cat > x/x.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$1" == "read" ]]; then
   cat "$2" > /dev/null
 elif [[ "$1" == "write" ]]; then

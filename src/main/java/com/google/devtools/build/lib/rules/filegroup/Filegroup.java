@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.filegroup;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 
 import com.google.devtools.build.lib.actions.ActionConflictException;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -53,7 +51,6 @@ public class Filegroup implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     String outputGroupName = ruleContext.attributes().get("output_group", Type.STRING);
-    BuildConfigurationValue configuration = checkNotNull(ruleContext.getConfiguration());
     if (outputGroupName.endsWith(INTERNAL_SUFFIX)) {
       ruleContext.throwWithAttributeError(
           "output_group", String.format(ILLEGAL_OUTPUT_GROUP_ERROR, outputGroupName));
@@ -86,13 +83,11 @@ public class Filegroup implements RuleConfiguredTargetFactory {
 
     RunfilesProvider runfilesProvider =
         RunfilesProvider.withData(
-            new Runfiles.Builder(
-                    ruleContext.getWorkspaceName(), configuration.legacyExternalRunfiles())
+            new Runfiles.Builder(ruleContext.getWorkspaceName())
                 .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
                 .build(),
             // If you're visiting a filegroup as data, then we also visit its data as data.
-            new Runfiles.Builder(
-                    ruleContext.getWorkspaceName(), configuration.legacyExternalRunfiles())
+            new Runfiles.Builder(ruleContext.getWorkspaceName())
                 .addTransitiveArtifacts(filesToBuild)
                 .addDataDeps(ruleContext)
                 .build());

@@ -1,3 +1,6 @@
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_import.bzl", "java_import")
+
 java_binary(
     name = "proguard",
     main_class = "proguard.ProGuard",

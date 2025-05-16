@@ -125,6 +125,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -238,7 +239,10 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
     InputMetadataProvider cache =
         new SingleBuildFileCache(
-            rootDirectory.getPathString(), scratch.getFileSystem(), SyscallCache.NO_CACHE);
+            rootDirectory.getPathString(),
+            PathFragment.create("dummy-output-path"),
+            scratch.getFileSystem(),
+            SyscallCache.NO_CACHE);
     skyframeActionExecutor.configure(
         cache, ActionInputPrefetcher.NONE, DiscoveredModulesPruner.DEFAULT);
 
@@ -579,6 +583,11 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     @Override
     public void clear() {
       // safe to ignore
+    }
+
+    @Override
+    public ActionCache trim(float threshold, Duration maxAge) {
+      throw new UnsupportedOperationException();
     }
 
     @Override

@@ -104,6 +104,10 @@ def _create_fdo_context(
         mem_prof_profile = MemProfProfileInfo(artifact = _fdo_profile[FdoProfileInfo].memprof_artifact)
     elif _fdo_optimize and FdoProfileInfo in _fdo_optimize and _fdo_optimize[FdoProfileInfo].memprof_artifact:
         mem_prof_profile = MemProfProfileInfo(artifact = _fdo_optimize[FdoProfileInfo].memprof_artifact)
+    elif _xfdo_profile and FdoProfileInfo in _xfdo_profile and _xfdo_profile[FdoProfileInfo].memprof_artifact:
+        # This is needed for configless AutoFDO which supplies the profile via a select statement in the XFDO profile.
+        # We don't intend to support actual XFDO with memprof.
+        mem_prof_profile = MemProfProfileInfo(artifact = _xfdo_profile[FdoProfileInfo].memprof_artifact)
 
     fdo_inputs = None
     if cpp_config.fdo_path():

@@ -403,11 +403,6 @@ public class BuildRequest implements OptionsProvider {
               localTestJobs, jobs, jobs));
     }
 
-    // Validate other BuildRequest options.
-    if (getBuildOptions().verboseExplanations && getBuildOptions().explanationPath == null) {
-      warnings.add("--verbose_explanations has no effect when --explain=<file> is not enabled");
-    }
-
     return warnings;
   }
 

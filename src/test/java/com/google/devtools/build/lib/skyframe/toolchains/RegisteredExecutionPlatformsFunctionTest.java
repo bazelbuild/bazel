@@ -649,7 +649,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     assertThat(value.rejectedPlatforms())
         .containsEntry(
             Label.parseCanonicalUnchecked("//extra:required_platform"),
-            "mismatching config settings: optimized");
+            "mismatching required_settings: optimized");
   }
 
   @Test
@@ -702,7 +702,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         .hasMessageThat()
         .contains(
             "Unrecoverable errors resolving config_setting associated with"
-                + " //extra:required_platform: For config_setting flagged, Feature flag"
+                + " //extra:required_platform: For config_setting flagged: Feature flag"
                 + " //extra:flag was accessed in a configuration it is not present in.");
   }
 

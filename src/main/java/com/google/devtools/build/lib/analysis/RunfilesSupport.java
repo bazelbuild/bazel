@@ -200,11 +200,6 @@ public final class RunfilesSupport {
     }
 
     @Override
-    public boolean isLegacyExternalRunfiles() {
-      return runfiles.isLegacyExternalRunfiles();
-    }
-
-    @Override
     public boolean isMappingCached() {
       return cachedMapping != null;
     }
@@ -287,9 +282,7 @@ public final class RunfilesSupport {
     if (runUnder instanceof LabelRunUnder && TargetUtils.isTestRule(ruleContext.getRule())) {
       TransitiveInfoCollection runUnderTarget = ruleContext.getRunUnderPrerequisite();
       runfiles =
-          new Runfiles.Builder(
-                  ruleContext.getWorkspaceName(),
-                  ruleContext.getConfiguration().legacyExternalRunfiles())
+          new Runfiles.Builder(ruleContext.getWorkspaceName())
               .merge(getRunfiles(runUnderTarget, ruleContext.getWorkspaceName()))
               .merge(runfiles)
               .build();

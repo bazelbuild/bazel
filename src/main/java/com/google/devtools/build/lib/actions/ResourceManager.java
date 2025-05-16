@@ -81,6 +81,8 @@ public class ResourceManager implements ResourceEstimator {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  private boolean allowOneActionOnResourceUnavailable;
+
   /**
    * A handle returned by {@link #acquireResources(ActionExecutionMetadata, ResourceSet,
    * ResourcePriority)} that must be closed in order to free the resources again.
@@ -110,14 +112,15 @@ public class ResourceManager implements ResourceEstimator {
 
     /** Closing the ResourceHandle releases the resources associated with it. */
     @Override
-    public void close() throws IOException, InterruptedException {
+    public void close() throws IOException, InterruptedException, UserExecException {
       manager.releaseResources(request, worker);
       Profiler.instance()
           .completeTask(
               resourceAcquiredTime, ProfilerTask.LOCAL_ACTION_COUNTS, "Resources acquired");
     }
 
-    public void invalidateAndClose(@Nullable Exception e) throws IOException, InterruptedException {
+    public void invalidateAndClose(@Nullable Exception e)
+        throws IOException, InterruptedException, UserExecException {
       // If there is an exception, we need to set the kill cause before invalidating the object.
       // This ensures that the worker implementation updates their worker metrics accordingly
       // if/when it destroys itself.
@@ -163,6 +166,14 @@ public class ResourceManager implements ResourceEstimator {
     LOCAL(), // Local execution not under dynamic execution
     DYNAMIC_WORKER(),
     DYNAMIC_STANDALONE();
+  }
+
+  public ResourceManager() {
+    this.allowOneActionOnResourceUnavailable = false;
+  }
+
+  public void setAllowOneActionOnResourceUnavailable(boolean allowOneActionOnResourceUnavailable) {
+    this.allowOneActionOnResourceUnavailable = allowOneActionOnResourceUnavailable;
   }
 
   /** Returns prediction of RAM in Mb used by registered actions. */
@@ -269,14 +280,14 @@ public class ResourceManager implements ResourceEstimator {
     public void run() {
       try {
         windowUpdate();
-      } catch (IOException | InterruptedException e) {
+      } catch (IOException | InterruptedException | UserExecException e) {
         logger.atWarning().withCause(e).log(
             "Exception while updating window of locally scheduled action: %s", e);
       }
     }
   }
 
-  synchronized void windowUpdate() throws IOException, InterruptedException {
+  synchronized void windowUpdate() throws IOException, InterruptedException, UserExecException {
     windowRequestIds.clear();
     windowEstimationCpu = 0.0;
     processAllWaitingRequests();
@@ -458,7 +469,7 @@ public class ResourceManager implements ResourceEstimator {
    * @throws java.io.IOException if could not return worker to the workerPool
    */
   void releaseResources(ResourceRequest request, @Nullable Worker worker)
-      throws IOException, InterruptedException {
+      throws IOException, InterruptedException, UserExecException {
     Preconditions.checkNotNull(
         request.getResourceSet(),
         "releaseResources called with resources == NULL during %s",
@@ -490,7 +501,7 @@ public class ResourceManager implements ResourceEstimator {
    * wait.
    */
   private synchronized ResourceLatch acquire(ResourceRequest request)
-      throws IOException, InterruptedException {
+      throws IOException, InterruptedException, UserExecException {
     if (areResourcesAvailable(request.getResourceSet())) {
       Worker worker = incrementResources(request);
       return new ResourceLatch(/* latch= */ null, worker);
@@ -513,7 +524,7 @@ public class ResourceManager implements ResourceEstimator {
 
   /** Release resources and process the queues of waiting threads. */
   private synchronized void release(ResourceRequest request, @Nullable Worker worker)
-      throws IOException, InterruptedException {
+      throws IOException, InterruptedException, UserExecException {
     if (worker != null) {
       this.workerPool.returnWorker(worker.getWorkerKey(), worker);
     }
@@ -545,14 +556,15 @@ public class ResourceManager implements ResourceEstimator {
     processAllWaitingRequests();
   }
 
-  private synchronized void processAllWaitingRequests() throws IOException, InterruptedException {
+  private synchronized void processAllWaitingRequests()
+      throws IOException, InterruptedException, UserExecException {
     processWaitingRequests(localRequests);
     processWaitingRequests(dynamicWorkerRequests);
     processWaitingRequests(dynamicStandaloneRequests);
   }
 
   private synchronized void processWaitingRequests(Deque<WaitingRequest> requests)
-      throws IOException, InterruptedException {
+      throws IOException, InterruptedException, UserExecException {
     if (requests.isEmpty()) {
       return;
     }
@@ -597,22 +609,41 @@ public class ResourceManager implements ResourceEstimator {
     }
   }
 
-  private static <T extends Number> boolean isAvailable(T available, T used, T requested) {
+  private <T extends Number> boolean isAvailable(
+      T available, T used, T requested, String resourceName) throws UserExecException {
+    if (!allowOneActionOnResourceUnavailable
+        && available.doubleValue() + used.doubleValue() < requested.doubleValue()) {
+      throw new UserExecException(
+          FailureDetails.FailureDetail.newBuilder()
+              .setMessage(
+                  String.format(
+                      "The `%s` resources are not enough to fulfill the request. To allow Bazel to"
+                          + " bypass this limitation, please adjust the --local_resources flag or"
+                          + " specify --allow_one_action_on_resource_unavailable in your Bazel"
+                          + " command.",
+                      resourceName))
+              .setLocalExecution(
+                  FailureDetails.LocalExecution.newBuilder()
+                      .setCode(FailureDetails.LocalExecution.Code.NOT_ENOUGH_LOCAL_RESOURCE)
+                      .build())
+              .build());
+    }
     // Resources are considered available if any one of the conditions below is true:
     // 1) If resource is not requested at all, it is available.
-    // 2) If resource is not used at the moment, it is considered to be
+    // 2) If resource is not used at the moment and the flag
+    // "allow_one_action_on_resource_unavailable" is enabled, it is considered to be
     // available regardless of how much is requested. This is necessary to
     // ensure that at any given time, at least one thread is able to acquire
     // resources even if it requests more than available.
     // 3) If used resource amount is less than total available resource amount.
     return requested.doubleValue() == 0
-        || used.doubleValue() == 0
+        || (allowOneActionOnResourceUnavailable && used.doubleValue() == 0)
         || used.doubleValue() + requested.doubleValue() <= available.doubleValue();
   }
 
   // Method will return true if all requested resources are considered to be available.
   @VisibleForTesting
-  synchronized boolean areResourcesAvailable(ResourceSet resources) {
+  synchronized boolean areResourcesAvailable(ResourceSet resources) throws UserExecException {
     Preconditions.checkNotNull(availableResources);
     // Comparison below is robust, since any calculation errors will be fixed
     // by the release() method.
@@ -622,12 +653,19 @@ public class ResourceManager implements ResourceEstimator {
       return false;
     }
 
-    if (usedResources.isEmpty() && usedLocalTestCount == 0) {
+    if (allowOneActionOnResourceUnavailable
+        && usedResources.isEmpty()
+        && usedLocalTestCount == 0
+        && resources.getLocalTestCount() > 0) {
       return true;
     }
 
     int availableLocalTestCount = availableResources.getLocalTestCount();
-    if (!isAvailable(availableLocalTestCount, usedLocalTestCount, resources.getLocalTestCount())) {
+    if (!isAvailable(
+        availableLocalTestCount,
+        usedLocalTestCount,
+        resources.getLocalTestCount(),
+        "local_test_count")) {
       return false;
     }
 
@@ -649,14 +687,14 @@ public class ResourceManager implements ResourceEstimator {
           resource.getValue() * MIN_NECESSARY_RATIO.getOrDefault(key, DEFAULT_MIN_NECESSARY_RATIO);
       double used = usedResources.getOrDefault(key, 0.0);
       double available = availableResources.get(key);
-      if (!isAvailable(available, used, requested)) {
+      if (!isAvailable(available, used, requested, key)) {
         return false;
       }
     }
     return true;
   }
 
-  synchronized boolean isCpuAvailable(Map.Entry<String, Double> resource) {
+  synchronized boolean isCpuAvailable(Map.Entry<String, Double> resource) throws UserExecException {
     String key = resource.getKey();
 
     double requested =
@@ -671,10 +709,10 @@ public class ResourceManager implements ResourceEstimator {
       if (runningActions >= MAX_ACTIONS_PER_CPU * availableResources.get(ResourceSet.CPU)) {
         return false;
       }
-      return isAvailable(available, windowEstimation + currentUsage, requested);
+      return isAvailable(available, windowEstimation + currentUsage, requested, key);
     }
 
-    return isAvailable(available, used, requested);
+    return isAvailable(available, used, requested, key);
   }
 
   @VisibleForTesting

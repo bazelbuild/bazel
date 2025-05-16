@@ -334,17 +334,13 @@ public final class ArtifactFunction implements SkyFunction {
         case FILE_OPERATION_FAILURE:
         case SYMLINK_CYCLE_OR_INFINITE_EXPANSION:
         case CANNOT_TRAVERSE_SOURCE_DIRECTORY:
+        case CANNOT_CROSS_PACKAGE_BOUNDARY:
           throw new ArtifactFunctionException(
               SourceArtifactException.create(artifact, e), Transience.PERSISTENT);
         case INCONSISTENT_FILESYSTEM:
         case DETAILED_IO_EXCEPTION:
           throw new ArtifactFunctionException(
               SourceArtifactException.create(artifact, e), Transience.TRANSIENT);
-        case CANNOT_CROSS_PACKAGE_BOUNDARY:
-          throw new IllegalStateException(
-              String.format(
-                  "Cannot cross package boundary: %s %s %s", artifact, fileValue, request),
-              e);
         case GENERATED_PATH_CONFLICT:
           throw new IllegalStateException(
               String.format(
@@ -494,7 +490,7 @@ public final class ArtifactFunction implements SkyFunction {
         return null;
       }
       ImmutableList.Builder<ActionLookupData> expandedActionExecutionKeys =
-          ImmutableList.builderWithExpectedSize(value.getNumActions());
+          ImmutableList.builderWithExpectedSize(value.getActions().size());
       for (ActionAnalysisMetadata action : value.getActions()) {
         expandedActionExecutionKeys.add(
             ((DerivedArtifact) action.getPrimaryOutput()).getGeneratingActionKey());

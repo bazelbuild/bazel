@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -26,8 +26,10 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
 
 set_up() {
   bazel clean --expunge >& $TEST_log
+  add_rules_java "MODULE.bazel"
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = "ball-pit",
     srcs = ["BallPit.java"],
@@ -133,8 +135,10 @@ http_archive(
     sha256 = '$sha256'
 )
 EOF
+    add_rules_shell "MODULE.bazel"
 
     cat > zoo/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
@@ -193,6 +197,7 @@ http_archive(
     type = 'zip',
 )
 EOF
+  add_rules_shell "MODULE.bazel"
   bazel run //zoo:breeding-program >& $TEST_log \
     || echo "Expected build/run to succeed"
   kill_nc
@@ -247,8 +252,10 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 http_archive(name = 'endangered', url = 'http://bad.example/repo.zip',
     sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826')
 EOF
-
+  add_rules_shell "MODULE.bazel"
   cat > zoo/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
@@ -287,8 +294,11 @@ http_archive(
     sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826',
 )
 EOF
+  add_rules_shell "MODULE.bazel"
 
   cat > zoo/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
@@ -326,7 +336,8 @@ function test_sha256_caching() {
 
 function test_cached_across_server_restart() {
   http_archive_helper zip_up
-  local marker_file=$(bazel info output_base)/external/\@+http_archive+endangered.marker
+  local repo_path="$(bazel info output_base)/external/+http_archive+endangered"
+  local marker_file="$(realpath $repo_path).recorded_inputs"
   echo "<MARKER>"
   cat "${marker_file}"
   echo "</MARKER>"
@@ -349,9 +360,11 @@ http_jar = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_j
 http_jar(name = 'endangered', url = 'http://127.0.0.1:$nc_port/lib.jar',
          sha256='$sha256', downloaded_file_name="foo.jar")
 EOF
+  add_rules_java "MODULE.bazel"
 
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = "ball-pit",
     srcs = ["BallPit.java"],
@@ -608,9 +621,11 @@ http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_
 http_file(name = 'toto', urls = ['http://127.0.0.1:$nc_port/toto'],
     sha256 = '$sha256', executable = True)
 EOF
-
+  add_rules_shell "MODULE.bazel"
   mkdir -p test
   cat > test/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "test",
     srcs = ["test.sh"],
@@ -666,9 +681,11 @@ http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_
 http_file(name = 'toto', urls = ['http://127.0.0.1:$redirect_port/toto'],
     sha256 = '$sha256')
 EOF
-
+  add_rules_shell "MODULE.bazel"
   mkdir -p test
   cat > test/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "test",
     srcs = ["test.sh"],
@@ -796,9 +813,10 @@ http_archive(
     ${workspace_file_attr}
 )
 EOF
-
+  add_rules_shell "MODULE.bazel"
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
@@ -825,6 +843,7 @@ function test_fetch() {
 ext = use_extension("//:ext.bzl", "ext")
 use_repo(ext, "endangered")
 EOF
+  add_rules_java "MODULE.bazel"
 
   touch BUILD
   cat > ext.bzl <<EOF
@@ -2633,7 +2652,10 @@ local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl"
 local_repository(name = 'repo1', path='$test_repo1')
 local_repository(name = 'repo2', path='$test_repo2')
 EOF
+  add_rules_java "MODULE.bazel"
   cat > BUILD <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "a_bin",
     runtime_deps = ["@repo1//a:a"],

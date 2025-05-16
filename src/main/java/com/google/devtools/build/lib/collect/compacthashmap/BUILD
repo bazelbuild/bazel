@@ -14,9 +14,7 @@ filegroup(
 # Library of collection utilities.
 java_library(
     name = "compacthashmap",
-    srcs = glob([
-        "*.java",
-    ]),
+    srcs = ["CompactHashMap.java"],
     deps = [
         "//third_party:error_prone_annotations",
         "//third_party:guava",

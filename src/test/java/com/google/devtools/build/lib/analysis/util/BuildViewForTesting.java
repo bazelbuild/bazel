@@ -27,7 +27,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
@@ -266,14 +265,6 @@ public class BuildViewForTesting {
 
   public ArtifactFactory getArtifactFactory() {
     return skyframeBuildView.getArtifactFactory();
-  }
-
-  /**
-   * Sets the possible artifact roots in the artifact factory. This allows the factory to resolve
-   * paths with unknown roots to artifacts.
-   */
-  public void setArtifactRoots(PackageRoots packageRoots) {
-    getArtifactFactory().setPackageRoots(packageRoots.getPackageRootLookup());
   }
 
   public Collection<ConfiguredTarget> getDirectPrerequisitesForTesting(

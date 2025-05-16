@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -158,7 +158,7 @@ function test_bazel_detects_local_jdk_version8() {
   touch jdk/bin/javac
   chmod +x jdk/bin/javac
   cat >jdk/bin/java <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo " Property settings:" >&2
 echo "  java.version = 1.8.0 " >&2
@@ -193,7 +193,7 @@ function test_bazel_detects_local_jdk_version11() {
   touch jdk/bin/javac
   chmod +x jdk/bin/javac
   cat >jdk/bin/java <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo " Property settings:" >&2
 echo "  java.version = 11.0.1 " >&2
@@ -228,7 +228,7 @@ function test_bazel_detects_local_jdk_version11_with_only_major() {
   touch jdk/bin/javac
   chmod +x jdk/bin/javac
   cat >jdk/bin/java <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo " Property settings:" >&2
 echo "  java.version = 11 " >&2
@@ -263,7 +263,7 @@ function test_bazel_gracefully_handles_unknown_java() {
   touch jdk/bin/javac
   chmod +x jdk/bin/javac
   cat >jdk/bin/java <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo " Property settings:" >&2
 echo "  java.version = xxx.superfuture.version " >&2

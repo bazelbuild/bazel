@@ -139,7 +139,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
       RepositoryCache repositoryCache = new RepositoryCache();
       HttpDownloader httpDownloader = new HttpDownloader();
       DownloadManager downloadManager =
-          new DownloadManager(repositoryCache, httpDownloader, httpDownloader);
+          new DownloadManager(repositoryCache.getDownloadCache(), httpDownloader, httpDownloader);
       RegistryFactoryImpl registryFactory =
           new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
 
@@ -193,7 +193,8 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                       isFetch,
                       ImmutableMap::of,
                       directories,
-                      EXTERNAL_PACKAGE_HELPER))
+                      EXTERNAL_PACKAGE_HELPER,
+                      repositoryCache.getRepoContentsCache()))
               .put(
                   SkyFunctions.BAZEL_LOCK_FILE,
                   new BazelLockFileFunction(directories.getWorkspace()))

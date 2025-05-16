@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -48,7 +48,7 @@ function set_up() {
 
 function test_java_test_coverage() {
   cat <<EOF > BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 load("@rules_java//java:java_test.bzl", "java_test")
 load("@rules_java//java:java_library.bzl", "java_library")
 

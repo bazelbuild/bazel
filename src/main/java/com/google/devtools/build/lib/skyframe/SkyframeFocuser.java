@@ -41,7 +41,7 @@ import javax.annotation.Nullable;
 
 /**
  * SkyframeFocuser is a minimizing optimizer (i.e. garbage collector) for the Skyframe graph, based
- * on a set of known inputs known as a working set, while ensuring correct incremental builds.
+ * on a set of known inputs known as active directories, while ensuring correct incremental builds.
  *
  * <p>This is also a subclass of {@link AbstractQueueVisitor} to take advantage of highly
  * parallelizable operations over the Skyframe graph.
@@ -77,8 +77,8 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
 
   /**
    * Minimize the Skyframe graph by traverse it to prune nodes and edges that are not necessary for
-   * the build correctness of a working set of files. The graph focusing algorithm pseudocode is as
-   * follows.
+   * the build correctness of a active directories of files. The graph focusing algorithm pseudocode
+   * is as follows.
    *
    * <ol>
    *   <li>Mark all the leafs and their transitive rdeps. For each marked node, also mark all their
@@ -90,7 +90,7 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
    *
    * @param graph the in-memory graph to operate on
    * @param roots the SkyKeys of the roots to be kept, i.e. the top level keys.
-   * @param leafs the SkyKeys of the leafs to be kept. This is the "working set".
+   * @param leafs the SkyKeys of the leafs to be kept. This is the "active directories".
    * @return the set of kept SkyKeys in the in-memory graph, categorized by deps and rdeps.
    */
   public static FocusResult focus(
@@ -104,13 +104,13 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
    * The result of running Skyfocus. The actual changes are done in place with the in-memory graph.
    *
    * @param roots the SkyKeys of the roots to be kept, i.e. the top level keys.
-   * @param leafs the SkyKeys of the leafs to be kept. This is the "working set".
+   * @param leafs the SkyKeys of the leafs to be kept. This is the "active directories".
    * @param deps the SkyKeys that are in the dependencies of all roots, and rdeps from the leafs.
    *     May contain transitive dependencies, in cases where certain functions use them without
    *     establishing a Skyframe dependency.
    * @param rdeps the SkyKeys that are in the reverse dependencies of the leafs.
    * @param verificationSet the SkyKeys that are in the transitive closure of the roots, but not in
-   *     the working set. These SkyKeys are also retained in the graph, because {@link
+   *     the active directories. These SkyKeys are also retained in the graph, because {@link
    *     FilesystemValueChecker} uses them to check for dirty keys to be invalidated on each new
    *     build.
    * @param rdepEdgesBefore The number of reverse edges in the visited nodes by Skyfocus (before
@@ -148,7 +148,8 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
     // multiple NodeVisitors concurrently.
     private final Set<SkyKey> keptDeps;
 
-    // Threadsafe set of *leaf* keys that this key depends on, but are external to the working set.
+    // Threadsafe set of *leaf* keys that this key depends on, but are external to the active
+    // directories.
     private final Set<SkyKey> verificationSet;
 
     // Threadsafe set of keys that keeps track of the keys that have been visited while
@@ -173,7 +174,7 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
     public void run() {
       InMemoryNodeEntry nodeEntry = graph.getIfPresent(key);
       if (nodeEntry == null) {
-        // Throwing may be too strong if the working set is loosely defined, e.g. an entire
+        // Throwing may be too strong if the active directories is loosely defined, e.g. an entire
         // directory instead of a single file, and there are some files in the directory that
         // are not in the TC of the roots.
         //
@@ -252,7 +253,7 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
      */
     void maybeCollectVerificationSet(SkyKey k) {
       if (keptRdeps.contains(k)) {
-        // In the working set reverse TC, already visited.
+        // In the active directories reverse TC, already visited.
         return;
       }
 
@@ -271,13 +272,13 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
     }
 
     /**
-     * The verification set keeps track when a file outside the working set is changed, because
-     * those builds will not be incrementally correct unless a reanalysis is done to restore the
-     * Skyframe graph of those files.
+     * The verification set keeps track when a file outside the active directories is changed,
+     * because those builds will not be incrementally correct unless a reanalysis is done to restore
+     * the Skyframe graph of those files.
      *
      * <p>Technically, CollectVerificationSet is applied downwards on the indirect dependencies of
-     * the working set's reverse transitive closure, and is responsible for collecting the necessary
-     * leaf SkyKeys, except the working set itself.
+     * the active directories's reverse transitive closure, and is responsible for collecting the
+     * necessary leaf SkyKeys, except the active directories itself.
      *
      * <p>TODO: b/327545930 - make this run faster.
      */
@@ -316,7 +317,8 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
     // All roots are automatically considered as deps.
     //
     // Some roots are re-evaluated on every build. These roots may not be in the reverse TC
-    // of leafs (working set), but may influence how the working set is evaluated (e.g. platform
+    // of leafs (active directories), but may influence how the active directories is evaluated
+    // (e.g. platform
     // mapping). If we remove them from the graph, those keys may be re-evaluated anyway (along with
     // their TC) on subsequent invocations, leading to wasted compute and RAM.
     // The exercise of ensuring which roots should be kept is left to the caller of
@@ -338,7 +340,7 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
     keptDeps.removeAll(keptRdeps);
 
     // Ensure that the verification set doesn't contain any direct deps to build the
-    // working set.
+    // active directories.
     verificationSet.removeAll(keptDeps);
 
     AtomicLong rdepEdgesBefore = new AtomicLong();
@@ -371,7 +373,7 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
               incrementalInMemoryNodeEntry.clearDirectDepsForSkyfocus();
 
               // No need to keep the rdep edges of the deps if they do not point to an rdep
-              // reachable (hence, dirty-able) by the working set.
+              // reachable (hence, dirty-able) by the active directories.
               //
               // This accounts for nearly 5% of 9+GB retained heap on a large server build.
               Collection<SkyKey> existingRdeps =

@@ -300,10 +300,12 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
                         || o.getValue().hasOptionMetadataTag(OptionMetadataTag.EXPERIMENTAL))
             .filter(o -> o.getValue().getDefinition().getType().isAssignableFrom(boolean.class))
             .filter(o -> !o.getValue().getDefinition().isDeprecated())
-            .filter(
-                // Skipping this explicitly as propagating it causes a cycle when compiling the
-                // optimizer itself.
-                o -> !o.getKey().equals("experimental_local_java_optimizations"))
+            // Skipping this explicitly as propagating it causes a cycle when compiling
+            // the optimizer itself.
+            .filter(o -> !o.getKey().equals("experimental_local_java_optimizations"))
+            // A rare (only?) case of a flag named "--experimental_..." that isn't
+            // actually experimental.
+            .filter(o -> !o.getKey().equals("experimental_deps_ok"))
             .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
     // Verify all "--experimental_*" options also have the EXPERIMENTAL metadata tag.

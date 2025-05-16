@@ -17,7 +17,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeContent;
-import static java.lang.System.lineSeparator;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
@@ -608,9 +607,9 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//:foobar");
     waitDownloads();
 
-    assertValidOutputFile("foobar.out", "foo" + lineSeparator() + "bar\n");
+    assertValidOutputFile("foobar.out", "foo\nbar\n");
     assertOutputDoesNotExist("foo.in.copy");
-    assertValidOutputFile("foo.out.copy", "foo" + lineSeparator());
+    assertValidOutputFile("foo.out.copy", "foo\n");
   }
 
   @Test
@@ -637,9 +636,9 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//:foobar");
     waitDownloads();
 
-    assertValidOutputFile("foobar.out", "foo" + lineSeparator() + "bar\n");
-    assertValidOutputFile("foo.in.copy", "foo" + lineSeparator());
-    assertValidOutputFile("foo.out.copy", "foo" + lineSeparator());
+    assertValidOutputFile("foobar.out", "foo\nbar\n");
+    assertValidOutputFile("foo.in.copy", "foo\n");
+    assertValidOutputFile("foo.out.copy", "foo\n");
   }
 
   @Test
@@ -666,7 +665,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//:foobar");
     waitDownloads();
 
-    assertValidOutputFile("foobar.out", "foo" + lineSeparator() + "bar\n");
+    assertValidOutputFile("foobar.out", "foo\nbar\n");
     assertOutputDoesNotExist("foo.in.copy");
     assertOutputDoesNotExist("foo.out.copy");
   }
@@ -979,13 +978,13 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//:foo-link");
 
     assertSymlink("foo-link", getSourcePath("foo.txt").asFragment());
-    assertOnlyOutputContent("//:foo-link", "foo-link", "foo" + lineSeparator());
+    assertOnlyOutputContent("//:foo-link", "foo-link", "foo\n");
 
     // Delete link, re-plant symlink
     getOutputPath("foo-link").delete();
     buildTarget("//:foo-link");
 
-    assertOnlyOutputContent("//:foo-link", "foo-link", "foo" + lineSeparator());
+    assertOnlyOutputContent("//:foo-link", "foo-link", "foo\n");
   }
 
   @Test
@@ -1277,8 +1276,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         ")");
 
     buildTarget("//:foobar");
-    assertValidOutputFile("out/foo.txt", "foo" + lineSeparator());
-    assertValidOutputFile("out/foobar.txt", "foo" + lineSeparator() + "bar\n");
+    assertValidOutputFile("out/foo.txt", "foo\n");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
 
     // Act: Modify source file and run an incremental build
     write("foo.in", "modified");
@@ -1289,8 +1288,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     // Assert: All actions transitively depend on the source file are re-executed and outputs are
     // correct.
-    assertValidOutputFile("out/foo.txt", "modified" + lineSeparator());
-    assertValidOutputFile("out/foobar.txt", "modified" + lineSeparator() + "bar\n");
+    assertValidOutputFile("out/foo.txt", "modified\n");
+    assertValidOutputFile("out/foobar.txt", "modified\nbar\n");
     assertThat(actionEventCollector.getNumActionNodesEvaluated()).isEqualTo(2);
   }
 
@@ -1556,7 +1555,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//a:bar");
 
     // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "foo" + lineSeparator() + "updated bar" + lineSeparator());
+    assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
   }
 
   @Test
@@ -1611,7 +1610,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//a:bar");
 
     // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar" + lineSeparator());
+    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
   }
 
   @Test
@@ -1653,7 +1652,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     addOptions("--experimental_remote_cache_ttl=0s");
     buildTarget("//a:bar");
     assertOutputDoesNotExist("a/foo.out");
-    assertValidOutputFile("a/bar.out", "foo" + lineSeparator() + "bar" + lineSeparator());
+    assertValidOutputFile("a/bar.out", "foo\nbar\n");
 
     // Evict blobs from remote cache
     evictAllBlobs();
@@ -1665,7 +1664,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     waitDownloads();
 
     // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "foo" + lineSeparator() + "updated bar" + lineSeparator());
+    assertValidOutputFile("a/bar.out", "foo\nupdated bar\n");
   }
 
   @Test
@@ -1718,9 +1717,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     waitDownloads();
 
     // Assert: target was successfully built
-    assertOnlyOutputRemoteContent("//a:foo", "foo.out", "foo" + lineSeparator());
-    assertOnlyOutputRemoteContent(
-        "//a:bar", "bar.out", "foo" + lineSeparator() + "updated bar" + lineSeparator());
+    assertOnlyOutputRemoteContent("//a:foo", "foo.out", "foo\n");
+    assertOnlyOutputRemoteContent("//a:bar", "bar.out", "foo\nupdated bar\n");
   }
 
   @Test
@@ -1763,7 +1761,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     addOptions("--experimental_remote_cache_ttl=0s");
     buildTarget("//a:bar");
     assertOutputDoesNotExist("a/foo.out/file-inside");
-    assertValidOutputFile("a/bar.out", "file-inside\nbar" + lineSeparator());
+    assertValidOutputFile("a/bar.out", "file-inside\nbar\n");
 
     // Evict blobs from remote cache
     evictAllBlobs();
@@ -1775,7 +1773,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     waitDownloads();
 
     // Assert: target was successfully built
-    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar" + lineSeparator());
+    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
   }
 
   @Test
@@ -1831,8 +1829,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     // Assert: target was successfully built
     assertOutputDoesNotExist("a/foo.out/file-inside");
-    assertOnlyOutputRemoteContent(
-        "//a:bar", "bar.out", "file-inside\nupdated bar" + lineSeparator());
+    assertOnlyOutputRemoteContent("//a:bar", "bar.out", "file-inside\nupdated bar\n");
   }
 
   @Test

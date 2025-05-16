@@ -176,7 +176,7 @@ class DirectoryTreeBuilder {
             }
             case DIRECTORY -> {
               SortedMap<PathFragment, ActionInput> directoryInputs =
-                  explodeDirectory(input.getExecPath(), execRoot);
+                  explodeDirectory(path, input, artifactPathResolver);
               return buildFromActionInputs(
                   directoryInputs,
                   toolInputs,
@@ -266,30 +266,39 @@ class DirectoryTreeBuilder {
   }
 
   private static SortedMap<PathFragment, ActionInput> explodeDirectory(
-      PathFragment dirname, Path execRoot) throws IOException {
+      PathFragment logicalPath, ActionInput directory, ArtifactPathResolver artifactPathResolver)
+      throws IOException {
     SortedMap<PathFragment, ActionInput> inputs = new TreeMap<>();
-    explodeDirectory(dirname, inputs, execRoot);
+    explodeDirectory(
+        logicalPath, directory.getExecPath(), artifactPathResolver.toPath(directory), inputs);
     return inputs;
   }
 
   private static void explodeDirectory(
-      PathFragment dirname, SortedMap<PathFragment, ActionInput> inputs, Path execRoot)
+      PathFragment logicalPath,
+      PathFragment execPath,
+      Path realPath,
+      SortedMap<PathFragment, ActionInput> inputs)
       throws IOException {
-    Collection<Dirent> entries = execRoot.getRelative(dirname).readdir(Symlinks.FOLLOW);
+    Collection<Dirent> entries = realPath.readdir(Symlinks.FOLLOW);
     for (Dirent entry : entries) {
       String basename = entry.getName();
-      PathFragment path = dirname.getChild(basename);
+      PathFragment childExecPath = execPath.getChild(basename);
       switch (entry.getType()) {
-        case FILE -> inputs.put(path, ActionInputHelper.fromPath(path));
-        case DIRECTORY -> explodeDirectory(path, inputs, execRoot);
+        case FILE ->
+            inputs.put(logicalPath.getChild(basename), ActionInputHelper.fromPath(childExecPath));
+        case DIRECTORY ->
+            explodeDirectory(
+                logicalPath.getChild(basename), childExecPath, realPath.getChild(basename), inputs);
         case SYMLINK ->
             throw new IllegalStateException(
                 String.format(
                     "Encountered symlink input '%s', but all"
                         + " symlinks should have been resolved by readdir. This is a bug.",
-                    path));
+                    childExecPath));
         case UNKNOWN ->
-            throw new IOException(String.format("The file type of '%s' is not supported.", path));
+            throw new IOException(
+                String.format("The file type of '%s' is not supported.", childExecPath));
       }
     }
   }

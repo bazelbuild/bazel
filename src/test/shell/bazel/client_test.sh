@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -91,6 +91,47 @@ function test_install_base_garbage_collection() {
   if [[ -d "${stale}" ]]; then
     fail "Expected ${stale} to no longer exist"
   fi
+}
+
+function test_action_cache_garbage_collection() {
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+genrule(
+    name = "foo",
+    outs = ["out.txt"],
+    cmd = "echo hello > $@",
+)
+EOF
+
+  assert_action_cache_empty
+
+  # Run a build with garbage collection disabled.
+  bazel build --experimental_action_cache_gc_idle_delay=0 \
+      --experimental_action_cache_gc_max_age=0 \
+      //pkg:foo &> "$TEST_log" || fail "Expected success"
+
+  # Give the idle task a chance to run, then verify it did *not* run.
+  sleep 1
+  assert_action_cache_not_empty
+
+  # Run a build with garbage collection enabled.
+  bazel build --experimental_action_cache_gc_idle_delay=0 \
+      --experimental_action_cache_gc_max_age=1s \
+      //pkg:foo &> "$TEST_log" || fail "Expected success"
+
+  # Give the idle task a chance to run, then verify it did run.
+  sleep 1
+  assert_action_cache_empty
+}
+
+function assert_action_cache_empty() {
+  bazel dump --action_cache &> "$TEST_log" || fail "Expected success"
+  expect_log "Action cache (0 records)"
+}
+
+function assert_action_cache_not_empty() {
+  bazel dump --action_cache &> "$TEST_log" || fail "Expected success"
+  expect_log "Action cache ([1-9][0-9]* records)"
 }
 
 run_suite "client_test"

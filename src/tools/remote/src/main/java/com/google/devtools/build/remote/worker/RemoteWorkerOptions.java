@@ -188,6 +188,16 @@ public class RemoteWorkerOptions extends OptionsBase {
               + " testing only.")
   public String expectedAuthorizationToken;
 
+  @Option(
+      name = "unavailable",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If true, all gRPC services, except Capabilities, return UNAVAILABLE. This is useful for"
+              + " testing only.")
+  public boolean unavailable;
+
   private static final int MAX_JOBS = 16384;
 
   /**

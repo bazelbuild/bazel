@@ -546,7 +546,18 @@ public abstract class RuleOrMacroInstance implements DependencyFilter.AttributeI
     return rawLabels != null ? rawLabels : getDefaultVisibility().getDeclaredLabels();
   }
 
+  /** Returns the metadata of the package where this target or macro instance lives. */
+  public abstract Package.Metadata getPackageMetadata();
+
   abstract Declarations getPackageDeclarations();
+
+  /**
+   * Returns the innermost symbolic macro that declared this target or macro instance, or null if it
+   * was declared outside any symbolic macro (i.e. directly in a BUILD file or only in one or more
+   * legacy macros).
+   */
+  @Nullable
+  public abstract MacroInstance getDeclaringMacro();
 
   @Nullable
   public PackageArgs getPackageArgs() {

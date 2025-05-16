@@ -214,7 +214,7 @@ public class BazelRepositoryModule extends BlazeModule {
     public byte[] get(
         Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException, InterruptedException {
-      return print(repositoryCache.getRootPath());
+      return print(repositoryCache.getPath());
     }
   }
 
@@ -245,7 +245,8 @@ public class BazelRepositoryModule extends BlazeModule {
             isFetch,
             clientEnvironmentSupplier,
             directories,
-            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
+            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
+            repositoryCache.getRepoContentsCache());
     singleExtensionEvalFunction =
         new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier);
 
@@ -311,7 +312,10 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     DownloadManager downloadManager =
-        new DownloadManager(repositoryCache, env.getDownloaderDelegate(), env.getHttpDownloader());
+        new DownloadManager(
+            repositoryCache.getDownloadCache(),
+            env.getDownloaderDelegate(),
+            env.getHttpDownloader());
     this.starlarkRepositoryFunction.setDownloadManager(downloadManager);
     this.moduleFileFunction.setDownloadManager(downloadManager);
     this.repoSpecFunction.setDownloadManager(downloadManager);
@@ -339,7 +343,7 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       disableNativeRepoRules = repoOptions.disableNativeRepoRules;
 
-      repositoryCache.setHardlink(repoOptions.useHardlinks);
+      repositoryCache.getDownloadCache().setHardlink(repoOptions.useHardlinks);
       if (repoOptions.experimentalScaleTimeouts > 0.0) {
         starlarkRepositoryFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
         singleExtensionEvalFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
@@ -352,35 +356,41 @@ public class BazelRepositoryModule extends BlazeModule {
         starlarkRepositoryFunction.setTimeoutScaling(1.0);
         singleExtensionEvalFunction.setTimeoutScaling(1.0);
       }
-      if (repoOptions.experimentalRepositoryCache != null) {
-        Path repositoryCachePath;
-        if (repoOptions.experimentalRepositoryCache.isEmpty()) {
-          // A set but empty path indicates a request to disable the repository cache.
-          repositoryCachePath = null;
-        } else if (repoOptions.experimentalRepositoryCache.isAbsolute()) {
-          repositoryCachePath = filesystem.getPath(repoOptions.experimentalRepositoryCache);
-        } else {
-          repositoryCachePath =
-              env.getBlazeWorkspace()
-                  .getWorkspace()
-                  .getRelative(repoOptions.experimentalRepositoryCache);
-        }
-        repositoryCache.setRepositoryCachePath(repositoryCachePath);
+      if (repoOptions.repositoryCache != null) {
+        repositoryCache.setPath(toPath(repoOptions.repositoryCache, env));
       } else {
-        Path repositoryCachePath =
+        repositoryCache.setPath(
             env.getDirectories()
                 .getServerDirectories()
                 .getOutputUserRoot()
-                .getRelative(DEFAULT_CACHE_LOCATION);
-        try {
-          repositoryCachePath.createDirectoryAndParents();
-          repositoryCache.setRepositoryCachePath(repositoryCachePath);
-        } catch (IOException e) {
-          env.getReporter()
-              .handle(
-                  Event.warn(
-                      "Failed to set up cache at " + repositoryCachePath + ": " + e.getMessage()));
-        }
+                .getRelative(DEFAULT_CACHE_LOCATION));
+      }
+      // Note that the repo contents cache stuff has to happen _after_ the repo cache stuff, because
+      // the specific settings about the repo contents cache might overwrite the repo cache
+      // settings. In particular, if `--repo_contents_cache` is not set (it's null), we use whatever
+      // default set by `repositoryCache.setPath(...)`.
+      if (repoOptions.repoContentsCache != null) {
+        repositoryCache.getRepoContentsCache().setPath(toPath(repoOptions.repoContentsCache, env));
+      }
+      Path repoContentsCachePath = repositoryCache.getRepoContentsCache().getPath();
+      if (repoContentsCachePath != null
+          && env.getWorkspace() != null
+          && repoContentsCachePath.startsWith(env.getWorkspace())) {
+        // Having the repo contents cache inside the workspace is very dangerous. During the
+        // lifetime of a Bazel invocation, we treat files inside the workspace as immutable. This
+        // can cause mysterious failures if we write files inside the workspace during the
+        // invocation, as is often the case with the repo contents cache.
+        // TODO: wyv@ - This is a crude check that disables some use cases (such as when the output
+        //   base itself is inside the main repo). Investigate a better check.
+        throw new AbruptExitException(
+            detailedExitCode(
+                """
+                The repo contents cache [%s] is inside the workspace [%s]. This can cause spurious \
+                failures. Disable the repo contents cache with `--repo_contents_cache=`, or \
+                specify `--repo_contents_cache=<path outside the workspace>`.
+                """
+                    .formatted(repoContentsCachePath, env.getWorkspace()),
+                Code.BAD_REPO_CONTENTS_CACHE));
       }
 
       try {
@@ -624,6 +634,18 @@ public class BazelRepositoryModule extends BlazeModule {
       path = env.getWorkingDirectory().getRelative(path).getPathString();
     }
     return path;
+  }
+
+  /**
+   * An empty path fragment is turned into {@code null}; otherwise, it's treated as relative to the
+   * workspace root.
+   */
+  @Nullable
+  private Path toPath(PathFragment path, CommandEnvironment env) {
+    if (path.isEmpty()) {
+      return null;
+    }
+    return env.getBlazeWorkspace().getWorkspace().getRelative(path);
   }
 
   @Override
