@@ -766,3 +766,4 @@ test_suite(
         "//third_party/def_parser:windows_tests",
     ],
     visibility = ["//src:__pkg__"],
+)
