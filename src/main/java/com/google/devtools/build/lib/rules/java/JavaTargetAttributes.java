@@ -103,14 +103,6 @@ public class JavaTargetAttributes {
     }
 
     @CanIgnoreReturnValue
-    public Builder merge(JavaCompilationArgsProvider context) {
-      Preconditions.checkArgument(!built);
-      addCompileTimeClassPathEntries(context.transitiveCompileTimeJars());
-      addRuntimeClassPathEntries(context.runtimeJars());
-      return this;
-    }
-
-    @CanIgnoreReturnValue
     public Builder addSourceJars(Collection<Artifact> sourceJars) {
       Preconditions.checkArgument(!built);
       this.sourceJars.addAll(sourceJars);
