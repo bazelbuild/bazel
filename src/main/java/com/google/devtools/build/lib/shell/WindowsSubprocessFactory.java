@@ -102,19 +102,11 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
 
   @Nullable
   private static String getRedirectPath(StreamAction action, File file) {
-    switch (action) {
-      case DISCARD:
-        return "NUL"; // That's /dev/null on Windows
-
-      case REDIRECT:
-        return file.getPath();
-
-      case STREAM:
-        return null;
-
-      default:
-        throw new IllegalStateException();
-    }
+    return switch (action) {
+      case DISCARD -> "NUL"; // That's /dev/null on Windows
+      case REDIRECT -> file.getPath();
+      case STREAM -> null;
+    };
   }
 
   /** Converts an environment map to the format expected in lpEnvironment by CreateProcess(). */

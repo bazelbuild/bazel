@@ -73,10 +73,23 @@ public class SubprocessBuilder {
         factory != null ? factory : subprocessFactoryImplementation();
   }
 
+  /**
+   * Creates a new subprocess builder.
+   *
+   * @param clientEnv the environment variables of the Bazel client, which will be inherited by the
+   *     subprocess unless {@link #setEnv} is called with a non-null argument
+   */
   public SubprocessBuilder(Map<String, String> clientEnv) {
     this(clientEnv, defaultFactory);
   }
 
+  /**
+   * Creates a new subprocess builder.
+   *
+   * @param clientEnv the environment variables of the Bazel client, which will be inherited by the
+   *     subprocess unless {@link #setEnv} is called with a non-null argument
+   * @param factory the subprocess factory to use, only used for testing
+   */
   public SubprocessBuilder(Map<String, String> clientEnv, SubprocessFactory factory) {
     stdoutAction = StreamAction.STREAM;
     stderrAction = StreamAction.STREAM;
@@ -123,8 +136,8 @@ public class SubprocessBuilder {
   }
 
   /**
-   * Sets the environment passed to the child process. If null, inherit the environment of the
-   * parent. The default is to inherit.
+   * Sets the environment passed to the child process. If null, inherit the client environment
+   * passed to the constructor. The default is to inherit.
    */
   @CanIgnoreReturnValue
   public SubprocessBuilder setEnv(@Nullable Map<String, String> env) {
