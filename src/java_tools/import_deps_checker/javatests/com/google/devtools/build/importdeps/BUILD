@@ -329,5 +329,8 @@ sh_test(
 java_binary(
     name = "DumpProto",
     srcs = ["DumpProto.java"],
-    deps = ["//src/main/protobuf:deps_java_proto"],
+    deps = [
+        "//src/main/protobuf:deps_java_proto",
+        "@com_google_protobuf//:protobuf_java",
+    ],
 )
