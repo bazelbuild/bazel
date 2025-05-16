@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.skyframe.serialization.ExampleValue.exampleValueCodec;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion.CONSTANT_FOR_TESTING;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData.NO_CACHED_DATA;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.ObservedFutureStatus.DONE;
@@ -32,6 +33,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.concurrent.RequestBatcher;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.PeerFailedException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.ObservedFutureStatus;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
@@ -51,6 +53,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.EnvironmentForUtilities;
+import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -668,6 +671,77 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   }
 
   @Test
+  public void skyframeLookupError_marksOtherLookupsAbandoned() throws Exception {
+    var fingerprintValueService = FingerprintValueService.createForTesting();
+
+    var key = new TrivialKey("a");
+
+    var lookupKey0 = new ExampleKey("a");
+    var lookupKey1 = new ExampleKey("b");
+    var multiLookupValue =
+        new MultiLookupValue(new ExampleValue(lookupKey0, 3), new ExampleValue(lookupKey1, 5));
+    uploadKeyValuePair(key, multiLookupValue, fingerprintValueService);
+
+    var capturedKeys = new ArrayList<SkyKey>();
+
+    RetrievalResult result =
+        SkyValueRetriever.tryRetrieve(
+            new EnvironmentForUtilities(
+                k -> {
+                  capturedKeys.add(k);
+                  return null;
+                }),
+            SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+            codecs,
+            fingerprintValueService,
+            /* analysisCacheClient= */ null,
+            key,
+            (SerializationStateProvider) this,
+            /* frontierNodeVersion= */ CONSTANT_FOR_TESTING);
+
+    assertThat(result).isEqualTo(RESTART);
+    assertThat(capturedKeys).containsExactly(lookupKey0, lookupKey1).inOrder();
+    assertThat(state).isInstanceOf(WaitingForLookupContinuation.class);
+
+    var lookups =
+        ImmutableList.copyOf(
+            ((WaitingForLookupContinuation) state).continuation().getSkyframeLookupsForTesting());
+    assertThat(lookups).hasSize(2);
+
+    var error = new Exception();
+    var thrown =
+        assertThrows(
+            SerializationException.class,
+            () ->
+                SkyValueRetriever.tryRetrieve(
+                    new EnvironmentForUtilities(
+                        k -> {
+                          assertThat(k).isEqualTo(lookupKey0);
+                          return error;
+                        }),
+                    SkyValueRetrieverTest::alwaysDoneDependOnFuture,
+                    codecs,
+                    fingerprintValueService,
+                    /* analysisCacheClient= */ null,
+                    key,
+                    (SerializationStateProvider) this,
+                    /* frontierNodeVersion= */ CONSTANT_FOR_TESTING));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("skyframe dependency error during deserialization for " + key);
+    assertThat(thrown).hasCauseThat().isInstanceOf(SkyframeDependencyException.class);
+    assertThat(thrown).hasCauseThat().hasCauseThat().isSameInstanceAs(error);
+
+    var thrownByLookup0 = assertThrows(ExecutionException.class, lookups.get(0)::get).getCause();
+    assertThat(thrownByLookup0).isInstanceOf(SkyframeDependencyException.class);
+    assertThat(thrownByLookup0).hasCauseThat().isSameInstanceAs(error);
+
+    var thrownByLookup1 = assertThrows(ExecutionException.class, lookups.get(1)::get).getCause();
+    assertThat(thrownByLookup1).isInstanceOf(PeerFailedException.class);
+    assertThat(thrownByLookup1).hasCauseThat().isSameInstanceAs(thrownByLookup0);
+  }
+
+  @Test
   public void exceptionWhileWaitingForResult_throwsException() throws Exception {
     var fingerprintValueService = FingerprintValueService.createForTesting();
 
@@ -999,6 +1073,65 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             throw new SerializationException("error setting value");
           });
       return builder;
+    }
+  }
+
+  /** Value that requires multiple Skyframe lookups to deserialize. */
+  private record MultiLookupValue(ExampleValue value1, ExampleValue value2) implements SkyValue {}
+
+  @Keep // used reflectively
+  private static final class MultiLookupValueCodec extends DeferredObjectCodec<MultiLookupValue> {
+    @Override
+    public Class<MultiLookupValue> getEncodedClass() {
+      return MultiLookupValue.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, MultiLookupValue obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          obj.value1(), /* distinguisher= */ null, exampleValueCodec(), codedOut);
+      context.putSharedValue(
+          obj.value2(), /* distinguisher= */ null, exampleValueCodec(), codedOut);
+    }
+
+    @Override
+    public DeferredValue<MultiLookupValue> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      var builder = new MultiLookupValueBuilder();
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          exampleValueCodec(),
+          builder,
+          MultiLookupValueBuilder::setValue1);
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          exampleValueCodec(),
+          builder,
+          MultiLookupValueBuilder::setValue2);
+      return builder;
+    }
+
+    private static class MultiLookupValueBuilder implements DeferredValue<MultiLookupValue> {
+      private ExampleValue value1;
+      private ExampleValue value2;
+
+      private void setValue1(Object obj) {
+        this.value1 = (ExampleValue) obj;
+      }
+
+      private void setValue2(Object obj) {
+        this.value2 = (ExampleValue) obj;
+      }
+
+      @Override
+      public MultiLookupValue call() {
+        return new MultiLookupValue(value1, value2);
+      }
     }
   }
 }

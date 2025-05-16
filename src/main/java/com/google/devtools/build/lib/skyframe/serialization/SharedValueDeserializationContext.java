@@ -516,7 +516,8 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
     /** Set true if the Skyframe dependency has an exception. */
     private boolean isFailed = false;
 
-    private SkyframeLookup(SkyKey key, T parent, FieldSetter<? super T> setter) {
+    @VisibleForTesting
+    SkyframeLookup(SkyKey key, T parent, FieldSetter<? super T> setter) {
       this.key = key;
       this.parent = parent;
       this.setter = setter;
@@ -546,9 +547,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
       return isFailed;
     }
 
-    void handleEviction(StateEvictedException exception) {
-      // TODO: b/335901349 - fully handle this. Any retained instances of this future must be
-      // cleared and anything that may be transitively depending on it must be cleaned up.
+    void abandon(LookupAbandonedException exception) {
       setException(exception);
     }
 
@@ -560,5 +559,37 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
     }
   }
 
-  public static final class StateEvictedException extends Exception {}
+  /**
+   * Error signaling that a {@link SkyframeLookup} is abandoned.
+   *
+   * <p>This does not indicate a deserialization failure for the value depending on the lookup. See
+   * the subclasses for more details.
+   */
+  static sealed class LookupAbandonedException extends Exception {
+    LookupAbandonedException() {}
+
+    LookupAbandonedException(Throwable cause) {
+      super(cause);
+    }
+  }
+
+  /**
+   * Used when SkyKey compute state is evicted (due to memory pressure).
+   *
+   * <p>Since the compute state is lost, there's no way to perform the Skyframe lookups needed to
+   * satisfy the {@link SkyframeLookup}.
+   */
+  static final class StateEvictedException extends LookupAbandonedException {}
+
+  /**
+   * A lookup is abandoned because another sub-value failed to deserialize (possibly due to a failed
+   * Skyframe lookup).
+   *
+   * <p>Since one sub-value did not deserialize correctly, there's no way to deserialize the value.
+   */
+  static final class PeerFailedException extends LookupAbandonedException {
+    PeerFailedException(Throwable cause) {
+      super(cause);
+    }
+  }
 }

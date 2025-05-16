@@ -26,6 +26,7 @@ import com.google.common.primitives.Longs;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.StateEvictedException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.proto.DataType;
 import com.google.devtools.build.skyframe.IntVersion;
@@ -64,7 +65,12 @@ public final class SkyValueRetriever {
 
   /** A {@link SerializationStateProvider} implemented as a {@link SkyKeyComputeState}. */
   public interface SerializableSkyKeyComputeState
-      extends SerializationStateProvider, SkyKeyComputeState {}
+      extends SerializationStateProvider, SkyKeyComputeState {
+    @Override
+    default void close() {
+      getSerializationState().cleanupSerializationState();
+    }
+  }
 
   /** Returned status of {@link DependOnFutureShim#dependOnFuture}. */
   public enum ObservedFutureStatus {
@@ -114,6 +120,8 @@ public final class SkyValueRetriever {
   /**
    * Opaque state of serialization.
    *
+   * <p>Clients must call {@link cleanupSerializationState} if state is evicted.
+   *
    * <p>Each permitted type corresponds to a mostly sequential state.
    *
    * <ol>
@@ -154,7 +162,9 @@ public final class SkyValueRetriever {
           SkyValueRetriever.WaitingForLookupContinuation,
           SkyValueRetriever.WaitingForFutureResult,
           SkyValueRetriever.NoCachedData,
-          SkyValueRetriever.RetrievedValue {}
+          SkyValueRetriever.RetrievedValue {
+    default void cleanupSerializationState() {}
+  }
 
   /** Return value of {@link #tryRetrieve}. */
   public sealed interface RetrievalResult
@@ -424,7 +434,12 @@ public final class SkyValueRetriever {
 
   @VisibleForTesting
   record WaitingForLookupContinuation(SkyframeLookupContinuation continuation)
-      implements SerializationState {}
+      implements SerializationState {
+    @Override
+    public void cleanupSerializationState() {
+      continuation.abandon(new StateEvictedException());
+    }
+  }
 
   @VisibleForTesting
   record WaitingForFutureResult(ListenableFuture<?> futureResult) implements SerializationState {}
