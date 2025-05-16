@@ -10,6 +10,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/util/io:srcs",
+        "//src/main/java/com/google/devtools/build/lib/util/regex:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
