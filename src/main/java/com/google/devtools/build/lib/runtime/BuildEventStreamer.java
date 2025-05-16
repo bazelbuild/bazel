@@ -27,7 +27,6 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
-import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -93,8 +92,6 @@ public class BuildEventStreamer {
     DISCARD,
     POST
   }
-
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final Collection<BuildEventTransport> transports;
   private final BuildEventStreamOptions besOptions;
@@ -567,13 +564,7 @@ public class BuildEventStreamer {
       ReportedArtifacts reportedArtifacts =
           eventReportingArtifacts.reportedArtifacts(outputGroupFileModes);
       for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
-        try {
-          maybeReportArtifactSet(reportedArtifacts.completionContext, artifactSet);
-        } catch (RuntimeException e) {
-          // TODO: b/218911068 - Remove after bug is fixed.
-          logger.atSevere().log("Crash during reporting artifact set for %s", event);
-          throw e;
-        }
+        maybeReportArtifactSet(reportedArtifacts.completionContext, artifactSet);
       }
     }
 
