@@ -18,16 +18,16 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.testing.ConverterTester;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** A test for {@link RegexPatternConverter} */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class RegexPatternConverterTest {
   @Test
   public void consistentEqualsAndHashCodeForSamePattern() {
-    new ConverterTester(RegexPatternConverter.class, /*conversionContext=*/ null)
+    new ConverterTester(RegexPatternConverter.class, /* conversionContext= */ null)
         .addEqualityGroup("")
         .addEqualityGroup(".*")
         .addEqualityGroup("[^\\s]+")
@@ -39,7 +39,7 @@ public class RegexPatternConverterTest {
     String regex = "a";
     String semanticallyTheSame = "[a]";
 
-    new ConverterTester(RegexPatternConverter.class, /*conversionContext=*/ null)
+    new ConverterTester(RegexPatternConverter.class, /* conversionContext= */ null)
         .addEqualityGroup(regex)
         .addEqualityGroup(semanticallyTheSame)
         .testConvert();
