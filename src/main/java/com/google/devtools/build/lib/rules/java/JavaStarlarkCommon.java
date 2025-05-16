@@ -129,7 +129,9 @@ public class JavaStarlarkCommon
       Label targetLabel,
       Object injectingRuleKind,
       boolean enableDirectClasspath,
-      Sequence<?> additionalInputs)
+      Sequence<?> additionalInputs,
+      Object headerCompilationJar,
+      Object headerCompilationDirectDeps)
       throws EvalException,
           TypeException,
           RuleErrorException,

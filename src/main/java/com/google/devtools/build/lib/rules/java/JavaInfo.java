@@ -461,6 +461,11 @@ public sealed class JavaInfo extends NativeInfo
     return StarlarkList.immutableCopyOf(javaConstraints);
   }
 
+  @Override
+  public Depset headerCompilationDirectDeps() {
+    return Depset.of(Artifact.class, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+  }
+
   /**
    * Gets Provider, check it for not null and call function to get NestedSet&lt;S&gt; from it.
    *
