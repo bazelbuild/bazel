@@ -31,20 +31,20 @@ public class ExternalFileSystemLock implements AutoCloseable {
       "io_bazel/src/test/java/com/google/devtools/build/lib/testutil/external_file_system_lock_helper"
           + (OS.getCurrent() == OS.WINDOWS ? ".exe" : "");
 
-    private final Subprocess subprocess;
+  private final Subprocess subprocess;
 
   public static ExternalFileSystemLock getShared(Path lockPath) throws IOException {
     return new ExternalFileSystemLock(lockPath, true);
-    }
+  }
 
   public static ExternalFileSystemLock getExclusive(Path lockPath) throws IOException {
     return new ExternalFileSystemLock(lockPath, false);
-    }
+  }
 
   private ExternalFileSystemLock(Path lockPath, boolean shared) throws IOException {
-      String binaryPath = Runfiles.preload().withSourceRepository("").rlocation(HELPER_PATH);
+    String binaryPath = Runfiles.preload().withSourceRepository("").rlocation(HELPER_PATH);
     this.subprocess =
-        new SubprocessBuilder()
+        new SubprocessBuilder(System.getenv())
             .setArgv(
                 ImmutableList.of(
                     binaryPath, lockPath.getPathString(), shared ? "shared" : "exclusive", "sleep"))

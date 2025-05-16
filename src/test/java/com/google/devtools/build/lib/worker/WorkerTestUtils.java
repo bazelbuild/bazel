@@ -226,7 +226,7 @@ public class WorkerTestUtils {
     }
 
     @Override
-    protected Subprocess createProcess() {
+    protected Subprocess createProcess(ImmutableMap<String, String> clientEnv) {
       return fakeSubprocess;
     }
 

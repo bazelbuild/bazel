@@ -22,6 +22,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.shell.Command;
@@ -35,15 +36,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Implements OS aware {@link Command} builder. At this point only Linux, Mac
- * and Windows XP are supported.
+ * Implements OS aware {@link Command} builder. At this point only Linux, Mac and Windows XP are
+ * supported.
  *
- * <p>Builder will also apply heuristic to identify trivial cases where
- * unix-like command lines could be automatically converted into the
- * Windows-compatible form.
+ * <p>Builder will also apply heuristic to identify trivial cases where unix-like command lines
+ * could be automatically converted into the Windows-compatible form.
  *
- * <p>TODO(bazel-team): (2010) Some of the code here is very similar to the
- * {@link com.google.devtools.build.lib.shell.Shell} class. This should be looked at.
+ * <p>TODO(bazel-team): (2010) Some of the code here is very similar to the {@link
+ * com.google.devtools.build.lib.shell.Shell} class. This should be looked at.
  */
 public final class CommandBuilder {
 
@@ -52,18 +52,20 @@ public final class CommandBuilder {
   private static final Splitter ARGV_SPLITTER = Splitter.on(CharMatcher.anyOf(" \t"));
 
   private final OS system;
+  private final ImmutableMap<String, String> clientEnv;
   private final List<String> argv = new ArrayList<>();
   private final Map<String, String> env = new HashMap<>();
   private File workingDir = null;
   private boolean useShell = false;
 
-  public CommandBuilder() {
-    this(OS.getCurrent());
+  public CommandBuilder(Map<String, String> clientEnv) {
+    this(OS.getCurrent(), clientEnv);
   }
 
   @VisibleForTesting
-  CommandBuilder(OS system) {
+  CommandBuilder(OS system, Map<String, String> clientEnv) {
     this.system = system;
+    this.clientEnv = ImmutableMap.copyOf(clientEnv);
   }
 
   @CanIgnoreReturnValue
@@ -132,7 +134,7 @@ public final class CommandBuilder {
     if (useShell && !argvStartsWithSh()) {
       // c.g.io.base.shell.Shell.shellify() actually concatenates argv into the space-separated
       // string here. Not sure why, but we will do the same.
-      return new String[] { "/bin/sh", "-c", Joiner.on(' ').join(argv) };
+      return new String[] {"/bin/sh", "-c", Joiner.on(' ').join(argv)};
     }
     return argv.toArray(new String[argv.size()]);
   }
@@ -169,8 +171,9 @@ public final class CommandBuilder {
       // /V:ON - enable delayed variable expansion
       // /D - ignore AutoRun registry entries.
       // /C - execute command. This must be the last option before the command itself.
-      return new String[] { "CMD.EXE", "/S", "/E:ON", "/V:ON", "/D", "/C",
-          Joiner.on(' ').join(modifiedArgv) };
+      return new String[] {
+        "CMD.EXE", "/S", "/E:ON", "/V:ON", "/D", "/C", Joiner.on(' ').join(modifiedArgv)
+      };
     } else {
       return modifiedArgv.toArray(new String[argv.size()]);
     }
@@ -183,6 +186,8 @@ public final class CommandBuilder {
 
     return new Command(
         system == OS.WINDOWS ? transformArgvForWindows() : transformArgvForLinux(),
-        env, workingDir);
+        env,
+        workingDir,
+        clientEnv);
   }
 }

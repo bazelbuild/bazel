@@ -85,42 +85,36 @@ public class MobileInstallCommand implements BlazeCommand {
     SKYLARK
   }
 
-  /**
-   * Converter for the --mode option.
-   */
+  /** Converter for the --mode option. */
   public static class ModeConverter extends EnumConverter<Mode> {
     public ModeConverter() {
       super(Mode.class, "mode");
     }
   }
 
-  /**
-   * Command line options for the 'mobile-install' command.
-   */
+  /** Command line options for the 'mobile-install' command. */
   public static final class Options extends OptionsBase {
     @Option(
-      name = "split_apks",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "Whether to use split apks to install and update the "
-              + "application on the device. Works only with devices with "
-              + "Marshmallow or later"
-    )
+        name = "split_apks",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "Whether to use split apks to install and update the "
+                + "application on the device. Works only with devices with "
+                + "Marshmallow or later")
     public boolean splitApks;
 
     @Option(
-      name = "incremental",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      help =
-          "Whether to do an incremental install. If true, try to avoid unnecessary additional "
-              + "work by reading the state of the device the code is to be installed on and using "
-              + "that information to avoid unnecessary work. If false (the default), always do a "
-              + "full install."
-    )
+        name = "incremental",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+        help =
+            "Whether to do an incremental install. If true, try to avoid unnecessary additional "
+                + "work by reading the state of the device the code is to be installed on and using "
+                + "that information to avoid unnecessary work. If false (the default), always do a "
+                + "full install.")
     public boolean incremental;
 
     // TODO(b/230747847): This flag should be deleted, but with proper vetting (incompatible
@@ -289,7 +283,7 @@ public class MobileInstallCommand implements BlazeCommand {
     // Collect relevant test options.
     TestOptions testOptions = options.getOptions(TestOptions.class);
     // Default value of testFilter is null.
-    if (!Strings.isNullOrEmpty(testOptions.testFilter)){
+    if (!Strings.isNullOrEmpty(testOptions.testFilter)) {
       cmdLine.add("--test_filter=" + testOptions.testFilter);
     }
     for (String arg : testOptions.testArguments) {
@@ -318,7 +312,7 @@ public class MobileInstallCommand implements BlazeCommand {
       CommandEnvironment env, Path workingDir, ImmutableList<String> cmdLine)
       throws InterruptedException {
     com.google.devtools.build.lib.shell.Command command =
-        new CommandBuilder()
+        new CommandBuilder(env.getClientEnv())
             .addArgs(cmdLine)
             .setEnv(env.getClientEnv())
             .setWorkingDir(workingDir)

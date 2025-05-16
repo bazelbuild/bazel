@@ -53,12 +53,10 @@ import javax.annotation.Nullable;
 final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   /** Path to the {@code getconf} system tool to use. */
-  @VisibleForTesting
-  static String getconfBinary = "/usr/bin/getconf";
+  @VisibleForTesting static String getconfBinary = "/usr/bin/getconf";
 
   /** Path to the {@code sandbox-exec} system tool to use. */
-  @VisibleForTesting
-  static String sandboxExecBinary = "/usr/bin/sandbox-exec";
+  @VisibleForTesting static String sandboxExecBinary = "/usr/bin/sandbox-exec";
 
   // Since checking if sandbox is supported is expensive, we remember what we've checked.
   private static Boolean isSupported = null;
@@ -75,12 +73,13 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return false;
     }
     if (isSupported == null) {
-      isSupported = computeIsSupported();
+      isSupported = computeIsSupported(cmdEnv.getClientEnv());
     }
     return isSupported;
   }
 
-  private static boolean computeIsSupported() throws InterruptedException {
+  private static boolean computeIsSupported(ImmutableMap<String, String> clientEnv)
+      throws InterruptedException {
     List<String> args = new ArrayList<>();
     args.add(sandboxExecBinary);
     args.add("-p");
@@ -90,7 +89,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableMap<String, String> env = ImmutableMap.of();
     File cwd = new File("/usr/bin");
 
-    Command cmd = new Command(args.toArray(new String[0]), env, cwd);
+    Command cmd = new Command(args.toArray(new String[0]), env, cwd, clientEnv);
     try {
       cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
     } catch (CommandException e) {
@@ -112,6 +111,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * <p>We cache this, because creating it involves executing {@code getconf}, which is expensive.
    */
   private final ImmutableSet<Path> alwaysWritableDirs;
+
   private final LocalEnvProvider localEnvProvider;
 
   /**
@@ -146,7 +146,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
   }
 
-  private static ImmutableSet<Path> getAlwaysWritableDirs(FileSystem fs)
+  private ImmutableSet<Path> getAlwaysWritableDirs(FileSystem fs)
       throws IOException, InterruptedException {
     HashSet<Path> writableDirs = new HashSet<>();
 
@@ -175,11 +175,11 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   /** Returns the value of a POSIX or X/Open system configuration variable. */
-  private static String getConfStr(String confVar) throws IOException, InterruptedException {
+  private String getConfStr(String confVar) throws IOException, InterruptedException {
     String[] commandArr = new String[2];
     commandArr[0] = getconfBinary;
     commandArr[1] = confVar;
-    Command cmd = new Command(commandArr);
+    Command cmd = new Command(commandArr, clientEnv);
     CommandResult res;
     try {
       res = cmd.execute();

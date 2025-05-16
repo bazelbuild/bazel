@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository.Co
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
 import com.google.devtools.build.lib.server.IdleTask;
+import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.SkyfocusOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;

@@ -1880,7 +1880,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Only write the content of slow/BUILD after //:proxy is built, so we can artificially delay
     // the analysis of //:top
     var unused =
-        new CommandBuilder()
+        new CommandBuilder(System.getenv())
             .addArgs("mkfifo", "slow/BUILD")
             .setWorkingDir(getWorkspace())
             .build()
@@ -1936,7 +1936,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Only write the content of slow/BUILD after //:proxy is built, so we can artificially delay
     // the analysis of //:top
     var unused =
-        new CommandBuilder()
+        new CommandBuilder(System.getenv())
             .addArgs("mkfifo", "slow/BUILD")
             .setWorkingDir(getWorkspace())
             .build()

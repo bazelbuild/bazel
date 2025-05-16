@@ -571,7 +571,7 @@ public final class ModCommand implements BlazeCommand {
     }
 
     try (var stdin = CharSource.wrap(buildozerInput).asByteSource(UTF_8).openStream()) {
-      new CommandBuilder()
+      new CommandBuilder(env.getClientEnv())
           .setWorkingDir(env.getWorkspace())
           .addArg(modTidyValue.buildozer().getPathString())
           .addArg("-f")

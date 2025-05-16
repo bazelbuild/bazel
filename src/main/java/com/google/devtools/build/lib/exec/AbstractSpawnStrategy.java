@@ -22,6 +22,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
@@ -407,6 +408,11 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     @Override
     public FileSystem getActionFileSystem() {
       return actionExecutionContext.getActionFileSystem();
+    }
+
+    @Override
+    public ImmutableMap<String, String> getClientEnv() {
+      return actionExecutionContext.getClientEnv();
     }
   }
 }

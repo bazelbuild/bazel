@@ -75,7 +75,7 @@ public class SubcommandEventTest extends BuildIntegrationTestCase {
       }
     }
     assertThat(
-            new Command(new String[] {"/bin/sh", "-c", command})
+            new Command(new String[] {"/bin/sh", "-c", command}, System.getenv())
                 .execute(new ByteArrayOutputStream(), new ByteArrayOutputStream())
                 .terminationStatus()
                 .success())

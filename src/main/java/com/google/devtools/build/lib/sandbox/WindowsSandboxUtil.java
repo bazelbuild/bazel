@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.ByteStreams;
@@ -45,11 +46,11 @@ public final class WindowsSandboxUtil {
    * @param binary path to the Windows sandbox binary
    * @return true if the binary looks good, false otherwise
    */
-  public static boolean isAvailable(PathFragment binary) {
+  public static boolean isAvailable(PathFragment binary, ImmutableMap<String, String> clientEnv) {
     Subprocess process;
     try {
       process =
-          new SubprocessBuilder()
+          new SubprocessBuilder(clientEnv)
               .setArgv(ImmutableList.of(binary.getPathString(), "-h"))
               .setStdout(StreamAction.STREAM)
               .redirectErrorStream(true)

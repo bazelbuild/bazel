@@ -68,7 +68,8 @@ public class WindowsSubprocessTest {
 
   @Test
   public void testSystemRootIsSetByDefault() throws Exception {
-    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
+    SubprocessBuilder subprocessBuilder =
+        new SubprocessBuilder(System.getenv(), WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
     subprocessBuilder.setArgv(ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$SYSTEMROOT"));
     subprocessBuilder.setEnv(ImmutableMap.of());
@@ -82,7 +83,8 @@ public class WindowsSubprocessTest {
 
   @Test
   public void testSystemDriveIsSetByDefault() throws Exception {
-    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
+    SubprocessBuilder subprocessBuilder =
+        new SubprocessBuilder(System.getenv(), WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
     subprocessBuilder.setArgv(
         ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$SYSTEMDRIVE"));
@@ -97,7 +99,8 @@ public class WindowsSubprocessTest {
 
   @Test
   public void testSystemRootIsSet() throws Exception {
-    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
+    SubprocessBuilder subprocessBuilder =
+        new SubprocessBuilder(System.getenv(), WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
     subprocessBuilder.setArgv(ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$SYSTEMROOT"));
     // Case shouldn't matter on Windows
@@ -112,7 +115,8 @@ public class WindowsSubprocessTest {
 
   @Test
   public void testSystemDriveIsSet() throws Exception {
-    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
+    SubprocessBuilder subprocessBuilder =
+        new SubprocessBuilder(System.getenv(), WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
     subprocessBuilder.setArgv(
         ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$SYSTEMDRIVE"));
@@ -130,7 +134,8 @@ public class WindowsSubprocessTest {
   public void testEmptyEnvironment() throws Exception {
     // Check only that TZ was not inherited instead of verifying the entire environment.
     assertThat(Strings.nullToEmpty(System.getenv("TZ"))).isNotEmpty();
-    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
+    SubprocessBuilder subprocessBuilder =
+        new SubprocessBuilder(System.getenv(), WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
     subprocessBuilder.setArgv(ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$TZ"));
     subprocessBuilder.setEnv(ImmutableMap.of());
@@ -146,7 +151,8 @@ public class WindowsSubprocessTest {
   public void testNonEmptyEnvironment() throws Exception {
     // Check only that TZ was not inherited instead of verifying the entire environment.
     assertThat(Strings.nullToEmpty(System.getenv("TZ"))).isNotEmpty();
-    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
+    SubprocessBuilder subprocessBuilder =
+        new SubprocessBuilder(System.getenv(), WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
     subprocessBuilder.setArgv(
         ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$FOO", "O$BAR", "O$TZ"));
@@ -163,7 +169,8 @@ public class WindowsSubprocessTest {
   public void testInheritedEnvironment() throws Exception {
     // Check only that TZ was inherited instead of verifying the entire environment.
     assertThat(Strings.nullToEmpty(System.getenv("TZ"))).isNotEmpty();
-    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
+    SubprocessBuilder subprocessBuilder =
+        new SubprocessBuilder(System.getenv(), WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
     subprocessBuilder.setArgv(ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$TZ"));
     process = subprocessBuilder.start();
@@ -176,7 +183,8 @@ public class WindowsSubprocessTest {
 
   @Test
   public void testStreamAvailable_zeroAfterClose() throws Exception {
-    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
+    SubprocessBuilder subprocessBuilder =
+        new SubprocessBuilder(System.getenv(), WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
     subprocessBuilder.setArgv(ImmutableList.of(mockBinary, "-jar", mockSubprocess, "OHELLO"));
     process = subprocessBuilder.start();
@@ -205,7 +213,8 @@ public class WindowsSubprocessTest {
       this.original = original;
       this.escaped = escaped;
     }
-  };
+  }
+  ;
 
   /** Asserts that a subprocess correctly receives command line arguments. */
   private void assertSubprocessReceivesArgsAsIntended(ArgPair... args) throws Exception {
@@ -221,7 +230,7 @@ public class WindowsSubprocessTest {
 
       // Create a separate subprocess just for this argument.
       SubprocessBuilder subprocessBuilder =
-          new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
+          new SubprocessBuilder(System.getenv(), WindowsSubprocessFactory.INSTANCE);
       subprocessBuilder.setWorkingDirectory(new File("."));
       subprocessBuilder.setArgv(ImmutableList.of(printArgExe, arg.original));
       process = subprocessBuilder.start();

@@ -228,6 +228,11 @@ public class RemoteSpawnCacheTest {
       public FileSystem getActionFileSystem() {
         return null;
       }
+
+      @Override
+      public ImmutableMap<String, String> getClientEnv() {
+        return ImmutableMap.of();
+      }
     };
   }
 

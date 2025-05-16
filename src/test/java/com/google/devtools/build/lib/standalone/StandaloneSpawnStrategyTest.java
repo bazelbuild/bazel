@@ -204,7 +204,7 @@ public class StandaloneSpawnStrategyTest {
         LostInputsCheck.NONE,
         outErr,
         reporter,
-        /* clientEnv= */ ImmutableMap.of(),
+        /* clientEnv= */ System.getenv(),
         /* actionFileSystem= */ null,
         DiscoveredModulesPruner.DEFAULT,
         SyscallCache.NO_CACHE,

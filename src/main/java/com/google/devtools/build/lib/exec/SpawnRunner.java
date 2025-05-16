@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -193,7 +194,7 @@ public interface SpawnRunner {
         }
         throw new IOException(e);
       } catch (InterruptedException e) {
-        future.cancel(/*mayInterruptIfRunning=*/ true);
+        future.cancel(/* mayInterruptIfRunning= */ true);
         throw e;
       }
     }
@@ -283,6 +284,9 @@ public interface SpawnRunner {
     /** Returns action-scoped file system or {@code null} if it doesn't exist. */
     @Nullable
     FileSystem getActionFileSystem();
+
+    /** Returns the environment of the Bazel client. */
+    ImmutableMap<String, String> getClientEnv();
   }
 
   /**

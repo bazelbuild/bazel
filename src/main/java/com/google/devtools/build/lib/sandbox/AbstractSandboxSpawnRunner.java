@@ -19,6 +19,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -77,6 +78,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private final Path execRoot;
   private final ResourceManager resourceManager;
   private final Reporter reporter;
+  protected final ImmutableMap<String, String> clientEnv;
 
   public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv) {
     this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
@@ -87,6 +89,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     this.execRoot = cmdEnv.getExecRoot();
     this.resourceManager = cmdEnv.getLocalResourceManager();
     this.reporter = cmdEnv.getReporter();
+    this.clientEnv = cmdEnv.getClientEnv();
   }
 
   @Override
@@ -200,7 +203,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     FileOutErr outErr = context.getFileOutErr();
     Duration timeout = context.getTimeout();
 
-    SubprocessBuilder subprocessBuilder = new SubprocessBuilder();
+    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(clientEnv);
     subprocessBuilder.setWorkingDirectory(sandbox.getSandboxExecRoot().getPathFile());
     subprocessBuilder.setStdout(outErr.getOutputPath().devirtualize().getPathFile());
     subprocessBuilder.setStderr(outErr.getErrorPath().devirtualize().getPathFile());
