@@ -45,10 +45,12 @@ import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.Arrays;
@@ -56,6 +58,9 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.exceptions.stacktrace.StackTraceCleaner;
+import org.mockito.internal.exceptions.stacktrace.DefaultStackTraceCleaner;
+import org.mockito.plugins.StackTraceCleanerProvider;
 
 /** Integration tests for Build without the Bytes. */
 @RunWith(TestParameterInjector.class)
@@ -1196,9 +1201,12 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void remoteTree_avoidsLocalIO() throws Exception {
+  public void remoteTree_avoidsLocalIO(@TestParameter OutputPermissions outputPermissions)
+      throws Exception {
     writeOutputDirRule();
-    addOptions("--remote_download_regex=.*/dir-4/file-2");
+    addOptions(
+        "--remote_download_regex=.*/dir-4/file-2",
+        "--experimental_writable_outputs=" + (outputPermissions == OutputPermissions.WRITABLE));
     write(
         "BUILD",
         "load(':output_dir.bzl', 'output_dir')",
@@ -1234,13 +1242,17 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
                                     argument instanceof PathFragment path
                                         && path.startsWith(fooPath)
                                         && !path.equals(fooPath)))
+            .map(invocation -> invocation.toString() + invocation.getLocation())
             .toList();
     assertThat(childrenOfFooOperations).isEmpty();
 
     // Keep these assertions after the assertson spiedLocalFs as they result in additional IO.
     assertOutputDoesNotExist("foo/dir-4/file-1");
-    assertValidOutputFile("foo/dir-4/file-2", "foo42");
+    assertValidOutputFile("foo/dir-4/file-2", "foo42", outputPermissions);
     assertOutputDoesNotExist("foo/dir-5/file-2");
+    for (int i = 0; i < 10; i++) {
+      assertValidOutputDir("foo/dir-%d".formatted(i), outputPermissions);
+    }
 
     var fooMetadata = getTreeArtifactValue(getArtifact("//:foo", "foo"));
     var expectedChildren = ImmutableMap.<String, ByteString>builder();
@@ -1262,5 +1274,31 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
                         e -> e.getKey().getParentRelativePath().getPathString(),
                         e -> ByteString.copyFrom(e.getValue().getDigest()))))
         .containsExactlyEntriesIn(expectedChildren.buildOrThrow());
+  }
+
+  // Filter out the uninformative Path call site of FileSystem methods in favor of recording the
+  // call site of the Path method.
+  public static final class FileSystemStackTraceCleanerProvider
+      implements StackTraceCleanerProvider {
+
+    @Override
+    public StackTraceCleaner getStackTraceCleaner(StackTraceCleaner stackTraceCleaner) {
+      return new DefaultStackTraceCleaner() {
+        @Override
+        public boolean isIn(StackTraceElement e) {
+          return keep(e.getClassName()) && super.isIn(e);
+        }
+
+        @Override
+        public boolean isIn(StackFrameMetadata e) {
+          return keep(e.getClassName()) && super.isIn(e);
+        }
+
+        private static boolean keep(String className) {
+          return !Path.class.getName().equals(className)
+              && !FileSystem.class.getName().equals(className);
+        }
+      };
+    }
   }
 }

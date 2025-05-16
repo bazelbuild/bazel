@@ -1355,42 +1355,40 @@ public class RemoteExecutionService {
         downloadsBuilder.add(
             downloadFile(
                 context, progressStatusListener, file, tmpPath, action.getRemotePathResolver()));
-      } else {
-        if (hasBazelOutputService) {
-          downloadsBuilder.add(immediateFuture(file));
-        } else {
-          checkNotNull(remoteActionFileSystem)
-              .injectRemoteFile(
-                  file.path().asFragment(),
-                  DigestUtil.toBinaryDigest(file.digest()),
-                  file.digest().getSizeBytes(),
-                  expirationTime);
-        }
-
-        if (isInMemoryOutputFile) {
-          if (file.contents.isEmpty()) {
-            // As the contents field doesn't have presence information, we use the digest size to
-            // distinguish between an empty file and one that wasn't inlined.
-            if (file.digest.getSizeBytes() == 0) {
-              inMemoryOutputData.set(ByteString.EMPTY);
-            } else {
-              downloadsBuilder.add(
-                  transform(
-                      combinedCache.downloadBlob(
-                          context,
-                          inMemoryOutputPath.getPathString(),
-                          inMemoryOutputPath,
-                          file.digest()),
-                      data -> {
-                        inMemoryOutputData.set(ByteString.copyFrom(data));
-                        return null;
-                      },
-                      directExecutor()));
-            }
+      } else if (isInMemoryOutputFile) {
+        if (file.contents.isEmpty()) {
+          // As the contents field doesn't have presence information, we use the digest size to
+          // distinguish between an empty file and one that wasn't inlined.
+          if (file.digest.getSizeBytes() == 0) {
+            inMemoryOutputData.set(ByteString.EMPTY);
           } else {
-            inMemoryOutputData.set(file.contents);
+            downloadsBuilder.add(
+                transform(
+                    combinedCache.downloadBlob(
+                        context,
+                        inMemoryOutputPath.getPathString(),
+                        inMemoryOutputPath,
+                        file.digest()),
+                    data -> {
+                      inMemoryOutputData.set(ByteString.copyFrom(data));
+                      return null;
+                    },
+                    directExecutor()));
           }
+        } else {
+          inMemoryOutputData.set(file.contents);
         }
+      }
+
+      if (hasBazelOutputService) {
+        downloadsBuilder.add(immediateFuture(file));
+      } else {
+        checkNotNull(remoteActionFileSystem)
+            .injectRemoteFile(
+                file.path().asFragment(),
+                DigestUtil.toBinaryDigest(file.digest()),
+                file.digest().getSizeBytes(),
+                expirationTime);
       }
     }
 
@@ -1426,7 +1424,8 @@ public class RemoteExecutionService {
           downloadsBuilder.add(
               downloadFile(
                   context, progressStatusListener, file, tmpPath, action.getRemotePathResolver()));
-        } else if (hasBazelOutputService) {
+        }
+        if (hasBazelOutputService) {
           downloadsBuilder.add(immediateFuture(file));
         } else {
           checkNotNull(remoteActionFileSystem)

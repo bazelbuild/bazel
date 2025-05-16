@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -2033,10 +2034,25 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   protected void assertValidOutputFile(String binRelativePath, String content) throws Exception {
+    assertValidOutputFile(binRelativePath, content, OutputPermissions.READONLY);
+  }
+
+  protected void assertValidOutputFile(
+      String binRelativePath, String content, OutputPermissions outputPermissions)
+      throws Exception {
     Path output = getOutputPath(binRelativePath);
     assertOutputEquals(getOutputPath(binRelativePath), content);
     assertThat(output.isReadable()).isTrue();
-    assertThat(output.isWritable()).isFalse();
+    assertThat(output.isWritable()).isEqualTo(outputPermissions == OutputPermissions.WRITABLE);
+    assertThat(output.isExecutable()).isTrue();
+  }
+
+  protected void assertValidOutputDir(String binRelativePath, OutputPermissions outputPermissions)
+      throws Exception {
+    Path output = getOutputPath(binRelativePath);
+    assertThat(output.isDirectory()).isTrue();
+    assertThat(output.isReadable()).isTrue();
+    assertThat(output.isWritable()).isEqualTo(outputPermissions == OutputPermissions.WRITABLE);
     assertThat(output.isExecutable()).isTrue();
   }
 
