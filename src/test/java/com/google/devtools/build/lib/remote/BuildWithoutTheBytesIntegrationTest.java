@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
@@ -48,12 +49,15 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.PathTransformingDelegateFileSystem;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Stream;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -1284,6 +1288,11 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     @Override
     public StackTraceCleaner getStackTraceCleaner(StackTraceCleaner stackTraceCleaner) {
       return new DefaultStackTraceCleaner() {
+        private static final Set<String> classesToSkip =
+            Stream.of(Path.class, FileSystemUtils.class, PathTransformingDelegateFileSystem.class)
+                .map(Class::getName)
+                .collect(toImmutableSet());
+
         @Override
         public boolean isIn(StackTraceElement e) {
           return keep(e.getClassName()) && super.isIn(e);
@@ -1295,8 +1304,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         }
 
         private static boolean keep(String className) {
-          return !Path.class.getName().equals(className)
-              && !FileSystem.class.getName().equals(className);
+          return !classesToSkip.contains(className);
         }
       };
     }
