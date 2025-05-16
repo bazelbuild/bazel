@@ -403,6 +403,25 @@ local_repository(
 remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "genhtml",
+    build_file_content = """
+filegroup(
+    name = "genhtml",
+    srcs = [
+        "bin/genhtml",
+        "lib/lcovutil.pm",
+    ],
+    visibility = ["//visibility:public"],
+)
+""",
+    integrity = "sha256-bXC0HDBWoWNUHgnRBqJIeOFPv7C9Ddfv3IoTsyrigp4=",
+    strip_prefix = "lcov-b1a533238dbf6a8a603a44c6ec46b2cbb57086a0",
+    urls = ["https://github.com/linux-test-project/lcov/archive/b1a533238dbf6a8a603a44c6ec46b2cbb57086a0.tar.gz"],
+)
+
 # =========================================
 # Register platforms & toolchains
 # =========================================
