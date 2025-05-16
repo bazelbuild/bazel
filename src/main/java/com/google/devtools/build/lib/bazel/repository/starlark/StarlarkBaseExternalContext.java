@@ -715,7 +715,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
             name = "auth",
             defaultValue = "{}",
             named = true,
-            doc = "An optional dict specifying authentication information for some of the URLs."),
+            doc = "An optional dict specifying authentication information for some of the URLs or hosts."),
         @Param(
             name = "headers",
             defaultValue = "{}",
@@ -948,7 +948,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
             name = "auth",
             defaultValue = "{}",
             named = true,
-            doc = "An optional dict specifying authentication information for some of the URLs."),
+            doc = "An optional dict specifying authentication information for some of the URLs or hosts."),
         @Param(
             name = "headers",
             defaultValue = "{}",
