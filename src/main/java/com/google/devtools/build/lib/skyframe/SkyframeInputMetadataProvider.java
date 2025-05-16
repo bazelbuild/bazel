@@ -114,6 +114,19 @@ final class SkyframeInputMetadataProvider implements InputMetadataProvider {
   private final PathFragment relativeOutputPath;
 
   private final ConcurrentHashMap<String, ActionInput> seen;
+
+  /**
+   * A cache so that we don't need to look up any SkyValue twice.
+   *
+   * <p>This is necessary because action rewinding means that even though a {@code getValue()} call
+   * returned the appropriate value alright, subsequent calls with the same {@code SkyKey} may not
+   * do so. So theoretically, every call to {@link #getInputMetadata(ActionInput)} should be
+   * prepared to handle a {@code MissingDepExecException}.
+   *
+   * <p>Sadly, that's not the case and the invariant we have is that the <b>first</b> call over the
+   * course of the evaluation of an action with any given {@code ActionInput} handles that case, the
+   * subsequent ones not necessarily. This cache is there to make sure that that's alright.
+   */
   private final ConcurrentHashMap<SkyKey, SkyframeLookup> skyframeLookups;
 
   private boolean allowSkyframe;

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions.cache;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -718,69 +719,25 @@ public class CompactPersistentActionCache implements ActionCache {
         cacheRoot, corruptedCacheRoot, tmpDir, clock, NullEventHandler.INSTANCE);
   }
 
-  @Override
-  public String toString() {
-    int numRecords = actionMap.size();
-    if (actionMap.containsKey(VALIDATION_KEY)) {
-      numRecords--;
-    }
-    StringBuilder builder = new StringBuilder();
-    builder.append("Action cache (" + numRecords + " records):\n");
-    int size = actionMap.size() > 1000 ? 10 : actionMap.size();
-    int ct = 0;
-    for (Map.Entry<Integer, byte[]> entry : actionMap.entrySet()) {
-      if (entry.getKey() == VALIDATION_KEY) {
-        continue;
-      }
-      String content = decode(entry.getValue()).toString();
-      Timestamp timestamp = timestampMap.get(entry.getKey());
-      builder
-          .append("-> ")
-          .append(indexer.getStringForIndex(entry.getKey()))
-          .append("\n")
-          .append(content)
-          .append("  packed_len = ")
-          .append(entry.getValue().length)
-          .append("\n")
-          .append("  timestamp = ")
-          .append(timestamp != null ? timestamp : "unknown")
-          .append("\n");
-      if (++ct > size) {
-        builder.append("...");
-        break;
-      }
-    }
-    return builder.toString();
-  }
-
-  /** Dumps action cache content. */
+  /** Dumps the action cache into a human-readable format. */
   @Override
   public void dump(PrintStream out) {
-    int numRecords = actionMap.size();
-    if (actionMap.containsKey(VALIDATION_KEY)) {
-      numRecords--;
+    ImmutableList<Integer> sortedKeys =
+        actionMap.keySet().stream()
+            .filter(k -> !k.equals(VALIDATION_KEY))
+            .sorted()
+            .collect(toImmutableList());
+    out.format("Action cache (%d records):\n", sortedKeys.size());
+    for (Integer key : sortedKeys) {
+      byte[] encodedEntry = actionMap.get(key);
+      ActionCache.Entry decodedEntry = decode(encodedEntry);
+      Timestamp timestamp = timestampMap.get(key);
+      out.format("  %s -> %s\n", key, indexer.getStringForIndex(key));
+      out.format("  packed_len = %s\n", encodedEntry.length);
+      out.format("  timestamp = %s\n", timestamp != null ? timestamp.toString() : "unknown");
+      decodedEntry.dump(out);
     }
-    out.println("String indexer content:\n");
-    out.println(indexer);
-    out.println("Action cache (" + numRecords + " records):\n");
-    for (Map.Entry<Integer, byte[]> entry : actionMap.entrySet()) {
-      if (entry.getKey() == VALIDATION_KEY) {
-        continue;
-      }
-      String content = decode(entry.getValue()).toString();
-      Timestamp timestamp = timestampMap.get(entry.getKey());
-      out.println(
-          entry.getKey()
-              + ", "
-              + indexer.getStringForIndex(entry.getKey())
-              + ":\n"
-              + content
-              + "\n      packed_len = "
-              + entry.getValue().length
-              + "\n      timestamp = "
-              + (timestamp != null ? timestamp : "unknown")
-              + "\n");
-    }
+    indexer.dump(out);
   }
 
   /**

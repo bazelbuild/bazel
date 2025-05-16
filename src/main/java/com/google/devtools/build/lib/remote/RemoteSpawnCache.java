@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -44,7 +43,6 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
-import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -53,7 +51,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @ThreadSafe // If the RemoteActionCache implementation is thread-safe.
 final class RemoteSpawnCache implements SpawnCache {
 
-  private final Path execRoot;
   private final RemoteOptions options;
   private final RemoteExecutionService remoteExecutionService;
   private final DigestUtil digestUtil;
@@ -62,12 +59,10 @@ final class RemoteSpawnCache implements SpawnCache {
       new ConcurrentHashMap<>();
 
   RemoteSpawnCache(
-      Path execRoot,
       RemoteOptions options,
       boolean verboseFailures,
       RemoteExecutionService remoteExecutionService,
       DigestUtil digestUtil) {
-    this.execRoot = execRoot;
     this.options = options;
     this.verboseFailures = verboseFailures;
     this.remoteExecutionService = remoteExecutionService;
@@ -86,7 +81,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
   @Override
   public CacheHandle lookup(Spawn spawn, SpawnExecutionContext context)
-      throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
+      throws InterruptedException, IOException, ExecException {
     boolean shouldAcceptCachedResult =
         remoteExecutionService.getReadCachePolicy(spawn).allowAnyCache();
     boolean shouldUploadLocalResults =

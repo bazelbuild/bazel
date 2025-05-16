@@ -21,18 +21,14 @@ import static com.google.devtools.build.lib.cmdline.Label.parseCanonicalUnchecke
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assume.assumeTrue;
 
-import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
-import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -42,8 +38,6 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.TestCommand;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.RemoteConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -53,8 +47,6 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -67,14 +59,13 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 
-public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCase {
+public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCase {
 
   protected static final String UPLOAD_MODE_OPTION =
       "--experimental_remote_analysis_cache_mode=upload";
@@ -391,55 +382,6 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         .doesNotContain("com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue");
   }
 
-  @Test
-  public void roundTrip_withDifferentWorkspaces_translatesRoots() throws Exception {
-    // Performs setup twice to simulate running in two different workspaces. The first setup is for
-    // the writer, using the default roots provided by BuildIntegrationTestCase. The second setup
-    // populates roots obtained upon recreating the files and mocks.
-    setupScenarioWithAspects();
-    assertUploadSuccess("//bar:one"); // Cache writing build.
-
-    // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
-    // Bazel yet. Return early.
-    assumeTrue(isBlaze());
-
-    var barOneKey =
-        ConfiguredTargetKey.builder()
-            .setLabel(parseCanonicalUnchecked("//bar:one"))
-            .setConfiguration(getTargetConfiguration())
-            .build();
-
-    PathFragment writerWorkspace = directories.getWorkspace().asFragment();
-
-    var graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
-    var writerValue = graph.getIfPresent(barOneKey).getValue();
-
-    assertThat(writerValue).isInstanceOf(ConfiguredTargetValue.class);
-    Root writerRoot = getRootOfFirstInputOfFirstAction((ActionLookupValue) writerValue);
-    // The root is the workspace.
-    assertThat(writerRoot.asPath().asFragment()).isEqualTo(writerWorkspace);
-
-    // Since createTestRoot is overridden to create unique directories, this creates distinct roots
-    // for the reader, simulating a cross-workspace build.
-    cleanUp();
-    createFilesAndMocks();
-    setupScenarioWithAspects();
-    addOptions("--experimental_frontier_violation_check=disabled_for_testing");
-
-    assertDownloadSuccess("//bar:one"); // Cache reading build.
-
-    PathFragment readerWorkspace = directories.getWorkspace().asFragment();
-    // Sanity checks that recreating the directories results in a distinct workspace.
-    assertThat(readerWorkspace).isNotEqualTo(writerWorkspace);
-
-    graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
-    var readerValue = graph.getIfPresent(barOneKey).getValue();
-    assertThat(readerValue).isInstanceOf(RemoteConfiguredTargetValue.class);
-    Root readerRoot = getRootOfFirstInputOfFirstAction((ActionLookupValue) readerValue);
-    // Asserts that the root was transformed to the reader's workspace.
-    assertThat(readerRoot.asPath().asFragment()).isEqualTo(readerWorkspace);
-  }
-
   @Override
   protected Path createTestRoot(FileSystem fileSystem) {
     try {
@@ -447,10 +389,6 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
     } catch (IOException e) {
       throw new AssertionError(e);
     }
-  }
-
-  private static Root getRootOfFirstInputOfFirstAction(ActionLookupValue value) {
-    return value.getAction(0).getInputs().toList().get(0).getRoot().getRoot();
   }
 
   protected final void setupScenarioWithAspects() throws Exception {
@@ -536,77 +474,6 @@ genrule(
   }
 
   @Test
-  public void buildCommand_downloadsFrontierBytesWithDownloadMode() throws Exception {
-    setupScenarioWithConfiguredTargets();
-    writeProjectSclWithActiveDirs("foo");
-    // Cache-writing build.
-    assertUploadSuccess("//foo:A");
-
-    // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
-    // Bazel yet. Return early.
-    assumeTrue(isBlaze());
-
-    // Reset the graph.
-    getCommandEnvironment().getSkyframeExecutor().resetEvaluator();
-
-    // Cache reading build.
-    assertDownloadSuccess("//foo:A");
-
-    var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
-    // //bar:C, //bar:H, //bar:E
-    assertThat(listener.getCacheHits()).hasSize(3);
-    // //bar:F is not in the project boundary, but it's in the active set, so it wasn't cached.
-    assertThat(listener.getCacheMisses()).isNotEmpty();
-  }
-
-  @Test
-  public void buildCommand_downloadedFrontierContainsRemoteConfiguredTargetValues()
-      throws Exception {
-    setupScenarioWithConfiguredTargets();
-    writeProjectSclWithActiveDirs("foo");
-
-    // Cache-writing build.
-    assertUploadSuccess("//foo:A");
-
-    // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
-    // Bazel yet. Return early.
-    assumeTrue(isBlaze());
-
-    // Reset the graph.
-    getCommandEnvironment().getSkyframeExecutor().resetEvaluator();
-
-    // Cache reading build.
-    assertDownloadSuccess("//foo:A");
-
-    var graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
-    Function<String, ConfiguredTargetKey> ctKeyOfLabel =
-        (String label) ->
-            ConfiguredTargetKey.builder()
-                .setLabel(parseCanonicalUnchecked(label))
-                .setConfiguration(getTargetConfiguration())
-                .build();
-
-    var expectedFrontier = ImmutableSet.of("//bar:C", "//bar:H", "//bar:E");
-    expectedFrontier.forEach(
-        label ->
-            assertThat(graph.getIfPresent(ctKeyOfLabel.apply(label)).getValue())
-                .isInstanceOf(RemoteConfiguredTargetValue.class));
-
-    var expectedActiveSet =
-        ImmutableSet.of(
-            // //bar:F is in the active set because it's an rdep of //foo:G.
-            "//bar:F", "//foo:G", "//foo:A", "//foo:B", "//foo:D");
-    expectedActiveSet.forEach(
-        label -> {
-          var skyValue = graph.getIfPresent(ctKeyOfLabel.apply(label)).getValue();
-          assertThat(skyValue).isInstanceOf(ConfiguredTargetValue.class);
-          assertThat(skyValue).isNotInstanceOf(RemoteConfiguredTargetValue.class);
-        });
-
-    assertThat(graph.getIfPresent(ctKeyOfLabel.apply("//bar:I"))).isNull();
-  }
-
-  @Test
   public void errorOnWarmSkyframeUploadBuilds() throws Exception {
     setupScenarioWithConfiguredTargets();
 
@@ -615,36 +482,6 @@ genrule(
     assertUploadSuccess("//foo:A");
     var exception = assertThrows(AbruptExitException.class, () -> buildTarget("//foo:A"));
     assertThat(exception).hasMessageThat().contains(BuildView.UPLOAD_BUILDS_MUST_BE_COLD);
-  }
-
-  @Test
-  public void downloadedConfiguredTarget_doesNotDownloadTargetPackage() throws Exception {
-    setupScenarioWithConfiguredTargets();
-    writeProjectSclWithActiveDirs("foo");
-    // Cache-writing build.
-    assertUploadSuccess("//foo:D");
-
-    var graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
-    var fooKey = PackageIdentifier.createUnchecked(/* repository= */ "", "foo");
-    var barKey = PackageIdentifier.createUnchecked(/* repository= */ "", "bar");
-    // Building for the first time necessarily loads both package foo and bar.
-    assertThat(graph.getIfPresent(fooKey)).isNotNull();
-    assertThat(graph.getIfPresent(barKey)).isNotNull();
-
-    // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
-    // Bazel yet. Return early.
-    assumeTrue(isBlaze());
-
-    // Reset the graph.
-    getCommandEnvironment().getSkyframeExecutor().resetEvaluator();
-
-    // Cache reading build.
-    assertDownloadSuccess("//foo:D");
-
-    graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
-    assertThat(graph.getIfPresent(fooKey)).isNotNull();
-    // Package bar is not required if //bar:H is downloaded.
-    assertThat(graph.getIfPresent(barKey)).isNull();
   }
 
   @Test
@@ -941,227 +778,6 @@ ACTION_EXECUTION:ActionLookupData0{actionLookupKey=ConfiguredTargetKey{label=//A
     assertUploadSuccess("//A", "//B");
   }
 
-  @Test
-  public void activeToInactiveToActiveGraph_roundTrips() throws Exception {
-    // In this test case, a depends on b depends on c. Crucially, a depends on c's output,
-    // transitively. Furthermore, both a and c are in the active directories, while b is outside.
-    //
-    // This test guards against the serialization of b's ActionLookupValue. If b is serialized, when
-    // a requests b, it'll get b from cache during analysis, without ever analyzing c (which can't
-    // be fetched from the remote cache because it's in the active directories). Thus, at execution,
-    // when a requests c's output, it'll trigger c's analysis, causing a Not-yet-present artifact
-    // owner exception.
-    //
-    // TODO: b/364831651 - this test case remains salient with granular invalidation, but the
-    // mechanism changes and the comment should be updated.
-    write(
-        "pkg_c/BUILD",
-"""
-genrule(
-    name = "c",
-    outs = ["c.out"],
-    cmd = "echo 'C contents' > $@",
-)
-""");
-    write(
-        "pkg_b/BUILD",
-"""
-filegroup(
-    name = "b",
-    srcs = ["//pkg_c:c"], # Depends on c, collects its default outputs.
-)
-""");
-    write(
-        "pkg_a/BUILD",
-"""
-genrule(
-    name = "a",
-    srcs = ["//pkg_b:b"],
-    outs = ["a.out"],
-    # This command reads the content of the file(s) provided by target B. Since B wraps C's output,
-    # this effectively reads C's output via B.
-    cmd = "echo 'A received this via B:' > $@ && cat $(locations //pkg_b:b) >> $@",
-)
-""");
-    writeProjectSclWithActiveDirs("pkg_a", "pkg_a", "pkg_c");
-    assertUploadSuccess("//pkg_a:a");
-
-    // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
-    // Bazel yet. Return early.
-    assumeTrue(isBlaze());
-
-    getSkyframeExecutor().resetEvaluator();
-    assertDownloadSuccess("//pkg_a:a");
-  }
-
-  @Test
-  public void roundTripWithActionOwnerCacheHitAndActionCacheMiss_succeeds() throws Exception {
-    // This test case sets up a scenario where there's an uncached action under the frontier, but
-    // there's a cached analysis value in the frontier. This is possible when an underlying target,
-    // in this case //A:output_generator has two Actions and only one of them is consumed by the
-    // writer.
-    //
-    // If a reader builds a different top level target that requires the action that is not
-    // consumed, it causes analysis to occur during the execution phase, requiring certain normally
-    // applicable checks to be bypassed.
-    write(
-        "A/defs.bzl",
-"""
-MultiOutputInfo = provider(
-    fields = {
-        "output1": "The file generated by action 1.",
-        "output2": "The file generated by action 2.",
-    },
-)
-
-def _multi_output_impl(ctx):
-    output_file1 = ctx.actions.declare_file(ctx.label.name + "_out1.txt")
-    output_file2 = ctx.actions.declare_file(ctx.label.name + "_out2.txt")
-
-    ctx.actions.run_shell(
-        outputs = [output_file1],
-        command = "echo Action1 > {output1}".format(output1 = output_file1.path),
-        progress_message = "Running Action 1 for %{label}",
-    )
-
-    ctx.actions.run_shell(
-        outputs = [output_file2],
-        command = "echo Action2 > {output2}".format(output2 = output_file2.path),
-        progress_message = "Running Action 2 for %{label}",
-    )
-
-    return [
-        DefaultInfo(files = depset([output_file1, output_file2])),
-        MultiOutputInfo(
-            output1 = output_file1,
-            output2 = output_file2,
-        ),
-    ]
-
-multi_output_rule = rule(
-    implementation = _multi_output_impl,
-    doc = "A rule that runs two separate actions producing two distinct outputs.",
-)
-
-def _forwarding_impl(ctx):
-    # Rule that forwards MultiOutputInfo.
-
-    # Get the provider instance from the dependency
-    dep_multi_output_info = ctx.attr.dep[MultiOutputInfo]
-
-    # Simply return the provider instance received from the dependency.
-    # We can also forward DefaultInfo if needed, but for this specific case,
-    # just forwarding the required provider is enough.
-    return [dep_multi_output_info]
-
-forwarding_rule = rule(
-    implementation = _forwarding_impl,
-    attrs = {
-        "dep": attr.label(
-            providers = [MultiOutputInfo], # Ensure the dependency *has* the provider to forward
-            mandatory = True,
-            doc = "The target whose MultiOutputInfo should be forwarded.",
-        ),
-    },
-    doc = "A rule that forwards the MultiOutputInfo provider from its dependency.",
-)
-
-def _consumer_impl(ctx):
-    dep_info = ctx.attr.dep[MultiOutputInfo]
-    input_file = None
-    if ctx.attr.output_key == "output1":
-        input_file = dep_info.output1
-    elif ctx.attr.output_key == "output2":
-        input_file = dep_info.output2
-    else:
-        # This case should be prevented by the 'values' check in the rule definition
-        fail("Invalid output_key: '{}'. Must be 'output1' or 'output2'".format(ctx.attr.output_key))
-
-    output_file = ctx.actions.declare_file(ctx.label.name + ".txt")
-
-    # Added label to progress message for clarity
-    ctx.actions.run_shell(
-        inputs = [input_file],
-        outputs = [output_file],
-        command = "cat {input} > {output}".format(
-            input = input_file.path,
-            output = output_file.path,
-        ),
-        progress_message = "Running consumer %{{label}} using {} from {}".format(
-            ctx.attr.output_key, ctx.attr.dep.label),
-    )
-
-    return [DefaultInfo(files = depset([output_file]))]
-
-consumer_rule = rule(
-    implementation = _consumer_impl,
-    attrs = {
-        "dep": attr.label(
-            providers = [MultiOutputInfo],
-            mandatory = True,
-            doc = "The target providing the MultiOutputInfo (directly or indirectly).",
-        ),
-        "output_key": attr.string(
-            values = ["output1", "output2"],
-            mandatory = True,
-            doc = "Which output to consume ('output1' or 'output2').",
-        ),
-    },
-    doc = "Rule that consumes a specific output advertised via MultiOutputInfo.",
-)
-""");
-    write(
-        "A/BUILD",
-"""
-load("//A:defs.bzl", "multi_output_rule")
-
-# Original source of the two outputs.
-multi_output_rule(
-    name = "output_generator",
-)
-""");
-
-    write(
-        "B/BUILD",
-"""
-load("//A:defs.bzl", "forwarding_rule")
-
-# Depends on output_generator and forwards its MultiOutputInfo.
-forwarding_rule(
-    name = "forwarder",
-    dep = "//A:output_generator",
-)
-""");
-
-    write(
-        "C/BUILD",
-"""
-load("//A:defs.bzl", "consumer_rule")
-
-consumer_rule(
-    name = "consumer_one",
-    dep = "//B:forwarder",
-    output_key = "output1",
-)
-
-consumer_rule(
-    name = "consumer_two",
-    dep = "//B:forwarder",
-    output_key = "output2",
-)
-""");
-
-    writeProjectSclWithActiveDirs("C", "C");
-    assertUploadSuccess("//C:consumer_one");
-
-    // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
-    // Bazel yet. Return early.
-    assumeTrue(isBlaze());
-
-    getSkyframeExecutor().resetEvaluator();
-    assertDownloadSuccess("//C:consumer_two");
-  }
-
   protected final void setupGenruleGraph() throws IOException {
     // /--> E
     // A -> C -> D
@@ -1307,10 +923,6 @@ consumer_rule(
       builder.addBlazeModule(new SyscallCacheInjectingModule());
     }
     return builder;
-  }
-
-  boolean isBlaze() {
-    return Ascii.equalsIgnoreCase(getCommandEnvironment().getRuntime().getProductName(), "blaze");
   }
 
   boolean testUsesSyscallCacheClearCount() {

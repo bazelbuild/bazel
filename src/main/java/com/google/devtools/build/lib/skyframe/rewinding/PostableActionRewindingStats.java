@@ -21,30 +21,14 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionRewindEvent;
 
 /** Event that encapsulates data about action rewinding during a build. */
-public final class ActionRewindingStats implements ExtendedEventHandler.Postable {
+public record PostableActionRewindingStats(
+    int lostInputsCount,
+    int lostOutputsCount,
+    int rewoundActionCount,
+    ImmutableList<ActionRewindEvent> actionRewindEvents)
+    implements ExtendedEventHandler.Postable {
 
-  private final int lostInputsCount;
-  private final int lostOutputsCount;
-  private final ImmutableList<ActionRewindEvent> actionRewindEvents;
-
-  ActionRewindingStats(
-      int lostInputsCount,
-      int lostOutputsCount,
-      ImmutableList<ActionRewindEvent> actionRewindEvents) {
-    this.lostInputsCount = lostInputsCount;
-    this.lostOutputsCount = lostOutputsCount;
-    this.actionRewindEvents = checkNotNull(actionRewindEvents);
-  }
-
-  public int lostInputsCount() {
-    return lostInputsCount;
-  }
-
-  public int lostOutputsCount() {
-    return lostOutputsCount;
-  }
-
-  public ImmutableList<ActionRewindEvent> actionRewindEvents() {
-    return actionRewindEvents;
+  public PostableActionRewindingStats {
+    checkNotNull(actionRewindEvents);
   }
 }

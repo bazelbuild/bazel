@@ -14,30 +14,29 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.Root;
-import java.util.Optional;
 
-/**
- * {@link PackageRoots} with a single source root that does not want symlink forest creation, and
- * whose {@link PackageRootLookup} returns the unique source root for any given package identifier.
- */
-public class PackageRootsNoSymlinkCreation implements PackageRoots {
-  private final Root sourceRoot;
+/** {@link PackageRoots} with a single, virtual source root. */
+final class VirtualPackageRoots implements PackageRoots {
+  private final Root virtualSourceRoot;
 
-  public PackageRootsNoSymlinkCreation(Root sourcePath) {
-    this.sourceRoot = sourcePath;
+  VirtualPackageRoots(Root virtualSourceRoot) {
+    this.virtualSourceRoot = checkNotNull(virtualSourceRoot);
   }
 
   @Override
-  public Optional<ImmutableMap<PackageIdentifier, Root>> getPackageRootsMap() {
-    return Optional.empty();
+  public ImmutableMap<PackageIdentifier, Root> getPackageRootsMap() {
+    // Tells SymlinkForest to link all top-level path entries under the virtual source root.
+    return ImmutableMap.of(PackageIdentifier.EMPTY_PACKAGE_ID, virtualSourceRoot);
   }
 
   @Override
   public PackageRootLookup getPackageRootLookup() {
-    return packageIdentifier -> sourceRoot;
+    return packageIdentifier -> virtualSourceRoot;
   }
 }

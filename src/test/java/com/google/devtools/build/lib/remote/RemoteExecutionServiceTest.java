@@ -82,7 +82,6 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
@@ -2652,12 +2651,6 @@ public class RemoteExecutionServiceTest {
   }
 
   private FakeSpawnExecutionContext newSpawnExecutionContext(Spawn spawn, FileOutErr outErr) {
-    ImmutableList<Artifact> actionOutputs =
-        spawn.getOutputFiles().stream()
-            .filter(i -> i instanceof Artifact)
-            .map(i -> (Artifact) i)
-            .collect(toImmutableList());
-
     var actionInputFetcher =
         new RemoteActionInputFetcher(
             new Reporter(new EventBus()),
@@ -2676,8 +2669,6 @@ public class RemoteExecutionServiceTest {
             execRoot.asFragment(),
             artifactRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
             new ActionInputMap(0),
-            actionOutputs,
-            StaticInputMetadataProvider.empty(),
             actionInputFetcher);
 
     return new FakeSpawnExecutionContext(
@@ -2771,11 +2762,6 @@ public class RemoteExecutionServiceTest {
       @Override
       public Artifact getRepoMappingManifestForLogging() {
         return null;
-      }
-
-      @Override
-      public boolean isLegacyExternalRunfiles() {
-        return false;
       }
 
       @Override

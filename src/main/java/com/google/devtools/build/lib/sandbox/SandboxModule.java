@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.events.Event;
@@ -464,7 +463,7 @@ public final class SandboxModule extends BlazeModule {
 
     @Override
     public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-        throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
+        throws InterruptedException, IOException, ExecException {
       if (sandboxSpawnRunner.canExec(spawn)) {
         return sandboxSpawnRunner.exec(spawn, context);
       } else {

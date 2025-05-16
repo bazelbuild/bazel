@@ -313,17 +313,6 @@ public final class CppConfiguration extends Fragment
     this.appleGenerateDsym = cppOptions.appleGenerateDsym;
   }
 
-  /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
-  @StarlarkConfigurationField(
-      name = "cc_toolchain",
-      doc = "The label of the target describing the C++ toolchain",
-      defaultLabel = "//tools/cpp:toolchain",
-      defaultInToolRepository = true)
-  @Nullable
-  public Label getRuleProvidingCcToolchainProvider() {
-      return null;
-  }
-
   @Nullable
   @StarlarkConfigurationField(name = "zipper", doc = "The zipper label for FDO.")
   public Label getFdoZipper() {

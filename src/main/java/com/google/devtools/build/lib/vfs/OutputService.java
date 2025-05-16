@@ -95,10 +95,11 @@ public interface OutputService {
     }
 
     /**
-     * Returns true if this service needs top-level output tree setup. This involves creating
-     * symlinks to the source tree in the execRoot and constructing a directory for action logging.
+     * Returns true if this service supports execution of local actions. This is used to determine
+     * whether to create {@link
+     * com.google.devtools.build.lib.runtime.CommandEnvironment#getActionTempsDirectory}.
      */
-    public boolean shouldDoTopLevelOutputSetup() {
+    public boolean supportsLocalActions() {
       return this != IN_MEMORY_ONLY_FILE_SYSTEM;
     }
 

@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.rules.cpp.LibrariesToLinkCollector.CollectedLibrariesToLink;
@@ -99,7 +98,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   @SuppressWarnings("unchecked")
   public CcToolchainVariables getCcToolchainVariables(Dict<?, ?> buildVariables)
-      throws TypeException {
+      throws TypeException, EvalException {
 
     CcToolchainVariables.Builder ccToolchainVariables = CcToolchainVariables.builder();
     for (var entry : buildVariables.entrySet()) {
@@ -111,11 +110,9 @@ public class CcStarlarkInternal implements StarlarkValue {
         case Boolean b -> ccToolchainVariables.addBooleanValue(key, b);
         case Iterable<?> values -> {
           if (key.equals("libraries_to_link")) {
-            SequenceBuilder sb = new SequenceBuilder();
-            for (var v : (Iterable<VariableValue>) values) {
-              sb.addValue(v);
-            }
-            ccToolchainVariables.addCustomBuiltVariable(key, sb);
+            ccToolchainVariables.addSequenceVariable(
+                key,
+                Sequence.cast(values, VariableValue.class, "library_to_link").getImmutableList());
           } else {
             ccToolchainVariables.addStringSequenceVariable(key, (Iterable<String>) values);
           }
@@ -362,6 +359,33 @@ public class CcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(name = "CcTestRunnerInfo", documented = false, structField = true)
   public StarlarkProvider ccTestRunnerInfo() throws EvalException {
     return starlarkCcTestRunnerInfo;
+  }
+
+  @StarlarkMethod(
+      name = "create_cpp_source",
+      doc = "Creates a CppSource instance.",
+      parameters = {
+        @Param(
+            name = "source",
+            positional = false,
+            named = true,
+            doc = "The source file.",
+            allowedTypes = {@ParamType(type = Artifact.class)}),
+        @Param(
+            name = "label",
+            positional = false,
+            named = true,
+            doc = "The label of the source file.",
+            allowedTypes = {@ParamType(type = Label.class)}),
+        @Param(
+            name = "type",
+            positional = false,
+            named = true,
+            doc = "The type of the source file.",
+            allowedTypes = {@ParamType(type = String.class)})
+      })
+  public CppSource createCppSource(Artifact source, Label label, String type) {
+    return CppSource.create(source, label, CppSource.Type.valueOf(type));
   }
 
   @StarlarkMethod(
@@ -777,38 +801,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       builder.setMustKeepDebug(libraryToLink.getValue("must_keep_debug", Boolean.class));
     }
     return builder.build();
-  }
-
-  // TODO(b/331164666): rewrite to Stalark using cc_common.create_lto_artifact
-  @StarlarkMethod(
-      name = "create_shared_non_lto_artifacts",
-      documented = false,
-      parameters = {
-        @Param(name = "actions"),
-        @Param(name = "lto_compilation_context"),
-        @Param(name = "is_linker"),
-        @Param(name = "feature_configuration"),
-        @Param(name = "cc_toolchain"),
-        @Param(name = "use_pic"),
-        @Param(name = "object_files"),
-      })
-  public ImmutableMap<Artifact, LtoBackendArtifacts> createSharedNonLtoArtifacts(
-      WrappedStarlarkActionFactory actions,
-      LtoCompilationContext ltoCompilationContext,
-      boolean isLinker,
-      FeatureConfigurationForStarlark featureConfiguration,
-      StarlarkInfo toolchain,
-      boolean usePicForLtoBackendActions,
-      Sequence<?> objectFiles)
-      throws EvalException {
-    return CppLinkActionBuilder.createSharedNonLtoArtifacts(
-        actions.construction,
-        ltoCompilationContext,
-        isLinker,
-        featureConfiguration.getFeatureConfiguration(),
-        CcToolchainProvider.create(toolchain),
-        usePicForLtoBackendActions,
-        Sequence.cast(objectFiles, Artifact.class, "object_files").getImmutableList());
   }
 
   @StarlarkMethod(name = "empty_compilation_outputs", documented = false)

@@ -59,7 +59,7 @@ public final class WorkStealingThreadPoolExecutor extends AbstractExecutorServic
       remainingTasksAvailableLock.newCondition();
 
   /** A task queue that is local to a worker thread. All methods must be thread-safe. */
-  private static final class LifoTaskQueue {
+  private static final class TaskQueue {
     private final ConcurrentLinkedDeque<Runnable> queue = new ConcurrentLinkedDeque<>();
 
     /** Add a task to this queue */
@@ -68,11 +68,21 @@ public final class WorkStealingThreadPoolExecutor extends AbstractExecutorServic
     }
 
     /**
-     * Retrieves and removes a task from this deque, or returns {@code null} if this queue is empty.
+     * Retrieves and removes a task from this deque for the owning worker, or returns {@code null}
+     * if this queue is empty.
      */
     @Nullable
     public Runnable poll() {
       return queue.pollLast();
+    }
+
+    /**
+     * Retrieves and removes a task from this deque for the non-owning worker, or returns {@code
+     * null} if this queue is empty.
+     */
+    @Nullable
+    public Runnable steal() {
+      return queue.pollFirst();
     }
   }
 
@@ -100,7 +110,7 @@ public final class WorkStealingThreadPoolExecutor extends AbstractExecutorServic
   private static class Worker implements Runnable {
     private final WorkStealingThreadPoolExecutor pool;
 
-    private final LifoTaskQueue queue = new LifoTaskQueue();
+    private final TaskQueue queue = new TaskQueue();
 
     private Worker(WorkStealingThreadPoolExecutor pool) {
       this.pool = pool;
@@ -140,6 +150,23 @@ public final class WorkStealingThreadPoolExecutor extends AbstractExecutorServic
     @Nullable
     private Runnable poll() {
       Runnable task = queue.poll();
+      if (task != null) {
+        pool.remainingTasks.decrementAndGet();
+      }
+      return task;
+    }
+
+    /**
+     * Retrieves and removes a task from the worker's own queue, or returns {@code null} if the
+     * queue is empty.
+     *
+     * <p>Thread that doesn't own the worker should use {@link #steal} to retrive task. It retrives
+     * task from another end of the queue, so that, when the system is under pressure, the tasks
+     * won't be retained for a long time. Failed to do so will likely cause more major GCs.
+     */
+    @Nullable
+    private Runnable steal() {
+      Runnable task = queue.steal();
       if (task != null) {
         pool.remainingTasks.decrementAndGet();
       }
@@ -189,7 +216,7 @@ public final class WorkStealingThreadPoolExecutor extends AbstractExecutorServic
     int i = ThreadLocalRandom.current().nextInt(numWorkers);
     int step = 31;
     for (int n = numWorkers; n > 0; n--) {
-      Runnable task = workers.get(i).poll();
+      Runnable task = workers.get(i).steal();
       if (task != null) {
         return task;
       }

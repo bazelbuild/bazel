@@ -491,6 +491,14 @@ public final class BazelRulesModule extends BlazeModule {
    */
   public static final class AllCommandGraveyardOptions extends OptionsBase {
     @Option(
+        name = "legacy_external_runfiles",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean legacyExternalRunfiles;
+
+    @Option(
         name = "incompatible_disable_target_provider_fields",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,

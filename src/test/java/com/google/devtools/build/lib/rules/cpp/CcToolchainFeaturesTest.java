@@ -35,11 +35,10 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringSequenceBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Sequence;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StructureBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValueBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
@@ -433,12 +432,10 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
   }
 
   private static CcToolchainVariables createStructureSequenceVariables(
-      String name, StructureBuilder... values) {
-    SequenceBuilder builder = new SequenceBuilder();
-    for (StructureBuilder value : values) {
-      builder.addValue(value.build());
-    }
-    return CcToolchainVariables.builder().addCustomBuiltVariable(name, builder).build();
+      String name, VariableValue... values) {
+    return CcToolchainVariables.builder()
+        .addSequenceVariable(name, ImmutableList.copyOf(values))
+        .build();
   }
 
   private static CcToolchainVariables createStructureVariables(
@@ -527,8 +524,8 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                 "flag_group { iterate_over: 'structs' flag: '-A%{structs.foo}' }",
                 createStructureSequenceVariables(
                     "structs",
-                    new StructureBuilder().addField("foo", "foo1Value"),
-                    new StructureBuilder().addField("foo", "foo2Value"))))
+                    new StructureBuilder().addField("foo", "foo1Value").build(),
+                    new StructureBuilder().addField("foo", "foo2Value").build())))
         .containsExactly("-Afoo1Value", "-Afoo2Value");
   }
 
@@ -545,9 +542,12 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                     new StructureBuilder()
                         .addField(
                             "sequences",
-                            new SequenceBuilder()
-                                .addValue(new StructureBuilder().addField("foo", "foo1Value"))
-                                .addValue(new StructureBuilder().addField("foo", "foo2Value"))))))
+                            new Sequence(
+                                ImmutableList.of(
+                                    new StructureBuilder().addField("foo", "foo1Value").build(),
+                                    new StructureBuilder()
+                                        .addField("foo", "foo2Value")
+                                        .build()))))))
         .containsExactly("-Afoo1Value", "-Afoo2Value");
   }
 
@@ -874,27 +874,26 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
         .containsExactly("-f", "1", "-f", "2", "1", "2");
   }
 
-  private static VariableValueBuilder createNestedSequence(int depth, int count, String prefix) {
+  private static ImmutableList<VariableValue> createNestedSequence(
+      int depth, int count, String prefix) {
+    ImmutableList.Builder<VariableValue> builder = ImmutableList.builder();
     if (depth == 0) {
-      StringSequenceBuilder builder = new StringSequenceBuilder();
       for (int i = 0; i < count; ++i) {
         String value = prefix + i;
-        builder.addValue(value);
+        builder.add(new StringValue(value));
       }
-      return builder;
     } else {
-      SequenceBuilder builder = new SequenceBuilder();
       for (int i = 0; i < count; ++i) {
         String value = prefix + i;
-        builder.addValue(createNestedSequence(depth - 1, count, value));
+        builder.add(new Sequence(createNestedSequence(depth - 1, count, value)));
       }
-      return builder;
     }
+    return builder.build();
   }
 
   private static CcToolchainVariables createNestedVariables(String name, int depth, int count) {
     return CcToolchainVariables.builder()
-        .addCustomBuiltVariable(name, createNestedSequence(depth, count, ""))
+        .addSequenceVariable(name, createNestedSequence(depth, count, ""))
         .build();
   }
 

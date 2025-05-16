@@ -104,8 +104,7 @@ public class JavaSubprocessFactory implements SubprocessFactory {
 
     @Override
     public void close() {
-      // java.lang.Process doesn't give us a way to clean things up other than #destroy(), which was
-      // already called by this point.
+      process.destroyForcibly();
     }
 
     @Override

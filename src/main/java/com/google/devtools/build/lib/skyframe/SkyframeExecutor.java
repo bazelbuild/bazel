@@ -2373,11 +2373,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private PackageRoots getPackageRoots() {
     Root virtualSourceRoot = directories.getVirtualSourceRoot();
-    return virtualSourceRoot == null
-            || outputService == null
-            || outputService.actionFileSystemType().shouldDoTopLevelOutputSetup()
-        ? new MapAsPackageRoots(collectPackageRoots())
-        : new PackageRootsNoSymlinkCreation(checkNotNull(virtualSourceRoot));
+    return virtualSourceRoot != null
+        ? new VirtualPackageRoots(virtualSourceRoot)
+        : new MapAsPackageRoots(collectPackageRoots());
   }
 
   @Nullable
@@ -2473,9 +2471,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /** Called after a single Skyframe evaluation that involves action execution. */
   private void cleanUpAfterSingleEvaluationWithActionExecution(ExtendedEventHandler eventHandler) {
     setExecutionProgressReceiver(null);
-
-    skyframeActionExecutor.executionOver();
     actionRewindStrategy.reset(eventHandler);
+    skyframeActionExecutor.executionOver();
   }
 
   /**

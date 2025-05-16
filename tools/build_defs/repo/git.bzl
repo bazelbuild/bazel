@@ -201,7 +201,9 @@ def _git_repository_implementation(ctx):
         ctx.delete(ctx.path(".tmp_git_root/.git"))
     else:
         ctx.delete(ctx.path(".git"))
-    return _update_git_attrs(ctx.attr, _common_attrs.keys(), update)
+    if ctx.attr.commit:
+        return ctx.repo_metadata(reproducible = True)
+    return ctx.repo_metadata(attrs_for_reproducibility = _update_git_attrs(ctx.attr, _common_attrs.keys(), update))
 
 git_repository = repository_rule(
     implementation = _git_repository_implementation,

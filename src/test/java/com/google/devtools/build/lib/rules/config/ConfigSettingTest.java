@@ -18,6 +18,8 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult.Match;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult.NoMatch;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
@@ -108,11 +110,10 @@ public class ConfigSettingTest extends BuildViewTestCase {
     return getConfiguredTarget(label).getProvider(ConfigMatchingProvider.class);
   }
 
-  private boolean forceConvertMatchResult(ConfigMatchingProvider.MatchResult result)
-      throws Exception {
-    if (result.equals(ConfigMatchingProvider.MatchResult.MATCH)) {
+  private boolean forceConvertMatchResult(ConfigMatchingProvider.MatchResult result) {
+    if (result instanceof Match) {
       return true;
-    } else if (result.equals(ConfigMatchingProvider.MatchResult.NOMATCH)) {
+    } else if (result instanceof NoMatch) {
       return false;
     }
     throw new IllegalStateException("Unexpected MatchResult: " + result);

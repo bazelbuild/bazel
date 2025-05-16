@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Output service implementation for the remote build without local output service daemon. */
@@ -59,7 +58,6 @@ public class RemoteOutputService implements OutputService {
   @Nullable private RemoteOutputChecker remoteOutputChecker;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private LeaseService leaseService;
-  @Nullable private Supplier<InputMetadataProvider> fileCacheSupplier;
 
   RemoteOutputService(BlazeDirectories directories) {
     this.directories = checkNotNull(directories);
@@ -75,10 +73,6 @@ public class RemoteOutputService implements OutputService {
 
   void setLeaseService(LeaseService leaseService) {
     this.leaseService = leaseService;
-  }
-
-  void setFileCacheSupplier(Supplier<InputMetadataProvider> fileCacheSupplier) {
-    this.fileCacheSupplier = fileCacheSupplier;
   }
 
   @Override
@@ -104,8 +98,6 @@ public class RemoteOutputService implements OutputService {
         execRootFragment,
         relativeOutputPath,
         inputArtifactData,
-        outputArtifacts,
-        fileCacheSupplier.get(),
         actionInputFetcher);
   }
 
@@ -228,13 +220,7 @@ public class RemoteOutputService implements OutputService {
       Map<Artifact, FilesetOutputTree> filesets) {
     FileSystem remoteFileSystem =
         new RemoteActionFileSystem(
-            fileSystem,
-            execRoot,
-            relativeOutputPath,
-            actionInputMap,
-            ImmutableList.of(),
-            fileCacheSupplier.get(),
-            actionInputFetcher);
+            fileSystem, execRoot, relativeOutputPath, actionInputMap, actionInputFetcher);
     return ArtifactPathResolver.createPathResolver(remoteFileSystem, fileSystem.getPath(execRoot));
   }
 

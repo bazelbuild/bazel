@@ -38,7 +38,6 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -181,7 +180,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
+      throws ExecException, InterruptedException, IOException {
     Preconditions.checkArgument(
         remoteExecutionService.mayBeExecutedRemotely(spawn),
         "Spawn can't be executed remotely. This is a bug.");
@@ -553,7 +552,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   }
 
   private static SpawnResult execLocally(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
+      throws ExecException, InterruptedException, IOException {
     RemoteLocalFallbackRegistry localFallbackRegistry =
         context.getContext(RemoteLocalFallbackRegistry.class);
     checkNotNull(localFallbackRegistry, "Expected a RemoteLocalFallbackRegistry to be registered");
@@ -579,7 +578,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       boolean uploadLocalResults,
       IOException cause,
       FailureReason reason)
-      throws ExecException, InterruptedException, IOException, ForbiddenActionInputException {
+      throws ExecException, InterruptedException, IOException {
     // Regardless of cause, if we are interrupted, we should stop without displaying a user-visible
     // failure/stack trace.
     if (Thread.currentThread().isInterrupted()) {
@@ -698,7 +697,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
   @VisibleForTesting
   SpawnResult execLocallyAndUpload(
       RemoteAction action, Spawn spawn, SpawnExecutionContext context, boolean uploadLocalResults)
-      throws ExecException, IOException, ForbiddenActionInputException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     SpawnResult result = execLocally(spawn, context);
     if (uploadLocalResults && Status.SUCCESS.equals(result.status()) && result.exitCode() == 0) {
       remoteExecutionService.uploadOutputs(

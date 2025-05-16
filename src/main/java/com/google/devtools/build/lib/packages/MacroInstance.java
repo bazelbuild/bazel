@@ -89,7 +89,7 @@ public final class MacroInstance extends RuleOrMacroInstance {
     this.sameNameDepth = sameNameDepth;
   }
 
-  /** Returns the Package.Metadata of the package in which this instance was created. */
+  @Override
   public Package.Metadata getPackageMetadata() {
     return packageMetadata;
   }
@@ -103,8 +103,15 @@ public final class MacroInstance extends RuleOrMacroInstance {
    * Returns the macro instance that instantiated this one, or null if this was created directly
    * during BUILD evaluation.
    */
+  // TODO(bazel-team): Consider merging into getDeclaringMacro().
   @Nullable
   public MacroInstance getParent() {
+    return parent;
+  }
+
+  @Override
+  @Nullable
+  public MacroInstance getDeclaringMacro() {
     return parent;
   }
 
@@ -207,7 +214,6 @@ public final class MacroInstance extends RuleOrMacroInstance {
     List<Label> visibility = (List<Label>) Preconditions.checkNotNull(getAttr("visibility"));
     return ImmutableList.copyOf(visibility);
   }
-
 
   /**
    * Returns the package containing the .bzl file from which this macro instance's macro class was

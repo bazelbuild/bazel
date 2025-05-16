@@ -34,7 +34,7 @@ java_library(
     srcs = [
         "ActionRewindException.java",
         "ActionRewindStrategy.java",
-        "ActionRewindingStats.java",
+        "PostableActionRewindingStats.java",
     ],
     deps = [
         ":action_rewound_event",

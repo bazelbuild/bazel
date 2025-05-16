@@ -512,16 +512,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean buildRunfileLinks;
 
   @Option(
-      name = "legacy_external_runfiles",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If true, build runfiles symlink forests for external repositories under "
-              + ".runfiles/wsname/external/repo (in addition to .runfiles/repo).")
-  public boolean legacyExternalRunfiles;
-
-  @Option(
       name = "incompatible_always_include_files_in_data",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,

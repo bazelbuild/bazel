@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -204,8 +203,7 @@ public class RemoteSpawnCacheTest {
 
       @Override
       public SortedMap<PathFragment, ActionInput> getInputMapping(
-          PathFragment baseDirectory, boolean willAccessRepeatedly)
-          throws ForbiddenActionInputException {
+          PathFragment baseDirectory, boolean willAccessRepeatedly) {
         return getSpawnInputExpander().getInputMapping(spawn, fakeFileCache, baseDirectory);
       }
 
@@ -295,8 +293,7 @@ public class RemoteSpawnCacheTest {
                 DUMMY_REMOTE_OUTPUT_CHECKER,
                 mock(OutputService.class),
                 Sets.newConcurrentHashSet()));
-    return new RemoteSpawnCache(
-        execRoot, options, /* verboseFailures= */ true, service, digestUtil);
+    return new RemoteSpawnCache(options, /* verboseFailures= */ true, service, digestUtil);
   }
 
   @Before
@@ -899,10 +896,7 @@ public class RemoteSpawnCacheTest {
             () -> {
               try {
                 secondCacheHandleRef.set(cache.lookup(secondSpawn, secondPolicy));
-              } catch (InterruptedException
-                  | IOException
-                  | ExecException
-                  | ForbiddenActionInputException e) {
+              } catch (InterruptedException | IOException | ExecException e) {
                 throw new IllegalStateException(e);
               }
             });

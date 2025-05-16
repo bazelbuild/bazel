@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -148,9 +149,8 @@ public final class CoverageReportActionBuilder {
 
       Path coverageReportOutput = ctx.getPathResolver().toPath(getPrimaryOutput());
       try (var ignored =
-          GoogleAutoProfilerUtils.logged(
-              "Informing important output handler of coverage report",
-              ImportantOutputHandler.LOG_THRESHOLD)) {
+          GoogleAutoProfilerUtils.profiledAndLogged(
+              "Informing important output handler of coverage report", ProfilerTask.INFO)) {
         importantOutputHandler.processTestOutputs(ImmutableList.of(coverageReportOutput));
       } catch (ImportantOutputException e) {
         throw new EnvironmentalExecException(e, e.getFailureDetail());

@@ -17,7 +17,8 @@ package com.google.devtools.build.lib.rules.platform;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult.InError;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult.Match;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
@@ -172,13 +173,9 @@ public class ToolchainTest extends BuildViewTestCase {
             ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//toolchain:demo_toolchain")));
     // Ensure target settings completely matches (and not just vacuously e.g. if somehow empty)
     assertThat(provider.targetSettings()).isNotEmpty();
-    assertThat(
-            provider.targetSettings().stream()
-                .allMatch(x -> x.result().equals(ConfigMatchingProvider.MatchResult.MATCH)))
+    assertThat(provider.targetSettings().stream().allMatch(x -> x.result() instanceof Match))
         .isTrue();
-    assertThat(
-            provider.targetSettings().stream()
-                .anyMatch(x -> x.result() instanceof ConfigMatchingProvider.MatchResult.InError))
+    assertThat(provider.targetSettings().stream().anyMatch(x -> x.result() instanceof InError))
         .isFalse();
     assertThat(provider.resolvedToolchainLabel())
         .isEqualTo(Label.parseCanonicalUnchecked("//toolchain:toolchain_def1"));
@@ -238,9 +235,7 @@ public class ToolchainTest extends BuildViewTestCase {
     assertThat(provider.toolchainType())
         .isEqualTo(
             ToolchainTypeInfo.create(Label.parseCanonicalUnchecked("//toolchain:demo_toolchain")));
-    assertThat(
-            provider.targetSettings().stream()
-                .anyMatch(x -> x.result().equals(ConfigMatchingProvider.MatchResult.MATCH)))
+    assertThat(provider.targetSettings().stream().anyMatch(x -> x.result() instanceof Match))
         .isFalse();
     assertThat(provider.resolvedToolchainLabel())
         .isEqualTo(Label.parseCanonicalUnchecked("//toolchain:toolchain_def1"));

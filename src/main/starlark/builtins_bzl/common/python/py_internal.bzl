@@ -99,7 +99,7 @@ def _get_label_repo_runfiles_path(*args, **kwargs):
     return _py_builtins.get_label_repo_runfiles_path(*args, **kwargs)
 
 def _get_legacy_external_runfiles(*args, **kwargs):
-    return _py_builtins.get_legacy_external_runfiles(*args, **kwargs)
+    return False
 
 def _get_rule_name(*args, **kwargs):
     return _py_builtins.get_rule_name(*args, **kwargs)
@@ -134,8 +134,9 @@ def _linking_context_linkstamps(linking_context, *args, **kwargs):
 def _linkstamp_file(linkstamp, *args, **kwargs):
     return linkstamp.file(*args, **kwargs)
 
-def _make_runfiles_respect_legacy_external_runfiles(*args, **kwargs):
-    return _py_builtins.make_runfiles_respect_legacy_external_runfiles(*args, **kwargs)
+# TODO(https://github.com/bazelbuild/bazel/issues/17415): Cleanup uses and remove
+def _make_runfiles_respect_legacy_external_runfiles(_ctx, runfiles):
+    return runfiles
 
 def _merge_debug_context(*args, **kwargs):
     return cc_common.merge_debug_context(*args, **kwargs)
