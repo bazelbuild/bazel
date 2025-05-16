@@ -753,6 +753,7 @@ test_suite(
         "//third_party/def_parser:windows_tests",
     ],
     visibility = ["//src:__pkg__"],
+
 java_library(
     name = "jmh",
     exported_plugins = [":jmh_benchmark_processor"],
