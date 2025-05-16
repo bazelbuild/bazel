@@ -147,16 +147,16 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           env.getValuesAndExceptions(
               ImmutableList.of(BazelLockFileValue.KEY, BazelLockFileValue.HIDDEN_KEY));
       BazelLockFileValue lockfile = (BazelLockFileValue) lockfiles.get(BazelLockFileValue.KEY);
-      BazelLockFileValue persistentLockfile =
+      BazelLockFileValue hiddenLockfile =
           (BazelLockFileValue) lockfiles.get(BazelLockFileValue.HIDDEN_KEY);
-      if (lockfile == null || persistentLockfile == null) {
+      if (lockfile == null || hiddenLockfile == null) {
         return null;
       }
       var lockedExtensionMap = lockfile.getModuleExtensions().get(extensionId);
       lockedExtension =
           lockedExtensionMap == null ? null : lockedExtensionMap.get(extension.getEvalFactors());
       if (lockedExtension == null) {
-        lockedExtensionMap = persistentLockfile.getModuleExtensions().get(extensionId);
+        lockedExtensionMap = hiddenLockfile.getModuleExtensions().get(extensionId);
         lockedExtension =
             lockedExtensionMap == null ? null : lockedExtensionMap.get(extension.getEvalFactors());
       }

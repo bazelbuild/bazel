@@ -51,7 +51,7 @@ public abstract class BazelLockFileValue implements SkyValue {
 
   /**
    * The (regular) lockfile, stored as MODULE.bazel.lock under the workspace directory. This file is
-   * visible to the user and meant to be committed to source control. Thus, it should
+   * visible to the user and meant to be committed to source control. Thus, it
    *
    * <ul>
    *   <li>should only contain the minimal amount of information necessary to make module resolution
