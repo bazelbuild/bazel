@@ -15,16 +15,16 @@ package com.google.devtools.build.lib.skyframe;
 
 /**
  * A flag to enable / disable tracking of source directories. Uses a system property which can be
- * set via a startup flag. The intention is for this code to be temporary, so I didn't want to add
- * a permanent flag to startup options (and there's already --host_jvm_args, which we can use to
- * roll this out). The flag affects Skyframe dependencies, so it needs to clear the Skyframe graph -
- * the easiest way to do that is to restart the server, which is done when --host_jvm_args changes.
+ * set via a startup flag. The intention is for this code to be temporary, so I didn't want to add a
+ * permanent flag to startup options (and there's already --host_jvm_args, which we can use to roll
+ * this out). The flag affects Skyframe dependencies, so it needs to clear the Skyframe graph - the
+ * easiest way to do that is to restart the server, which is done when --host_jvm_args changes.
  */
 public class TrackSourceDirectoriesFlag {
   private static final boolean TRACK_SOURCE_DIRECTORIES;
 
   static {
-    TRACK_SOURCE_DIRECTORIES = "1".equals(System.getProperty("BAZEL_TRACK_SOURCE_DIRECTORIES"));
+    TRACK_SOURCE_DIRECTORIES = !"0".equals(System.getProperty("BAZEL_TRACK_SOURCE_DIRECTORIES"));
   }
 
   public static boolean trackSourceDirectories() {
@@ -32,6 +32,5 @@ public class TrackSourceDirectoriesFlag {
   }
 
   // Private constructor to prevent instantiation.
-  private TrackSourceDirectoriesFlag() {
-  }
+  private TrackSourceDirectoriesFlag() {}
 }
