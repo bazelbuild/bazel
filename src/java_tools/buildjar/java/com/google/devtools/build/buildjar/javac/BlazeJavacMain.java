@@ -45,9 +45,15 @@ import java.io.IOError;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.ByteBuffer;
+import java.nio.file.FileSystem;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -56,6 +62,7 @@ import java.util.regex.Pattern;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
 import javax.tools.StandardLocation;
+import sun.misc.Unsafe;
 
 /**
  * Main class for our custom patched javac.
@@ -128,7 +135,8 @@ public class BlazeJavacMain {
     options.put("-Xlint:path", "path");
     options.put("expandJarClassPaths", "false");
 
-    try (ClassloaderMaskingFileManager fileManager = new ClassloaderMaskingFileManager(context)) {
+    try (CleaningClassloaderMaskingFileManager fileManager =
+        new CleaningClassloaderMaskingFileManager(context, arguments.system() != null)) {
 
       setLocations(fileManager, arguments);
 
@@ -353,12 +361,17 @@ public class BlazeJavacMain {
    * classloader as JavaBuilder, but that other classes referenced by plugins are loaded from the
    * processor classpath to avoid plugins seeing stale versions of classes from the releases
    * JavaBuilder jar.
+   *
+   * <p>Also closes resources that are not properly closed by JavacFileManager.
    */
   @Trusted
-  private static class ClassloaderMaskingFileManager extends JavacFileManager {
+  private static class CleaningClassloaderMaskingFileManager extends JavacFileManager {
 
-    public ClassloaderMaskingFileManager(Context context) {
+    private final boolean usesSystem;
+
+    public CleaningClassloaderMaskingFileManager(Context context, boolean usesSystem) {
       super(context, true, UTF_8);
+      this.usesSystem = usesSystem;
     }
 
     @Override
@@ -379,6 +392,124 @@ public class BlazeJavacMain {
               throw new ClassNotFoundException(name);
             }
           });
+    }
+
+    @Override
+    public void close() throws IOException {
+      if (!usesSystem) {
+        super.close();
+        return;
+      }
+
+      // When using --system with a modularized JDK, two of its files are kept open by the JDK
+      // after the JavacTask has completed (https://bugs.openjdk.org/browse/JDK-8357249):
+      //
+      // * lib/jrt-fs.jar is loaded by the host JDK via a URLClassLoader that is never closed
+      //   explicitly.
+      // * lib/modules is memory-mapped by the JrtFileSystem implementation provided by the system
+      //   JDK, but never explicitly unmapped (see https://bugs.openjdk.org/browse/JDK-4724038).
+      //
+      // As long as these files are kept open, Bazel can't delete them on Windows, which causes
+      // failures when using a sandboxed execution mode (e.g. a sandboxed multiplexed worker) with
+      // the reduced classpath optimization, which may delete the input files immediately after
+      // compilation when it needs to fall back to the full classpath.
+
+      // Get the memory mapping before close() is called as it is no longer retained afterward.
+      Optional<FileSystem> jrtFs = getJrtFs();
+      Optional<ByteBuffer> memoryMap =
+          jrtFs.flatMap(CleaningClassloaderMaskingFileManager::getModulesFileMemoryMapping);
+
+      super.close();
+
+      jrtFs.ifPresent(CleaningClassloaderMaskingFileManager::unloadJrtFs);
+      memoryMap.ifPresent(CleaningClassloaderMaskingFileManager::forceCleanup);
+    }
+
+    private Optional<FileSystem> getJrtFs() {
+      try {
+        // Any built-in Java module is sufficient to get the JrtFileSystem.
+        return Optional.ofNullable(
+                getLocationForModule(StandardLocation.locationFor("SYSTEM_MODULES"), "java.base"))
+            .flatMap(location -> getLocationAsPaths(location).stream().findFirst())
+            .map(Path::getFileSystem);
+      } catch (IOException ignored) {
+        return Optional.empty();
+      }
+    }
+
+    private static void unloadJrtFs(FileSystem jrtFs) {
+      ClassLoader jrtFsLoader = jrtFs.provider().getClass().getClassLoader();
+      if (jrtFsLoader instanceof URLClassLoader) {
+        try {
+          ((URLClassLoader) jrtFsLoader).close();
+        } catch (IOException ignored) {
+          // Cleanup is best-effort and highly specific to the JDK implementation.
+        }
+      }
+    }
+
+    private static Optional<ByteBuffer> getModulesFileMemoryMapping(FileSystem jrtFs) {
+      try {
+        // https://github.com/openjdk/jdk/blob/da75f3c4ad5bdf25167a3ed80e51f567ab3dbd01/src/java.base/share/classes/jdk/internal/jrtfs/JrtFileSystem.java#L84
+        Field systemImageField = jrtFs.getClass().getDeclaredField("image");
+        systemImageField.setAccessible(true);
+        Object systemImage = systemImageField.get(jrtFs);
+
+        // The concrete SystemImage instance is an anonymous subclass of SystemImage that captures
+        // the
+        // ImageReader instance.
+        // https://github.com/openjdk/jdk/blob/da75f3c4ad5bdf25167a3ed80e51f567ab3dbd01/src/java.base/share/classes/jdk/internal/jrtfs/SystemImage.java#L59
+        Field imageReaderField =
+            Arrays.stream(systemImage.getClass().getDeclaredFields())
+                .filter(field -> "ImageReader".equals(field.getType().getSimpleName()))
+                .findFirst()
+                .get();
+        imageReaderField.setAccessible(true);
+        Object imageReader = imageReaderField.get(systemImage);
+
+        // ImageReader delegates to a SharedImageReader instance.
+        // https://github.com/openjdk/jdk/blob/da75f3c4ad5bdf25167a3ed80e51f567ab3dbd01/src/java.base/share/classes/jdk/internal/jimage/ImageReader.java#L55
+        Field sharedImageReaderField = imageReader.getClass().getDeclaredField("reader");
+        sharedImageReaderField.setAccessible(true);
+        Object sharedImageReader = sharedImageReaderField.get(imageReader);
+
+        // SharedImageReader holds onto a read-only view of the mapped modules file through its
+        // superclass, BasicImageReader.
+        // https://github.com/openjdk/jdk/blob/da75f3c4ad5bdf25167a3ed80e51f567ab3dbd01/src/java.base/share/classes/jdk/internal/jimage/ImageReader.java#L202
+        // https://github.com/openjdk/jdk/blob/da75f3c4ad5bdf25167a3ed80e51f567ab3dbd01/src/java.base/share/classes/jdk/internal/jimage/BasicImageReader.java#L73
+        Class<?> basicImageReaderClass = sharedImageReader.getClass().getSuperclass();
+        Field readOnlyMapField = basicImageReaderClass.getDeclaredField("memoryMap");
+        readOnlyMapField.setAccessible(true);
+        ByteBuffer readOnlyMap = (ByteBuffer) readOnlyMapField.get(sharedImageReader);
+
+        // The read-only view is a DirectByteBuffer, which is backed by another DirectByteBuffer
+        // that
+        // holds the actual memory-mapped contents.
+        // https://github.com/openjdk/jdk/blob/da75f3c4ad5bdf25167a3ed80e51f567ab3dbd01/src/java.base/share/classes/jdk/internal/jimage/BasicImageReader.java#L161
+        // https://github.com/openjdk/jdk/blob/da75f3c4ad5bdf25167a3ed80e51f567ab3dbd01/src/java.base/share/classes/sun/nio/ch/DirectBuffer.java#L35
+        Method mapField = readOnlyMap.getClass().getMethod("attachment");
+        mapField.setAccessible(true);
+        return Optional.of((ByteBuffer) mapField.invoke(readOnlyMap));
+      } catch (RuntimeException
+          | NoSuchFieldException
+          | IllegalAccessException
+          | NoSuchMethodException
+          | InvocationTargetException e) {
+        // Cleanup is best-effort and highly specific to the JDK implementation, so we never want
+        // to fail if we can't get the mapped file for any reason other than an Error.
+        return Optional.empty();
+      }
+    }
+
+    private static void forceCleanup(ByteBuffer buffer) {
+      try {
+        Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
+        unsafeField.setAccessible(true);
+        ((Unsafe) unsafeField.get(null)).invokeCleaner(buffer);
+      } catch (RuntimeException | NoSuchFieldException | IllegalAccessException e) {
+        // Cleanup is best-effort and highly specific to the JDK implementation, so we never want
+        // to fail if we can't clean up the buffer for any reason other than an Error.
+      }
     }
   }
 
