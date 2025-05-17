@@ -98,13 +98,14 @@ public class BazelLockFileModule extends BlazeModule {
       // Not thrown in Bazel.
       throw new IllegalStateException(e);
     }
-    if (moduleResolutionValue == null
-        || depGraphValue == null
-        || oldLockfile == null
-        || oldHiddenLockfile == null) {
-      // An error during the actual build prevented the evaluation of these values and has already
-      // been reported at this point.
+    if (moduleResolutionValue == null || depGraphValue == null || oldLockfile == null) {
+      // Since these values are required to compute the main repo mapping, which happens in every
+      // build, an error must have occurred that prevented the evaluation of these values and that
+      // has already been reported at this point.
       return;
+    }
+    if (oldHiddenLockfile == null) {
+      oldHiddenLockfile = BazelLockFileValue.EMPTY_LOCKFILE;
     }
 
     // All nodes corresponding to module extensions that have been evaluated in the current build
@@ -160,6 +161,7 @@ public class BazelLockFileModule extends BlazeModule {
               }
             });
 
+    final BazelLockFileValue oldHiddenLockfileFinal = oldHiddenLockfile;
     Thread updateHiddenLockfile =
         Thread.startVirtualThread(
             () -> {
@@ -167,7 +169,7 @@ public class BazelLockFileModule extends BlazeModule {
               // but avoiding reevaluations on server startups helps cold build performance.
               var reproducibleExtensionInfos =
                   combineModuleExtensions(
-                      oldLockfile.getModuleExtensions(),
+                      oldHiddenLockfileFinal.getModuleExtensions(),
                       newExtensionInfos,
                       /* hasUsages= */ depGraphValue.getExtensionUsagesTable()::containsRow,
                       /* reproducible= */ true);
@@ -177,7 +179,7 @@ public class BazelLockFileModule extends BlazeModule {
                       .setModuleExtensions(reproducibleExtensionInfos)
                       .build();
 
-              if (!newHiddenLockfile.equals(oldHiddenLockfile)) {
+              if (!newHiddenLockfile.equals(oldHiddenLockfileFinal)) {
                 updateLockfile(outputBase, newHiddenLockfile);
               }
             });

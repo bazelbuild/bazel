@@ -49,6 +49,9 @@ public abstract class BazelLockFileValue implements SkyValue {
   // keep this number even).
   public static final int LOCK_FILE_VERSION = 20;
 
+  /** A valid empty lockfile. */
+  public static final BazelLockFileValue EMPTY_LOCKFILE = builder().build();
+
   /**
    * The (regular) lockfile, stored as MODULE.bazel.lock under the workspace directory. This file is
    * visible to the user and meant to be committed to source control. Thus, it

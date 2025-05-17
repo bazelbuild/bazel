@@ -56,8 +56,6 @@ public class BazelLockFileFunction implements SkyFunction {
   private static final Pattern POSSIBLE_MERGE_CONFLICT_PATTERN =
       Pattern.compile("<<<<<<<|=======|" + Pattern.quote("|||||||") + "|>>>>>>>");
 
-  private static final BazelLockFileValue EMPTY_LOCKFILE = BazelLockFileValue.builder().build();
-
   private final Path rootDirectory;
   private final Path outputBase;
 
@@ -93,7 +91,7 @@ public class BazelLockFileFunction implements SkyFunction {
         | NullPointerException
         | IllegalArgumentException e) {
       if (forHiddenLockfile) {
-        return EMPTY_LOCKFILE;
+        return BazelLockFileValue.EMPTY_LOCKFILE;
       }
       String actionSuffix;
       if (POSSIBLE_MERGE_CONFLICT_PATTERN.matcher(e.getMessage()).find()) {
@@ -133,10 +131,10 @@ public class BazelLockFileFunction implements SkyFunction {
                       + " lockfile."),
               Transience.PERSISTENT);
         }
-        return EMPTY_LOCKFILE;
+        return BazelLockFileValue.EMPTY_LOCKFILE;
       }
     } catch (FileNotFoundException e) {
-      return EMPTY_LOCKFILE;
+      return BazelLockFileValue.EMPTY_LOCKFILE;
     }
   }
 
