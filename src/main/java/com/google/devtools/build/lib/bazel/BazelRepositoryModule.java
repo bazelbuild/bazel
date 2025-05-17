@@ -392,6 +392,24 @@ public class BazelRepositoryModule extends BlazeModule {
                     .formatted(repoContentsCachePath, env.getWorkspace()),
                 Code.BAD_REPO_CONTENTS_CACHE));
       }
+      if (repositoryCache.getRepoContentsCache().isEnabled()) {
+        try {
+          repositoryCache.getRepoContentsCache().acquireSharedLock();
+        } catch (IOException e) {
+          throw new AbruptExitException(
+              detailedExitCode(
+                  "could not acquire lock on repo contents cache", Code.BAD_REPO_CONTENTS_CACHE));
+        }
+        if (!repoOptions.repoContentsCacheGcMaxAge.isZero()
+            && !repoOptions.repoContentsCacheGcIdleDelay.isZero()) {
+          env.addIdleTask(
+              repositoryCache
+                  .getRepoContentsCache()
+                  .createGcIdleTask(
+                      repoOptions.repoContentsCacheGcMaxAge,
+                      repoOptions.repoContentsCacheGcIdleDelay));
+        }
+      }
 
       try {
         downloadManager.setNetrcCreds(
@@ -646,6 +664,20 @@ public class BazelRepositoryModule extends BlazeModule {
       return null;
     }
     return env.getBlazeWorkspace().getWorkspace().getRelative(path);
+  }
+
+  @Override
+  public void afterCommand() throws AbruptExitException {
+    if (repositoryCache.getRepoContentsCache().isEnabled()) {
+      try {
+        repositoryCache.getRepoContentsCache().releaseSharedLock();
+      } catch (IOException e) {
+        throw new AbruptExitException(
+            detailedExitCode(
+                "could not release lock on repo contents cache", Code.BAD_REPO_CONTENTS_CACHE),
+            e);
+      }
+    }
   }
 
   @Override

@@ -240,6 +240,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
               return null;
             }
             if (repoState instanceof DigestWriter.RepoDirectoryState.UpToDate) {
+              candidate.touch();
               if (setupOverride(candidate.contentsDir().asFragment(), env, repoRoot, repositoryName)
                   == null) {
                 return null;
