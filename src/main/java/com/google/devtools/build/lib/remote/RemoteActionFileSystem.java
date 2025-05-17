@@ -308,6 +308,10 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     remoteOutputTree.injectFile(path, metadata);
   }
 
+  void injectEmptyRemoteDirectory(PathFragment path) throws IOException {
+    remoteOutputTree.createDirectoryAndParents(path);
+  }
+
   @Override
   public String getFileSystemType(PathFragment path) {
     return "remoteActionFS";

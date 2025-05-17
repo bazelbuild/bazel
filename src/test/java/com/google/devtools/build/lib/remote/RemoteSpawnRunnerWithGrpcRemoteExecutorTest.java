@@ -770,7 +770,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
   @Test
   public void remotelyExecuteRetries() throws Exception {
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+      PathFragment execPath = ArgumentMatchers.<PathFragment>any();
+      when(remoteOutputChecker.shouldDownloadOutput(execPath, any()))
         .thenReturn(true);
 
     serviceRegistry.addService(
@@ -927,7 +928,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
   @Test
   public void remotelyExecuteRetriesWaitResult() throws Exception {
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+      PathFragment execPath = ArgumentMatchers.<PathFragment>any();
+      when(remoteOutputChecker.shouldDownloadOutput(execPath, any()))
         .thenReturn(true);
 
     // This test's flow is similar to the previous, except the result

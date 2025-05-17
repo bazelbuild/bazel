@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCh
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -143,7 +144,8 @@ public class StandaloneSpawnStrategyTest {
                 (env, binTools1, fallbackTmpDir) -> ImmutableMap.copyOf(env),
                 binTools,
                 /* processWrapper= */ null,
-                Mockito.mock(RunfilesTreeUpdater.class)),
+                Mockito.mock(RunfilesTreeUpdater.class),
+                ActionOutputDirectoryHelper.createForTesting()),
             new ExecutionOptions());
     this.executor =
         new TestExecutorBuilder(fileSystem, directories)

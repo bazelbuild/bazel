@@ -77,12 +77,14 @@ public final class ActionOutputDirectoryHelper {
    *     directories fails to be created
    */
   public void createActionFsOutputDirectories(
-      Collection<Artifact> actionOutputs, ArtifactPathResolver artifactPathResolver)
+      Collection<Artifact> actionOutputs,
+      ArtifactPathResolver artifactPathResolver,
+      boolean createTreeArtifactDirectories)
       throws CreateOutputDirectoryException {
     Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
     for (Artifact outputFile : actionOutputs) {
       Path outputDir;
-      if (outputFile.isTreeArtifact()) {
+      if (createTreeArtifactDirectories && outputFile.isTreeArtifact()) {
         outputDir = artifactPathResolver.toPath(outputFile);
       } else {
         outputDir = artifactPathResolver.toPath(outputFile).getParentDirectory();
