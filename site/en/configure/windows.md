@@ -244,13 +244,8 @@ Bazel where LLVM is installed by `BAZEL_LLVM`.
 
 To enable the Clang toolchain for building C++, there are several situations.
 
-* In bazel 0.28 and older: Clang is not supported.
-
-* Without `--incompatible_enable_cc_toolchain_resolution`:
-  You can enable the Clang toolchain by a build flag `--compiler=clang-cl`.
-
-* With `--incompatible_enable_cc_toolchain_resolution`:
-  You have to add a platform target to your `BUILD file` (eg. the top level `BUILD` file):
+* In Bazel 7.0.0 and newer: Add a platform target to your `BUILD file` (eg. the
+  top level `BUILD` file):
 
     ```
     platform(
@@ -263,28 +258,21 @@ To enable the Clang toolchain for building C++, there are several situations.
     )
     ```
 
-    Then you can enable the Clang toolchain by either of the following two ways:
-    * Specify the following build flags:
+    Then enable the Clang toolchain by specifying the following build flags:
 
     ```
     --extra_toolchains=@local_config_cc//:cc-toolchain-x64_windows-clang-cl --extra_execution_platforms=//:x64_windows-clang-cl
     ```
 
-    * Register the platform and toolchain in your `MODULE.bazel` file:
+* In Bazel older than 7.0.0 but newer than 0.28: Enable the Clang toolchain by
+  a build flag `--compiler=clang-cl`.
 
-    ```
-    register_execution_platforms(
-        ":x64_windows-clang-cl"
-    )
+  If your build sets the flag
+  [\-\-incompatible_enable_cc_toolchain_resolution]
+  (https://github.com/bazelbuild/bazel/issues/7260){: .external}
+  to `true`, then use the approach for Bazel 7.0.0.
 
-    register_toolchains(
-        "@local_config_cc//:cc-toolchain-x64_windows-clang-cl",
-    )
-    ```
-
-    The [\-\-incompatible_enable_cc_toolchain_resolution](https://github.com/bazelbuild/bazel/issues/7260){: .external}
-    flag is planned to be enabled by default in future Bazel release. Therefore,
-    it is recommended to enable Clang support with the second approach.
+* In Bazel 0.28 and older: Clang is not supported.
 
 ### Build Java {:#java}
 
