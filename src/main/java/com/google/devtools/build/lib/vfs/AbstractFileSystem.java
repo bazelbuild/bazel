@@ -49,25 +49,15 @@ public abstract class AbstractFileSystem extends FileSystem {
 
   @Override
   protected InputStream getInputStream(PathFragment path) throws IOException {
-    // This loop is a workaround for an apparent bug in FileInputStream.open, which delegates
-    // ultimately to JVM_Open in the Hotspot JVM.  This call is not EINTR-safe, so we must do the
-    // retry here.
-    for (; ; ) {
-      try {
-        return createMaybeProfiledInputStream(path);
-      } catch (FileNotFoundException e) {
-        if (e.getMessage().endsWith("(Interrupted system call)")) {
-          continue;
-        } else {
-          // FileInputStream throws FileNotFoundException if opening fails for any reason,
-          // including permissions. Fix it up here.
-          // TODO(tjgq): Migrate to java.nio.
-          if (e.getMessage().equals(path + ERR_PERMISSION_DENIED)) {
-            throw new FileAccessException(e.getMessage());
-          }
-          throw e;
-        }
+    try {
+      return createMaybeProfiledInputStream(path);
+    } catch (FileNotFoundException e) {
+      // FileInputStream throws FileNotFoundException if opening fails for any reason, including
+      // permissions. Fix it up here.  TODO(tjgq): Migrate to java.nio.
+      if (e.getMessage().equals(path + ERR_PERMISSION_DENIED)) {
+        throw new FileAccessException(e.getMessage());
       }
+      throw e;
     }
   }
 
