@@ -359,6 +359,8 @@ public class BlazeJavacMain {
 
     public ClassloaderMaskingFileManager(Context context) {
       super(context, true, UTF_8);
+      // Close the file manager after a JavacTask is done.
+      autoClose = true;
     }
 
     @Override
