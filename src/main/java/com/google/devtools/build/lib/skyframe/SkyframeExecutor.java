@@ -231,7 +231,6 @@ import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsCycleReporter;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
@@ -526,9 +525,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final Set<SkyKey> deserializedKeysFromRemoteAnalysisCache = new HashSet<>();
 
-  /** Non-null only when analysis caching mode is upload/download. */
-  @Nullable private ModifiedFileSet diffFromEvaluatingVersion;
-
   private final AtomicInteger analysisCount = new AtomicInteger();
 
   /** Returns how many times analysis has been run during the life of this bazel server instance. */
@@ -612,11 +608,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting
   public boolean isRemoteAnalysisCachingEnabled() {
     return remoteAnalysisCachingDependenciesProvider.mode() == RemoteAnalysisCacheMode.DOWNLOAD;
-  }
-
-  @Nullable
-  public ModifiedFileSet getDiffFromEvaluatingVersion() {
-    return diffFromEvaluatingVersion;
   }
 
   final class PathResolverFactoryImpl implements PathResolverFactory {
@@ -3534,14 +3525,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           workspaceInfo = modifiedFileSet.getWorkspaceInfo();
           workspaceInfoFromDiffReceiver.syncWorkspaceInfoFromDiff(
               pathEntry.asPath().asFragment(), workspaceInfo);
-          // TODO(b/355127312): no longer needed when analysis cache service is the only choice.
-          var remoteAnalysisCachingOptions = options.getOptions(RemoteAnalysisCachingOptions.class);
-          if (remoteAnalysisCachingOptions != null
-              && remoteAnalysisCachingOptions.mode.requiresBackendConnectivity()) {
-            handleDiffsForRemoteAnalysisCaching(
-                diffAwarenessManager.getDiffFromEvaluatingVersion(
-                    fileSystem, getPathForModifiedFileSet(pathEntry), ignoredPaths, options));
-          }
         }
         if (modifiedFileSet.getModifiedFileSet().treatEverythingAsModified()) {
           pathEntriesWithoutDiffInformation.add(Pair.of(pathEntry, modifiedFileSet));
@@ -3568,11 +3551,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
     handleClientEnvironmentChanges();
     return workspaceInfo;
-  }
-
-  private void handleDiffsForRemoteAnalysisCaching(ModifiedFileSet diffFromEvaluatingVersion) {
-    logger.atInfo().log("Remote analysis caching diff: %s", diffFromEvaluatingVersion);
-    this.diffFromEvaluatingVersion = diffFromEvaluatingVersion;
   }
 
   /** Returns the path under which to find the modified file set. */

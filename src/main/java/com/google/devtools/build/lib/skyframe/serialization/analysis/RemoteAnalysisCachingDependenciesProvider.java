@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
-import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
 import java.util.Set;
@@ -68,8 +67,6 @@ public interface RemoteAnalysisCachingDependenciesProvider {
   void recordSerializationException(SerializationException e);
 
   void setTopLevelConfigChecksum(String checksum);
-
-  ModifiedFileSet getDiffFromEvaluatingVersion();
 
   /**
    * Returns the set of SkyKeys to be invalidated.
@@ -132,11 +129,6 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
     @Override
     public void setTopLevelConfigChecksum(String topLevelConfigChecksum) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ModifiedFileSet getDiffFromEvaluatingVersion() {
       throw new UnsupportedOperationException();
     }
 

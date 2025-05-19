@@ -123,7 +123,6 @@ import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
-import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -1098,8 +1097,6 @@ public class BuildTool {
     // object was created in BuildTool.
     private String topLevelConfigChecksum;
 
-    private final ModifiedFileSet diffFromEvaluatingVersion;
-
     private final ExtendedEventHandler eventHandler;
 
     public static RemoteAnalysisCachingDependenciesProvider forAnalysis(
@@ -1202,7 +1199,6 @@ public class BuildTool {
                 env.getSkyframeBuildView().getBuildConfiguration().getOptions(), env.getReporter());
       }
       this.blazeInstallMD5 = requireNonNull(env.getDirectories().getInstallMD5());
-      this.diffFromEvaluatingVersion = env.getSkyframeExecutor().getDiffFromEvaluatingVersion();
 
       var workspaceInfoFromDiff = env.getWorkspaceInfoFromDiff();
       if (workspaceInfoFromDiff == null) {
@@ -1344,14 +1340,6 @@ public class BuildTool {
     @Override
     public void setTopLevelConfigChecksum(String topLevelConfigChecksum) {
       this.topLevelConfigChecksum = topLevelConfigChecksum;
-    }
-
-    @Override
-    public ModifiedFileSet getDiffFromEvaluatingVersion() {
-      return checkNotNull(
-          diffFromEvaluatingVersion,
-          "expected to be not null when the mode is upload or download: %s",
-          mode);
     }
 
     @Override
