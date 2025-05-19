@@ -81,6 +81,10 @@ public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCa
    *
    * <p>This ensures that test cases don't share state. The instance will then last the lifetime of
    * the test case, regardless of the number of command invocations.
+   *
+   * <p>Always reference this with {@link
+   * RemoteAnalysisCachingDependenciesProvider#getFingerprintValueService()}, instead of using this
+   * field directly.
    */
   protected FingerprintValueService service = createFingerprintValueService();
 
