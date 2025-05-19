@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.regex;
 
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -31,7 +34,8 @@ public final class RegexUtil {
       Pattern.compile("(?:\\^|\\\\A)*\\.\\*(?<suffix>[^?+].*)?");
 
   /**
-   * Returns a {@link Predicate} that matches the input string against the regex pattern with the
+   * Returns a {@link Predicate} that matches the input string (in internal encoding according to
+   * {@link com.google.devtools.build.lib.util.StringEncoding}) against the regex pattern with the
    * same semantics as {@link Matcher#matches()}, but more optimized and as if the pattern was
    * compiled with {@link Pattern#DOTALL}.
    */
@@ -43,7 +47,11 @@ public final class RegexUtil {
       // engine's optimization pass exploited below - it only applies when the first node is a
       // literal, not a group.
       // Unmatched \Q...\E sequences can have the same effect.
-      return s -> regexPattern.matcher(s).matches();
+      return s -> regexPattern.matcher(internalToUnicode(s)).matches();
+    }
+    // If the pattern matches a literal string, optimize to an equals call.
+    if (LITERAL_PATTERN_WITH_DOT_UNESCAPED.matcher(pattern).matches()) {
+      return unicodeToInternal(pattern.replace("\\.", "."))::equals;
     }
     // Recognize a pattern that starts with ".*" and drop it so that the engine sees the next part
     // of the pattern as the beginning and potentially optimizes the literal search.
@@ -51,7 +59,7 @@ public final class RegexUtil {
     // determine if a ".*" suffix is safe to drop due to backslash escapes.
     Matcher suffixMatch = EXTRACT_SUFFIX_MATCH.matcher(pattern);
     if (!suffixMatch.matches()) {
-      return s -> regexPattern.matcher(s).matches();
+      return s -> regexPattern.matcher(internalToUnicode(s)).matches();
     }
     String suffixPattern = suffixMatch.group("suffix");
     // A null suffixPattern implies the regex is equivalent to ".*", which matches any input string.
@@ -61,14 +69,14 @@ public final class RegexUtil {
     // If the pattern matches a literal suffix, optimize to a string suffix
     // match, which is by far the fastest way to match.
     if (LITERAL_PATTERN_WITH_DOT_UNESCAPED.matcher(suffixPattern).matches()) {
-      String literalSuffix = suffixPattern.replace("\\.", ".");
+      String literalSuffix = unicodeToInternal(suffixPattern.replace("\\.", "."));
       return s -> s.endsWith(literalSuffix);
     }
     // Turn the "match" pattern into an equivalent "find" pattern, since these are the only ones
     // that benefit from the Boyer-Moore optimization in the Java regex engine.
     // https://github.com/openjdk/jdk/blob/50dced88ff1aed23bb4c8fe9e4a08e6cc200b897/src/java.base/share/classes/java/util/regex/Pattern.java#L1959-L1969
     Pattern compiled = Pattern.compile(suffixPattern + "\\z", Pattern.DOTALL);
-    return s -> compiled.matcher(s).find();
+    return s -> compiled.matcher(internalToUnicode(s)).find();
   }
 
   private RegexUtil() {}
