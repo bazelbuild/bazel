@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.StringEncoding;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -213,13 +212,6 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
       }
     }
     return resultBuilder.build();
-  }
-
-  @Override
-  public ModifiedFileSet getDiffFromEvaluatingVersion(OptionsProvider options, FileSystem fs) {
-    // TODO: b/377512263 - not implemented yet for LocalDiffAwareness. Return EVERYTHING_MODIFIED
-    // to invalidate everything until this is implemented.
-    return ModifiedFileSet.EVERYTHING_MODIFIED;
   }
 
   @Override

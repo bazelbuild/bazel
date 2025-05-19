@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.packages.util.LoadingMock;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.BrokenDiffAwarenessException;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
@@ -431,12 +430,6 @@ public class IncrementalLoadingTest {
         } else {
           return ModifiedFileSet.EVERYTHING_MODIFIED;
         }
-      }
-
-      @Override
-      public ModifiedFileSet getDiffFromEvaluatingVersion(OptionsProvider options, FileSystem fs)
-          throws BrokenDiffAwarenessException {
-        throw new UnsupportedOperationException("not implemented");
       }
 
       @Override

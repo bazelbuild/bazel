@@ -523,11 +523,6 @@ public class DiffAwarenessManagerTest {
     }
 
     @Override
-    public ModifiedFileSet getDiffFromEvaluatingVersion(OptionsProvider options, FileSystem fs) {
-      throw new UnsupportedOperationException("not implemented");
-    }
-
-    @Override
     public String name() {
       return "testingstub";
     }
