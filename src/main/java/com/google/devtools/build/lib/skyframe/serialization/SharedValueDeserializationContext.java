@@ -361,6 +361,15 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
 
     @Override
     public void onSuccess(byte[] bytes) {
+      if (bytes.length == 0) {
+        // This error should be tolerated by falling back on computation.
+        getOperation.setException(
+            new MissingSharedValueBytesException(
+                String.format(
+                    "missing shared value bytes for a %s instance belonging to a %s instance",
+                    codec.getEncodedClass().getName(), parent.getClass().getName())));
+        return;
+      }
       SharedValueDeserializationContext innerContext = getFreshContext();
       DeferredValue<?> deferred;
       try {
@@ -590,6 +599,17 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
   static final class PeerFailedException extends LookupAbandonedException {
     PeerFailedException(Throwable cause) {
       super(cause);
+    }
+  }
+
+  /**
+   * Indicates that the bytes for a shared value were missing.
+   *
+   * <p>This error should be tolerated by falling back on computation.
+   */
+  static final class MissingSharedValueBytesException extends SerializationException {
+    MissingSharedValueBytesException(String message) {
+      super(message);
     }
   }
 }

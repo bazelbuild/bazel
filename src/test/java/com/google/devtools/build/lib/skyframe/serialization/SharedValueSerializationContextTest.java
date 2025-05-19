@@ -329,7 +329,7 @@ public final class SharedValueSerializationContextTest {
             () ->
                 codecs.serializeMemoizedAndBlocking(
                     fingerprintValueService, subject2, /* profileCollector= */ null));
-    assertThat(thrown2).hasCauseThat().isSameInstanceAs(thrown1);
+    assertThat(thrown2).isSameInstanceAs(thrown1);
   }
 
   /** Test data for {@link #errorInSharedPut}. */
