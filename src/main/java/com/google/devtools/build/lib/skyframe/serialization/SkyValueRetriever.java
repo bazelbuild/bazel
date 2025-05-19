@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeseriali
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.proto.DataType;
 import com.google.devtools.build.skyframe.IntVersion;
-import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
@@ -451,16 +450,19 @@ public final class SkyValueRetriever {
     public static final FrontierNodeVersion CONSTANT_FOR_TESTING =
         new FrontierNodeVersion(
             "123",
-            "string_for_testing",
             HashCode.fromInt(42),
             IntVersion.of(9000),
+            "distinguisher",
             Optional.of(new ClientId("for_testing", 123)));
 
     // Fingerprints of version components.
     private final byte[] topLevelConfigFingerprint;
-    private final byte[] directoryMatcherFingerprint;
     private final byte[] blazeInstallMD5Fingerprint;
     private final byte[] evaluatingVersionFingerprint;
+
+    // Fingerprint of the distinguisher for allowing test cases to share a
+    // static cache.
+    private final byte[] distinguisherBytesForTesting;
 
     // Fingerprint of the full version.
     private final byte[] precomputedFingerprint;
@@ -469,21 +471,21 @@ public final class SkyValueRetriever {
 
     public FrontierNodeVersion(
         String topLevelConfigChecksum,
-        String directoryMatcherStringRepr,
         HashCode blazeInstallMD5,
         IntVersion evaluatingVersion,
+        String distinguisherBytesForTesting,
         Optional<ClientId> clientId) {
       // TODO: b/364831651 - add more fields like source and blaze versions.
       this.topLevelConfigFingerprint = topLevelConfigChecksum.getBytes(UTF_8);
-      this.directoryMatcherFingerprint = directoryMatcherStringRepr.getBytes(UTF_8);
       this.blazeInstallMD5Fingerprint = blazeInstallMD5.asBytes();
       this.evaluatingVersionFingerprint = Longs.toByteArray(evaluatingVersion.getVal());
+      this.distinguisherBytesForTesting = distinguisherBytesForTesting.getBytes(UTF_8);
       this.precomputedFingerprint =
           Bytes.concat(
               this.topLevelConfigFingerprint,
-              this.directoryMatcherFingerprint,
               this.blazeInstallMD5Fingerprint,
-              this.evaluatingVersionFingerprint);
+              this.evaluatingVersionFingerprint,
+              this.distinguisherBytesForTesting);
 
       // This is undigested.
       this.clientId = clientId;
@@ -515,9 +517,9 @@ public final class SkyValueRetriever {
     public String toString() {
       return MoreObjects.toStringHelper(this)
           .add("topLevelConfig", Arrays.hashCode(topLevelConfigFingerprint))
-          .add("directoryMatcher", Arrays.hashCode(directoryMatcherFingerprint))
           .add("blazeInstall", Arrays.hashCode(blazeInstallMD5Fingerprint))
           .add("evaluatingVersion", Arrays.hashCode(evaluatingVersionFingerprint))
+          .add("distinguisherBytesForTesting", Arrays.hashCode(distinguisherBytesForTesting))
           .add("precomputed", hashCode())
           .toString();
     }

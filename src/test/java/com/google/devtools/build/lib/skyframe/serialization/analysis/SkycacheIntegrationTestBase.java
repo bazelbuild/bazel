@@ -876,6 +876,12 @@ ACTION_EXECUTION:ActionLookupData0{actionLookupKey=ConfiguredTargetKey{label=//A
     assertWithMessage("expected to serialize at least one Skyframe node")
         .that(getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys())
         .isNotEmpty();
+    assertWithMessage("expected to not have any SerializationExceptions")
+        .that(
+            getCommandEnvironment()
+                .getRemoteAnalysisCachingEventListener()
+                .getSerializationExceptionCounts())
+        .isEqualTo(0);
   }
 
   protected final void assertDownloadSuccess(String... targets) throws Exception {
@@ -884,6 +890,12 @@ ACTION_EXECUTION:ActionLookupData0{actionLookupKey=ConfiguredTargetKey{label=//A
     assertWithMessage("expected to deserialize at least one Skyframe node")
         .that(getCommandEnvironment().getRemoteAnalysisCachingEventListener().getCacheHits())
         .isNotEmpty();
+    assertWithMessage("expected to not have any SerializationExceptions")
+        .that(
+            getCommandEnvironment()
+                .getRemoteAnalysisCachingEventListener()
+                .getSerializationExceptionCounts())
+        .isEqualTo(0);
   }
 
   protected final void writeProjectSclWithActiveDirs(String path, String... activeDirs)

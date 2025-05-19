@@ -1077,9 +1077,10 @@ public class BuildTool {
 
     private final RemoteAnalysisCacheMode mode;
     private final String serializedFrontierProfile;
-    private final PathFragmentPrefixTrie activeDirectoriesMatcher;
+    private final Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher;
     private final RemoteAnalysisCachingEventListener listener;
     private final HashCode blazeInstallMD5;
+    private final String distinguisher;
 
     /** Cache lookup parameter requiring integration with external version control. */
     private final IntVersion evaluatingVersion;
@@ -1101,7 +1102,7 @@ public class BuildTool {
 
     public static RemoteAnalysisCachingDependenciesProvider forAnalysis(
         CommandEnvironment env, Optional<PathFragmentPrefixTrie> maybeActiveDirectoriesMatcher)
-        throws InterruptedException, AbruptExitException {
+        throws InterruptedException {
       var options = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
       if (options == null
           || !env.getCommand().buildPhase().executes()
@@ -1110,14 +1111,16 @@ public class BuildTool {
       }
 
       Optional<PathFragmentPrefixTrie> maybeActiveDirectoriesMatcherFromFlags =
-          determineActiveDirectoriesMatcher(env, maybeActiveDirectoriesMatcher, options.mode);
-      if (maybeActiveDirectoriesMatcherFromFlags.isEmpty()) {
+          finalizeActiveDirectoriesMatcher(env, maybeActiveDirectoriesMatcher, options.mode);
+      if (maybeActiveDirectoriesMatcherFromFlags.isEmpty()
+          && options.mode != RemoteAnalysisCacheMode.DOWNLOAD) {
+        // Allow active directories matcher to be empty for download.
         return DisabledDependenciesProvider.INSTANCE;
       }
       var dependenciesProvider =
           new RemoteAnalysisCachingDependenciesProviderImpl(
               env,
-              maybeActiveDirectoriesMatcherFromFlags.get(),
+              maybeActiveDirectoriesMatcherFromFlags,
               options.mode,
               options.serializedFrontierProfile);
 
@@ -1141,15 +1144,16 @@ public class BuildTool {
      *
      * <p>For upload mode, optionally check the --experimental_active_directories flag if the
      * project file matcher is not present.
+     *
+     * <p>For download mode, the matcher is always empty.
      */
-    private static Optional<PathFragmentPrefixTrie> determineActiveDirectoriesMatcher(
+    private static Optional<PathFragmentPrefixTrie> finalizeActiveDirectoriesMatcher(
         CommandEnvironment env,
         Optional<PathFragmentPrefixTrie> maybeProjectFileMatcher,
         RemoteAnalysisCacheMode mode) {
       switch (mode) {
         case RemoteAnalysisCacheMode.DOWNLOAD:
-          // Download mode: use the project file matcher only.
-          return maybeProjectFileMatcher;
+          return Optional.empty();
         case RemoteAnalysisCacheMode.UPLOAD:
         case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY:
           // Upload or Dump mode: allow overriding the project file matcher with the active
@@ -1172,7 +1176,7 @@ public class BuildTool {
 
     private RemoteAnalysisCachingDependenciesProviderImpl(
         CommandEnvironment env,
-        PathFragmentPrefixTrie activeDirectoriesMatcher,
+        Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher,
         RemoteAnalysisCacheMode mode,
         String serializedFrontierProfile)
         throws InterruptedException {
@@ -1199,6 +1203,10 @@ public class BuildTool {
                 env.getSkyframeBuildView().getBuildConfiguration().getOptions(), env.getReporter());
       }
       this.blazeInstallMD5 = requireNonNull(env.getDirectories().getInstallMD5());
+      this.distinguisher =
+          env.getOptions()
+              .getOptions(RemoteAnalysisCachingOptions.class)
+              .analysisCacheKeyDistinguisherForTesting;
 
       var workspaceInfoFromDiff = env.getWorkspaceInfoFromDiff();
       if (workspaceInfoFromDiff == null) {
@@ -1259,7 +1267,10 @@ public class BuildTool {
 
     @Override
     public boolean withinActiveDirectories(PackageIdentifier pkg) {
-      return activeDirectoriesMatcher.includes(pkg.getPackageFragment());
+      checkState(
+          mode != RemoteAnalysisCacheMode.DOWNLOAD && activeDirectoriesMatcher.isPresent(),
+          "Active directories matcher is not available");
+      return activeDirectoriesMatcher.get().includes(pkg.getPackageFragment());
     }
 
     private volatile FrontierNodeVersion frontierNodeVersionSingleton = null;
@@ -1282,9 +1293,9 @@ public class BuildTool {
             frontierNodeVersionSingleton =
                 new FrontierNodeVersion(
                     topLevelConfigChecksum,
-                    activeDirectoriesMatcher.toString(),
                     blazeInstallMD5,
                     evaluatingVersion,
+                    distinguisher,
                     snapshot);
             logger.atInfo().log(
                 "Remote analysis caching SkyValue version: %s (actual evaluating version: %s)",

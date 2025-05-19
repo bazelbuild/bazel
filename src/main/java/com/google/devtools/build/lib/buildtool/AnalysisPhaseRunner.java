@@ -29,7 +29,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -290,39 +289,7 @@ public final class AnalysisPhaseRunner {
           DetailedExitCode.of(ExitCode.PARSING_FAILURE, FailureDetail.getDefaultInstance()));
     }
 
-    if (featureFlags.contains(ANALYSIS_CACHING_DOWNLOAD)) {
-      // Features that can work with exactly one project file.
-      // TODO(b/416450696): Remove this check once Skycache reader builds no longer need project
-      // files.
-      if (activeProjects.isEmpty()) {
-        env.getReporter()
-            .handle(
-                Event.info(
-                    "Disabling Skycache due to missing PROJECT.scl: "
-                        + targetPatternPhaseValue.getTargetLabels()));
-      } else if (activeProjects.projectFilesToTargetLabels().size() > 1
-          || activeProjects.partialProjectBuild()) {
-        String message =
-            "Skycache only works on single-project builds. This is a %s. %s"
-                .formatted(activeProjects.buildType(), activeProjects.differentProjectsDetails());
-        throw new LoadingFailedException(
-            message,
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setMessage(message)
-                    .setRemoteAnalysisCaching(
-                        RemoteAnalysisCaching.newBuilder().setCode(PROJECT_FILE_NOT_FOUND))
-                    .build()));
-      } else {
-        PathFragmentPrefixTrie projectMatcher =
-            BuildTool.getActiveDirectoriesMatcher(
-                Iterables.getOnlyElement(activeProjects.projectFilesToTargetLabels().keySet()),
-                env.getSkyframeExecutor(),
-                env.getReporter());
-
-        resultBuilder.activeDirectoriesMatcher(Optional.ofNullable(projectMatcher));
-      }
-    } else if (featureFlags.contains(ANALYSIS_CACHING_UPLOAD) || featureFlags.contains(SKYFOCUS)) {
+    if (featureFlags.contains(ANALYSIS_CACHING_UPLOAD) || featureFlags.contains(SKYFOCUS)) {
       // Features that can work with zero or one project file.
       if (activeProjects.projectFilesToTargetLabels().size() > 1
           || activeProjects.partialProjectBuild()) {
