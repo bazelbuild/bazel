@@ -1126,24 +1126,14 @@ public class BuildTool {
 
       switch (options.mode) {
         case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY:
-          // Skips FrontierViolationChecker for manifest dump because it's useful for debugging how
-          // violations change the frontier.
-          return dependenciesProvider;
         case RemoteAnalysisCacheMode.UPLOAD:
+          return dependenciesProvider;
         case RemoteAnalysisCacheMode.DOWNLOAD:
-          if (dependenciesProvider.getAnalysisCacheClient() != null) {
-            // If analysis cache service is non-null, skip frontier violation checks.
-            return dependenciesProvider;
-          }
-
-          return FrontierViolationChecker.check(
-              dependenciesProvider,
-              env.getOptions().getOptions(SkyfocusOptions.class).frontierViolationCheck,
-              env.getOptions().getOptions(SkyfocusOptions.class).frontierViolationVerbose,
-              env.getReporter(),
-              env.getSkyframeExecutor().getEvaluator(),
-              env.getRuntime().getProductName(),
-              env.getEventBus());
+          checkNotNull(
+              dependenciesProvider.getAnalysisCacheClient(),
+              "Analysis cache client is null, did you forget to set"
+                  + " --experimental_analysis_cache_service?");
+          return dependenciesProvider;
         default:
           throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.mode);
       }
