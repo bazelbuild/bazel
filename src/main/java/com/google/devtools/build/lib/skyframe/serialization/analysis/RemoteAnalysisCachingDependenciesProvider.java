@@ -58,7 +58,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
   ObjectCodecs getObjectCodecs();
 
   /** Returns the {@link FingerprintValueService} implementation. */
-  FingerprintValueService getFingerprintValueService();
+  FingerprintValueService getFingerprintValueService() throws InterruptedException;
 
   RequestBatcher<ByteString, ByteString> getAnalysisCacheClient();
 
@@ -73,7 +73,8 @@ public interface RemoteAnalysisCachingDependenciesProvider {
    *
    * <p>May call the remote analysis cache to get the set of keys to invalidate.
    */
-  ImmutableSet<SkyKey> lookupKeysToInvalidate(Set<SkyKey> existingCachedKeys);
+  ImmutableSet<SkyKey> lookupKeysToInvalidate(Set<SkyKey> existingCachedKeys)
+      throws InterruptedException;
 
   /** A stub dependencies provider for when analysis caching is disabled. */
   final class DisabledDependenciesProvider implements RemoteAnalysisCachingDependenciesProvider {

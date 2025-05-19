@@ -1306,10 +1306,10 @@ public class BuildTool {
     }
 
     @Override
-    public FingerprintValueService getFingerprintValueService() {
+    public FingerprintValueService getFingerprintValueService() throws InterruptedException {
       try {
         return fingerprintValueServiceFuture.get(CLIENT_LOOKUP_TIMEOUT_SEC, SECONDS);
-      } catch (InterruptedException | ExecutionException | TimeoutException e) {
+      } catch (ExecutionException | TimeoutException e) {
         throw new IllegalStateException("Unable to initialize fingerprint value service", e);
       }
     }
@@ -1343,7 +1343,8 @@ public class BuildTool {
     }
 
     @Override
-    public ImmutableSet<SkyKey> lookupKeysToInvalidate(Set<SkyKey> keysToLookup) {
+    public ImmutableSet<SkyKey> lookupKeysToInvalidate(Set<SkyKey> keysToLookup)
+        throws InterruptedException {
       AnalysisCacheInvalidator invalidator = getAnalysisCacheInvalidator();
       if (invalidator == null) {
         return ImmutableSet.of();
@@ -1352,7 +1353,7 @@ public class BuildTool {
     }
 
     @Nullable
-    private AnalysisCacheInvalidator getAnalysisCacheInvalidator() {
+    private AnalysisCacheInvalidator getAnalysisCacheInvalidator() throws InterruptedException {
       AnalysisCacheInvalidator localRef = analysisCacheInvalidator;
       if (localRef == null) {
         synchronized (this) {

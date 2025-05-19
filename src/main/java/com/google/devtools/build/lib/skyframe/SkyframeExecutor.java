@@ -562,7 +562,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *
    * <p>This is a no-op if remote analysis caching is disabled.
    */
-  public void invalidateWithExternalService(ExtendedEventHandler eventHandler) {
+  public void invalidateWithExternalService(ExtendedEventHandler eventHandler)
+      throws InterruptedException {
     if (!isRemoteAnalysisCachingEnabled()) {
       return;
     }
