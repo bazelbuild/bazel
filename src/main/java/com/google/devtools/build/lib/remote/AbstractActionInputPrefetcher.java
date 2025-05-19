@@ -624,16 +624,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       // parent directory after prefetching.
       directoryTracker.setTemporarilyWritable(parentDir);
     } else {
-      // There are three cases:
+      // One of the following must apply:
       //   (1) The file does not belong to a tree artifact.
       //   (2) The file belongs to a tree artifact created by an action template expansion.
-      //   (3) The file belongs to a tree artifact but we don't know it. This can occur when the
-      //       file belongs to a tree artifact inside a fileset (see b/254844173).
       // In case (1), the parent directory is a package or a subdirectory of a package, and should
-      // remain writable. In cases (2) and (3), even though we arguably ought to set the output
-      // permissions on the parent directory to match the outcome of a locally executed action, we
-      // choose not to do it and avoid the additional implementation complexity required to detect a
-      // race condition between concurrent calls touching the same directory.
+      // remain writable. In case (2), even though we arguably ought to set the output permissions
+      // on the parent directory to match local execution, we choose not to do it and avoid the
+      // additional implementation complexity required to detect a race condition between concurrent
+      // calls touching the same directory.
       directoryTracker.setPermanentlyWritable(parentDir);
     }
 
