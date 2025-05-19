@@ -529,9 +529,9 @@ public final class CcCompilationHelper {
     // We assume TreeArtifacts passed in are directories containing proper sources for compilation.
     if (!sourceCategory.getSourceTypes().matches(source.getExecPathString())
         && !source.isTreeArtifact()) {
-      // TODO(plf): If it's a non-source file we ignore it. This is only the case for precompiled
-      // files which should be forbidden in srcs of cc_library|binary and instead be migrated to
-      // cc_import rules.
+      // TODO(b/413333884): If it's a non-source file we ignore it. This is only the case for
+      // precompiled files which should be forbidden in srcs of cc_library|binary and instead be
+      // migrated to cc_import rules.
       return;
     }
 

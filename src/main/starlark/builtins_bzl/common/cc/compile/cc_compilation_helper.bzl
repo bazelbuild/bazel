@@ -14,7 +14,6 @@
 
 """Compilation helper for C++ rules."""
 
-load(":common/cc/cc_common.bzl", "cc_common")
 load(
     ":common/cc/cc_helper_internal.bzl",
     "package_source_root",
@@ -23,6 +22,7 @@ load(
 load(":common/cc/semantics.bzl", "USE_EXEC_ROOT_FOR_VIRTUAL_INCLUDES_SYMLINKS")
 load(":common/paths.bzl", "paths")
 
+cc_common_internal = _builtins.internal.cc_common
 cc_internal = _builtins.internal.cc_internal
 
 _VIRTUAL_INCLUDES_DIR = "_virtual_includes"
@@ -48,7 +48,7 @@ def _repo_relative_path(artifact):
     return relative_path
 
 def _enabled(feature_configuration, feature_name):
-    return cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = feature_name)
+    return feature_configuration.is_enabled(feature_name)
 
 def _compute_public_headers(
         actions,
@@ -301,7 +301,7 @@ def _init_cc_compilation_context(
     header_module = None
     if _enabled(feature_configuration, "module_maps"):
         if not module_map:
-            module_map = cc_common.create_module_map(
+            module_map = cc_common_internal.create_module_map(
                 file = actions.declare_file(label.name + ".cppmap"),
                 name = label.workspace_name + "//" + label.package + ":" + label.name,
             )
@@ -393,7 +393,7 @@ def _init_cc_compilation_context(
         dependent_cc_compilation_contexts.append(cc_toolchain_compilation_context)
     dependent_cc_compilation_contexts.extend(deps)
 
-    main_context = cc_common.create_compilation_context(
+    main_context = cc_common_internal.create_compilation_context(
         actions = actions,
         label = label,
         quote_includes = depset(quote_include_dirs_for_context),
@@ -419,10 +419,13 @@ def _init_cc_compilation_context(
         separate_pic_module = separate_pic_module,
         purpose = purpose,
         add_public_headers_to_modular_headers = False,
+        exported_dependent_cc_compilation_contexts = [],
+        headers_checking_mode = "STRICT",
+        loose_hdrs_dirs = [],
     )
     implementation_deps_context = None
     if implementation_deps:
-        implementation_deps_context = cc_common.create_compilation_context(
+        implementation_deps_context = cc_common_internal.create_compilation_context(
             actions = actions,
             label = label,
             quote_includes = depset(quote_include_dirs_for_context),
@@ -448,6 +451,9 @@ def _init_cc_compilation_context(
             separate_pic_module = separate_pic_module,
             purpose = purpose + "_impl",
             add_public_headers_to_modular_headers = False,
+            exported_dependent_cc_compilation_contexts = [],
+            headers_checking_mode = "STRICT",
+            loose_hdrs_dirs = [],
         )
 
     return main_context, implementation_deps_context

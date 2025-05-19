@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Types;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
@@ -55,6 +57,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -787,7 +791,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {
         @Param(name = "actions"),
       })
-  public StarlarkRuleContext getLabel(StarlarkActionFactory actions) {
+  public StarlarkRuleContext getStarlarkRuleContext(StarlarkActionFactory actions) {
     return actions.getRuleContext().getStarlarkRuleContext();
   }
 
@@ -817,5 +821,84 @@ public class CcStarlarkInternal implements StarlarkValue {
         .map(PerLabelOptions::getOptions)
         .flatMap(options -> options.stream())
         .collect(toImmutableList());
+  }
+
+  /**
+   * Returns a {@code CcCompilationContext} that is based on a given {@code CcCompilationContext},
+   * with {@code extraHeaderTokens} added to the header tokens.
+   */
+  @StarlarkMethod(
+      name = "create_cc_compilation_context_with_extra_header_tokens",
+      doc =
+          "Creates a <code>CompilationContext</code> based on an existing one, with extra header"
+              + " tokens.",
+      parameters = {
+        @Param(
+            name = "cc_compilation_context",
+            doc = "The base <code>CompilationContext</code>.",
+            positional = false,
+            named = true),
+        @Param(
+            name = "extra_header_tokens",
+            doc = "The extra header tokens to add.",
+            positional = false,
+            named = true),
+      })
+  public CcCompilationContext createCcCompilationContextWithExtraHeaderTokens(
+      CcCompilationContext ccCompilationContext, Sequence<?> extraHeaderTokens)
+      throws EvalException {
+    return CcCompilationContext.createWithExtraHeaderTokens(
+        ccCompilationContext,
+        Sequence.cast(extraHeaderTokens, Artifact.class, "extra_header_tokens").getImmutableList());
+  }
+
+  @StarlarkMethod(
+      name = "create_copts_filter",
+      doc = "Creates a copts filter from a regex.",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "copts_filter",
+            doc =
+                "The regex to use for the copts filter. If not given, a filter that always passes"
+                    + " is returned.",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            positional = true,
+            named = true,
+            defaultValue = "unbound"),
+      })
+  public StarlarkValue createCoptsFilterForStarlark(Object coptsFilterObject) throws EvalException {
+    return createCoptsFilter(coptsFilterObject);
+  }
+
+  private CoptsFilter createCoptsFilter(Object coptsFilterObject) throws EvalException {
+    String coptsFilterRegex =
+        (Starlark.isNullOrNone(coptsFilterObject) || coptsFilterObject == Starlark.UNBOUND)
+            ? null
+            : (String) coptsFilterObject;
+    CoptsFilter coptsFilter = null;
+    if (Strings.isNullOrEmpty(coptsFilterRegex)) {
+      coptsFilter = CoptsFilter.alwaysPasses();
+    } else {
+      try {
+        coptsFilter = CoptsFilter.fromRegex(Pattern.compile(coptsFilterRegex));
+      } catch (PatternSyntaxException e) {
+        throw Starlark.errorf(
+            "invalid regular expression '%s': %s", coptsFilterRegex, e.getMessage());
+      }
+    }
+    return coptsFilter;
+  }
+
+  @StarlarkMethod(
+      name = "is_tree_artifact",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "artifact",
+            allowedTypes = {@ParamType(type = Artifact.class)})
+      })
+  public boolean isTreeArtifact(Artifact artifact) {
+    return artifact.isTreeArtifact();
   }
 }
