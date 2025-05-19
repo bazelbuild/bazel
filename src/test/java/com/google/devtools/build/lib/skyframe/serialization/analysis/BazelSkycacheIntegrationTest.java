@@ -38,10 +38,14 @@ public final class BazelSkycacheIntegrationTest extends SkycacheIntegrationTestB
     injectVersionGetterForTesting(versionGetter);
   }
 
-  private class ModuleWithOverrides extends SerializationModule {
+  private static class ModuleWithOverrides extends SerializationModule {
     @Override
     protected RemoteAnalysisCachingServicesSupplier getAnalysisCachingServicesSupplier() {
-      return new TestServicesSupplier(service);
+      // A unique instance of the fingerprint value service per test case.
+      //
+      // This ensures that test cases don't share state. The instance will then last the lifetime
+      // of the test case, regardless of the number of command invocations.
+      return new TestServicesSupplier(FingerprintValueService.createForTesting());
     }
   }
 

@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.TestCommand;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -50,7 +49,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.errorprone.annotations.ForOverride;
 import com.google.perftools.profiles.ProfileProto.Profile;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
@@ -76,18 +74,6 @@ public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCa
 
   @Rule public TestName testName = new TestName();
 
-  /**
-   * A unique instance of the fingerprint value service per test case.
-   *
-   * <p>This ensures that test cases don't share state. The instance will then last the lifetime of
-   * the test case, regardless of the number of command invocations.
-   *
-   * <p>Always reference this with {@link
-   * RemoteAnalysisCachingDependenciesProvider#getFingerprintValueService()}, instead of using this
-   * field directly.
-   */
-  protected FingerprintValueService service = createFingerprintValueService();
-
   private final ClearCountingSyscallCache syscallCache = new ClearCountingSyscallCache();
 
   @Before
@@ -96,11 +82,6 @@ public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCa
     // integration tests (e.g. making LocalDiffAwareness supported and not return
     // EVERYTHING_MODIFIED) for baseline diffs.
     addOptions("--experimental_frontier_violation_check=disabled_for_testing");
-  }
-
-  @ForOverride
-  protected FingerprintValueService createFingerprintValueService() {
-    return FingerprintValueService.createForTesting();
   }
 
   @Test
