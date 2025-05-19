@@ -256,7 +256,7 @@ def _collect_solib_dirs_from_libraries(
             # Unless running locally, libraries will be available under the root relative path, so we
             # should add that to the rpath as well.
             if input_file.short_path.startswith("_solib_"):
-                artifact_path_under_solib = input_file.short_path.split("/")[1]
+                artifact_path_under_solib = "/".join(input_file.short_path.split("/")[1:-1])
                 for rpath_root in rpath_roots:
                     rpath_roots_for_explicit_so_deps[rpath_root + artifact_path_under_solib] = None
 
