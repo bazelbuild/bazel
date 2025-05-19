@@ -1013,7 +1013,7 @@ public final class CcStaticCompilationHelper {
    * file. It takes into account coverage, and PIC, in addition to using the settings specified on
    * the current object. This method should only be called once.
    */
-  private static CcCompilationOutputs createCcCompileActions(
+  static CcCompilationOutputs createCcCompileActions(
       ActionConstructionContext actionConstructionContext,
       List<Artifact> additionalCompilationInputs,
       List<Artifact> additionalIncludeScanningRoots,

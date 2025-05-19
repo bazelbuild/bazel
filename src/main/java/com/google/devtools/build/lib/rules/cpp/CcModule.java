@@ -29,9 +29,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkErrorReporter;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -2419,5 +2421,198 @@ public abstract class CcModule
       throw Starlark.errorf("Passed function must be top-level functions.");
     }
     return new StarlarkDefinedLinkTimeLibrary(buildLibraryFunc, ImmutableMap.copyOf(dataSetsMap));
+  }
+
+  @StarlarkMethod(
+      name = "create_cc_compile_actions",
+      doc = "Create the C++ compile actions, and the corresponding compilation related providers.",
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "action_construction_context",
+            positional = false,
+            named = true,
+            doc = "The action construction context."),
+        @Param(
+            name = "additional_compilation_inputs",
+            positional = false,
+            named = true,
+            doc = "The additional compilation inputs.",
+            defaultValue = "[]"),
+        @Param(
+            name = "additional_include_scanning_roots",
+            positional = false,
+            named = true,
+            doc = "The additional include scanning roots.",
+            defaultValue = "[]"),
+        @Param(
+            name = "cc_compilation_context",
+            positional = false,
+            named = true,
+            doc = "The C++ compilation context."),
+        @Param(name = "cc_toolchain", positional = false, named = true, doc = "The C++ toolchain."),
+        @Param(
+            name = "compilation_unit_sources",
+            positional = false,
+            named = true,
+            doc = "The compilation unit sources."),
+        @Param(
+            name = "configuration",
+            positional = false,
+            named = true,
+            doc = "The configuration."),
+        @Param(
+            name = "conlyopts",
+            positional = false,
+            named = true,
+            doc = "The conlyopts.",
+            defaultValue = "[]"),
+        @Param(
+            name = "copts",
+            positional = false,
+            named = true,
+            doc = "The copts.",
+            defaultValue = "[]"),
+        @Param(name = "copts_filter", positional = false, named = true, doc = "The copts filter."),
+        @Param(
+            name = "cpp_configuration",
+            positional = false,
+            named = true,
+            doc = "The C++ configuration."),
+        @Param(
+            name = "cxxopts",
+            positional = false,
+            named = true,
+            doc = "The cxxopts.",
+            defaultValue = "[]"),
+        @Param(name = "fdo_context", positional = false, named = true, doc = "The FDO context."),
+        @Param(
+            name = "feature_configuration",
+            positional = false,
+            named = true,
+            doc = "The feature configuration."),
+        @Param(
+            name = "generate_no_pic_action",
+            positional = false,
+            named = true,
+            doc = "Whether to generate a no-PIC action."),
+        @Param(
+            name = "generate_pic_action",
+            positional = false,
+            named = true,
+            doc = "Whether to generate a PIC action."),
+        @Param(
+            name = "is_code_coverage_enabled",
+            positional = false,
+            named = true,
+            doc = "Whether code coverage is enabled."),
+        @Param(name = "label", positional = false, named = true, doc = "The label."),
+        @Param(
+            name = "private_headers",
+            positional = false,
+            named = true,
+            doc = "The private headers.",
+            defaultValue = "[]"),
+        @Param(
+            name = "public_headers",
+            positional = false,
+            named = true,
+            doc = "The public headers.",
+            defaultValue = "[]"),
+        @Param(name = "purpose", positional = false, named = true, doc = "The purpose."),
+        @Param(
+            name = "separate_module_headers",
+            positional = false,
+            named = true,
+            doc = "The separate module headers.",
+            defaultValue = "[]"),
+        @Param(
+            name = "variables_extension",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Dict.class)},
+            defaultValue = "unbound"),
+        @Param(
+            name = "language",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "unbound"),
+      })
+  public CcCompilationOutputs createCcCompileActionsForStarlark(
+      StarlarkRuleContext actionConstructionContext,
+      Sequence<?> additionalCompilationInputs,
+      Sequence<?> additionalIncludeScanningRoots,
+      CcCompilationContext ccCompilationContext,
+      StarlarkInfo ccToolchain,
+      Dict<?, ?> compilationUnitSources,
+      BuildConfigurationValue configuration,
+      Sequence<?> conlyopts,
+      Sequence<?> copts,
+      CoptsFilter coptsFilter,
+      CppConfiguration cppConfiguration,
+      Sequence<?> cxxopts,
+      StructImpl fdoContextStruct,
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      boolean generateNoPicAction,
+      boolean generatePicAction,
+      boolean isCodeCoverageEnabled,
+      Label label,
+      Sequence<?> privateHeaders,
+      Sequence<?> publicHeaders,
+      String purpose,
+      Sequence<?> separateModuleHeaders,
+      Object variablesExtension,
+      Object languageObject,
+      StarlarkThread thread)
+      throws RuleErrorException, EvalException, InterruptedException {
+
+    isCalledFromStarlarkCcCommon(thread);
+    checkPrivateStarlarkificationAllowlist(thread);
+
+    RuleErrorConsumer ruleErrorConsumer =
+        actionConstructionContext.getRuleContext().getRuleErrorConsumer();
+    StarlarkErrorReporter errorReporter = StarlarkErrorReporter.from(ruleErrorConsumer);
+    ImmutableMap<String, String> executionInfo =
+        TargetUtils.getExecutionInfo(
+            actionConstructionContext.getRuleContext().getRule(),
+            actionConstructionContext.getRuleContext().isAllowTagsPropagation());
+    String languageString = convertFromNoneable(languageObject, Language.CPP.getRepresentation());
+    Language language = parseLanguage(languageString);
+    CppSemantics semantics = getSemantics(language);
+    List<VariablesExtension> variablesExtensionsList =
+        asDict(variablesExtension).isEmpty()
+            ? ImmutableList.of()
+            : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
+    return CcStaticCompilationHelper.createCcCompileActions(
+        actionConstructionContext.getRuleContext(),
+        Sequence.cast(additionalCompilationInputs, Artifact.class, "create_cc_compile_actions"),
+        Sequence.cast(additionalIncludeScanningRoots, Artifact.class, "create_cc_compile_actions"),
+        ccCompilationContext,
+        CcToolchainProvider.create(ccToolchain),
+        Dict.cast(
+            compilationUnitSources, Artifact.class, CppSource.class, "create_cc_compile_actions"),
+        configuration,
+        Sequence.cast(conlyopts, String.class, "create_cc_compile_actions").getImmutableList(),
+        Sequence.cast(copts, String.class, "create_cc_compile_actions").getImmutableList(),
+        coptsFilter,
+        cppConfiguration,
+        Sequence.cast(cxxopts, String.class, "create_cc_compile_actions").getImmutableList(),
+        executionInfo,
+        new FdoContext(fdoContextStruct),
+        featureConfigurationForStarlark.getFeatureConfiguration(),
+        generateNoPicAction,
+        generatePicAction,
+        isCodeCoverageEnabled,
+        label,
+        Sequence.cast(privateHeaders, Artifact.class, "create_cc_compile_actions"),
+        Sequence.cast(publicHeaders, Artifact.class, "create_cc_compile_actions"),
+        purpose,
+        errorReporter,
+        semantics,
+        Sequence.cast(separateModuleHeaders, Artifact.class, "create_cc_compile_actions"),
+        variablesExtensionsList);
   }
 }

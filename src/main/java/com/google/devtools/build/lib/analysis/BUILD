@@ -103,6 +103,7 @@ java_library(
         "starlark/StarlarkAttrModule.java",
         "starlark/StarlarkAttributeTransitionProvider.java",
         "starlark/StarlarkAttributesCollection.java",
+        "starlark/StarlarkErrorReporter.java",
         "starlark/StarlarkGlobalsImpl.java",
         "starlark/StarlarkRuleClassFunctions.java",
         "starlark/StarlarkRuleConfiguredTargetUtil.java",
