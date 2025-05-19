@@ -38,40 +38,6 @@ java_library(
 )
 
 java_library(
-    name = "frontier_violation_event",
-    srcs = [
-        "FrontierViolationEvent.java",
-    ],
-)
-
-java_library(
-    name = "frontier_violation_checker",
-    srcs = [
-        "FrontierViolationChecker.java",
-    ],
-    deps = [
-        ":dependencies_provider",
-        ":event_listener",
-        ":frontier_violation_event",
-        ":options",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:skyfocus_options",
-        "//src/main/java/com/google/devtools/build/lib/util:TestType",
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:logging",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "frontier_serializer",
     srcs = [
         "FrontierSerializer.java",

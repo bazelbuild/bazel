@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
@@ -112,7 +113,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.analysis.AnalysisCacheInvalidator;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierViolationChecker;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
@@ -1417,37 +1417,35 @@ public class BuildTool {
     long totalMisses = missesByFunction.values().stream().mapToLong(AtomicInteger::get).sum();
     long totalRequests = totalHits + totalMisses;
 
-    if (totalRequests > 0) {
-      // Combine keys from both maps
-      Set<SkyFunctionName> allFunctionNames =
-          Sets.union(hitsByFunction.keySet(), missesByFunction.keySet());
-      // Format the stats per function, sorted alphabetically by function name
-      String statsByFunction =
-          allFunctionNames.stream()
-              .sorted(comparing(SkyFunctionName::getName))
-              .map(
-                  functionName -> {
-                    long hits =
-                        hitsByFunction.getOrDefault(functionName, new AtomicInteger(0)).get();
-                    long misses =
-                        missesByFunction.getOrDefault(functionName, new AtomicInteger(0)).get();
-                    long functionTotal = hits + misses;
-                    double functionHitRate =
-                        functionTotal == 0 ? 0.0 : (double) hits / functionTotal * 100;
-                    return String.format(
-                        "%s: %d/%d (%.2f%%)",
-                        functionName.getName(), hits, functionTotal, functionHitRate);
-                  })
-              .collect(joining(", "));
+    checkState(totalRequests >= 0, "totalRequests should be non-negative");
 
-      double overallHitRate = totalRequests == 0 ? 0.0 : (double) totalHits / totalRequests * 100;
-      env.getReporter()
-          .handle(
-              Event.info(
-                  String.format(
-                      "Remote analysis caching stats: %s/%s cache hits (%.2f%%) [Breakdown: %s]",
-                      totalHits, totalRequests, overallHitRate, statsByFunction)));
-    }
-    FrontierViolationChecker.accumulateCacheHitsAcrossInvocations(listener);
+    // Combine keys from both maps
+    Set<SkyFunctionName> allFunctionNames =
+        Sets.union(hitsByFunction.keySet(), missesByFunction.keySet());
+    // Format the stats per function, sorted alphabetically by function name
+    String statsByFunction =
+        allFunctionNames.stream()
+            .sorted(comparing(SkyFunctionName::getName))
+            .map(
+                functionName -> {
+                  long hits = hitsByFunction.getOrDefault(functionName, new AtomicInteger(0)).get();
+                  long misses =
+                      missesByFunction.getOrDefault(functionName, new AtomicInteger(0)).get();
+                  long functionTotal = hits + misses;
+                  double functionHitRate =
+                      functionTotal == 0 ? 0.0 : (double) hits / functionTotal * 100;
+                  return String.format(
+                      "%s: %d/%d (%.2f%%)",
+                      functionName.getName(), hits, functionTotal, functionHitRate);
+                })
+            .collect(joining(", "));
+
+    double overallHitRate = totalRequests == 0 ? 0.0 : (double) totalHits / totalRequests * 100;
+    env.getReporter()
+        .handle(
+            Event.info(
+                String.format(
+                    "Remote analysis caching stats: %s/%s cache hits (%.2f%%) [Breakdown: %s]",
+                    totalHits, totalRequests, overallHitRate, statsByFunction)));
   }
 }
