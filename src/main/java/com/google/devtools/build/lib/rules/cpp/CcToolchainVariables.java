@@ -609,55 +609,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
   }
 
-  /** Interface for VariableValue builders */
-  public interface VariableValueBuilder {
-    VariableValue build();
-  }
-
-  /** Builder for StructureValue. */
-  public static class StructureBuilder implements VariableValueBuilder {
-
-    private final ImmutableMap.Builder<String, VariableValue> fields = ImmutableMap.builder();
-
-    /** Adds a field to the structure. */
-    @CanIgnoreReturnValue
-    public StructureBuilder addField(String name, VariableValue value) {
-      fields.put(name, value);
-      return this;
-    }
-
-    /** Adds a field to the structure. */
-    @CanIgnoreReturnValue
-    public StructureBuilder addField(String name, VariableValueBuilder valueBuilder) {
-      Preconditions.checkArgument(
-          valueBuilder != null,
-          "Cannot use null builder to get a field value for field '%s'",
-          name);
-      fields.put(name, valueBuilder.build());
-      return this;
-    }
-
-    /** Adds a field to the structure. */
-    @CanIgnoreReturnValue
-    public StructureBuilder addField(String name, String value) {
-      fields.put(name, new StringValue(value));
-      return this;
-    }
-
-    /** Adds a field to the structure. */
-    @CanIgnoreReturnValue
-    public StructureBuilder addField(String name, ImmutableList<String> values) {
-      fields.put(name, StringSequence.of(values));
-      return this;
-    }
-
-    /** Returns an immutable structure. */
-    @Override
-    public StructureValue build() {
-      return new StructureValue(fields.buildOrThrow());
-    }
-  }
-
   /**
    * A sequence of structure values. Exists as a memory optimization - a typical build can contain
    * millions of feature values, so getting rid of the overhead of {@code StructureValue} objects
@@ -1036,7 +987,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * objects significantly reduces memory overhead.
    */
   @Immutable
-  private static final class StringSequence extends VariableValueAdapter {
+  static final class StringSequence extends VariableValueAdapter {
     static final Interner<StringSequence> stringSequenceInterner = BlazeInterners.newWeakInterner();
     private final ImmutableList<String> values;
 
@@ -1245,58 +1196,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     @Override
     public int hashCode() {
       return values.shallowHashCode();
-    }
-  }
-
-  /**
-   * Single structure value. Be careful not to create sequences of single structures, as the memory
-   * overhead is prohibitively big.
-   */
-  @Immutable
-  private static final class StructureValue extends VariableValueAdapter {
-    private static final String STRUCTURE_VARIABLE_TYPE_NAME = "structure";
-
-    private final ImmutableMap<String, VariableValue> value;
-
-    private StructureValue(ImmutableMap<String, VariableValue> value) {
-      this.value = value;
-    }
-
-    @Nullable
-    @Override
-    public VariableValue getFieldValue(
-        String variableName,
-        String field,
-        @Nullable InputMetadataProvider inputMetadataProvider,
-        PathMapper pathMapper,
-        boolean throwOnMissingVariable) {
-      return value.getOrDefault(field, null);
-    }
-
-    @Override
-    public String getVariableTypeName() {
-      return STRUCTURE_VARIABLE_TYPE_NAME;
-    }
-
-    @Override
-    public boolean isTruthy() {
-      return !value.isEmpty();
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof StructureValue)) {
-        return false;
-      }
-      if (this == other) {
-        return true;
-      }
-      return Objects.equals(value, ((StructureValue) other).value);
-    }
-
-    @Override
-    public int hashCode() {
-      return value.hashCode();
     }
   }
 
@@ -1574,17 +1473,13 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       return this;
     }
 
-    /**
-     * Add a variable built using {@code VariableValueBuilder} api that expands {@code name} to the
-     * value returned by the {@code builder}.
-     */
+    /** Adds a variable that expands {@code name} to the {@code value}. */
     @CanIgnoreReturnValue
-    public Builder addCustomBuiltVariable(
-        String name, CcToolchainVariables.VariableValueBuilder builder) {
+    @VisibleForTesting
+    Builder addVariable(String name, VariableValue value) {
       checkVariableNotPresentAlready(name);
-      Preconditions.checkNotNull(
-          builder, "Cannot use null builder to get variable value for variable '%s'", name);
-      variablesMap.put(name, builder.build());
+      Preconditions.checkNotNull(value, "Cannot use null value for variable '%s'", name);
+      variablesMap.put(name, value);
       return this;
     }
 

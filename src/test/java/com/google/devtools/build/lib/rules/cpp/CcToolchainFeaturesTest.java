@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
@@ -28,17 +29,20 @@ import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Sequence;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringSequence;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValue;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StructureBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValueAdapter;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
@@ -46,9 +50,12 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.Serializat
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -438,9 +445,103 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
         .build();
   }
 
+  /**
+   * Single structure value. Be careful not to create sequences of single structures, as the memory
+   * overhead is prohibitively big.
+   */
+  @Immutable
+  private static final class StructureValue extends VariableValueAdapter {
+    private static final String STRUCTURE_VARIABLE_TYPE_NAME = "structure";
+
+    private final ImmutableMap<String, VariableValue> value;
+
+    private StructureValue(ImmutableMap<String, VariableValue> value) {
+      this.value = value;
+    }
+
+    @Nullable
+    @Override
+    public VariableValue getFieldValue(
+        String variableName,
+        String field,
+        @Nullable InputMetadataProvider inputMetadataProvider,
+        PathMapper pathMapper,
+        boolean throwOnMissingVariable) {
+      return value.getOrDefault(field, null);
+    }
+
+    @Override
+    public String getVariableTypeName() {
+      return STRUCTURE_VARIABLE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return !value.isEmpty();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (!(other instanceof StructureValue)) {
+        return false;
+      }
+      if (this == other) {
+        return true;
+      }
+      return Objects.equals(value, ((StructureValue) other).value);
+    }
+
+    @Override
+    public int hashCode() {
+      return value.hashCode();
+    }
+  }
+
+  /** Builder for StructureValue. */
+  public static class StructureBuilder {
+    private final ImmutableMap.Builder<String, VariableValue> fields = ImmutableMap.builder();
+
+    /** Adds a field to the structure. */
+    @CanIgnoreReturnValue
+    public StructureBuilder addField(String name, VariableValue value) {
+      fields.put(name, value);
+      return this;
+    }
+
+    /** Adds a field to the structure. */
+    @CanIgnoreReturnValue
+    public StructureBuilder addField(String name, StructureBuilder valueBuilder) {
+      Preconditions.checkArgument(
+          valueBuilder != null,
+          "Cannot use null builder to get a field value for field '%s'",
+          name);
+      fields.put(name, valueBuilder.build());
+      return this;
+    }
+
+    /** Adds a field to the structure. */
+    @CanIgnoreReturnValue
+    public StructureBuilder addField(String name, String value) {
+      fields.put(name, new StringValue(value));
+      return this;
+    }
+
+    /** Adds a field to the structure. */
+    @CanIgnoreReturnValue
+    public StructureBuilder addField(String name, ImmutableList<String> values) {
+      fields.put(name, StringSequence.of(values));
+      return this;
+    }
+
+    /** Returns an immutable structure. */
+    public StructureValue build() {
+      return new StructureValue(fields.buildOrThrow());
+    }
+  }
+
   private static CcToolchainVariables createStructureVariables(
       String name, StructureBuilder value) {
-    return CcToolchainVariables.builder().addCustomBuiltVariable(name, value).build();
+    return CcToolchainVariables.builder().addVariable(name, value.build()).build();
   }
 
   @Test
@@ -565,10 +666,11 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                     + "  }"
                     + "}",
                 CcToolchainVariables.builder()
-                    .addCustomBuiltVariable(
+                    .addVariable(
                         "struct",
                         new StructureBuilder()
-                            .addField("sequence", ImmutableList.of("first", "second")))
+                            .addField("sequence", ImmutableList.of("first", "second"))
+                            .build())
                     .addStringSequenceVariable("other_sequence", ImmutableList.of("foo", "bar"))
                     .build()))
         .containsExactly("-Afirst -Bfoo", "-Afirst -Bbar", "-Asecond -Bfoo", "-Asecond -Bbar");
@@ -585,7 +687,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                     + "}",
                 createStructureVariables(
                     "struct",
-                    new CcToolchainVariables.StructureBuilder()
+                    new StructureBuilder()
                         .addField("foo", "fooValue")
                         .addField("bar", "barValue"))))
         .containsExactly("-AfooValue", "-BbarValue");
@@ -602,7 +704,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                     + "}",
                 createStructureVariables(
                     "struct",
-                    new CcToolchainVariables.StructureBuilder()
+                    new StructureBuilder()
                         .addField("foo", "fooValue")
                         .addField("bar", "barValue"))))
         .isEmpty();
@@ -645,7 +747,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                     + "}",
                 createStructureVariables(
                     "struct",
-                    new CcToolchainVariables.StructureBuilder()
+                    new StructureBuilder()
                         .addField("foo", "fooValue")
                         .addField("bar", "barValue"))))
         .containsExactly("-AfooValue", "-BbarValue");
@@ -661,8 +763,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                     + "  flag: '-B%{struct.bar}'"
                     + "}",
                 createStructureVariables(
-                    "struct",
-                    new CcToolchainVariables.StructureBuilder().addField("bar", "barValue"))))
+                    "struct", new StructureBuilder().addField("bar", "barValue"))))
         .isEmpty();
   }
 
@@ -680,8 +781,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                     + "  }"
                     + "}",
                 createStructureVariables(
-                    "struct",
-                    new CcToolchainVariables.StructureBuilder().addField("bar", "barValue"))))
+                    "struct", new StructureBuilder().addField("bar", "barValue"))))
         .containsExactly("-BbarValue");
   }
 
@@ -750,7 +850,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                     + "}",
                 createStructureVariables(
                     "struct",
-                    new CcToolchainVariables.StructureBuilder()
+                    new StructureBuilder()
                         .addField("bool", booleanValue(true))
                         .addField("foo", "fooValue")
                         .addField("bar", "barValue"))))
@@ -773,7 +873,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                     + "}",
                 createStructureVariables(
                     "struct",
-                    new CcToolchainVariables.StructureBuilder()
+                    new StructureBuilder()
                         .addField("bool", booleanValue(false))
                         .addField("foo", "fooValue")
                         .addField("bar", "barValue"))))
