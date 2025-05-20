@@ -24,6 +24,7 @@ import com.dylibso.chicory.runtime.Instance;
 import com.dylibso.chicory.wasm.ChicoryException;
 import com.dylibso.chicory.wasm.types.MemoryLimits;
 import com.dylibso.chicory.wasm.WasmModule;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.time.Duration;
@@ -103,29 +104,21 @@ final class StarlarkWasmModule implements StarlarkValue {
     var memLimits = getMemLimits(memLimitBytes);
     // Perform initialization and execution in a separate thread so it can be interrupted
     // in case of timeout.
-    ExecutorService execService = Executors.newSingleThreadExecutor();
-    var execResultFuture = execService.submit(() -> {
-      return run(functionName, input, memLimits);
-    });
-    execService.shutdown();
-
+    var wasmThreadFactory =
+        Thread.ofPlatform().name(Thread.currentThread().getName() + "_wasm").factory();
     StarlarkWasmExecutionResult result;
-    try {
-      result = execResultFuture.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
-    } catch (TimeoutException _e) {
-      execService.shutdownNow();
-      while (!execService.isTerminated()) {
-        execService.awaitTermination(1, TimeUnit.SECONDS);
-      }
-      // Timeouts result in a `wasm_exec_result` with negative `return_code`.
-      result = new StarlarkWasmExecutionResult(-1, "");
+    String errMessage;
+    try (var executor = Executors.newSingleThreadExecutor(wasmThreadFactory)) {
+      return executor.invokeAny(
+          ImmutableList.of(() -> run(functionName, input, memLimits)),
+          timeout.toMillis(),
+          TimeUnit.MILLISECONDS);
+    } catch (TimeoutException e) {
+      errMessage = String.format("Error executing %s: timed out", functionName);
     } catch (ExecutionException e) {
-      // FIXME: This branch will be entered if out-of-memory occurs. Should such
-      // a condition be an exception, or act like a timeout and return a result
-      // with a negative `return_code`?
-      throw new EvalException(e.getCause());
+      errMessage = String.format("Error executing %s: %s", functionName, e.getCause().getMessage());
     }
-    return result;
+    return StarlarkWasmExecutionResult.newErr(errMessage);
   }
 
   private StarlarkWasmExecutionResult run(String execFunc, byte[] input, MemoryLimits memLimits)
@@ -192,7 +185,7 @@ final class StarlarkWasmModule implements StarlarkValue {
       byte[] outputBytes = memory.readBytes(outputPtr, outputLen);
       output = new String(outputBytes, ISO_8859_1);
     }
-    return new StarlarkWasmExecutionResult(returnCode, output);
+    return StarlarkWasmExecutionResult.newOk(returnCode, output);
   }
 
   private static void validateModule(WasmModule wasmModule, String allocateFn) throws EvalException {

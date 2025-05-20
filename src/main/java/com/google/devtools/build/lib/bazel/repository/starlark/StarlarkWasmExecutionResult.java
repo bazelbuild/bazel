@@ -30,14 +30,27 @@ import net.starlark.java.eval.Printer;
         The result of executing a WebAssembly function with
         <code>repository_ctx.execute_wasm()</code>. It contains the function's
         return value and output buffer.
+
+        <p>If execution failed before the function returned then the return code will be negative
+        and the <code>error_message</code> field will be set.
         """)
 final class StarlarkWasmExecutionResult implements StarlarkValue {
   private final long returnCode;
   private final String output;
+  private final String errorMessage;
 
-  public StarlarkWasmExecutionResult(long returnCode, String output) {
+  private StarlarkWasmExecutionResult(long returnCode, String output, String errorMessage) {
     this.returnCode = returnCode;
     this.output = output;
+    this.errorMessage = errorMessage;
+  }
+
+  public static StarlarkWasmExecutionResult newOk(long returnCode, String output) {
+    return new StarlarkWasmExecutionResult(returnCode, output, "");
+  }
+
+  public static StarlarkWasmExecutionResult newErr(String errorMessage) {
+    return new StarlarkWasmExecutionResult(-1, "", errorMessage);
   }
 
   @Override
@@ -51,6 +64,8 @@ final class StarlarkWasmExecutionResult implements StarlarkValue {
     printer.repr(returnCode);
     printer.append(" output=");
     printer.repr(output);
+    printer.append(" error_message=");
+    printer.repr(errorMessage);
     printer.append(">");
   }
 
@@ -72,5 +87,13 @@ final class StarlarkWasmExecutionResult implements StarlarkValue {
       doc = "The content of the output buffer returned by the WebAssembly function.")
   public String getOutput() {
     return output;
+  }
+
+  @StarlarkMethod(
+      name = "error_message",
+      structField = true,
+      doc = "Contains an error message if execution failed before the function returned.")
+  public String getErrorMessage() {
+    return errorMessage;
   }
 }
