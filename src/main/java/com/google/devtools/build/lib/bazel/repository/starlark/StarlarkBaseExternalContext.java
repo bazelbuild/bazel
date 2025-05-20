@@ -2175,7 +2175,7 @@ func(
         break;
     };
 
-    byte[] inputBytes = input.getBytes(ISO_8859_1);
+    byte[] inputBytes = StringUnsafe.getInternalStringBytes(input);
     int timeoutSeconds = timeoutI.toInt("timeout");
     long memLimit = memLimitI.toLong("memory_limit");
 
