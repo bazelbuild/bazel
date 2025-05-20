@@ -29,6 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.UUID;
 import javax.annotation.Nullable;
 
 /**
@@ -227,11 +228,6 @@ public final class RepoContentsCache {
     // (starting with an underscore should suffice).
     Path trashDir = path.getChild("_trash");
     trashDir.createDirectoryAndParents();
-    // To make sure we don't get a name clash when moving things into the trash, we use the current
-    // time as an entry prefix and keep a counter. If the user is messing around with the system
-    // clock, then $DEITY help them.
-    String trashEntryPrefix = path.getLastModifiedTime() + ".";
-    int trashCounter = 1;
 
     for (Path entryDir : path.getDirectoryEntries()) {
       if (!entryDir.isDirectory() || entryDir.equals(trashDir)) {
@@ -249,7 +245,8 @@ public final class RepoContentsCache {
           // Sorry buddy, you're out.
           recordedInputsFile.delete();
           var repoDir = CandidateRepo.fromRecordedInputsFile(recordedInputsFile).contentsDir;
-          repoDir.renameTo(trashDir.getChild(trashEntryPrefix + (trashCounter++)));
+          // Use a UUID to avoid clashes.
+          repoDir.renameTo(trashDir.getChild(UUID.randomUUID().toString()));
         }
       }
     }
