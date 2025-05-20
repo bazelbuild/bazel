@@ -37,8 +37,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Info;
@@ -49,7 +47,7 @@ import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.MapVariables;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -80,62 +78,16 @@ public class CcStarlarkInternal implements StarlarkValue {
 
   public static final String NAME = "cc_internal";
 
-  /**
-   * Wraps a dictionary of build variables into CcToolchainVariables.
-   *
-   * <p>TODO(b/338618120): This code helps during the transition of cc_common.link and
-   * cc_common.compile code to Starlark. Once that code is in Starlark, CcToolchainVariables rewrite
-   * may commence, most likely turning them into a regular Starlark dict (or a dict with parent if
-   * that optimisation is still needed).
-   */
+  /** Wraps a dictionary of build variables into CcToolchainVariables. */
   @StarlarkMethod(
       name = "cc_toolchain_variables",
       documented = false,
       parameters = {
         @Param(name = "vars", positional = false, named = true),
       })
-  @SuppressWarnings("unchecked")
   public CcToolchainVariables getCcToolchainVariables(Dict<?, ?> buildVariables)
-      throws TypeException, EvalException {
-
-    CcToolchainVariables.Builder ccToolchainVariables = CcToolchainVariables.builder();
-    for (var entry : buildVariables.entrySet()) {
-      String key = (String) entry.getKey();
-      Object value = entry.getValue();
-      switch (value) {
-        case String s -> ccToolchainVariables.addStringVariable(key, s);
-        case Artifact a -> ccToolchainVariables.addArtifactVariable(key, a);
-        case Boolean b -> ccToolchainVariables.addBooleanValue(key, b);
-        case Iterable<?> values -> {
-          if (key.equals("libraries_to_link")) {
-            ccToolchainVariables.addSequenceVariable(
-                key,
-                Sequence.cast(values, VariableValue.class, "library_to_link").getImmutableList());
-          } else {
-            ccToolchainVariables.addStringSequenceVariable(key, (Iterable<String>) values);
-          }
-        }
-        case Depset depset -> {
-          Class<?> type = depset.getElementClass();
-          // Type doesn't matter for empty depsets.
-          if (type == String.class || type == null) {
-            ccToolchainVariables.addStringSequenceVariable(key, depset.getSet(String.class));
-          } else if (type == Artifact.class) {
-            ccToolchainVariables.addArtifactSequenceVariable(key, depset.getSet(Artifact.class));
-          } else if (type == PathFragment.class) {
-            ccToolchainVariables.addPathFragmentSequenceVariable(
-                key, depset.getSet(PathFragment.class));
-          } else {
-            throw new IllegalStateException("Unexpected depset element type: %s".formatted(type));
-          }
-        }
-        case NoneType ignored -> {}
-        default ->
-            throw new IllegalStateException(
-                "Unexpected value: %s (%s)".formatted(value, value.getClass()));
-      }
-    }
-    return ccToolchainVariables.build();
+      throws EvalException {
+    return new MapVariables(null, Dict.cast(buildVariables, String.class, Object.class, "vars"));
   }
 
   @StarlarkMethod(

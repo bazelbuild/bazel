@@ -28,6 +28,7 @@ import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -44,6 +45,7 @@ import java.util.Set;
 import java.util.Stack;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -982,58 +984,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   }
 
   /**
-   * A nested set of values.
-   *
-   * <p>Because checking nested set equality is expensive, equality for these sequences is defined
-   * in terms of {@link NestedSet#shallowEquals}, which can miss some value-equal nested sets.
-   * Equality is never used currently (but may be needed in the future for interning during
-   * deserialization), so this is acceptable.
-   */
-  @Immutable
-  private static final class NestedSetSequence<E> extends VariableValueAdapter {
-    private final NestedSet<E> values;
-
-    private NestedSetSequence(NestedSet<E> values) {
-      Preconditions.checkNotNull(values);
-      this.values = values;
-    }
-
-    @Override
-    public Iterable<? extends VariableValue> getSequenceValue(
-        String variableName, PathMapper pathMapper) {
-      return Iterables.transform(values.toList(), CcToolchainVariables::asVariableValue);
-    }
-
-    @Override
-    public String getVariableTypeName() {
-      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
-    }
-
-    @Override
-    public boolean isTruthy() {
-      return !values.isEmpty();
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof NestedSetSequence<?>)) {
-        return false;
-      }
-      if (this == other) {
-        return true;
-      }
-      @SuppressWarnings("unchecked")
-      NestedSet<E> otherValues = ((NestedSetSequence<E>) other).values;
-      return values.shallowEquals(otherValues);
-    }
-
-    @Override
-    public int hashCode() {
-      return values.shallowHashCode();
-    }
-  }
-
-  /**
    * Most leaves in the variable sequence node tree are simple string values. Note that this should
    * never live outside of {@code expand}, as the object overhead is prohibitively expensive.
    */
@@ -1221,7 +1171,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     /** Adds a variable that expands {@code name} to {@code 0} or {@code 1}. */
     @CanIgnoreReturnValue
     public Builder addBooleanValue(String name, boolean value) {
-      variablesMap.put(name, BooleanValue.of(value));
+      variablesMap.put(name, value);
       return this;
     }
 
@@ -1284,7 +1234,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
       ImmutableList.Builder<String> builder = ImmutableList.builder();
       builder.addAll(values);
-      variablesMap.put(name, new Sequence(stringSequenceInterner.intern(builder.build())));
+      variablesMap.put(name, stringSequenceInterner.intern(builder.build()));
       return this;
     }
 
@@ -1297,7 +1247,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder addStringSequenceVariable(String name, NestedSet<String> values) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, new NestedSetSequence<String>(values));
+      variablesMap.put(name, values);
       return this;
     }
 
@@ -1313,8 +1263,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder addStringSequenceVariable(String name, Iterable<String> values) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(
-          name, new Sequence(stringSequenceInterner.intern(ImmutableList.copyOf(values))));
+      variablesMap.put(name, stringSequenceInterner.intern(ImmutableList.copyOf(values)));
       return this;
     }
 
@@ -1327,7 +1276,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder addPathFragmentSequenceVariable(String name, NestedSet<PathFragment> values) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, new NestedSetSequence<PathFragment>(values));
+      variablesMap.put(name, values);
       return this;
     }
 
@@ -1340,7 +1289,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder addArtifactSequenceVariable(String name, NestedSet<Artifact> values) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, new NestedSetSequence<Artifact>(values));
+      variablesMap.put(name, values);
       return this;
     }
 
@@ -1349,7 +1298,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder addSequenceVariable(String name, ImmutableList<VariableValue> sequence) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(sequence, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, new Sequence(sequence));
+      variablesMap.put(name, sequence);
       return this;
     }
 
@@ -1399,7 +1348,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         return new SingleVariables(
             parent,
             variablesMap.keySet().iterator().next(),
-            asVariableValue(variablesMap.values().iterator().next()));
+            variablesMap.values().iterator().next());
       }
       return new MapVariables(parent, variablesMap);
     }
@@ -1408,9 +1357,14 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   /** Wraps a raw variablesMap value into an appropriate VariableValue if necessary. */
   private static VariableValue asVariableValue(Object o) {
     return switch (o) {
+      case NoneType ignored -> null; // null has the same behavior as ommitted field
+      case Boolean b -> BooleanValue.of(b);
       case String s -> new StringValue(s);
       case Artifact artifact -> new ArtifactValue(artifact);
       case PathFragment pathFragment -> new PathFragmentValue(pathFragment);
+      case Iterable<?> iterable -> new Sequence(ImmutableList.copyOf(iterable));
+      case NestedSet<?> nestedSet -> new Sequence(nestedSet.toList());
+      case Depset depset -> new Sequence(depset.toList());
       default -> (VariableValue) o;
     };
   }
@@ -1422,7 +1376,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     void addVariables(Builder builder);
   }
 
-  private static final class MapVariables extends CcToolchainVariables {
+  static final class MapVariables extends CcToolchainVariables {
     private static final Interner<ImmutableMap<String, Integer>> keyInterner =
         BlazeInterners.newWeakInterner();
 
@@ -1440,7 +1394,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     /** The values belonging to the keys stored in keyToIndex. */
     private final ImmutableList<Object> values;
 
-    private MapVariables(CcToolchainVariables parent, Map<String, Object> variablesMap) {
+    MapVariables(CcToolchainVariables parent, Map<String, Object> variablesMap) {
       this.parent = parent;
       ImmutableMap.Builder<String, Integer> keyBuilder = ImmutableMap.builder();
       ImmutableList.Builder<Object> valuesBuilder = ImmutableList.builder();
@@ -1518,9 +1472,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   static final class SingleVariables extends CcToolchainVariables {
     @Nullable private final CcToolchainVariables parent;
     private final String name;
-    private final VariableValue variableValue;
+    private final Object variableValue;
 
-    SingleVariables(CcToolchainVariables parent, String name, VariableValue variableValue) {
+    SingleVariables(CcToolchainVariables parent, String name, Object variableValue) {
       this.parent = parent;
       this.name = name;
       this.variableValue = variableValue;
@@ -1540,7 +1494,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     @Override
     VariableValue getNonStructuredVariable(String name) {
       if (this.name.equals(name)) {
-        return variableValue;
+        return CcToolchainVariables.asVariableValue(variableValue);
       }
       return parent == null ? null : parent.getNonStructuredVariable(name);
     }
