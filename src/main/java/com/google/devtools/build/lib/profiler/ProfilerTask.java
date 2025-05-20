@@ -89,6 +89,8 @@ public enum ProfilerTask {
   REPOSITORY_FETCH("Fetching repository"),
   REPOSITORY_VENDOR("Vendoring repository"),
   SPAWN_LOG("logging spawn", Threshold.TEN_MILLIS),
+  WASM_LOAD("load WebAssembly module"),
+  WASM_EXEC("execute WebAssembly function"),
 
   UNKNOWN("Unknown event");
 
