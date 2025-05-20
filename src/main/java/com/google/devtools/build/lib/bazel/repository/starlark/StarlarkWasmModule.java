@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import static com.dylibso.chicory.runtime.Memory.PAGE_SIZE;
 import static com.dylibso.chicory.wasm.types.MemoryLimits.MAX_PAGES;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.WASM_LOAD;
+import static com.google.devtools.build.lib.profiler.ProfilerTask.WASM_EXEC;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.dylibso.chicory.runtime.ByteArrayMemory;
@@ -27,6 +29,8 @@ import com.dylibso.chicory.wasm.WasmModule;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -58,12 +62,17 @@ final class StarlarkWasmModule implements StarlarkValue {
       String allocateFn)
       throws EvalException {
     WasmModule wasmModule;
-    try {
-      wasmModule = com.dylibso.chicory.wasm.Parser.parse(moduleContent);
-    } catch (ChicoryException e) {
-      throw new EvalException(e);
+    Profiler prof = Profiler.instance();
+    try (SilentCloseable c1 = prof.profile(WASM_LOAD, () -> "load " + path.toString())) {
+      try (SilentCloseable c2 = prof.profile(WASM_LOAD, "parse")) {
+        try {
+          wasmModule = com.dylibso.chicory.wasm.Parser.parse(moduleContent);
+        } catch (ChicoryException e) {
+          throw new EvalException(e);
+        }
+      }
+      validateModule(wasmModule, allocateFn);
     }
-    validateModule(wasmModule, allocateFn);
 
     this.path = path;
     this.origPath = origPath;
@@ -101,29 +110,33 @@ final class StarlarkWasmModule implements StarlarkValue {
       Duration timeout,
       long memLimitBytes)
       throws EvalException, InterruptedException {
-    var memLimits = getMemLimits(memLimitBytes);
-    // Perform initialization and execution in a separate thread so it can be interrupted
-    // in case of timeout.
-    var wasmThreadFactory =
-        Thread.ofPlatform().name(Thread.currentThread().getName() + "_wasm").factory();
-    StarlarkWasmExecutionResult result;
-    String errMessage;
-    try (var executor = Executors.newSingleThreadExecutor(wasmThreadFactory)) {
-      return executor.invokeAny(
-          ImmutableList.of(() -> run(functionName, input, memLimits)),
-          timeout.toMillis(),
-          TimeUnit.MILLISECONDS);
-    } catch (TimeoutException e) {
-      errMessage = String.format("Error executing %s: timed out", functionName);
-    } catch (ExecutionException e) {
-      errMessage = String.format("Error executing %s: %s", functionName, e.getCause().getMessage());
+    Profiler prof = Profiler.instance();
+    try (SilentCloseable c = prof.profile(WASM_EXEC, () -> "execute " + functionName)) {
+      var memLimits = getMemLimits(memLimitBytes);
+      // Perform initialization and execution in a separate thread so it can be interrupted
+      // in case of timeout.
+      var wasmThreadFactory =
+          Thread.ofPlatform().name(Thread.currentThread().getName() + "_wasm").factory();
+      StarlarkWasmExecutionResult result;
+      String errMessage;
+      try (var executor = Executors.newSingleThreadExecutor(wasmThreadFactory)) {
+        return executor.invokeAny(
+            ImmutableList.of(() -> run(functionName, input, memLimits)),
+            timeout.toMillis(),
+            TimeUnit.MILLISECONDS);
+      } catch (TimeoutException e) {
+        errMessage = String.format("Error executing %s: timed out", functionName);
+      } catch (ExecutionException e) {
+        errMessage = String.format("Error executing %s: %s", functionName, e.getCause().getMessage());
+      }
+      return StarlarkWasmExecutionResult.newErr(errMessage);
     }
-    return StarlarkWasmExecutionResult.newErr(errMessage);
   }
 
   private StarlarkWasmExecutionResult run(String execFunc, byte[] input, MemoryLimits memLimits)
       throws EvalException, InterruptedException {
     Instance instance;
+    Profiler prof = Profiler.instance();
     try {
       instance = Instance.builder(wasmModule)
           .withMemoryLimits(memLimits)
@@ -137,8 +150,9 @@ final class StarlarkWasmModule implements StarlarkValue {
       // If `_initialize()` is present then call it to perform early setup.
       ExportFunction initFn = instance.export("_initialize");
       if (initFn != null) {
-        // FIXME: Include this in the timeout-guarded section.
-        initFn.apply();
+        try (SilentCloseable c = prof.profile(WASM_EXEC, "initialize")) {
+          initFn.apply();
+        }
       }
     } catch (ChicoryException e) {
       throw new EvalException(e);
@@ -158,7 +172,9 @@ final class StarlarkWasmModule implements StarlarkValue {
 
     int inputLen = Math.toIntExact(input.length);
     int inputPtr = alloc(allocateFn, allocFn, inputLen, 1);
-    memory.write(inputPtr, input);
+    try (SilentCloseable c = prof.profile(WASM_EXEC, "copy input")) {
+      memory.write(inputPtr, input);
+    }
 
     // struct { output_ptr_ptr: **u8, output_len_ptr: *u32 }
     int paramsPtr = alloc(allocateFn, allocFn, 8, 4);
@@ -167,7 +183,10 @@ final class StarlarkWasmModule implements StarlarkValue {
     memory.writeI32(outputPtrPtr, 0);
     memory.writeI32(outputLenPtr, 0);
 
-    long[] execResult = execFn.apply(inputPtr, inputLen, outputPtrPtr, outputLenPtr);
+    long[] execResult;
+    try (SilentCloseable c = prof.profile(WASM_EXEC, "execute")) {
+      execResult = execFn.apply(inputPtr, inputLen, outputPtrPtr, outputLenPtr);
+    }
 
     // FIXME: Not 100% sure this check is necessary, but the ambiguity between
     // signed/unsigned in Java vs WebAssembly makes me nervous.
@@ -182,8 +201,10 @@ final class StarlarkWasmModule implements StarlarkValue {
 
     String output = "";
     if (outputLen > 0) {
-      byte[] outputBytes = memory.readBytes(outputPtr, outputLen);
-      output = new String(outputBytes, ISO_8859_1);
+      try (SilentCloseable c = prof.profile(WASM_EXEC, "copy output")) {
+        byte[] outputBytes = memory.readBytes(outputPtr, outputLen);
+        output = new String(outputBytes, ISO_8859_1);
+      }
     }
     return StarlarkWasmExecutionResult.newOk(returnCode, output);
   }
