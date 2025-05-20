@@ -61,6 +61,18 @@ public final class RepoContentsCache {
    */
   public static final String LOCK_PATH = "gc_lock";
 
+  /**
+   * The path to a trash directory relative to the root of the repo contents cache.
+   *
+   * <p>Since deleting entire directories could take a bit of time, we create a trash directory
+   * where we move the garbage directories to (which should be very fast). Then we can delete
+   * this trash directory altogether at the end. This makes the GC process safe against being
+   * interrupted in the middle (any undeleted trash will get deleted by the next GC).
+   * Also be sure to name this trashDir something that couldn't ever be a predeclared inputs hash
+   * (starting with an underscore should suffice).
+   */
+  public static final String TRASH_PATH = "_trash";
+
   @Nullable private Path path;
   @Nullable private FileSystemLock sharedLock;
 
@@ -204,10 +216,15 @@ public final class RepoContentsCache {
       @Override
       public void run() throws InterruptedException, IdleTaskException {
         try {
+          Preconditions.checkState(path != null);
+          // If we can't grab the lock, abort GC. Someone will come along later.
           try (var lock = FileSystemLock.tryGet(path.getRelative(LOCK_PATH), LockMode.EXCLUSIVE)) {
-            // If we can't grab the lock, abort GC. Someone will come along later.
             runGc(maxAge);
           }
+          // Empty the trash dir outside the lock. No one is reading from these files, so it should
+          // be safe. At worst, multiple servers performing GC will try to delete the same files,
+          // but whatever.
+          path.getChild(TRASH_PATH).deleteTreesBelow();
         } catch (IOException e) {
           throw new IdleTaskException(e);
         }
@@ -216,17 +233,9 @@ public final class RepoContentsCache {
   }
 
   private void runGc(Duration maxAge) throws InterruptedException, IOException {
-    Preconditions.checkState(path != null);
-
     path.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
     Instant cutoff = Instant.ofEpochMilli(path.getLastModifiedTime()).minus(maxAge);
-    // Since deleting entire directories could take a bit of time, we create a "trash" directory
-    // where we move the garbage directories to (which should be very fast). Then we can delete
-    // this trash directory altogether at the end. This makes the GC process safe against being
-    // interrupted in the middle (any undeleted trash will get deleted by the next GC).
-    // Also be sure to name this trashDir something that couldn't ever be a predeclared inputs hash
-    // (starting with an underscore should suffice).
-    Path trashDir = path.getChild("_trash");
+    Path trashDir = path.getChild(TRASH_PATH);
     trashDir.createDirectoryAndParents();
 
     for (Path entryDir : path.getDirectoryEntries()) {
@@ -250,7 +259,5 @@ public final class RepoContentsCache {
         }
       }
     }
-
-    trashDir.deleteTree();
   }
 }
