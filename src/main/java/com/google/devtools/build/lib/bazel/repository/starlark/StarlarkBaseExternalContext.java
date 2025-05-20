@@ -2095,8 +2095,9 @@ func(
 
           <p>This method returns a <code>wasm_exec_result</code> structure containing
           the function's return code (in field <code>return_code</code>) and output
-          buffer (in field <code>output</code>). The return code will be negative
-          if execution timed out.
+          buffer (in field <code>output</code>). If execution failed before the function
+          returned then the return code will be negative and the <code>error_message</code>
+          field will be set.
           """,
       useStarlarkThread = true,
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM,
