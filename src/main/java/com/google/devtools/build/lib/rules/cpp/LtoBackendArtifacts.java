@@ -256,7 +256,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     addProfileForLtoBackend(builder, fdoContext, featureConfiguration, buildVariablesBuilder);
     // Add the context sensitive instrument path to the backend.
     if (featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_INSTRUMENT)) {
-      buildVariablesBuilder.addStringVariable(
+      buildVariablesBuilder.addVariable(
           CompileBuildVariables.CS_FDO_INSTRUMENT_PATH.getVariableName(),
           ccToolchain.getCSFdoInstrument());
     }
@@ -285,21 +285,21 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     // The former is a file path and the latter is the directory path.
     // Therefore we accept strings as inputs rather than artifacts.
     if (indexPath != null) {
-      buildVariablesBuilder.addStringVariable("thinlto_index", indexPath);
+      buildVariablesBuilder.addVariable("thinlto_index", indexPath);
     } else {
       // An empty input indicates not to perform cross-module optimization.
-      buildVariablesBuilder.addStringVariable("thinlto_index", "/dev/null");
+      buildVariablesBuilder.addVariable("thinlto_index", "/dev/null");
     }
     // The output from the LTO backend step is a native object file.
-    buildVariablesBuilder.addStringVariable("thinlto_output_object_file", objectFilePath);
+    buildVariablesBuilder.addVariable("thinlto_output_object_file", objectFilePath);
     // The input to the LTO backend step is the bitcode file.
-    buildVariablesBuilder.addStringVariable("thinlto_input_bitcode_file", bitcodeFilePath);
+    buildVariablesBuilder.addVariable("thinlto_input_bitcode_file", bitcodeFilePath);
     // Add the context sensitive instrument path to the backend.
 
     if (dwoFilePath != null) {
-      buildVariablesBuilder.addStringVariable(
+      buildVariablesBuilder.addVariable(
           CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(), dwoFilePath);
-      buildVariablesBuilder.addStringVariable(
+      buildVariablesBuilder.addVariable(
           CompileBuildVariables.IS_USING_FISSION.getVariableName(), "");
     }
   }
@@ -522,19 +522,19 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       throws EvalException {
     Artifact prefetch = fdoContext.getPrefetchHintsArtifact();
     if (prefetch != null) {
-      buildVariables.addStringVariable("fdo_prefetch_hints_path", prefetch.getExecPathString());
+      buildVariables.addVariable("fdo_prefetch_hints_path", prefetch.getExecPathString());
       builder.addInput(fdoContext.getPrefetchHintsArtifact());
     }
     if (fdoContext.getPropellerOptimizeInputFile() != null
         && fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
-      buildVariables.addStringVariable(
+      buildVariables.addVariable(
           "propeller_optimize_cc_path",
           fdoContext.getPropellerOptimizeInputFile().getCcArtifact().getExecPathString());
       builder.addInput(fdoContext.getPropellerOptimizeInputFile().getCcArtifact());
     }
     if (fdoContext.getPropellerOptimizeInputFile() != null
         && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
-      buildVariables.addStringVariable(
+      buildVariables.addVariable(
           "propeller_optimize_ld_path",
           fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
       builder.addInput(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
@@ -548,7 +548,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     FdoContext.BranchFdoProfile branchFdoProfile =
         Preconditions.checkNotNull(fdoContext.getBranchFdoProfile());
     Artifact profile = branchFdoProfile.getProfileArtifact();
-    buildVariables.addStringVariable("fdo_profile_path", profile.getExecPathString());
+    buildVariables.addVariable("fdo_profile_path", profile.getExecPathString());
     builder.addInput(branchFdoProfile.getProfileArtifact());
   }
 

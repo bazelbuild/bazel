@@ -77,12 +77,12 @@ public class UserVariablesExtension implements VariablesExtension {
         try {
           NestedSet<String> nestedSet =
               Depset.cast(entry.getValue(), String.class, "string_sequence_variables_extension");
-          builder.addStringSequenceVariable(entry.getKey(), nestedSet);
+          builder.addVariable(entry.getKey(), nestedSet);
         } catch (EvalException e) {
           // Cannot throw, cast already checked in constructor.
         }
       } else if (entry.getValue() instanceof String value) {
-        builder.addStringVariable(entry.getKey(), value);
+        builder.addVariable(entry.getKey(), value);
       } else {
         // If it's any other type we should have thrown an EvalException in the constructor already.
         throw new VerifyException();

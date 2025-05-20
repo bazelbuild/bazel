@@ -339,7 +339,7 @@ public abstract class CcModule
             .addStringSequenceVariable("stripopts", asClassImmutableList(stripOpts));
     String inputFileString = convertFromNoneable(inputFile, null);
     if (inputFileString != null) {
-      variables.addStringVariable("input_file", inputFileString);
+      variables.addVariable("input_file", inputFileString);
     }
     return variables.build();
   }

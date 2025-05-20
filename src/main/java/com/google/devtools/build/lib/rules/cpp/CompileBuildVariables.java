@@ -399,62 +399,60 @@ public enum CompileBuildVariables {
         USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
 
     if (sourceFile != null) {
-      buildVariables.addArtifactOrStringVariable(SOURCE_FILE.getVariableName(), sourceFile);
+      buildVariables.addVariable(SOURCE_FILE.getVariableName(), sourceFile);
     }
 
     if (outputFile != null) {
-      buildVariables.addArtifactOrStringVariable(OUTPUT_FILE.getVariableName(), outputFile);
+      buildVariables.addVariable(OUTPUT_FILE.getVariableName(), outputFile);
     }
 
     // Set dependency_file to enable <object>.d file generation.
     if (dotdFile != null) {
-      buildVariables.addArtifactVariable(DEPENDENCY_FILE.getVariableName(), dotdFile);
+      buildVariables.addVariable(DEPENDENCY_FILE.getVariableName(), dotdFile);
     }
 
     // Set diagnostics_file to enable <object>.dia file generation.
     if (diagnosticsFile != null) {
-      buildVariables.addArtifactVariable(
-          SERIALIZED_DIAGNOSTICS_FILE.getVariableName(), diagnosticsFile);
+      buildVariables.addVariable(SERIALIZED_DIAGNOSTICS_FILE.getVariableName(), diagnosticsFile);
     }
 
     if (gcnoFile != null) {
-      buildVariables.addArtifactVariable(GCOV_GCNO_FILE.getVariableName(), gcnoFile);
+      buildVariables.addVariable(GCOV_GCNO_FILE.getVariableName(), gcnoFile);
     } else if (isCodeCoverageEnabled) {
       // TODO: Blaze currently uses `gcov_gcno_file` to detect if code coverage is enabled. It
       // should use a different signal.
-      buildVariables.addStringVariable(GCOV_GCNO_FILE.getVariableName(), "");
+      buildVariables.addVariable(GCOV_GCNO_FILE.getVariableName(), "");
     }
 
     if (dwoFile != null) {
-      buildVariables.addArtifactVariable(PER_OBJECT_DEBUG_INFO_FILE.getVariableName(), dwoFile);
+      buildVariables.addVariable(PER_OBJECT_DEBUG_INFO_FILE.getVariableName(), dwoFile);
     }
 
     if (isUsingFission) {
-      buildVariables.addStringVariable(IS_USING_FISSION.getVariableName(), "");
+      buildVariables.addVariable(IS_USING_FISSION.getVariableName(), "");
     }
 
     if (ltoIndexingFile != null) {
-      buildVariables.addArtifactVariable(
-          LTO_INDEXING_BITCODE_FILE.getVariableName(), ltoIndexingFile);
+      buildVariables.addVariable(LTO_INDEXING_BITCODE_FILE.getVariableName(), ltoIndexingFile);
     }
     if (thinLtoIndex != null) {
-      buildVariables.addArtifactOrStringVariable(THINLTO_INDEX.getVariableName(), thinLtoIndex);
+      buildVariables.addVariable(THINLTO_INDEX.getVariableName(), thinLtoIndex);
     }
     if (thinLtoInputBitcodeFile != null) {
-      buildVariables.addArtifactOrStringVariable(
+      buildVariables.addVariable(
           THINLTO_INPUT_BITCODE_FILE.getVariableName(), thinLtoInputBitcodeFile);
     }
     if (thinLtoOutputObjectFile != null) {
-      buildVariables.addArtifactOrStringVariable(
+      buildVariables.addVariable(
           THINLTO_OUTPUT_OBJECT_FILE.getVariableName(), thinLtoOutputObjectFile);
     }
 
     if (usePic) {
-      buildVariables.addStringVariable(PIC.getVariableName(), "");
+      buildVariables.addVariable(PIC.getVariableName(), "");
     }
 
     if (!externalIncludeDirs.isEmpty()) {
-      buildVariables.addPathFragmentSequenceVariable(
+      buildVariables.addVariable(
           EXTERNAL_INCLUDE_PATHS.getVariableName(),
           NestedSetBuilder.wrap(Order.STABLE_ORDER, externalIncludeDirs));
     }
@@ -523,10 +521,9 @@ public enum CompileBuildVariables {
     Preconditions.checkNotNull(localDefines);
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
-      buildVariables.addStringVariable(MODULE_NAME.getVariableName(), cppModuleMap.getName());
-      buildVariables.addArtifactVariable(
-          MODULE_MAP_FILE.getVariableName(), cppModuleMap.getArtifact());
-      buildVariables.addArtifactSequenceVariable(
+      buildVariables.addVariable(MODULE_NAME.getVariableName(), cppModuleMap.getName());
+      buildVariables.addVariable(MODULE_MAP_FILE.getVariableName(), cppModuleMap.getArtifact());
+      buildVariables.addVariable(
           DEPENDENT_MODULE_MAP_FILES.getVariableName(),
           NestedSetBuilder.wrap(Order.STABLE_ORDER, directModuleMaps));
     }
@@ -534,18 +531,15 @@ public enum CompileBuildVariables {
       // Module inputs will be set later when the action is executed.
       buildVariables.addStringSequenceVariable(MODULE_FILES.getVariableName(), ImmutableSet.of());
     }
-    buildVariables.addPathFragmentSequenceVariable(INCLUDE_PATHS.getVariableName(), includeDirs);
-    buildVariables.addPathFragmentSequenceVariable(
-        QUOTE_INCLUDE_PATHS.getVariableName(), quoteIncludeDirs);
-    buildVariables.addPathFragmentSequenceVariable(
-        SYSTEM_INCLUDE_PATHS.getVariableName(), systemIncludeDirs);
+    buildVariables.addVariable(INCLUDE_PATHS.getVariableName(), includeDirs);
+    buildVariables.addVariable(QUOTE_INCLUDE_PATHS.getVariableName(), quoteIncludeDirs);
+    buildVariables.addVariable(SYSTEM_INCLUDE_PATHS.getVariableName(), systemIncludeDirs);
 
     if (!includes.isEmpty()) {
       buildVariables.addStringSequenceVariable(INCLUDES.getVariableName(), includes);
     }
 
-    buildVariables.addPathFragmentSequenceVariable(
-        FRAMEWORK_PATHS.getVariableName(), frameworkIncludeDirs);
+    buildVariables.addVariable(FRAMEWORK_PATHS.getVariableName(), frameworkIncludeDirs);
 
     Iterable<String> allDefines;
     if (fdoStamp != null) {
@@ -560,7 +554,7 @@ public enum CompileBuildVariables {
     }
 
     if (isUsingMemProf) {
-      buildVariables.addStringVariable(IS_USING_MEMPROF.getVariableName(), "1");
+      buildVariables.addVariable(IS_USING_MEMPROF.getVariableName(), "1");
     }
 
     buildVariables.addStringSequenceVariable(PREPROCESSOR_DEFINES.getVariableName(), allDefines);

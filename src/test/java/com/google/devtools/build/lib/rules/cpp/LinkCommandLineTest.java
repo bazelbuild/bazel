@@ -58,13 +58,10 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
       ImmutableList<String> linkstampOutputs) {
     CcToolchainVariables.Builder result = CcToolchainVariables.builder();
 
-    result.addStringVariable(LinkBuildVariables.GENERATE_INTERFACE_LIBRARY.getVariableName(), "no");
-    result.addStringVariable(
-        LinkBuildVariables.INTERFACE_LIBRARY_INPUT.getVariableName(), "ignored");
-    result.addStringVariable(
-        LinkBuildVariables.INTERFACE_LIBRARY_OUTPUT.getVariableName(), "ignored");
-    result.addStringVariable(
-        LinkBuildVariables.INTERFACE_LIBRARY_BUILDER.getVariableName(), "ignored");
+    result.addVariable(LinkBuildVariables.GENERATE_INTERFACE_LIBRARY.getVariableName(), "no");
+    result.addVariable(LinkBuildVariables.INTERFACE_LIBRARY_INPUT.getVariableName(), "ignored");
+    result.addVariable(LinkBuildVariables.INTERFACE_LIBRARY_OUTPUT.getVariableName(), "ignored");
+    result.addVariable(LinkBuildVariables.INTERFACE_LIBRARY_BUILDER.getVariableName(), "ignored");
     result.addStringSequenceVariable(
         LinkBuildVariables.LINKSTAMP_PATHS.getVariableName(), linkstampOutputs);
 
@@ -148,7 +145,7 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
   public void testLibrariesToLink() throws Exception {
     CcToolchainVariables.Builder variables =
         getMockBuildVariables()
-            .addSequenceVariable(
+            .addVariable(
                 LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
                 ImmutableList.of(
                     LibraryToLinkValue.forStaticLibrary("foo", false),
@@ -182,7 +179,7 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
   public void testLinkerParamFileForStaticLibrary() throws Exception {
     CcToolchainVariables.Builder variables =
         getMockBuildVariables()
-            .addStringVariable(
+            .addVariable(
                 LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(),
                 "LINKER_PARAM_FILE_PLACEHOLDER");
 
@@ -198,7 +195,7 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
   public void testLinkerParamFileForDynamicLibrary() throws Exception {
     CcToolchainVariables.Builder variables =
         getMockBuildVariables()
-            .addStringVariable(
+            .addVariable(
                 LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(),
                 "LINKER_PARAM_FILE_PLACEHOLDER");
 
@@ -237,8 +234,7 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
     assertThat(basicArgv(LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY)).doesNotContain(pieArg);
 
     CcToolchainVariables.Builder picVariables =
-        getMockBuildVariables()
-            .addStringVariable(LinkBuildVariables.FORCE_PIC.getVariableName(), "");
+        getMockBuildVariables().addVariable(LinkBuildVariables.FORCE_PIC.getVariableName(), "");
     // Enabled:
     useConfiguration("--force_pic");
     assertThat(basicArgv(LinkTargetType.EXECUTABLE, picVariables)).contains(pieArg);
@@ -258,9 +254,9 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
     LinkCommandLine linkConfig =
         minimalConfiguration(
                 getMockBuildVariables()
-                    .addStringVariable(
+                    .addVariable(
                         LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), "a/FakeOutput")
-                    .addStringVariable(
+                    .addVariable(
                         LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(),
                         "LINKER_PARAM_FILE_PLACEHOLDER"))
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
@@ -282,9 +278,9 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
     LinkCommandLine linkConfig =
         minimalConfiguration(
                 getMockBuildVariables()
-                    .addStringVariable(
+                    .addVariable(
                         LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), "a/FakeOutput")
-                    .addStringVariable(
+                    .addVariable(
                         LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(), "some/file.params")
                     .addStringSequenceVariable(
                         LinkBuildVariables.USER_LINK_FLAGS.getVariableName(), ImmutableList.of("")))
@@ -305,7 +301,7 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
     LinkCommandLine linkConfig =
         minimalConfiguration(
                 getMockBuildVariables()
-                    .addStringVariable(
+                    .addVariable(
                         LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), "a/FakeOutput"))
             .forceToolPath("foo/bar/ar")
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
@@ -319,11 +315,10 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
   public void testSplitAlwaysLinkLinkCommand() throws Exception {
     CcToolchainVariables.Builder variables =
         CcToolchainVariables.builder()
-            .addStringVariable(CcCommon.SYSROOT_VARIABLE_NAME, "/usr/grte/v1")
-            .addStringVariable(LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), "a/FakeOutput")
-            .addStringVariable(
-                LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(), "some/file.params")
-            .addSequenceVariable(
+            .addVariable(CcCommon.SYSROOT_VARIABLE_NAME, "/usr/grte/v1")
+            .addVariable(LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), "a/FakeOutput")
+            .addVariable(LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(), "some/file.params")
+            .addVariable(
                 LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
                 ImmutableList.of(
                     LibraryToLinkValue.forObjectFile("foo.o", false),
@@ -383,9 +378,9 @@ public final class LinkCommandLineTest extends LinkBuildVariablesTestCase {
     LinkCommandLine linkConfig =
         minimalConfiguration(
                 getMockBuildVariables()
-                    .addStringVariable(
+                    .addVariable(
                         LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(), "some/file.params")
-                    .addSequenceVariable(
+                    .addVariable(
                         LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
                         ImmutableList.of(
                             LibraryToLinkValue.forObjectFileGroup(

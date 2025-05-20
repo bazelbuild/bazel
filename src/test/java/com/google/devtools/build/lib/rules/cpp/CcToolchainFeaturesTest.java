@@ -83,7 +83,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     for (String name : entryMap.keySet()) {
       List<String> value = entryMap.get(name);
       if (value.size() == 1) {
-        variables.addStringVariable(name, value.get(0));
+        variables.addVariable(name, value.get(0));
       } else {
         variables.addStringSequenceVariable(name, ImmutableList.copyOf(value));
       }
@@ -439,9 +439,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
 
   private static CcToolchainVariables createStructureSequenceVariables(
       String name, VariableValue... values) {
-    return CcToolchainVariables.builder()
-        .addSequenceVariable(name, ImmutableList.copyOf(values))
-        .build();
+    return CcToolchainVariables.builder().addVariable(name, ImmutableList.copyOf(values)).build();
   }
 
   /**
@@ -881,7 +879,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
 
   private static VariableValue booleanValue(boolean val) throws ExpansionException {
     return CcToolchainVariables.builder()
-        .addBooleanValue("name", val)
+        .addVariable("name", val)
         .build()
         .getVariable("name", PathMapper.NOOP);
   }
@@ -992,7 +990,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
 
   private static CcToolchainVariables createNestedVariables(String name, int depth, int count) {
     return CcToolchainVariables.builder()
-        .addSequenceVariable(name, createNestedSequence(depth, count, ""))
+        .addVariable(name, createNestedSequence(depth, count, ""))
         .build();
   }
 

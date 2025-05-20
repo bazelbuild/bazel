@@ -245,22 +245,22 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
 
     CcToolchainVariables.Builder buildVariables =
         CcToolchainVariables.builder(cppCompileActionBuilder.getVariables());
-    buildVariables.overrideArtifactVariable(
+    buildVariables.overrideVariable(
         CompileBuildVariables.SOURCE_FILE.getVariableName(), sourceTreeFileArtifact);
-    buildVariables.overrideArtifactVariable(
+    buildVariables.overrideVariable(
         CompileBuildVariables.OUTPUT_FILE.getVariableName(), outputTreeFileArtifact);
     if (dotdFileArtifact != null) {
-      buildVariables.overrideArtifactVariable(
+      buildVariables.overrideVariable(
           CompileBuildVariables.DEPENDENCY_FILE.getVariableName(), dotdFileArtifact);
     }
     if (diagnosticsFileArtifact != null) {
-      buildVariables.overrideArtifactVariable(
+      buildVariables.overrideVariable(
           CompileBuildVariables.SERIALIZED_DIAGNOSTICS_FILE.getVariableName(),
           diagnosticsFileArtifact);
     }
 
     if (ltoIndexFileArtifact != null) {
-      buildVariables.overrideArtifactVariable(
+      buildVariables.overrideVariable(
           CompileBuildVariables.LTO_INDEXING_BITCODE_FILE.getVariableName(), ltoIndexFileArtifact);
     }
 

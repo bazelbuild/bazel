@@ -1168,55 +1168,11 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       this.parent = parent;
     }
 
-    /** Adds a variable that expands {@code name} to {@code 0} or {@code 1}. */
     @CanIgnoreReturnValue
-    public Builder addBooleanValue(String name, boolean value) {
-      variablesMap.put(name, value);
-      return this;
-    }
-
-    /** Add a string variable that expands {@code name} to {@code value}. */
-    @CanIgnoreReturnValue
-    public Builder addStringVariable(String name, String value) {
-      checkVariableNotPresentAlready(name);
+    public Builder overrideVariable(String name, Artifact value) {
       Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
       variablesMap.put(name, value);
       return this;
-    }
-
-    /** Add an artifact variable that expands {@code name} to {@code value}. */
-    @CanIgnoreReturnValue
-    public Builder addArtifactVariable(String name, Artifact value) {
-      checkVariableNotPresentAlready(name);
-      Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, value);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder overrideArtifactVariable(String name, Artifact value) {
-      Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, value);
-      return this;
-    }
-
-    /**
-     * Add an artifact or string variable that expands {@code name} to {@code value}.
-     *
-     * <p>Prefer {@link #addArtifactVariable} and {@link #addStringVariable}. This method is only
-     * meant to support string-based Starlark API.
-     */
-    @CanIgnoreReturnValue
-    public Builder addArtifactOrStringVariable(String name, Object value) {
-      return switch (value) {
-        case String s -> addStringVariable(name, s);
-        case Artifact artifact -> addArtifactVariable(name, artifact);
-        case null ->
-            throw new IllegalArgumentException(
-                "Cannot set null as a value for variable '" + name + "'");
-        default ->
-            throw new IllegalArgumentException("Unsupported value type: " + value.getClass());
-      };
     }
 
     private static final Interner<ImmutableList<String>> stringSequenceInterner =
@@ -1241,19 +1197,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     /**
      * Add a sequence variable that expands {@code name} to {@code values}.
      *
-     * <p>Accepts values as NestedSet. Nested set is stored directly, not cloned, not flattened.
-     */
-    @CanIgnoreReturnValue
-    public Builder addStringSequenceVariable(String name, NestedSet<String> values) {
-      checkVariableNotPresentAlready(name);
-      Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, values);
-      return this;
-    }
-
-    /**
-     * Add a sequence variable that expands {@code name} to {@code values}.
-     *
      * <p>Accepts values as Iterable. The iterable is stored directly, not cloned, not iterated. Be
      * mindful of memory consumption of the particular Iterable. Prefer ImmutableList, or be sure
      * that the iterable always returns the same elements in the same order, without any side
@@ -1267,45 +1210,10 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       return this;
     }
 
-    /**
-     * Add a sequence variable that expands {@code name} to {@link PathFragment} {@code values}.
-     *
-     * <p>Accepts values as NestedSet. Nested set is stored directly, not cloned, not flattened.
-     */
-    @CanIgnoreReturnValue
-    public Builder addPathFragmentSequenceVariable(String name, NestedSet<PathFragment> values) {
-      checkVariableNotPresentAlready(name);
-      Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, values);
-      return this;
-    }
-
-    /**
-     * Add a sequence variable that expands {@code name} to {@link Artifact} {@code values}.
-     *
-     * <p>Accepts values as NestedSet. Nested set is stored directly, not cloned, not flattened.
-     */
-    @CanIgnoreReturnValue
-    public Builder addArtifactSequenceVariable(String name, NestedSet<Artifact> values) {
-      checkVariableNotPresentAlready(name);
-      Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, values);
-      return this;
-    }
-
-    /** Adds a sequence variable that expands {@code name} to {@code sequence}. */
-    @CanIgnoreReturnValue
-    public Builder addSequenceVariable(String name, ImmutableList<VariableValue> sequence) {
-      checkVariableNotPresentAlready(name);
-      Preconditions.checkNotNull(sequence, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, sequence);
-      return this;
-    }
-
     /** Adds a variable that expands {@code name} to the {@code value}. */
     @CanIgnoreReturnValue
     @VisibleForTesting
-    Builder addVariable(String name, VariableValue value) {
+    public Builder addVariable(String name, Object value) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(value, "Cannot use null value for variable '%s'", name);
       variablesMap.put(name, value);
@@ -1357,7 +1265,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   /** Wraps a raw variablesMap value into an appropriate VariableValue if necessary. */
   private static VariableValue asVariableValue(Object o) {
     return switch (o) {
-      case NoneType ignored -> null; // null has the same behavior as ommitted field
+      case NoneType ignored -> null; // null has the same behavior as omitted field
       case Boolean b -> BooleanValue.of(b);
       case String s -> new StringValue(s);
       case Artifact artifact -> new ArtifactValue(artifact);
