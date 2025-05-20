@@ -404,16 +404,21 @@ public final class CompletionFunction<
     InputMetadataProvider fullMetadataProvider = new ActionInputMetadataProvider(inputMap);
     try {
       LostArtifacts lostOutputs;
+      var filteredImportantArtifacts =
+          key.topLevelArtifactContext().expandFilesets()
+              ? importantArtifacts
+              : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset());
       try (var ignored =
-          GoogleAutoProfilerUtils.profiledAndLogged(
-              "Informing important output handler of top-level outputs for " + label,
-              ProfilerTask.INFO,
-              ImportantOutputHandler.LOG_THRESHOLD)) {
+              GoogleAutoProfilerUtils.profiledAndLogged(
+                  "Informing important output handler of top-level outputs for " + label,
+                  ProfilerTask.INFO,
+                  ImportantOutputHandler.LOG_THRESHOLD);
+          var ignored2 =
+              skyframeActionExecutor.enterProcessOutputsAndGetLostArtifacts(
+                  filteredImportantArtifacts, fullMetadataProvider)) {
         lostOutputs =
             importantOutputHandler.processOutputsAndGetLostArtifacts(
-                key.topLevelArtifactContext().expandFilesets()
-                    ? importantArtifacts
-                    : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset()),
+                filteredImportantArtifacts,
                 new ActionInputMetadataProvider(ctx.getImportantInputMap()),
                 fullMetadataProvider);
       }

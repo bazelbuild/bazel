@@ -113,6 +113,7 @@ import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType;
+import com.google.devtools.build.lib.vfs.OutputService.RewoundActionSynchronizer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -243,6 +244,7 @@ public final class SkyframeActionExecutor {
   private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
+  private RewoundActionSynchronizer rewoundActionSynchronizer;
   private boolean invocationRetriesEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
 
@@ -346,6 +348,8 @@ public final class SkyframeActionExecutor {
     this.invocationRetriesEnabled =
         options.getOptions(ExecutionOptions.class).remoteRetryOnTransientCacheError > 0;
     this.outputService = checkNotNull(outputService);
+    this.rewoundActionSynchronizer =
+        outputService.createRewoundActionSynchronizer(rewindingEnabled);
     this.outputDirectoryHelper = outputDirectoryHelper;
 
     // Retaining discovered inputs is only worthwhile for incremental builds or builds with extra
@@ -480,6 +484,7 @@ public final class SkyframeActionExecutor {
     this.executorEngine = null;
     this.progressSuppressingEventHandler = null;
     this.outputService = null;
+    this.rewoundActionSynchronizer = null;
     this.buildActionMap = null;
     this.rewoundActions = null;
     this.actionCacheChecker = null;
@@ -585,6 +590,17 @@ public final class SkyframeActionExecutor {
     if (actionCacheChecker.enabled()) {
       actionCacheChecker.removeCacheEntry(action);
     }
+  }
+
+  /**
+   * Guards a call to {@link
+   * com.google.devtools.build.lib.actions.ImportantOutputHandler#processOutputsAndGetLostArtifacts}.
+   */
+  public SilentCloseable enterProcessOutputsAndGetLostArtifacts(
+      Iterable<Artifact> importantOutputs, InputMetadataProvider fullMetadataProvider)
+      throws InterruptedException {
+    return rewoundActionSynchronizer.enterProcessOutputsAndGetLostArtifacts(
+        importantOutputs, fullMetadataProvider);
   }
 
   /**
@@ -1097,39 +1113,46 @@ public final class SkyframeActionExecutor {
             statusReporter.updateStatus(event);
           }
           env.getListener().post(event);
-          if (actionFileSystemType().shouldDoEagerActionPrep()) {
-            try (SilentCloseable d =
-                Profiler.instance().profile(ProfilerTask.INFO, "action.prepare")) {
-              // This call generally deletes any files at locations that are declared outputs of the
-              // action, although some actions perform additional work, while others intentionally
-              // keep previous outputs in place.
-              action.prepare(
-                  actionExecutionContext.getExecRoot(),
-                  actionExecutionContext.getPathResolver(),
-                  outputService.bulkDeleter(),
-                  useArchivedTreeArtifacts(action));
-            } catch (IOException e) {
-              logger.atWarning().withCause(e).log(
-                  "failed to delete output files before executing action: '%s'", action);
-              throw toActionExecutionException(
-                  "failed to delete output files before executing action",
-                  e,
-                  action,
-                  null,
-                  Code.ACTION_OUTPUTS_DELETION_FAILURE);
+          try (SilentCloseable outerLock =
+              rewoundActionSynchronizer.enterActionPreparation(action, wasRewound(action))) {
+            if (actionFileSystemType().shouldDoEagerActionPrep()) {
+              try (SilentCloseable d =
+                  Profiler.instance().profile(ProfilerTask.INFO, "action.prepare")) {
+                // This call generally deletes any files at locations that are declared outputs of
+                // the action, although some actions perform additional work, while others
+                // intentionally keep previous outputs in place.
+                action.prepare(
+                    actionExecutionContext.getExecRoot(),
+                    actionExecutionContext.getPathResolver(),
+                    outputService.bulkDeleter(),
+                    useArchivedTreeArtifacts(action));
+              } catch (IOException e) {
+                logger.atWarning().withCause(e).log(
+                    "failed to delete output files before executing action: '%s'", action);
+                throw toActionExecutionException(
+                    "failed to delete output files before executing action",
+                    e,
+                    action,
+                    null,
+                    Code.ACTION_OUTPUTS_DELETION_FAILURE);
+              }
+            }
+
+            if (actionFileSystemType().inMemoryFileSystem()) {
+              // There's nothing to delete when the action file system is used, but we must ensure
+              // that the output directories for stdout and stderr exist.
+              setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
+              createActionFsOutputDirectories(action, actionExecutionContext.getPathResolver());
+            } else {
+              createOutputDirectories(action);
+            }
+
+            try (SilentCloseable innerLock =
+                rewoundActionSynchronizer.enterActionExecution(
+                    action, actionExecutionContext.getInputMetadataProvider())) {
+              return executeAction(env.getListener(), action);
             }
           }
-
-          if (actionFileSystemType().inMemoryFileSystem()) {
-            // There's nothing to delete when the action file system is used, but we must ensure
-            // that the output directories for stdout and stderr exist.
-            setupActionFsFileOutErr(actionExecutionContext.getFileOutErr(), action);
-            createActionFsOutputDirectories(action, actionExecutionContext.getPathResolver());
-          } else {
-            createOutputDirectories(action);
-          }
-
-          return executeAction(env.getListener(), action);
         } catch (LostInputsActionExecutionException e) {
           lostInputs = true;
           throw e;

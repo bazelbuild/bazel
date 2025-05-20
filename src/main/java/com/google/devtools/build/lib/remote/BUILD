@@ -31,6 +31,7 @@ java_library(
             "ExecutionStatusException.java",
             "ReferenceCountedChannel.java",
             "ChannelConnectionWithServerCapabilitiesFactory.java",
+            "ConcurrentArtifactPathTrie.java",
             "RemoteRetrier.java",
             "RemoteRetrierUtils.java",
             "Retrier.java",
@@ -52,6 +53,7 @@ java_library(
         ":ReferenceCountedChannel",
         ":Retrier",
         ":abstract_action_input_prefetcher",
+        ":concurrent_artifact_path_trie",
         ":lease_service",
         ":remote_important_output_handler",
         ":remote_output_checker",
@@ -212,6 +214,7 @@ java_library(
     name = "remote_output_checker",
     srcs = ["RemoteOutputChecker.java"],
     deps = [
+        ":concurrent_artifact_path_trie",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -303,6 +306,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "concurrent_artifact_path_trie",
+    srcs = ["ConcurrentArtifactPathTrie.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
     ],
 )

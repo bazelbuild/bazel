@@ -57,6 +57,8 @@ public final class OutputsInvalidationIntegrationTest extends BuildIntegrationTe
     when(outputService.startBuild(any(), any(), any(), anyBoolean()))
         .thenReturn(ModifiedFileSet.EVERYTHING_MODIFIED);
     when(outputService.getXattrProvider(any())).thenAnswer(i -> i.getArgument(0));
+    when(outputService.createRewoundActionSynchronizer(anyBoolean()))
+        .thenReturn(OutputService.RewoundActionSynchronizer.NOOP);
   }
 
   @Override
