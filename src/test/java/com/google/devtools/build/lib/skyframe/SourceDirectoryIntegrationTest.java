@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.createEmptyFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.ensureSymbolicLink;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.touchFile;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeContent;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeIsoLatin1;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
@@ -217,10 +219,18 @@ public final class SourceDirectoryIntegrationTest extends BuildIntegrationTestCa
   }
 
   @Test
-  @Ignore("TODO(#25834)")
   public void danglingSymlinkModified_invalidatesAction() throws Exception {
     ensureSymbolicLink(
         sourceDir.getRelative("dangling_symlink"), PathFragment.create("still_does_not_exist"));
+    assertInvalidatedByBuild();
+  }
+
+  @Test
+  public void danglingSymlinkReplacedWithFile_invalidatesAction() throws Exception {
+    Path danglingSymlink = sourceDir.getRelative("dangling_symlink");
+    String target = danglingSymlink.readSymbolicLink().getPathString();
+    danglingSymlink.delete();
+    writeContent(danglingSymlink, ISO_8859_1, target);
     assertInvalidatedByBuild();
   }
 
