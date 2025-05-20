@@ -108,7 +108,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "type",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -118,7 +118,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "is_whole_archive",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -128,7 +128,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "name",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -137,7 +137,7 @@ public class LibraryToLinkValueTest {
             libraryToLinkValue.getFieldValue(
                 /* variableName= */ "variable name doesn't matter",
                 /* field= */ "object_files",
-                /* expander= */ null,
+                /* inputMetadataProvider= */ null,
                 PathMapper.NOOP,
                 /* throwOnMissingVariable= */ false))
         .isNull();
@@ -152,7 +152,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "type",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -162,7 +162,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "path",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -172,7 +172,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "is_whole_archive",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -182,7 +182,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "name",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -191,7 +191,7 @@ public class LibraryToLinkValueTest {
             libraryToLinkValue.getFieldValue(
                 /* variableName= */ "variable name doesn't matter",
                 /* field= */ "object_files",
-                /* expander= */ null,
+                /* inputMetadataProvider= */ null,
                 PathMapper.NOOP,
                 /* throwOnMissingVariable= */ false))
         .isNull();
@@ -205,7 +205,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "type",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -215,7 +215,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "is_whole_archive",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -225,7 +225,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "name",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -234,7 +234,7 @@ public class LibraryToLinkValueTest {
             libraryToLinkValue.getFieldValue(
                 /* variableName= */ "variable name doesn't matter",
                 /* field= */ "object_files",
-                /* expander= */ null,
+                /* inputMetadataProvider= */ null,
                 PathMapper.NOOP,
                 /* throwOnMissingVariable= */ false))
         .isNull();
@@ -249,7 +249,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "type",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -259,7 +259,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "is_whole_archive",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -269,7 +269,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "name",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -278,7 +278,7 @@ public class LibraryToLinkValueTest {
             libraryToLinkValue.getFieldValue(
                 /* variableName= */ "variable name doesn't matter",
                 /* field= */ "object_files",
-                /* expander= */ null,
+                /* inputMetadataProvider= */ null,
                 PathMapper.NOOP,
                 /* throwOnMissingVariable= */ false))
         .isNull();
@@ -293,7 +293,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "type",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -303,7 +303,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "is_whole_archive",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -313,7 +313,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "name",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -322,7 +322,7 @@ public class LibraryToLinkValueTest {
             libraryToLinkValue.getFieldValue(
                 /* variableName= */ "variable name doesn't matter",
                 /* field= */ "object_files",
-                /* expander= */ null,
+                /* inputMetadataProvider= */ null,
                 PathMapper.NOOP,
                 /* throwOnMissingVariable= */ false))
         .isNull();
@@ -337,7 +337,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "type",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -347,7 +347,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "is_whole_archive",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -357,7 +357,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "name",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -366,7 +366,7 @@ public class LibraryToLinkValueTest {
             libraryToLinkValue.getFieldValue(
                 /* variableName= */ "variable name doesn't matter",
                 /* field= */ "object_files",
-                /* expander= */ null,
+                /* inputMetadataProvider= */ null,
                 PathMapper.NOOP,
                 /* throwOnMissingVariable= */ false))
         .isNull();
@@ -381,7 +381,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "type",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -391,7 +391,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "is_whole_archive",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -401,7 +401,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "name",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -410,7 +410,7 @@ public class LibraryToLinkValueTest {
             libraryToLinkValue.getFieldValue(
                 /* variableName= */ "variable name doesn't matter",
                 /* field= */ "object_files",
-                /* expander= */ null,
+                /* inputMetadataProvider= */ null,
                 PathMapper.NOOP,
                 /* throwOnMissingVariable= */ false))
         .isNull();
@@ -433,7 +433,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "type",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -443,7 +443,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "is_whole_archive",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -452,20 +452,20 @@ public class LibraryToLinkValueTest {
             libraryToLinkValue.getFieldValue(
                 /* variableName= */ "variable name doesn't matter",
                 /* field= */ "name",
-                /* expander= */ null,
+                /* inputMetadataProvider= */ null,
                 PathMapper.NOOP,
                 /* throwOnMissingVariable= */ false))
         .isNull();
     assertThat(
             Iterables.getOnlyElement(
-                    libraryToLinkValue
-                        .getFieldValue(
+                    CcToolchainVariables.getSequenceValue(
+                        "object_files",
+                        libraryToLinkValue.getFieldValue(
                             /* variableName= */ "variable name doesn't matter",
                             /* field= */ "object_files",
-                            /* expander= */ null,
+                            /* inputMetadataProvider= */ null,
                             PathMapper.NOOP,
-                            /* throwOnMissingVariable= */ false)
-                        .getSequenceValue("variable name doesn't matter", PathMapper.NOOP))
+                            /* throwOnMissingVariable= */ false)))
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
         .isEqualTo("artifact");
   }
@@ -487,7 +487,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "type",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -497,7 +497,7 @@ public class LibraryToLinkValueTest {
                 .getFieldValue(
                     /* variableName= */ "variable name doesn't matter",
                     /* field= */ "is_whole_archive",
-                    /* expander= */ null,
+                    /* inputMetadataProvider= */ null,
                     PathMapper.NOOP,
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
@@ -506,20 +506,20 @@ public class LibraryToLinkValueTest {
             libraryToLinkValue.getFieldValue(
                 /* variableName= */ "variable name doesn't matter",
                 /* field= */ "name",
-                /* expander= */ null,
+                /* inputMetadataProvider= */ null,
                 PathMapper.NOOP,
                 /* throwOnMissingVariable= */ false))
         .isNull();
     assertThat(
             Iterables.getOnlyElement(
-                    libraryToLinkValue
-                        .getFieldValue(
+                    CcToolchainVariables.getSequenceValue(
+                        "object_files",
+                        libraryToLinkValue.getFieldValue(
                             /* variableName= */ "variable name doesn't matter",
                             /* field= */ "object_files",
-                            /* expander= */ null,
+                            /* inputMetadataProvider= */ null,
                             PathMapper.NOOP,
-                            /* throwOnMissingVariable= */ false)
-                        .getSequenceValue("variable name doesn't matter", PathMapper.NOOP))
+                            /* throwOnMissingVariable= */ false)))
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
         .isEqualTo("artifact");
   }

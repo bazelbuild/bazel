@@ -94,8 +94,8 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
             LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), PathMapper.NOOP);
     assertThat(librariesToLinkSequence).isNotNull();
     Iterable<? extends VariableValue> librariesToLink =
-        librariesToLinkSequence.getSequenceValue(
-            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), PathMapper.NOOP);
+        CcToolchainVariables.getSequenceValue(
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), librariesToLinkSequence);
     assertThat(librariesToLink).hasSize(1);
     VariableValue nameValue =
         librariesToLink
@@ -140,8 +140,8 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         variables.getVariable(
             LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), PathMapper.NOOP);
     Iterable<? extends VariableValue> librariestoLink =
-        librariesToLinkSequence.getSequenceValue(
-            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), PathMapper.NOOP);
+        CcToolchainVariables.getSequenceValue(
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), librariesToLinkSequence);
     VariableValue nameValue =
         librariestoLink
             .iterator()
@@ -168,8 +168,8 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         variables.getVariable(
             LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), PathMapper.NOOP);
     Iterable<? extends VariableValue> librariestoLink =
-        librariesToLinkSequence.getSequenceValue(
-            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), PathMapper.NOOP);
+        CcToolchainVariables.getSequenceValue(
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), librariesToLinkSequence);
     VariableValue nameValue =
         librariestoLink
             .iterator()
@@ -196,8 +196,8 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         variables.getVariable(
             LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), PathMapper.NOOP);
     Iterable<? extends VariableValue> librariestoLink =
-        librariesToLinkSequence.getSequenceValue(
-            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), PathMapper.NOOP);
+        CcToolchainVariables.getSequenceValue(
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), librariesToLinkSequence);
     VariableValue nameValue =
         librariestoLink
             .iterator()
@@ -629,8 +629,8 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
             LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), PathMapper.NOOP);
     assertThat(librariesToLinkSequence).isNotNull();
     Iterable<? extends VariableValue> librariesToLink =
-        librariesToLinkSequence.getSequenceValue(
-            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), PathMapper.NOOP);
+        CcToolchainVariables.getSequenceValue(
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), librariesToLinkSequence);
     assertThat(Iterables.size(librariesToLink)).isAnyOf(2, 3);
 
     Iterator<? extends VariableValue> librariesToLinkIterator = librariesToLink.iterator();

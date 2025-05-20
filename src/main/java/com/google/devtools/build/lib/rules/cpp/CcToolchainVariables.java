@@ -320,7 +320,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       CcToolchainVariables variables, String variableName, PathMapper pathMapper)
       throws ExpansionException {
     ImmutableList.Builder<String> result = ImmutableList.builder();
-    for (VariableValue value : variables.getSequenceVariable(variableName, pathMapper)) {
+    for (VariableValue value :
+        getSequenceValue(variableName, variables.getVariable(variableName, pathMapper))) {
       result.add(value.getStringValue(variableName, pathMapper));
     }
     return result.build();
@@ -338,7 +339,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         name, /* throwOnMissingVariable= */ true, /* inputMetadataProvider= */ null, pathMapper);
   }
 
-  private VariableValue getVariable(
+  VariableValue getVariable(
       String name, @Nullable InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws ExpansionException {
     return lookupVariable(
@@ -459,21 +460,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         .getStringValue(variableName, pathMapper);
   }
 
-  public Iterable<? extends VariableValue> getSequenceVariable(
-      String variableName, PathMapper pathMapper) throws ExpansionException {
-    return getVariable(variableName, /* inputMetadataProvider= */ null, pathMapper)
-        .getSequenceValue(variableName, pathMapper);
-  }
-
-  public Iterable<? extends VariableValue> getSequenceVariable(
-      String variableName,
-      @Nullable InputMetadataProvider inputMetadataProvider,
-      PathMapper pathMapper)
-      throws ExpansionException {
-    return getVariable(variableName, inputMetadataProvider, pathMapper)
-        .getSequenceValue(variableName, pathMapper);
-  }
-
   /** Returns whether {@code variable} is set. */
   public boolean isAvailable(String variable) {
     return isAvailable(variable, /* inputMetadataProvider= */ null);
@@ -509,6 +495,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * queried multiple times.
    */
   interface VariableValue {
+    /** Returns human-readable variable type name to be used in error messages. */
+    String getVariableTypeName();
+
     /**
      * Returns string value of the variable, if the variable type can be converted to string (e.g.
      * StringValue), or throw exception if it cannot (e.g. Sequence).
@@ -516,15 +505,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      * @param variableName name of the variable value at hand, for better exception message.
      */
     String getStringValue(String variableName, PathMapper pathMapper) throws ExpansionException;
-
-    /**
-     * Returns Iterable value of the variable, if the variable type can be converted to a Iterable
-     * (e.g. Sequence), or throw exception if it cannot (e.g. StringValue).
-     *
-     * @param variableName name of the variable value at hand, for better exception message.
-     */
-    Iterable<? extends VariableValue> getSequenceValue(String variableName, PathMapper pathMapper)
-        throws ExpansionException;
 
     /**
      * Returns value of the field, if the variable is of struct type or throw exception if it is not
@@ -558,14 +538,10 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   /**
    * Adapter for {@link VariableValue} predefining error handling methods. Override {@link
    * #getVariableTypeName()}, {@link #isTruthy()}, and one of {@link #getFieldValue(String,
-   * String)}, {@link VariableValue#getSequenceValue(String, PathMapper)}, or {@link
-   * VariableValue#getStringValue(String, PathMapper)}, and you'll get error handling for the other
-   * methods for free.
+   * String)}, or {@link VariableValue#getStringValue(String, PathMapper)}, and you'll get error
+   * handling for the other methods for free.
    */
   abstract static class VariableValueAdapter implements VariableValue {
-
-    /** Returns human-readable variable type name to be used in error messages. */
-    public abstract String getVariableTypeName();
 
     @Override
     public abstract boolean isTruthy();
@@ -599,16 +575,24 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
                   + "found %s",
               variableName, getVariableTypeName()));
     }
+  }
 
-    @Override
-    public Iterable<? extends VariableValue> getSequenceValue(
-        String variableName, PathMapper pathMapper) throws ExpansionException {
-      throw new ExpansionException(
-          String.format(
-              "Invalid toolchain configuration: Cannot expand variable '%s': expected sequence, "
-                  + "found %s",
-              variableName, getVariableTypeName()));
+  /**
+   * Returns Iterable value of the variable, if the variable type can be converted to a Iterable
+   * (e.g. Sequence), or throw exception if it cannot (e.g. StringValue).
+   *
+   * @param variableName name of the variable value at hand, for better exception message.
+   */
+  static Iterable<? extends VariableValue> getSequenceValue(
+      String variableName, VariableValue value) throws ExpansionException {
+    if (value instanceof Sequence seq) {
+      return seq.getSequenceValue();
     }
+    throw new ExpansionException(
+        String.format(
+            "Invalid toolchain configuration: Cannot expand variable '%s': expected sequence, "
+                + "found %s",
+            variableName, value.getVariableTypeName()));
   }
 
   /**
@@ -950,9 +934,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       this.values = values;
     }
 
-    @Override
-    public Iterable<? extends VariableValue> getSequenceValue(
-        String variableName, PathMapper pathMapper) {
+    Iterable<? extends VariableValue> getSequenceValue() {
       return Iterables.transform(values, CcToolchainVariables::asVariableValue);
     }
 

@@ -8017,7 +8017,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         action
             .getCompileCommandLine()
             .getVariables()
-            .getSequenceVariable("string_sequence_variable", PathMapper.NOOP);
+            .getVariable("string_sequence_variable", PathMapper.NOOP);
     var unused2 =
         action
             .getCompileCommandLine()
@@ -8027,7 +8027,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         action
             .getCompileCommandLine()
             .getVariables()
-            .getSequenceVariable("string_depset_variable", PathMapper.NOOP);
+            .getVariable("string_depset_variable", PathMapper.NOOP);
   }
 
   @Test
@@ -8041,7 +8041,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     var unused1 =
         getLinkCommandLine(action)
             .getBuildVariables()
-            .getSequenceVariable("string_sequence_variable", PathMapper.NOOP);
+            .getVariable("string_sequence_variable", PathMapper.NOOP);
     var unused2 =
         getLinkCommandLine(action)
             .getBuildVariables()
@@ -8049,7 +8049,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     var unused3 =
         getLinkCommandLine(action)
             .getBuildVariables()
-            .getSequenceVariable("string_depset_variable", PathMapper.NOOP);
+            .getVariable("string_depset_variable", PathMapper.NOOP);
   }
 
   @Test
@@ -8065,7 +8065,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     var unused1 =
         getLinkCommandLine(action)
             .getBuildVariables()
-            .getSequenceVariable("string_sequence_variable", PathMapper.NOOP);
+            .getVariable("string_sequence_variable", PathMapper.NOOP);
     var unused2 =
         getLinkCommandLine(action)
             .getBuildVariables()
@@ -8073,7 +8073,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     var unused3 =
         getLinkCommandLine(action)
             .getBuildVariables()
-            .getSequenceVariable("string_depset_variable", PathMapper.NOOP);
+            .getVariable("string_depset_variable", PathMapper.NOOP);
   }
 
   @Test

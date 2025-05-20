@@ -1846,9 +1846,10 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                 .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.NAME_FIELD_NAME))
         .isNull();
     Iterable<? extends VariableValue> objects =
-        LibraryToLinkValue.forObjectFileGroup(testArtifacts, false)
-            .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.OBJECT_FILES_FIELD_NAME)
-            .getSequenceValue(LibraryToLinkValue.OBJECT_FILES_FIELD_NAME, PathMapper.NOOP);
+        CcToolchainVariables.getSequenceValue(
+            "LibraryToLinkValue",
+            LibraryToLinkValue.forObjectFileGroup(testArtifacts, false)
+                .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.OBJECT_FILES_FIELD_NAME));
     ImmutableList.Builder<String> objectNames = ImmutableList.builder();
     for (VariableValue object : objects) {
       objectNames.add(object.getStringValue("name", PathMapper.NOOP));
