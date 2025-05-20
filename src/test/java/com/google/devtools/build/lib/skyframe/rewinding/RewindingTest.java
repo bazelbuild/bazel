@@ -72,7 +72,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
         .addBlazeModule(new RemoteModule())
         .addBlazeModule(new BlockWaitingModule())
         .addBlazeModule(new IncludeScanningModule())
-        .addBlazeModule(helper.makeControllableActionStrategyModule("remote"))
+        .addBlazeModule(helper.makeControllableActionStrategyModule("remote", "standalone"))
         .addBlazeModule(helper.getLostOutputsModule())
         .addBlazeModule(
             new BlazeModule() {
@@ -172,7 +172,13 @@ public final class RewindingTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void multipleLostInputsForRewindPlan() throws Exception {
+  public void multipleLostInputsForRewindPlan(
+      @TestParameter({"standalone", "remote"}) String producerStrategy,
+      @TestParameter({"standalone", "remote"}) String consumerStrategy)
+      throws Exception {
+    addOptions(
+        "--strategy_regexp=.*//test:rule.*=" + producerStrategy,
+        "--strategy_regexp=.*//test:consume.*=" + consumerStrategy);
     helper.runMultipleLostInputsForRewindPlan();
   }
 
