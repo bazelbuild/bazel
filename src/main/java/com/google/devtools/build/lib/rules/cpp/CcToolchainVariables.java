@@ -982,9 +982,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   }
 
   /**
-   * A sequence of simple string values. Exists as a memory optimization - a typical build can
-   * contain millions of feature values, so getting rid of the overhead of {@code StringValue}
-   * objects significantly reduces memory overhead.
+   * A nested set of values.
    *
    * <p>Because checking nested set equality is expensive, equality for these sequences is defined
    * in terms of {@link NestedSet#shallowEquals}, which can miss some value-equal nested sets.
@@ -992,24 +990,18 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * deserialization), so this is acceptable.
    */
   @Immutable
-  private static final class StringSetSequence extends VariableValueAdapter {
-    private final NestedSet<String> values;
+  private static final class NestedSetSequence<E> extends VariableValueAdapter {
+    private final NestedSet<E> values;
 
-    private StringSetSequence(NestedSet<String> values) {
+    private NestedSetSequence(NestedSet<E> values) {
       Preconditions.checkNotNull(values);
       this.values = values;
     }
 
     @Override
-    public ImmutableList<VariableValue> getSequenceValue(
+    public Iterable<? extends VariableValue> getSequenceValue(
         String variableName, PathMapper pathMapper) {
-      ImmutableList<String> valuesList = values.toList();
-      ImmutableList.Builder<VariableValue> sequences =
-          ImmutableList.builderWithExpectedSize(valuesList.size());
-      for (String value : valuesList) {
-        sequences.add(new StringValue(value));
-      }
-      return sequences.build();
+      return Iterables.transform(values.toList(), CcToolchainVariables::asVariableValue);
     }
 
     @Override
@@ -1024,109 +1016,15 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof StringSetSequence)) {
+      if (!(other instanceof NestedSetSequence<?>)) {
         return false;
       }
       if (this == other) {
         return true;
       }
-      return values.shallowEquals(((StringSetSequence) other).values);
-    }
-
-    @Override
-    public int hashCode() {
-      return values.shallowHashCode();
-    }
-  }
-
-  @Immutable
-  private static final class PathFragmentSetSequence extends VariableValueAdapter {
-    private final NestedSet<PathFragment> values;
-
-    private PathFragmentSetSequence(NestedSet<PathFragment> values) {
-      Preconditions.checkNotNull(values);
-      this.values = values;
-    }
-
-    @Override
-    public ImmutableList<VariableValue> getSequenceValue(
-        String variableName, PathMapper pathMapper) {
-      ImmutableList<PathFragment> valuesList = values.toList();
-      ImmutableList.Builder<VariableValue> sequences =
-          ImmutableList.builderWithExpectedSize(valuesList.size());
-      for (PathFragment value : valuesList) {
-        sequences.add(new StringValue(pathMapper.map(value).getSafePathString()));
-      }
-      return sequences.build();
-    }
-
-    @Override
-    public String getVariableTypeName() {
-      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
-    }
-
-    @Override
-    public boolean isTruthy() {
-      return !values.isEmpty();
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (this == other) {
-        return true;
-      }
-      if (!(other instanceof PathFragmentSetSequence otherPathFragments)) {
-        return false;
-      }
-      return values.shallowEquals(otherPathFragments.values);
-    }
-
-    @Override
-    public int hashCode() {
-      return values.shallowHashCode();
-    }
-  }
-
-  @Immutable
-  private static final class ArtifactSetSequence extends VariableValueAdapter {
-    private final NestedSet<Artifact> values;
-
-    private ArtifactSetSequence(NestedSet<Artifact> values) {
-      Preconditions.checkNotNull(values);
-      this.values = values;
-    }
-
-    @Override
-    public ImmutableList<VariableValue> getSequenceValue(
-        String variableName, PathMapper pathMapper) {
-      ImmutableList<Artifact> valuesList = values.toList();
-      ImmutableList.Builder<VariableValue> sequences =
-          ImmutableList.builderWithExpectedSize(valuesList.size());
-      for (Artifact value : valuesList) {
-        sequences.add(new StringValue(pathMapper.getMappedExecPathString(value)));
-      }
-      return sequences.build();
-    }
-
-    @Override
-    public String getVariableTypeName() {
-      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
-    }
-
-    @Override
-    public boolean isTruthy() {
-      return !values.isEmpty();
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (this == other) {
-        return true;
-      }
-      if (!(other instanceof ArtifactSetSequence otherArtifacts)) {
-        return false;
-      }
-      return values.shallowEquals(otherArtifacts.values);
+      @SuppressWarnings("unchecked")
+      NestedSet<E> otherValues = ((NestedSetSequence<E>) other).values;
+      return values.shallowEquals(otherValues);
     }
 
     @Override
@@ -1259,6 +1157,48 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
   }
 
+  @Immutable
+  private static final class PathFragmentValue extends VariableValueAdapter {
+    private static final String PATH_FRAGMENT_VARIABLE_TYPE_NAME = "pathfragment";
+
+    private final PathFragment value;
+
+    PathFragmentValue(PathFragment value) {
+      this.value = value;
+    }
+
+    @Override
+    public String getStringValue(String variableName, PathMapper pathMapper) {
+      return pathMapper.map(value).getSafePathString();
+    }
+
+    @Override
+    public String getVariableTypeName() {
+      return PATH_FRAGMENT_VARIABLE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return true;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (!(other instanceof PathFragmentValue otherValue)) {
+        return false;
+      }
+      return value.equals(otherValue.value);
+    }
+
+    @Override
+    public int hashCode() {
+      return value.hashCode();
+    }
+  }
+
   public static Builder builder() {
     return new Builder(null);
   }
@@ -1357,7 +1297,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder addStringSequenceVariable(String name, NestedSet<String> values) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, new StringSetSequence(values));
+      variablesMap.put(name, new NestedSetSequence<String>(values));
       return this;
     }
 
@@ -1387,7 +1327,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder addPathFragmentSequenceVariable(String name, NestedSet<PathFragment> values) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, new PathFragmentSetSequence(values));
+      variablesMap.put(name, new NestedSetSequence<PathFragment>(values));
       return this;
     }
 
@@ -1400,7 +1340,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder addArtifactSequenceVariable(String name, NestedSet<Artifact> values) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, new ArtifactSetSequence(values));
+      variablesMap.put(name, new NestedSetSequence<Artifact>(values));
       return this;
     }
 
@@ -1470,6 +1410,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     return switch (o) {
       case String s -> new StringValue(s);
       case Artifact artifact -> new ArtifactValue(artifact);
+      case PathFragment pathFragment -> new PathFragmentValue(pathFragment);
       default -> (VariableValue) o;
     };
   }
