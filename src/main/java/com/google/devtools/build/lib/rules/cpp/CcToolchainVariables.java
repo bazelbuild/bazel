@@ -309,10 +309,10 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   private transient volatile Map<String, Object> structuredVariableCache;
 
   /**
-   * Retrieves a {@link StringSequence} variable named {@code variableName} from {@code variables}
-   * and converts it into a list of plain strings.
+   * Retrieves a string sequence variable named {@code variableName} from {@code variables} and
+   * converts it into a list of plain strings.
    *
-   * <p>Throws {@link ExpansionException} when the variable is not a {@link StringSequence}.
+   * <p>Throws {@link ExpansionException} when the variable is not a string sequence.
    */
   public static ImmutableList<String> toStringList(
       CcToolchainVariables variables, String variableName, PathMapper pathMapper)
@@ -896,7 +896,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
               expandedObjectFiles.add(pathMapper.getMappedExecPathString(objectFile));
             }
           }
-          return StringSequence.of(expandedObjectFiles.build());
+          return new Sequence(expandedObjectFiles.build());
         }
 
         return super.getFieldValue(
@@ -942,16 +942,16 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   static final class Sequence extends VariableValueAdapter {
     private static final String SEQUENCE_VARIABLE_TYPE_NAME = "sequence";
 
-    private final ImmutableList<VariableValue> values;
+    private final ImmutableList<?> values;
 
-    Sequence(ImmutableList<VariableValue> values) {
+    Sequence(ImmutableList<?> values) {
       this.values = values;
     }
 
     @Override
-    public ImmutableList<VariableValue> getSequenceValue(
+    public Iterable<? extends VariableValue> getSequenceValue(
         String variableName, PathMapper pathMapper) {
-      return values;
+      return Iterables.transform(values, CcToolchainVariables::asVariableValue);
     }
 
     @Override
@@ -978,70 +978,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     @Override
     public int hashCode() {
       return values.hashCode();
-    }
-  }
-
-  /**
-   * A sequence of simple string values. Exists as a memory optimization - a typical build can
-   * contain millions of feature values, so getting rid of the overhead of {@code StringValue}
-   * objects significantly reduces memory overhead.
-   */
-  @Immutable
-  static final class StringSequence extends VariableValueAdapter {
-    static final Interner<StringSequence> stringSequenceInterner = BlazeInterners.newWeakInterner();
-    private final ImmutableList<String> values;
-
-    static StringSequence of(Iterable<String> values) {
-      return stringSequenceInterner.intern(new StringSequence(values));
-    }
-
-    private StringSequence(Iterable<String> values) {
-      ImmutableList.Builder<String> valuesBuilder = new ImmutableList.Builder<>();
-      for (String value : values) {
-        valuesBuilder.add(value.intern());
-      }
-      this.values = valuesBuilder.build();
-    }
-
-    @Override
-    public ImmutableList<VariableValue> getSequenceValue(
-        String variableName, PathMapper pathMapper) {
-      ImmutableList.Builder<VariableValue> sequences =
-          ImmutableList.builderWithExpectedSize(values.size());
-      for (String value : values) {
-        sequences.add(new StringValue(pathMapper.mapHeuristically(value)));
-      }
-      return sequences.build();
-    }
-
-    @Override
-    public String getVariableTypeName() {
-      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
-    }
-
-    @Override
-    public boolean isTruthy() {
-      return !Iterables.isEmpty(values);
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof StringSequence)) {
-        return false;
-      }
-      if (this == other) {
-        return true;
-      }
-      return Iterables.elementsEqual(values, ((StringSequence) other).values);
-    }
-
-    @Override
-    public int hashCode() {
-      int hash = 1;
-      for (String s : values) {
-        hash = 31 * hash + Objects.hashCode(s);
-      }
-      return hash;
     }
   }
 
@@ -1215,7 +1151,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public String getStringValue(String variableName, PathMapper pathMapper) {
-      return value;
+      return pathMapper.mapHeuristically(value);
     }
 
     @Override
@@ -1393,6 +1329,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       };
     }
 
+    private static final Interner<ImmutableList<String>> stringSequenceInterner =
+        BlazeInterners.newWeakInterner();
+
     /**
      * Add a sequence variable that expands {@code name} to {@code values}.
      *
@@ -1405,7 +1344,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
       ImmutableList.Builder<String> builder = ImmutableList.builder();
       builder.addAll(values);
-      variablesMap.put(name, StringSequence.of(builder.build()));
+      variablesMap.put(name, new Sequence(stringSequenceInterner.intern(builder.build())));
       return this;
     }
 
@@ -1434,7 +1373,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     public Builder addStringSequenceVariable(String name, Iterable<String> values) {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
-      variablesMap.put(name, StringSequence.of(values));
+      variablesMap.put(
+          name, new Sequence(stringSequenceInterner.intern(ImmutableList.copyOf(values))));
       return this;
     }
 

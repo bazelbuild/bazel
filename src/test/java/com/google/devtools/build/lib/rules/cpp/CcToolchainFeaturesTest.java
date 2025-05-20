@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionExce
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Sequence;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringSequence;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValueAdapter;
@@ -529,7 +528,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     /** Adds a field to the structure. */
     @CanIgnoreReturnValue
     public StructureBuilder addField(String name, ImmutableList<String> values) {
-      fields.put(name, StringSequence.of(values));
+      fields.put(name, new Sequence(values));
       return this;
     }
 
