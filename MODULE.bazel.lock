@@ -243,7 +243,7 @@
   "moduleExtensions": {
     "//:repositories.bzl%async_profiler_repos": {
       "general": {
-        "bzlTransitiveDigest": "Yke2x5sUjmlG+2GhGPMhz8ErEEO8cBJUYJ/IlxyQcbA=",
+        "bzlTransitiveDigest": "P6z7IV5BxxzEZWgE8kfcJ7o/7WWAhk2q6dnVSPoxo/A=",
         "usagesDigest": "fv/Ru+up/1CLlox7G1yNn9y4JOVK1qeU6uQCAkCcMaM=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -343,6 +343,11 @@
             "",
             "c-ares",
             "c-ares+"
+          ],
+          [
+            "",
+            "chicory",
+            "chicory+"
           ],
           [
             "",
