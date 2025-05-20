@@ -1095,6 +1095,28 @@ EOF
   expect_log "(absolute: \"$TEST_TMPDIR/r\") but it does not exist"
 }
 
+function test_local_repository_path_exists_then_doesnt_exist() {
+  local r=$TEST_TMPDIR/r
+  rm -rf $r
+  mkdir -p $r
+  touch $r/REPO.bazel
+  cat > $r/BUILD <<'EOF'
+filegroup(name='r')
+EOF
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+    name = "r",
+    path = "$TEST_TMPDIR/r",
+)
+EOF
+  bazel build @r &> $TEST_log || fail "Build failed unexpectedly"
+
+  rm -rf $r
+  bazel build @r &> $TEST_log && fail "Build succeeded unexpectedly"
+  expect_log "(absolute: \"$TEST_TMPDIR/r\") but it does not exist"
+}
+
 # Regression test for #2841.
 function test_local_repository_missing_workspace_file() {
   local r=$TEST_TMPDIR/r
