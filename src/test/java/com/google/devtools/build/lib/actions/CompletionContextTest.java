@@ -163,7 +163,6 @@ public final class CompletionContextTest {
     return new CompletionContext(
         ImmutableMap.copyOf(treeExpansions),
         ImmutableMap.copyOf(filesetExpansions),
-        /* baselineCoverageValue= */ null,
         ArtifactPathResolver.IDENTITY,
         inputMap,
         expandFilesets);

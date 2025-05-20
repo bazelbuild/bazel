@@ -1990,9 +1990,19 @@ end_of_record"
   cat bazel-out/_coverage/_coverage_report.dat > $TEST_log
   expect_log "$expected_result"
 
+  cat bazel-out/_coverage/_baseline_report.dat > $TEST_log
+  expect_log "SF:java/factorial/Factorial.java
+FNF:0
+FNH:0
+LH:0
+LF:0
+end_of_record"
+
   cat bes.txt | tr '\n' ' ' > $TEST_log
-  report_sha=$(sha256sum bazel-out/_coverage/_coverage_report.dat | cut -d ' ' -f 1)
-  expect_log "log {     name: \"coverage_report.lcov\"     uri: \"bytestream://[^\"]*/${report_sha}/[^\"]*\""
+  coverage_report_sha=$(sha256sum bazel-out/_coverage/_coverage_report.dat | cut -d ' ' -f 1)
+  baseline_report_sha=$(sha256sum bazel-out/_coverage/_baseline_report.dat | cut -d ' ' -f 1)
+  expect_log "log {     name: \"coverage_report.lcov\"     uri: \"bytestream://[^\"]*/${coverage_report_sha}/[^\"]*\""
+  expect_log "log {     name: \"baseline_report.lcov\"     uri: \"bytestream://[^\"]*/${baseline_report_sha}/[^\"]*\""
 }
 
 function test_remote_cache_eviction_retries() {
