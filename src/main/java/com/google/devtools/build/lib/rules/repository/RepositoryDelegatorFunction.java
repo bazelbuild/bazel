@@ -266,17 +266,16 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         if (result == null) {
           return null;
         }
-        // No new Skyframe dependencies must be added between calling the repository implementation
-        // and writing the marker file because if they aren't computed, it would cause a Skyframe
-        // restart thus calling the possibly very slow (networking, decompression...) fetch()
-        // operation again. So we write the marker file here immediately.
         digestWriter.writeMarkerFile(result.recordedInputValues());
         if (repoContentsCache.isEnabled()
             && result.reproducible() == Reproducibility.YES
             && !handler.isLocal(rule)) {
           // This repo is eligible for the repo contents cache.
+          Path cachedRepoDir;
           try {
-            repoContentsCache.moveToCache(repoRoot, digestWriter.markerPath, predeclaredInputHash);
+            cachedRepoDir =
+                repoContentsCache.moveToCache(
+                    repoRoot, digestWriter.markerPath, predeclaredInputHash);
           } catch (IOException e) {
             throw new RepositoryFunctionException(
                 new IOException(
@@ -284,6 +283,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                         .formatted(rule.getName(), e.getMessage()),
                     e),
                 Transience.TRANSIENT);
+          }
+          // Don't forget to register a FileValue on the cache repo dir, so that we know to refetch
+          // if the cache entry gets GC'd from under us.
+          if (env.getValue(
+                  FileValue.key(
+                      RootedPath.toRootedPath(
+                          Root.absoluteRoot(cachedRepoDir.getFileSystem()), cachedRepoDir)))
+              == null) {
+            return null;
           }
         }
         return new RepositoryDirectoryValue.Success(

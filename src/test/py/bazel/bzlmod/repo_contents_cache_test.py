@@ -260,7 +260,7 @@ class RepoContentsCacheTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'], cwd=dir_a)
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
 
-  def testGc_singleServer(self):
+  def testGc_singleServer_gcAfterCacheHit(self):
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -296,6 +296,37 @@ class RepoContentsCacheTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
 
+  def testGc_singleServer_gcAfterCacheMiss(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'repo = use_repo_rule("//:repo.bzl", "repo")',
+            'repo(name = "my_repo")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'repo.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD", "filegroup(name=\'haha\')")',
+            '  print("JUST FETCHED")',
+            '  return rctx.repo_metadata(reproducible=True)',
+            'repo = repository_rule(_repo_impl)',
+        ],
+    )
+    # First fetch: not cached
+    _, _, stderr = self.RunBazel(['build',
+                                  '--repo_contents_cache_gc_max_age=1ms',
+                                  '--repo_contents_cache_gc_idle_delay=1ms',
+                                  '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # GC'd while server is alive: not cached, but also no crash
+    self.sleepUntilCacheEmpty()
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'])
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
   def testGc_multipleServers(self):
     module_bazel_lines = [
         'repo = use_repo_rule("//:repo.bzl", "repo")',
@@ -325,7 +356,7 @@ class RepoContentsCacheTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'], cwd=dir_a)
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
 
-    # Fetch in B with very quick GC delay & max age: cached
+    # Fetch in B with subsequent GC run: cached
     _, _, stderr = self.RunBazel(['build',
                                   '--repo_contents_cache_gc_max_age=1ms',
                                   '--repo_contents_cache_gc_idle_delay=1ms',
@@ -333,12 +364,19 @@ class RepoContentsCacheTest(test_base.TestBase):
                                  cwd=dir_b)
     self.assertNotIn('JUST FETCHED', '\n'.join(stderr))
 
-    # GC'd while A's server is alive: not cached, but also no crash
-    # XXX: THIS IS CURRENTLY FAILING WITH
-    #   BUILD file not found in directory '' of external repository
-    #   @@+repo+my_repo.
+    # GC'd while A's server is alive (after A's earlier cache miss) with
+    # subsequent GC run: not cached, but also no crash
     self.sleepUntilCacheEmpty()
-    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'], cwd=dir_a)
+    _, _, stderr = self.RunBazel(['build',
+                                  '--repo_contents_cache_gc_max_age=1ms',
+                                  '--repo_contents_cache_gc_idle_delay=1ms',
+                                  '@my_repo//:haha'], cwd=dir_a)
+    self.assertIn('JUST FETCHED', '\n'.join(stderr))
+
+    # GC'd while B's server is alive (after B's earlier cache hit):
+    # not cached, but also no crash
+    self.sleepUntilCacheEmpty()
+    _, _, stderr = self.RunBazel(['build', '@my_repo//:haha'], cwd=dir_b)
     self.assertIn('JUST FETCHED', '\n'.join(stderr))
 
 

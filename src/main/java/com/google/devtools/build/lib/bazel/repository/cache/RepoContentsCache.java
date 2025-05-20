@@ -117,8 +117,12 @@ public final class RepoContentsCache {
     }
   }
 
-  /** Moves a freshly fetched repo into the contents cache. */
-  public void moveToCache(
+  /**
+   * Moves a freshly fetched repo into the contents cache.
+   *
+   * @return the repo dir in the contents cache.
+   */
+  public Path moveToCache(
       Path fetchedRepoDir, Path fetchedRepoMarkerFile, String predeclaredInputHash)
       throws IOException {
     Preconditions.checkState(path != null);
@@ -147,6 +151,7 @@ public final class RepoContentsCache {
     // Set up a symlink at the original fetched repo dir path.
     fetchedRepoDir.deleteTree();
     FileSystemUtils.ensureSymbolicLink(fetchedRepoDir, cacheRepoDir);
+    return cacheRepoDir;
   }
 
   private static String getNextCounterInDir(Path entryDir) throws IOException {
