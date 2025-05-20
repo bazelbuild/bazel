@@ -186,8 +186,6 @@ class HttpConnector {
           if (code == 301) {
             originalUrl = url;
           }
-        } else if (code == 400) { // Specifically handle 400 Bad Request as retriable
-          throw new IOException(describeHttpResponse(connection));
         } else if (code == 403) {
           // jart@ has noticed BitBucket + Amazon AWS downloads frequently flake with this code.
           throw new IOException(describeHttpResponse(connection));
@@ -207,7 +205,6 @@ class HttpConnector {
                     || code == 501     // Server doesn't support function quoth RFC7231 § 6.6.2
                     || code == 505) {  // Server refuses to support version quoth RFC7231 § 6.6.6
           // This is a permanent error so we're not going to retry.
-          // Note: 400 is now handled above
           readAllBytesAndClose(connection.getErrorStream());
           if (code == 404 || code == 410) {
             // For Not Found, we throw a separate unrecoverable exception so that callers can

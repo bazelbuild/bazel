@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.Proxy;
 import java.net.ServerSocket;
@@ -212,67 +213,6 @@ public class HttpConnectorTest {
         assertThat(clock.currentTimeMillis()).isGreaterThan(50L);
         assertThat(clock.currentTimeMillis()).isLessThan(150L);
       }
-    }
-  }
-
-  @Test
-  public void testRetriesOn400() throws Exception {
-    final AtomicInteger requestCount = new AtomicInteger(0);
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
-      @SuppressWarnings("unused")
-      Future<?> possiblyIgnoredError =
-          executor.submit(
-              new Callable<Object>() {
-                @Override
-                public Object call() throws Exception {
-                  // First attempt: respond with 400
-                  try (Socket socket = server.accept()) {
-                    requestCount.incrementAndGet();
-                    readHttpRequest(socket.getInputStream());
-                    sendLines(
-                        socket,
-                        "HTTP/1.1 400 Bad Request",
-                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                        "Connection: close",
-                        "Content-Type: text/plain",
-                        "Content-Length: 0",
-                        "",
-                        "");
-                  }
-                  // Second attempt: respond with 200
-                  try (Socket socket = server.accept()) {
-                    requestCount.incrementAndGet();
-                    readHttpRequest(socket.getInputStream());
-                    sendLines(
-                        socket,
-                        "HTTP/1.1 200 OK",
-                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                        "Connection: close",
-                        "Content-Type: text/plain",
-                        "Content-Length: 5",
-                        "",
-                        "hello");
-                  }
-                  return null;
-                }
-              });
-      HttpConnector customConnector =
-          new HttpConnector(Locale.US, eventHandler, proxyHelper, sleeper, timeoutScaling, 3, java.time.Duration.ZERO);
-      URLConnection connection =
-          customConnector.connect(
-              new URL(String.format("http://localhost:%d/testfile", server.getLocalPort())),
-              url -> ImmutableMap.of());
-      assertThat(connection.getURL())
-          .isEqualTo(
-              new URL(String.format("http://localhost:%d/testfile", server.getLocalPort())));
-      try (Reader payload =
-          new InputStreamReader(connection.getInputStream(), ISO_8859_1)) {
-        assertThat(CharStreams.toString(payload)).isEqualTo("hello");
-      }
-      assertThat(((HttpURLConnection) connection).getResponseCode()).isEqualTo(200);
-      assertThat(requestCount.get()).isEqualTo(2);
-      // Check that some delay happened due to retry
-      assertThat(clock.currentTimeMillis()).isGreaterThan(0L);
     }
   }
 
