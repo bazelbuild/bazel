@@ -9,6 +9,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
+        "//third_party/chicory:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/googleapis:srcs",
         "//third_party/grpc:srcs",
@@ -291,15 +292,6 @@ java_library(
 alias(
     name = "checker_framework_annotations",
     actual = "@maven//:org_checkerframework_checker_qual",
-)
-
-java_library(
-    name = "chicory",
-    exports = [
-        "@chicory//log",
-        "@chicory//runtime",
-        "@chicory//wasm",
-    ],
 )
 
 alias(

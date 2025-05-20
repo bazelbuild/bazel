@@ -59,11 +59,11 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
-        "//third_party:chicory",
         "//third_party:error_prone_annotations",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:java-diff-utils",
         "//third_party:jsr305",
+        "//third_party/chicory",
     ],
 )

@@ -253,7 +253,7 @@
   "moduleExtensions": {
     "//:repositories.bzl%async_profiler_repos": {
       "general": {
-        "bzlTransitiveDigest": "yFg/X6zhDJR0f6mctiW/dH01RsVeYdEUoCxcd9cT1ww=",
+        "bzlTransitiveDigest": "Zee3P9goYIihNx+wubByhX24dhPSCwNq47vn6R7DqV8=",
         "usagesDigest": "fv/Ru+up/1CLlox7G1yNn9y4JOVK1qeU6uQCAkCcMaM=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -353,6 +353,11 @@
             "",
             "c-ares",
             "c-ares+"
+          ],
+          [
+            "",
+            "chicory",
+            "chicory+"
           ],
           [
             "",
@@ -911,7 +916,7 @@
     },
     "@@rules_apple+//apple:apple.bzl%provisioning_profile_repository_extension": {
       "general": {
-        "bzlTransitiveDigest": "pdNon2L05ur7gUG9ffbrydxfDSvIMRJnpe74Axvj61E=",
+        "bzlTransitiveDigest": "RYysD/iK1OIwOcJJ5+mdjeZVOLKYlqtehQNgupcbJZw=",
         "usagesDigest": "vsJl8Rw5NL+5Ag2wdUDoTeRF/5klkXO8545Iy7U1Q08=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -957,6 +962,11 @@
             "rules_cc+",
             "bazel_tools",
             "bazel_tools"
+          ],
+          [
+            "rules_cc+",
+            "rules_cc",
+            "rules_cc+"
           ],
           [
             "rules_swift+",
