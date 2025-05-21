@@ -78,6 +78,8 @@ import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.MaybeCompleteSet;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -271,7 +273,7 @@ public final class ModCommand implements BlazeCommand {
       }
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.BZLMOD, "execute mod " + subcommand)) {
-        return runTidy(env, modTidyValue);
+        return runTidy(env, modTidyValue, modOptions.write);
       }
     }
 
@@ -556,7 +558,7 @@ public final class ModCommand implements BlazeCommand {
     }
   }
 
-  private BlazeCommandResult runTidy(CommandEnvironment env, BazelModTidyValue modTidyValue) {
+  private BlazeCommandResult runTidy(CommandEnvironment env, BazelModTidyValue modTidyValue, boolean write) {
     ImmutableListMultimap<PathFragment, String> allCommandsPerFile =
         modTidyValue.fixups().stream()
             .flatMap(fixup -> fixup.moduleFilePathToBuildozerCommands().entries().stream())
@@ -571,14 +573,25 @@ public final class ModCommand implements BlazeCommand {
     }
 
     try (var stdin = CharSource.wrap(buildozerInput).asByteSource(UTF_8).openStream()) {
-      new CommandBuilder()
-          .setWorkingDir(env.getWorkspace())
-          .addArg(modTidyValue.buildozer().getPathString())
-          .addArg("-f")
+      var cmd = new CommandBuilder()
+            .setWorkingDir(env.getWorkspace())
+            .addArg(modTidyValue.buildozer().getPathString());
+      if (write) {
+        cmd.addArg("-f")
           .addArg("-")
           .build()
           .executeAsync(stdin, /* killSubprocessOnInterrupt= */ true)
           .get();
+      } else {
+        var out = cmd.addArg("-stdout")
+          .addArg("-f")
+          .addArg("-")
+          .build()
+          .executeAsync(stdin, /* killSubprocessOnInterrupt= */ true)
+          .get()
+          .getStdout();
+        return reportAndCreateTidyDryRunResult(env, modTidyValue, new String(out));
+      }
     } catch (InterruptedException | CommandException | IOException e) {
       String suffix = "";
       if (e instanceof AbnormalTerminationException abnormalTerminationException) {
@@ -600,6 +613,54 @@ public final class ModCommand implements BlazeCommand {
     }
 
     return reportAndCreateTidyResult(env, modTidyValue);
+  }
+
+  private static ImmutableList<String> compareOutputWithFiles(CommandEnvironment env, BazelModTidyValue modTidyValue, String out) {
+    ImmutableList<String> filesNeedingFormat = ImmutableList.of();
+    Path rootString = env.getWorkspace();
+    for (PathFragment moduleFilePath : modTidyValue.moduleFilePaths()) {
+      Path fullPath = rootString.getRelative(moduleFilePath);
+      if (fullPath.exists()) {
+        try {
+          String contents = FileSystemUtils.readContent(fullPath, UTF_8);
+          if (!out.contains(contents)) {
+            filesNeedingFormat = ImmutableList.<String>builder().addAll(filesNeedingFormat).add(moduleFilePath.getPathString()).build();
+          }
+        } catch (IOException e) {
+          env.getReporter().handle(Event.error("Failed to read file: " + fullPath));
+        }
+      }
+    }
+    return filesNeedingFormat;
+  }
+
+  private static BlazeCommandResult reportAndCreateTidyDryRunResult(
+    CommandEnvironment env, BazelModTidyValue modTidyValue, String out) {
+    ImmutableList<String> filesNeedingFormat = compareOutputWithFiles(env, modTidyValue, out);
+    if (modTidyValue.fixups().isEmpty() && filesNeedingFormat.isEmpty()) {
+      return BlazeCommandResult.success();
+    } else {
+      String lintErrors = "";
+      if (!modTidyValue.fixups().isEmpty()) {
+        lintErrors += String.format("Files with errors:\n%s",
+          modTidyValue.fixups().stream()
+            .flatMap(fixup -> {
+              String extensionId =
+                fixup.usage().getExtensionBzlFile() + "%" + fixup.usage().getExtensionName();
+              return fixup.usage().getProxies().stream()
+                .map(p -> String.format("  %s: %s", p.getLocation().toString(), extensionId));
+            }).collect(joining("\n", "", "\n")));
+      }
+      if (!filesNeedingFormat.isEmpty()) {
+        lintErrors += String.format("Files needing format:\n  %s",
+          filesNeedingFormat.stream().collect(joining("\n")));
+      }
+      lintErrors = lintErrors.stripTrailing();
+      return reportAndCreateFailureResult(
+          env,
+          lintErrors,
+          Code.MODULE_NEEDS_TIDY);
+    }
   }
 
   private static BlazeCommandResult reportAndCreateTidyResult(
