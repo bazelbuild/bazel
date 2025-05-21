@@ -2076,14 +2076,14 @@ the same path on case-insensitive filesystems.
           passing in the given input buffer.
 
           <p>The function to execute must have the following signature:
-<pre>
+<pre><code>
 func(
   input_ptr: *u8,
   input_len: u32,
   output_ptr_ptr: **u8,
   output_ptr_len: *u32,
 ) -&gt; u32
-</pre>
+</code></pre>
 
           <p>Additionally there must be an allocation function defined, named
           <code>allocate</code> by default. See <a href="#load_wasm"><code>load_wasm</code></a>
