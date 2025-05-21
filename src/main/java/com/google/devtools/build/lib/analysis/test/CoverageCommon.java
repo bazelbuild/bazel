@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -22,7 +21,6 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -57,7 +55,7 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
       Sequence<?> metadataFiles, // Sequence<Artifact>
       Object reportedToActualSourcesObject,
       StarlarkThread thread)
-      throws EvalException, TypeException {
+      throws EvalException {
     List<String> extensionsList =
         extensions == Starlark.NONE ? null : Sequence.cast(extensions, String.class, "extensions");
     NestedSet<Tuple> reportedToActualSources =
@@ -119,22 +117,6 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
    *     files on the source attributes will be treated as instrumented. Otherwise, only files with
    *     extensions listed in {@code extensions} will be used
    */
-  public static InstrumentedFilesInfo createInstrumentedFilesInfo(
-      RuleContext ruleContext,
-      List<String> sourceAttributes,
-      List<String> dependencyAttributes,
-      @Nullable List<String> extensions) {
-    return createInstrumentedFilesInfo(
-        ruleContext,
-        sourceAttributes,
-        dependencyAttributes,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        ImmutableMap.of(),
-        extensions,
-        null,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER));
-  }
-
   private static InstrumentedFilesInfo createInstrumentedFilesInfo(
       RuleContext ruleContext,
       List<String> sourceAttributes,
@@ -161,12 +143,8 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
     return InstrumentedFilesCollector.collect(
         ruleContext,
         instrumentationSpec,
-        InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
-        /* rootFiles= */ ImmutableList.of(),
         /* coverageSupportFiles= */ supportFiles,
         /* coverageEnvironment= */ environment,
-        /* withBaselineCoverage= */ InstrumentedFilesCollector.shouldIncludeLocalSources(
-            ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget()),
         /* reportedToActualSources= */ reportedToActualSources,
         /* additionalMetadata= */ metadataFiles);
   }
