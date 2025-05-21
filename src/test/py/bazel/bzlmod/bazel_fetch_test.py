@@ -39,6 +39,7 @@ class BazelFetchTest(test_base.TestBase):
             'common --registry=' + self.main_registry.getURL(),
             'common --registry=https://bcr.bazel.build',
             'common --verbose_failures',
+            'common --incompatible_disable_native_repo_rules',
             # Set an explicit Java language version
             'common --java_language_version=8',
             'common --tool_java_language_version=8',
@@ -53,11 +54,6 @@ class BazelFetchTest(test_base.TestBase):
     test_base.TestBase.tearDown(self)
 
   def generatBuiltinModules(self):
-    self.ScratchFile('platforms_mock/BUILD')
-    self.ScratchFile(
-        'platforms_mock/MODULE.bazel', ['module(name="local_config_platform")']
-    )
-
     self.ScratchFile('tools_mock/BUILD')
     self.ScratchFile('tools_mock/MODULE.bazel', ['module(name="bazel_tools")'])
     self.ScratchFile('tools_mock/tools/build_defs/repo/BUILD')
@@ -81,9 +77,6 @@ class BazelFetchTest(test_base.TestBase):
   def useMockBuiltinModules(self):
     with open(self.Path('.bazelrc'), 'a', encoding='utf-8') as f:
       f.write('common --override_repository=bazel_tools=tools_mock\n')
-      f.write(
-          'common --override_repository=local_config_platform=platforms_mock\n'
-      )
 
   def testFetchAll(self):
     self.useMockBuiltinModules()
@@ -97,8 +90,6 @@ class BazelFetchTest(test_base.TestBase):
             'ext = use_extension("extension.bzl", "ext")',
             'use_repo(ext, "hello")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -135,8 +126,6 @@ class BazelFetchTest(test_base.TestBase):
             'use_repo(ext, "notConfig")',
             'use_repo(ext, "IamConfig")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -176,8 +165,6 @@ class BazelFetchTest(test_base.TestBase):
             'use_repo(ext, "notConfig")',
             'use_repo(ext, "IamConfig")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -247,8 +234,6 @@ class BazelFetchTest(test_base.TestBase):
             'bazel_dep(name = "bbb", version = "1.0")',
             'bazel_dep(name = "ccc", version = "1.0", repo_name = "my_repo")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -277,8 +262,6 @@ class BazelFetchTest(test_base.TestBase):
         'MODULE.bazel',
         [
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     exit_code, _, stderr = self.RunBazel(
@@ -299,8 +282,6 @@ class BazelFetchTest(test_base.TestBase):
             'ext = use_extension("extension.bzl", "ext")',
             'use_repo(ext, "hello")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')

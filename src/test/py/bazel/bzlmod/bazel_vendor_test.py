@@ -45,6 +45,7 @@ class BazelVendorTest(test_base.TestBase):
             'common --java_language_version=8',
             'common --tool_java_language_version=8',
             'common --lockfile_mode=update',
+            'common --incompatible_disable_native_repo_rules',
             'startup --windows_enable_symlinks' if self.IsWindows() else '',
         ],
     )
@@ -56,11 +57,6 @@ class BazelVendorTest(test_base.TestBase):
     test_base.TestBase.tearDown(self)
 
   def generateBuiltinModules(self):
-    self.ScratchFile('platforms_mock/BUILD')
-    self.ScratchFile(
-        'platforms_mock/MODULE.bazel', ['module(name="local_config_platform")']
-    )
-
     self.ScratchFile('tools_mock/BUILD')
     self.ScratchFile('tools_mock/MODULE.bazel', ['module(name="bazel_tools")'])
     self.ScratchFile('tools_mock/tools/build_defs/repo/BUILD')
@@ -84,9 +80,6 @@ class BazelVendorTest(test_base.TestBase):
   def useMockBuiltinModules(self):
     with open(self.Path('.bazelrc'), 'a', encoding='utf-8') as f:
       f.write('common --override_repository=bazel_tools=tools_mock\n')
-      f.write(
-          'common --override_repository=local_config_platform=platforms_mock\n'
-      )
 
   def testBasicVendoring(self):
     self.useMockBuiltinModules()
@@ -98,8 +91,6 @@ class BazelVendorTest(test_base.TestBase):
         [
             'bazel_dep(name = "bbb", version = "1.0")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -121,8 +112,6 @@ class BazelVendorTest(test_base.TestBase):
         [
             'bazel_dep(name = "bbb", version = "2.0")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('vendor/bbb+/foo')
@@ -140,8 +129,6 @@ class BazelVendorTest(test_base.TestBase):
         'MODULE.bazel',
         [
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -163,8 +150,6 @@ class BazelVendorTest(test_base.TestBase):
         [
             'bazel_dep(name = "aaa", version = "1.0")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -183,8 +168,6 @@ class BazelVendorTest(test_base.TestBase):
         [
             'bazel_dep(name = "aaa", version = "1.0")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -212,8 +195,6 @@ class BazelVendorTest(test_base.TestBase):
             'bazel_dep(name = "bbb", version = "1.0")',
             'bazel_dep(name = "ccc", version = "1.0", repo_name = "my_repo")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -234,8 +215,6 @@ class BazelVendorTest(test_base.TestBase):
         [
             'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -266,8 +245,6 @@ class BazelVendorTest(test_base.TestBase):
         'MODULE.bazel',
         [
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     exit_code, _, stderr = self.RunBazel(
@@ -298,8 +275,6 @@ class BazelVendorTest(test_base.TestBase):
             'use_repo(ext, "localRepo")',
             'use_repo(ext, "configRepo")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -340,7 +315,6 @@ class BazelVendorTest(test_base.TestBase):
     # Assert regular repo (from VENDOR.bazel), local and config repos are
     # not vendored
     self.assertNotIn('bazel_tools', repos_vendored)
-    self.assertNotIn('local_config_platform', repos_vendored)
     self.assertNotIn('+ext+localRepo', repos_vendored)
     self.assertNotIn('+ext+configRepo', repos_vendored)
     self.assertNotIn('+ext+regularRepo', repos_vendored)
@@ -761,8 +735,6 @@ class BazelVendorTest(test_base.TestBase):
         [
             'bazel_dep(name = "bbb", version = "1.0")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
             'single_version_override(',
             '  module_name = "aaa",',
             '  registry = "%s",' % another_registry.getURL(),
