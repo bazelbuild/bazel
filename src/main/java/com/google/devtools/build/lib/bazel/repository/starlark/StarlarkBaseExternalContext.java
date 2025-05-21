@@ -941,7 +941,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
             doc =
                 """
                 If set, restrict cache hits to those cases where the file was added to the cache \
-                with the same canonical id. By default caching uses the checksum"
+                with the same canonical id. By default caching uses the checksum
                 (<code>sha256</code> or <code>integrity</code>).
                 """),
         @Param(
