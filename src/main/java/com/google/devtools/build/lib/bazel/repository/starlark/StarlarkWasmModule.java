@@ -53,13 +53,13 @@ final class StarlarkWasmModule implements StarlarkValue {
   private final StarlarkPath path;
   private final Object origPath;
   private final WasmModule wasmModule;
-  private final String allocateFn;
+  private final String allocFnName;
 
   public StarlarkWasmModule(
       StarlarkPath path,
       Object origPath,
       byte[] moduleContent,
-      String allocateFn)
+      String allocFnName)
       throws EvalException {
     WasmModule wasmModule;
     Profiler prof = Profiler.instance();
@@ -71,13 +71,13 @@ final class StarlarkWasmModule implements StarlarkValue {
           throw new EvalException(e);
         }
       }
-      validateModule(wasmModule, allocateFn);
+      validateModule(wasmModule, allocFnName);
     }
 
     this.path = path;
     this.origPath = origPath;
     this.wasmModule = wasmModule;
-    this.allocateFn = allocateFn;
+    this.allocFnName = allocFnName;
   }
 
   @Override
@@ -89,6 +89,8 @@ final class StarlarkWasmModule implements StarlarkValue {
   public void repr(Printer printer) {
     printer.append("<wasm_module path=");
     printer.repr(origPath);
+    printer.append(" allocate_fn=");
+    printer.repr(allocFnName);
     printer.append(">");
   }
 
@@ -105,13 +107,13 @@ final class StarlarkWasmModule implements StarlarkValue {
   }
 
   public StarlarkWasmExecutionResult execute(
-      String functionName,
+      String execFnName,
       byte[] input,
       Duration timeout,
       long memLimitBytes)
       throws EvalException, InterruptedException {
     Profiler prof = Profiler.instance();
-    try (SilentCloseable c = prof.profile(WASM_EXEC, () -> "execute " + functionName)) {
+    try (SilentCloseable c = prof.profile(WASM_EXEC, () -> "execute " + execFnName)) {
       var memLimits = getMemLimits(memLimitBytes);
       // Perform initialization and execution in a separate thread so it can be interrupted
       // in case of timeout.
@@ -121,19 +123,19 @@ final class StarlarkWasmModule implements StarlarkValue {
       String errMessage;
       try (var executor = Executors.newSingleThreadExecutor(wasmThreadFactory)) {
         return executor.invokeAny(
-            ImmutableList.of(() -> run(functionName, input, memLimits)),
+            ImmutableList.of(() -> run(execFnName, input, memLimits)),
             timeout.toMillis(),
             TimeUnit.MILLISECONDS);
       } catch (TimeoutException e) {
-        errMessage = String.format("Error executing %s: timed out", functionName);
+        errMessage = String.format("Error executing %s: timed out", execFnName);
       } catch (ExecutionException e) {
-        errMessage = String.format("Error executing %s: %s", functionName, e.getCause().getMessage());
+        errMessage = String.format("Error executing %s: %s", execFnName, e.getCause().getMessage());
       }
       return StarlarkWasmExecutionResult.newErr(errMessage);
     }
   }
 
-  private StarlarkWasmExecutionResult run(String execFunc, byte[] input, MemoryLimits memLimits)
+  private StarlarkWasmExecutionResult run(String execFnName, byte[] input, MemoryLimits memLimits)
       throws EvalException, InterruptedException {
     Instance instance;
     Profiler prof = Profiler.instance();
@@ -145,9 +147,15 @@ final class StarlarkWasmModule implements StarlarkValue {
           .withStart(false)
           // Chicory documentation recommends ByteArrayMemory for OpenJDK
           // https://chicory.dev/docs/advanced/memory
-          .withMemoryFactory(limits -> { return new ByteArrayMemory(limits); })
+          .withMemoryFactory(ByteArrayMemory::new)
           .build();
       // If `_initialize()` is present then call it to perform early setup.
+      //
+      // Note: The WebAssembly spec describes a "start function", named in a
+      // "start section", that is to be called as part of module initialization.
+      // Actual implementations such as LLVM have instead used the start function
+      // as the equivalent of a native binary's entry point, and expect (or emit)
+      // a function named `_initialize` to be used for early initialization.
       ExportFunction initFn = instance.export("_initialize");
       if (initFn != null) {
         try (SilentCloseable c = prof.profile(WASM_EXEC, "initialize")) {
@@ -159,25 +167,25 @@ final class StarlarkWasmModule implements StarlarkValue {
     }
 
     var memory = instance.memory();
-    ExportFunction allocFn = instance.export(allocateFn);
+    ExportFunction allocFn = instance.export(allocFnName);
     // FIXME: Is this check needed? Might be redundant with validateModule().
     if (allocFn == null) {
-      throw Starlark.errorf("WebAssembly module doesn't export \"%s\"", allocateFn);
+      throw Starlark.errorf("WebAssembly module doesn't export \"%s\"", allocFnName);
     }
-    ExportFunction execFn = instance.export(execFunc);
+    ExportFunction execFn = instance.export(execFnName);
     // FIXME: Validate execFn has the expected signature?
     if (execFn == null) {
-      throw Starlark.errorf("WebAssembly module doesn't export \"%s\"", execFunc);
+      throw Starlark.errorf("WebAssembly module doesn't export \"%s\"", execFnName);
     }
 
     int inputLen = Math.toIntExact(input.length);
-    int inputPtr = alloc(allocateFn, allocFn, inputLen, 1);
+    int inputPtr = alloc(allocFnName, allocFn, inputLen, 1);
     try (SilentCloseable c = prof.profile(WASM_EXEC, "copy input")) {
       memory.write(inputPtr, input);
     }
 
     // struct { output_ptr_ptr: **u8, output_len_ptr: *u32 }
-    int paramsPtr = alloc(allocateFn, allocFn, 8, 4);
+    int paramsPtr = alloc(allocFnName, allocFn, 8, 4);
     int outputPtrPtr = paramsPtr;
     int outputLenPtr = paramsPtr + 4;
     memory.writeI32(outputPtrPtr, 0);
@@ -209,17 +217,17 @@ final class StarlarkWasmModule implements StarlarkValue {
     return StarlarkWasmExecutionResult.newOk(returnCode, output);
   }
 
-  private static void validateModule(WasmModule wasmModule, String allocateFn) throws EvalException {
+  private static void validateModule(WasmModule wasmModule, String allocFnName) throws EvalException {
     var exports = wasmModule.exportSection();
     int exportCount = exports.exportCount();
     for (int ii = 0; ii < exportCount; ii++) {
       var export = exports.getExport(ii);
-      if (export.name().equals(allocateFn)) {
+      if (export.name().equals(allocFnName)) {
         // FIXME: Validate exported type is a function and has the expected signature?
         return;
       }
     }
-    throw Starlark.errorf("WebAssembly module doesn't contain an export named \"%s\"", allocateFn);
+    throw Starlark.errorf("WebAssembly module doesn't contain an export named \"%s\"", allocFnName);
   }
 
   MemoryLimits getMemLimits(long memLimitBytes) {
@@ -245,18 +253,10 @@ final class StarlarkWasmModule implements StarlarkValue {
   }
 
   static int getMemLimitPages(long memLimitBytes) {
-    if (memLimitBytes <= (long)PAGE_SIZE) {
+    if (memLimitBytes == 0) {
       return 1;
     }
-    long memLimitPagesL = memLimitBytes / (long)PAGE_SIZE;
-    if (memLimitPagesL >= (long)MAX_PAGES) {
-      return MAX_PAGES;
-    }
-    int memLimitPages = (int)memLimitPagesL;
-    if (memLimitBytes % PAGE_SIZE != 0) {
-      memLimitPages += 1;
-    }
-    return memLimitPages;
+    return (int)Math.min((long)MAX_PAGES, Math.ceilDiv(memLimitBytes, PAGE_SIZE));
   }
 
   static int alloc(String allocFnName, ExportFunction allocFn, int size, int align)
