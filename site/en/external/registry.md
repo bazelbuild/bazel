@@ -98,7 +98,8 @@ field, which defaults to `archive`.
         extracted archive. The patch files are located under the
         `/modules/$MODULE/$VERSION/patches` directory. The keys are the
         patch file names, and the values are the integrity checksum of
-        the patch files. The patches are applied after the overlay files.
+        the patch files. The patches are applied after the overlay files and in
+        the order they appear in `patches`.
     *   `patch_strip`: A number; the same as the `--strip` argument of Unix
         `patch`.
     *   `archive_type`: A string, the archive type of the downloaded file (Same
