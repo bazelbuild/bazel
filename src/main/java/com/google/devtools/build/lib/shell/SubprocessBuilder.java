@@ -59,11 +59,7 @@ public class SubprocessBuilder {
   static SubprocessFactory defaultFactory = subprocessFactoryImplementation();
 
   private static SubprocessFactory subprocessFactoryImplementation() {
-    if (JniLoader.isJniAvailable() && OS.getCurrent() == OS.WINDOWS) {
-      return WindowsSubprocessFactory.INSTANCE;
-    } else {
-      return JavaSubprocessFactory.INSTANCE;
-    }
+    return JavaSubprocessFactory.INSTANCE;
   }
 
   /**
