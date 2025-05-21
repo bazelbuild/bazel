@@ -40,8 +40,8 @@ import com.google.devtools.build.lib.remote.util.ConcurrentPathTrie;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -60,7 +60,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
   private final Clock clock;
   private final CommandMode commandMode;
   private final RemoteOutputsMode outputsMode;
-  private final ImmutableList<Pattern> patternsToDownload;
+  private final ImmutableList<Predicate<String>> patternsToDownload;
   @Nullable private final RemoteOutputChecker lastRemoteOutputChecker;
 
   private final ConcurrentPathTrie pathsToDownload = new ConcurrentPathTrie();
@@ -69,7 +69,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
       Clock clock,
       String commandName,
       RemoteOutputsMode outputsMode,
-      ImmutableList<Pattern> patternsToDownload) {
+      ImmutableList<Predicate<String>> patternsToDownload) {
     this(clock, commandName, outputsMode, patternsToDownload, /* lastRemoteOutputChecker= */ null);
   }
 
@@ -77,7 +77,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
       Clock clock,
       String commandName,
       RemoteOutputsMode outputsMode,
-      ImmutableList<Pattern> patternsToDownload,
+      ImmutableList<Predicate<String>> patternsToDownload,
       RemoteOutputChecker lastRemoteOutputChecker) {
     this.clock = clock;
     this.commandMode =
@@ -268,7 +268,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
 
   private boolean matchesPattern(PathFragment execPath) {
     for (var pattern : patternsToDownload) {
-      if (pattern.matcher(execPath.toString()).matches()) {
+      if (pattern.test(execPath.toString())) {
         return true;
       }
     }
