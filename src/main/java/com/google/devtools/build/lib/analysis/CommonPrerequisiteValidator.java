@@ -408,10 +408,11 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       // conditional caveat that we don't care that the dependency is an alias.
       maybeAddSamePackageDisclaimerBullet(state, bullets);
       // TODO: https://github.com/bazelbuild/bazel/issues/25933 - Add bullet point for explaining
-      // that the dependency could've been exported to the consumer.
-      // TODO: https://github.com/bazelbuild/bazel/issues/25933 - Add bullet point for explaining
-      // that the consumer's transitive caller could see the dep, so maybe more delegation was
-      // needed.
+      // that the dependency could've been exported to make it visible to the consumer. This applies
+      // when the dependency was declared in a transitive child macro of the consuming location.
+      // This requires that we know the macro ancestors of the prerequisite object, but that
+      // probably means adding MacroInstance parentage information to the TargetData interface.
+      maybeAddMoreDelegationNeededBullet(state, bullets);
       addEditVisibilityBullet(state, bullets);
 
       StringBuilder details = new StringBuilder();
@@ -464,7 +465,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
             String.format(
                 """
                 Because the consuming target was declared in the body of the symbolic macro %s \
-                defined in %s, the location being checked is this file's package, %s.
+                defined in %s, the location being checked is this file's package, %s.\
                 """,
                 declaringMacro.getMacroClass().getName(),
                 declaringMacro.getMacroClass().getDefiningBzlLabel().getCanonicalForm(),
@@ -495,7 +496,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
               """
               Because the dependency was%s passed to the consuming target from an attribute of the \
               symbolic macro %s, the location being checked is the place where this macro is \
-              declared: %s.
+              declared: %s.\
               """,
               state.delegatedThrough.size() > 1 ? " transitively" : "",
               outermostDelegated.getLabel(),
@@ -524,6 +525,70 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
         Although both targets live in the same package, they cannot automatically see each other \
         because they are declared by different symbolic macros.\
         """);
+  }
+
+  private void maybeAddMoreDelegationNeededBullet(
+      VisibilityCheckState state, List<String> bullets) {
+    // Check whether any of the macro ancestors of the consuming location match the dep's
+    // visibility. If so, additional delegation from that match down to the consuming location
+    // could've avoided the error.
+    RuleOrMacroInstance outermostDelegated =
+        state.delegatedThrough.isEmpty() ? state.consumer : state.delegatedThrough.getLast();
+    MacroInstance delegationParent = outermostDelegated.getDeclaringMacro();
+
+    if (delegationParent == null) {
+      // The visibility failure occurred at the BUILD file level. There's no one to delegate to us.
+      return;
+    }
+
+    // Visibility failed at the delegationParent, so start the search one level up.
+    boolean moreThanOneLevelUp = false;
+    for (MacroInstance m = delegationParent.getParent(); m != null; m = m.getParent()) {
+      // TODO: https://github.com/bazelbuild/bazel/issues/25933 - We're using isVisibleToLocation()
+      // for simplicity. But consider the macro call stack A -> B -> C, where A can see the dep and
+      // A passes the dep to B but B does not pass the dep to C. We report that A can see it, and
+      // tell the user maybe A or a transitive child of A (i.e. really B in this case) should've
+      // passed it on to C. Ideally we should instead use isVisibleToConsumer() and notice that B
+      // can see the dep thanks to delegation from A, and report specifically that B should've
+      // passed it on to C.
+      if (isVisibleToLocation(
+          state.prerequisite,
+          m.getDefinitionPackage(),
+          // Don't make suggestions based on the experimental loophole.
+          /* checkExperimental= */ true)) {
+        bullets.add(
+            String.format(
+                """
+                Although the dependency is not visible to the location being checked, it is \
+                visible to this location's%s caller, %s, a %s macro defined in %s. (Perhaps %s \
+                needs to pass in the dependency as an argument?)\
+                """,
+                moreThanOneLevelUp ? " transitive" : "",
+                m.getLabel(),
+                m.getMacroClass().getName(),
+                m.getDefinitionPackage().getCanonicalForm(),
+                moreThanOneLevelUp ? "this caller, or an intermediate caller," : "the caller"));
+        return;
+      }
+      moreThanOneLevelUp = true;
+    }
+
+    // One last check, for whether the BUILD file itself should've delegated.
+    if (isVisibleToLocation(
+        state.prerequisite,
+        state.consumer.getPackageMetadata().packageIdentifier(),
+        /* checkExperimental= */ true)) {
+      bullets.add(
+          String.format(
+              """
+              Although the dependency is not visible to the location being checked, it is visible \
+              to this location's%s caller, the BUILD file of package %s. (Perhaps %s needs to pass \
+              in the dependency as an argument?)\
+              """,
+              moreThanOneLevelUp ? " transitive" : "",
+              state.consumer.getPackageMetadata().packageIdentifier().getCanonicalForm(),
+              moreThanOneLevelUp ? "this caller, or an intermediate caller," : "the caller"));
+    }
   }
 
   private void addEditVisibilityBullet(VisibilityCheckState state, List<String> bullets) {

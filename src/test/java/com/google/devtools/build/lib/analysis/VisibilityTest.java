@@ -1197,9 +1197,7 @@ public class VisibilityTest extends AnalysisTestCase {
 
         my_macro = macro(
             implementation = _impl,
-            attrs = {
-                "extra_level_deep": attr.bool(configurable=False),
-            },
+            attrs = {"extra_level_deep": attr.bool(configurable=False)},
         )
         """);
     scratch.file(
@@ -1271,6 +1269,15 @@ public class VisibilityTest extends AnalysisTestCase {
             name = "foo",
         )
         """);
+    scratch.file(
+        "pkg2/BUILD",
+        """
+        load("//macro:defs.bzl", "my_macro")
+
+        my_macro(
+            name = "foo",
+        )
+        """);
 
     assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
     assertContainsEvent(
@@ -1278,6 +1285,10 @@ public class VisibilityTest extends AnalysisTestCase {
         * Although both targets live in the same package, they cannot automatically see each other \
         because they are declared by different symbolic macros.\
         """);
+
+    eventCollector.clear();
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg2:foo"));
+    assertDoesNotContainEvent("both targets live in the same package");
   }
 
   @Test
@@ -1368,6 +1379,262 @@ public class VisibilityTest extends AnalysisTestCase {
 
     assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo"));
     assertDoesNotContainEvent("both targets live in the same package");
+  }
+
+  @Test
+  public void testVerboseDiagnostics_moreDelegationNeeded_fromAncestorMacro() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        cc_library(
+            name = "tool",
+            visibility = ["//macro:__pkg__"],
+        )
+        """);
+    scratch.file("subsubmacro/BUILD");
+    scratch.file(
+        "subsubmacro/defs.bzl",
+        """
+        def _impl(name, visibility):
+            native.cc_library(
+                name = name + "_qux",
+                deps = ["//tool:tool"],
+            )
+
+        my_subsubmacro = macro(implementation = _impl)
+        """);
+    scratch.file("submacro/BUILD");
+    scratch.file(
+        "submacro/defs.bzl",
+        """
+        load("//subsubmacro:defs.bzl", "my_subsubmacro")
+
+        def _impl(name, visibility):
+            my_subsubmacro(name = name + "_baz")
+
+        my_submacro = macro(implementation = _impl)
+        """);
+    scratch.file("macro/BUILD");
+    scratch.file(
+        "macro/defs.bzl",
+        """
+        load("//submacro:defs.bzl", "my_submacro")
+        load("//subsubmacro:defs.bzl", "my_subsubmacro")
+
+        def _impl(name, visibility, extra_level_deep):
+            callable = my_submacro if extra_level_deep else my_subsubmacro
+            callable(name = name + "_bar")
+
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {"extra_level_deep": attr.bool(configurable=False)},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//macro:defs.bzl", "my_macro")
+
+        my_macro(
+            name = "foo",
+            extra_level_deep = False,
+        )
+
+        my_macro(
+            name = "foo2",
+            extra_level_deep = True,
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo_bar_qux"));
+    assertContainsEvent(
+        """
+        * Although the dependency is not visible to the location being checked, it is visible to \
+        this location's caller, //pkg:foo, a my_macro macro defined in //macro. (Perhaps the \
+        caller needs to pass in the dependency as an argument?)\
+        """);
+
+    eventCollector.clear();
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo2_bar_baz_qux"));
+    // Should say "transitive", and should still identify outer macro (foo2_bar), not inner macro
+    // (foo2_bar_baz).
+    assertContainsEvent(
+        """
+        * Although the dependency is not visible to the location being checked, it is visible to \
+        this location's transitive caller, //pkg:foo2, a my_macro macro defined in //macro. \
+        (Perhaps this caller, or an intermediate caller, needs to pass in the dependency as an \
+        argument?)\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_moreDelegationNeeded_fromBuildFile() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        cc_library(
+            name = "tool",
+            visibility = ["//pkg:__pkg__"],
+        )
+        """);
+    scratch.file("submacro/BUILD");
+    scratch.file(
+        "submacro/defs.bzl",
+        """
+        def _impl(name, visibility):
+            native.cc_library(
+                name = name + "_baz",
+                deps = ["//tool:tool"],
+            )
+
+        my_submacro = macro(implementation = _impl)
+        """);
+    scratch.file("macro/BUILD");
+    scratch.file(
+        "macro/defs.bzl",
+        """
+        load("//submacro:defs.bzl", "my_submacro")
+
+        def _impl(name, visibility, extra_level_deep):
+            if extra_level_deep:
+                my_submacro(name = name + "_bar")
+            else:
+                native.cc_library(
+                    name = name + "_bar",
+                    deps = ["//tool:tool"],
+                )
+
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {"extra_level_deep": attr.bool(configurable=False)},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//macro:defs.bzl", "my_macro")
+
+        my_macro(
+            name = "foo",
+            extra_level_deep = False,
+        )
+
+        my_macro(
+            name = "foo2",
+            extra_level_deep = True,
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo_bar"));
+    assertContainsEvent(
+        """
+        * Although the dependency is not visible to the location being checked, it is visible to \
+        this location's caller, the BUILD file of package //pkg. (Perhaps the caller needs to pass \
+        in the dependency as an argument?)\
+        """);
+
+    eventCollector.clear();
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo2_bar_baz"));
+    // Should say "transitive".
+    assertContainsEvent(
+        """
+        * Although the dependency is not visible to the location being checked, it is visible to \
+        this location's transitive caller, the BUILD file of package //pkg. (Perhaps this caller, \
+        or an intermediate caller, needs to pass in the dependency as an argument?)\
+        """);
+  }
+
+  @Test
+  public void testVerboseDiagnostics_moreDelegationNeeded_incompleteDelegation() throws Exception {
+    useConfiguration("--verbose_visibility_errors");
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "tool/BUILD",
+        """
+        cc_library(
+            name = "tool",
+            visibility = ["//pkg:__pkg__"],
+        )
+        """);
+    scratch.file("submacro/BUILD");
+    scratch.file(
+        "submacro/defs.bzl",
+        """
+        def _impl(name, visibility, deps):
+            if not deps:
+                deps = ["//tool:tool"]
+            native.cc_library(
+                name = name + "_baz",
+                deps = deps,
+            )
+
+        my_submacro = macro(
+            implementation = _impl,
+            attrs = {"deps": attr.label_list(configurable=False)},
+        )
+        """);
+    scratch.file("macro/BUILD");
+    scratch.file(
+        "macro/defs.bzl",
+        """
+        load("//submacro:defs.bzl", "my_submacro")
+
+        def _impl(name, visibility, deps, pass_in_tool):
+            my_submacro(
+                name = name + "_bar",
+                deps = ["//tool:tool"] if pass_in_tool else [],
+            )
+
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {
+                "deps": attr.label_list(),
+                "pass_in_tool": attr.bool(configurable=False),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//macro:defs.bzl", "my_macro")
+
+        my_macro(
+            name = "foo",
+            pass_in_tool = True,
+        )
+
+        my_macro(
+            name = "foo2",
+            deps = ["//tool:tool"],
+            pass_in_tool = False,
+        )
+        """);
+
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo_bar_baz"));
+    // my_macro passed it to my_submacro, but BUILD didn't pass it to my_macro.
+    assertContainsEvent(
+        """
+        * Although the dependency is not visible to the location being checked, it is visible to \
+        this location's caller, the BUILD file of package //pkg. (Perhaps the caller needs to pass \
+        in the dependency as an argument?)\
+        """);
+
+    eventCollector.clear();
+    assertThrows(ViewCreationFailedException.class, () -> update("//pkg:foo2_bar_baz"));
+    // BUILD passed it to my_macro, but my_macro didn't pass it to my_submacro.
+    assertContainsEvent(
+        """
+        * Although the dependency is not visible to the location being checked, it is visible to \
+        this location's transitive caller, the BUILD file of package //pkg. (Perhaps this caller, \
+        or an intermediate caller, needs to pass in the dependency as an argument?)\
+        """);
   }
 
   @Test
