@@ -1776,16 +1776,10 @@ public interface CcModuleApi<
       useStarlarkThread = true,
       parameters = {
         @Param(name = "file", positional = false, named = true),
-        @Param(
-            name = "umbrella_header",
-            positional = false,
-            named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
         @Param(name = "name", positional = false, named = true),
       })
-  CppModuleMapT createCppModuleMap(
-      FileT file, Object umbrellaHeader, String name, StarlarkThread thread) throws EvalException;
+  CppModuleMapT createCppModuleMap(FileT file, String name, StarlarkThread thread)
+      throws EvalException;
 
   // TODO(b/65151735): Remove when cc_flags is entirely set from features.
   // This should only be called from the cc_flags_supplier rule.

@@ -610,12 +610,11 @@ def _add_go_exec_groups_to_binary_rules():
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.add_go_exec_groups_to_binary_rules()
 
-def _create_module_map(*, file, name, umbrella_header = None):
+def _create_module_map(*, file, name):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.create_module_map(
         file = file,
         name = name,
-        umbrella_header = umbrella_header,
     )
 
 def _create_debug_context(compilation_outputs = []):

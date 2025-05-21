@@ -606,16 +606,10 @@ public abstract class CcModule
   }
 
   @Override
-  public CppModuleMap createCppModuleMap(
-      Artifact file, Object umbrellaHeaderNoneable, String name, StarlarkThread thread)
+  public CppModuleMap createCppModuleMap(Artifact file, String name, StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
-    Artifact umbrellaHeader = convertFromNoneable(umbrellaHeaderNoneable, /* defaultValue= */ null);
-    if (umbrellaHeader == null) {
-      return new CppModuleMap(file, name);
-    } else {
-      return new CppModuleMap(file, umbrellaHeader, name);
-    }
+    return new CppModuleMap(file, name);
   }
 
   /**

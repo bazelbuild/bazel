@@ -314,20 +314,11 @@ def _init_cc_compilation_context(
         if generate_module_map:
             compiled = _enabled(feature_configuration, "header_modules") or \
                        _enabled(feature_configuration, "compile_all_modules")
-            umbrella_header = module_map.umbrella_header()
 
             if _enabled(feature_configuration, "only_doth_headers_in_module_maps"):
                 public_headers_for_module_map_action = [header for header in public_headers.module_map_headers if (header.is_directory or header.extension == "h")]
             else:
                 public_headers_for_module_map_action = public_headers.module_map_headers
-
-            if umbrella_header != None:
-                cc_internal.create_umbrella_header_action(
-                    actions = actions,
-                    umbrella_header = umbrella_header,
-                    public_headers = public_headers_for_module_map_action,
-                    additional_exported_headers = additional_exported_headers,
-                )
 
             private_headers_for_module_map_action = private_headers_artifacts
             if _enabled(feature_configuration, "exclude_private_headers_in_module_maps"):

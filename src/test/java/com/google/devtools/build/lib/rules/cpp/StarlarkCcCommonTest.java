@@ -7509,7 +7509,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         def _impl(ctx):
             module_map = cc_common.create_module_map(
                 file = ctx.file.file,
-                umbrella_header = ctx.file.file,
                 name = "module",
             )
             return [ModuleMapInfo(module_map = module_map, file = ctx.file.file)]
@@ -7528,9 +7527,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             + " name = 'name', cc_toolchain = toolchain, ";
     List<String> calls =
         ImmutableList.of(
-            "cc_common.create_module_map(file=file, umbrella_header=file, name='name')",
+            "cc_common.create_module_map(file=file, name='name')",
             "module_map.file()",
-            "module_map.umbrella_header()",
             compileCall + " module_map = module_map)",
             compileCall + " additional_module_maps = [module_map])",
             compileCall + "additional_exported_hdrs = [])",
