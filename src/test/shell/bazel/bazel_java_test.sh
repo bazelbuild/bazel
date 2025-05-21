@@ -2087,11 +2087,6 @@ EOF
 }
 
 function test_header_compiler_direct_supports_unicode() {
-  if [[ "${JAVA_TOOLS_ZIP}" == released && "$is_windows" ]]; then
-      # TODO: Enable test after the next java_tools release.
-      return 0
-  fi
-
   # JVMs on macOS always support UTF-8 since JEP 400.
   # Windows releases of Turbine are built on a machine with system code page set
   # to UTF-8 so that Graal picks up the correct sun.jnu.encoding value *and*
@@ -2152,6 +2147,12 @@ EOF
 }
 
 function test_sandboxed_multiplexing_hermetic_paths_in_diagnostics() {
+  if [[ "$is_windows" ]]; then
+    # https://bugs.openjdk.org/browse/JDK-8357249 makes sandboxed multiplex
+    # workers incompatible with the reduced classpath heuristic on Windows.
+    add_to_bazelrc "--experimental_java_classpath=off"
+  fi
+
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
 load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
@@ -2184,7 +2185,13 @@ EOF
 }
 
 function test_sandboxed_multiplexing_full_classpath_fallback() {
-  mkdir -p "pkg/java/hello/" || fail "Expected success"
+  if [[ "$is_windows" ]]; then
+    # https://bugs.openjdk.org/browse/JDK-8357249 makes sandboxed multiplex
+    # workers incompatible with the reduced classpath heuristic on Windows.
+    add_to_bazelrc "--experimental_java_classpath=off"
+  fi
+
+  mkdir -p pkg/java/hello || fail "Expected success"
   cat > "pkg/java/hello/A.java" <<'EOF'
 package hello;
 public class A {
@@ -2226,7 +2233,6 @@ EOF
   bazel build //pkg/java/hello:a \
     --experimental_worker_multiplex_sandboxing \
     --java_language_version=17 \
-    --experimental_java_classpath=bazel \
     --extra_toolchains=//pkg/java/hello:java_toolchain_definition \
     >& $TEST_log || fail "build succeeded"
 }
