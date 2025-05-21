@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue.WithRichData;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -139,12 +140,17 @@ public final class FrontierSerializer {
             profileCollector,
             frontierValueCount);
 
-    reporter.handle(
-        Event.info(
-            String.format("Serialized %s frontier entries in %s", frontierValueCount, stopwatch)));
-
     try {
       var unusedNull = writeStatus.get();
+
+      FingerprintValueStore.Stats stats =
+          dependenciesProvider.getFingerprintValueService().getStats();
+
+      reporter.handle(
+          Event.info(
+              String.format(
+                  "Serialized %s frontier nodes into %s bytes and %s entries in %s",
+                  frontierValueCount, stats.valueBytesSent(), stats.entriesWritten(), stopwatch)));
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
       String message = cause.getMessage();

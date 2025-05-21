@@ -105,6 +105,7 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.InvalidAqueryOutputFormatException;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -923,7 +924,8 @@ public class BuildTool {
         uploadFrontier(dependenciesProvider);
         break;
       case DOWNLOAD:
-        reportRemoteAnalysisCachingStats();
+        reportRemoteAnalysisCachingStats(
+            dependenciesProvider.getFingerprintValueService().getStats());
         env.getSkyframeExecutor()
             .getDeserializedKeysFromRemoteAnalysisCache()
             .addAll(env.getRemoteAnalysisCachingEventListener().getCacheHits());
@@ -1408,7 +1410,7 @@ public class BuildTool {
     }
   }
 
-  private void reportRemoteAnalysisCachingStats() {
+  private void reportRemoteAnalysisCachingStats(FingerprintValueStore.Stats stats) {
     var listener = env.getRemoteAnalysisCachingEventListener();
 
     var hitsByFunction = listener.getHitsBySkyFunctionName();
@@ -1445,7 +1447,13 @@ public class BuildTool {
         .handle(
             Event.info(
                 String.format(
-                    "Remote analysis caching stats: %s/%s cache hits (%.2f%%) [Breakdown: %s]",
-                    totalHits, totalRequests, overallHitRate, statsByFunction)));
+                    "Remote analysis caching stats: %s bytes and %s entries received, %s/%s cache"
+                        + " hits (%.2f%%) [Breakdown: %s]",
+                    stats.valueBytesReceived(),
+                    stats.entriesFound(),
+                    totalHits,
+                    totalRequests,
+                    overallHitRate,
+                    statsByFunction)));
   }
 }

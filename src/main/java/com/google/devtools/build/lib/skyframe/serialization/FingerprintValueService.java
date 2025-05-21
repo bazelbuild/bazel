@@ -94,6 +94,10 @@ public final class FingerprintValueService {
     return store.put(fingerprint, serializedBytes);
   }
 
+  public FingerprintValueStore.Stats getStats() {
+    return store.getStats();
+  }
+
   /** Delegates to {@link FingerprintValueStore#get}. */
   public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) throws IOException {
     return store.get(fingerprint);

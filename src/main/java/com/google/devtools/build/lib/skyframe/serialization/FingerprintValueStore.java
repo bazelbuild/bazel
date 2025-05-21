@@ -25,6 +25,19 @@ import javax.annotation.Nullable;
 
 /** Encapsulates fingerprint keyed bytes storage system. */
 public interface FingerprintValueStore {
+  /** Usage statistics. */
+  record Stats(
+      long valueBytesReceived,
+      long valueBytesSent,
+      long keyBytesSent,
+      long entriesWritten,
+      long entriesFound,
+      long entriesNotFound) {}
+
+  default Stats getStats() {
+    return new Stats(0, 0, 0, 0, 0, 0);
+  }
+
   /**
    * Associates a fingerprint with the serialized representation of some object.
    *
