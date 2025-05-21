@@ -92,7 +92,13 @@ public class TypeCheckTest {
             "False: bool", //
             "True: bool",
             "None: None",
-            "hash: (str, /) -> int");
+            "hash: (str, /) -> int",
+            "bool: (object, /) -> bool",
+            "getattr: (object, str, object, /) -> Any",
+            "hasattr: (object, str, /) -> bool",
+            "repr: (object, /) -> str",
+            "str: (object, /) -> str",
+            "type: (object, /) -> str");
   }
 
   private <T extends Throwable> StringSubject assertExecThrows(

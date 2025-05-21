@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
  * Definitions of types.
  *
  * <p><code>
- *   t ::= None | bool | int | float | str
+ *   t ::= None | bool | int | float | str | object
  * </code>
  */
 public final class Types {
@@ -39,6 +39,7 @@ public final class Types {
   public static final StarlarkType INT = new Int();
   public static final StarlarkType FLOAT = new FloatType();
   public static final StarlarkType STR = new Str();
+  public static final StarlarkType OBJECT = new ObjectType();
 
   // A frequently used function without parameters, that returns Any.
   public static final CallableType NO_PARAMS_CALLABLE =
@@ -75,6 +76,23 @@ public final class Types {
     @Override
     public boolean equals(Object obj) {
       return obj instanceof Any;
+    }
+  }
+
+  private static final class ObjectType extends StarlarkType {
+    @Override
+    public String toString() {
+      return "object";
+    }
+
+    @Override
+    public int hashCode() {
+      return ObjectType.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof ObjectType;
     }
   }
 
