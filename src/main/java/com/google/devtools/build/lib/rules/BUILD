@@ -21,6 +21,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/rules/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/python:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/starlarkdocextract:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules/test:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -67,41 +68,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//third_party:guava",
-    ],
-)
-
-# TODO: Move to rules/test.
-java_library(
-    name = "test_rules",
-    srcs = glob(
-        ["test/*.java"],
-    ),
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
-        "//src/main/java/com/google/devtools/build/lib/analysis:run_environment_info",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure_info",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_test_result_info",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/execution_info",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
-        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/rules/core",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
-        "//src/main/protobuf:test_status_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -511,8 +477,9 @@ filegroup(
         [
             "*.java",
             "filegroup/*.java",
-            "test/*.java",
             "extra/*.java",
         ],
-    ),
+    ) + [
+        "//src/main/java/com/google/devtools/build/lib/rules/test:docgen_src",
+    ],
 )
