@@ -29,7 +29,7 @@ import java.util.function.Supplier;
 public class SerializationModule extends BlazeModule {
 
   @Override
-  public final void workspaceInit(
+  public void workspaceInit(
       BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
     if (!directories.inWorkspace()) {
       // Serialization only works when the Bazel server is invoked from a workspace.

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
-import java.util.Set;
 
 /**
  * An interface providing the functionalities used for analysis caching serialization and
@@ -73,7 +72,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
    *
    * <p>May call the remote analysis cache to get the set of keys to invalidate.
    */
-  ImmutableSet<SkyKey> lookupKeysToInvalidate(Set<SkyKey> existingCachedKeys)
+  ImmutableSet<SkyKey> lookupKeysToInvalidate(RemoteAnalysisCachingState remoteAnalysisCachingState)
       throws InterruptedException;
 
   /** A stub dependencies provider for when analysis caching is disabled. */
@@ -134,7 +133,8 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
-    public ImmutableSet<SkyKey> lookupKeysToInvalidate(Set<SkyKey> existingCachedKeys) {
+    public ImmutableSet<SkyKey> lookupKeysToInvalidate(
+        RemoteAnalysisCachingState remoteAnalysisCachingState) {
       throw new UnsupportedOperationException();
     }
   }

@@ -232,6 +232,7 @@ import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingState;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsCycleReporter;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsCycleReporter;
@@ -523,7 +524,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider =
       DisabledDependenciesProvider.INSTANCE;
 
-  private final Set<SkyKey> deserializedKeysFromRemoteAnalysisCache = new HashSet<>();
+  private RemoteAnalysisCachingState remoteAnalysisCachingState = RemoteAnalysisCachingState.EMPTY;
 
   private final AtomicInteger analysisCount = new AtomicInteger();
 
@@ -553,8 +554,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.remoteAnalysisCachingDependenciesProvider = remoteAnalysisCachingDependenciesProvider;
   }
 
-  public Set<SkyKey> getDeserializedKeysFromRemoteAnalysisCache() {
-    return deserializedKeysFromRemoteAnalysisCache;
+  /**
+   * Sets the {@link RemoteAnalysisCachingState} for the latest build.
+   *
+   * <p>This is used to track the version of the remote analysis cache and the set of SkyKeys that
+   * were deserialized from the remote analysis cache.
+   *
+   * <p>This field will persist across build invocations.
+   */
+  public void setRemoteAnalysisCachingStateForLatestBuild(
+      RemoteAnalysisCachingState remoteAnalysisCachingState) {
+    this.remoteAnalysisCachingState = remoteAnalysisCachingState;
   }
 
   /**
@@ -569,7 +579,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
     ImmutableSet<SkyKey> keysToInvalidate =
         remoteAnalysisCachingDependenciesProvider.lookupKeysToInvalidate(
-            deserializedKeysFromRemoteAnalysisCache);
+            remoteAnalysisCachingState);
 
     // Log a sample of the invalidated SkyKeys to the INFO log.
     if (keysToInvalidate.isEmpty()) {
@@ -600,7 +610,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     // Remove the keys from the set of deserialized keys so that we don't try to upload them again.
-    deserializedKeysFromRemoteAnalysisCache.removeAll(keysToInvalidate);
+    remoteAnalysisCachingState = RemoteAnalysisCachingState.EMPTY;
+
     // `delete` is used instead of `invalidate` because the latter marks the nodes as `changed`,
     // which is not allowed for hermetic SkyFunctions
     getEvaluator().delete(keysToInvalidate::contains);

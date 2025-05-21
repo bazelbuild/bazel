@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Fr
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -52,19 +52,19 @@ public final class AnalysisCacheInvalidator {
   private final RequestBatcher<ByteString, ByteString> analysisCacheClient;
   private final ObjectCodecs codecs;
   private final FingerprintValueService fingerprintService;
-  private final FrontierNodeVersion version;
   private final ExtendedEventHandler eventHandler;
+  private final FrontierNodeVersion currentVersion;
 
   public AnalysisCacheInvalidator(
       RequestBatcher<ByteString, ByteString> analysisCacheClient,
       ObjectCodecs objectCodecs,
       FingerprintValueService fingerprintValueService,
-      FrontierNodeVersion frontierNodeVersion,
+      FrontierNodeVersion currentVersion,
       ExtendedEventHandler eventHandler) {
     this.analysisCacheClient = checkNotNull(analysisCacheClient, "analysisCacheClient");
     this.codecs = checkNotNull(objectCodecs, "objectCodecs");
     this.fingerprintService = checkNotNull(fingerprintValueService, "fingerprintValueService");
-    this.version = checkNotNull(frontierNodeVersion, "frontierNodeVersion");
+    this.currentVersion = checkNotNull(currentVersion, "currentVersion");
     this.eventHandler = checkNotNull(eventHandler, "eventHandler");
   }
 
@@ -75,10 +75,22 @@ public final class AnalysisCacheInvalidator {
    * @param keysToLookup The set of SkyKeys to check.
    * @return The subset of keysToLookup that got a cache miss should be invalidated locally.
    */
-  public ImmutableSet<SkyKey> lookupKeysToInvalidate(Set<SkyKey> keysToLookup) {
-    if (keysToLookup.isEmpty()) {
+  public ImmutableSet<SkyKey> lookupKeysToInvalidate(
+      RemoteAnalysisCachingState remoteAnalysisCachingState) {
+    if (remoteAnalysisCachingState.deserializedKeys().isEmpty()) {
       logger.atInfo().log("Skycache: No keys to lookup for invalidation check.");
       return ImmutableSet.of();
+    }
+
+    var previousVersion = remoteAnalysisCachingState.version();
+    checkState(previousVersion != null, "Version is null, but there are keys to lookup.");
+
+    if (!previousVersion.equals(currentVersion)) {
+      logger.atInfo().log(
+          "Skycache: Version changed during invalidation check. Previous version: %s, current"
+              + " version: %s.",
+          previousVersion, currentVersion);
+      return remoteAnalysisCachingState.deserializedKeys(); // everything must be invalidated
     }
 
     Stopwatch stopwatch = Stopwatch.createStarted();
@@ -86,7 +98,7 @@ public final class AnalysisCacheInvalidator {
     ImmutableList<ListenableFuture<Optional<SkyKey>>> futures;
     try (SilentCloseable unused = Profiler.instance().profile("submitInvalidationLookups")) {
       futures =
-          keysToLookup.parallelStream()
+          remoteAnalysisCachingState.deserializedKeys().parallelStream()
               .map(this::submitInvalidationLookup)
               .collect(toImmutableList());
     }
@@ -133,7 +145,8 @@ public final class AnalysisCacheInvalidator {
     try {
       // 1. Compute the fingerprint for the versioned key
       PackedFingerprint cacheKey =
-          SkyKeySerializationHelper.computeFingerprint(codecs, fingerprintService, key, version);
+          SkyKeySerializationHelper.computeFingerprint(
+              codecs, fingerprintService, key, currentVersion);
 
       // 2. Submit the fingerprint to the analysis cache service
       ListenableFuture<ByteString> responseFuture =

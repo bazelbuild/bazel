@@ -147,8 +147,11 @@ public class RemoteAnalysisCachingEventListener {
     this.skyValueVersion.set(version);
   }
 
-  /** Returns the {@link FrontierNodeVersion} for versioning the SkyValues in this build. */
-  public FrontierNodeVersion getSkyValueVersion() {
-    return skyValueVersion.get();
+  /**
+   * Returns the {@link RemoteAnalysisCachingState} for this build with information about all the
+   * cache hits.
+   */
+  public RemoteAnalysisCachingState getRemoteAnalysisCachingState() {
+    return new RemoteAnalysisCachingState(skyValueVersion.get(), ImmutableSet.copyOf(cacheHits));
   }
 }

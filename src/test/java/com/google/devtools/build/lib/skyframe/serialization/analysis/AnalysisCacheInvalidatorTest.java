@@ -15,9 +15,13 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
@@ -27,10 +31,11 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyKeySerializationH
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
-import org.junit.Before;
+import java.util.Optional;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,24 +57,19 @@ public final class AnalysisCacheInvalidatorTest {
   private final FingerprintValueService fingerprintService =
       FingerprintValueService.createForTesting();
 
-  private AnalysisCacheInvalidator invalidator;
-
-  @Before
-  public void setUp() throws Exception {
-    invalidator =
+  @Test
+  public void lookupKeysToInvalidate_emptyInput_returnsEmptySet() {
+    AnalysisCacheInvalidator invalidator =
         new AnalysisCacheInvalidator(
             mockAnalysisCacheClient,
             objectCodecs,
             fingerprintService,
-            frontierNodeVersion,
+            /* currentVersion= */ frontierNodeVersion,
             mockEventHandler);
-  }
-
-  @Test
-  public void lookupKeysToInvalidate_emptyInput_returnsEmptySet() {
-    ImmutableSet<SkyKey> keysToLookup = ImmutableSet.of();
-    ImmutableSet<SkyKey> result = invalidator.lookupKeysToInvalidate(keysToLookup);
-    assertThat(result).isEmpty();
+    assertThat(
+            invalidator.lookupKeysToInvalidate(
+                new RemoteAnalysisCachingState(frontierNodeVersion, ImmutableSet.of())))
+        .isEmpty();
   }
 
   @Test
@@ -83,8 +83,18 @@ public final class AnalysisCacheInvalidatorTest {
     when(mockAnalysisCacheClient.submit(ByteString.copyFrom(fingerprint.toBytes())))
         .thenReturn(immediateFuture(ByteString.copyFromUtf8("some_value")));
 
-    ImmutableSet<SkyKey> result = invalidator.lookupKeysToInvalidate(ImmutableSet.of(key));
-    assertThat(result).isEmpty();
+    AnalysisCacheInvalidator invalidator =
+        new AnalysisCacheInvalidator(
+            mockAnalysisCacheClient,
+            objectCodecs,
+            fingerprintService,
+            /* currentVersion= */ frontierNodeVersion,
+            mockEventHandler);
+
+    assertThat(
+            invalidator.lookupKeysToInvalidate(
+                new RemoteAnalysisCachingState(frontierNodeVersion, ImmutableSet.of(key))))
+        .isEmpty();
   }
 
   @Test
@@ -98,8 +108,18 @@ public final class AnalysisCacheInvalidatorTest {
     when(mockAnalysisCacheClient.submit(ByteString.copyFrom(fingerprint.toBytes())))
         .thenReturn(immediateFuture(ByteString.EMPTY));
 
-    ImmutableSet<SkyKey> result = invalidator.lookupKeysToInvalidate(ImmutableSet.of(key));
-    assertThat(result).containsExactly(key);
+    AnalysisCacheInvalidator invalidator =
+        new AnalysisCacheInvalidator(
+            mockAnalysisCacheClient,
+            objectCodecs,
+            fingerprintService,
+            /* currentVersion= */ frontierNodeVersion,
+            mockEventHandler);
+
+    assertThat(
+            invalidator.lookupKeysToInvalidate(
+                new RemoteAnalysisCachingState(frontierNodeVersion, ImmutableSet.of(key))))
+        .containsExactly(key);
   }
 
   @Test
@@ -120,9 +140,55 @@ public final class AnalysisCacheInvalidatorTest {
     when(mockAnalysisCacheClient.submit(ByteString.copyFrom(missFingerprint.toBytes())))
         .thenReturn(immediateFuture(ByteString.EMPTY));
 
-    ImmutableSet<SkyKey> result =
-        invalidator.lookupKeysToInvalidate(ImmutableSet.of(hitKey, missKey));
-    assertThat(result).containsExactly(missKey);
+    AnalysisCacheInvalidator invalidator =
+        new AnalysisCacheInvalidator(
+            mockAnalysisCacheClient,
+            objectCodecs,
+            fingerprintService,
+            /* currentVersion= */ frontierNodeVersion,
+            mockEventHandler);
+
+    assertThat(
+            invalidator.lookupKeysToInvalidate(
+                new RemoteAnalysisCachingState(
+                    frontierNodeVersion, ImmutableSet.of(hitKey, missKey))))
+        .containsExactly(missKey);
+  }
+
+  @Test
+  public void lookupKeysToInvalidate_differentVersions_returnsAllKeys() throws Exception {
+    TrivialKey key1 = new TrivialKey("key1");
+    TrivialKey key2 = new TrivialKey("key2");
+
+    var previousVersion =
+        new FrontierNodeVersion(
+            "123",
+            HashCode.fromInt(42),
+            IntVersion.of(9000),
+            "distinguisher",
+            Optional.of(new ClientId("for_testing", 123)));
+    var currentVersion =
+        new FrontierNodeVersion(
+            "123",
+            HashCode.fromInt(42),
+            IntVersion.of(9001), // changed
+            "distinguisher",
+            Optional.of(new ClientId("for_testing", 123)));
+    AnalysisCacheInvalidator invalidator =
+        new AnalysisCacheInvalidator(
+            mockAnalysisCacheClient,
+            objectCodecs,
+            fingerprintService,
+            currentVersion,
+            mockEventHandler);
+
+    assertThat(
+            invalidator.lookupKeysToInvalidate(
+                new RemoteAnalysisCachingState(previousVersion, ImmutableSet.of(key1, key2))))
+        .containsExactly(key1, key2);
+
+    // No RPCs should be sent.
+    verify(mockAnalysisCacheClient, never()).submit(any());
   }
 
   @AutoCodec

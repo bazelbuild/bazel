@@ -119,6 +119,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingState;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -927,8 +928,8 @@ public class BuildTool {
         reportRemoteAnalysisCachingStats(
             dependenciesProvider.getFingerprintValueService().getStats());
         env.getSkyframeExecutor()
-            .getDeserializedKeysFromRemoteAnalysisCache()
-            .addAll(env.getRemoteAnalysisCachingEventListener().getCacheHits());
+            .setRemoteAnalysisCachingStateForLatestBuild(
+                env.getRemoteAnalysisCachingEventListener().getRemoteAnalysisCachingState());
         break;
       case OFF:
         break;
@@ -1356,13 +1357,13 @@ public class BuildTool {
     }
 
     @Override
-    public ImmutableSet<SkyKey> lookupKeysToInvalidate(Set<SkyKey> keysToLookup)
-        throws InterruptedException {
+    public ImmutableSet<SkyKey> lookupKeysToInvalidate(
+        RemoteAnalysisCachingState remoteAnalysisCachingState) throws InterruptedException {
       AnalysisCacheInvalidator invalidator = getAnalysisCacheInvalidator();
       if (invalidator == null) {
         return ImmutableSet.of();
       }
-      return invalidator.lookupKeysToInvalidate(keysToLookup);
+      return invalidator.lookupKeysToInvalidate(remoteAnalysisCachingState);
     }
 
     @Nullable
