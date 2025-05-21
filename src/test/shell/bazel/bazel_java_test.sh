@@ -2150,7 +2150,7 @@ function test_sandboxed_multiplexing_hermetic_paths_in_diagnostics() {
   if [[ "$is_windows" ]]; then
     # https://bugs.openjdk.org/browse/JDK-8357249 makes sandboxed multiplex
     # workers incompatible with the reduced classpath heuristic on Windows.
-    add_to_bazelrc "--experimental_java_classpath=off"
+    add_to_bazelrc "common --experimental_java_classpath=off"
   fi
 
   mkdir -p pkg
@@ -2188,7 +2188,7 @@ function test_sandboxed_multiplexing_full_classpath_fallback() {
   if [[ "$is_windows" ]]; then
     # https://bugs.openjdk.org/browse/JDK-8357249 makes sandboxed multiplex
     # workers incompatible with the reduced classpath heuristic on Windows.
-    add_to_bazelrc "--experimental_java_classpath=off"
+    add_to_bazelrc "common --experimental_java_classpath=off"
   fi
 
   mkdir -p pkg/java/hello || fail "Expected success"
