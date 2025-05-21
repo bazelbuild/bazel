@@ -103,23 +103,6 @@ public class PackageLookupFunction implements SkyFunction {
           "Invalid package name '" + packageKey + "': " + packageNameErrorMsg);
     }
 
-    RepositoryName repoName = packageKey.getRepository();
-    if (!repoName.isVisible()) {
-      String workspaceDeprecationMsg =
-          externalPackageHelper.getWorkspaceDeprecationErrorMessage(
-              env,
-              semantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE),
-              repoName.isOwnerRepoMainRepo());
-      if (env.valuesMissing()) {
-        return null;
-      }
-      return new NoRepositoryPackageLookupValue(
-          repoName,
-          String.format(
-              "No repository visible as '@%s' from %s%s",
-              repoName.getName(), repoName.getOwnerRepoDisplayString(), workspaceDeprecationMsg));
-    }
-
     if (deletedPackages.get().contains(packageKey)) {
       return PackageLookupValue.DELETED_PACKAGE_VALUE;
     }

@@ -148,9 +148,13 @@ public class RepositoryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help =
-          "If false, native repo rules can be used in WORKSPACE; otherwise, Starlark repo rules "
-              + "must be used instead. Native repo rules include local_repository, "
-              + "new_local_repository, local_config_platform, and android_sdk_repository.")
+          """
+          If false, native repo rules can be used in WORKSPACE; otherwise, Starlark repo rules \
+          must be used instead. Native repo rules include local_repository, \
+          new_local_repository, and local_config_platform. When this flag is set, the \
+          local_config_platform built-in module is also unavailable in Bzlmod; use \
+          `@platforms//host` instead.\
+          """)
   public boolean disableNativeRepoRules;
 
   @Option(

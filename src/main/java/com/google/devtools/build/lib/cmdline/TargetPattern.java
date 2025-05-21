@@ -856,8 +856,7 @@ public abstract class TargetPattern {
       return new SingleTarget(pattern, Label.createUnvalidated(packageIdentifier, parts.target()));
     }
 
-    private PackageIdentifier createPackageIdentifierFromParts(LabelParser.Parts parts)
-        throws TargetParsingException {
+    private PackageIdentifier createPackageIdentifierFromParts(LabelParser.Parts parts) {
       RepositoryName repo;
       if (parts.repo() == null) {
         repo = currentRepo;
@@ -865,13 +864,6 @@ public abstract class TargetPattern {
         repo = RepositoryName.createUnvalidated(parts.repo());
       } else {
         repo = repoMapping.get(parts.repo());
-        if (!repo.isVisible()) {
-          throw new TargetParsingException(
-              String.format(
-                  "No repository visible as '@%s' from %s",
-                  repo.getName(), repo.getOwnerRepoDisplayString()),
-              Code.PACKAGE_NOT_FOUND);
-        }
       }
 
       PathFragment packagePathFragment =
