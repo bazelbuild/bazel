@@ -162,11 +162,6 @@ function test_path_stripping_singleplex_worker() {
 }
 
 function test_path_stripping_multiplex_worker() {
-  if is_windows; then
-    echo "Skipping test_path_stripping_multiplex_worker on Windows as it requires sandboxing"
-    return
-  fi
-
   mkdir toolchain
   cat > toolchain/BUILD <<'EOF'
 load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
