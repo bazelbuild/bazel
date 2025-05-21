@@ -971,6 +971,10 @@ ACTION_EXECUTION:ActionLookupData0{actionLookupKey=ConfiguredTargetKey{label=//A
     return from.stream().map(ActionLookupKey::getLabel).collect(toImmutableSet());
   }
 
+  protected static ImmutableSet<String> getLabelStrings(Set<ActionLookupKey> from) {
+    return getLabels(from).stream().map(Label::toString).collect(toImmutableSet());
+  }
+
   protected static ImmutableSet<Label> getOwningLabels(Set<ActionLookupData> from) {
     return from.stream()
         .map(data -> data.getActionLookupKey().getLabel())

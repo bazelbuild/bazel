@@ -117,7 +117,7 @@ public final class FrontierSerializer {
     }
 
     var profileCollector = new ProfileCollector();
-    var frontierValueCount = new AtomicInteger();
+    var serializedCount = new AtomicInteger();
 
     if (versionGetter == null) {
       if (isInTest()) {
@@ -133,12 +133,11 @@ public final class FrontierSerializer {
             versionGetter,
             codecs,
             frontierVersion,
-            dependenciesProvider::withinActiveDirectories,
             selection,
             dependenciesProvider.getFingerprintValueService(),
             eventBus,
             profileCollector,
-            frontierValueCount);
+            serializedCount);
 
     try {
       var unusedNull = writeStatus.get();
@@ -150,7 +149,10 @@ public final class FrontierSerializer {
           Event.info(
               String.format(
                   "Serialized %s frontier nodes into %s bytes and %s entries in %s",
-                  frontierValueCount, stats.valueBytesSent(), stats.entriesWritten(), stopwatch)));
+                  serializedCount.get(),
+                  stats.valueBytesSent(),
+                  stats.entriesWritten(),
+                  stopwatch)));
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
       String message = cause.getMessage();
@@ -232,6 +234,9 @@ public final class FrontierSerializer {
                 // value type can be used to distinguish this case.
                 return;
               }
+              // Notably, we don't check the `matcher` for execution values, because we want to
+              // serialize all ActionLookupData even if they're below the frontier, because the
+              // owning ActionLookupValue will be pruned.
               selection.putIfAbsent(data, FRONTIER_CANDIDATE);
             }
             case Artifact artifact -> {
@@ -248,6 +253,8 @@ public final class FrontierSerializer {
                   if (artifactKey instanceof ActionLookupData) {
                     return; // Already handled in the ActionLookupData switch case above.
                   }
+                  // Like ActionLookupData, we want to serialize these even if they're below the
+                  // frontier.
                   selection.putIfAbsent(artifactKey, FRONTIER_CANDIDATE);
                   break;
                 case SourceArtifact ignored:
