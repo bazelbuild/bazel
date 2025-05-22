@@ -597,34 +597,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "get_static_libraries",
-      documented = false,
-      parameters = {
-        @Param(name = "libraries_to_link"),
-        @Param(name = "prefer_static_libs"),
-      })
-  public StarlarkList<LibraryToLink> getStaticLibraries(
-      Sequence<?> librariesToLinkObj, boolean preferStaticLibs) throws EvalException {
-    ImmutableList.Builder<LibraryToLink> staticLibraries = ImmutableList.builder();
-    Sequence<LibraryToLink> librariesToLink =
-        Sequence.cast(librariesToLinkObj, LibraryToLink.class, "libraries_to_link");
-    for (LibraryToLink libraryToLink : librariesToLink) {
-      if (preferStaticLibs) {
-        if (libraryToLink.getStaticLibrary() != null
-            || libraryToLink.getPicStaticLibrary() != null) {
-          staticLibraries.add(libraryToLink);
-        }
-      } else {
-        if (libraryToLink.getInterfaceLibrary() == null
-            && libraryToLink.getDynamicLibrary() == null) {
-          staticLibraries.add(libraryToLink);
-        }
-      }
-    }
-    return StarlarkList.immutableCopyOf(staticLibraries.build());
-  }
-
-  @StarlarkMethod(
       name = "create_library_to_link",
       documented = false,
       parameters = {@Param(name = "library_to_link")})

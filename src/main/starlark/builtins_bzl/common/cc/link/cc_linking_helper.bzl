@@ -443,7 +443,14 @@ def _maybe_do_lto_indexing(*, link_type, linking_mode, compilation_outputs, libr
                          not feature_configuration.is_enabled("supports_dynamic_linker")
     prefer_pic_libs = is_dynamic_library(link_type)
 
-    static_libraries_to_link = cc_internal.get_static_libraries(libraries_to_link, prefer_static_libs)
+    static_libraries_to_link = []
+    for lib in libraries_to_link:
+        if prefer_static_libs:
+            if lib.static_library != None or lib.pic_static_library != None:
+                static_libraries_to_link.append(lib)
+        elif lib.interface_library == None and lib.dynamic_library == None:
+            static_libraries_to_link.append(lib)
+
     if not has_lto_bitcode_inputs:
         for lib in static_libraries_to_link:
             pic = (prefer_pic_libs and lib.pic_static_library != None) or lib.static_library == None
