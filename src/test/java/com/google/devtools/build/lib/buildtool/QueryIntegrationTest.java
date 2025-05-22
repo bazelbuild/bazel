@@ -1150,6 +1150,9 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
               }
             });
     BlazeCommandResult lastBlazeCommandResult = new QueryCommand().exec(env, options);
+    for (BlazeModule module : getRuntime().getBlazeModules()) {
+      module.afterCommand();
+    }
     return new QueryOutput(lastBlazeCommandResult, stdout.toByteArray());
   }
 
