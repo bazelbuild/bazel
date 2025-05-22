@@ -132,7 +132,7 @@ custom_test = rule(
     implementation = _impl,
     test = True,
     attrs = {
-        "_lcov_merger": attr.label(default = ":lcov_merger", cfg = "exec"),
+        "_lcov_merger": attr.label(default = ":lcov_merger", cfg = config.exec(exec_group = "test")),
     },
 )
 EOF
@@ -184,7 +184,7 @@ custom_test = rule(
     attrs = {
         "_lcov_merger": attr.label(
             default = configuration_field(fragment = "coverage", name = "output_generator"),
-            cfg = "exec"
+            cfg = config.exec(exec_group = "test")
         ),
     },
     fragments = ["coverage"],
@@ -227,7 +227,7 @@ custom_test = rule(
     attrs = {
         "_lcov_merger": attr.label(
             default = configuration_field(fragment = "coverage", name = "output_generator"),
-            cfg = "exec"
+            cfg = config.exec(exec_group = "test")
         ),
     },
     fragments = ["coverage"],
@@ -247,17 +247,6 @@ EOF
 function test_starlark_rule_default_baseline_coverage() {
   mkdir -p test
   cat <<'EOF' > test/rules.bzl
-_COMMON_ATTRS = {
-    "srcs": attr.label_list(
-        allow_files = True,
-    ),
-    "deps": attr.label_list(),
-    "_lcov_merger": attr.label(
-        default = configuration_field(fragment = "coverage", name = "output_generator"),
-        cfg = "exec",
-    ),
-}
-
 def _my_library_impl(ctx):
     providers = []
 
@@ -280,7 +269,12 @@ def _my_library_impl(ctx):
 
 my_library = rule(
     implementation = _my_library_impl,
-    attrs = _COMMON_ATTRS,
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = True,
+        ),
+        "deps": attr.label_list(),
+    },
 )
 
 def _my_test_impl(ctx):
@@ -316,7 +310,16 @@ E_O_F
 my_test = rule(
     implementation = _my_test_impl,
     test = True,
-    attrs = _COMMON_ATTRS,
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = True,
+        ),
+        "deps": attr.label_list(),
+        "_lcov_merger": attr.label(
+            default = configuration_field(fragment = "coverage", name = "output_generator"),
+            cfg = config.exec(exec_group = "test"),
+        ),
+    },
 )
 EOF
 
@@ -395,8 +398,33 @@ FNH:0
 LH:0
 LF:0
 end_of_record"
+    local expected_baseline_coverage="SF:test/covered_1.txt
+FNF:0
+FNH:0
+LH:0
+LF:0
+end_of_record
+SF:test/covered_2.txt
+FNF:0
+FNH:0
+LH:0
+LF:0
+end_of_record
+SF:test/untested_1.txt
+FNF:0
+FNH:0
+LH:0
+LF:0
+end_of_record
+SF:test/untested_2.txt
+FNF:0
+FNH:0
+LH:0
+LF:0
+end_of_record"
 
     assert_coverage_result "$expected_coverage" bazel-out/_coverage/_coverage_report.dat
+    assert_coverage_result "$expected_baseline_coverage" bazel-out/_coverage/_baseline_report.dat
 }
 
 run_suite "test tests"
