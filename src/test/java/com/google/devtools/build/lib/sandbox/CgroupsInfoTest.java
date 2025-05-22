@@ -224,6 +224,8 @@ public class CgroupsInfoTest {
         .containsExactly("1");
     assertThat(Files.readLines(new File(blazeSpawnsPath + "/spawn_1.scope/memory.max"), UTF_8))
         .containsExactly("104857600");
+    assertThat(Files.readLines(new File(blazeSpawnsPath + "/spawn_1.scope/memory.swap.max"), UTF_8))
+        .containsExactly("0");
   }
 
   @Test
@@ -244,6 +246,7 @@ public class CgroupsInfoTest {
     // written to.
     assertThat(new File(blazeSpawnsPath + "/spawn_1.scope/memory.oom.group").exists()).isFalse();
     assertThat(new File(blazeSpawnsPath + "/spawn_1.scope/memory.max").exists()).isFalse();
+    assertThat(new File(blazeSpawnsPath + "/spawn_1.scope/memory.swap.max").exists()).isFalse();
   }
 
   @Test
