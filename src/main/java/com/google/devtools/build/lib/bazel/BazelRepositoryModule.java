@@ -81,6 +81,9 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryFunction;
@@ -382,6 +385,7 @@ public class BazelRepositoryModule extends BlazeModule {
         // invocation, as is often the case with the repo contents cache.
         // TODO: wyv@ - This is a crude check that disables some use cases (such as when the output
         //   base itself is inside the main repo). Investigate a better check.
+        repositoryCache.getRepoContentsCache().setPath(null);
         throw new AbruptExitException(
             detailedExitCode(
                 """
@@ -391,6 +395,26 @@ public class BazelRepositoryModule extends BlazeModule {
                 """
                     .formatted(repoContentsCachePath, env.getWorkspace()),
                 Code.BAD_REPO_CONTENTS_CACHE));
+      }
+      if (repositoryCache.getRepoContentsCache().isEnabled()) {
+        try (SilentCloseable c =
+            Profiler.instance()
+                .profile(ProfilerTask.REPO_CACHE_GC_WAIT, "waiting to acquire repo cache lock")) {
+          repositoryCache.getRepoContentsCache().acquireSharedLock();
+        } catch (IOException e) {
+          throw new AbruptExitException(
+              detailedExitCode(
+                  "could not acquire lock on repo contents cache", Code.BAD_REPO_CONTENTS_CACHE),
+              e);
+        }
+        if (!repoOptions.repoContentsCacheGcMaxAge.isZero()) {
+          env.addIdleTask(
+              repositoryCache
+                  .getRepoContentsCache()
+                  .createGcIdleTask(
+                      repoOptions.repoContentsCacheGcMaxAge,
+                      repoOptions.repoContentsCacheGcIdleDelay));
+        }
       }
 
       try {
@@ -646,6 +670,20 @@ public class BazelRepositoryModule extends BlazeModule {
       return null;
     }
     return env.getBlazeWorkspace().getWorkspace().getRelative(path);
+  }
+
+  @Override
+  public void afterCommand() throws AbruptExitException {
+    if (repositoryCache.getRepoContentsCache().isEnabled()) {
+      try {
+        repositoryCache.getRepoContentsCache().releaseSharedLock();
+      } catch (IOException e) {
+        throw new AbruptExitException(
+            detailedExitCode(
+                "could not release lock on repo contents cache", Code.BAD_REPO_CONTENTS_CACHE),
+            e);
+      }
+    }
   }
 
   @Override
