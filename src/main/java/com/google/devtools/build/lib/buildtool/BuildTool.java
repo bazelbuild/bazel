@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
@@ -1095,7 +1096,7 @@ public class BuildTool {
     private final Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher;
     private final RemoteAnalysisCachingEventListener listener;
     private final HashCode blazeInstallMD5;
-    private final String distinguisher;
+    @Nullable private final String distinguisher;
 
     /** Cache lookup parameter requiring integration with external version control. */
     private final IntVersion evaluatingVersion;
@@ -1310,7 +1311,7 @@ public class BuildTool {
                     topLevelConfigChecksum,
                     blazeInstallMD5,
                     evaluatingVersion,
-                    distinguisher,
+                    nullToEmpty(distinguisher),
                     snapshot);
             logger.atInfo().log(
                 "Remote analysis caching SkyValue version: %s (actual evaluating version: %s)",
