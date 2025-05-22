@@ -1245,6 +1245,29 @@ java_test(
 )
 
 java_test(
+    name = "EvalMacroFunctionTest",
+    timeout = "moderate",
+    srcs = ["EvalMacroFunctionTest.java"],
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_piece_identifier",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/test/java/com/google/devtools/build/lib:test_runner",  # unuseddeps: keep buildcleaner: keep
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/util:SkyframeExecutorTestUtils",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
+    ],
+)
+
+java_test(
     name = "DirtinessCheckerUtilsTest",
     timeout = "short",
     srcs = ["DirtinessCheckerUtilsTest.java"],

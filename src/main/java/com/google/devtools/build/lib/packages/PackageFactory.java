@@ -302,6 +302,32 @@ public final class PackageFactory {
         packageValidator.getPackageLimits());
   }
 
+  // This function is public only for the benefit of skyframe.EvalMacroFunction, which is morally
+  // part of lib.packages, so that it can create empty package pieces in case of error before macro
+  // execution. Do not call it from anywhere else.
+  public PackagePiece.ForMacro.Builder newPackagePieceForMacroBuilder(
+      MacroInstance macro,
+      PackagePieceIdentifier parentIdentifier,
+      PackagePiece.ForBuildFile pieceForBuildFile,
+      StarlarkSemantics starlarkSemantics,
+      RepositoryMapping mainRepositoryMapping,
+      @Nullable Semaphore cpuBoundSemaphore,
+      @Nullable ImmutableMap<Location, String> generatorMap) {
+    return PackagePiece.ForMacro.newBuilder(
+        macro,
+        parentIdentifier,
+        pieceForBuildFile,
+        starlarkSemantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
+        mainRepositoryMapping,
+        cpuBoundSemaphore,
+        packageOverheadEstimator,
+        generatorMap,
+        /* enableNameConflictChecking= */ true,
+        /* trackFullMacroInformation= */ true,
+        packageValidator.getPackageLimits());
+  }
+
   /** Returns a new {@link NonSkyframeGlobber}. */
   // Exposed to skyframe.PackageFunction.
   public NonSkyframeGlobber createNonSkyframeGlobber(

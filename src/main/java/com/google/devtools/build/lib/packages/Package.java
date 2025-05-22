@@ -169,6 +169,17 @@ public class Package extends Packageoid {
   // ==== Target and macro fields ====
 
   /**
+   * The collection of all symbolic macro instances defined in this package, indexed by their {@link
+   * MacroInstance#getId id} (not name). Null until the package is fully initialized by its
+   * builder's {@code finishBuild()}.
+   */
+  // TODO(bazel-team): Consider enforcing that macro namespaces are "exclusive", meaning that target
+  // names may only suffix a macro name when the target is created (transitively) within the macro.
+  // This would be a major change that would break the (common) use case where a BUILD file
+  // declares both "foo" and "foo_test".
+  @Nullable private ImmutableSortedMap<String, MacroInstance> macros;
+
+  /**
    * A map from names of targets declared in a symbolic macro which violate macro naming rules, such
    * as "lib%{name}-src.jar" implicit outputs in java rules, to the name of the macro instance where
    * they were declared.
@@ -1637,6 +1648,7 @@ public class Package extends Packageoid {
       super.packageoidInitializationHook();
       Package pkg = getPackage();
       pkg.computationSteps = getComputationSteps();
+      pkg.macros = ImmutableSortedMap.copyOf(recorder.getMacroMap());
       pkg.macroNamespaceViolatingTargets =
           ImmutableMap.copyOf(recorder.getMacroNamespaceViolatingTargets());
       pkg.targetsToDeclaringMacro =

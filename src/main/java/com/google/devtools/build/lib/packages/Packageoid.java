@@ -77,17 +77,6 @@ public abstract class Packageoid {
   @Nullable protected ImmutableSortedMap<String, Target> targets;
 
   /**
-   * The collection of all symbolic macro instances defined in this packageoid, indexed by their
-   * {@link MacroInstance#getId id} (not name). Null until the packageoid is fully initialized by
-   * its builder's {@code finishBuild()}.
-   */
-  // TODO(bazel-team): Consider enforcing that macro namespaces are "exclusive", meaning that target
-  // names may only suffix a macro name when the target is created (transitively) within the macro.
-  // This would be a major change that would break the (common) use case where a BUILD file
-  // declares both "foo" and "foo_test".
-  @Nullable protected ImmutableSortedMap<String, MacroInstance> macros;
-
-  /**
    * Returns the metadata of the package; in other words, information which is known about a package
    * before BUILD file evaluation has started.
    */

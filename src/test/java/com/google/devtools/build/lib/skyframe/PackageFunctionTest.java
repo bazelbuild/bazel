@@ -213,13 +213,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
     return value;
   }
 
-  private static PackagePieceIdentifier.ForBuildFile getPackagePieceId(String pkg) {
-    PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(pkg);
-    return new PackagePieceIdentifier.ForBuildFile(pkgId, Label.createUnvalidated(pkgId, "BUILD"));
-  }
-
   private SkyKey getSkyKey(String pkg) {
-    return computePackagePiece ? getPackagePieceId(pkg) : PackageIdentifier.createInMainRepo(pkg);
+    PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(pkg);
+    return computePackagePiece ? new PackagePieceIdentifier.ForBuildFile(pkgId) : pkgId;
   }
 
   @CanIgnoreReturnValue

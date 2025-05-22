@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.TargetRecorder.MacroFrame;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -107,38 +108,37 @@ def fail_impl(name, visibility, **kwargs):
 
     new EqualsTester()
         .addEqualityGroup(
-            new PackagePieceIdentifier.ForBuildFile(
-                PackageIdentifier.createInMainRepo("test_pkg"),
-                Label.parseCanonical("//test_pkg:BUILD")),
-            new PackagePieceIdentifier.ForBuildFile(
-                PackageIdentifier.createInMainRepo("test_pkg"),
-                Label.parseCanonical("//test_pkg:BUILD")))
+            new PackagePieceIdentifier.ForBuildFile(PackageIdentifier.createInMainRepo("test_pkg")),
+            new PackagePieceIdentifier.ForBuildFile(PackageIdentifier.createInMainRepo("test_pkg")))
         .addEqualityGroup(
-            new PackagePieceIdentifier.ForBuildFile(
-                PackageIdentifier.parse("@repo//test_pkg"),
-                Label.parseCanonical("@repo//test_pkg:BUILD")))
+            new PackagePieceIdentifier.ForBuildFile(PackageIdentifier.parse("@repo//test_pkg")))
         .addEqualityGroup(
             new PackagePieceIdentifier.ForMacro(
                 PackageIdentifier.createInMainRepo("test_pkg"),
-                Label.parseCanonical("//test_pkg:my_macro.bzl"),
-                "my_macro",
+                new PackagePieceIdentifier.ForBuildFile(
+                    PackageIdentifier.createInMainRepo("test_pkg")),
                 "foo"),
             new PackagePieceIdentifier.ForMacro(
                 PackageIdentifier.createInMainRepo("test_pkg"),
-                Label.parseCanonical("//test_pkg:my_macro.bzl"),
-                "my_macro",
+                new PackagePieceIdentifier.ForBuildFile(
+                    PackageIdentifier.createInMainRepo("test_pkg")),
                 "foo"))
         .addEqualityGroup(
             new PackagePieceIdentifier.ForMacro(
                 PackageIdentifier.createInMainRepo("test_pkg"),
-                Label.parseCanonical("//test_pkg:my_macro.bzl"),
-                "other_macro",
-                "foo"))
-        .addEqualityGroup(
+                new PackagePieceIdentifier.ForMacro(
+                    PackageIdentifier.createInMainRepo("test_pkg"),
+                    new PackagePieceIdentifier.ForBuildFile(
+                        PackageIdentifier.createInMainRepo("test_pkg")),
+                    "foo"),
+                "foo_bar"),
             new PackagePieceIdentifier.ForMacro(
                 PackageIdentifier.createInMainRepo("test_pkg"),
-                Label.parseCanonical("//test_pkg:my_macro.bzl"),
-                "my_macro",
+                new PackagePieceIdentifier.ForMacro(
+                    PackageIdentifier.createInMainRepo("test_pkg"),
+                    new PackagePieceIdentifier.ForBuildFile(
+                        PackageIdentifier.createInMainRepo("test_pkg")),
+                    "foo"),
                 "foo_bar"))
         .testEquals();
   }
@@ -182,12 +182,15 @@ def fail_impl(name, visibility, **kwargs):
     MacroInstance fooMacro = addMacro(buildFilePieceBuilder, fooMacroClass, "foo");
     PackagePiece.ForBuildFile buildFilePiece = buildFilePieceBuilder.buildPartial().finishBuild();
     PackagePiece.ForMacro.Builder fooMacroPieceBuilder =
-        minimalMacroPieceBuilder(fooMacro, buildFilePiece);
+        minimalMacroPieceBuilder(fooMacro, buildFilePiece.getIdentifier(), buildFilePiece);
+    // Normally, the macro frame would be set by MacroClass#executeMacroImplementation
+    var unused = fooMacroPieceBuilder.setCurrentMacroFrame(new MacroFrame(fooMacro));
     addRule(fooMacroPieceBuilder, Label.parseCanonical("//test_pkg:foo_test"), FAUX_TEST_CLASS);
     MacroInstance fooBarMacro = addMacro(fooMacroPieceBuilder, barMacroClass, "foo_bar");
     PackagePiece.ForMacro fooMacroPiece = fooMacroPieceBuilder.buildPartial().finishBuild();
     PackagePiece.ForMacro.Builder fooBarMacroPieceBuilder =
-        minimalMacroPieceBuilder(fooBarMacro, buildFilePiece);
+        minimalMacroPieceBuilder(fooBarMacro, fooMacroPiece.getIdentifier(), buildFilePiece);
+    unused = fooBarMacroPieceBuilder.setCurrentMacroFrame(new MacroFrame(fooBarMacro));
     addRule(
         fooBarMacroPieceBuilder, Label.parseCanonical("//test_pkg:foo_bar_test"), FAUX_TEST_CLASS);
     PackagePiece.ForMacro fooBarMacroPiece = fooBarMacroPieceBuilder.buildPartial().finishBuild();
@@ -231,7 +234,7 @@ def fail_impl(name, visibility, **kwargs):
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(name);
     return PackagePiece.ForBuildFile.newBuilder(
             PackageSettings.DEFAULTS,
-            new PackagePieceIdentifier.ForBuildFile(pkgId, Label.createUnvalidated(pkgId, "BUILD")),
+            new PackagePieceIdentifier.ForBuildFile(pkgId),
             /* filename= */ RootedPath.toRootedPath(
                 Root.fromPath(fileSystem.getPath("/irrelevantRoot")),
                 PathFragment.create(name + "/BUILD")),
@@ -255,13 +258,15 @@ def fail_impl(name, visibility, **kwargs):
   }
 
   private PackagePiece.ForMacro.Builder minimalMacroPieceBuilder(
-      MacroInstance macro, PackagePiece.ForBuildFile pieceForBuildFile) {
+      MacroInstance macro,
+      PackagePieceIdentifier parentIdentifier,
+      PackagePiece.ForBuildFile pieceForBuildFile) {
     return PackagePiece.ForMacro.newBuilder(
         macro,
+        parentIdentifier,
         pieceForBuildFile,
         /* simplifyUnconditionalSelectsInRuleAttrs= */ StarlarkSemantics.DEFAULT.getBool(
             BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
-        /* repositoryMapping= */ RepositoryMapping.ALWAYS_FALLBACK,
         /* mainRepositoryMapping= */ null,
         /* cpuBoundSemaphore= */ null,
         PackageOverheadEstimator.NOOP_ESTIMATOR,
