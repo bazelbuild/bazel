@@ -34,7 +34,6 @@ public interface BazelCcModuleApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT, CppModuleMapT>,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
-        LinkingOutputsT extends CcLinkingOutputsApi<FileT, LtoBackendArtifactsT>,
         LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
         LinkerInputT extends LinkerInputApi<LibraryToLinkT, LtoBackendArtifactsT, FileT>,
         LibraryToLinkT extends LibraryToLinkApi<FileT, LtoBackendArtifactsT>,
@@ -58,5 +57,4 @@ public interface BazelCcModuleApi<
         CcToolchainConfigInfoT,
         CompilationOutputsT,
         DebugContextT,
-        CppModuleMapT,
-        LinkingOutputsT> {}
+        CppModuleMapT> {}

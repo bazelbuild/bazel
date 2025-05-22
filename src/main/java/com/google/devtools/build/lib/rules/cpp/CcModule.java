@@ -127,8 +127,7 @@ public abstract class CcModule
         CcToolchainConfigInfo,
         CcCompilationOutputs,
         CcDebugInfoContext,
-        CppModuleMap,
-        CcLinkingOutputs> {
+        CppModuleMap> {
 
   // TODO(bazel-team): This only makes sense for the parameter in cc_common.compile()
   //  additional_include_scanning_roots which is technical debt and should go away.

@@ -67,8 +67,7 @@ public class CcBootstrap implements Bootstrap {
               ? extends CcToolchainConfigInfoApi,
               ? extends CcCompilationOutputsApi<? extends FileApi>,
               ? extends CcDebugInfoContextApi,
-              ? extends CppModuleMapApi<? extends FileApi>,
-              ? extends CcLinkingOutputsApi<?, ?>>
+              ? extends CppModuleMapApi<? extends FileApi>>
           ccModule,
       CcInfoApi.Provider<? extends FileApi> ccInfoProvider,
       DebugPackageInfoApi.Provider<? extends FileApi> debugPackageInfoProvider,
