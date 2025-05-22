@@ -900,6 +900,17 @@ public class BuildTool {
     return result;
   }
 
+  private void reportRemoteAnalysisServiceStats(
+      RemoteAnalysisCachingDependenciesProvider dependenciesProvider) throws InterruptedException {
+    FingerprintValueStore.Stats fvsStats =
+        dependenciesProvider.getFingerprintValueService().getStats();
+    RemoteAnalysisCacheClient.Stats raccStats =
+        dependenciesProvider.getAnalysisCacheClient() == null
+            ? null
+            : dependenciesProvider.getAnalysisCacheClient().getStats();
+    env.getRemoteAnalysisCachingEventListener().recordServiceStats(fvsStats, raccStats);
+  }
+
   /**
    * Handles post-build analysis caching operations.
    *
@@ -919,14 +930,15 @@ public class BuildTool {
 
     switch (dependenciesProvider.mode()) {
       case UPLOAD:
-      // fall through
-      case DUMP_UPLOAD_MANIFEST_ONLY:
         uploadFrontier(dependenciesProvider);
+        reportRemoteAnalysisServiceStats(dependenciesProvider);
+        break;
+      case DUMP_UPLOAD_MANIFEST_ONLY:
+        uploadFrontier(dependenciesProvider); // In this case, uploadFrontier() won't upload
         break;
       case DOWNLOAD:
-        reportRemoteAnalysisCachingStats(
-            dependenciesProvider.getFingerprintValueService().getStats(),
-            dependenciesProvider.getAnalysisCacheClient().getStats());
+        reportRemoteAnalysisServiceStats(dependenciesProvider);
+        reportRemoteAnalysisCachingStats();
         env.getSkyframeExecutor()
             .setRemoteAnalysisCachingStateForLatestBuild(
                 env.getRemoteAnalysisCachingEventListener().getRemoteAnalysisCachingState());
@@ -1411,10 +1423,8 @@ public class BuildTool {
     }
   }
 
-  private void reportRemoteAnalysisCachingStats(
-      FingerprintValueStore.Stats fvsStats, RemoteAnalysisCacheClient.Stats raccStats) {
+  private void reportRemoteAnalysisCachingStats() {
     var listener = env.getRemoteAnalysisCachingEventListener();
-
     var hitsByFunction = listener.getHitsBySkyFunctionName();
     var missesByFunction = listener.getMissesBySkyFunctionName();
     long totalHits = hitsByFunction.values().stream().mapToLong(AtomicInteger::get).sum();
@@ -1444,6 +1454,16 @@ public class BuildTool {
                 })
             .collect(joining(", "));
 
+    FingerprintValueStore.Stats fvsStats = listener.getFingerprintValueStoreStats();
+    RemoteAnalysisCacheClient.Stats raccStats = listener.getRemoteAnalysisCacheStats();
+
+    long bytesReceived = fvsStats.valueBytesReceived();
+    long requests = fvsStats.entriesFound() + fvsStats.entriesNotFound();
+
+    if (raccStats != null) {
+      bytesReceived += raccStats.bytesReceived();
+      requests += raccStats.requestsSent();
+    }
     double overallHitRate = totalRequests == 0 ? 0.0 : (double) totalHits / totalRequests * 100;
     env.getReporter()
         .handle(
@@ -1451,8 +1471,8 @@ public class BuildTool {
                 String.format(
                     "Remote analysis caching stats: %s bytes received in %s requests, %s/%s cache"
                         + " hits (%.2f%%) [Breakdown: %s]",
-                    raccStats.bytesReceived() + fvsStats.valueBytesReceived(),
-                    raccStats.requestsSent() + fvsStats.entriesFound() + fvsStats.entriesNotFound(),
+                    bytesReceived,
+                    requests,
                     totalHits,
                     totalRequests,
                     overallHitRate,

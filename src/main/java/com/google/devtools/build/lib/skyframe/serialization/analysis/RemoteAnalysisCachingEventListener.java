@@ -23,6 +23,7 @@ import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
@@ -35,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 
 /** An {@link com.google.common.eventbus.EventBus} listener for remote analysis caching events. */
 @ThreadSafety.ThreadSafe
@@ -60,6 +62,9 @@ public class RemoteAnalysisCachingEventListener {
       new ConcurrentHashMap<>();
 
   private final AtomicReference<FrontierNodeVersion> skyValueVersion = new AtomicReference<>();
+
+  @Nullable private FingerprintValueStore.Stats fingerprintValueStoreStats;
+  @Nullable private RemoteAnalysisCacheClient.Stats remoteAnalysisCacheStats;
 
   @Subscribe
   @AllowConcurrentEvents
@@ -90,6 +95,21 @@ public class RemoteAnalysisCachingEventListener {
 
   public Set<SkyKey> getCacheMisses() {
     return ImmutableSet.copyOf(cacheMisses);
+  }
+
+  public void recordServiceStats(
+      @Nullable FingerprintValueStore.Stats fvsStats,
+      @Nullable RemoteAnalysisCacheClient.Stats raccStats) {
+    fingerprintValueStoreStats = fvsStats;
+    remoteAnalysisCacheStats = raccStats;
+  }
+
+  public FingerprintValueStore.Stats getFingerprintValueStoreStats() {
+    return fingerprintValueStoreStats;
+  }
+
+  public RemoteAnalysisCacheClient.Stats getRemoteAnalysisCacheStats() {
+    return remoteAnalysisCacheStats;
   }
 
   @ThreadSafe

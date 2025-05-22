@@ -53,6 +53,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_key_stats",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_stats",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_metrics",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_status",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

@@ -20,7 +20,7 @@ import com.google.protobuf.ByteString;
 /** Interface to the remote analysis cache. */
 public interface RemoteAnalysisCacheClient {
   /** Usage statistics. */
-  record Stats(long bytesSent, long bytesReceived, long requestsSent) {}
+  record Stats(long bytesSent, long bytesReceived, long requestsSent, long batches) {}
 
   /** Looks up an entry in the remote analysis cache based on a serialized key. */
   ListenableFuture<ByteString> lookup(ByteString key);
