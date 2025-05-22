@@ -291,7 +291,7 @@ JAVA_VERSIONS_COVERAGE = ("11", "17", "21")
         args = [
             # java_tools zips to test
             "$(rlocationpath //src:java_tools_zip)",
-            "$(rlocationpath //src:java_tools_zip)",
+            "$(rlocationpath //src:java_tools_prebuilt_zip)",
             # --java_language_version value
             java_version,
             # --java_runtime_version value
