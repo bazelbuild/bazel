@@ -86,9 +86,9 @@ def create_library_to_link(
 
     if static_library:
         if alwayslink:
-            _validate_ext(static_library, [".a", ".lib", ".rlib"] + [".lo"], not_ext = [".pic.a", ".pic.lo", ".if.lib"], empty_ext = True)
+            _validate_ext(static_library, [".a", ".lib", ".rlib"] + [".lo"], not_ext = [".pic.lo", ".if.lib"], empty_ext = True)
         else:
-            _validate_ext(static_library, [".a", ".lib", ".rlib"], not_ext = [".pic.a", ".lo.lib", ".if.lib"], empty_ext = True)
+            _validate_ext(static_library, [".a", ".lib", ".rlib"], not_ext = [".lo.lib", ".if.lib"], empty_ext = True)
 
     if pic_static_library:
         if alwayslink:
