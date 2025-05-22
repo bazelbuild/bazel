@@ -59,6 +59,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   private final CommandLine commandLine;
   private final ParameterFileType type;
   private final boolean hasInputArtifactToExpand;
+  private final boolean makeExecutable;
 
   /**
    * Creates a new instance.
@@ -69,8 +70,18 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
    * @param type the type of the file
    */
   public ParameterFileWriteAction(
-      ActionOwner owner, Artifact output, CommandLine commandLine, ParameterFileType type) {
-    this(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, commandLine, type);
+      ActionOwner owner,
+      Artifact output,
+      CommandLine commandLine,
+      ParameterFileType type,
+      boolean makeExecutable) {
+    this(
+        owner,
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        output,
+        commandLine,
+        type,
+        makeExecutable);
   }
 
   /**
@@ -88,11 +99,18 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       NestedSet<Artifact> inputs,
       Artifact output,
       CommandLine commandLine,
-      ParameterFileType type) {
+      ParameterFileType type,
+      boolean makeExecutable) {
     super(owner, inputs, output);
     this.commandLine = commandLine;
     this.type = type;
     this.hasInputArtifactToExpand = !inputs.isEmpty();
+    this.makeExecutable = makeExecutable;
+  }
+
+  @Override
+  public boolean makeExecutable() {
+    return makeExecutable;
   }
 
   @VisibleForTesting
