@@ -536,6 +536,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         evaluator.evaluate(ImmutableList.of(key), evaluationContext);
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
-    assertThat(repositoryDirectoryValue.repositoryExists()).isTrue();
+    assertThat(repositoryDirectoryValue).isInstanceOf(Success.class);
   }
 }

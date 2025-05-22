@@ -666,7 +666,7 @@ public class BazelRepositoryModule extends BlazeModule {
    */
   @Nullable
   private Path toPath(PathFragment path, CommandEnvironment env) {
-    if (path.isEmpty()) {
+    if (path.isEmpty() || env.getBlazeWorkspace().getWorkspace() == null) {
       return null;
     }
     return env.getBlazeWorkspace().getWorkspace().getRelative(path);

@@ -18,8 +18,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.server.IdleTask;
-import com.google.devtools.build.lib.server.IdleTaskException;
 import com.google.devtools.build.lib.util.FileSystemLock;
 import com.google.devtools.build.lib.util.FileSystemLock.LockMode;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -54,6 +54,7 @@ import javax.annotation.Nullable;
  * file is older than {@code --repo_contents_cache_gc_max_age} are garbage collected.
  */
 public final class RepoContentsCache {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   public static final String RECORDED_INPUTS_SUFFIX = ".recorded_inputs";
 
   /**
@@ -99,7 +100,8 @@ public final class RepoContentsCache {
           recordedInputsFileBaseName.substring(
               0, recordedInputsFileBaseName.length() - RECORDED_INPUTS_SUFFIX.length());
       return new CandidateRepo(
-          recordedInputsFile, recordedInputsFile.replaceName(contentsDirBaseName));
+          recordedInputsFile,
+          recordedInputsFile.getParentDirectory().getChild(contentsDirBaseName));
     }
 
     /** Updates the mtime of the recorded inputs file, to delay GC for this entry. */
@@ -213,17 +215,12 @@ public final class RepoContentsCache {
     Preconditions.checkState(path != null);
     return new IdleTask() {
       @Override
-      public String displayName() {
-        return "Repo contents cache garbage collection";
-      }
-
-      @Override
       public Duration delay() {
         return idleDelay;
       }
 
       @Override
-      public void run() throws InterruptedException, IdleTaskException {
+      public void run() {
         try {
           Preconditions.checkState(path != null);
           // If we can't grab the lock, abort GC. Someone will come along later.
@@ -234,8 +231,8 @@ public final class RepoContentsCache {
           // be safe. At worst, multiple servers performing GC will try to delete the same files,
           // but whatever.
           path.getChild(TRASH_PATH).deleteTreesBelow();
-        } catch (IOException e) {
-          throw new IdleTaskException(e);
+        } catch (IOException | InterruptedException e) {
+          logger.atInfo().withCause(e).log("repo contents cache GC failed");
         }
       }
     };

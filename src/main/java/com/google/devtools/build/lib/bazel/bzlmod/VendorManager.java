@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
@@ -86,8 +87,9 @@ public class VendorManager {
         if (isCached) {
           Path cacheRepoDir = repoUnderExternal.resolveSymbolicLinks();
           actualMarkerFile =
-              cacheRepoDir.replaceName(
-                  cacheRepoDir.getBaseName() + RepoContentsCache.RECORDED_INPUTS_SUFFIX);
+              cacheRepoDir
+                  .getParentDirectory()
+                  .getChild(cacheRepoDir.getBaseName() + RepoContentsCache.RECORDED_INPUTS_SUFFIX);
         } else {
           actualMarkerFile = markerUnderExternal;
         }
@@ -113,7 +115,8 @@ public class VendorManager {
         // 3. Move/copy the external repo to vendor dir. Note that, in the "move" case, it's fine if
         // this step fails or is interrupted, because the marker file under external is gone anyway.
         if (isCached) {
-          FileSystemUtils.copyTreesBelow(repoUnderExternal.resolveSymbolicLinks(), repoUnderVendor);
+          FileSystemUtils.copyTreesBelow(
+              repoUnderExternal.resolveSymbolicLinks(), repoUnderVendor, Symlinks.NOFOLLOW);
         } else {
           try {
             repoUnderExternal.renameTo(repoUnderVendor);
