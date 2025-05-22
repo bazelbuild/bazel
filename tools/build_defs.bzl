@@ -12,44 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Utility for compiling at Java 8."""
+"""Utilities for managing tools for different platforms."""
 
 load("@platforms//host:constraints.bzl", "HOST_CONSTRAINTS")
 
 visibility("//tools/...")
-
-_java_language_version_8_transition = transition(
-    implementation = lambda settings, attr: {
-        "//command_line_option:java_language_version": "8",
-    },
-    inputs = [],
-    outputs = ["//command_line_option:java_language_version"],
-)
-
-def _transition_java_language_8_files_impl(ctx):
-    return [
-        DefaultInfo(
-            files = depset(ctx.files.files),
-        ),
-    ]
-
-_transitioned_java_8_files = rule(
-    implementation = _transition_java_language_8_files_impl,
-    attrs = {
-        "files": attr.label_list(
-            allow_files = True,
-            cfg = _java_language_version_8_transition,
-            mandatory = True,
-        ),
-    },
-)
-
-def transition_java_language_8_filegroup(name, files, visibility):
-    _transitioned_java_8_files(
-        name = name,
-        files = files,
-        visibility = visibility,
-    )
 
 BZLMOD_ENABLED = str(Label("@bazel_tools//:foo")).startswith("@@")
 

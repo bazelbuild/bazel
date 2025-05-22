@@ -52,10 +52,13 @@ build:windows --per_file_copt=external/.*@/w
 build:windows --host_per_file_copt=external/.*@/w
 
 # Enable Java 21 language features
-build --java_runtime_version=21
-build --java_language_version=21
-build --tool_java_language_version=21
-build --tool_java_runtime_version=21
+common --java_runtime_version=21
+common --java_language_version=21
+common --tool_java_language_version=21
+common --tool_java_runtime_version=21
+# Ensure that Java language level and bootclasspath version are the same.
+# This avoids accidental usage of more recent Java APIs.
+common --@rules_java//toolchains:incompatible_language_version_bootclasspath
 
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc
