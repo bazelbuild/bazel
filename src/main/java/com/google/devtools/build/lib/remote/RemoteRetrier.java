@@ -44,7 +44,8 @@ public class RemoteRetrier extends Retrier {
     return null;
   }
 
-  public static final ResultClassifier<? super Exception> GRPC_ERRORS =
+  /** A ResultClassifier suitable to be used by ExperimentalGrpcRemoteExecutor. */
+  public static final ResultClassifier<? super Exception> EXPERIMENTAL_GRPC_RESULT_CLASSIFIER =
       e -> {
         Status s = fromException(e);
         if (s == null) {
@@ -62,9 +63,10 @@ public class RemoteRetrier extends Retrier {
         };
       };
 
-  public static final ResultClassifier<? super Exception> GRPC_EXEC_ERRORS =
+  /** A ResultClassifier suitable to be used by GrpcRemoteExecutor. */
+  public static final ResultClassifier<? super Exception> GRPC_RESULT_CLASSIFIER =
       e -> {
-        Result r = GRPC_ERRORS.test(e);
+        Result r = EXPERIMENTAL_GRPC_RESULT_CLASSIFIER.test(e);
         return !r.equals(Result.TRANSIENT_FAILURE) && RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)
             ? Result.TRANSIENT_FAILURE
             : r;

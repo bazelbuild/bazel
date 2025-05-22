@@ -346,7 +346,7 @@ public class RetrierTest {
         Arrays.asList(Status.NOT_FOUND, Status.OUT_OF_RANGE, Status.ALREADY_EXISTS);
     TripAfterNCircuitBreaker cb =
         new TripAfterNCircuitBreaker(retriableGrpcError.size() * (maxRetries + 1));
-    Retrier r = new Retrier(s, RemoteRetrier.GRPC_ERRORS, retryService, cb);
+    Retrier r = new Retrier(s, RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, retryService, cb);
 
     int expectedConsecutiveFailures = 0;
 
@@ -385,7 +385,7 @@ public class RetrierTest {
         Arrays.asList(Status.NOT_FOUND, Status.OUT_OF_RANGE, Status.ALREADY_EXISTS);
     TripAfterNCircuitBreaker cb =
         new TripAfterNCircuitBreaker(nonRetriableFailure.size());
-    Retrier r = new Retrier(s, RemoteRetrier.GRPC_ERRORS, retryService, cb);
+    Retrier r = new Retrier(s, RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, retryService, cb);
 
     int expectedConsecutiveFailures = 0;
 

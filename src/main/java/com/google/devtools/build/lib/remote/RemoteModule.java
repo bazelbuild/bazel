@@ -197,7 +197,7 @@ public final class RemoteModule extends BlazeModule {
     return !Strings.isNullOrEmpty(options.remoteOutputService);
   }
 
-  public static final ResultClassifier<? super Exception> HTTP_ERRORS =
+  public static final ResultClassifier<? super Exception> HTTP_RESULT_CLASSIFIER =
       e -> {
         boolean retry = false;
         if (e instanceof ClosedChannelException) {
@@ -252,7 +252,7 @@ public final class RemoteModule extends BlazeModule {
               digestUtil,
               executorService,
               new RemoteRetrier(
-                  remoteOptions, HTTP_ERRORS, retryScheduler, circuitBreaker));
+                  remoteOptions, HTTP_RESULT_CLASSIFIER, retryScheduler, circuitBreaker));
     } catch (IOException e) {
       handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
       return;
@@ -479,7 +479,7 @@ public final class RemoteModule extends BlazeModule {
         CircuitBreakerFactory.createCircuitBreaker(remoteOptions);
     RemoteRetrier retrier =
         new RemoteRetrier(
-            remoteOptions, RemoteRetrier.GRPC_ERRORS, retryScheduler, circuitBreaker);
+            remoteOptions, RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, retryScheduler, circuitBreaker);
 
     if (!Strings.isNullOrEmpty(remoteOptions.remoteOutputService)) {
       var bazelOutputServiceChannel =
@@ -651,7 +651,7 @@ public final class RemoteModule extends BlazeModule {
         RemoteRetrier execRetrier =
             new RemoteRetrier(
                 remoteOptions,
-                RemoteRetrier.GRPC_ERRORS, // Handle NOT_FOUND internally
+                RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, // Handle NOT_FOUND internally
                 retryScheduler,
                 circuitBreaker);
         remoteExecutor =
@@ -661,7 +661,7 @@ public final class RemoteModule extends BlazeModule {
         RemoteRetrier execRetrier =
             new RemoteRetrier(
                 remoteOptions,
-                RemoteRetrier.GRPC_EXEC_ERRORS,
+                RemoteRetrier.GRPC_RESULT_CLASSIFIER,
                 retryScheduler,
                 circuitBreaker);
         remoteExecutor =
