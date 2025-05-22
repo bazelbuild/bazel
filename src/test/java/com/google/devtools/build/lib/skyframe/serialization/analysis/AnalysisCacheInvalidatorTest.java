@@ -22,7 +22,6 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.HashCode;
-import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
@@ -49,7 +48,7 @@ import org.mockito.junit.MockitoRule;
 public final class AnalysisCacheInvalidatorTest {
 
   @Rule public final MockitoRule mocks = MockitoJUnit.rule();
-  @Mock private RequestBatcher<ByteString, ByteString> mockAnalysisCacheClient;
+  @Mock private RemoteAnalysisCacheClient mockAnalysisCacheClient;
   @Mock private ExtendedEventHandler mockEventHandler;
 
   private final ObjectCodecs objectCodecs = new ObjectCodecs();
@@ -80,7 +79,7 @@ public final class AnalysisCacheInvalidatorTest {
             objectCodecs, fingerprintService, key, frontierNodeVersion);
 
     // Simulate a cache hit by returning a non-empty response.
-    when(mockAnalysisCacheClient.submit(ByteString.copyFrom(fingerprint.toBytes())))
+    when(mockAnalysisCacheClient.lookup(ByteString.copyFrom(fingerprint.toBytes())))
         .thenReturn(immediateFuture(ByteString.copyFromUtf8("some_value")));
 
     AnalysisCacheInvalidator invalidator =
@@ -105,7 +104,7 @@ public final class AnalysisCacheInvalidatorTest {
             objectCodecs, fingerprintService, key, frontierNodeVersion);
 
     // Simulate a cache miss by returning an empty response.
-    when(mockAnalysisCacheClient.submit(ByteString.copyFrom(fingerprint.toBytes())))
+    when(mockAnalysisCacheClient.lookup(ByteString.copyFrom(fingerprint.toBytes())))
         .thenReturn(immediateFuture(ByteString.EMPTY));
 
     AnalysisCacheInvalidator invalidator =
@@ -135,9 +134,9 @@ public final class AnalysisCacheInvalidatorTest {
             objectCodecs, fingerprintService, missKey, frontierNodeVersion);
 
     // Simulate a cache hit _and_ miss for looking up multiple keys.
-    when(mockAnalysisCacheClient.submit(ByteString.copyFrom(hitFingerprint.toBytes())))
+    when(mockAnalysisCacheClient.lookup(ByteString.copyFrom(hitFingerprint.toBytes())))
         .thenReturn(immediateFuture(ByteString.copyFromUtf8("some_value")));
-    when(mockAnalysisCacheClient.submit(ByteString.copyFrom(missFingerprint.toBytes())))
+    when(mockAnalysisCacheClient.lookup(ByteString.copyFrom(missFingerprint.toBytes())))
         .thenReturn(immediateFuture(ByteString.EMPTY));
 
     AnalysisCacheInvalidator invalidator =
@@ -188,7 +187,7 @@ public final class AnalysisCacheInvalidatorTest {
         .containsExactly(key1, key2);
 
     // No RPCs should be sent.
-    verify(mockAnalysisCacheClient, never()).submit(any());
+    verify(mockAnalysisCacheClient, never()).lookup(any());
   }
 
   @AutoCodec

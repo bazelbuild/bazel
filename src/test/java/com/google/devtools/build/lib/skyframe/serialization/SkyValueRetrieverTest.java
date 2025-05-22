@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.ExampleValue.exampleValueCodec;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion.CONSTANT_FOR_TESTING;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData.NO_CACHED_DATA;
@@ -24,12 +22,13 @@ import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetri
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.ObservedFutureStatus.NOT_DONE;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Restart.RESTART;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.FakeInvalidationDataHelper.prependFakeInvalidationData;
-import static java.util.concurrent.ForkJoinPool.commonPool;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashCode;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.concurrent.RequestBatcher;
@@ -46,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Wa
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForFutureValueBytes;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForLookupContinuation;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.GetRecordingStore;
 import com.google.devtools.build.skyframe.IntVersion;
@@ -145,7 +145,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
     var fingerprintValueService = FingerprintValueService.createForTesting();
     var data = new HashMap<ByteString, ByteString>();
     var captured = new ArrayList<SettableFuture<ByteString>>();
-    RequestBatcher<ByteString, ByteString> analysisCacheClient =
+    RemoteAnalysisCacheClient analysisCacheClient =
         switch (testCase) {
           case IMMEDIATE_EMPTY_VALUE, IMMEDIATE_MISSING_VALUE ->
               createFakeAnalysisCacheClient(data);
@@ -219,7 +219,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
   public void waitingForCacheServiceResponse_returnsValue() throws Exception {
     var fingerprintValueService = FingerprintValueService.createForTesting();
     var analysisCacheServiceData = new HashMap<ByteString, ByteString>();
-    RequestBatcher<ByteString, ByteString> analysisCacheClient =
+    RemoteAnalysisCacheClient analysisCacheClient =
         createFakeAnalysisCacheClient(analysisCacheServiceData);
 
     var key = new TrivialKey("a");
@@ -247,7 +247,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
 
   private RetrievalResult maybeWaitForAnalysisCacheService(
       FingerprintValueService fingerprintValueService,
-      RequestBatcher<ByteString, ByteString> analysisCacheClient,
+      RemoteAnalysisCacheClient analysisCacheClient,
       SkyKey key,
       RetrievalResult previousResult)
       throws SerializationException, ExecutionException, InterruptedException {
@@ -931,17 +931,17 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
     }
   }
 
-  private static RequestBatcher<ByteString, ByteString> createFakeAnalysisCacheClient(
+  private static RemoteAnalysisCacheClient createFakeAnalysisCacheClient(
       Map<ByteString, ByteString> data) {
-    return RequestBatcher.create(
-        commonPool(),
-        keys ->
-            immediateFuture(
-                keys.stream()
-                    .map(key -> data.getOrDefault(key, ByteString.empty()))
-                    .collect(toImmutableList())),
-        /* maxBatchSize= */ 1,
-        /* maxConcurrentRequests= */ 1);
+    RemoteAnalysisCacheClient result = mock(RemoteAnalysisCacheClient.class);
+    when(result.lookup(any()))
+        .thenAnswer(
+            invocation -> {
+              ByteString key = invocation.getArgument(0);
+              return immediateFuture(data.getOrDefault(key, ByteString.empty()));
+            });
+
+    return result;
   }
 
   /**
@@ -949,17 +949,19 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
    *
    * <p>The client sets the {@link SettableFuture} to complete the request.
    */
-  private static RequestBatcher<ByteString, ByteString> createCapturingAnalysisCacheClient(
+  private static RemoteAnalysisCacheClient createCapturingAnalysisCacheClient(
       Consumer<SettableFuture<ByteString>> capturer) {
-    return RequestBatcher.create(
-        commonPool(),
-        keys -> {
-          var settable = SettableFuture.<ByteString>create();
-          capturer.accept(settable);
-          return Futures.transform(settable, ImmutableList::of, directExecutor());
-        },
-        /* maxBatchSize= */ 1,
-        /* maxConcurrentRequests= */ 1);
+    RemoteAnalysisCacheClient result = mock(RemoteAnalysisCacheClient.class);
+
+    when(result.lookup(any()))
+        .thenAnswer(
+            invocation -> {
+              var settable = SettableFuture.<ByteString>create();
+              capturer.accept(settable);
+              return settable;
+            });
+
+    return result;
   }
 
   private static ObservedFutureStatus dependOnFutureImpl(ListenableFuture<?> future) {

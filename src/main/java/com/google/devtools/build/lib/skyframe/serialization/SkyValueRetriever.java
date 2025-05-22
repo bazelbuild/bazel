@@ -24,10 +24,10 @@ import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Longs;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.StateEvictedException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.proto.DataType;
 import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -211,7 +211,7 @@ public final class SkyValueRetriever {
       DependOnFutureShim futuresShim,
       ObjectCodecs codecs,
       FingerprintValueService fingerprintValueService,
-      @Nullable RequestBatcher<ByteString, ByteString> analysisCacheClient,
+      @Nullable RemoteAnalysisCacheClient analysisCacheClient,
       SkyKey key,
       SerializationStateProvider stateProvider,
       FrontierNodeVersion frontierNodeVersion)
@@ -238,7 +238,7 @@ public final class SkyValueRetriever {
                 responseFuture = futureValueBytes;
               } else {
                 ListenableFuture<ByteString> futureResponseBytes =
-                    analysisCacheClient.submit(ByteString.copyFrom(cacheKey.toBytes()));
+                    analysisCacheClient.lookup(ByteString.copyFrom(cacheKey.toBytes()));
 
                 nextState = new WaitingForCacheServiceResponse(futureResponseBytes);
                 responseFuture = futureResponseBytes;

@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -49,14 +48,14 @@ public final class AnalysisCacheInvalidator {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private final RequestBatcher<ByteString, ByteString> analysisCacheClient;
+  private final RemoteAnalysisCacheClient analysisCacheClient;
   private final ObjectCodecs codecs;
   private final FingerprintValueService fingerprintService;
   private final ExtendedEventHandler eventHandler;
   private final FrontierNodeVersion currentVersion;
 
   public AnalysisCacheInvalidator(
-      RequestBatcher<ByteString, ByteString> analysisCacheClient,
+      RemoteAnalysisCacheClient analysisCacheClient,
       ObjectCodecs objectCodecs,
       FingerprintValueService fingerprintValueService,
       FrontierNodeVersion currentVersion,
@@ -150,7 +149,7 @@ public final class AnalysisCacheInvalidator {
 
       // 2. Submit the fingerprint to the analysis cache service
       ListenableFuture<ByteString> responseFuture =
-          analysisCacheClient.submit(ByteString.copyFrom(cacheKey.toBytes()));
+          analysisCacheClient.lookup(ByteString.copyFrom(cacheKey.toBytes()));
 
       // 3. Transform result to return keys that should be invalidated (i.e.
       // empty response, cache miss)

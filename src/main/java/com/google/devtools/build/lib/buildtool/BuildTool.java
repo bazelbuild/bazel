@@ -67,7 +67,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
-import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
@@ -114,6 +113,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.analysis.AnalysisCacheInvalidator;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
@@ -139,7 +139,6 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.RegexPatternOption;
-import com.google.protobuf.ByteString;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -926,7 +925,8 @@ public class BuildTool {
         break;
       case DOWNLOAD:
         reportRemoteAnalysisCachingStats(
-            dependenciesProvider.getFingerprintValueService().getStats());
+            dependenciesProvider.getFingerprintValueService().getStats(),
+            dependenciesProvider.getAnalysisCacheClient().getStats());
         env.getSkyframeExecutor()
             .setRemoteAnalysisCachingStateForLatestBuild(
                 env.getRemoteAnalysisCachingEventListener().getRemoteAnalysisCachingState());
@@ -1093,7 +1093,7 @@ public class BuildTool {
 
     private final Future<ObjectCodecs> objectCodecsFuture;
     private final Future<FingerprintValueService> fingerprintValueServiceFuture;
-    @Nullable private final Future<RequestBatcher<ByteString, ByteString>> analysisCacheClient;
+    @Nullable private final Future<RemoteAnalysisCacheClient> analysisCacheClient;
     @Nullable private volatile AnalysisCacheInvalidator analysisCacheInvalidator;
 
     // Non-final because the top level BuildConfigurationValue is determined just before analysis
@@ -1330,7 +1330,7 @@ public class BuildTool {
 
     @Override
     @Nullable
-    public RequestBatcher<ByteString, ByteString> getAnalysisCacheClient() {
+    public RemoteAnalysisCacheClient getAnalysisCacheClient() {
       if (analysisCacheClient == null) {
         return null;
       }
@@ -1375,7 +1375,7 @@ public class BuildTool {
           if (localRef == null) {
             ObjectCodecs codecs;
             FingerprintValueService fingerprintService;
-            RequestBatcher<ByteString, ByteString> client;
+            RemoteAnalysisCacheClient client;
             try (SilentCloseable unused =
                 Profiler.instance().profile("initializeInvalidationLookupDeps")) {
               client = getAnalysisCacheClient();
@@ -1411,7 +1411,8 @@ public class BuildTool {
     }
   }
 
-  private void reportRemoteAnalysisCachingStats(FingerprintValueStore.Stats stats) {
+  private void reportRemoteAnalysisCachingStats(
+      FingerprintValueStore.Stats fvsStats, RemoteAnalysisCacheClient.Stats raccStats) {
     var listener = env.getRemoteAnalysisCachingEventListener();
 
     var hitsByFunction = listener.getHitsBySkyFunctionName();
@@ -1448,10 +1449,10 @@ public class BuildTool {
         .handle(
             Event.info(
                 String.format(
-                    "Remote analysis caching stats: %s bytes and %s entries received, %s/%s cache"
+                    "Remote analysis caching stats: %s bytes received in %s requests, %s/%s cache"
                         + " hits (%.2f%%) [Breakdown: %s]",
-                    stats.valueBytesReceived(),
-                    stats.entriesFound(),
+                    raccStats.bytesReceived() + fvsStats.valueBytesReceived(),
+                    raccStats.requestsSent() + fvsStats.entriesFound() + fvsStats.entriesNotFound(),
                     totalHits,
                     totalRequests,
                     overallHitRate,
