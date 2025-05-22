@@ -17,16 +17,17 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.test.TestResult;
+import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -133,19 +134,37 @@ public final class AggregatingTestListener {
   }
 
   /**
-   * Records a new test run result and incrementally updates the target status.
-   * This event is sent upon completion of executed test runs.
+   * Records a new test run result and incrementally updates the target status. This event is sent
+   * upon completion of executed test runs.
    */
   @Subscribe
   @AllowConcurrentEvents
   public void testEvent(TestResult result) {
-    ActionOwner testOwner = result.getTestAction().getOwner();
-    ConfiguredTargetKey configuredTargetKey =
+    TestRunnerAction testAction = result.getTestAction();
+    ConfiguredTargetKey key =
         ConfiguredTargetKey.builder()
-            .setLabel(testOwner.getLabel())
-            .setConfiguration(result.getTestAction().getConfiguration())
+            .setLabel(testAction.getOwner().getLabel())
+            .setConfiguration(testAction.getConfiguration())
             .build();
-    aggregators.get(configuredTargetKey).testEvent(result);
+    TestResultAggregator aggregator = aggregators.get(key);
+    if (aggregator != null) {
+      aggregator.testEvent(result);
+      return;
+    }
+    // Verbose debugging info for b/419325593.
+    throw new NullPointerException(
+"""
+Missing test result aggregator
+  key: %s
+  testAction: %s
+  owner configuration: %s
+  present keys with same label: %s
+"""
+            .formatted(
+                key,
+                testAction.describe(),
+                testAction.getOwner().getConfigurationChecksum(),
+                Iterables.filter(aggregators.keySet(), k -> k.getLabel().equals(key.getLabel()))));
   }
 
   private void targetFailure(ConfiguredTargetKey configuredTargetKey) {
