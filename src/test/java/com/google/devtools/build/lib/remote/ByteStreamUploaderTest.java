@@ -1349,7 +1349,7 @@ public class ByteStreamUploaderTest {
   public void unauthenticatedErrorShouldNotBeRetried() throws Exception {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
-            () -> mockBackoff, RemoteRetrier.GRPC_ERRORS, retryService);
+            () -> mockBackoff, RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, retryService);
 
     AtomicInteger refreshTimes = new AtomicInteger();
     CallCredentialsProvider callCredentialsProvider =
@@ -1406,7 +1406,7 @@ public class ByteStreamUploaderTest {
   public void shouldRefreshCredentialsOnAuthenticationError() throws Exception {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
-            () -> mockBackoff, RemoteRetrier.GRPC_ERRORS, retryService);
+            () -> mockBackoff, RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, retryService);
 
     AtomicInteger refreshTimes = new AtomicInteger();
     CallCredentialsProvider callCredentialsProvider =

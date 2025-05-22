@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.IntStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -73,9 +72,9 @@ public class FailureCircuitBreakerTest {
 
     // make success calls, failure call and number of total calls less than
     // minCallToComputeFailure.
-    IntStream.range(0, minCallToComputeFailure - 2)
-        .parallel()
-        .forEach(i -> failureCircuitBreaker.recordSuccess());
+    for(int index = 0; index < minCallToComputeFailure - 2; index++) {
+      failureCircuitBreaker.recordSuccess();
+    }
     failureCircuitBreaker.recordFailure();
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
 
@@ -95,9 +94,9 @@ public class FailureCircuitBreakerTest {
         new FailureCircuitBreaker(failureRateThreshold, windowInterval);
 
     // make number of failure calls less than minFailToComputeFailure.
-    IntStream.range(0, minFailToComputeFailure - 1)
-        .parallel()
-        .forEach(i -> failureCircuitBreaker.recordFailure());
+    for (int index = 0; index < minFailToComputeFailure - 1; index++) {
+      failureCircuitBreaker.recordFailure();
+    }
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
 
     // Sleep for less than windowInterval.

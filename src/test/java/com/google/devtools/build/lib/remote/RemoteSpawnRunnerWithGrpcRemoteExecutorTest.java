@@ -297,7 +297,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),
-            RemoteRetrier.GRPC_EXEC_ERRORS,
+            RemoteRetrier.GRPC_RESULT_CLASSIFIER,
             retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
