@@ -1538,7 +1538,8 @@ public class Package extends Packageoid {
     }
 
     /**
-     * Ensures that all symbolic macros in the package have expanded.
+     * Ensures that all symbolic macros in an error-free package have expanded. No-op if the package
+     * already {@link #containsErrors}.
      *
      * <p>This does not run any macro that has already been evaluated. It *does* run macros that are
      * newly discovered during the operation of this method.
@@ -1555,8 +1556,9 @@ public class Package extends Packageoid {
       // longer a concern, we will want to support delayed expansion of non-finalizer macros before
       // the finalizer expansion step.
 
-      // Finalizer expansion step.
-      if (!unexpandedMacros.isEmpty()) {
+      // Finalizer expansion step. Requires that the package not be in error (no point in finalizing
+      // a package that already threw an EvalException).
+      if (!containsErrors() && !unexpandedMacros.isEmpty()) {
         Preconditions.checkState(
             unexpandedMacros.stream()
                 .allMatch(id -> recorder.getMacroMap().get(id).getMacroClass().isFinalizer()),
@@ -1584,16 +1586,16 @@ public class Package extends Packageoid {
     @Override
     @CanIgnoreReturnValue
     protected Builder beforeBuild() throws NoSuchPackageException {
-      // For correct semantics, we refuse to build a package that has declared symbolic macros that
-      // have not yet been expanded. (Currently finalizers are the only use case where this happens,
-      // but the Package logic is agnostic to that detail.)
+      // For correct semantics, we refuse to build a package that hasn't thrown any EvalExceptions
+      // but has declared symbolic macros that have not yet been expanded. (Currently finalizers are
+      // the only use case where this happens, but the Package logic is agnostic to that detail.)
       //
       // Production code should be calling expandAllRemainingMacros() to guarantee that nothing is
       // left unexpanded. Tests that do not declare any symbolic macros need not make the call.
       // Package deserialization doesn't have to do it either, since we shouldn't be evaluating
       // symbolic macros on the deserialized result of an already evaluated package.
       Preconditions.checkState(
-          unexpandedMacros.isEmpty(),
+          unexpandedMacros.isEmpty() || containsErrors(),
           "Cannot build a package with unexpanded symbolic macros; call"
               + " expandAllRemainingMacros()");
 
