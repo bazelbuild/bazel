@@ -114,7 +114,7 @@ function test_bootstrap() {
     # the repo cache is currently missing canonical IDs
     export BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0
 
-    JAVA_VERSION=exotic # so we don't accidentally match something else
+    JAVA_VERSION=21
 
     # create a fake toolchain to avoid @remote_java_tools
     # this can't actually build anything, but we're just testing analysis
