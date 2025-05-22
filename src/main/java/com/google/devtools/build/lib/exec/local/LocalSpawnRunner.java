@@ -265,7 +265,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
     @FormatMethod
     private void stepLog(Level level, @FormatString String fmt, Object... args) {
-      stepLog(level, /*cause=*/ null, fmt, args);
+      stepLog(level, /* cause= */ null, fmt, args);
     }
 
     @FormatMethod
@@ -364,7 +364,7 @@ public class LocalSpawnRunner implements SpawnRunner {
             localEnvProvider.rewriteLocalEnv(
                 spawn.getEnvironment(), binTools, commandTmpDir.getPathString());
 
-        SubprocessBuilder subprocessBuilder = new SubprocessBuilder();
+        SubprocessBuilder subprocessBuilder = new SubprocessBuilder(context.getClientEnv());
         subprocessBuilder.setWorkingDirectory(execRoot.getPathFile());
         subprocessBuilder.setStdout(outErr.getOutputPath().devirtualize().getPathFile());
         subprocessBuilder.setStderr(outErr.getErrorPath().devirtualize().getPathFile());

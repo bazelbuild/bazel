@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
@@ -72,9 +73,13 @@ public class SandboxedWorkerProxy extends WorkerProxy {
 
   @Override
   public void prepareExecution(
-      SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
+      SandboxInputs inputFiles,
+      SandboxOutputs outputs,
+      Set<PathFragment> workerFiles,
+      ImmutableMap<String, String> clientEnv)
       throws IOException, InterruptedException {
-    workerMultiplexer.createSandboxedProcess(workDir, workerFiles, inputFiles, treeDeleter);
+    workerMultiplexer.createSandboxedProcess(
+        workDir, workerFiles, inputFiles, treeDeleter, clientEnv);
 
     sandboxDir.createDirectoryAndParents();
     LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
