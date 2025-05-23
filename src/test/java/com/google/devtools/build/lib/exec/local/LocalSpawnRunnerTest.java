@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
@@ -111,7 +112,8 @@ public class LocalSpawnRunnerTest {
           localEnvProvider,
           /* binTools= */ null,
           processWrapper,
-          Mockito.mock(RunfilesTreeUpdater.class));
+          Mockito.mock(RunfilesTreeUpdater.class),
+          ActionOutputDirectoryHelper.createForTesting());
     }
 
     // Rigged to act on supplied filesystem (e.g. InMemoryFileSystem) for testing purposes
@@ -616,7 +618,8 @@ public class LocalSpawnRunnerTest {
             LocalEnvProvider.forCurrentOs(ImmutableMap.of()),
             /* binTools= */ null,
             /* processWrapper= */ null,
-            Mockito.mock(RunfilesTreeUpdater.class));
+            Mockito.mock(RunfilesTreeUpdater.class),
+            ActionOutputDirectoryHelper.createForTesting());
     FileOutErr fileOutErr =
         new FileOutErr(tempDir.getRelative("stdout"), tempDir.getRelative("stderr"));
 
@@ -882,7 +885,8 @@ public class LocalSpawnRunnerTest {
                 ActionInputHelper.fromPath(processWrapperPath.asFragment()),
                 /* killDelay= */ Duration.ZERO,
                 /* gracefulSigterm= */ false),
-            Mockito.mock(RunfilesTreeUpdater.class));
+            Mockito.mock(RunfilesTreeUpdater.class),
+            ActionOutputDirectoryHelper.createForTesting());
 
     Spawn spawn =
         new SpawnBuilder(

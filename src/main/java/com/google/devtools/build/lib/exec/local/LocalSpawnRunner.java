@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -96,6 +97,7 @@ public class LocalSpawnRunner implements SpawnRunner {
   private final BinTools binTools;
 
   private final RunfilesTreeUpdater runfilesTreeUpdater;
+  private final ActionOutputDirectoryHelper outputDirectoryHelper;
 
   public LocalSpawnRunner(
       Path execRoot,
@@ -104,7 +106,8 @@ public class LocalSpawnRunner implements SpawnRunner {
       LocalEnvProvider localEnvProvider,
       BinTools binTools,
       ProcessWrapper processWrapper,
-      RunfilesTreeUpdater runfilesTreeUpdater) {
+      RunfilesTreeUpdater runfilesTreeUpdater,
+      ActionOutputDirectoryHelper outputDirectoryHelper) {
     this.execRoot = execRoot.devirtualize();
     this.processWrapper = processWrapper;
     this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
@@ -113,6 +116,7 @@ public class LocalSpawnRunner implements SpawnRunner {
     this.localEnvProvider = localEnvProvider;
     this.binTools = binTools;
     this.runfilesTreeUpdater = runfilesTreeUpdater;
+    this.outputDirectoryHelper = outputDirectoryHelper;
   }
 
   @Override
@@ -351,6 +355,15 @@ public class LocalSpawnRunner implements SpawnRunner {
       try (var s = Profiler.instance().profile("updateRunfiles")) {
         runfilesTreeUpdater.updateRunfiles(runfilesTrees);
       }
+
+      // When using an action file system with Build without the Bytes, but then falling back to
+      // local execution due to, for example, execution info, tree artifact output directories have
+      // not been created yet.
+      outputDirectoryHelper.createOutputDirectories(
+          spawn.getOutputFiles().stream()
+              .filter(output -> output instanceof Artifact)
+              .map(output -> (Artifact) output)
+              .toList());
 
       stepLog(INFO, "running locally");
       setState(State.LOCAL_ACTION_RUNNING);
