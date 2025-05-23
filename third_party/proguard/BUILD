@@ -4,7 +4,7 @@ load("@rules_java//java:java_import.bzl", "java_import")
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__subpackages__"],
+    visibility = ["//third_party:__subpackages__"],
 )
 
 java_binary(
