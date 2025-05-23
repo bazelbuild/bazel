@@ -2010,7 +2010,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   protected void assertOutputDoesNotExist(String binRelativePath) {
     Path output = getOutputPath(binRelativePath);
-    assertThat(output.exists()).isFalse();
+    assertWithMessage("%s exists", binRelativePath).that(output.exists()).isFalse();
   }
 
   protected void assertOnlyOutputContent(String target, String filename, String content)
@@ -2042,18 +2042,22 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
       throws Exception {
     Path output = getOutputPath(binRelativePath);
     assertOutputEquals(getOutputPath(binRelativePath), content);
-    assertThat(output.isReadable()).isTrue();
-    assertThat(output.isWritable()).isEqualTo(outputPermissions == OutputPermissions.WRITABLE);
-    assertThat(output.isExecutable()).isTrue();
+    assertWithMessage("%s is readable", binRelativePath).that(output.isReadable()).isTrue();
+    assertWithMessage("%s is writable", binRelativePath)
+        .that(output.isWritable())
+        .isEqualTo(outputPermissions == OutputPermissions.WRITABLE);
+    assertWithMessage("%s is executable", binRelativePath).that(output.isExecutable()).isTrue();
   }
 
   protected void assertValidOutputDir(String binRelativePath, OutputPermissions outputPermissions)
       throws Exception {
     Path output = getOutputPath(binRelativePath);
-    assertThat(output.isDirectory()).isTrue();
-    assertThat(output.isReadable()).isTrue();
-    assertThat(output.isWritable()).isEqualTo(outputPermissions == OutputPermissions.WRITABLE);
-    assertThat(output.isExecutable()).isTrue();
+    assertWithMessage("%s is a directory", binRelativePath).that(output.isDirectory()).isTrue();
+    assertWithMessage("%s is readable", binRelativePath).that(output.isReadable()).isTrue();
+    assertWithMessage("%s is writable", binRelativePath)
+        .that(output.isWritable())
+        .isEqualTo(outputPermissions == OutputPermissions.WRITABLE);
+    assertWithMessage("%s is executable", binRelativePath).that(output.isExecutable()).isTrue();
   }
 
   protected void assertSymlink(String binRelativeLinkPath, PathFragment targetPath)

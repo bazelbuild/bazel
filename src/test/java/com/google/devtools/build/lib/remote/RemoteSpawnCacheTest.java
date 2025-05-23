@@ -89,6 +89,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -297,7 +298,8 @@ public class RemoteSpawnCacheTest {
                 /* captureCorruptedOutputsDir= */ null,
                 DUMMY_REMOTE_OUTPUT_CHECKER,
                 mock(OutputService.class),
-                Sets.newConcurrentHashSet()));
+                Sets.newConcurrentHashSet(),
+                OutputPermissions.READONLY));
     return new RemoteSpawnCache(options, /* verboseFailures= */ true, service, digestUtil);
   }
 

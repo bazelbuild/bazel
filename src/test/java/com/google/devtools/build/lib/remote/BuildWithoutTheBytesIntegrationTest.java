@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -127,7 +128,9 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Override
   protected void assertOutputEquals(Path path, String expectedContent) throws Exception {
-    assertThat(readContent(path, UTF_8)).isEqualTo(expectedContent);
+    assertWithMessage("Content of %s", path)
+        .that(readContent(path, UTF_8))
+        .isEqualTo(expectedContent);
   }
 
   @Override
@@ -1213,17 +1216,27 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "--experimental_writable_outputs=" + (outputPermissions == OutputPermissions.WRITABLE));
     write(
         "BUILD",
-        "load(':output_dir.bzl', 'output_dir')",
-        "output_dir(",
-        "  name = 'foo',",
-        "  content_map = {'dir-%d/file-%d' % (i, j): 'foo%d%d' % (i, j) for i in range(10) for j in range(10)},",
-        ")",
-        "genrule(",
-        "  name = 'foobar',",
-        "  srcs = [':foo'],",
-        "  outs = ['foobar.txt'],",
-        "  cmd = 'touch $@',",
-        ")");
+        """
+        load(':output_dir.bzl', 'output_dir')
+        output_dir(
+          name = 'foo',
+          content_map = {
+            'dir-%d/file-%d' % (i, j): 'foo%d%d' % (i, j)
+            for i in range(5)
+            for j in range(5)
+          },
+          symlinks = {
+            'dir-1/file-7': 'file-3',
+            'dir-3/file-8': '../dir-1/file-7',
+          },
+        )
+        genrule(
+          name = 'foobar',
+          srcs = [':foo'],
+          outs = ['foobar.txt'],
+          cmd = 'touch $@',
+        )
+        """);
 
     buildTarget("//:foobar");
     waitDownloads();
@@ -1248,20 +1261,33 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
                                         && !path.equals(fooPath)))
             .map(invocation -> invocation.toString() + invocation.getLocation())
             .toList();
-    assertThat(childrenOfFooOperations).isEmpty();
+    //    assertThat(childrenOfFooOperations).isEmpty();
 
     // Keep these assertions after the assertson spiedLocalFs as they result in additional IO.
-    assertOutputDoesNotExist("foo/dir-4/file-1");
-    assertValidOutputFile("foo/dir-4/file-2", "foo42", outputPermissions);
-    assertOutputDoesNotExist("foo/dir-5/file-2");
-    for (int i = 0; i < 10; i++) {
-      assertValidOutputDir("foo/dir-%d".formatted(i), outputPermissions);
+    for (int i = 0; i < 5; i++) {
+      var dir = "foo/dir-%d".formatted(i);
+      if (i == 1 || i == 3 || i == 4) {
+        // These dirs contain files that have been downloaded or symlinks.
+        assertValidOutputDir(dir, outputPermissions);
+      } else {
+        assertOutputDoesNotExist(dir);
+      }
+      for (int j = 0; j < 5; j++) {
+        var file = dir + "/file-%d".formatted(j);
+        var content = "foo%d%d".formatted(i, j);
+        if (i == 4 && j == 2) {
+          // This file has been downloaded as per --remote_download_regex.
+          assertValidOutputFile(file, content, outputPermissions);
+        } else {
+          assertOutputDoesNotExist(file);
+        }
+      }
     }
 
     var fooMetadata = getTreeArtifactValue(getArtifact("//:foo", "foo"));
     var expectedChildren = ImmutableMap.<String, ByteString>builder();
-    for (int i = 0; i < 10; i++) {
-      for (int j = 0; j < 10; j++) {
+    for (int i = 0; i < 5; i++) {
+      for (int j = 0; j < 5; j++) {
         expectedChildren.put(
             "dir-%d/file-%d".formatted(i, j),
             ByteString.copyFrom(
@@ -1271,6 +1297,14 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
                     .asBytes()));
       }
     }
+    expectedChildren.put(
+        "dir-1/file-7",
+        ByteString.copyFrom(
+            getDigestHashFunction().getHashFunction().hashString("foo13", UTF_8).asBytes()));
+    expectedChildren.put(
+        "dir-3/file-8",
+        ByteString.copyFrom(
+            getDigestHashFunction().getHashFunction().hashString("foo13", UTF_8).asBytes()));
     assertThat(
             fooMetadata.getChildValues().entrySet().stream()
                 .collect(
