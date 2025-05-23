@@ -173,6 +173,7 @@ def create_library_to_link(
             must_keep_debug = must_keep_debug,
             lto_compilation_context = lto_compilation_context,
             shared_non_lto_backends = shared_non_lto_backends,
+            contains_objects = bool(objects) or bool(pic_objects),
         ),
     )
 

@@ -627,6 +627,9 @@ public class CcStarlarkInternal implements StarlarkValue {
     if (libraryToLink.getFieldNames().contains("must_keep_debug")) {
       builder.setMustKeepDebug(libraryToLink.getValue("must_keep_debug", Boolean.class));
     }
+    if (libraryToLink.getFieldNames().contains("contains_objects")) {
+      builder.setContainsObjects(libraryToLink.getValue("contains_objects", Boolean.class));
+    }
     return builder.build();
   }
 

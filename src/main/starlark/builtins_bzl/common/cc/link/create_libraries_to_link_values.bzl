@@ -197,12 +197,12 @@ def _add_static_library_to_link(
     pic = (prefer_pic_libs and library.pic_static_library != None) or \
           library.static_library == None
     library_file = library.pic_static_library if pic else library.static_library
-    objects = library.pic_objects_private() if pic else library.objects_private()
+    objects = library.pic_objects if pic else library.objects
 
     # start-lib/end-lib library: adds its input object files.
     # TODO(bazel-team): Figure out if PicArchives are actually used. For it to be used, both
     # linkingStatically and linkShared must me true, we must be in opt mode and cpu has to be k8
-    if use_start_end_lib and (objects != None):
+    if use_start_end_lib and library._contains_objects:
         # If we had any LTO artifacts, lto_map whould be non-null. In that case,
         # we should have created a thinlto_param_file which the LTO indexing
         # step will populate with the exec paths that correspond to the LTO

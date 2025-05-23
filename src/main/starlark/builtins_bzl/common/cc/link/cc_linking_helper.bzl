@@ -240,6 +240,7 @@ def create_cc_link_actions(
                        disable_whole_archive =
                            feature_configuration.is_enabled("disable_whole_archive_for_static_lib"),
                        alwayslink = alwayslink,
+                       contains_objects = True,
                    ))
             ),
         )

@@ -55,11 +55,11 @@ def create_lto_backends(
 
     if include_link_static_in_lto_indexing:
         for lib in static_libraries_to_link:
+            if not lib._contains_objects:
+                continue
             pic = (prefer_pic_libs and lib.pic_static_library != None) or \
                   lib.static_library == None
-            objects = lib.pic_objects_private() if pic else lib.objects_private()
-            if not objects:
-                continue
+            objects = lib.pic_objects if pic else lib.objects
             for obj in objects:
                 if obj in compiled:
                     all_bitcode.append(obj)
@@ -78,11 +78,11 @@ def create_lto_backends(
     all_bitcode_depset = depset(all_bitcode)
     lto_outputs = []
     for lib in static_libraries_to_link:
+        if not lib._contains_objects:
+            continue
         pic = (prefer_pic_libs and lib.pic_static_library != None) or \
               lib.static_library == None
-        objects = lib.pic_objects_private() if pic else lib.objects_private()
-        if not objects:
-            continue
+        objects = lib.pic_objects if pic else lib.objects
         lib_lto_compilation_context = lib._pic_lto_compilation_context if pic else lib._lto_compilation_context
         shared_lto_backends = lib.pic_shared_non_lto_backends() if pic else lib.shared_non_lto_backends()
 

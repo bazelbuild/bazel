@@ -126,25 +126,15 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return objectFiles == null ? StarlarkList.empty() : StarlarkList.immutableCopyOf(objectFiles);
   }
 
-  @StarlarkMethod(
-      name = "objects_private",
-      allowReturnNones = true,
-      documented = false,
-      useStarlarkThread = true)
-  @Nullable
-  public final Sequence<Artifact> getObjectFilesForStarlarkPrivate(StarlarkThread thread)
-      throws EvalException {
-    // Returning None here is essential for start-end library functionality. Object files are set
-    // to None when calling cc_common.create_library_to_link with empty object files. This signifies
-    // to start-end that an archive needs to be used.
-    // On the other hand cc_common.link will set object files to exactly what's in the archive.
-    // Start-end library functionality may correctly expand the object files. In case they are
-    // empty,
-    // this means also the archive is empty.
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    ImmutableList<Artifact> objectFiles = getObjectFiles();
-    return objectFiles == null ? null : StarlarkList.immutableCopyOf(objectFiles);
-  }
+  /**
+   * This is essential for start-end library functionality. _contains_objects is False when calling
+   * cc_common.create_library_to_link with empty object files. This signifies to start-end that an
+   * archive needs to be used. On the other hand cc_common.link will set object files to exactly
+   * what's in the archive. Start-end library functionality may correctly expand the object files.
+   * In case they are empty, this means also the archive is empty.
+   */
+  @StarlarkMethod(name = "_contains_objects", documented = false, structField = true)
+  public abstract boolean getContainsObjects();
 
   @Override
   public final Sequence<Artifact> getLtoBitcodeFilesForStarlark() {
@@ -169,20 +159,6 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
   public final Sequence<Artifact> getPicObjectFilesForStarlark() {
     ImmutableList<Artifact> objectFiles = getPicObjectFiles();
     return objectFiles == null ? StarlarkList.empty() : StarlarkList.immutableCopyOf(objectFiles);
-  }
-
-  @StarlarkMethod(
-      name = "pic_objects_private",
-      allowReturnNones = true,
-      documented = false,
-      useStarlarkThread = true)
-  @Nullable
-  public final Sequence<Artifact> getPicObjectFilesForStarlarkPrivate(StarlarkThread thread)
-      throws EvalException {
-    // See comment on getObjectFilesForStarlarkPrivate also
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    ImmutableList<Artifact> objectFiles = getPicObjectFiles();
-    return objectFiles == null ? null : StarlarkList.immutableCopyOf(objectFiles);
   }
 
   @Override
@@ -243,7 +219,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return new AutoValue_LibraryToLink_AutoLibraryToLink.Builder()
         .setMustKeepDebug(false)
         .setAlwayslink(false)
-        .setDisableWholeArchive(false);
+        .setDisableWholeArchive(false)
+        .setContainsObjects(false);
   }
 
   /** Builder for {@link LibraryToLink}. */
@@ -286,6 +263,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     AutoLibraryToLink.Builder setMustKeepDebug(boolean mustKeepDebug);
 
     AutoLibraryToLink.Builder setDisableWholeArchive(boolean disableWholeArchive);
+
+    AutoLibraryToLink.Builder setContainsObjects(boolean containsObjects);
 
     LibraryToLink build();
   }
