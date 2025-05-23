@@ -18,12 +18,12 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import java.net.URL;
 
 /** Event reporting about cache hits for download requests. */
-public final class RepositoryCacheHitEvent implements Postable {
+public final class DownloadCacheHitEvent implements Postable {
   private final String context;
   private final String hash;
   private final URL url;
 
-  public RepositoryCacheHitEvent(String context, String hash, URL url) {
+  public DownloadCacheHitEvent(String context, String hash, URL url) {
     this.context = context;
     this.hash = hash;
     this.url = url;

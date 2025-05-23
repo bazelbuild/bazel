@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCacheHitEvent;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCacheHitEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
@@ -47,7 +47,7 @@ public final class CacheHitReportingModule extends BlazeModule {
   }
 
   @Subscribe
-  public synchronized void cacheHit(RepositoryCacheHitEvent event) {
+  public synchronized void cacheHit(DownloadCacheHitEvent event) {
     cacheHitsByContext
         .computeIfAbsent(event.getContext(), k -> new HashSet<>())
         .add(Pair.of(event.getFileHash(), event.getUrl()));

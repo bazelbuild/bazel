@@ -25,9 +25,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCacheHitEvent;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCacheHitEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter.RewrittenURL;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -59,7 +60,7 @@ import javax.annotation.Nullable;
  * to disk.
  */
 public class DownloadManager {
-  private final RepositoryCache repositoryCache;
+  private final DownloadCache downloadCache;
   private ImmutableList<Path> distdir = ImmutableList.of();
   private UrlRewriter rewriter;
   private final Downloader downloader;
@@ -83,8 +84,8 @@ public class DownloadManager {
    *     registry.
    */
   public DownloadManager(
-      RepositoryCache repositoryCache, Downloader downloader, HttpDownloader bzlmodHttpDownloader) {
-    this.repositoryCache = repositoryCache;
+      DownloadCache downloadCache, Downloader downloader, HttpDownloader bzlmodHttpDownloader) {
+    this.downloadCache = downloadCache;
     this.downloader = downloader;
     this.bzlmodHttpDownloader = bzlmodHttpDownloader;
   }
@@ -235,7 +236,7 @@ public class DownloadManager {
       try {
         eventHandler.post(
             new CacheProgress(mainUrl.toString(), "Checking in " + cacheKeyType + " cache"));
-        String currentChecksum = RepositoryCache.getChecksum(cacheKeyType, destination);
+        String currentChecksum = DownloadCache.getChecksum(cacheKeyType, destination);
         if (currentChecksum.equals(cacheKey)) {
           // No need to download.
           return destination;
@@ -246,15 +247,15 @@ public class DownloadManager {
         eventHandler.post(new CacheProgress(mainUrl.toString()));
       }
 
-      if (repositoryCache.isEnabled()) {
+      if (downloadCache.isEnabled()) {
         isCachingByProvidedChecksum = true;
 
         try {
           Path cachedDestination =
-              repositoryCache.get(cacheKey, destination, cacheKeyType, canonicalId);
+              downloadCache.get(cacheKey, destination, cacheKeyType, canonicalId);
           if (cachedDestination != null) {
             // Cache hit!
-            eventHandler.post(new RepositoryCacheHitEvent(context, cacheKey, mainUrl));
+            eventHandler.post(new DownloadCacheHitEvent(context, cacheKey, mainUrl));
             return cachedDestination;
           }
         } catch (IOException e) {
@@ -287,7 +288,7 @@ public class DownloadManager {
               eventHandler.post(
                   new CacheProgress(
                       mainUrl.toString(), "Checking " + cacheKeyType + " of " + candidate));
-              match = RepositoryCache.getChecksum(cacheKeyType, candidate).equals(cacheKey);
+              match = DownloadCache.getChecksum(cacheKeyType, candidate).equals(cacheKey);
             } catch (IOException e) {
               // Not finding anything in a distdir is a normal case, so handle it absolutely
               // quietly. In fact, it is common to specify a whole list of dist dirs,
@@ -298,7 +299,7 @@ public class DownloadManager {
             if (match) {
               if (isCachingByProvidedChecksum) {
                 try {
-                  repositoryCache.put(cacheKey, candidate, cacheKeyType, canonicalId);
+                  downloadCache.put(cacheKey, candidate, cacheKeyType, canonicalId);
                 } catch (IOException e) {
                   eventHandler.handle(
                       Event.warn("Failed to copy " + candidate + " to repository cache: " + e));
@@ -345,10 +346,10 @@ public class DownloadManager {
     }
 
     if (isCachingByProvidedChecksum) {
-      repositoryCache.put(
+      downloadCache.put(
           checksum.get().toString(), destination, checksum.get().getKeyType(), canonicalId);
-    } else if (repositoryCache.isEnabled()) {
-      repositoryCache.put(destination, KeyType.SHA256, canonicalId);
+    } else if (downloadCache.isEnabled()) {
+      var unused = downloadCache.put(destination, KeyType.SHA256, canonicalId);
     }
 
     return destination;
@@ -405,14 +406,14 @@ public class DownloadManager {
       throw new InterruptedException();
     }
 
-    if (repositoryCache.isEnabled() && checksum.isPresent()) {
+    if (downloadCache.isEnabled() && checksum.isPresent()) {
       String cacheKey = checksum.get().toString();
       try {
-        byte[] content = repositoryCache.getBytes(cacheKey, checksum.get().getKeyType());
+        byte[] content = downloadCache.getBytes(cacheKey, checksum.get().getKeyType());
         if (content != null) {
           // Cache hit!
           eventHandler.post(
-              new RepositoryCacheHitEvent("Bazel module fetching", cacheKey, originalUrl));
+              new DownloadCacheHitEvent("Bazel module fetching", cacheKey, originalUrl));
           return content;
         }
       } catch (IOException e) {
@@ -473,11 +474,11 @@ public class DownloadManager {
       throw new IllegalStateException("Unexpected error: file should have been downloaded.");
     }
 
-    if (repositoryCache.isEnabled()) {
+    if (downloadCache.isEnabled()) {
       if (checksum.isPresent()) {
-        repositoryCache.put(checksum.get().toString(), content, checksum.get().getKeyType());
+        downloadCache.put(checksum.get().toString(), content, checksum.get().getKeyType());
       } else {
-        repositoryCache.put(content, KeyType.SHA256);
+        downloadCache.put(content, KeyType.SHA256);
       }
     }
     return content;

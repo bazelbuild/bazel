@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -57,7 +58,8 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
-import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.SuccessfulRepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BzlCompileFunction;
@@ -142,7 +144,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             /* isFetch= */ new AtomicBoolean(true),
             /* clientEnvironmentSupplier= */ ImmutableMap::of,
             directories,
-            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
+            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
+            new RepoContentsCache());
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(
             new PathPackageLocator(
@@ -310,7 +313,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
     Path expectedPath = scratch.dir("/outputbase/external/foo");
-    Path actualPath = repositoryDirectoryValue.getPath();
+    Path actualPath = ((Success) repositoryDirectoryValue).getPath();
     assertThat(actualPath).isEqualTo(expectedPath);
     assertThat(actualPath.isSymbolicLink()).isTrue();
     assertThat(actualPath.readSymbolicLink()).isEqualTo(overrideDirectory.asFragment());
@@ -324,22 +327,21 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     RepositoryName repositoryName = RepositoryName.create("repo");
     RepositoryDirectoryValue.Key key = RepositoryDirectoryValue.key(repositoryName);
 
-    SuccessfulRepositoryDirectoryValue usual =
-        RepositoryDirectoryValue.builder()
-            .setPath(rootDirectory.getRelative("a"))
-            .setDigest(new byte[] {1})
-            .build();
+    Success usual =
+        new Success(
+            rootDirectory.getRelative("a"),
+            /* isFetchingDelayed= */ false,
+            /* excludeFromVendoring= */ false);
 
     assertThat(
             checker.check(key, usual, /* oldMtsv= */ null, SyscallCache.NO_CACHE, tsgm).isDirty())
         .isFalse();
 
-    SuccessfulRepositoryDirectoryValue fetchDelayed =
-        RepositoryDirectoryValue.builder()
-            .setPath(rootDirectory.getRelative("b"))
-            .setFetchingDelayed()
-            .setDigest(new byte[] {1})
-            .build();
+    Success fetchDelayed =
+        new Success(
+            rootDirectory.getRelative("b"),
+            /* isFetchingDelayed= */ true,
+            /* excludeFromVendoring= */ false);
 
     assertThat(
             checker
@@ -414,8 +416,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         evaluator.evaluate(ImmutableList.of(key), evaluationContext);
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
-    assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
-    assertThat(repositoryDirectoryValue.getErrorMsg())
+    assertThat(repositoryDirectoryValue).isInstanceOf(Failure.class);
+    assertThat(((Failure) repositoryDirectoryValue).getErrorMsg())
         .contains("Repository '@@foo' is not defined");
   }
 
@@ -486,10 +488,10 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
-    assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
-    assertThat(repositoryDirectoryValue.getErrorMsg())
+    assertThat(repositoryDirectoryValue).isInstanceOf(Failure.class);
+    assertThat(((Failure) repositoryDirectoryValue).getErrorMsg())
         .contains("No repository visible as '@foo' from repository '@@fake_owner_repo'");
-    assertThat(repositoryDirectoryValue.getErrorMsg())
+    assertThat(((Failure) repositoryDirectoryValue).getErrorMsg())
         .doesNotContain(ExternalPackageHelper.WORKSPACE_DEPRECATION);
   }
 
@@ -512,10 +514,10 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
-    assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
-    assertThat(repositoryDirectoryValue.getErrorMsg())
+    assertThat(repositoryDirectoryValue).isInstanceOf(Failure.class);
+    assertThat(((Failure) repositoryDirectoryValue).getErrorMsg())
         .contains("No repository visible as '@foo' from main repository");
-    assertThat(repositoryDirectoryValue.getErrorMsg())
+    assertThat(((Failure) repositoryDirectoryValue).getErrorMsg())
         .contains(ExternalPackageHelper.WORKSPACE_DEPRECATION);
   }
 
@@ -534,6 +536,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         evaluator.evaluate(ImmutableList.of(key), evaluationContext);
     assertThat(result.hasError()).isFalse();
     RepositoryDirectoryValue repositoryDirectoryValue = (RepositoryDirectoryValue) result.get(key);
-    assertThat(repositoryDirectoryValue.repositoryExists()).isTrue();
+    assertThat(repositoryDirectoryValue).isInstanceOf(Success.class);
   }
 }

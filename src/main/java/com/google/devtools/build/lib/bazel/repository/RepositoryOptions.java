@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -26,6 +27,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.time.Duration;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 
@@ -43,8 +45,52 @@ public class RepositoryOptions extends OptionsBase {
           "Specifies the cache location of the downloaded values obtained "
               + "during the fetching of external repositories. An empty string "
               + "as argument requests the cache to be disabled, "
-              + "otherwise the default of '<output_user_root>/cache/repos/v1' is used")
-  public PathFragment experimentalRepositoryCache;
+              + "otherwise the default of '<--output_user_root>/cache/repos/v1' is used")
+  public PathFragment repositoryCache;
+
+  @Option(
+      name = "repo_contents_cache",
+      oldName = "repository_contents_cache",
+      oldNameWarning = false,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help =
+          """
+          Specifies the location of the repo contents cache, which contains fetched repo \
+          directories shareable across workspaces. An empty string as argument requests the repo \
+          contents cache to be disabled, otherwise the default of '<--repository_cache>/contents' \
+          is used. Note that this means setting '--repository_cache=' would by default disable the \
+          repo contents cache as well, unless '--repo_contents_cache=<some_path>' is also set.
+          """)
+  public PathFragment repoContentsCache;
+
+  @Option(
+      name = "repo_contents_cache_gc_max_age",
+      defaultValue = "14d",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = DurationConverter.class,
+      help =
+          """
+          Specifies the amount of time an entry in the repo contents cache can stay unused before \
+          it's garbage collected. If set to zero, garbage collection is disabled.
+          """)
+  public Duration repoContentsCacheGcMaxAge;
+
+  @Option(
+      name = "repo_contents_cache_gc_idle_delay",
+      defaultValue = "5m",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = DurationConverter.class,
+      help =
+          """
+          Specifies the amount of time the server must remain idle before garbage collection happens
+          to the repo contents cache.
+          """)
+  public Duration repoContentsCacheGcIdleDelay;
 
   @Option(
       name = "registry",

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.util.FileSystemLock;
 import com.google.devtools.build.lib.util.FileSystemLock.LockAlreadyHeldException;
+import com.google.devtools.build.lib.util.FileSystemLock.LockMode;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
@@ -98,7 +99,7 @@ public final class InstallBaseGarbageCollector {
   private void collectWhenStale(Path installBase) throws IOException {
     Path pathToDelete = null;
     Path lockPath = getLockPath(installBase);
-    try (FileSystemLock lock = FileSystemLock.getExclusive(lockPath)) {
+    try (FileSystemLock lock = FileSystemLock.tryGet(lockPath, LockMode.EXCLUSIVE)) {
       FileStatus status = installBase.statIfFound();
       if (status == null) {
         // The install base is already gone. Back off.

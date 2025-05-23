@@ -38,6 +38,7 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
       --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
       --compilation_mode=opt \
       --repository_cache=derived/repository_cache \
+      --repo_contents_cache= \
       --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
       --extra_toolchains=//scripts/bootstrap:all \
       --extra_toolchains=@rules_python//python:autodetecting_toolchain \

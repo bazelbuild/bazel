@@ -31,7 +31,10 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.pkgcache.AbstractRecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -46,9 +49,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
- * A {@link com.google.devtools.build.lib.pkgcache.RecursivePackageProvider} backed by an {@link
- * Environment}. Its methods may throw {@link MissingDepException} if the package values this
- * depends on haven't been calculated and added to its environment.
+ * A {@link RecursivePackageProvider} backed by an {@link Environment}. Its methods may throw {@link
+ * MissingDepException} if the package values this depends on haven't been calculated and added to
+ * its environment.
  *
  * <p>This implementation never emits events through the {@link ExtendedEventHandler}s passed to its
  * methods. Instead, it emits events through its environment's {@link Environment#getListener()}.
@@ -76,9 +79,8 @@ public final class EnvironmentBackedRecursivePackageProvider
 
   /**
    * Whether any of the calls to {@link #getPackage}, {@link #getTarget}, {@link #bulkGetPackages},
-   * or {@link
-   * com.google.devtools.build.lib.pkgcache.RecursivePackageProvider#streamPackagesUnderDirectory}
-   * encountered a package in error.
+   * or {@link RecursivePackageProvider#streamPackagesUnderDirectory} encountered a package in
+   * error.
    *
    * <p>The client of {@link EnvironmentBackedRecursivePackageProvider} may want to check this. See
    * comments in {@link #getPackage} for details.
@@ -185,14 +187,12 @@ public final class EnvironmentBackedRecursivePackageProvider
         throw new MissingDepException();
       }
 
-      if (!repositoryValue.repositoryExists()) {
+      if (repositoryValue instanceof Failure f) {
         eventHandler.handle(
-            Event.error(
-                String.format(
-                    "No such repository '%s': %s", repository, repositoryValue.getErrorMsg())));
+            Event.error(String.format("No such repository '%s': %s", repository, f.getErrorMsg())));
         return;
       }
-      roots.add(Root.fromPath(repositoryValue.getPath()));
+      roots.add(Root.fromPath(((Success) repositoryValue).getPath()));
     }
 
     IgnoredSubdirectories filteredIgnoredSubdirectories =

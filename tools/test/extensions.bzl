@@ -14,7 +14,7 @@
 """A module extension to bring in the remote coverage tools under
 @remote_coverage_tools."""
 
-load("//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 def _remote_coverage_tools_extension_impl(ctx):
     http_archive(
