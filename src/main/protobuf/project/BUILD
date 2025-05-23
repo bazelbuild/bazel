@@ -7,6 +7,12 @@ package(
 )
 
 filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
+)
+
+filegroup(
     name = "project_proto_scl",
     srcs = ["project_proto.scl"],
     visibility = ["//src/test/java/com/google/devtools/build/lib/analysis/util:__pkg__"],

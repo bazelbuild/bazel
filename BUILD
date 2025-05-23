@@ -30,7 +30,6 @@ filegroup(
     srcs = glob(
         ["*"],
         exclude = [
-            "MODULE.bazel.lock",  # Use MODULE.bazel.lock.dist instead
             "bazel-*",  # convenience symlinks
             "out",  # IntelliJ with setup-intellij.sh
             "output",  # output of compile.sh

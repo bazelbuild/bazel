@@ -8,6 +8,12 @@ package(
     default_visibility = ["//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps:__subpackages__"],
 )
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
+)
+
 java_library(
     name = "a",
     srcs = ["A.java"],
