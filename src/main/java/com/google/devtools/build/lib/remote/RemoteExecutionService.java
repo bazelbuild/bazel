@@ -66,6 +66,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -1392,15 +1393,12 @@ public class RemoteExecutionService {
       }
     }
 
-    Map<PathFragment, Artifact.SpecialArtifact> treeArtifactOutputs =
+    Map<PathFragment, SpecialArtifact> treeArtifactOutputs =
         action.getSpawn().getOutputFiles().stream()
             .filter(
-                output ->
-                    output instanceof Artifact.SpecialArtifact artifact
-                        && artifact.isTreeArtifact())
+                output -> output instanceof SpecialArtifact artifact && artifact.isTreeArtifact())
             .collect(
-                toImmutableMap(
-                    ActionInput::getExecPath, artifact -> (Artifact.SpecialArtifact) artifact));
+                toImmutableMap(ActionInput::getExecPath, artifact -> (SpecialArtifact) artifact));
     for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
       var treeArtifact =
           treeArtifactOutputs.get(

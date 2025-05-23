@@ -949,10 +949,9 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   private boolean canSkipLocalFs(PathFragment path) {
-    // Bazel ensures that artifact paths don't overlap, so no entry in the set
-    // is a prefix of any other. We can thus check whether any path in it is
-    // a prefix of the given path simply by checking the lexicographically
-    // preceding entry.
+    // Bazel ensures that artifact paths don't overlap, so no entry in the set is a prefix of any
+    // other. We can thus check whether any path in it is a prefix of the given path simply by
+    // checking the lexicographically preceding entry.
     var floor = remoteTreeArtifactPaths.floor(path);
     return floor != null && path.startsWith(floor);
   }

@@ -1280,8 +1280,10 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         .containsExactlyEntriesIn(expectedChildren.buildOrThrow());
   }
 
-  // Filter out the uninformative Path call site of FileSystem methods in favor of recording the
-  // call site of the Path method.
+  /**
+   * Filters out the uninformative Path call site of FileSystem methods in favor of recording the
+   * call site of the Path method.
+   */
   public static final class FileSystemStackTraceCleanerProvider
       implements StackTraceCleanerProvider {
 
