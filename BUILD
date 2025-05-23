@@ -163,6 +163,7 @@ pkg_files(
     srcs = ["//:srcs"],
     attributes = pkg_attributes(mode = "0755"),
     excludes = [
+        "MODULE.bazel.lock",  # Use MODULE.bazel.lock.dist instead
         "//examples:srcs",
         "//site:srcs",
         "//src:srcs-to-exclude-in-distfile",
