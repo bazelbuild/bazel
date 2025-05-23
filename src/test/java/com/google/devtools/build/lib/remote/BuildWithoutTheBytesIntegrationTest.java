@@ -24,6 +24,7 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -1226,8 +1227,12 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
             for j in range(5)
           },
           symlinks = {
-            'dir-1/file-7': 'file-3',
-            'dir-3/file-8': '../dir-1/file-7',
+            # Symlink to a remote file
+            'dir-1/symlink-1': 'file-2',
+            # Symlink to a symlink
+            'dir-1/symlink-2': 'symlink-1',
+            # Symlink to a downloaded file
+            'dir-4/symlink': 'file-2',
           },
         )
         genrule(
@@ -1243,7 +1248,9 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     var spiedLocalFS = (SpiedFileSystem) fileSystem;
     var fooPath = getOutputPath("foo").asFragment();
-    verify(spiedLocalFS, times(1)).createDirectoryAndParents(fooPath.getChild("dir-4"));
+    // Once as a parent of a downloaded file, once as a parent of a symlink. This may be optimized
+    // down to one call in the future.
+    verify(spiedLocalFS, atMost(2)).createDirectoryAndParents(fooPath.getChild("dir-4"));
     verify(spiedLocalFS, times(1))
         .renameTo(any(), eq(fooPath.getChild("dir-4").getChild("file-2")));
     var childrenOfFooOperations =
@@ -1266,7 +1273,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Keep these assertions after the assertson spiedLocalFs as they result in additional IO.
     for (int i = 0; i < 5; i++) {
       var dir = "foo/dir-%d".formatted(i);
-      if (i == 1 || i == 3 || i == 4) {
+      if (i == 1 || i == 4) {
         // These dirs contain files that have been downloaded or symlinks.
         assertValidOutputDir(dir, outputPermissions);
       } else {
@@ -1298,13 +1305,17 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
       }
     }
     expectedChildren.put(
-        "dir-1/file-7",
+        "dir-1/symlink-1",
         ByteString.copyFrom(
-            getDigestHashFunction().getHashFunction().hashString("foo13", UTF_8).asBytes()));
+            getDigestHashFunction().getHashFunction().hashString("foo12", UTF_8).asBytes()));
     expectedChildren.put(
-        "dir-3/file-8",
+        "dir-1/symlink-2",
         ByteString.copyFrom(
-            getDigestHashFunction().getHashFunction().hashString("foo13", UTF_8).asBytes()));
+            getDigestHashFunction().getHashFunction().hashString("foo12", UTF_8).asBytes()));
+    expectedChildren.put(
+        "dir-4/symlink",
+        ByteString.copyFrom(
+            getDigestHashFunction().getHashFunction().hashString("foo42", UTF_8).asBytes()));
     assertThat(
             fooMetadata.getChildValues().entrySet().stream()
                 .collect(
