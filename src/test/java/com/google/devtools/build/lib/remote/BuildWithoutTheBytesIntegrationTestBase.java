@@ -2102,15 +2102,19 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         """
         def _output_dir_impl(ctx):
             out = ctx.actions.declare_directory(ctx.attr.name)
-            args = []
+            script = ["set -e"]
             for name, content in ctx.attr.content_map.items():
-                args.append(out.path + "/" + name)
-                args.append(content)
+                path = out.path + "/" + name
+                script.append('mkdir -p $(dirname {})'.format(path))
+                script.append('echo -n "{}" > {}'.format(content, path))
+            for name, target in ctx.attr.symlinks.items():
+                path = out.path + "/" + name
+                script.append('mkdir -p $(dirname {})'.format(path))
+                script.append('ln -s {} {}'.format(target, path))
             ctx.actions.run_shell(
                 mnemonic = "OutputDir",
                 outputs = [out],
-                arguments = args,
-                command = 'set -e; while (($#)); do mkdir -p "$(dirname "$1")"; echo -n "$2" > $1; shift 2; done',
+                command = "\\n".join(script),
             )
             return DefaultInfo(files = depset([out]))
 
@@ -2118,6 +2122,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
             implementation = _output_dir_impl,
             attrs = {
                 "content_map": attr.string_dict(mandatory = True),
+                "symlinks": attr.string_dict(mandatory = False),
             },
         )
         """);
