@@ -1215,6 +1215,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     addOptions(
         "--remote_download_regex=.*/dir-4/file-2",
         "--experimental_writable_outputs=" + (outputPermissions == OutputPermissions.WRITABLE));
+    var symlinkTarget = write("symlink_target", "symlink target");
     write(
         "BUILD",
         """
@@ -1222,7 +1223,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         output_dir(
           name = 'foo',
           content_map = {
-            'dir-%d/file-%d' % (i, j): 'foo%d%d' % (i, j)
+            'dir-{}/file-{}'.format(i, j): 'foo{}{}'.format(i, j)
             for i in range(5)
             for j in range(5)
           },
@@ -1232,7 +1233,9 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
             # Symlink to a symlink
             'dir-1/symlink-2': 'symlink-1',
             # Symlink to a downloaded file
-            'dir-4/symlink': 'file-2',
+            'dir-3/symlink-1': '../dir-4/file-2',
+            # Symlink to a local file
+            'dir-3/symlink-2': '%s',
           },
         )
         genrule(
@@ -1241,7 +1244,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
           outs = ['foobar.txt'],
           cmd = 'touch $@',
         )
-        """);
+        """
+            .formatted(symlinkTarget));
 
     buildTarget("//:foobar");
     waitDownloads();
@@ -1275,7 +1279,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Keep these assertions after the assertson spiedLocalFs as they result in additional IO.
     for (int i = 0; i < 5; i++) {
       var dir = "foo/dir-%d".formatted(i);
-      if (i == 1 || i == 4) {
+      if (i == 1 || i == 3 || i == 4) {
         // These dirs contain files that have been downloaded or symlinks.
         assertValidOutputDir(dir, outputPermissions);
       } else {
@@ -1316,9 +1320,16 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         ByteString.copyFrom(
             getDigestHashFunction().getHashFunction().hashString("foo12", UTF_8).asBytes()));
     expectedChildren.put(
-        "dir-4/symlink",
+        "dir-3/symlink-1",
         ByteString.copyFrom(
             getDigestHashFunction().getHashFunction().hashString("foo42", UTF_8).asBytes()));
+    expectedChildren.put(
+        "dir-3/symlink-2",
+        ByteString.copyFrom(
+            getDigestHashFunction()
+                .getHashFunction()
+                .hashString("symlink target\n", UTF_8)
+                .asBytes()));
     assertThat(
             fooMetadata.getChildValues().entrySet().stream()
                 .collect(
