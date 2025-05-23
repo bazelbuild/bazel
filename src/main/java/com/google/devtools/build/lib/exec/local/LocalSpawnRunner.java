@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.NetUtil;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.FormatMethod;
@@ -322,7 +323,8 @@ public class LocalSpawnRunner implements SpawnRunner {
                 ("Action type "
                         + actionType
                         + " is not allowed to run locally due to regex filter: "
-                        + localExecutionOptions.allowedLocalAction.regexPattern()
+                        + StringEncoding.unicodeToInternal(
+                            localExecutionOptions.allowedLocalAction.regexPattern().toString())
                         + "\n")
                     .getBytes(UTF_8));
         spawnMetrics.setTotalTime(totalTimeStopwatch.elapsed());

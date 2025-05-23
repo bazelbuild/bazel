@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.regex;
 
+import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
+
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -35,7 +37,9 @@ public class RegexUtilFuzzTest {
     }
 
     Predicate<String> optimizedMatcher = RegexUtil.asOptimizedMatchingPredicate(originalPattern);
-    if (optimizedMatcher.test(haystack) != originalPattern.matcher(haystack).matches()) {
+    boolean originalMatches = originalPattern.matcher(haystack).matches();
+    boolean optimizedMatches = optimizedMatcher.test(unicodeToInternal(haystack));
+    if (originalMatches != optimizedMatches) {
       throw new AssertionError(
 """
 Optimized matcher and original matcher differ in behavior:
@@ -44,11 +48,7 @@ haystack: '%s'
 originalPattern.matcher(haystack).matches(): %s
 optimizedMatcher.test(haystack): %s
 """
-              .formatted(
-                  needle,
-                  haystack,
-                  originalPattern.matcher(haystack).matches(),
-                  optimizedMatcher.test(haystack)));
+              .formatted(needle, haystack, originalMatches, optimizedMatches));
     }
   }
 }

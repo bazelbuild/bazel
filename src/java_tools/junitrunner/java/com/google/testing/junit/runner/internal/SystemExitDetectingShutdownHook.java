@@ -14,10 +14,8 @@
 
 package com.google.testing.junit.runner.internal;
 
-import static java.util.Arrays.stream;
-import static java.util.stream.Collectors.toList;
-
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -28,40 +26,41 @@ import java.util.List;
  */
 public class SystemExitDetectingShutdownHook {
   public static Thread newShutdownHook(PrintStream testRunnerOut) {
-    Runnable hook = () -> {
-      boolean foundRuntimeExit = false;
-      for (StackTraceElement[] stack : Thread.getAllStackTraces().values()) {
-        @SuppressWarnings("JdkCollectors") // can't use ImmutableList here
-        List<String> framesStartingWithRuntimeExit =
-            stream(stack)
-                .dropWhile(
-                    frame ->
-                        !frame.getClassName().equals("java.lang.Runtime")
-                            || !frame.getMethodName().equals("exit"))
-                .map(SystemExitDetectingShutdownHook::frameString)
-                .collect(toList());
-        if (!framesStartingWithRuntimeExit.isEmpty()) {
-          foundRuntimeExit = true;
-          testRunnerOut.println("\nSystem.exit or Runtime.exit was called!");
-          testRunnerOut.println(String.join("\n", framesStartingWithRuntimeExit));
-        }
-      }
-      if (foundRuntimeExit) {
-        // We must call halt rather than exit, because exit would lead to a deadlock. We use a
-        // hopefully unique exit code to make it easier to identify this case.
-        Runtime.getRuntime().halt(121);
-      }
-    };
+    Runnable hook =
+        () -> {
+          boolean foundRuntimeExit = false;
+          for (StackTraceElement[] stack : Thread.getAllStackTraces().values()) {
+            List<String> framesStartingWithRuntimeExit = new ArrayList<>();
+            boolean foundRuntimeExitInThisThread = false;
+            for (StackTraceElement frame : stack) {
+              if (!foundRuntimeExitInThisThread
+                  && frame.getClassName().equals("java.lang.Runtime")
+                  && frame.getMethodName().equals("exit")) {
+                foundRuntimeExitInThisThread = true;
+              }
+              if (foundRuntimeExitInThisThread) {
+                framesStartingWithRuntimeExit.add(frameString(frame));
+              }
+            }
+            if (foundRuntimeExitInThisThread) {
+              foundRuntimeExit = true;
+              testRunnerOut.println("\nSystem.exit or Runtime.exit was called!");
+              testRunnerOut.println(String.join("\n", framesStartingWithRuntimeExit));
+            }
+          }
+          if (foundRuntimeExit) {
+            // We must call halt rather than exit, because exit would lead to a deadlock. We use a
+            // hopefully unique exit code to make it easier to identify this case.
+            Runtime.getRuntime().halt(121);
+          }
+        };
     return new Thread(hook, "SystemExitDetectingShutdownHook");
   }
 
   private static String frameString(StackTraceElement frame) {
     return String.format(
         "        at %s.%s(%s:%d)",
-        frame.getClassName(),
-        frame.getMethodName(),
-        frame.getFileName(),
-        frame.getLineNumber());
+        frame.getClassName(), frame.getMethodName(), frame.getFileName(), frame.getLineNumber());
   }
 
   private SystemExitDetectingShutdownHook() {}
