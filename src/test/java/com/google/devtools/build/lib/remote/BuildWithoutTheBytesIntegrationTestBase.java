@@ -2125,8 +2125,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         output_dir = rule(
             implementation = _output_dir_impl,
             attrs = {
-                "content_map": attr.string_dict(mandatory = True),
-                "symlinks": attr.string_dict(mandatory = False),
+                "content_map": attr.string_dict(),
+                "symlinks": attr.string_dict(),
             },
         )
         """);
