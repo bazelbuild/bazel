@@ -51,8 +51,6 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AutoloadSymbols;
-import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
@@ -66,7 +64,6 @@ import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
-import com.google.devtools.build.lib.skyframe.ExternalPackageFunction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesFunction;
@@ -79,7 +76,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction;
-import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -156,11 +152,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
     ConfiguredRuleClassProvider ruleClassProvider = AnalysisMock.get().createRuleClassProvider();
 
-    PackageFactory pkgFactory =
-        AnalysisMock.get()
-            .getPackageFactoryBuilderForTesting(directories)
-            .build(ruleClassProvider, fileSystem);
-
     registryFactory = new FakeRegistry.Factory();
     FakeRegistry registry =
         registryFactory
@@ -192,19 +183,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(
-                    WorkspaceFileValue.WORKSPACE_FILE,
-                    new WorkspaceFileFunction(
-                        ruleClassProvider,
-                        pkgFactory,
-                        directories,
-                        /* bzlLoadFunctionForInlining= */ null))
-                .put(
                     SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
                     new LocalRepositoryLookupFunction(
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
-                .put(
-                    SkyFunctions.EXTERNAL_PACKAGE,
-                    new ExternalPackageFunction(
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(

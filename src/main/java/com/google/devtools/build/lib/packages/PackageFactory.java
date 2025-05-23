@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackagePieceException;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -206,23 +205,6 @@ public final class PackageFactory {
   /** Returns the {@link RuleClassProvider} of this {@link PackageFactory}. */
   public RuleClassProvider getRuleClassProvider() {
     return ruleClassProvider;
-  }
-
-  public Package.Builder newExternalPackageBuilder(
-      WorkspaceFileKey workspaceFileKey,
-      String workspaceName,
-      RepositoryMapping mainRepoMapping,
-      StarlarkSemantics starlarkSemantics) {
-    return Package.newExternalPackageBuilder(
-        packageSettings,
-        workspaceFileKey,
-        workspaceName,
-        mainRepoMapping,
-        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
-        starlarkSemantics.getBool(
-            BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
-        packageOverheadEstimator,
-        packageValidator.getPackageLimits());
   }
 
   // This function is public only for the benefit of skyframe.PackageFunction,

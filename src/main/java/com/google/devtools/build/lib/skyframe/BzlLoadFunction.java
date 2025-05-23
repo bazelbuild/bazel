@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.BzlVisibility;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.StarlarkLoading.Code;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
@@ -799,12 +798,11 @@ public class BzlLoadFunction implements SkyFunction {
 
     // Determine dependency BzlLoadValue keys for the load statements in this bzl.
     // Labels are resolved relative to the current repo mapping.
-    RepositoryMapping repoMapping = getRepositoryMapping(key, builtins.starlarkSemantics, env);
+    RepositoryMapping repoMapping = getRepositoryMapping(key, env);
     if (repoMapping == null) {
       return null;
     }
-    RepositoryMapping mainRepoMapping =
-        getMainRepositoryMapping(key, builtins.starlarkSemantics, env);
+    RepositoryMapping mainRepoMapping = getMainRepositoryMapping(key, env);
     if (mainRepoMapping == null) {
       return null;
     }
@@ -934,58 +932,10 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   @Nullable
-  private static RepositoryMapping getRepositoryMapping(
-      BzlLoadValue.Key key, StarlarkSemantics semantics, Environment env)
+  private static RepositoryMapping getRepositoryMapping(BzlLoadValue.Key key, Environment env)
       throws InterruptedException {
-    boolean bzlmod = semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
-    if (key.isBuiltins() && !bzlmod) {
-      // Without Bzlmod, builtins .bzls never have a repo mapping defined for them, so return
-      // without requesting a RepositoryMappingValue. (NB: In addition to being a slight
-      // optimization, this avoids adding a reverse dependency on the special //external package,
-      // which helps avoid tickling some peculiarities of the Google-internal Skyframe
-      // implementation; see b/182293526 for details.)
-      // Otherwise, builtins .bzls should use the repo mapping of @bazel_tools, and *do* request a
-      // normal RepositoryMappingValue (see logic in RepositoryMappingFunction).
-      return RepositoryMapping.ALWAYS_FALLBACK;
-    }
-
     Label enclosingFileLabel = key.getLabel();
     RepositoryName repoName = enclosingFileLabel.getRepository();
-
-    if (key instanceof BzlLoadValue.KeyForWorkspace keyForWorkspace) {
-      // Still during workspace file evaluation
-      RepositoryMapping pureWorkspaceMapping;
-      if (keyForWorkspace.getWorkspaceChunk() == 0) {
-        // There is no previous workspace chunk
-        pureWorkspaceMapping = RepositoryMapping.ALWAYS_FALLBACK;
-      } else {
-        SkyKey workspaceFileKey =
-            WorkspaceFileValue.key(
-                keyForWorkspace.getWorkspacePath(), keyForWorkspace.getWorkspaceChunk() - 1);
-        WorkspaceFileValue workspaceFileValue = (WorkspaceFileValue) env.getValue(workspaceFileKey);
-        // Note: we know for sure that the requested WorkspaceFileValue is fully computed so we do
-        // not need to check if it is null
-        pureWorkspaceMapping =
-            RepositoryMapping.createAllowingFallback(
-                workspaceFileValue
-                    .getRepositoryMapping()
-                    .getOrDefault(repoName, ImmutableMap.of()));
-      }
-      if (!bzlmod) {
-        // Without Bzlmod, we just return the mapping purely computed from WORKSPACE stuff.
-        return pureWorkspaceMapping;
-      }
-      // If Bzlmod is in play, we need to make sure that pure WORKSPACE mapping is composed with the
-      // root module's mapping (just like how all WORKSPACE repos can see what the root module sees
-      // _after_ WORKSPACE evaluation).
-      RepositoryMappingValue rootModuleMappingValue =
-          (RepositoryMappingValue)
-              env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS);
-      if (rootModuleMappingValue == null) {
-        return null;
-      }
-      return pureWorkspaceMapping.composeWith(rootModuleMappingValue.repositoryMapping());
-    }
 
     if (key instanceof BzlLoadValue.KeyForBzlmod) {
       if (key instanceof BzlLoadValue.KeyForBzlmodBootstrap) {
@@ -1022,23 +972,20 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   @Nullable
-  private static RepositoryMapping getMainRepositoryMapping(
-      BzlLoadValue.Key key, StarlarkSemantics starlarkSemantics, Environment env)
+  private static RepositoryMapping getMainRepositoryMapping(BzlLoadValue.Key key, Environment env)
       throws InterruptedException {
-    boolean bzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
     RepositoryMappingValue.Key repoMappingKey;
     if (key instanceof BzlLoadValue.KeyForBuild) {
       repoMappingKey = RepositoryMappingValue.key(RepositoryName.MAIN);
-    } else if ((key instanceof BzlLoadValue.KeyForBzlmod
-            && !(key instanceof BzlLoadValue.KeyForBzlmodBootstrap))
-        || (bzlmod && key instanceof BzlLoadValue.KeyForWorkspace)) {
+    } else if (key instanceof BzlLoadValue.KeyForBzlmod
+        && !(key instanceof BzlLoadValue.KeyForBzlmodBootstrap)) {
       // Since the main repo mapping requires evaluating WORKSPACE, but WORKSPACE can load from
       // extension repos, requesting the full main repo mapping would cause a cycle.
       repoMappingKey = RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS;
     } else {
-      // For builtins, @bazel_tools, and legacy WORKSPACE, the key's local repo mapping can be used
-      // as the main repo mapping.
-      return getRepositoryMapping(key, starlarkSemantics, env);
+      // For builtins, @bazel_tools, the key's local repo mapping can be used as the main repo
+      // mapping.
+      return getRepositoryMapping(key, env);
     }
     var mainRepositoryMappingValue = (RepositoryMappingValue) env.getValue(repoMappingKey);
     if (mainRepositoryMappingValue == null) {
@@ -1623,38 +1570,36 @@ public class BzlLoadFunction implements SkyFunction {
     }
   }
 
-    private static BzlLoadFailedException whileLoadingDep(
-        Location loc, BzlLoadFailedException cause) {
-      // Don't chain exception cause, just incorporate the message with a prefix.
-      // TODO(bazel-team): This exception should hold a Location of the requesting file's load
-      // statement, and code that catches it should use the location in the Event they create.
-      return new BzlLoadFailedException(
-          "at " + loc + ": " + cause.getMessage(), cause.getDetailedExitCode());
-    }
+  private static BzlLoadFailedException whileLoadingDep(
+      Location loc, BzlLoadFailedException cause) {
+    // Don't chain exception cause, just incorporate the message with a prefix.
+    // TODO(bazel-team): This exception should hold a Location of the requesting file's load
+    // statement, and code that catches it should use the location in the Event they create.
+    return new BzlLoadFailedException(
+        "at " + loc + ": " + cause.getMessage(), cause.getDetailedExitCode());
+  }
 
-    static BzlLoadFailedException executionFailed(Label label) {
-      return new BzlLoadFailedException(
-          String.format(
-              "initialization of module '%s'%s failed",
-              // TODO(brandjon): This error message drops the repo part of the label.
-              label.toPathFragment(),
-              StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository()) ? " (internal)" : ""),
-          Code.EVAL_ERROR);
-    }
+  static BzlLoadFailedException executionFailed(Label label) {
+    return new BzlLoadFailedException(
+        String.format(
+            "initialization of module '%s'%s failed",
+            // TODO(brandjon): This error message drops the repo part of the label.
+            label.toPathFragment(),
+            StarlarkBuiltinsValue.isBuiltinsRepo(label.getRepository()) ? " (internal)" : ""),
+        Code.EVAL_ERROR);
+  }
 
-    static BzlLoadFailedException errorFindingContainingPackage(
-        PathFragment file, Exception cause) {
-      String errorMessage =
-          String.format(
-              "Encountered error while reading extension file '%s': %s", file, cause.getMessage());
+  static BzlLoadFailedException errorFindingContainingPackage(PathFragment file, Exception cause) {
+    String errorMessage =
+        String.format(
+            "Encountered error while reading extension file '%s': %s", file, cause.getMessage());
     DetailedExitCode detailedExitCode =
         cause instanceof DetailedException detailedException
             ? detailedException.getDetailedExitCode()
             : BzlLoadFailedException.createDetailedExitCode(
                 errorMessage, Code.CONTAINING_PACKAGE_NOT_FOUND);
-      return new BzlLoadFailedException(
-          errorMessage, detailedExitCode, cause, Transience.PERSISTENT);
-    }
+    return new BzlLoadFailedException(errorMessage, detailedExitCode, cause, Transience.PERSISTENT);
+  }
 
   static BzlLoadFailedException errorReadingBzl(
       PathFragment file, BzlCompileFunction.FailedIOException cause) {
@@ -1673,57 +1618,55 @@ public class BzlLoadFunction implements SkyFunction {
     return new BzlLoadFailedException(errorMessage, Code.IO_ERROR, cause, cause.getTransience());
   }
 
-    static BzlLoadFailedException noBuildFile(Label file, @Nullable String reason) {
-      if (reason != null) {
-        return new BzlLoadFailedException(
-            String.format("Unable to find package for %s: %s.", file, reason),
-            Code.PACKAGE_NOT_FOUND);
-      }
+  static BzlLoadFailedException noBuildFile(Label file, @Nullable String reason) {
+    if (reason != null) {
       return new BzlLoadFailedException(
-          String.format(
-              "Every .bzl file must have a corresponding package, but '%s' does not have one."
-                  + " Please create a BUILD file in the same or any parent directory. Note that"
-                  + " this BUILD file does not need to do anything except exist.",
-              file),
+          String.format("Unable to find package for %s: %s.", file, reason),
           Code.PACKAGE_NOT_FOUND);
     }
+    return new BzlLoadFailedException(
+        String.format(
+            "Every .bzl file must have a corresponding package, but '%s' does not have one."
+                + " Please create a BUILD file in the same or any parent directory. Note that"
+                + " this BUILD file does not need to do anything except exist.",
+            file),
+        Code.PACKAGE_NOT_FOUND);
+  }
 
-    static BzlLoadFailedException labelCrossesPackageBoundary(
-        Label label, ContainingPackageLookupValue containingPackageLookupValue) {
-      return new BzlLoadFailedException(
-          ContainingPackageLookupValue.getErrorMessageForLabelCrossingPackageBoundary(
-              // We don't actually know the proper Root to pass in here (since we don't e.g. know
-              // the root of the bzl/BUILD file that is trying to load 'label'). Therefore we just
-              // pass in the Root of the containing package in order to still get a useful error
-              // message for the user.
-              containingPackageLookupValue.getContainingPackageRoot(),
-              label,
-              containingPackageLookupValue),
-          Code.LABEL_CROSSES_PACKAGE_BOUNDARY);
-    }
+  static BzlLoadFailedException labelCrossesPackageBoundary(
+      Label label, ContainingPackageLookupValue containingPackageLookupValue) {
+    return new BzlLoadFailedException(
+        ContainingPackageLookupValue.getErrorMessageForLabelCrossingPackageBoundary(
+            // We don't actually know the proper Root to pass in here (since we don't e.g. know
+            // the root of the bzl/BUILD file that is trying to load 'label'). Therefore we just
+            // pass in the Root of the containing package in order to still get a useful error
+            // message for the user.
+            containingPackageLookupValue.getContainingPackageRoot(),
+            label,
+            containingPackageLookupValue),
+        Code.LABEL_CROSSES_PACKAGE_BOUNDARY);
+  }
 
-    static BzlLoadFailedException builtinsFailed(Label file, BuiltinsFailedException cause) {
-      return new BzlLoadFailedException(
-          String.format(
-              "Internal error while loading Starlark builtins for %s: %s",
-              file, cause.getMessage()),
-          Code.BUILTINS_ERROR,
-          cause,
-          cause.getTransience());
-    }
+  static BzlLoadFailedException builtinsFailed(Label file, BuiltinsFailedException cause) {
+    return new BzlLoadFailedException(
+        String.format(
+            "Internal error while loading Starlark builtins for %s: %s", file, cause.getMessage()),
+        Code.BUILTINS_ERROR,
+        cause,
+        cause.getTransience());
+  }
 
-    /**
-     * Returns an exception for load visibility violations.
-     *
-     * <p>{@code fileDescription} is a string like {@code "module //pkg:foo.bzl"} or {@code "file
-     * //pkg:BUILD"}.
-     */
-    static BzlLoadFailedException visibilityViolation(String fileDescription) {
-      return new BzlLoadFailedException(
-          String.format("%s contains .bzl load visibility violations", fileDescription),
-          Code.VISIBILITY_ERROR);
-    }
-
+  /**
+   * Returns an exception for load visibility violations.
+   *
+   * <p>{@code fileDescription} is a string like {@code "module //pkg:foo.bzl"} or {@code "file
+   * //pkg:BUILD"}.
+   */
+  static BzlLoadFailedException visibilityViolation(String fileDescription) {
+    return new BzlLoadFailedException(
+        String.format("%s contains .bzl load visibility violations", fileDescription),
+        Code.VISIBILITY_ERROR);
+  }
 
   private static final class BzlLoadFunctionException extends SkyFunctionException {
     private BzlLoadFunctionException(BzlLoadFailedException cause) {

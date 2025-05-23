@@ -134,31 +134,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testCreateWorkspaceRule() throws Exception {
-    Path myPkgPath = scratch.resolve("/workspace/WORKSPACE");
-    Package.Builder pkgBuilder =
-        packageFactory.newExternalPackageBuilder(
-            WorkspaceFileValue.key(RootedPath.toRootedPath(root, myPkgPath)),
-            "TESTING",
-            RepositoryMapping.ALWAYS_FALLBACK,
-            StarlarkSemantics.DEFAULT);
-
-    Map<String, Object> attributeValues = new HashMap<>();
-    attributeValues.put("name", "foo");
-    attributeValues.put("actual", "//foo:bar");
-
-    RuleClass ruleClass = provider.getRuleClassMap().get("bind");
-    Rule rule =
-        RuleFactory.createAndAddRule(
-            pkgBuilder,
-            ruleClass,
-            new BuildLangTypedAttributeValuesMap(attributeValues),
-            true,
-            DUMMY_STACK);
-    assertThat(rule.containsErrors()).isFalse();
-  }
-
-  @Test
   public void testWorkspaceRuleFailsInBuildFile() {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);

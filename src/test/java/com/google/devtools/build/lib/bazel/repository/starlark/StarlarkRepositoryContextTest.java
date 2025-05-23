@@ -33,20 +33,19 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
-import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -95,7 +94,6 @@ public final class StarlarkRepositoryContextTest {
   private Path outputBase;
   private Path outputDirectory;
   private Root root;
-  private Path workspaceFile;
   private StarlarkRepositoryContext context;
   private Label fakeFileLabel;
   private static final StarlarkThread thread =
@@ -109,7 +107,7 @@ public final class StarlarkRepositoryContextTest {
     outputBase = scratch.dir("/outputBase");
     outputDirectory = scratch.dir("/outputDir");
     root = Root.fromPath(scratch.dir("/wsRoot"));
-    workspaceFile = scratch.file("/wsRoot/WORKSPACE");
+    scratch.file("/wsRoot/WORKSPACE");
   }
 
   private static RuleClass buildRuleClass(Attribute... attributes) {
@@ -149,16 +147,13 @@ public final class StarlarkRepositoryContextTest {
       Attribute... attributes)
       throws Exception {
     Package.Builder packageBuilder =
-        Package.newExternalPackageBuilder(
-            PackageSettings.DEFAULTS,
-            WorkspaceFileValue.key(RootedPath.toRootedPath(root, workspaceFile)),
-            "runfiles",
-            RepositoryMapping.ALWAYS_FALLBACK,
+        Package.newExternalPackageBuilderForBzlmod(
+            RootedPath.toRootedPath(root, PathFragment.create("MODULE.bazel")),
             starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
             starlarkSemantics.getBool(
                 BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
-            PackageOverheadEstimator.NOOP_ESTIMATOR,
-            Package.Builder.PackageLimits.DEFAULTS);
+            PackageIdentifier.EMPTY_PACKAGE_ID,
+            RepositoryMapping.create(ImmutableMap.of(), RepositoryName.MAIN));
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
@@ -171,9 +166,7 @@ public final class StarlarkRepositoryContextTest {
     when(environment.getListener()).thenReturn(listener);
     fakeFileLabel = Label.parseCanonical("//:foo");
     when(environment.getValue(PackageLookupValue.key(fakeFileLabel.getPackageIdentifier())))
-        .thenReturn(
-            PackageLookupValue.success(
-                Root.fromPath(workspaceFile.getParentDirectory()), BuildFileName.BUILD));
+        .thenReturn(PackageLookupValue.success(root, BuildFileName.BUILD));
     when(environment.getValueOrThrow(any(), eq(IOException.class)))
         .thenReturn(Mockito.mock(FileValue.class));
     PathPackageLocator packageLocator =

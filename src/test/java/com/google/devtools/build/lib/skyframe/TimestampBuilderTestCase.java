@@ -74,7 +74,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -89,8 +88,6 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnaly
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -280,19 +277,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                         null,
                         CrossRepositoryLabelViolationStrategy.ERROR,
                         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
-                .put(
-                    WorkspaceFileValue.WORKSPACE_FILE,
-                    new WorkspaceFileFunction(
-                        TestRuleClassProvider.getRuleClassProvider(),
-                        TestPackageFactoryBuilderFactory.getInstance()
-                            .builder(directories)
-                            .build(TestRuleClassProvider.getRuleClassProvider(), fileSystem),
-                        directories,
-                        /* bzlLoadFunctionForInlining= */ null))
-                .put(
-                    SkyFunctions.EXTERNAL_PACKAGE,
-                    new ExternalPackageFunction(
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,

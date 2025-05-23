@@ -162,7 +162,6 @@ import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -862,13 +861,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.STARLARK_BUILD_SETTINGS_DETAILS, new StarlarkBuildSettingsDetailsFunction());
     map.put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction(ruleClassProvider));
     map.put(
-        WorkspaceFileValue.WORKSPACE_FILE,
-        new WorkspaceFileFunction(
-            ruleClassProvider,
-            pkgFactory,
-            directories,
-            bzlLoadFunctionForInliningPackageAndWorkspaceNodes));
-    map.put(
         SkyFunctions.REPO_FILE,
         shouldUseRepoDotBazel
             ? new RepoFileFunction(
@@ -877,7 +869,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               throw new IllegalStateException("supposed to be unused");
             });
     map.put(SkyFunctions.REPO_PACKAGE_ARGS, RepoPackageArgsFunction.INSTANCE);
-    map.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(externalPackageHelper));
     // Inject an empty default BAZEL_DEP_GRAPH SkyFunction for unit tests.
     map.put(
         SkyFunctions.BAZEL_DEP_GRAPH,

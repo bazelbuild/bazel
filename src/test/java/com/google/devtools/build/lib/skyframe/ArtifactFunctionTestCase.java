@@ -24,14 +24,11 @@ import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -121,19 +118,6 @@ abstract class ArtifactFunctionTestCase {
                         null,
                         CrossRepositoryLabelViolationStrategy.ERROR,
                         BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
-                .put(
-                    WorkspaceFileValue.WORKSPACE_FILE,
-                    new WorkspaceFileFunction(
-                        TestRuleClassProvider.getRuleClassProvider(),
-                        TestPackageFactoryBuilderFactory.getInstance()
-                            .builder(directories)
-                            .build(TestRuleClassProvider.getRuleClassProvider(), fs),
-                        directories,
-                        /* bzlLoadFunctionForInlining= */ null))
-                .put(
-                    SkyFunctions.EXTERNAL_PACKAGE,
-                    new ExternalPackageFunction(
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,

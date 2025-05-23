@@ -336,77 +336,6 @@ public abstract class PackageFunction implements SkyFunction {
       throws InternalInconsistentFilesystemException, FileSymlinkException, InterruptedException;
 
   /**
-   * Adds a dependency on the WORKSPACE file, representing it as a special type of package.
-   *
-   * @throws PackageFunctionException if there is an error computing the workspace file or adding
-   *     its rules to the //external package.
-   */
-  @Nullable
-  private SkyValue getExternalPackage(Environment env)
-      throws PackageFunctionException, InterruptedException {
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (env.valuesMissing()) {
-      return null;
-    }
-    if (!starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
-      throw PackageFunctionException.builder()
-          .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)
-          .setTransience(Transience.PERSISTENT)
-          .setPackageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
-          .setMessage(
-              "//external package is not available since the WORKSPACE file is disabled, please"
-                  + " migrate to Bzlmod or temporarily enable WORKSPACE via --enable_workspace. See"
-                  + " https://bazel.build/external/migration#bind-targets.")
-          .setPackageLoadingCode(PackageLoading.Code.WORKSPACE_FILE_ERROR)
-          .build();
-    }
-
-    SkyKey workspaceKey = ExternalPackageFunction.key();
-    PackageValue workspace = null;
-    try {
-      // This may throw a NoSuchPackageException if the WORKSPACE file was malformed or had other
-      // problems. Since this function can't add much context, we silently bubble it up.
-      workspace =
-          (PackageValue)
-              env.getValueOrThrow(
-                  workspaceKey,
-                  IOException.class,
-                  EvalException.class,
-                  BzlLoadFailedException.class);
-    } catch (IOException | EvalException | BzlLoadFailedException e) {
-      String message = "Error encountered while dealing with the WORKSPACE file: " + e.getMessage();
-      throw PackageFunctionException.builder()
-          .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)
-          .setTransience(Transience.PERSISTENT)
-          .setPackageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
-          .setMessage(message)
-          .setPackageLoadingCode(PackageLoading.Code.WORKSPACE_FILE_ERROR)
-          .build();
-    }
-    if (workspace == null) {
-      return null;
-    }
-
-    Package pkg = workspace.getPackage();
-    if (packageFactory != null) {
-      try {
-        packageFactory.afterDoneLoadingPackage(
-            pkg,
-            starlarkSemantics,
-            // This is a lie.
-            /* loadTimeNanos= */ 0L,
-            env.getListener());
-      } catch (InvalidPackageException e) {
-        throw new PackageFunctionException(e, Transience.PERSISTENT);
-      }
-    }
-    if (!pkg.containsErrors()) {
-      numPackagesSuccessfullyLoaded.incrementAndGet();
-    }
-    return new PackageValue(pkg);
-  }
-
-  /**
    * Stores information needed to load the package. Subclasses are expected to provide different
    * types of containers which store glob deps information.
    */
@@ -445,17 +374,16 @@ public abstract class PackageFunction implements SkyFunction {
       packageId = packagePieceId.getPackageIdentifier();
     }
     if (packageId.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
-      if (packagePieceId != null) {
-        throw new PackageFunctionException(
-            new NoSuchPackagePieceException(
-                packagePieceId,
-                "The legacy "
-                    + LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER
-                    + " package does not support symbolic macros and cannot be"
-                    + " loaded in lazy symbolic macro expansion mode."),
-            Transience.PERSISTENT);
-      }
-      return getExternalPackage(env);
+      throw PackageFunctionException.builder()
+          .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)
+          .setTransience(Transience.PERSISTENT)
+          .setPackageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
+          .setMessage(
+              "//external package is not available since the WORKSPACE file is disabled, please"
+                  + " migrate to Bzlmod or temporarily enable WORKSPACE via --enable_workspace. See"
+                  + " https://bazel.build/external/migration#bind-targets.")
+          .setPackageLoadingCode(PackageLoading.Code.WORKSPACE_FILE_ERROR)
+          .build();
     }
 
     SkyKey packageLookupKey = PackageLookupValue.key(packageId);

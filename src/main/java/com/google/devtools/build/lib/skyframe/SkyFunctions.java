@@ -128,10 +128,6 @@ public final class SkyFunctions {
   static final SkyFunctionName COVERAGE_REPORT = SkyFunctionName.createHermetic("COVERAGE_REPORT");
   public static final SkyFunctionName REPOSITORY_DIRECTORY =
       SkyFunctionName.createNonHermetic("REPOSITORY_DIRECTORY");
-  public static final SkyFunctionName WORKSPACE_AST =
-      SkyFunctionName.createHermetic("WORKSPACE_AST");
-  public static final SkyFunctionName EXTERNAL_PACKAGE =
-      SkyFunctionName.createHermetic("EXTERNAL_PACKAGE");
   public static final SkyFunctionName ACTION_TEMPLATE_EXPANSION =
       SkyFunctionName.createHermetic("ACTION_TEMPLATE_EXPANSION");
   public static final SkyFunctionName LOCAL_REPOSITORY_LOOKUP =

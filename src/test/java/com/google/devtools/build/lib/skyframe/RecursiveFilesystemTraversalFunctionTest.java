@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValu
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
@@ -154,7 +152,6 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
         pkgLocator, ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS, directories);
 
-    ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
     skyFunctions.put(
         FileStateKey.FILE_STATE,
@@ -179,18 +176,6 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP);
     skyFunctions.put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build());
-    skyFunctions.put(
-        WorkspaceFileValue.WORKSPACE_FILE,
-        new WorkspaceFileFunction(
-            ruleClassProvider,
-            analysisMock
-                .getPackageFactoryBuilderForTesting(directories)
-                .build(ruleClassProvider, fileSystem),
-            directories,
-            /*bzlLoadFunctionForInlining=*/ null));
-    skyFunctions.put(
-        SkyFunctions.EXTERNAL_PACKAGE,
-        new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
         SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
         new LocalRepositoryLookupFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));

@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.packages.Package.Builder.PackageLimits;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViolationException;
 import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
@@ -756,40 +755,6 @@ public class Package extends Packageoid {
         globber,
         enableNameConflictChecking,
         trackFullMacroInformation,
-        packageLimits);
-  }
-
-  public static Builder newExternalPackageBuilder(
-      PackageSettings packageSettings,
-      WorkspaceFileKey workspaceFileKey,
-      String workspaceName,
-      RepositoryMapping mainRepoMapping,
-      boolean noImplicitFileExport,
-      boolean simplifyUnconditionalSelectsInRuleAttrs,
-      PackageOverheadEstimator packageOverheadEstimator,
-      PackageLimits packageLimits) {
-    return new Builder(
-        Metadata.builder()
-            .packageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
-            .buildFilename(workspaceFileKey.getPath())
-            .isRepoRulePackage(true)
-            .repositoryMapping(mainRepoMapping)
-            .succinctTargetNotFoundErrors(packageSettings.succinctTargetNotFoundErrors())
-            .build(),
-        // The SymbolGenerator is based on workspaceFileKey rather than a package id or path,
-        // in order to distinguish different chunks of the same WORKSPACE file.
-        SymbolGenerator.create(workspaceFileKey),
-        packageSettings.precomputeTransitiveLoads(),
-        noImplicitFileExport,
-        simplifyUnconditionalSelectsInRuleAttrs,
-        workspaceName,
-        mainRepoMapping,
-        /* cpuBoundSemaphore= */ null,
-        packageOverheadEstimator,
-        /* generatorMap= */ null,
-        /* globber= */ null,
-        /* enableNameConflictChecking= */ true,
-        /* trackFullMacroInformation= */ true,
         packageLimits);
   }
 

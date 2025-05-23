@@ -36,9 +36,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
-import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.NeverUpToDateRepoRecordedInput;
@@ -172,7 +170,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
             repositoryName);
       }
 
-      Rule rule = getRepositoryRule(env, repositoryName, starlarkSemantics);
+      Rule rule = getRepositoryRule(env, repositoryName);
       if (env.valuesMissing()) {
         return null;
       }
@@ -403,30 +401,16 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   @Nullable
-  private Rule getRepositoryRule(
-      Environment env, RepositoryName repositoryName, StarlarkSemantics starlarkSemantics)
-      throws InterruptedException, RepositoryFunctionException {
-    if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
-      // Tries to get a repository rule instance from Bzlmod generated repos.
-      SkyKey key = BzlmodRepoRuleValue.key(repositoryName);
-      BzlmodRepoRuleValue value = (BzlmodRepoRuleValue) env.getValue(key);
-      if (env.valuesMissing()) {
-        return null;
-      }
-      if (value != BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE) {
-        return value.getRule();
-      }
+  private Rule getRepositoryRule(Environment env, RepositoryName repositoryName)
+      throws InterruptedException {
+    SkyKey key = BzlmodRepoRuleValue.key(repositoryName);
+    BzlmodRepoRuleValue value = (BzlmodRepoRuleValue) env.getValue(key);
+    if (env.valuesMissing()) {
+      return null;
     }
-
-    if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
-      // fallback to look up the repository in the WORKSPACE file.
-      try {
-        return getRepoRuleFromWorkspace(repositoryName, env);
-      } catch (NoSuchRepositoryException e) {
-        return null;
-      }
+    if (value != BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE) {
+      return value.getRule();
     }
-
     return null;
   }
 
@@ -512,24 +496,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
     env.getListener().post(RepositoryFetchProgress.finished(repoName));
     return Preconditions.checkNotNull(result);
-  }
-
-  /**
-   * Uses a remote repository name to fetch the corresponding Rule describing how to get it. This
-   * should be called from {@link SkyFunction#compute} functions, which should return null if this
-   * returns null.
-   */
-  @Nullable
-  private Rule getRepoRuleFromWorkspace(RepositoryName repositoryName, Environment env)
-      throws InterruptedException, RepositoryFunctionException, NoSuchRepositoryException {
-    try {
-      return externalPackageHelper.getRuleByName(repositoryName.getName(), env);
-    } catch (ExternalRuleNotFoundException e) {
-      // This is caught and handled immediately in compute().
-      throw new NoSuchRepositoryException();
-    } catch (ExternalPackageException e) {
-      throw new RepositoryFunctionException(e);
-    }
   }
 
   @Nullable
@@ -807,7 +773,4 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       }
     }
   }
-
-  /** Marker exception for the case where a repository is not defined. */
-  private static final class NoSuchRepositoryException extends Exception {}
 }

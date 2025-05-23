@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
@@ -130,18 +129,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         new RepoFileFunction(
             ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()));
     skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.INSTANCE);
-    skyFunctions.put(
-        WorkspaceFileValue.WORKSPACE_FILE,
-        new WorkspaceFileFunction(
-            ruleClassProvider,
-            analysisMock
-                .getPackageFactoryBuilderForTesting(directories)
-                .build(ruleClassProvider, fileSystem),
-            directories,
-            /*bzlLoadFunctionForInlining=*/ null));
-    skyFunctions.put(
-        SkyFunctions.EXTERNAL_PACKAGE,
-        new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
         SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
         new LocalRepositoryLookupFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));

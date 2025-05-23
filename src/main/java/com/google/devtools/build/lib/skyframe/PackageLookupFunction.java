@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -130,10 +129,7 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     if (packageKey.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
-      return semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE)
-              || !semantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)
-          ? PackageLookupValue.NO_BUILD_FILE_VALUE
-          : computeWorkspacePackageLookupValue(env);
+      return PackageLookupValue.NO_BUILD_FILE_VALUE;
     }
 
     // Check .bazelignore file under main repository.
@@ -352,32 +348,6 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     return PackageLookupValue.NO_BUILD_FILE_VALUE;
-  }
-
-  @Nullable
-  private PackageLookupValue computeWorkspacePackageLookupValue(Environment env)
-      throws InterruptedException {
-    RootedPath workspaceFile = externalPackageHelper.findWorkspaceFile(env);
-    if (env.valuesMissing()) {
-      return null;
-    }
-
-    if (workspaceFile == null) {
-      return PackageLookupValue.NO_BUILD_FILE_VALUE;
-    } else {
-      BuildFileName filename = null;
-      for (BuildFileName candidate : BuildFileName.values()) {
-        if (workspaceFile.getRootRelativePath().equals(candidate.getFilenameFragment())) {
-          filename = candidate;
-          break;
-        }
-      }
-
-      // Otherwise ExternalPackageUtil.findWorkspaceFile() returned something whose name is not in
-      // BuildFileName
-      Verify.verify(filename != null);
-      return PackageLookupValue.success(workspaceFile.getRoot(), filename);
-    }
   }
 
   /**

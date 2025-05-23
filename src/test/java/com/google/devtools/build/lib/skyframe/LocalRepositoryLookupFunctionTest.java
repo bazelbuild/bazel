@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -104,19 +102,6 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
         new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE));
-    RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
-    skyFunctions.put(
-        WorkspaceFileValue.WORKSPACE_FILE,
-        new WorkspaceFileFunction(
-            ruleClassProvider,
-            analysisMock
-                .getPackageFactoryBuilderForTesting(directories)
-                .build(ruleClassProvider, fileSystem),
-            directories,
-            /*bzlLoadFunctionForInlining=*/ null));
-    skyFunctions.put(
-        SkyFunctions.EXTERNAL_PACKAGE,
-        new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
         SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
         new LocalRepositoryLookupFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
