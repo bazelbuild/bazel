@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.OutputChecker;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
@@ -279,16 +280,28 @@ public class RemoteOutputChecker implements OutputChecker {
   @Override
   public boolean shouldDownloadOutput(ActionInput output, FileArtifactValue metadata) {
     checkState(
-        !(output instanceof Artifact && ((Artifact) output).isTreeArtifact()),
+        !(output instanceof Artifact artifact && artifact.isTreeArtifact()),
         "shouldDownloadOutput should not be called on a tree artifact");
-    return metadata.isRemote() && shouldDownloadOutput(output.getExecPath());
+    return metadata.isRemote()
+        && shouldDownloadOutput(
+            output.getExecPath(),
+            output instanceof TreeFileArtifact artifact
+                ? artifact.getParent().getExecPath()
+                : null);
   }
 
-  /** Returns whether a remote {@link ActionInput} with the given path should be downloaded. */
-  public boolean shouldDownloadOutput(PathFragment execPath) {
+  /**
+   * Returns whether a remote {@link ActionInput} with the given path should be downloaded.
+   *
+   * @param treeRootExecPath the path of the tree artifact if the given {@link ActionInput} is
+   *     contained in one
+   */
+  public boolean shouldDownloadOutput(
+      PathFragment execPath, @Nullable PathFragment treeRootExecPath) {
     return outputsMode == RemoteOutputsMode.ALL
         || pathsToDownload.contains(execPath)
-        || matchesPattern(execPath);
+        || matchesPattern(execPath)
+        || (treeRootExecPath != null && matchesPattern(treeRootExecPath));
   }
 
   @Override
