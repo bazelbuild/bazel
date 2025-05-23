@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Reason;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -69,6 +70,7 @@ import java.util.List;
 import java.util.NavigableSet;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -301,15 +303,23 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     this.action = action;
   }
 
-  void injectRemoteFile(PathFragment path, byte[] digest, long size, Instant expirationTime)
-      throws IOException {
+  /**
+   * Injects a remote file into the output tree associated with the provided metadata.
+   *
+   * @return a consumer of a {@link FileContentsProxy} that can be supplied with the known local
+   *     file info if the remote file is later materialized
+   */
+  @Nullable
+  Consumer<FileContentsProxy> injectRemoteFile(
+      PathFragment path, byte[] digest, long size, Instant expirationTime) throws IOException {
     if (!isOutput(path)) {
-      return;
+      return null;
     }
     var metadata =
         FileArtifactValue.createForRemoteFileWithMaterializationData(
             digest, size, /* locationIndex= */ 1, expirationTime);
     remoteOutputTree.injectFile(path, metadata);
+    return metadata::setContentsProxy;
   }
 
   @Override

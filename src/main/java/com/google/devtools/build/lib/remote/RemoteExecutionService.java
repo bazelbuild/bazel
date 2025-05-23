@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -144,12 +145,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.SequencedSet;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -165,6 +164,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -1346,10 +1346,27 @@ public class RemoteExecutionService {
     // This avoids holding the output lock while downloading, which would prevent the local branch
     // from completing sooner under the dynamic execution strategy.
     Map<Path, Path> realToTmpPath = new HashMap<>();
+    // Files that are downloaded should be stated after they have been moved to their final
+    // locations so that future invalidation checks are faster.
+    Map<Path, Consumer<FileContentsProxy>> pathsToStat = new HashMap<>();
 
     for (FileMetadata file : metadata.files()) {
       if (realToTmpPath.containsKey(file.path)) {
         continue;
+      }
+
+      Consumer<FileContentsProxy> proxyConsumer;
+      if (hasBazelOutputService) {
+        proxyConsumer = null;
+        downloadsBuilder.add(immediateFuture(file));
+      } else {
+        proxyConsumer =
+            checkNotNull(remoteActionFileSystem)
+                .injectRemoteFile(
+                    file.path().asFragment(),
+                    DigestUtil.toBinaryDigest(file.digest()),
+                    file.digest().getSizeBytes(),
+                    expirationTime);
       }
 
       var execPath = file.path.relativeTo(execRoot);
@@ -1357,6 +1374,9 @@ public class RemoteExecutionService {
       if (!isInMemoryOutputFile && shouldDownload(result, execPath, /* treeRootExecPath= */ null)) {
         Path tmpPath = tempPathGenerator.generateTempPath();
         realToTmpPath.put(file.path, tmpPath);
+        if (proxyConsumer != null) {
+          pathsToStat.put(file.path(), proxyConsumer);
+        }
         downloadsBuilder.add(
             downloadFile(
                 context, progressStatusListener, file, tmpPath, action.getRemotePathResolver()));
@@ -1384,20 +1404,9 @@ public class RemoteExecutionService {
           inMemoryOutputData.set(file.contents);
         }
       }
-
-      if (hasBazelOutputService) {
-        downloadsBuilder.add(immediateFuture(file));
-      } else {
-        checkNotNull(remoteActionFileSystem)
-            .injectRemoteFile(
-                file.path().asFragment(),
-                DigestUtil.toBinaryDigest(file.digest()),
-                file.digest().getSizeBytes(),
-                expirationTime);
-      }
     }
 
-    SequencedSet<Path> dirsWithOutputPermissions = new LinkedHashSet<>();
+    Set<Path> dirsWithOutputPermissions = new HashSet<>();
     for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories().entrySet()) {
       PathFragment treeRootExecPath = entry.getKey().relativeTo(execRoot);
       for (FileMetadata file : entry.getValue().files()) {
@@ -1405,9 +1414,26 @@ public class RemoteExecutionService {
           continue;
         }
 
+        Consumer<FileContentsProxy> proxyConsumer;
+        if (hasBazelOutputService) {
+          proxyConsumer = null;
+          downloadsBuilder.add(immediateFuture(file));
+        } else {
+          proxyConsumer =
+              checkNotNull(remoteActionFileSystem)
+                  .injectRemoteFile(
+                      file.path().asFragment(),
+                      DigestUtil.toBinaryDigest(file.digest()),
+                      file.digest().getSizeBytes(),
+                      expirationTime);
+        }
+
         if (shouldDownload(result, file.path.relativeTo(execRoot), treeRootExecPath)) {
           Path tmpPath = tempPathGenerator.generateTempPath();
           realToTmpPath.put(file.path, tmpPath);
+          if (proxyConsumer != null) {
+            pathsToStat.put(file.path(), proxyConsumer);
+          }
           downloadsBuilder.add(
               downloadFile(
                   context, progressStatusListener, file, tmpPath, action.getRemotePathResolver()));
@@ -1418,16 +1444,6 @@ public class RemoteExecutionService {
               break;
             }
           }
-        }
-        if (hasBazelOutputService) {
-          downloadsBuilder.add(immediateFuture(file));
-        } else {
-          checkNotNull(remoteActionFileSystem)
-              .injectRemoteFile(
-                  file.path().asFragment(),
-                  DigestUtil.toBinaryDigest(file.digest()),
-                  file.digest().getSizeBytes(),
-                  expirationTime);
         }
       }
     }
@@ -1478,6 +1494,11 @@ public class RemoteExecutionService {
     } else {
       moveOutputsToFinalLocation(
           Iterables.transform(finishedDownloads, FileMetadata::path), realToTmpPath);
+      for (var entry : pathsToStat.entrySet()) {
+        var path = entry.getKey();
+        var proxyConsumer = entry.getValue();
+        proxyConsumer.accept(FileContentsProxy.create(path.stat()));
+      }
     }
 
     List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();

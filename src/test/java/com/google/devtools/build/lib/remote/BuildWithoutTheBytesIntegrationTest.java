@@ -34,6 +34,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -58,6 +59,7 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.ClassRule;
@@ -1337,6 +1339,22 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
                         e -> e.getKey().getParentRelativePath().getPathString(),
                         e -> ByteString.copyFrom(e.getValue().getDigest()))))
         .containsExactlyEntriesIn(expectedChildren.buildOrThrow());
+
+    // Assert that the metadata set for the downloaded file has a proxy that is still up-to-date and
+    // thus won't be invalidated on the next build.
+    var downloadedFileMetadata =
+        fooMetadata.getChildValues().entrySet().stream()
+            .filter(
+                e ->
+                    e.getKey()
+                        .getParentRelativePath()
+                        .equals(PathFragment.createAlreadyNormalized("dir-4/file-2")))
+            .map(Map.Entry::getValue)
+            .findFirst()
+            .get();
+    assertThat(downloadedFileMetadata.getContentsProxy())
+        .isEqualTo(
+            FileContentsProxy.create(getOutputPath("foo/dir-4/file-2").stat(Symlinks.NOFOLLOW)));
   }
 
   /**
