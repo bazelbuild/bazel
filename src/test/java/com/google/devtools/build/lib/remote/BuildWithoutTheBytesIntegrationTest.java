@@ -1246,6 +1246,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     buildTarget("//:foobar");
     waitDownloads();
 
+    // Assert on the number and types of local file system operations.
     var spiedLocalFS = (SpiedFileSystem) fileSystem;
     var fooPath = getOutputPath("foo").asFragment();
     // Once as a parent of a downloaded file, once as a parent of a symlink. This may be optimized
@@ -1270,6 +1271,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
             .toList();
     //    assertThat(childrenOfFooOperations).isEmpty();
 
+    // Assert that the output directory for the tree is as expected.
     // Keep these assertions after the assertson spiedLocalFs as they result in additional IO.
     for (int i = 0; i < 5; i++) {
       var dir = "foo/dir-%d".formatted(i);
@@ -1291,6 +1293,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
       }
     }
 
+    // Assert that the metadata of the tree is as expected.
     var fooMetadata = getTreeArtifactValue(getArtifact("//:foo", "foo"));
     var expectedChildren = ImmutableMap.<String, ByteString>builder();
     for (int i = 0; i < 5; i++) {
