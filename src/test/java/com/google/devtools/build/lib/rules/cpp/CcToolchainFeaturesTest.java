@@ -24,20 +24,14 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.Sequence;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
@@ -46,12 +40,10 @@ import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.TextFormat;
-import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -111,19 +103,6 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
       }
     }
     return enabledFeatures.build();
-  }
-
-  private Artifact scratchArtifact(String s) {
-    Path execRoot = outputBase.getRelative("exec");
-    String outSegment = "out";
-    Path outputRoot = execRoot.getRelative(outSegment);
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, outSegment);
-    try {
-      return ActionsTestUtil.createArtifact(
-          root, scratch.overwriteFile(outputRoot.getRelative(s).toString()));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
   }
 
   @Test
@@ -1824,38 +1803,6 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains(String.format(ActionConfig.FLAG_SET_WITH_ACTION_ERROR, "c++-compile"));
-  }
-
-  @Test
-  public void testLibraryToLinkValue() throws ExpansionException {
-    assertThat(
-            LibraryToLinkValue.forDynamicLibrary("foo")
-                .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.NAME_FIELD_NAME)
-                .getStringValue(LibraryToLinkValue.NAME_FIELD_NAME, PathMapper.NOOP))
-        .isEqualTo("foo");
-    assertThat(
-            LibraryToLinkValue.forDynamicLibrary("foo")
-                .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.OBJECT_FILES_FIELD_NAME))
-        .isNull();
-
-    ImmutableList<Artifact> testArtifacts =
-        ImmutableList.of(scratchArtifact("foo"), scratchArtifact("bar"));
-
-    assertThat(
-            LibraryToLinkValue.forObjectFileGroup(testArtifacts, false)
-                .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.NAME_FIELD_NAME))
-        .isNull();
-    Iterable<? extends VariableValue> objects =
-        CcToolchainVariables.getSequenceValue(
-            "LibraryToLinkValue",
-            LibraryToLinkValue.forObjectFileGroup(testArtifacts, false)
-                .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.OBJECT_FILES_FIELD_NAME));
-    ImmutableList.Builder<String> objectNames = ImmutableList.builder();
-    for (VariableValue object : objects) {
-      objectNames.add(object.getStringValue("name", PathMapper.NOOP));
-    }
-    assertThat(objectNames.build())
-        .containsExactlyElementsIn(Iterables.transform(testArtifacts, Artifact::getExecPathString));
   }
 
   @Test

@@ -21,6 +21,8 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Info;
@@ -46,7 +49,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.MapVariables;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
@@ -70,6 +72,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Location;
 
 /** Utility methods for rules in Starlark Builtins */
@@ -510,55 +513,14 @@ public class CcStarlarkInternal implements StarlarkValue {
     ctx.getRuleContext().registerAction(action);
   }
 
-  @StarlarkMethod(
-      name = "for_static_library",
-      documented = false,
-      parameters = {@Param(name = "name"), @Param(name = "is_whole_archive", named = true)})
-  public LibraryToLinkValue forStaticLibrary(String name, boolean isWholeArchive) {
-    return LibraryToLinkValue.forStaticLibrary(name, isWholeArchive);
-  }
+  private static final Interner<Object> interner = BlazeInterners.newWeakInterner();
 
   @StarlarkMethod(
-      name = "for_object_file_group",
+      name = "intern_seq",
       documented = false,
-      parameters = {@Param(name = "files"), @Param(name = "is_whole_archive", named = true)})
-  public LibraryToLinkValue forObjectFileGroup(Sequence<?> files, boolean isWholeArchive)
-      throws EvalException {
-    return LibraryToLinkValue.forObjectFileGroup(
-        ImmutableList.copyOf(Sequence.cast(files, Artifact.class, "files")), isWholeArchive);
-  }
-
-  @StarlarkMethod(
-      name = "for_object_file",
-      documented = false,
-      parameters = {@Param(name = "name"), @Param(name = "is_whole_archive", named = true)})
-  public LibraryToLinkValue forObjectFile(String name, boolean isWholeArchive) {
-    return LibraryToLinkValue.forObjectFile(name, isWholeArchive);
-  }
-
-  @StarlarkMethod(
-      name = "for_interface_library",
-      documented = false,
-      parameters = {@Param(name = "name")})
-  public LibraryToLinkValue forInterfaceLibrary(String name) throws EvalException {
-    return LibraryToLinkValue.forInterfaceLibrary(name);
-  }
-
-  @StarlarkMethod(
-      name = "for_dynamic_library",
-      documented = false,
-      parameters = {@Param(name = "name")})
-  public LibraryToLinkValue forDynamicLibrary(String name) throws EvalException {
-    return LibraryToLinkValue.forDynamicLibrary(name);
-  }
-
-  @StarlarkMethod(
-      name = "for_versioned_dynamic_library",
-      documented = false,
-      parameters = {@Param(name = "name"), @Param(name = "path")})
-  public LibraryToLinkValue forVersionedDynamicLibrary(String name, String path)
-      throws EvalException {
-    return LibraryToLinkValue.forVersionedDynamicLibrary(name, path);
+      parameters = {@Param(name = "seq")})
+  public Sequence<?> internList(Sequence<?> seq) {
+    return Tuple.copyOf(Iterables.transform(seq, interner::intern));
   }
 
   @StarlarkMethod(

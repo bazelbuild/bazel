@@ -156,6 +156,10 @@ def finalize_link_action(
         libraries_to_link_values,
     )
 
+    # Interning is necessary because the values are repeated so often.
+    # Without it, this causes a very large regression.
+    libraries_to_link_values = cc_internal.intern_seq(libraries_to_link_values)
+
     if lto_map:
         fail("Still have LTO objects left: %s" % lto_map)
     expanded_linker_artifacts = depset([
