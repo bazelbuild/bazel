@@ -344,6 +344,12 @@ public final class RemoteModule extends BlazeModule {
     boolean enableRemoteDownloader = shouldEnableRemoteDownloader(remoteOptions);
 
     if (enableDiskCache) {
+      if (env.getOutputBase().startsWith(remoteOptions.diskCache)) {
+        // This is dangerous as the disk cache GC may delete files in the output base.
+        throw createOptionsExitException(
+            "The --disk_cache directory cannot be a subdirectory of the output base",
+            FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
+      }
       var gcIdleTask =
           DiskCacheGarbageCollectorIdleTask.create(remoteOptions, env.getWorkingDirectory());
       if (gcIdleTask != null) {

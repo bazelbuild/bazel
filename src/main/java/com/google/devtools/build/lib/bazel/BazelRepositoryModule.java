@@ -376,6 +376,18 @@ public class BazelRepositoryModule extends BlazeModule {
         repositoryCache.getRepoContentsCache().setPath(toPath(repoOptions.repoContentsCache, env));
       }
       Path repoContentsCachePath = repositoryCache.getRepoContentsCache().getPath();
+      if (repoContentsCachePath != null && env.getOutputBase().startsWith(repoContentsCachePath)) {
+        // This is dangerous as the repo contents cache GC may delete files in the output base.
+        throw new AbruptExitException(
+            detailedExitCode(
+                """
+                The repo contents cache [%s] is inside the output base [%s]. This can cause \
+                spurious failures. Disable the repo contents cache with `--repo_contents_cache=`, \
+                or specify `--repo_contents_cache=<path outside the output base>`.
+                """
+                    .formatted(repoContentsCachePath, env.getOutputBase()),
+                Code.BAD_REPO_CONTENTS_CACHE));
+      }
       if (repoContentsCachePath != null
           && env.getWorkspace() != null
           && repoContentsCachePath.startsWith(env.getWorkspace())) {
