@@ -163,7 +163,7 @@ def _cc_import_impl(ctx):
         cc_toolchain = cc_toolchain,
         compilation_contexts = compilation_contexts,
         public_hdrs = ctx.files.hdrs,
-        includes = ctx.attr.includes,
+        includes = cc_helper.system_include_dirs(ctx, {}),
         name = ctx.label.name,
     )
 

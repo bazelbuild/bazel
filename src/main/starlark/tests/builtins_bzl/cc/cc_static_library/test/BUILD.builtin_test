@@ -41,6 +41,19 @@ cc_import(
     static_library = ":static",
 )
 
+cc_import(
+    name = "static_import_includes",
+    hdrs = ["nested/nested_bar.h"],
+    includes = ["nested"],
+    static_library = ":static",
+)
+
+cc_test(
+    name = "test_static_import_includes",
+    srcs = ["test_static_import_includes.cc"],
+    deps = [":static_import_includes"],
+)
+
 cc_test(
     name = "test",
     srcs = ["test.cc"],
