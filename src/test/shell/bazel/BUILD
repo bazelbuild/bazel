@@ -612,7 +612,10 @@ sh_test(
     name = "bazel_coverage_starlark_test",
     srcs = ["bazel_coverage_starlark_test.sh"],
     args = ["released"],
-    data = [":test-deps"],
+    data = [
+        ":test-deps",
+        "@genhtml",
+    ],
     tags = [
         "no_windows",
     ],
@@ -629,6 +632,7 @@ sh_test(
         ":test-deps",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo_java8",
+        "@genhtml",
     ],
     tags = [
         "no_windows",

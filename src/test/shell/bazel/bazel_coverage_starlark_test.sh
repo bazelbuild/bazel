@@ -363,7 +363,23 @@ my_test(
     deps = [":tested_libs"],
 )
 EOF
-    touch test/{untested_1.txt,untested_2.txt,covered_1.txt,covered_2.txt,test_1.txt,test_2.txt}
+    touch test/{untested_1.txt,untested_2.txt,test_1.txt,test_2.txt}
+    cat <<EOF > test/covered_1.txt
+hit
+not hit
+EOF
+    cat <<EOF > test/covered_2.txt
+hit
+not hit
+EOF
+    cat <<EOF > test/untested_1.txt
+nonempty
+line
+EOF
+    cat <<EOF > test/test_1.txt
+nonempty
+line
+EOF
 
     bazel coverage //test:my_test //test:all_libs --combined_report=lcov &> $TEST_log \
         || fail "Coverage run failed but should have succeeded."
@@ -397,6 +413,11 @@ LF:0
 end_of_record"
 
     assert_coverage_result "$expected_coverage" bazel-out/_coverage/_coverage_report.dat
+
+    # Verify that genhtml can process the coverage report.
+    "$(rlocation genhtml/bin/genhtml)" bazel-out/_coverage/_coverage_report.dat \
+        --output-directory="$TEST_UNDECLARED_OUTPUTS_DIR/$TEST_name" &> $TEST_log \
+        || fail "genhtml failed but should have succeeded."
 }
 
 run_suite "test tests"
