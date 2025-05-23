@@ -695,7 +695,9 @@ public class AutoloadSymbols {
           "build_bazel_apple_support",
           "bazel_skylib",
           "bazel_tools",
-          "bazel_features");
+          "bazel_features",
+          "bazel_features_version",
+          "bazel_features_globals");
 
   private static final ImmutableMap<String, Version> requiredVersionForModules;
 
