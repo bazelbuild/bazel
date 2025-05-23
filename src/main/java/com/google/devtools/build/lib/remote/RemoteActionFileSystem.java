@@ -115,7 +115,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   private final RemoteInMemoryFileSystem remoteOutputTree;
   // Concurrent access is rare and most builds don't have lost inputs.
   private final List<LostArtifacts> lostInputs = Collections.synchronizedList(new ArrayList<>(0));
-  private final NavigableSet<PathFragment> remoteTreeArtifactPaths = new TreeSet<>();
+  private final NavigableSet<PathFragment> completeRemoteSubtreePaths = new TreeSet<>();
 
   @Nullable private ActionExecutionMetadata action = null;
 
@@ -943,16 +943,16 @@ public class RemoteActionFileSystem extends AbstractFileSystem
    * <p>Must not be called concurrently with any other fileystem operation.
    */
   @ThreadCompatible
-  public void markSubTreeAsFullyRemote(SpecialArtifact treeArtifact) {
+  public void remoteSubtreeComplete(SpecialArtifact treeArtifact) {
     checkArgument(treeArtifact.isTreeArtifact());
-    remoteTreeArtifactPaths.add(treeArtifact.getPath().asFragment());
+    completeRemoteSubtreePaths.add(treeArtifact.getPath().asFragment());
   }
 
   private boolean canSkipLocalFs(PathFragment path) {
     // Bazel ensures that artifact paths don't overlap, so no entry in the set is a prefix of any
     // other. We can thus check whether any path in it is a prefix of the given path simply by
     // checking the lexicographically preceding entry.
-    var floor = remoteTreeArtifactPaths.floor(path);
+    var floor = completeRemoteSubtreePaths.floor(path);
     return floor != null && path.startsWith(floor);
   }
 
