@@ -10,6 +10,7 @@ package(
 
 filegroup(
     name = "srcs",
+    testonly = False,
     srcs = glob(["**"]),
     visibility = ["//src:__subpackages__"],
 )
