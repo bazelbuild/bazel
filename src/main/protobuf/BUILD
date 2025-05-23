@@ -418,7 +418,9 @@ java_library_srcs(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/main/protobuf/project:srcs",
+    ],
 )
 
 filegroup(
