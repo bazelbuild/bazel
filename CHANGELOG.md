@@ -1,3 +1,30 @@
+## Release 9.0.0-pre.20250516.1 (2025-05-23)
+
+```
+Baseline: 9b8093bb4db3d6567e0f29eaa98fe16cd2e4a154
+```
+
+Incompatible changes:
+
+  - Starlark computation step limits are now enforced for symbolic
+    macros.
+
+Important changes:
+
+  - java_import.jars attributes can no longer be empty, and
+    --noincompatible_disallow_java_import_empty_jars is no longer
+    supported
+  - Added `--verbose_visibility_errors` for printing more information
+    when a visibility violation occurs.
+  - Added a new flag `--repo_contents_cache` (defaults to the
+    `contents` directory under the `--repository_cache`) where Bazel
+    stores fetched contents of repos that can be safely cached across
+    workspaces. A repo rule can indicate cacheability by returning
+    `repository_ctx.repo_metadata(reproducible=True)` from its
+    implementation function.
+
+This release contains contributions from many people at Google, as well as Adin Cebic, Benjamin Peterson, Bo Zhang, Chris Sauer, dependabot[bot], Dmitry Ivankov, Fabian Meumertzheim, George Gensure, Grzegorz Lukasik, jacqueline.lee, Jonathan Schear, Thi Don, Xdng Yng.
+
 ## Release 9.0.0-pre.20250506.6 (2025-05-15)
 
 ```
