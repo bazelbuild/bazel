@@ -40,7 +40,7 @@ public interface JavaInfoApi<
   @StarlarkMethod(
       name = "transitive_runtime_jars",
       doc =
-          """
+"""
 Returns a transitive set of Jars required on the target's runtime classpath.
 <p/>Note: for binary targets (such as java_binary and java_test), this is empty, since such targets
 are not intended to be dependencies of other Java targets.
@@ -51,7 +51,7 @@ are not intended to be dependencies of other Java targets.
   @StarlarkMethod(
       name = "transitive_compile_time_jars",
       doc =
-          """
+"""
 Returns the transitive set of Jars required to build the target.
 <p/>Note: for binary targets (such as java_binary and java_test), this is empty, since such targets
 are not intended to be dependencies of other Java targets.
@@ -86,6 +86,12 @@ are not intended to be dependencies of other Java targets.
               + " href=\"#compile_jars\">JavaInfo.compile_jars</a></code></li>",
       structField = true)
   Depset getFullCompileTimeJars();
+
+  @StarlarkMethod(
+      name = "header_compilation_direct_deps",
+      doc = "Returns the direct dependencies of the header compilation action.",
+      structField = true)
+  Depset headerCompilationDirectDeps();
 
   @StarlarkMethod(
       name = "source_jars",
