@@ -106,6 +106,7 @@ public class ResourceJarActionBuilder {
             .add("--normalize")
             .add("--dont_change_compression")
             .add("--exclude_build_data")
+            .add("--no_strip_module_info") // bazelbuild/rules_java/issues/293
             .addExecPath("--output", outputJar);
     if (!resourceJars.isEmpty()) {
       command.addExecPaths("--sources", resourceJars);
