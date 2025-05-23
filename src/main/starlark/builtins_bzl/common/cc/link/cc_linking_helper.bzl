@@ -454,7 +454,7 @@ def _maybe_do_lto_indexing(*, link_type, linking_mode, compilation_outputs, libr
     if not has_lto_bitcode_inputs:
         for lib in static_libraries_to_link:
             pic = (prefer_pic_libs and lib.pic_static_library != None) or lib.static_library == None
-            context = lib.pic_lto_compilation_context() if pic else lib.lto_compilation_context()
+            context = lib._pic_lto_compilation_context if pic else lib._lto_compilation_context
             if context and context.lto_bitcode_inputs():
                 has_lto_bitcode_inputs = True
                 break

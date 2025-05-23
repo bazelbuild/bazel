@@ -190,7 +190,7 @@ def _add_static_library_to_link(
         expanded_linker_inputs,
         libraries_to_link_values):
     # input.disable_whole_archive should only be true for libstdc++/libc++ etc.
-    input_is_whole_archive = not library.disable_whole_archive() and (
+    input_is_whole_archive = not library._disable_whole_archive and (
         library.alwayslink or need_whole_archive
     )
 

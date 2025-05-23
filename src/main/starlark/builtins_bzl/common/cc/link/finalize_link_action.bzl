@@ -106,7 +106,7 @@ def finalize_link_action(
         cc_toolchain._cpp_configuration,
     )
 
-    must_keep_debug = any([lib.must_keep_debug() for lib in libraries_to_link])
+    must_keep_debug = any([lib._must_keep_debug for lib in libraries_to_link])
 
     toolchain_libraries_solib_dir = ""
     if feature_configuration.is_enabled("static_link_cpp_runtimes"):

@@ -80,20 +80,13 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
   @Nullable
   public abstract ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends();
 
-  @Nullable
-  public abstract LtoCompilationContext getLtoCompilationContext();
-
   @StarlarkMethod(
-      name = "lto_compilation_context",
+      name = "_lto_compilation_context",
       documented = false,
-      useStarlarkThread = true,
+      structField = true,
       allowReturnNones = true)
   @Nullable
-  public LtoCompilationContext getLtoCompilationContextForStarlark(StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return getLtoCompilationContext();
-  }
+  public abstract LtoCompilationContext getLtoCompilationContext();
 
   @Nullable
   public abstract ImmutableList<Artifact> getPicObjectFiles();
@@ -101,20 +94,13 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
   @Nullable
   public abstract ImmutableMap<Artifact, LtoBackendArtifacts> getPicSharedNonLtoBackends();
 
-  @Nullable
-  public abstract LtoCompilationContext getPicLtoCompilationContext();
-
   @StarlarkMethod(
-      name = "pic_lto_compilation_context",
+      name = "_pic_lto_compilation_context",
       documented = false,
-      useStarlarkThread = true,
+      structField = true,
       allowReturnNones = true)
   @Nullable
-  public LtoCompilationContext getPicLtoCompilationContextForStarlark(StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return getPicLtoCompilationContext();
-  }
+  public abstract LtoCompilationContext getPicLtoCompilationContext();
 
   public abstract AutoLibraryToLink.Builder toBuilder();
 
@@ -218,30 +204,15 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return backends != null ? Dict.immutableCopyOf(backends) : null;
   }
 
-  /** Return true if a pic library should effectively be selected */
-  public boolean getEffectivePic(boolean preferPicLibs) {
-    return (preferPicLibs && getPicStaticLibrary() != null) || getStaticLibrary() == null;
-  }
-
-  abstract boolean getMustKeepDebug();
-
   // TODO(b/338618120): This is just needed for Go, do not expose to Starlark and try to remove it.
   // This was introduced to let a linker input declare that it needs debug info in the executable.
   // Specifically, this was introduced for linking Go into a C++ binary when using the gccgo
   // compiler.
-  @StarlarkMethod(name = "must_keep_debug", documented = false, useStarlarkThread = true)
-  public final boolean getMustKeepDebugForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return getMustKeepDebug();
-  }
+  @StarlarkMethod(name = "_must_keep_debug", documented = false, structField = true)
+  public abstract boolean getMustKeepDebug();
 
-  abstract boolean getDisableWholeArchive();
-
-  @StarlarkMethod(name = "disable_whole_archive", documented = false, useStarlarkThread = true)
-  public boolean getDisableWholeArchiveForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return getDisableWholeArchive();
-  }
+  @StarlarkMethod(name = "_disable_whole_archive", documented = false, structField = true)
+  public abstract boolean getDisableWholeArchive();
 
   @Override
   public final void debugPrint(Printer printer, StarlarkThread thread) {

@@ -44,7 +44,7 @@ def create_lto_backends(
             # TODO(b/413333884): Clean up violations and error out
             continue
         static_library_files.add(library_file)
-        context = lib.pic_lto_compilation_context() if pic else lib.lto_compilation_context()
+        context = lib._pic_lto_compilation_context if pic else lib._lto_compilation_context
         if context:
             compiled.update(context.lto_bitcode_inputs().keys())
 
@@ -83,7 +83,7 @@ def create_lto_backends(
         objects = lib.pic_objects_private() if pic else lib.objects_private()
         if not objects:
             continue
-        lib_lto_compilation_context = lib.pic_lto_compilation_context() if pic else lib.lto_compilation_context()
+        lib_lto_compilation_context = lib._pic_lto_compilation_context if pic else lib._lto_compilation_context
         shared_lto_backends = lib.pic_shared_non_lto_backends() if pic else lib.shared_non_lto_backends()
 
         for obj in objects:

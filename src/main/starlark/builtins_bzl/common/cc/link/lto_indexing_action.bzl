@@ -176,12 +176,12 @@ def _lto_indexing_action(
             library_artifact = lib.pic_static_library
             objects = lib.pic_objects_private()
             shared_non_lto_backends = lib.pic_shared_non_lto_backends()
-            lib_lto_compilation_context = lib.pic_lto_compilation_context()
+            lib_lto_compilation_context = lib._pic_lto_compilation_context
         else:
             library_artifact = lib.static_library
             objects = lib.objects_private()
             shared_non_lto_backends = lib.shared_non_lto_backends()
-            lib_lto_compilation_context = lib.lto_compilation_context()
+            lib_lto_compilation_context = lib._lto_compilation_context
         if library_artifact in static_library_artifacts:
             # Duplicated static libraries are linked just once and don't error out.
             # TODO(b/413333884): Clean up violations and error out
