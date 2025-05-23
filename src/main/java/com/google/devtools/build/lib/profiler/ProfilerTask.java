@@ -90,6 +90,7 @@ public enum ProfilerTask {
   REPOSITORY_VENDOR("Vendoring repository"),
   REPO_CACHE_GC_WAIT("blocked on repo contents cache GC", Threshold.TEN_MILLIS),
   SPAWN_LOG("logging spawn", Threshold.TEN_MILLIS),
+  RPC("RPC"),
 
   UNKNOWN("Unknown event");
 
