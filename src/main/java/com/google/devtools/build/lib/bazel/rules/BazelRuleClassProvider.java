@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.bazel.BazelConfiguration;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageCallable;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
@@ -55,7 +56,6 @@ import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextGuardedValue;
-import com.google.devtools.build.lib.starlarkbuildapi.python.PyBootstrap;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -288,6 +288,13 @@ public class BazelRuleClassProvider {
 
   public static final RuleSet PYTHON_RULES =
       new RuleSet() {
+        public static final ImmutableSet<PackageIdentifier> allowedRepositories =
+            ImmutableSet.of(
+                PackageIdentifier.createUnchecked("_builtins", ""),
+                PackageIdentifier.createUnchecked("bazel_tools", ""),
+                PackageIdentifier.createUnchecked("rules_python", ""),
+                PackageIdentifier.createUnchecked("", "tools/build_defs/python"));
+
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           builder.addConfigurationFragment(PythonConfiguration.class);
@@ -296,8 +303,7 @@ public class BazelRuleClassProvider {
           // This symbol is overridden by exports.bzl
           builder.addBzlToplevel(
               "py_internal",
-              ContextGuardedValue.onlyInAllowedRepos(
-                  Starlark.NONE, PyBootstrap.allowedRepositories));
+              ContextGuardedValue.onlyInAllowedRepos(Starlark.NONE, allowedRepositories));
           builder.addStarlarkBuiltinsInternal(BazelPyBuiltins.NAME, new BazelPyBuiltins());
 
           try {
