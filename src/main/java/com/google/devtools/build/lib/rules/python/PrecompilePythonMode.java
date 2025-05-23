@@ -30,12 +30,4 @@ public enum PrecompilePythonMode {
 
   /** The default mode for the platform. */
   DEFAULT;
-
-  public boolean shouldPrecompileProtos() {
-    return this != NONE;
-  };
-
-  public boolean shouldPrecompilePythonSources() {
-    return this == ONLY || this == ALL;
-  };
 }
