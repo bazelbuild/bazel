@@ -2234,7 +2234,7 @@ EOF
     --experimental_worker_multiplex_sandboxing \
     --java_language_version=17 \
     --extra_toolchains=//pkg/java/hello:java_toolchain_definition \
-    >& $TEST_log || fail "build succeeded"
+    >& $TEST_log || fail "build failed"
 }
 
 function test_strict_deps_error_external_repo_starlark_action() {
