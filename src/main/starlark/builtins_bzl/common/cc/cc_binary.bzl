@@ -497,7 +497,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
 
     runtimes_copts = semantics.get_cc_runtimes_copts(ctx)
 
-    additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
+    additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(feature_configuration, cc_toolchain)
     additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain))
 
     (compilation_context, compilation_outputs) = cc_common.compile(

@@ -26,8 +26,16 @@ def _impl(ctx):
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx, mandatory = ctx.attr.mandatory)
     if not cc_toolchain:
         return []
+
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+        requested_features = ctx.features,
+        unsupported_features = ctx.disabled_features,
+    )
+
     make_variables = cc_toolchain._additional_make_variables
-    cc_provider_make_variables = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
+    cc_provider_make_variables = cc_helper.get_toolchain_global_make_variables(feature_configuration, cc_toolchain)
     template_variable_info = TemplateVariableInfo(make_variables | cc_provider_make_variables)
     toolchain = ToolchainInfo(
         cc = cc_toolchain,
