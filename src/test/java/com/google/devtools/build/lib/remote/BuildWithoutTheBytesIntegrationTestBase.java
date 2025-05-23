@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -274,9 +275,27 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     waitDownloads();
 
     assertThat(getOutputPath("foo").exists()).isTrue();
-    assertOutputDoesNotExist("foo/file-1");
-    assertOutputDoesNotExist("foo/file-2");
-    assertOutputDoesNotExist("foo/file-3");
+    assertOutputContains("foo/file-1", "1");
+    assertOutputContains("foo/file-2", "2");
+    assertOutputContains("foo/file-3", "3");
+  }
+
+  @Test
+  public void downloadOutputsWithRegex_treeOutput_regexMatchesEmptyTreeRoot() throws Exception {
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  content_map = {},",
+        ")");
+    addOptions("--remote_download_regex=.*foo$");
+
+    buildTarget("//:foo");
+    waitDownloads();
+
+    assertThat(getOutputPath("foo").exists()).isTrue();
   }
 
   @Test
@@ -1059,12 +1078,13 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void treeOutputsFromLocalFileSystem_works() throws Exception {
+  public void treeOutputsFromLocalFileSystem_works(
+      @TestParameter({"no-remote-exec", "local"}) String executionInfo) throws Exception {
     // Test that tree artifact generated locally can be consumed by other actions.
     // See https://github.com/bazelbuild/bazel/issues/16789
 
     // Disable remote execution so tree outputs are generated locally
-    addOptions("--modify_execution_info=OutputDir=+no-remote-exec");
+    addOptions("--modify_execution_info=OutputDir=+" + executionInfo);
     setDownloadToplevel();
     writeOutputDirRule();
     write(
