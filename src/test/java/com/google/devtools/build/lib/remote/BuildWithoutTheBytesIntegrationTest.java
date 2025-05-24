@@ -13,17 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atMost;
+import static org.mockito.Mockito.mockingDetails;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -34,17 +45,29 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
 import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
+import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.protobuf.ByteString;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.exceptions.stacktrace.StackTraceCleaner;
+import org.mockito.internal.exceptions.stacktrace.DefaultStackTraceCleaner;
+import org.mockito.plugins.StackTraceCleanerProvider;
 
 /** Integration tests for Build without the Bytes. */
 @RunWith(TestParameterInjector.class)
@@ -60,6 +83,11 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "--remote_download_minimal",
         "--dynamic_local_strategy=standalone",
         "--dynamic_remote_strategy=remote");
+  }
+
+  @Override
+  protected FileSystem createFileSystem() throws Exception {
+    return SpiedFileSystem.createSpy(super.createFileSystem());
   }
 
   @Override
@@ -102,7 +130,9 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Override
   protected void assertOutputEquals(Path path, String expectedContent) throws Exception {
-    assertThat(readContent(path, UTF_8)).isEqualTo(expectedContent);
+    assertWithMessage("Content of %s", path)
+        .that(readContent(path, UTF_8))
+        .isEqualTo(expectedContent);
   }
 
   @Override
@@ -1130,14 +1160,14 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     buildTarget("//:gen");
 
-    assertSymlink("foo-link", PathFragment.create("foo"));
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
     assertValidOutputFile("foo-link", "hello\n");
 
     // Delete link, re-plant symlink
     getOutputPath("foo").delete();
     buildTarget("//:gen");
 
-    assertSymlink("foo-link", PathFragment.create("foo"));
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
     assertValidOutputFile("foo-link", "hello\n");
 
     // Delete target, re-download it
@@ -1145,7 +1175,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     buildTarget("//:gen");
 
-    assertSymlink("foo-link", PathFragment.create("foo"));
+    assertSymlink("foo-link", getOutputPath("foo").asFragment());
     assertValidOutputFile("foo-link", "hello\n");
   }
 
@@ -1177,5 +1207,192 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     getOutputPath("tree").deleteTree();
     getOutputPath("out").delete();
     buildTarget("//:gen");
+  }
+
+  @Test
+  public void remoteTree_avoidsLocalIO(@TestParameter OutputPermissions outputPermissions)
+      throws Exception {
+    writeOutputDirRule();
+    addOptions(
+        "--remote_download_regex=.*/dir-4/file-2",
+        "--experimental_writable_outputs=" + (outputPermissions == OutputPermissions.WRITABLE));
+    var symlinkTarget = write("symlink_target", "symlink target");
+    write(
+        "BUILD",
+        """
+        load(':output_dir.bzl', 'output_dir')
+        output_dir(
+          name = 'foo',
+          content_map = {
+            'dir-{}/file-{}'.format(i, j): 'foo{}{}'.format(i, j)
+            for i in range(5)
+            for j in range(5)
+          },
+          symlinks = {
+            # Symlink to a remote file
+            'dir-1/symlink-1': 'file-2',
+            # Symlink to a symlink
+            'dir-1/symlink-2': 'symlink-1',
+            # Symlink to a downloaded file
+            'dir-3/symlink-1': '../dir-4/file-2',
+            # Symlink to a local file
+            'dir-3/symlink-2': '%s',
+          },
+        )
+        genrule(
+          name = 'foobar',
+          srcs = [':foo'],
+          outs = ['foobar.txt'],
+          cmd = 'touch $@',
+        )
+        """
+            .formatted(symlinkTarget));
+
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    // Assert on the number and types of local file system operations.
+    var spiedLocalFS = (SpiedFileSystem) fileSystem;
+    var fooPath = getOutputPath("foo").asFragment();
+
+    verify(spiedLocalFS, atMost(2)).createDirectoryAndParents(fooPath.getChild("dir-1"));
+    verify(spiedLocalFS, atMost(2)).createDirectoryAndParents(fooPath.getChild("dir-3"));
+    // Once as a parent of a downloaded file, once as a parent of a symlink. This may be optimized
+    // down to one call in the future.
+    verify(spiedLocalFS, times(1)).createDirectoryAndParents(fooPath.getChild("dir-4"));
+    // Move the temporary file to the final location.
+    verify(spiedLocalFS, times(1))
+        .renameTo(any(), eq(fooPath.getChild("dir-4").getChild("file-2")));
+    // Create the FileContentsProxy for the downloaded file.
+    verify(spiedLocalFS, times(1)).stat(fooPath.getChild("dir-4").getChild("file-2"), true);
+
+    var childrenOfFooOperations =
+        mockingDetails(spiedLocalFS).getInvocations().stream()
+            .filter(
+                invocation ->
+                    !invocation.isVerified()
+                        && !invocation.getMethod().getName().equals("getPath")
+                        && !invocation.getMethod().getName().equals("toDelegatePath")
+                        && Arrays.stream(invocation.getArguments())
+                            .anyMatch(
+                                argument ->
+                                    argument instanceof PathFragment path
+                                        && path.startsWith(fooPath)
+                                        && !path.equals(fooPath)))
+            .map(invocation -> invocation.toString() + invocation.getLocation())
+            .toList();
+    assertThat(childrenOfFooOperations).isEmpty();
+
+    // Assert that the output directory for the tree is as expected.
+    // Keep these assertions after the assertson spiedLocalFs as they result in additional IO.
+    for (int i = 0; i < 5; i++) {
+      var dir = "foo/dir-%d".formatted(i);
+      if (i == 1 || i == 3 || i == 4) {
+        // These dirs contain files that have been downloaded or symlinks.
+        assertValidOutputDir(dir, outputPermissions);
+      } else {
+        assertOutputDoesNotExist(dir);
+      }
+      for (int j = 0; j < 5; j++) {
+        var file = dir + "/file-%d".formatted(j);
+        var content = "foo%d%d".formatted(i, j);
+        if (i == 4 && j == 2) {
+          // This file has been downloaded as per --remote_download_regex.
+          assertValidOutputFile(file, content, outputPermissions);
+        } else {
+          assertOutputDoesNotExist(file);
+        }
+      }
+    }
+
+    // Assert that the metadata of the tree is as expected.
+    var fooMetadata = getTreeArtifactValue(getArtifact("//:foo", "foo"));
+    var expectedChildren = ImmutableMap.<String, ByteString>builder();
+    for (int i = 0; i < 5; i++) {
+      for (int j = 0; j < 5; j++) {
+        expectedChildren.put(
+            "dir-%d/file-%d".formatted(i, j),
+            ByteString.copyFrom(
+                getDigestHashFunction()
+                    .getHashFunction()
+                    .hashString("foo%d%d".formatted(i, j), UTF_8)
+                    .asBytes()));
+      }
+    }
+    expectedChildren.put(
+        "dir-1/symlink-1",
+        ByteString.copyFrom(
+            getDigestHashFunction().getHashFunction().hashString("foo12", UTF_8).asBytes()));
+    expectedChildren.put(
+        "dir-1/symlink-2",
+        ByteString.copyFrom(
+            getDigestHashFunction().getHashFunction().hashString("foo12", UTF_8).asBytes()));
+    expectedChildren.put(
+        "dir-3/symlink-1",
+        ByteString.copyFrom(
+            getDigestHashFunction().getHashFunction().hashString("foo42", UTF_8).asBytes()));
+    expectedChildren.put(
+        "dir-3/symlink-2",
+        ByteString.copyFrom(
+            getDigestHashFunction()
+                .getHashFunction()
+                .hashString("symlink target\n", UTF_8)
+                .asBytes()));
+    assertThat(
+            fooMetadata.getChildValues().entrySet().stream()
+                .collect(
+                    toImmutableMap(
+                        e -> e.getKey().getParentRelativePath().getPathString(),
+                        e -> ByteString.copyFrom(e.getValue().getDigest()))))
+        .containsExactlyEntriesIn(expectedChildren.buildOrThrow());
+
+    // Assert that the metadata set for the downloaded file has a proxy that is still up-to-date and
+    // thus won't be invalidated on the next build or downloaded again by
+    // AbstractActionInputPrefetcher.
+    var downloadedFileMetadata =
+        fooMetadata.getChildValues().entrySet().stream()
+            .filter(
+                e ->
+                    e.getKey()
+                        .getParentRelativePath()
+                        .equals(PathFragment.createAlreadyNormalized("dir-4/file-2")))
+            .map(Map.Entry::getValue)
+            .findFirst()
+            .get();
+    assertThat(downloadedFileMetadata.getContentsProxy())
+        .isEqualTo(
+            FileContentsProxy.create(getOutputPath("foo/dir-4/file-2").stat(Symlinks.NOFOLLOW)));
+  }
+
+  /**
+   * Filters out the uninformative Path call site of FileSystem methods in favor of recording the
+   * call site of the Path method.
+   */
+  public static final class FileSystemStackTraceCleanerProvider
+      implements StackTraceCleanerProvider {
+
+    @Override
+    public StackTraceCleaner getStackTraceCleaner(StackTraceCleaner stackTraceCleaner) {
+      return new DefaultStackTraceCleaner() {
+        private static final Set<String> classesToSkip =
+            Stream.<Class>of(Path.class, RemoteActionFileSystem.class)
+                .map(Class::getName)
+                .collect(toImmutableSet());
+
+        @Override
+        public boolean isIn(StackTraceElement e) {
+          return keep(e.getClassName()) && super.isIn(e);
+        }
+
+        @Override
+        public boolean isIn(StackFrameMetadata e) {
+          return keep(e.getClassName()) && super.isIn(e);
+        }
+
+        private static boolean keep(String className) {
+          return !classesToSkip.contains(className);
+        }
+      };
+    }
   }
 }
