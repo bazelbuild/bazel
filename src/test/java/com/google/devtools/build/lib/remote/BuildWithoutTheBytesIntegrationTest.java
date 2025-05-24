@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.PathTransformingDelegateFileSystem;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.protobuf.ByteString;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -1255,11 +1254,18 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Assert on the number and types of local file system operations.
     var spiedLocalFS = (SpiedFileSystem) fileSystem;
     var fooPath = getOutputPath("foo").asFragment();
+
+    verify(spiedLocalFS, atMost(2)).createDirectoryAndParents(fooPath.getChild("dir-1"));
+    verify(spiedLocalFS, atMost(2)).createDirectoryAndParents(fooPath.getChild("dir-3"));
     // Once as a parent of a downloaded file, once as a parent of a symlink. This may be optimized
     // down to one call in the future.
-    verify(spiedLocalFS, atMost(2)).createDirectoryAndParents(fooPath.getChild("dir-4"));
+    verify(spiedLocalFS, times(1)).createDirectoryAndParents(fooPath.getChild("dir-4"));
+    // Move the temporary file to the final location.
     verify(spiedLocalFS, times(1))
         .renameTo(any(), eq(fooPath.getChild("dir-4").getChild("file-2")));
+    // Create the FileContentsProxy for the downloaded file.
+    verify(spiedLocalFS, times(1)).stat(fooPath.getChild("dir-4").getChild("file-2"), true);
+
     var childrenOfFooOperations =
         mockingDetails(spiedLocalFS).getInvocations().stream()
             .filter(
@@ -1275,7 +1281,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
                                         && !path.equals(fooPath)))
             .map(invocation -> invocation.toString() + invocation.getLocation())
             .toList();
-    //    assertThat(childrenOfFooOperations).isEmpty();
+//    assertThat(childrenOfFooOperations).isEmpty();
 
     // Assert that the output directory for the tree is as expected.
     // Keep these assertions after the assertson spiedLocalFs as they result in additional IO.
@@ -1368,7 +1374,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     public StackTraceCleaner getStackTraceCleaner(StackTraceCleaner stackTraceCleaner) {
       return new DefaultStackTraceCleaner() {
         private static final Set<String> classesToSkip =
-            Stream.of(Path.class, FileSystemUtils.class, PathTransformingDelegateFileSystem.class)
+            Stream.<Class>of(Path.class, RemoteActionFileSystem.class)
                 .map(Class::getName)
                 .collect(toImmutableSet());
 

@@ -18,6 +18,7 @@ import static org.mockito.Mockito.spy;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -77,5 +78,10 @@ public class SpiedFileSystem extends DelegateFileSystem {
   @Override
   public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks) throws IOException {
     return super.readdir(path, followSymlinks);
+  }
+
+  @Override
+  public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
+    return super.stat(path, followSymlinks);
   }
 }
