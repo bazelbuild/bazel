@@ -224,14 +224,24 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private static boolean shouldDownloadFile(Path path, FileArtifactValue metadata) {
-    if (!path.exists()) {
+    var stat = path.statNullable();
+    if (stat == null) {
       return true;
     }
-    checkState(metadata.getContentsProxy() == null);
-    // In the most cases, skyframe should be able to detect source files modifications and delete
-    // staled outputs before action execution. However, there are some cases where outputs are not
-    // tracked by skyframe. We compare the digest here to make sure we don't use staled files.
+
+    // In most cases, skyframe should be able to detect source files modifications and delete
+    // stale outputs before action execution. However, there are some cases where outputs are not
+    // tracked by skyframe. We compare various file information and possibly its digest here to
+    // make sure we don't use stale files.
     try {
+      if (stat.getSize() != metadata.getSize()) {
+        return true;
+      }
+      var contentsProxy = metadata.getContentsProxy();
+      if (contentsProxy != null && contentsProxy.equals(FileContentsProxy.create(stat))) {
+        return false;
+      }
+
       byte[] digest = path.getFastDigest();
       if (digest == null) {
         digest = path.getDigest();
