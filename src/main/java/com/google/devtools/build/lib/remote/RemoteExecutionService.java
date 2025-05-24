@@ -1531,8 +1531,7 @@ public class RemoteExecutionService {
             && treeArtifact.isTreeArtifact())) {
           continue;
         }
-        Path dirPath = action.getSpawnExecutionContext().getPathResolver().toPath(output);
-        if (metadata.directories().containsKey(dirPath)) {
+        if (metadata.directories().containsKey(treeArtifact.getPath())) {
           remoteActionFileSystem.remoteSubtreeComplete(treeArtifact);
         }
       }
