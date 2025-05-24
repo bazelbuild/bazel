@@ -1018,26 +1018,30 @@ public class RemoteExecutionService {
     }
   }
 
-  private void createSymlinks(Iterable<SymlinkMetadata> symlinks) throws IOException {
+  private void createSymlinks(
+      Iterable<SymlinkMetadata> symlinks, @Nullable RemoteActionFileSystem remoteActionFileSystem)
+      throws IOException {
     for (SymlinkMetadata symlink : symlinks) {
+      Path path =
+          remoteActionFileSystem != null
+              ? remoteActionFileSystem.getPath(symlink.path().asFragment())
+              : symlink.path();
       Preconditions.checkNotNull(
-              symlink.path().getParentDirectory(),
-              "Failed creating directory and parents for %s",
-              symlink.path())
+              path.getParentDirectory(), "Failed creating directory and parents for %s", path)
           .createDirectoryAndParents();
       // If a directory output is being materialized as a symlink, creating the symlink fails as we
       // must first delete the preexisting empty directory. Since this is rare (and in the future
       // BwoB may no longer eagerly create these directories), we don't delete the directory
       // beforehand.
       try {
-        symlink.path().createSymbolicLink(symlink.target());
+        path.createSymbolicLink(symlink.target());
       } catch (IOException e) {
-        if (!symlink.path().isDirectory(Symlinks.NOFOLLOW)) {
+        if (!path.isDirectory(Symlinks.NOFOLLOW)) {
           throw e;
         }
         // Retry after deleting the directory.
-        symlink.path().delete();
-        symlink.path().createSymbolicLink(symlink.target());
+        path.delete();
+        path.createSymbolicLink(symlink.target());
       }
     }
   }
@@ -1520,7 +1524,7 @@ public class RemoteExecutionService {
 
     // Create the symbolic links after all downloads are finished, because dangling symlinks
     // might not be supported on all platforms.
-    createSymlinks(symlinks);
+    createSymlinks(symlinks, remoteActionFileSystem);
     for (var dir : dirsWithOutputPermissions) {
       dir.chmod(outputPermissions.getPermissionsMode());
     }
