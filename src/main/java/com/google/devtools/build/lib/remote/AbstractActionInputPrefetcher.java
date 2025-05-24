@@ -224,7 +224,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private static boolean shouldDownloadFile(Path path, FileArtifactValue metadata) {
-    if (!path.exists()) {
+    var stat = path.statNullable();
+    if (stat == null) {
       return true;
     }
 
@@ -232,6 +233,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     // staled outputs before action execution. However, there are some cases where outputs are not
     // tracked by skyframe. We compare the digest here to make sure we don't use staled files.
     try {
+      FileContentsProxy proxy = metadata.getContentsProxy();
+      if (proxy != null && FileContentsProxy.create(stat).equals(proxy)) {
+        // If the file contents proxy matches, we can assume that the file is unchanged.
+        return false;
+      }
+
       byte[] digest = path.getFastDigest();
       if (digest == null) {
         digest = path.getDigest();
