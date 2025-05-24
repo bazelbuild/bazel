@@ -44,6 +44,10 @@ public final class ConcurrentPathTrie {
     checkValid(path);
 
     Node node = root;
+    if (node.tab.isEmpty()) {
+      // No paths have been added.
+      return false;
+    }
     Iterator<String> segmentIterator = path.segments().iterator();
 
     while (segmentIterator.hasNext()) {
