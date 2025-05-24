@@ -1281,7 +1281,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
                                         && !path.equals(fooPath)))
             .map(invocation -> invocation.toString() + invocation.getLocation())
             .toList();
-//    assertThat(childrenOfFooOperations).isEmpty();
+    assertThat(childrenOfFooOperations).isEmpty();
 
     // Assert that the output directory for the tree is as expected.
     // Keep these assertions after the assertson spiedLocalFs as they result in additional IO.
@@ -1347,7 +1347,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         .containsExactlyEntriesIn(expectedChildren.buildOrThrow());
 
     // Assert that the metadata set for the downloaded file has a proxy that is still up-to-date and
-    // thus won't be invalidated on the next build.
+    // thus won't be invalidated on the next build or downloaded again by
+    // AbstractActionInputPrefetcher.
     var downloadedFileMetadata =
         fooMetadata.getChildValues().entrySet().stream()
             .filter(

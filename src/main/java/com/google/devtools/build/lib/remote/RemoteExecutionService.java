@@ -1036,7 +1036,7 @@ public class RemoteExecutionService {
       try {
         path.createSymbolicLink(symlink.target());
       } catch (IOException e) {
-        if (!path.isDirectory(Symlinks.NOFOLLOW)) {
+        if (!symlink.path().isDirectory(Symlinks.NOFOLLOW)) {
           throw e;
         }
         // Retry after deleting the directory.
