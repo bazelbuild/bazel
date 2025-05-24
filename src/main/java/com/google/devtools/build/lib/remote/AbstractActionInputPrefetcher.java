@@ -227,7 +227,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     if (!path.exists()) {
       return true;
     }
-
+    checkState(metadata.getContentsProxy() == null);
     // In the most cases, skyframe should be able to detect source files modifications and delete
     // staled outputs before action execution. However, there are some cases where outputs are not
     // tracked by skyframe. We compare the digest here to make sure we don't use staled files.
