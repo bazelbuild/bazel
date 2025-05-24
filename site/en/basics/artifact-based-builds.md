@@ -84,7 +84,7 @@ binaries or other libraries. Every target has:
 
 *   `name`: how the target is referenced on the command line and by other
     targets
-*   `srcs`: the source files to compiled to create the artifact for the target
+*   `srcs`: the source files to be compiled to create the artifact for the target
 *   `deps`: other targets that must be built before this target and linked into
     it
 
