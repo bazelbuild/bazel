@@ -184,6 +184,7 @@ public class BuildConfigurationValue
       @Nullable BuildOptions baselineOptions,
       String workspaceName,
       boolean siblingRepositoryLayout,
+      String targetCpu,
       // Arguments below this are server-global.
       BlazeDirectories directories,
       GlobalStateProvider globalProvider,
@@ -205,6 +206,7 @@ public class BuildConfigurationValue
         mnemonic,
         workspaceName,
         siblingRepositoryLayout,
+        targetCpu,
         directories,
         fragments,
         globalProvider.getReservedActionMnemonics(),
@@ -238,6 +240,7 @@ public class BuildConfigurationValue
         mnemonic,
         workspaceName,
         siblingRepositoryLayout,
+        "",
         directories,
         fragments,
         globalProvider.getReservedActionMnemonics(),
@@ -264,6 +267,7 @@ public class BuildConfigurationValue
       String mnemonic,
       String workspaceName,
       boolean siblingRepositoryLayout,
+      String targetCpu,
       // Arguments below this are either server-global and constant or completely dependent values.
       BlazeDirectories directories,
       ImmutableMap<Class<? extends Fragment>, Fragment> fragments,
@@ -304,7 +308,7 @@ public class BuildConfigurationValue
     globalMakeEnv =
         ImmutableMap.of(
             "TARGET_CPU",
-            options.cpu,
+            targetCpu,
             "COMPILATION_MODE",
             options.compilationMode.toString(),
             "BINDIR",
@@ -655,6 +659,10 @@ public class BuildConfigurationValue
 
   public BlazeDirectories getDirectories() {
     return outputDirectories.getDirectories();
+  }
+
+  public String targetCpu() {
+    return this.globalMakeEnv.get("TARGET_CPU");
   }
 
   /** Returns true if non-functional build stamps are enabled. */

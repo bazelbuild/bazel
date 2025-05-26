@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.Options;
 import org.junit.Test;
@@ -109,6 +110,75 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     assertThat(create().getMakeEnvironment()).containsEntry("COMPILATION_MODE", "fastbuild");
     BuildConfigurationValue config = create("--define", "COMPILATION_MODE=fluttershy");
     assertThat(config.getMakeEnvironment()).containsEntry("COMPILATION_MODE", "fluttershy");
+  }
+
+  @Test
+  public void testTargetCpuFromCpuFlag() throws Exception {
+    BuildConfigurationValue config =
+        create("--cpu=piii", "--platforms=" + TestConstants.PLATFORM_LABEL);
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "piii");
+  }
+
+  @Test
+  public void testTargetCpuFromPlatform() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--cpu=piii",
+            "--platforms=" + TestConstants.PLATFORM_LABEL,
+            "--incompatible_target_cpu_from_platform");
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "x86_64");
+  }
+
+  @Test
+  public void testTargetCpuFromPlatformWithCpuMapping() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--cpu=piii",
+            "--platforms=" + TestConstants.PLATFORM_LABEL,
+            "--incompatible_target_cpu_from_platform",
+            "--experimental_override_platform_cpu_name="
+                + TestConstants.PLATFORM_LABEL
+                + "=new_cpu");
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu");
+  }
+
+  @Test
+  public void testTargetCpuFromPlatform_multipleCpuMappings_lastOneWins() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--cpu=piii",
+            "--platforms=" + TestConstants.PLATFORM_LABEL,
+            "--incompatible_target_cpu_from_platform",
+            "--experimental_override_platform_cpu_name="
+                + TestConstants.PLATFORM_LABEL
+                + "=new_cpu_1",
+            "--experimental_override_platform_cpu_name="
+                + TestConstants.PLATFORM_LABEL
+                + "=new_cpu_2");
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu_2");
+  }
+
+  @Test
+  public void testExecConfigTargetCpuFromPlatform() throws Exception {
+    BuildConfigurationValue config =
+        createExec(
+            "--cpu=x86_64",
+            "--host_platform=" + TestConstants.PIII_PLATFORM_LABEL,
+            "--incompatible_target_cpu_from_platform");
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "x86_32");
+  }
+
+  @Test
+  public void testExecConfigTargetCpuFromPlatformWithCpuMapping() throws Exception {
+    BuildConfigurationValue config =
+        createExec(
+            "--cpu=x86_64",
+            "--host_platform=" + TestConstants.PIII_PLATFORM_LABEL,
+            "--incompatible_target_cpu_from_platform",
+            "--experimental_override_platform_cpu_name="
+                + TestConstants.PIII_PLATFORM_LABEL
+                + "=new_cpu");
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu");
   }
 
   @Test
