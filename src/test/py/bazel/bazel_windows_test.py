@@ -240,7 +240,7 @@ class BazelWindowsTest(test_base.TestBase):
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'bazel_dep(name = "rules_java", version = "8.11.0")',
+            'bazel_dep(name = "rules_java", version = "8.12.0")',
             'bazel_dep(name = "rules_python", version = "0.40.0")',
             'bazel_dep(name = "rules_shell", version = "0.3.0")',
         ],
@@ -349,7 +349,7 @@ class BazelWindowsTest(test_base.TestBase):
 
   def testBuildJavaTargetWithClasspathJar(self):
     self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.11.0")']
+        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.12.0")']
     )
     self.ScratchFile(
         'BUILD',
