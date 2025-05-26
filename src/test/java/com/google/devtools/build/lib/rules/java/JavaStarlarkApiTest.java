@@ -338,11 +338,11 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     JavaInfo info = JavaInfo.getJavaInfo(configuredTarget);
     NestedSet<LibraryToLink> nativeLibraries = info.getTransitiveNativeLibraries();
-    assertThat(nativeLibraries.toList().stream().map(LibraryToLink::getLibraryIdentifier))
+    assertThat(nativeLibraries.toList().stream().map(lib -> lib.getStaticLibrary().prettyPrint()))
         .containsExactly(
-            "java/test/libnative_rdeps1.so",
-            "java/test/libnative_exports1.so",
-            "java/test/libnative_deps1.so")
+            "java/test/libnative_rdeps1.so.a",
+            "java/test/libnative_exports1.so.a",
+            "java/test/libnative_deps1.so.a")
         .inOrder();
   }
 
@@ -401,8 +401,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     JavaInfo info = JavaInfo.getJavaInfo(configuredTarget);
     NestedSet<LibraryToLink> nativeLibraries = info.getTransitiveNativeLibraries();
-    assertThat(nativeLibraries.toList().stream().map(LibraryToLink::getLibraryIdentifier))
-        .containsExactly("java/test/libnative.so")
+    assertThat(nativeLibraries.toList().stream().map(lib -> lib.getStaticLibrary().prettyPrint()))
+        .containsExactly("java/test/libnative.so.a")
         .inOrder();
   }
 
@@ -1700,8 +1700,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(hermeticStaticLibs).hasSize(1);
     assertThat(
             hermeticStaticLibs.get(0).getCcLinkingContext().getLibraries().toList().stream()
-                .map(LibraryToLink::getLibraryIdentifier))
-        .containsExactly("a/libStatic");
+                .map(lib -> lib.getStaticLibrary().prettyPrint()))
+        .containsExactly("a/libStatic.a");
   }
 
   @Test
