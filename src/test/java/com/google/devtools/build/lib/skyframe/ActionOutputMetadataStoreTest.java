@@ -129,7 +129,8 @@ public final class ActionOutputMetadataStoreTest {
         execRoot.asFragment(),
         outputRoot.getExecPathString(),
         inputMap,
-        mock(RemoteActionInputFetcher.class));
+        mock(RemoteActionInputFetcher.class),
+        OutputPermissions.READONLY);
   }
 
   @Test

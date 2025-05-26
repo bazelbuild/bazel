@@ -2634,7 +2634,8 @@ public class RemoteExecutionServiceTest {
             execRoot.asFragment(),
             artifactRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
             new ActionInputMap(0),
-            actionInputFetcher);
+            actionInputFetcher,
+            OutputPermissions.READONLY);
 
     return new FakeSpawnExecutionContext(
         spawn, fakeFileCache, execRoot, outErr, ImmutableClassToInstanceMap.of(), actionFileSystem);

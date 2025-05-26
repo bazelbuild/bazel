@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -110,7 +111,12 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     doReturn(DUMMY_REMOTE_OUTPUT_CHECKER).when(inputFetcher).getRemoteOutputChecker();
     RemoteActionFileSystem remoteActionFileSystem =
         new RemoteActionFileSystem(
-            fs, execRoot.asFragment(), RELATIVE_OUTPUT_PATH, inputs, inputFetcher);
+            fs,
+            execRoot.asFragment(),
+            RELATIVE_OUTPUT_PATH,
+            inputs,
+            inputFetcher,
+            OutputPermissions.READONLY);
     remoteActionFileSystem.updateContext(mock(ActionExecutionMetadata.class));
     remoteActionFileSystem.createDirectoryAndParents(outputRoot.getRoot().asPath().asFragment());
     return remoteActionFileSystem;

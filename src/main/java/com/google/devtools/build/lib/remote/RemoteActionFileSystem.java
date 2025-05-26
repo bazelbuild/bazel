@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -123,9 +124,9 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
   /** Describes how to handle symlinks when calling {@link #statInternal}. */
   private enum FollowMode {
-    /** Canonicalize the entire path. This is equivalent to {@link Symlinks.FOLLOW}. */
+    /** Canonicalize the entire path. This is equivalent to {@link Symlinks#FOLLOW}. */
     FOLLOW_ALL,
-    /** Canonicalize the parent path. This is equivalent to {@link Symlinks.NOFOLLOW}. */
+    /** Canonicalize the parent path. This is equivalent to {@link Symlinks#NOFOLLOW}. */
     FOLLOW_PARENT,
     /** Do not canonicalize. This is only used internally to resolve symlinks efficiently. */
     FOLLOW_NONE
@@ -245,7 +246,8 @@ public class RemoteActionFileSystem extends AbstractFileSystem
       PathFragment execRootFragment,
       String relativeOutputPath,
       InputMetadataProvider inputArtifactData,
-      RemoteActionInputFetcher inputFetcher) {
+      RemoteActionInputFetcher inputFetcher,
+      OutputPermissions outputPermissions) {
     super(localFs.getDigestFunction());
     this.execRoot = checkNotNull(execRootFragment, "execRootFragment");
     this.outputBase = execRoot.getRelative(checkNotNull(relativeOutputPath, "relativeOutputPath"));
@@ -254,7 +256,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
     this.pathCanonicalizer = new PathCanonicalizer(this);
     this.inputFetcher = checkNotNull(inputFetcher, "inputFetcher");
     this.localFs = checkNotNull(localFs, "localFs");
-    this.remoteOutputTree = new RemoteInMemoryFileSystem(getDigestFunction());
+    this.remoteOutputTree = new RemoteInMemoryFileSystem(getDigestFunction(), outputPermissions);
   }
 
   @Override
@@ -967,9 +969,11 @@ public class RemoteActionFileSystem extends AbstractFileSystem
   }
 
   static class RemoteInMemoryFileSystem extends InMemoryFileSystem {
+    private final OutputPermissions outputPermissions;
 
-    RemoteInMemoryFileSystem(DigestHashFunction hashFunction) {
+    RemoteInMemoryFileSystem(DigestHashFunction hashFunction, OutputPermissions outputPermissions) {
       super(hashFunction);
+      this.outputPermissions = outputPermissions;
     }
 
     @Override
@@ -994,6 +998,7 @@ public class RemoteActionFileSystem extends AbstractFileSystem
       }
 
       remoteInMemoryFileInfo.set(metadata);
+      remoteInMemoryFileInfo.setOutputPermissions(outputPermissions);
     }
 
     // Override for access within this class
@@ -1013,6 +1018,13 @@ public class RemoteActionFileSystem extends AbstractFileSystem
 
     private void set(FileArtifactValue metadata) {
       this.metadata = metadata;
+    }
+
+    void setOutputPermissions(OutputPermissions permissions) {
+      int mode = permissions.getPermissionsMode();
+      setReadable((mode & 0400) != 0);
+      setWritable((mode & 0200) != 0);
+      setExecutable((mode & 0100) != 0);
     }
 
     @Override
