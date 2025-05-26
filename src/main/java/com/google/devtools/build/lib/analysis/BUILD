@@ -614,6 +614,7 @@ java_library(
     deps = [
         ":configured_object_value",
         ":configured_target",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:jsr305",
     ],
 )
