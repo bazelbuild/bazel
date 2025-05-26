@@ -24,7 +24,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -1255,17 +1254,43 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     var spiedLocalFS = (SpiedFileSystem) fileSystem;
     var fooPath = getOutputPath("foo").asFragment();
 
-    verify(spiedLocalFS, atMost(2)).createDirectoryAndParents(fooPath.getChild("dir-1"));
-    verify(spiedLocalFS, atMost(2)).createDirectoryAndParents(fooPath.getChild("dir-3"));
-    // Once as a parent of a downloaded file, once as a parent of a symlink. This may be optimized
-    // down to one call in the future.
+    // The following operations against the local file system are expected:
+
+    // Creation of the output symlinks.
+    // TODO: Avoid eager creation of symlinks entirely.
+    verify(spiedLocalFS, times(2)).createDirectoryAndParents(fooPath.getChild("dir-1"));
+    verify(spiedLocalFS, times(1)).createDirectoryAndParents(fooPath.getChild("dir-3"));
+    verify(spiedLocalFS, times(1))
+        .createSymbolicLink(
+            fooPath.getChild("dir-1").getChild("symlink-1"), PathFragment.create("file-2"));
+    verify(spiedLocalFS, times(1))
+        .createSymbolicLink(
+            fooPath.getChild("dir-1").getChild("symlink-2"), PathFragment.create("symlink-1"));
+    verify(spiedLocalFS, times(1))
+        .createSymbolicLink(
+            fooPath.getChild("dir-3").getChild("symlink-1"),
+            PathFragment.createAlreadyNormalized("../dir-4/file-2"));
+    verify(spiedLocalFS, times(1))
+        .chmod(fooPath.getChild("dir-1"), outputPermissions.getPermissionsMode());
+    verify(spiedLocalFS, times(1))
+        .chmod(fooPath.getChild("dir-3"), outputPermissions.getPermissionsMode());
+
+    // Moving the downloaded output file into place and chmoding its parent directory.
     verify(spiedLocalFS, times(1)).createDirectoryAndParents(fooPath.getChild("dir-4"));
-    // Move the temporary file to the final location.
     verify(spiedLocalFS, times(1))
         .renameTo(any(), eq(fooPath.getChild("dir-4").getChild("file-2")));
-    // Create the FileContentsProxy for the downloaded file.
+    // TODO: Avoid the duplicate chmod operation, once in RemoteExecutionService and once in
+    //  AbstractActionInputPrefetcher.
+    verify(spiedLocalFS, times(2))
+        .chmod(fooPath.getChild("dir-4"), outputPermissions.getPermissionsMode());
+    // TODO: Avoid the statIfFound operation as the file has already been downloaded in the same
+    //  build.
+    verify(spiedLocalFS, times(1)).statIfFound(fooPath.getChild("dir-4").getChild("file-2"), true);
+
+    // Creating the FileContentsProxy for the downloaded file.
     verify(spiedLocalFS, times(1)).stat(fooPath.getChild("dir-4").getChild("file-2"), true);
 
+    // Assert that there are no other operations on paths under foo (ignoring foo itself).
     var childrenOfFooOperations =
         mockingDetails(spiedLocalFS).getInvocations().stream()
             .filter(

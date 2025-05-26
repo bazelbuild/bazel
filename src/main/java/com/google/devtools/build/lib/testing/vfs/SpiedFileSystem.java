@@ -84,4 +84,15 @@ public class SpiedFileSystem extends DelegateFileSystem {
   public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
     return super.stat(path, followSymlinks);
   }
+
+  @Override
+  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
+    return super.statIfFound(path, followSymlinks);
+  }
+
+  @Override
+  public void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+      throws IOException {
+    super.createSymbolicLink(linkPath, targetFragment);
+  }
 }
