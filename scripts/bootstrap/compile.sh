@@ -298,7 +298,7 @@ EOF
 
   # Create @bazel_tools/tools/launcher/BUILD
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/launcher
-  link_file "${PWD}/tools/launcher/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/launcher/BUILD"
+  link_file "${PWD}/tools/launcher/BUILD.bootstrap" "${BAZEL_TOOLS_REPO}/tools/launcher/BUILD"
 
   # Create @bazel_tools/tools/python/BUILD
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/python
