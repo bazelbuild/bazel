@@ -122,6 +122,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.time.Instant;
@@ -377,27 +378,39 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       Path repoContentsCachePath = repositoryCache.getRepoContentsCache().getPath();
       if (repoContentsCachePath != null) {
+        Path resolvedOutputBase;
         try {
-          Path resolvedRepoContentsCache = repoContentsCachePath.resolveSymbolicLinks();
-          Path resolvedOutputBase = env.getOutputBase().resolveSymbolicLinks();
-          if (resolvedOutputBase.startsWith(resolvedOutputBase)) {
-            // This is dangerous as the repo contents cache GC may delete files in the output base.
-            throw new AbruptExitException(
-                detailedExitCode(
-                    """
-                  The output base [%s] is inside the repo contents cache [%s]. This can cause \
-                  spurious failures. Disable the repo contents cache with `--repo_contents_cache=`, \
-                  or specify `--repo_contents_cache=<path that doesn't contain the output base>`.
-                  """
-                        .formatted(resolvedOutputBase, resolvedRepoContentsCache),
-                    Code.BAD_REPO_CONTENTS_CACHE));
-          }
+          resolvedOutputBase = env.getOutputBase().resolveSymbolicLinks();
+        } catch (IOException e) {
+          throw new AbruptExitException(
+              detailedExitCode(
+                  "could not resolve output base: %s".formatted(e.getMessage()),
+                  Code.BAD_REPO_CONTENTS_CACHE),
+              e);
+        }
+        Path resolvedRepoContentsCache = repoContentsCachePath;
+        try {
+          resolvedRepoContentsCache = resolvedRepoContentsCache.resolveSymbolicLinks();
+        } catch (FileNotFoundException e) {
+          // Will be created later.
         } catch (IOException e) {
           throw new AbruptExitException(
               detailedExitCode(
                   "could not resolve repo contents cache path: %s".formatted(e.getMessage()),
                   Code.BAD_REPO_CONTENTS_CACHE),
               e);
+        }
+        if (resolvedOutputBase.startsWith(resolvedRepoContentsCache)) {
+          // This is dangerous as the repo contents cache GC may delete files in the output base.
+          throw new AbruptExitException(
+              detailedExitCode(
+                  """
+                  The output base [%s] is inside the repo contents cache [%s]. This can cause \
+                  spurious failures. Disable the repo contents cache with `--repo_contents_cache=`, \
+                  or specify `--repo_contents_cache=<path that doesn't contain the output base>`.
+                  """
+                      .formatted(resolvedOutputBase, resolvedRepoContentsCache),
+                  Code.BAD_REPO_CONTENTS_CACHE));
         }
       }
       if (repoContentsCachePath != null
