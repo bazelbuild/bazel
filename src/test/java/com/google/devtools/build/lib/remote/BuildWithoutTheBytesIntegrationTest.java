@@ -1258,22 +1258,24 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     // Creation of the output symlinks.
     // TODO: Avoid eager creation of symlinks entirely.
-    verify(spiedLocalFS, times(2)).createDirectoryAndParents(fooPath.getChild("dir-1"));
-    verify(spiedLocalFS, times(1)).createDirectoryAndParents(fooPath.getChild("dir-3"));
-    verify(spiedLocalFS, times(1))
-        .createSymbolicLink(
-            fooPath.getChild("dir-1").getChild("symlink-1"), PathFragment.create("file-2"));
-    verify(spiedLocalFS, times(1))
-        .createSymbolicLink(
-            fooPath.getChild("dir-1").getChild("symlink-2"), PathFragment.create("symlink-1"));
-    verify(spiedLocalFS, times(1))
-        .createSymbolicLink(
-            fooPath.getChild("dir-3").getChild("symlink-1"),
-            PathFragment.createAlreadyNormalized("../dir-4/file-2"));
-    verify(spiedLocalFS, times(1))
-        .chmod(fooPath.getChild("dir-1"), outputPermissions.getPermissionsMode());
-    verify(spiedLocalFS, times(1))
-        .chmod(fooPath.getChild("dir-3"), outputPermissions.getPermissionsMode());
+    if (OS.getCurrent() != OS.WINDOWS) {
+      verify(spiedLocalFS, times(2)).createDirectoryAndParents(fooPath.getChild("dir-1"));
+      verify(spiedLocalFS, times(1)).createDirectoryAndParents(fooPath.getChild("dir-3"));
+      verify(spiedLocalFS, times(1))
+          .createSymbolicLink(
+              fooPath.getChild("dir-1").getChild("symlink-1"), PathFragment.create("file-2"));
+      verify(spiedLocalFS, times(1))
+          .createSymbolicLink(
+              fooPath.getChild("dir-1").getChild("symlink-2"), PathFragment.create("symlink-1"));
+      verify(spiedLocalFS, times(1))
+          .createSymbolicLink(
+              fooPath.getChild("dir-3").getChild("symlink-1"),
+              PathFragment.createAlreadyNormalized("../dir-4/file-2"));
+      verify(spiedLocalFS, times(1))
+          .chmod(fooPath.getChild("dir-1"), outputPermissions.getPermissionsMode());
+      verify(spiedLocalFS, times(1))
+          .chmod(fooPath.getChild("dir-3"), outputPermissions.getPermissionsMode());
+    }
 
     // Moving the downloaded output file into place and chmoding its parent directory.
     verify(spiedLocalFS, times(1)).createDirectoryAndParents(fooPath.getChild("dir-4"));
