@@ -1279,7 +1279,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
                                     argument instanceof PathFragment path
                                         && path.startsWith(fooPath)
                                         && !path.equals(fooPath)))
-            .map(invocation -> invocation.toString() + invocation.getLocation())
+            .map(invocation -> invocation.toString() + invocation.getLocation() + "\n")
             .toList();
     assertThat(childrenOfFooOperations).isEmpty();
 
