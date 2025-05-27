@@ -378,6 +378,12 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       Path repoContentsCachePath = repositoryCache.getRepoContentsCache().getPath();
       if (repoContentsCachePath != null) {
+        // Check that the repo contents cache directory, which is managed by a garbage collecting
+        // idle task, does not contain the output base. Since the specified output base path may be
+        // a symlink, we resolve it fully. Intermediate symlinks do not have to be checked as the
+        // garbage collector ignores symlinks. We also resolve the repo contents cache directory,
+        // where intermediate symlinks also don't matter since deletion only occurs under the fully
+        // resolved path.
         Path resolvedOutputBase = env.getOutputBase();
         try {
           resolvedOutputBase = resolvedOutputBase.resolveSymbolicLinks();
