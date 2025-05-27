@@ -51,9 +51,8 @@ public interface CcModuleApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT, CppModuleMapT>,
         LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
-        LinkerInputT extends LinkerInputApi<LibraryToLinkT, LtoBackendArtifactsT, FileT>,
+        LinkerInputT extends LinkerInputApi<LtoBackendArtifactsT, FileT>,
         LinkingContextT extends CcLinkingContextApi<?>,
-        LibraryToLinkT extends LibraryToLinkApi<FileT, LtoBackendArtifactsT>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
@@ -1384,7 +1383,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound"),
       })
-  default LibraryToLinkT createLibraryLinkerInput(
+  default LibraryToLinkApi createLibraryLinkerInput(
       Object actions,
       Object featureConfiguration,
       Object ccToolchainProvider,

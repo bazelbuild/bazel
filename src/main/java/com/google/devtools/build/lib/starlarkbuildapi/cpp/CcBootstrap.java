@@ -51,16 +51,8 @@ public class CcBootstrap implements Bootstrap {
               ? extends LtoBackendArtifactsApi<? extends FileApi>,
               ? extends
                   LinkerInputApi<
-                      ? extends
-                          LibraryToLinkApi<
-                              ? extends FileApi,
-                              ? extends LtoBackendArtifactsApi<? extends FileApi>>,
-                      ? extends LtoBackendArtifactsApi<? extends FileApi>,
-                      ? extends FileApi>,
+                      ? extends LtoBackendArtifactsApi<? extends FileApi>, ? extends FileApi>,
               ? extends CcLinkingContextApi<? extends FileApi>,
-              ? extends
-                  LibraryToLinkApi<
-                      ? extends FileApi, ? extends LtoBackendArtifactsApi<? extends FileApi>>,
               ? extends CcToolchainVariablesApi,
               ? extends ConstraintValueInfoApi,
               ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,

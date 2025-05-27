@@ -36,7 +36,7 @@ import net.starlark.java.eval.StarlarkThread;
 // The AutoValue implementation of this class already has a sizeable number of fields, meaning that
 // instances have a surprising memory cost.
 @Immutable
-public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBackendArtifacts> {
+public abstract class LibraryToLink implements LibraryToLinkApi {
 
   public static ImmutableList<Artifact> getDynamicLibrariesForRuntime(
       boolean linkingStatically, Iterable<LibraryToLink> libraries) {
@@ -67,6 +67,30 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
   @StarlarkMethod(name = "_library_identifier", documented = false, structField = true)
   public abstract String getLibraryIdentifier();
+
+  @Nullable
+  @Override
+  public abstract Artifact getStaticLibrary();
+
+  @Nullable
+  @Override
+  public abstract Artifact getPicStaticLibrary();
+
+  @Nullable
+  @Override
+  public abstract Artifact getDynamicLibrary();
+
+  @Nullable
+  @Override
+  public abstract Artifact getResolvedSymlinkDynamicLibrary();
+
+  @Nullable
+  @Override
+  public abstract Artifact getInterfaceLibrary();
+
+  @Nullable
+  @Override
+  public abstract Artifact getResolvedSymlinkInterfaceLibrary();
 
   @Nullable
   public abstract ImmutableList<Artifact> getObjectFiles();
@@ -262,31 +286,6 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
   /** {@link AutoValue}-backed implementation. */
   @AutoValue
   abstract static class AutoLibraryToLink extends LibraryToLink {
-
-    @Nullable
-    @Override // Remove @StarlarkMethod.
-    public abstract Artifact getStaticLibrary();
-
-    @Nullable
-    @Override // Remove @StarlarkMethod.
-    public abstract Artifact getPicStaticLibrary();
-
-    @Nullable
-    @Override // Remove @StarlarkMethod.
-    public abstract Artifact getDynamicLibrary();
-
-    @Nullable
-    @Override // Remove @StarlarkMethod.
-    public abstract Artifact getResolvedSymlinkDynamicLibrary();
-
-    @Nullable
-    @Override // Remove @StarlarkMethod.
-    public abstract Artifact getInterfaceLibrary();
-
-    @Nullable
-    @Override // Remove @StarlarkMethod.
-    public abstract Artifact getResolvedSymlinkInterfaceLibrary();
-
     @Override // Remove @StarlarkMethod.
     public abstract boolean getAlwayslink();
 

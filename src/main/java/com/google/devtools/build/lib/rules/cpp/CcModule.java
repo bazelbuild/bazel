@@ -120,7 +120,6 @@ public abstract class CcModule
         LtoBackendArtifacts,
         CcLinkingContext.LinkerInput,
         CcLinkingContext,
-        LibraryToLink,
         CcToolchainVariables,
         ConstraintValueInfo,
         StarlarkRuleContext,

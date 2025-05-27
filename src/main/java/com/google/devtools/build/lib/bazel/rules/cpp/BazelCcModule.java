@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.FeatureConfigurationForStarlark;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.cpp.LtoBackendArtifacts;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.BazelCcModuleApi;
 
@@ -46,7 +45,6 @@ public class BazelCcModule extends CcModule
         CcCompilationOutputs,
         LtoBackendArtifacts,
         LinkerInput,
-        LibraryToLink,
         CcLinkingContext,
         CcToolchainVariables,
         CcToolchainConfigInfo,
