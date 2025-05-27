@@ -427,8 +427,7 @@ public class BzlLoadFunction implements SkyFunction {
      * <p>This is local to current calling context. See {@link #computeInline}.
      */
     // Keyed on the SkyKey, not the label, since label could theoretically be ambiguous, even though
-    // in practice keys from BUILD / WORKSPACE / builtins don't call each other. (Not sure if
-    // WORKSPACE chunking can cause duplicate labels to appear, but we're robust regardless.)
+    // in practice keys from BUILD / MODULE / builtins don't call each other.
     private final LinkedHashSet<BzlLoadValue.Key> loadStack;
 
     /**
@@ -635,7 +634,6 @@ public class BzlLoadFunction implements SkyFunction {
 
   private static boolean requiresBuiltinsInjection(BzlLoadValue.Key key) {
     return key instanceof BzlLoadValue.KeyForBuild
-        || key instanceof BzlLoadValue.KeyForWorkspace
         // https://github.com/bazelbuild/bazel/issues/17713
         // `@_builtins` depends on `@bazel_tools` for repo mapping, so we ignore some bzl files
         // to avoid a cyclic dependency
@@ -1357,24 +1355,22 @@ public class BzlLoadFunction implements SkyFunction {
         }
         fp.addBytes(builtins.transitiveDigest);
         return builtins.predeclaredForBuildBzl;
-      } else if (key instanceof BzlLoadValue.KeyForWorkspace
-          || key instanceof BzlLoadValue.KeyForBzlmod) {
+      } else if (key instanceof BzlLoadValue.KeyForBzlmod) {
         // TODO(#11954): We should converge all .bzl dialects regardless of whether they're loaded
-        //  by BUILD, WORKSPACE, or MODULE. At the moment, WORKSPACE-loaded and MODULE-loaded .bzl
-        //  files are already converged, so we use the same environment for both.
+        //  by BUILD or MODULE.
         if (injectionDisabled || key instanceof BzlLoadValue.KeyForBzlmodBootstrap) {
-          return starlarkEnv.getUninjectedWorkspaceBzlEnv();
+          return starlarkEnv.getUninjectedModuleBzlEnv();
         }
         // Note that we don't actually fingerprint the injected builtins here. The actual builtins
-        // values should not be used in WORKSPACE-loaded or MODULE-loaded .bzl files; they're only
-        // injected to avoid certain type errors at loading time (e.g. #17713). If we included their
-        // digest, we'd be causing widespread repo refetches when _any_ builtin bzl file changes
-        // (when Bazel upgrades, for example), and potentially even thrashing if the user is using
-        // Bazelisk. Thus we make the explicit choice to not fingerprint the injected builtins, and
-        // thereby prohibit any meaningful use of injected builtins in WORKSPACE/MODULE-loaded .bzl
-        // files. This additionally means that native repo rules should not be migrated to
-        // @_builtins; they should just live in @bazel_tools instead.
-        return builtins.predeclaredForWorkspaceBzl;
+        // values should not be used in MODULE-loaded .bzl files; they're only injected to avoid
+        // certain type errors at loading time (e.g. #17713). If we included their digest, we'd be
+        // causing widespread repo refetches when _any_ builtin bzl file changes (when Bazel
+        // upgrades, for example), and potentially even thrashing if the user is using Bazelisk.
+        // Thus we make the explicit choice to not fingerprint the injected builtins, and thereby
+        // prohibit any meaningful use of injected builtins in MODULE-loaded .bzl files. This
+        // additionally means that native repo rules should not be migrated to @_builtins; they
+        // should just live in @bazel_tools instead.
+        return builtins.predeclaredForModuleBzl;
       } else if (key instanceof BzlLoadValue.KeyForBuiltins) {
         return starlarkEnv.getBuiltinsBzlEnv();
       } else {

@@ -281,8 +281,8 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
               exportedToplevels,
               exportedRules,
               starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE));
-      ImmutableMap<String, Object> predeclaredForWorkspaceBzl =
-          bazelStarlarkEnvironment.createWorkspaceBzlEnvUsingInjection(
+      ImmutableMap<String, Object> predeclaredForModuleBzl =
+          bazelStarlarkEnvironment.createModuleBzlEnvUsingInjection(
               exportedToplevels,
               exportedRules,
               starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE));
@@ -300,7 +300,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
 
       return StarlarkBuiltinsValue.create(
           predeclaredForBuildBzl,
-          predeclaredForWorkspaceBzl,
+          predeclaredForModuleBzl,
           predeclaredForBuild,
           exportedToJava,
           transitiveDigest,
