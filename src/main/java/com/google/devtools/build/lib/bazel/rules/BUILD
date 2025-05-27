@@ -81,7 +81,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/starlarkdocextract",
         "//src/main/java/com/google/devtools/build/lib/rules/test:test_suite_rule",
         "//src/main/java/com/google/devtools/build/lib/rules/test:testing_support_rules",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/android",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/objc",

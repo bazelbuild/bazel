@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageCallable;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommon;
 import com.google.devtools.build.lib.rules.android.BazelAndroidConfiguration;
@@ -54,7 +55,7 @@ import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
-import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextGuardedValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
@@ -263,14 +264,21 @@ public class BazelRuleClassProvider {
 
   public static final RuleSet ANDROID_RULES =
       new RuleSet() {
+        private static final ImmutableSet<PackageIdentifier> allowedRepositories =
+            ImmutableSet.of(PackageIdentifier.createUnchecked("rules_android", ""));
+
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
 
           builder.addConfigurationFragment(AndroidConfiguration.class);
           builder.addConfigurationFragment(BazelAndroidConfiguration.class);
 
-          AndroidBootstrap bootstrap = new AndroidBootstrap(new AndroidStarlarkCommon());
-          builder.addStarlarkBootstrap(bootstrap);
+          builder.addBzlToplevel(
+              "android_common",
+              ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+                  BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+                  new AndroidStarlarkCommon(),
+                  allowedRepositories));
 
           try {
             builder.addWorkspaceFileSuffix(
