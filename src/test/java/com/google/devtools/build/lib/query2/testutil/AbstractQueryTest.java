@@ -1793,6 +1793,8 @@ public abstract class AbstractQueryTest<T> {
     helper.writeFile("proto_bazel_features_workspace/BUILD");
     helper.writeFile(
         "proto_bazel_features_workspace/MODULE.bazel", "module(name='proto_bazel_features')");
+    helper.writeFile("bazel_features_workspace/BUILD");
+    helper.writeFile("bazel_features_workspace/MODULE.bazel", "module(name='bazel_features')");
     helper.writeFile("local_config_platform_workspace/BUILD");
     helper.writeFile(
         "local_config_platform_workspace/MODULE.bazel", "module(name='local_config_platform')");
