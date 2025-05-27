@@ -2053,11 +2053,14 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
       throws Exception {
     Path output = getOutputPath(binRelativePath);
     assertWithMessage("%s is a directory", binRelativePath).that(output.isDirectory()).isTrue();
-    assertWithMessage("%s is readable", binRelativePath).that(output.isReadable()).isTrue();
-    assertWithMessage("%s is writable", binRelativePath)
-        .that(output.isWritable())
-        .isEqualTo(outputPermissions == OutputPermissions.WRITABLE);
-    assertWithMessage("%s is executable", binRelativePath).that(output.isExecutable()).isTrue();
+    // Windows doesn't maintain permission information for directories.
+    if (OS.getCurrent() != OS.WINDOWS) {
+      assertWithMessage("%s is readable", binRelativePath).that(output.isReadable()).isTrue();
+      assertWithMessage("%s is writable", binRelativePath)
+          .that(output.isWritable())
+          .isEqualTo(outputPermissions == OutputPermissions.WRITABLE);
+      assertWithMessage("%s is executable", binRelativePath).that(output.isExecutable()).isTrue();
+    }
   }
 
   protected void assertSymlink(String binRelativeLinkPath, PathFragment targetPath)

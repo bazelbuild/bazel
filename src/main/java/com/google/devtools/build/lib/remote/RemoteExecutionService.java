@@ -1410,7 +1410,7 @@ public class RemoteExecutionService {
       }
     }
 
-    Set<Path> dirsWithOutputPermissions = new HashSet<>();
+    Set<Path> manualDirsWithOutputPermissions = new HashSet<>();
     for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories().entrySet()) {
       PathFragment treeRootExecPath = entry.getKey().relativeTo(execRoot);
       for (FileMetadata file : entry.getValue().files()) {
@@ -1441,11 +1441,14 @@ public class RemoteExecutionService {
           downloadsBuilder.add(
               downloadFile(
                   context, progressStatusListener, file, tmpPath, action.getRemotePathResolver()));
-          for (Path parentDir = file.path.getParentDirectory();
-              !parentDir.equals(entry.getKey());
-              parentDir = parentDir.getParentDirectory()) {
-            if (!dirsWithOutputPermissions.add(parentDir)) {
-              break;
+          // Windows doesn't maintain permission information for directories.
+          if (OS.getCurrent() != OS.WINDOWS) {
+            for (Path parentDir = file.path.getParentDirectory();
+                !parentDir.equals(entry.getKey());
+                parentDir = parentDir.getParentDirectory()) {
+              if (!manualDirsWithOutputPermissions.add(parentDir)) {
+                break;
+              }
             }
           }
         }
@@ -1509,11 +1512,14 @@ public class RemoteExecutionService {
     for (Entry<Path, DirectoryMetadata> entry : metadata.directories().entrySet()) {
       for (SymlinkMetadata symlink : entry.getValue().symlinks()) {
         symlinksInDirectories.add(symlink);
-        for (Path parentDir = symlink.path.getParentDirectory();
-            !parentDir.equals(entry.getKey());
-            parentDir = parentDir.getParentDirectory()) {
-          if (!dirsWithOutputPermissions.add(parentDir)) {
-            break;
+        // Windows doesn't maintain permission information for directories.
+        if (OS.getCurrent() != OS.WINDOWS) {
+          for (Path parentDir = symlink.path.getParentDirectory();
+              !parentDir.equals(entry.getKey());
+              parentDir = parentDir.getParentDirectory()) {
+            if (!manualDirsWithOutputPermissions.add(parentDir)) {
+              break;
+            }
           }
         }
       }
@@ -1525,7 +1531,7 @@ public class RemoteExecutionService {
     // Create the symbolic links after all downloads are finished, because dangling symlinks
     // might not be supported on all platforms.
     createSymlinks(symlinks, remoteActionFileSystem);
-    for (var dir : dirsWithOutputPermissions) {
+    for (var dir : manualDirsWithOutputPermissions) {
       dir.chmod(outputPermissions.getPermissionsMode());
     }
 

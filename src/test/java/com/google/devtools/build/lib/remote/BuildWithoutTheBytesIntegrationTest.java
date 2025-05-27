@@ -1314,7 +1314,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Keep these assertions after the assertson spiedLocalFs as they result in additional IO.
 
     // These dirs contain files that have been downloaded or symlinks, with the latter not being
-    // reported as such on Windows.
+    // treated as such on Windows.
     Set<Integer> expectedOutputDirs = OS.getCurrent() == OS.WINDOWS ? Set.of(4) : Set.of(1, 3, 4);
     for (int i = 0; i < 5; i++) {
       var dir = "foo/dir-%d".formatted(i);
