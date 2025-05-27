@@ -1312,10 +1312,13 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     // Assert that the output directory for the tree is as expected.
     // Keep these assertions after the assertson spiedLocalFs as they result in additional IO.
+
+    // These dirs contain files that have been downloaded or symlinks, with the latter not being
+    // reported as such on Windows.
+    Set<Integer> expectedOutputDirs = OS.getCurrent() == OS.WINDOWS ? Set.of(4) : Set.of(1, 3, 4);
     for (int i = 0; i < 5; i++) {
       var dir = "foo/dir-%d".formatted(i);
-      if (i == 1 || i == 3 || i == 4) {
-        // These dirs contain files that have been downloaded or symlinks.
+      if (expectedOutputDirs.contains(i)) {
         assertValidOutputDir(dir, outputPermissions);
       } else {
         assertOutputDoesNotExist(dir);
