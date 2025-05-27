@@ -84,7 +84,7 @@ def create_lto_backends(
               lib.static_library == None
         objects = lib.pic_objects if pic else lib.objects
         lib_lto_compilation_context = lib._pic_lto_compilation_context if pic else lib._lto_compilation_context
-        shared_lto_backends = lib.pic_shared_non_lto_backends() if pic else lib.shared_non_lto_backends()
+        shared_lto_backends = lib._pic_shared_non_lto_backends if pic else lib._shared_non_lto_backends
 
         for obj in objects:
             if obj not in compiled:

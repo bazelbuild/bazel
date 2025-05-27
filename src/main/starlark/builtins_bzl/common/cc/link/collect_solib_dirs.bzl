@@ -207,7 +207,7 @@ def _collect_solib_dirs_from_libraries(
             original_file = library.resolved_symlink_dynamic_library or input_file
 
         original_lib_dir = original_file.dirname
-        library_identifier = library.library_identifier()
+        library_identifier = library._library_identifier
         previous_lib_dir = linked_libraries_paths.setdefault(library_identifier, original_lib_dir)
 
         if previous_lib_dir != original_lib_dir:

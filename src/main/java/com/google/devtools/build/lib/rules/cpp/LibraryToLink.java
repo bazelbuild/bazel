@@ -27,7 +27,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
-import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
@@ -66,13 +65,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
   private LibraryToLink() {}
 
+  @StarlarkMethod(name = "_library_identifier", documented = false, structField = true)
   public abstract String getLibraryIdentifier();
-
-  @StarlarkMethod(name = "library_identifier", documented = false, useStarlarkThread = true)
-  public String getLibraryIdentifierForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return getLibraryIdentifier();
-  }
 
   @Nullable
   public abstract ImmutableList<Artifact> getObjectFiles();
@@ -143,14 +137,12 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
   }
 
   @StarlarkMethod(
-      name = "shared_non_lto_backends",
+      name = "_shared_non_lto_backends",
       documented = false,
       allowReturnNones = true,
-      useStarlarkThread = true)
+      structField = true)
   @Nullable
-  public final Dict<Artifact, LtoBackendArtifacts> getSharedNonLtoBackendsForStarlark(
-      StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  public final Dict<Artifact, LtoBackendArtifacts> getSharedNonLtoBackendsForStarlark() {
     ImmutableMap<Artifact, LtoBackendArtifacts> backends = getSharedNonLtoBackends();
     return backends != null ? Dict.immutableCopyOf(backends) : null;
   }
@@ -168,14 +160,12 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
   }
 
   @StarlarkMethod(
-      name = "pic_shared_non_lto_backends",
+      name = "_pic_shared_non_lto_backends",
       documented = false,
       allowReturnNones = true,
-      useStarlarkThread = true)
+      structField = true)
   @Nullable
-  public final Dict<Artifact, LtoBackendArtifacts> getPicSharedNonLtoBackendsForStarlark(
-      StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+  public final Dict<Artifact, LtoBackendArtifacts> getPicSharedNonLtoBackendsForStarlark() {
     ImmutableMap<Artifact, LtoBackendArtifacts> backends = getPicSharedNonLtoBackends();
     return backends != null ? Dict.immutableCopyOf(backends) : null;
   }
