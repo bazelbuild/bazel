@@ -25,6 +25,7 @@ import sys
 import tempfile
 from absl.testing import absltest
 import runfiles
+import re
 
 
 class Error(Exception):
@@ -110,6 +111,40 @@ class TestBase(absltest.TestCase):
         'MODULE.bazel.lock',
     )
     os.chdir(self._test_cwd)
+
+  def get_module_version_from_default_lock_file(self, module):
+    """Extracts the version of a module from the default MODULE.bazel.lock file.
+
+    Args:
+      module: string; the name of the module to look up
+
+    Returns:
+      string; the version of the module
+
+    Raises:
+      Error: if the version is not found for the module
+    """
+    lockfile = self.Rlocation('io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock')
+    version = None
+    with open(lockfile, 'r', encoding='utf-8') as f:
+      for line in f:
+        m = re.search(rf"modules/{re.escape(module)}/([^/]*)/source\.json", line)
+        if m:
+          version = m.group(1)
+          break
+    if not version:
+      raise Error(f"Version not found for module {module} in {lockfile}")
+    return version
+
+  def add_bazel_dep(self, module):
+    version = self.get_module_version_from_default_lock_file(module)
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            f'bazel_dep(name = "{module}", version = "{version}")',
+        ],
+        mode = "a",
+    )
 
   def tearDown(self):
     self.RunBazel(['shutdown'])
@@ -279,7 +314,7 @@ class TestBase(absltest.TestCase):
     os.makedirs(abspath)
     return abspath
 
-  def ScratchFile(self, path, lines=None, executable=False):
+  def ScratchFile(self, path, lines=None, executable=False, mode = 'w'):
     """Creates a file under the test's scratch directory.
 
     Args:
@@ -302,7 +337,7 @@ class TestBase(absltest.TestCase):
     if os.path.exists(abspath) and not os.path.isfile(abspath):
       raise IOError('"%s" (%s) exists and is not a file' % (path, abspath))
     self.ScratchDir(os.path.dirname(path))
-    with open(abspath, 'w', encoding='utf-8') as f:
+    with open(abspath, mode, encoding='utf-8') as f:
       if lines:
         for l in lines:
           f.write(l)
