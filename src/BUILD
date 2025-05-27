@@ -309,6 +309,7 @@ genrule(
     srcs = ["package-bazel.sh"],
     outs = ["package-bazel-on-host-platform.sh"],
     cmd = select({
+        "//src/conditions:freebsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
         "//src/conditions:openbsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
         "//conditions:default": "cp $(SRCS) $@",
     }),
