@@ -233,18 +233,14 @@ sh_test(
     srcs = ["bazel_java17_test.sh"],
     args = [
         # java_tools zip to test
-        "$(rlocationpath //src:java_tools_java8.zip)",
-        "$(rlocationpath //src:java_tools_prebuilt_java8.zip)",
+        "$(rlocationpath //src:java_tools.zip)",
+        "$(rlocationpath //src:java_tools_prebuilt.zip)",
     ],
     data = [
         ":gen_rules_java_repo_name",
         ":test-deps",
-        # Use java_tools compiled at Java language 8 instead (aligned with the
-        # default compilation level of java_tools). For the purpose
-        # of this test, we need java_tools to be running with runtime >11 to
-        # test the failure modes of incompatible system classpaths.
-        "//src:java_tools_prebuilt_java8.zip",
-        "//src:java_tools_java8.zip",
+        "//src:java_tools.zip",
+        "//src:java_tools_prebuilt.zip",
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["local"],
@@ -294,8 +290,8 @@ JAVA_VERSIONS_COVERAGE = ("11", "17", "21")
         srcs = ["bazel_java_test.sh"],
         args = [
             # java_tools zips to test
-            "$(rlocationpath %s)" % ("//src:java_tools_zip" if java_version == "21" else "//src:java_tools_java8.zip"),
-            "$(rlocationpath %s)" % ("//src:java_tools_prebuilt_zip" if java_version == "21" else "//src:java_tools_prebuilt_java8.zip"),
+            "$(rlocationpath //src:java_tools_zip)",
+            "$(rlocationpath //src:java_tools_prebuilt_zip)",
             # --java_language_version value
             java_version,
             # --java_runtime_version value
@@ -304,8 +300,8 @@ JAVA_VERSIONS_COVERAGE = ("11", "17", "21")
         data = [
             ":gen_rules_java_repo_name",
             ":test-deps",
-            "//src:java_tools_zip" if java_version == "21" else "//src:java_tools_java8.zip",
-            "//src:java_tools_prebuilt_zip" if java_version == "21" else "//src:java_tools_prebuilt_java8.zip",
+            "//src:java_tools_prebuilt_zip",
+            "//src:java_tools_zip",
             "@bazel_tools//tools/bash/runfiles",
         ],
         exec_compatible_with = ["//:highcpu_machine"],
@@ -560,8 +556,8 @@ sh_test(
         srcs = ["bazel_coverage_java_test.sh"],
         args = [
             # java_tools zips to test
-            "$(rlocationpath %s)" % ("//src:java_tools_zip" if java_version == "21" else "//src:java_tools_java8.zip"),
-            "$(rlocationpath %s)" % ("//src:java_tools_prebuilt_zip" if java_version == "21" else "//src:java_tools_prebuilt_java8.zip"),
+            "$(rlocationpath //src:java_tools_zip)",
+            "$(rlocationpath //src:java_tools_prebuilt_zip)",
             # WORKSPACE file of the coverage output generator repo to test
             "$(rlocationpath //tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace)",
             # --java_runtime_version value
@@ -570,10 +566,10 @@ sh_test(
         data = [
             ":gen_rules_java_repo_name",
             ":test-deps",
-            "//src:java_tools_prebuilt_zip" if java_version == "21" else "//src:java_tools_prebuilt_java8.zip",
-            "//src:java_tools_zip" if java_version == "21" else "//src:java_tools_java8.zip",
+            "//src:java_tools_prebuilt_zip",
+            "//src:java_tools_zip",
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace",
-            "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo%s" % ("" if java_version == "21" else "_java8"),
+            "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
         ],
         tags = ["no_windows"],
     )
@@ -628,7 +624,7 @@ sh_test(
     data = [
         ":test-deps",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo_java8",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
     ],
     tags = [
         "no_windows",

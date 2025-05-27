@@ -1,13 +1,11 @@
 # Packaging
 
 load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-load("//src:build_defs.bzl", "transition_java_language_8_archive")
-load("//src:release_archive.bzl", "release_archive")
+load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 
@@ -513,19 +511,33 @@ genrule(
 )
 
 # Following targets build java_tools.zip - platform independent part of java_tools
-JAVA_TOOLS_DEPLOY_JARS = [
-    "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
-    "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
-    "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
-    "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_binary_deploy.jar",
-    "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker_deploy.jar",
-    "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage_jarjar_deploy.jar",
-    "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
-]
+minimum_java_runtime_filegroup(
+    name = "minimum_java_runtime_tools",
+    srcs = [
+        "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage_jarjar_deploy.jar",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+minimum_java_compilation_runtime_filegroup(
+    name = "minimum_java_compilation_runtime_tools",
+    srcs = [
+        "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
+        "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_binary_deploy.jar",
+        "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker_deploy.jar",
+    ],
+    visibility = ["//visibility:private"],
+)
 
 release_archive(
     name = "jars_java_tools_zip",
-    srcs = JAVA_TOOLS_DEPLOY_JARS,
+    srcs = [
+        ":minimum_java_compilation_runtime_tools",
+        ":minimum_java_runtime_tools",
+    ],
     package_dir = "java_tools",
     visibility = ["//visibility:private"],
 )
@@ -544,12 +556,6 @@ release_archive(
         "//third_party/java/jacoco:jacoco_jars_zip",
         "//third_party/java/proguard:proguard_zip",
     ],
-)
-
-transition_java_language_8_archive(
-    name = "java_tools_java8.zip",
-    archive_zip = ":java_tools.zip",
-    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 release_archive(
@@ -572,12 +578,6 @@ release_archive(
         "//src/tools/singlejar:singlejar_deploy_zip",
         "//third_party/ijar:ijar_deploy_zip",
     ],
-)
-
-transition_java_language_8_archive(
-    name = "java_tools_prebuilt_java8.zip",
-    archive_zip = ":java_tools_prebuilt.zip",
-    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 # Following targets used by the java_tools_binaries Buildkite pipeline to upload
@@ -663,11 +663,6 @@ filegroup(
         "@bazel_tools_repo_cache//:files",
         "@workspace_repo_cache//:files",
     ],
-)
-
-bzl_library(
-    name = "build_defs_bzl",
-    srcs = ["build_defs.bzl"],
 )
 
 java_binary(
