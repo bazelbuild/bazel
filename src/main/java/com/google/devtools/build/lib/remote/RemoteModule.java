@@ -345,9 +345,11 @@ public final class RemoteModule extends BlazeModule {
     boolean enableRemoteDownloader = shouldEnableRemoteDownloader(remoteOptions);
 
     if (enableDiskCache) {
-      Path resolvedOutputBase;
+      Path resolvedOutputBase = env.getOutputBase();
       try {
-        resolvedOutputBase = env.getOutputBase().resolveSymbolicLinks();
+        resolvedOutputBase = resolvedOutputBase.resolveSymbolicLinks();
+      } catch (FileNotFoundException ignored) {
+        // Will be created later.
       } catch (IOException e) {
         throw createOptionsExitException(
             "Failed to resolve output base: %s".formatted(e.getMessage()),

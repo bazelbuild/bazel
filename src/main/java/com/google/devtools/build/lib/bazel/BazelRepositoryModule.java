@@ -378,9 +378,11 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       Path repoContentsCachePath = repositoryCache.getRepoContentsCache().getPath();
       if (repoContentsCachePath != null) {
-        Path resolvedOutputBase;
+        Path resolvedOutputBase = env.getOutputBase();
         try {
-          resolvedOutputBase = env.getOutputBase().resolveSymbolicLinks();
+          resolvedOutputBase = resolvedOutputBase.resolveSymbolicLinks();
+        } catch (FileNotFoundException ignored) {
+          // Will be created later.
         } catch (IOException e) {
           throw new AbruptExitException(
               detailedExitCode(
@@ -391,7 +393,7 @@ public class BazelRepositoryModule extends BlazeModule {
         Path resolvedRepoContentsCache = repoContentsCachePath;
         try {
           resolvedRepoContentsCache = resolvedRepoContentsCache.resolveSymbolicLinks();
-        } catch (FileNotFoundException e) {
+        } catch (FileNotFoundException ignored) {
           // Will be created later.
         } catch (IOException e) {
           throw new AbruptExitException(
