@@ -27,21 +27,15 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descri
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtension;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionEvalStarlarkThreadContext;
 import com.google.devtools.build.lib.bazel.bzlmod.TagClass;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
-import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
-import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi;
 import java.util.Map;
@@ -106,19 +100,10 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       }
     }
     builder.setConfiguredTargetFunction(implementation);
-    BzlInitThreadContext bzlInitContext = BzlInitThreadContext.fromOrNull(thread);
-    if (bzlInitContext != null) {
-      builder.setRuleDefinitionEnvironmentLabelAndDigest(
-          bzlInitContext.getBzlFile(), bzlInitContext.getTransitiveDigest());
-    } else {
-      // TODO: this branch is wrong, but cannot be removed until we deprecate WORKSPACE because
-      //   WORKSPACE can currently call unexported repo rules (so there's potentially no
-      //   BzlInitThreadContext. See
-      //   https://github.com/bazelbuild/bazel/pull/21131#discussion_r1471924084 for more details.
-      BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
-      builder.setRuleDefinitionEnvironmentLabelAndDigest(
-          moduleContext.label(), moduleContext.bzlTransitiveDigest());
-    }
+    BzlInitThreadContext bzlInitContext =
+        BzlInitThreadContext.fromOrFail(thread, "repository_rule");
+    builder.setRuleDefinitionEnvironmentLabelAndDigest(
+        bzlInitContext.getBzlFile(), bzlInitContext.getTransitiveDigest());
     Label.RepoMappingRecorder repoMappingRecorder =
         thread.getThreadLocal(Label.RepoMappingRecorder.class);
     if (repoMappingRecorder != null) {
@@ -126,9 +111,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     }
     builder.setWorkspaceOnly();
     return new RepositoryRuleFunction(
-        builder,
-        implementation,
-        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
+        builder, Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
   }
 
   /**
@@ -140,15 +123,13 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       category = DocCategory.BUILTIN,
       doc =
 """
-A callable value that may be invoked during evaluation of the WORKSPACE file or within \
-the implementation function of a module extension to instantiate and return a repository \
-rule. Created by \
+A callable value that may be invoked within the implementation function of a module extension to \
+instantiate and return a repository rule. Created by \
 <a href="../globals/bzl.html#repository_rule"><code>repository_rule()</code></a>.
 """)
   public static final class RepositoryRuleFunction
       implements StarlarkCallable, StarlarkExportable, RuleFunction {
     private final RuleClass.Builder builder;
-    private final StarlarkCallable implementation;
     private final Optional<String> documentation;
     @Nullable private Label extensionLabel;
     @Nullable private String exportedName;
@@ -156,12 +137,8 @@ rule. Created by \
     // each usage.
     @Nullable private volatile RuleClass ruleClass;
 
-    private RepositoryRuleFunction(
-        RuleClass.Builder builder,
-        StarlarkCallable implementation,
-        Optional<String> documentation) {
+    private RepositoryRuleFunction(RuleClass.Builder builder, Optional<String> documentation) {
       this.builder = builder;
-      this.implementation = implementation;
       this.documentation = documentation;
     }
 
@@ -228,62 +205,14 @@ rule. Created by \
       ModuleExtensionEvalStarlarkThreadContext extensionEvalContext =
           ModuleExtensionEvalStarlarkThreadContext.fromOrNull(thread);
       if (extensionEvalContext == null) {
-        return createRuleLegacy(thread, kwargs);
+        throw new EvalException(
+            "repo rules can only be called from within module extension impl functions");
       }
       if (!isExported()) {
         throw new EvalException("attempting to instantiate a non-exported repository rule");
       }
       extensionEvalContext.lazilyCreateRepo(thread, kwargs, getRuleClass());
       return Starlark.NONE;
-    }
-
-    private String getRuleClassName() {
-      // If the function ever got exported (the common case), we take the name
-      // it was exported to. Only in the not intended case of calling an unexported
-      // repository function through an exported macro, we fall back, for lack of
-      // alternatives, to the name in the local context.
-      // TODO(b/111199163): we probably should disallow the use of non-exported
-      // repository rules anyway.
-      if (isExported()) {
-        return exportedName;
-      } else {
-        // repository_rules should be subject to the same "exported" requirement
-        // as package rules, but sadly we forgot to add the necessary check and
-        // now many projects create and instantiate repository_rules without an
-        // intervening export; see b/111199163. An incompatible flag is required.
-
-        // The historical workaround was a fragile hack to introspect on the call
-        // expression syntax, f() or x.f(), to find the name f, but we no longer
-        // have access to the call expression, so now we just create an ugly
-        // name from the function. See github.com/bazelbuild/bazel/issues/10441
-        return "unexported_" + implementation.getName();
-      }
-    }
-
-    private Object createRuleLegacy(StarlarkThread thread, Dict<String, Object> kwargs)
-        throws EvalException, InterruptedException {
-      String ruleClassName = getRuleClassName();
-      try {
-        RuleClass ruleClass = builder.buildStarlark(ruleClassName, extensionLabel);
-        Package.Builder pkgBuilder =
-            Package.Builder.fromOrFailAllowWorkspaceOnly(thread, "repository rules");
-
-        // TODO(adonovan): is this cast safe? Check.
-        String name = (String) kwargs.get("name");
-        if (name == null) {
-          throw Starlark.errorf("argument 'name' is required");
-        }
-        WorkspaceFactoryHelper.addMainRepoEntry(pkgBuilder, name);
-        WorkspaceFactoryHelper.addRepoMappings(pkgBuilder, kwargs, name);
-        // Note that RuleFactory#createAndAddRule checks that the package is a repo rule package.
-        return WorkspaceFactoryHelper.createAndAddRepositoryRule(
-            pkgBuilder,
-            ruleClass,
-            WorkspaceFactoryHelper.getFinalKwargs(kwargs),
-            thread.getCallStack());
-      } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
-        throw Starlark.errorf("%s", e.getMessage());
-      }
     }
 
     @Override
@@ -295,14 +224,8 @@ rule. Created by \
         if (ruleClass != null) {
           return ruleClass;
         }
-        String name = getRuleClassName();
-        var builtRuleClass = builder.buildStarlark(name, extensionLabel);
-        // Before having been exported, the name is subject to change and must
-        // not be cached. This is a rare, discouraged case, see getRuleClassName().
-        if (isExported()) {
-          ruleClass = builtRuleClass;
-        }
-        return builtRuleClass;
+        ruleClass = builder.buildStarlark(exportedName, extensionLabel);
+        return ruleClass;
       }
     }
   }

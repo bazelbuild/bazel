@@ -31,6 +31,7 @@ java_library(
     testonly = True,
     srcs = ["SkycacheIntegrationTestBase.java"],
     deps = [
+        ":SkycacheIntegrationTestHelpers",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
@@ -53,6 +54,19 @@ java_library(
         "//third_party:truth",
         "//third_party/pprof:profile_java_proto",
         "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "SkycacheIntegrationTestHelpers",
+    testonly = True,
+    srcs = ["SkycacheIntegrationTestHelpers.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 

@@ -43,9 +43,10 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.RuleFactory;
+import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
-import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -156,10 +157,11 @@ public final class StarlarkRepositoryContextTest {
             RepositoryMapping.create(ImmutableMap.of(), RepositoryName.MAIN));
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
     Rule rule =
-        WorkspaceFactoryHelper.createAndAddRepositoryRule(
+        RuleFactory.createAndAddRule(
             packageBuilder,
             buildRuleClass(attributes),
-            kwargs,
+            new BuildLangTypedAttributeValuesMap(kwargs),
+            true,
             DUMMY_STACK);
     DownloadManager downloader = Mockito.mock(DownloadManager.class);
     SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);

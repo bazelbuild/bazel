@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
-import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -746,11 +745,10 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.bazelStarlarkEnvironment =
         new BazelStarlarkEnvironment(
             StarlarkGlobalsImpl.INSTANCE,
+            version,
             /* ruleFunctions= */ RuleFactory.buildRuleFunctions(ruleClassMap),
             buildFileToplevels,
             registeredBzlToplevels,
-            /* workspaceBzlNativeBindings= */ WorkspaceFactory.createNativeModuleBindings(
-                ruleClassMap, version),
             /* builtinsInternals= */ starlarkBuiltinsInternals);
   }
 

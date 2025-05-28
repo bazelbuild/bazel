@@ -38,7 +38,7 @@ public class PythonBlackBoxTest extends AbstractBlackBoxTest {
 
   @Test
   public void testCompileAndRunHelloWorldStub() throws Exception {
-    context().write(MODULE_DOT_BAZEL, "bazel_dep(name = 'rules_python', version = '0.40.0')");
+    context().write(MODULE_DOT_BAZEL, "bazel_dep(name = 'rules_python', version = '1.3.0')");
 
     writeHelloWorldFiles();
 

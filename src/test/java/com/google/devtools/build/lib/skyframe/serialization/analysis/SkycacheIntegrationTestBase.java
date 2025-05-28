@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.cmdline.Label.parseCanonicalUnchecked;
-import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.joining;
 import static org.junit.Assert.assertThrows;
 
@@ -35,6 +34,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.TestCommand;
@@ -63,7 +63,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 
-public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCase {
+public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCase
+    implements SkycacheIntegrationTestHelpers {
 
   protected static final String UPLOAD_MODE_OPTION =
       "--experimental_remote_analysis_cache_mode=upload";
@@ -876,46 +877,9 @@ ACTION_EXECUTION:ActionLookupData0{actionLookupKey=ConfiguredTargetKey{label=//A
     assertDownloadSuccess(targets);
   }
 
-  protected final void assertUploadSuccess(String... targets) throws Exception {
-    addOptions(UPLOAD_MODE_OPTION);
-    buildTarget(targets);
-    assertWithMessage("expected to serialize at least one Skyframe node")
-        .that(getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSerializedKeys())
-        .isNotEmpty();
-    assertWithMessage("expected to not have any SerializationExceptions")
-        .that(
-            getCommandEnvironment()
-                .getRemoteAnalysisCachingEventListener()
-                .getSerializationExceptionCounts())
-        .isEqualTo(0);
-  }
-
-  protected final void assertDownloadSuccess(String... targets) throws Exception {
-    addOptions(DOWNLOAD_MODE_OPTION);
-    buildTarget(targets);
-    assertWithMessage("expected to deserialize at least one Skyframe node")
-        .that(getCommandEnvironment().getRemoteAnalysisCachingEventListener().getCacheHits())
-        .isNotEmpty();
-    assertWithMessage("expected to not have any SerializationExceptions")
-        .that(
-            getCommandEnvironment()
-                .getRemoteAnalysisCachingEventListener()
-                .getSerializationExceptionCounts())
-        .isEqualTo(0);
-  }
-
-  protected final void writeProjectSclWithActiveDirs(String path, String... activeDirs)
-      throws IOException {
-    String activeDirsString = stream(activeDirs).map(s -> "\"" + s + "\"").collect(joining(", "));
-    write(
-        path + "/PROJECT.scl",
-        String.format(
-            "project = { \"active_directories\": { \"default\": [%s] } }", activeDirsString));
-  }
-
-  protected final void writeProjectSclWithActiveDirs(String path) throws IOException {
-    // Overload for the common case where the path is the only active directory.
-    writeProjectSclWithActiveDirs(path, path);
+  @Override
+  public CommandEnvironment getCommandEnvironment() {
+    return super.getCommandEnvironment();
   }
 
   @Override

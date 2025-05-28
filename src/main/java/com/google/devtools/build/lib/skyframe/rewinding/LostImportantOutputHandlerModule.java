@@ -18,9 +18,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -39,7 +39,6 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -50,11 +49,14 @@ import javax.annotation.Nullable;
  */
 public class LostImportantOutputHandlerModule extends BlazeModule {
 
-  private final Set<String> pathsToConsiderLost = Sets.newConcurrentHashSet();
+  // This is a multiset so an output can be marked lost more than once. This is necessary to test
+  // scenarios where there might be a restart in rewinding.
+  private final ConcurrentHashMultiset<String> pathsToConsiderLost =
+      ConcurrentHashMultiset.create();
   private final BiFunction<byte[], Long, String> digestFn;
   private boolean outputHandlerEnabled = true;
 
-  protected LostImportantOutputHandlerModule(BiFunction<byte[], Long, String> digestFn) {
+  public LostImportantOutputHandlerModule(BiFunction<byte[], Long, String> digestFn) {
     this.digestFn = checkNotNull(digestFn);
   }
 
@@ -64,7 +66,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
   }
 
   public final void addLostOutput(String execPath) {
-    pathsToConsiderLost.add(execPath);
+    pathsToConsiderLost.add(execPath, 1);
   }
 
   public final void verifyAllLostOutputsConsumed() {
@@ -93,7 +95,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
    * that a subsequent call to this method with the same output will return {@code false}.
    */
   protected final boolean outputIsLost(PathFragment execPath) {
-    return pathsToConsiderLost.remove(execPath.getPathString());
+    return pathsToConsiderLost.removeExactly(execPath.getPathString(), 1);
   }
 
   private final class MockImportantOutputHandler implements ImportantOutputHandler {

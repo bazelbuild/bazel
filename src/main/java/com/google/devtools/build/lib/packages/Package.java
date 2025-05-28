@@ -1429,15 +1429,6 @@ public class Package extends Packageoid {
       }
     }
 
-    void replaceTarget(Target newTarget) {
-      Preconditions.checkArgument(
-          newTarget.getPackage() == pkg, // pointer comparison since we're constructing `pkg`
-          "Replacement target belongs to '%s', expected '%s'",
-          newTarget.getPackageoid(),
-          pkg);
-      recorder.replaceTarget(newTarget);
-    }
-
     @Override
     Map<String, Rule> getRulesSnapshotView() {
       if (rulesSnapshotViewForFinalizers != null) {
