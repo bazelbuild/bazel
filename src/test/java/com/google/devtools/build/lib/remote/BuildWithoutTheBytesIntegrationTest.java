@@ -1283,7 +1283,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         .renameTo(any(), eq(fooPath.getChild("dir-4").getChild("file-2")));
     // TODO: Avoid the duplicate chmod operation, once in RemoteExecutionService and once in
     //  AbstractActionInputPrefetcher.
-    verify(spiedLocalFS, times(2))
+    verify(spiedLocalFS, times(OS.getCurrent() == OS.WINDOWS ? 1 : 2))
         .chmod(fooPath.getChild("dir-4"), outputPermissions.getPermissionsMode());
     // TODO: Avoid the statIfFound operation as the file has already been downloaded in the same
     //  build.
@@ -1405,7 +1405,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     public StackTraceCleaner getStackTraceCleaner(StackTraceCleaner stackTraceCleaner) {
       return new DefaultStackTraceCleaner() {
         private static final Set<String> classesToSkip =
-            Stream.<Class>of(Path.class, RemoteActionFileSystem.class)
+            Stream.of(Path.class, RemoteActionFileSystem.class)
                 .map(Class::getName)
                 .collect(toImmutableSet());
 
