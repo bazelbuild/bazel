@@ -162,6 +162,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
         differencer, BazelCompatibilityMode.ERROR);
     BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
     RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
+    RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES.set(differencer, true);
   }
 
   @Test

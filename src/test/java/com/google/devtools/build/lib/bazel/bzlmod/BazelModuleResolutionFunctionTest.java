@@ -188,6 +188,7 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
     RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
+    RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES.set(differencer, true);
   }
 
   @Test
