@@ -229,7 +229,6 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
 
   private CommandEnvironment createCommandEnvironment() throws Exception {
     CommandEnvironment commandEnvironment = runtimeWrapper.newCommand();
-    commandEnvironment.setWorkspaceName("workspace");
     commandEnvironment
         .getLocalResourceManager()
         .setAvailableResources(LocalHostCapacity.getLocalHostCapacity());

@@ -631,11 +631,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     public ArtifactPathResolver createPathResolverForArtifactValues(
         ActionInputMap actionInputMap,
         Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> treeArtifacts,
-        Map<Artifact, FilesetOutputTree> filesets,
-        String workspaceName) {
+        Map<Artifact, FilesetOutputTree> filesets) {
       checkState(shouldCreatePathResolverForArtifactValues());
       return outputService.createPathResolverForArtifactValues(
-          directories.getExecRoot(workspaceName).asFragment(),
+          directories.getExecRoot(ruleClassProvider.getRunfilesPrefix()).asFragment(),
           directories.getRelativeOutputPath(),
           fileSystem,
           getPathEntries(),
@@ -859,7 +858,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new BaselineOptionsFunction(getMinimalVersionForBaselineOptionsFunction()));
     map.put(
         SkyFunctions.STARLARK_BUILD_SETTINGS_DETAILS, new StarlarkBuildSettingsDetailsFunction());
-    map.put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction(ruleClassProvider));
     map.put(
         SkyFunctions.REPO_FILE,
         shouldUseRepoDotBazel
@@ -1431,12 +1429,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected abstract void dropConfiguredTargetsNow(final ExtendedEventHandler eventHandler);
 
-  private WorkspaceStatusAction makeWorkspaceStatusAction(String workspaceName) {
+  private WorkspaceStatusAction makeWorkspaceStatusAction() {
     WorkspaceStatusAction.Environment env =
         new WorkspaceStatusAction.Environment() {
           @Override
           public Artifact createStableArtifact(String name) {
-            ArtifactRoot root = directories.getBuildDataDirectory(workspaceName);
+            ArtifactRoot root =
+                directories.getBuildDataDirectory(ruleClassProvider.getRunfilesPrefix());
             return skyframeBuildView
                 .getArtifactFactory()
                 .getDerivedArtifact(
@@ -1445,7 +1444,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
           @Override
           public Artifact createVolatileArtifact(String name) {
-            ArtifactRoot root = directories.getBuildDataDirectory(workspaceName);
+            ArtifactRoot root =
+                directories.getBuildDataDirectory(ruleClassProvider.getRunfilesPrefix());
             return skyframeBuildView
                 .getArtifactFactory()
                 .getConstantMetadataArtifact(

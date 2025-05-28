@@ -74,15 +74,13 @@ public final class CompletionContext {
       boolean expandFilesets,
       ActionInputMap inputMap,
       ActionInputMap importantInputMap,
-      PathResolverFactory pathResolverFactory,
-      String workspaceName) {
+      PathResolverFactory pathResolverFactory) {
     ArtifactPathResolver pathResolver =
         pathResolverFactory.shouldCreatePathResolverForArtifactValues()
             ? pathResolverFactory.createPathResolverForArtifactValues(
                 inputMap,
                 Maps.transformValues(treeArtifacts, TreeArtifactValue::getChildren),
-                filesets,
-                workspaceName)
+                filesets)
             : ArtifactPathResolver.IDENTITY;
     return new CompletionContext(
         treeArtifacts,
@@ -163,8 +161,7 @@ public final class CompletionContext {
     ArtifactPathResolver createPathResolverForArtifactValues(
         ActionInputMap actionInputMap,
         Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> treeArtifacts,
-        Map<Artifact, FilesetOutputTree> filesets,
-        String workspaceName);
+        Map<Artifact, FilesetOutputTree> filesets);
 
     boolean shouldCreatePathResolverForArtifactValues();
   }

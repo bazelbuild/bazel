@@ -143,7 +143,6 @@ public class CommandEnvironment {
   private boolean mergedAnalysisAndExecution;
 
   private OutputService outputService;
-  private String workspaceName;
   private boolean hasSyncedPackageLoading = false;
   private boolean buildInfoPosted = false;
   private Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent =
@@ -286,7 +285,6 @@ public class CommandEnvironment {
     } else {
       this.relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
     }
-    this.workspaceName = null;
 
     this.waitTime = Duration.ofMillis(waitTimeInMs + commandOptions.waitTime);
     this.commandStartTime = commandStartTime - commandOptions.startupTime;
@@ -650,13 +648,7 @@ public class CommandEnvironment {
   }
 
   public String getWorkspaceName() {
-    return checkNotNull(workspaceName);
-  }
-
-  public void setWorkspaceName(String workspaceName) {
-    checkState(this.workspaceName == null, "workspace name can only be set once");
-    this.workspaceName = workspaceName;
-    eventBus.post(new ExecRootEvent(getExecRoot()));
+    return runtime.getRuleClassProvider().getRunfilesPrefix();
   }
 
   /**
@@ -672,8 +664,7 @@ public class CommandEnvironment {
    * all input and output files visible to the actual build reside.
    */
   public Path getExecRoot() {
-    checkNotNull(workspaceName);
-    return directories.getExecRoot(workspaceName);
+    return directories.getExecRoot(getWorkspaceName());
   }
 
   /**

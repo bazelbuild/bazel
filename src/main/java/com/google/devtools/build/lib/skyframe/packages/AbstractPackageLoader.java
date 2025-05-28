@@ -81,7 +81,6 @@ import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction;
-import com.google.devtools.build.lib.skyframe.WorkspaceNameFunction;
 import com.google.devtools.build.lib.util.ValueOrException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
@@ -568,7 +567,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             SkyFunctions.BZL_LOAD,
             BzlLoadFunction.create(
                 ruleClassProvider, directories, hashFunction, Caffeine.newBuilder().build()))
-        .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction(ruleClassProvider))
         .put(
             SkyFunctions.REPO_FILE,
             new RepoFileFunction(

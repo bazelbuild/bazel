@@ -220,8 +220,6 @@ java_library(
         ":virtual_package_roots",
         ":workspace_info",
         ":workspace_info_receiver",
-        ":workspace_name_function",
-        ":workspace_name_value",
         ":workspace_status_function",
         ":workspace_status_value",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
@@ -3183,38 +3181,9 @@ java_library(
 )
 
 java_library(
-    name = "workspace_name_function",
-    srcs = ["WorkspaceNameFunction.java"],
-    deps = [
-        ":package_value",
-        ":precomputed_value",
-        ":workspace_name_value",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/net/starlark/java/eval",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "workspace_name_value",
-    srcs = ["WorkspaceNameValue.java"],
-    deps = [
-        ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "workspace_status_function",
     srcs = ["WorkspaceStatusFunction.java"],
     deps = [
-        ":workspace_name_value",
         ":workspace_status_value",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",

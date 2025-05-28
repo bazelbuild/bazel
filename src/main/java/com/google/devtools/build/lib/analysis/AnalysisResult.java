@@ -41,7 +41,6 @@ public class AnalysisResult {
   @Nullable private final TopLevelArtifactContext topLevelContext;
   private final ImmutableMap<AspectKey, ConfiguredAspect> aspects;
   private final PackageRoots packageRoots;
-  private final String workspaceName;
   private final Collection<TargetAndConfiguration> topLevelTargetsWithConfigs;
 
   AnalysisResult(
@@ -58,7 +57,6 @@ public class AnalysisResult {
       ImmutableSet<ConfiguredTarget> exclusiveIfLocalTests,
       TopLevelArtifactContext topLevelContext,
       PackageRoots packageRoots,
-      String workspaceName,
       Collection<TargetAndConfiguration> topLevelTargetsWithConfigs) {
     this.configuration = configuration;
     this.targetsToBuild = targetsToBuild;
@@ -73,7 +71,6 @@ public class AnalysisResult {
     this.exclusiveIfLocalTests = exclusiveIfLocalTests;
     this.topLevelContext = topLevelContext;
     this.packageRoots = packageRoots;
-    this.workspaceName = workspaceName;
     this.topLevelTargetsWithConfigs = topLevelTargetsWithConfigs;
   }
 
@@ -177,7 +174,6 @@ public class AnalysisResult {
         exclusiveIfLocalTests,
         topLevelContext,
         packageRoots,
-        workspaceName,
         topLevelTargetsWithConfigs);
   }
 
@@ -200,7 +196,6 @@ public class AnalysisResult {
         /* exclusiveIfLocalTests= */ ImmutableSet.of(),
         topLevelContext,
         packageRoots,
-        workspaceName,
         topLevelTargetsWithConfigs);
   }
 }

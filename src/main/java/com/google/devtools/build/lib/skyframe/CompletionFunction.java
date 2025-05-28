@@ -154,12 +154,6 @@ public final class CompletionFunction<
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws CompletionFunctionException, InterruptedException {
-    WorkspaceNameValue workspaceNameValue =
-        (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
-    if (workspaceNameValue == null) {
-      return null;
-    }
-
     KeyT key = (KeyT) skyKey;
     Pair<ValueT, ArtifactsToBuild> valueAndArtifactsToBuild = getValueAndArtifactsToBuild(key, env);
     if (env.valuesMissing()) {
@@ -258,8 +252,7 @@ public final class CompletionFunction<
             key.topLevelArtifactContext().expandFilesets(),
             inputMap,
             importantInputMap,
-            pathResolverFactory,
-            workspaceNameValue.getName());
+            pathResolverFactory);
 
     NestedSet<Cause> rootCauses = rootCausesBuilder.build();
     if (!rootCauses.isEmpty()) {

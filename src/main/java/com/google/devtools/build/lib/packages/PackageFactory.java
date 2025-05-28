@@ -214,7 +214,6 @@ public final class PackageFactory {
   public Package.Builder newPackageBuilder(
       PackageIdentifier packageId,
       RootedPath filename,
-      String workspaceName,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
@@ -228,7 +227,7 @@ public final class PackageFactory {
         packageSettings,
         packageId,
         filename,
-        workspaceName,
+        ruleClassProvider.getRunfilesPrefix(),
         associatedModuleName,
         associatedModuleVersion,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
@@ -252,7 +251,6 @@ public final class PackageFactory {
   public PackagePiece.ForBuildFile.Builder newPackagePieceForBuildFileBuilder(
       PackagePieceIdentifier.ForBuildFile packagePieceId,
       RootedPath filename,
-      String workspaceName,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
@@ -266,7 +264,7 @@ public final class PackageFactory {
         packageSettings,
         packagePieceId,
         filename,
-        workspaceName,
+        ruleClassProvider.getRunfilesPrefix(),
         associatedModuleName,
         associatedModuleVersion,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),

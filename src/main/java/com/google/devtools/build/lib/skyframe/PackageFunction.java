@@ -990,8 +990,6 @@ public abstract class PackageFunction implements SkyFunction {
       SkyKey keyForMetrics,
       State state)
       throws InterruptedException, PackageFunctionException {
-    WorkspaceNameValue workspaceNameValue =
-        (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue)
             env.getValue(RepositoryMappingValue.key(packageId.getRepository()));
@@ -1025,7 +1023,6 @@ public abstract class PackageFunction implements SkyFunction {
       return null;
     }
 
-    String workspaceName = workspaceNameValue.getName();
     RepositoryMapping repositoryMapping = repositoryMappingValue.repositoryMapping();
     RepositoryMapping mainRepositoryMapping = mainRepositoryMappingValue.repositoryMapping();
     Label preludeLabel = null;
@@ -1172,7 +1169,6 @@ public abstract class PackageFunction implements SkyFunction {
               ? packageFactory.newPackageBuilder(
                   packageId,
                   buildFileRootedPath,
-                  workspaceName,
                   repositoryMappingValue.associatedModuleName(),
                   repositoryMappingValue.associatedModuleVersion(),
                   starlarkBuiltinsValue.starlarkSemantics,
@@ -1185,7 +1181,6 @@ public abstract class PackageFunction implements SkyFunction {
               : packageFactory.newPackagePieceForBuildFileBuilder(
                   packagePieceId,
                   buildFileRootedPath,
-                  workspaceName,
                   repositoryMappingValue.associatedModuleName(),
                   repositoryMappingValue.associatedModuleVersion(),
                   starlarkBuiltinsValue.starlarkSemantics,

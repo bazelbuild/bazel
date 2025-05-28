@@ -74,17 +74,6 @@ java_test(
 )
 
 java_test(
-    name = "WorkspaceNameValueCodecTest",
-    size = "small",
-    srcs = ["WorkspaceNameValueCodecTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_name_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
-        "//third_party:junit4",
-    ],
-)
-
-java_test(
     name = "MemoizerTest",
     size = "small",
     srcs = ["MemoizerTest.java"],

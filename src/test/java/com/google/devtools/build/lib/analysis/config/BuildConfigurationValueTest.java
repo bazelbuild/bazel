@@ -607,20 +607,17 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     // these configurations are never trimmed nor even used to build targets so not an issue.
     new EqualsTester()
         .addEqualityGroup(
-            createRaw(parseBuildOptions("--test_arg=1a"), "k8", "testrepo", false),
-            createRaw(parseBuildOptions("--test_arg=1a"), "k8", "testrepo", false))
+            createRaw(parseBuildOptions("--test_arg=1a"), "k8", false),
+            createRaw(parseBuildOptions("--test_arg=1a"), "k8", false))
         // Different BuildOptions means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "k8", "testrepo", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "k8", false))
         // Different --experimental_sibling_repository_layout means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", "testrepo", true))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", "testrepo", false))
-        // Different repositoryName means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", "testrepo1", false))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", "testrepo2", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", true))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", false))
         // Different transitionDirectoryNameFragment means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", "testrepo", false))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "arm", "testrepo", false))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "risc", "testrepo", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "arm", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "risc", false))
         .testEquals();
   }
 

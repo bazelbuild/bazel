@@ -86,6 +86,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.OriginalCommandLineEvent;
+import com.google.devtools.build.lib.runtime.ExecRootEvent;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
@@ -265,7 +266,7 @@ public class BuildTool {
       try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
         targetPatternPhaseValue = evaluateTargetPatterns(env, request, validator);
       }
-      env.setWorkspaceName(targetPatternPhaseValue.getWorkspaceName());
+      env.getEventBus().post(new ExecRootEvent(env.getExecRoot()));
 
       ProjectEvaluationResult projectEvaluationResult =
           evaluateProjectFile(

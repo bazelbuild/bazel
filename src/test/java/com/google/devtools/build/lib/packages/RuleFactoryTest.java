@@ -58,7 +58,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
         .newPackageBuilder(
             id,
             RootedPath.toRootedPath(root, filename),
-            "TESTING",
             Optional.empty(),
             Optional.empty(),
             StarlarkSemantics.DEFAULT,
