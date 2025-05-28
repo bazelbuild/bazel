@@ -835,7 +835,20 @@ EOF
   fi
 }
 
+function mock_bazel_features() {
+  bazel_features_workspace="${TEST_TMPDIR}/bazel_features_workspace"
+  mkdir -p "${bazel_features_workspace}"
+  touch "${bazel_features_workspace}/WORKSPACE"
+  touch "${bazel_features_workspace}/BUILD"
+  cat > "${bazel_features_workspace}/deps.bzl" <<EOF
+def bazel_features_deps():
+    pass
+EOF
+  add_to_bazelrc "common --override_repository=bazel_features=${bazel_features_workspace}"
+}
+
 function mock_rules_java_to_avoid_downloading() {
+  mock_bazel_features
   rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"
   mkdir -p "${rules_java_workspace}/java"
   mkdir -p "${rules_java_workspace}/toolchains"

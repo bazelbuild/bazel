@@ -133,6 +133,8 @@ gen_workspace_stanza(
     postamble = """
         load("@rules_java//java:rules_java_deps.bzl", "rules_java_dependencies")
         rules_java_dependencies()
+        load("@bazel_features//:deps.bzl", "bazel_features_deps")
+        bazel_features_deps()
         load("@rules_python//python:repositories.bzl", "py_repositories")
         py_repositories()
         load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")

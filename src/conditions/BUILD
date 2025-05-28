@@ -221,12 +221,6 @@ config_setting(
 )
 
 config_setting(
-    name = "remote",
-    values = {"define": "EXECUTOR=remote"},
-    visibility = ["//visibility:public"],
-)
-
-config_setting(
     name = "debian_build",
     values = {
         "define": "distribution=debian",

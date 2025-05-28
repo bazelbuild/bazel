@@ -788,22 +788,6 @@ function test_java_library_runtime_deps_java_sandwich() {
   expect_log "Message from B"
 }
 
-function test_java_import_exports_java_sandwich() {
-  write_files_for_java_provider_in_attr "java_import" "exports"
-  write_java_custom_rule
-
-  bazel run java/com/google/sandwich:Main > $TEST_log || fail "Java sandwich build failed"
-  expect_log "Message from B"
-}
-
-function test_java_import_runtime_deps_java_sandwich() {
-  write_files_for_java_provider_in_attr "java_import" "runtime_deps"
-  write_java_custom_rule
-
-  bazel run java/com/google/sandwich:Main > $TEST_log || fail "Java sandwich build failed"
-  expect_log "Message from B"
-}
-
 function test_java_binary_deps_java_sandwich() {
   mkdir -p java/com/google/sandwich
   touch java/com/google/sandwich/{BUILD,{A,B,Main}.java,java_custom_library.bzl}
@@ -1553,8 +1537,7 @@ EOF
 function test_build_hello_world_with_remote_embedded_tool_targets() {
   write_hello_library_files
 
-  bazel build //java/main:main_deploy.jar --define EXECUTOR=remote \
-    &> $TEST_log || fail "build failed"
+  bazel build //java/main:main_deploy.jar &> $TEST_log || fail "build failed"
 }
 
 

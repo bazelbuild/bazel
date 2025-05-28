@@ -102,6 +102,8 @@ class TestBase(absltest.TestCase):
         # is fully removed.
         # pylint: disable=line-too-long
         f.write('common --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain\n')
+        # register the launcher maker toolchain
+        f.write('common --extra_toolchains=@bazel_tools//tools/launcher:all\n')
 
       # Disable WORKSPACE in python tests by default
       # TODO(pcloudy): Remove when --enable_workspace defaults to false

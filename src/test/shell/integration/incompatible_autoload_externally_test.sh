@@ -75,6 +75,23 @@ local_repository(
 EOF
 }
 
+function mock_bazel_features() {
+  bazel_features_workspace="${TEST_TMPDIR}/bazel_features_workspace"
+  mkdir -p "${bazel_features_workspace}"
+  touch "${bazel_features_workspace}/WORKSPACE"
+  touch "${bazel_features_workspace}/BUILD"
+  cat > "${bazel_features_workspace}/deps.bzl" <<EOF
+def bazel_features_deps():
+  pass
+EOF
+  cat >> WORKSPACE << EOF
+
+local_repository(
+    name = "bazel_features",
+    path = "${bazel_features_workspace}",
+)
+EOF
+}
 
 function mock_rules_java() {
   rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"
@@ -538,6 +555,7 @@ EOF
 function test_legacy_globals() {
   setup_module_dot_bazel
   mock_rules_java
+  mock_bazel_features
 
   rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"
 
