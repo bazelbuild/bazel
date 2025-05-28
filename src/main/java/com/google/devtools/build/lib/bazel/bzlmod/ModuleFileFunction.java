@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
@@ -138,6 +139,20 @@ public class ModuleFileFunction implements SkyFunction {
     this.builtinModules = builtinModules;
   }
 
+  /**
+   * Remove the {@code local_config_platform} module from the builtin module list if {@code
+   * --incompatible_disable_native_repo_rules} is set.
+   */
+  private static ImmutableMap<String, NonRegistryOverride> filterBuiltinModules(
+      ImmutableMap<String, NonRegistryOverride> builtinModules, Environment env)
+      throws InterruptedException {
+    if (RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES.get(env)) {
+      return ImmutableMap.copyOf(
+          Maps.filterKeys(builtinModules, name -> !name.equals("local_config_platform")));
+    }
+    return builtinModules;
+  }
+
   private static class State implements SkyKeyComputeState {
     // The following fields are used during root module file evaluation. We try to compile the root
     // module file itself first, and then read, parse, and compile any included module files layer
@@ -155,6 +170,9 @@ public class ModuleFileFunction implements SkyFunction {
       throws ModuleFileFunctionException, InterruptedException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
+      return null;
+    }
+    if (RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES.get(env) == null) {
       return null;
     }
 
@@ -214,7 +232,7 @@ public class ModuleFileFunction implements SkyFunction {
             moduleKey,
             // Dev dependencies should always be ignored if the current module isn't the root module
             /* ignoreDevDeps= */ true,
-            builtinModules,
+            filterBuiltinModules(builtinModules, env),
             /* injectedRepositories= */ ImmutableMap.of(),
             // Disable printing for modules from registries. We don't want them to be able to spam
             // the console during resolution, but module files potentially edited by the user as
@@ -311,7 +329,7 @@ public class ModuleFileFunction implements SkyFunction {
     return evaluateRootModuleFile(
         state.compiledRootModuleFile,
         ImmutableMap.copyOf(state.includeLabelToCompiledModuleFile),
-        builtinModules,
+        filterBuiltinModules(builtinModules, env),
         MODULE_OVERRIDES.get(env),
         INJECTED_REPOSITORIES.get(env),
         IGNORE_DEV_DEPS.get(env),

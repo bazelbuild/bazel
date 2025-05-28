@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+
 from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
@@ -1025,6 +1026,24 @@ class BazelModuleTest(test_base.TestBase):
     )
     _, _, stderr = self.RunBazel(['build', '@ext//:all'])
     self.assertIn('DATA: ' + unicode_str, '\n'.join(stderr))
+
+  def testLocalConfigPlatform_notAllowed(self):
+    self.ScratchFile('MODULE.bazel')
+    _, _, stderr = self.RunBazel(
+        ['build', '@local_config_platform//:host'], allow_failure=True
+    )
+    self.assertIn(
+        'The local_config_platform built-in module is disabled by',
+        '\n'.join(stderr),
+    )
+
+  def testLocalConfigPlatform_allowed(self):
+    self.ScratchFile('MODULE.bazel')
+    self.RunBazel([
+        'build',
+        '--noincompatible_disable_native_repo_rules',
+        '@local_config_platform//:host',
+    ])
 
 
 if __name__ == '__main__':

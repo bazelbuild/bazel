@@ -142,14 +142,24 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
               env,
               starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE),
               repositoryName.isOwnerRepoMainRepo());
+      Boolean disableNativeRepoRules = DISABLE_NATIVE_REPO_RULES.get(env);
       if (env.valuesMissing()) {
         return null;
       }
+      String localConfigPlatformHelperMsg =
+          disableNativeRepoRules && repositoryName.getName().equals("local_config_platform")
+              ? """
+              . The local_config_platform built-in module is disabled by \
+              --incompatible_disable_native_repo_rules. Either remove that flag, or replace \
+              @local_config_platform with @platforms//host\
+              """
+              : "";
       return new RepositoryDirectoryValue.Failure(
           String.format(
-              "No repository visible as '@%s' from %s%s",
+              "No repository visible as '@%s' from %s%s%s",
               repositoryName.getName(),
               repositoryName.getOwnerRepoDisplayString(),
+              localConfigPlatformHelperMsg,
               workspaceDeprecationMsg));
     }
 

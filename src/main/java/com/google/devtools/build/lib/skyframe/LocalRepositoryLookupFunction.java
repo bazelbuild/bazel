@@ -19,7 +19,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkSemantics;
 
 /** SkyFunction for {@link LocalRepositoryLookupValue}s. */
 public class LocalRepositoryLookupFunction implements SkyFunction {
@@ -34,10 +33,6 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-    StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (semantics == null) {
-      return null;
-    }
     // TODO: #22208, #21515 - Figure out what to do here.
     return LocalRepositoryLookupValue.mainRepository();
   }

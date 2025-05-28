@@ -153,8 +153,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     new PackageLookupFunction(
                         new AtomicReference<>(ImmutableSet.of()),
                         CrossRepositoryLabelViolationStrategy.ERROR,
-                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
                 .put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP)
                 .put(
                     SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
@@ -197,6 +196,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
+    RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES.set(differencer, true);
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());
@@ -1400,8 +1400,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         ImmutableMap.of(
             "bazel_tools",
             new NonRegistryOverride(LocalPathRepoSpecs.create("/tools")),
-            "local_config_platform",
-            new NonRegistryOverride(LocalPathRepoSpecs.create("/local_config_platform")));
+            "other_tools",
+            new NonRegistryOverride(LocalPathRepoSpecs.create("/other_tools")));
     setUpWithBuiltinModules(builtinModules);
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
@@ -1419,7 +1419,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         .isEqualTo(
             InterimModuleBuilder.create("", "")
                 .addDep("bazel_tools", createModuleKey("bazel_tools", ""))
-                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
+                .addDep("other_tools", createModuleKey("other_tools", ""))
                 .addDep("foo", createModuleKey("foo", "1.0"))
                 .build());
     assertThat(moduleFileValue.overrides()).containsExactlyEntriesIn(builtinModules);
