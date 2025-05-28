@@ -33,8 +33,6 @@ import com.google.devtools.build.skyframe.SkyValue;
  * Starlark stack) in a skyvalue rather than directly in a {@link PackagePieceValue.ForMacro}'s
  * skykey.
  */
-// TODO(https://github.com/bazelbuild/bazel/issues/23852): change prune on MacroInstanceValues;
-// requires value equality for MacroInstance.
 @AutoCodec
 public record MacroInstanceValue(MacroInstance macroInstance) implements SkyValue {
   public MacroInstanceValue {

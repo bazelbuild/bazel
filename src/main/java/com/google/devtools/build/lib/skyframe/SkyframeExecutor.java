@@ -802,6 +802,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             .setThreadStateReceiverFactoryForMetrics(skyKeyStateReceiver::makeThreadStateReceiver)
             .setCpuBoundSemaphore(cpuBoundSemaphore)
             .build());
+    map.put(SkyFunctions.PACKAGE_DECLARATIONS, new PackageDeclarationsFunction());
     map.put(SkyFunctions.PACKAGE_ERROR, new PackageErrorFunction());
     map.put(SkyFunctions.PACKAGE_ERROR_MESSAGE, new PackageErrorMessageFunction());
     map.put(SkyFunctions.MACRO_INSTANCE, new MacroInstanceFunction());

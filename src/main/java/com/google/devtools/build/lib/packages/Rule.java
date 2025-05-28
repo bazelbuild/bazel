@@ -316,6 +316,9 @@ public class Rule extends RuleOrMacroInstance implements Target {
    * <p>Requires reconstructing the call stack from a compact representation, so should only be
    * called when the full call stack is needed.
    */
+  // TODO(https://github.com/bazelbuild/bazel/issues/26128): Avoid new uses of this method; it is
+  // hostile to change pruning for lazy macro expansion. Replace with a method that takes a context
+  // argument which provides ancestor symbolic macros.
   public ImmutableList<StarlarkThread.CallStackEntry> reconstructCallStack() {
     ImmutableList.Builder<StarlarkThread.CallStackEntry> stack = ImmutableList.builder();
     stack.add(StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, location));

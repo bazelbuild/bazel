@@ -51,6 +51,8 @@ public final class SkyFunctions {
   public static final SkyFunctionName GLOB = SkyFunctionName.createHermetic("GLOB");
   public static final SkyFunctionName GLOBS = SkyFunctionName.createHermetic("GLOBS");
   public static final SkyFunctionName PACKAGE = SkyFunctionName.createHermetic("PACKAGE");
+  public static final SkyFunctionName PACKAGE_DECLARATIONS =
+      SkyFunctionName.createHermetic("PACKAGE_DECLARATIONS");
   static final SkyFunctionName PACKAGE_ERROR = SkyFunctionName.createHermetic("PACKAGE_ERROR");
   public static final SkyFunctionName PACKAGE_ERROR_MESSAGE =
       SkyFunctionName.createHermetic("PACKAGE_ERROR_MESSAGE");

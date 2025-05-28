@@ -47,6 +47,7 @@ java_library(
         "LoadTopLevelAspectsFunction.java",
         "LocalRepositoryLookupFunction.java",
         "MacroInstanceFunction.java",
+        "PackageDeclarationsFunction.java",
         "PackageFunction.java",
         "PackageFunctionWithMultipleGlobDeps.java",
         "PackageFunctionWithSingleGlobsDep.java",
@@ -1963,6 +1964,7 @@ java_library(
     name = "package_value",
     srcs = [
         "MacroInstanceValue.java",
+        "PackageDeclarationsValue.java",
         "PackagePieceValue.java",
         "PackageValue.java",
         "PackageoidValue.java",
@@ -1976,7 +1978,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
     ],
 )

@@ -637,6 +637,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
         pkg.getMetadata(),
         pkg.getDeclarations(),
         parent,
+        parent != null ? parent.getGeneratorName() : generatorMap.get(location),
         location,
         compactParentCallStack,
         macroClass,

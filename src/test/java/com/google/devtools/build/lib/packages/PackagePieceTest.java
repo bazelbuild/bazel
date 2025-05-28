@@ -156,7 +156,6 @@ def fail_impl(name, visibility, **kwargs):
         .isEqualTo(Label.parseCanonical("//test_pkg:BUILD"));
     assertThat(buildFilePiece.getBuildFile().getLabel())
         .isEqualTo(Label.parseCanonical("//test_pkg:BUILD"));
-    assertThat(buildFilePiece.getPackagePieceForBuildFile()).isSameInstanceAs(buildFilePiece);
     assertThat(buildFilePiece.getTargets()).hasSize(2); // BUILD file + foo
     assertThat(buildFilePiece.getTargets(Rule.class)).hasSize(1);
     Target foo = buildFilePiece.getTarget("foo");
@@ -203,9 +202,6 @@ def fail_impl(name, visibility, **kwargs):
     assertThat(fooBarMacroPiece.getMetadata()).isSameInstanceAs(buildFilePiece.getMetadata());
     assertThat(fooBarMacroPiece.getDeclarations())
         .isSameInstanceAs(buildFilePiece.getDeclarations());
-
-    assertThat(fooMacroPiece.getPackagePieceForBuildFile()).isSameInstanceAs(buildFilePiece);
-    assertThat(fooBarMacroPiece.getPackagePieceForBuildFile()).isSameInstanceAs(buildFilePiece);
 
     assertThat(fooMacroPiece.getTargets()).hasSize(1);
     assertThat(fooMacroPiece.getTargets(Rule.class)).hasSize(1);
@@ -262,15 +258,15 @@ def fail_impl(name, visibility, **kwargs):
       PackagePieceIdentifier parentIdentifier,
       PackagePiece.ForBuildFile pieceForBuildFile) {
     return PackagePiece.ForMacro.newBuilder(
+        pieceForBuildFile.getMetadata(),
+        pieceForBuildFile.getDeclarations(),
         macro,
         parentIdentifier,
-        pieceForBuildFile,
         /* simplifyUnconditionalSelectsInRuleAttrs= */ StarlarkSemantics.DEFAULT.getBool(
             BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
         /* mainRepositoryMapping= */ null,
         /* cpuBoundSemaphore= */ null,
         PackageOverheadEstimator.NOOP_ESTIMATOR,
-        /* generatorMap= */ null,
         /* enableNameConflictChecking= */ true,
         /* trackFullMacroInformation= */ false,
         Package.Builder.PackageLimits.DEFAULTS);

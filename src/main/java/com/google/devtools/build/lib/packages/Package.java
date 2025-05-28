@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationContext
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -66,6 +67,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
@@ -133,12 +135,6 @@ public class Package extends Packageoid {
    * @see Metadata#isRepoRulePackage()
    */
   private static final String DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES = "__dummy_workspace_bzlmod";
-
-  // ==== General package metadata fields ====
-
-  private final Metadata metadata;
-
-  private final Declarations declarations;
 
   // Can be changed during BUILD file evaluation due to exports_files() modifying its visibility.
   // Cannot be in Declarations because, since it's a Target, it holds a back reference to this
@@ -214,21 +210,10 @@ public class Package extends Packageoid {
   // TODO(#19922): Better separate fields that must be known a priori from those determined through
   // BUILD evaluation.
   private Package(Metadata metadata) {
-    this.metadata = metadata;
-    this.declarations = new Declarations();
+    super(metadata, new Declarations());
   }
 
   // ==== General package metadata accessors ====
-
-  @Override
-  public Metadata getMetadata() {
-    return metadata;
-  }
-
-  @Override
-  public Declarations getDeclarations() {
-    return declarations;
-  }
 
   /**
    * Returns the name of this package. If this build is using external repositories then this name
@@ -273,7 +258,7 @@ public class Package extends Packageoid {
     return getDeclarations().getWorkspaceName();
   }
 
-  @Override
+  /** Returns the InputFile target for this package's BUILD file. */
   public InputFile getBuildFile() {
     return buildFile;
   }
@@ -1072,10 +1057,7 @@ public class Package extends Packageoid {
       // Add target for the BUILD file itself.
       // (This may be overridden by an exports_file declaration.)
       recorder.addInputFileUnchecked(
-          new InputFile(
-              pkg,
-              metadata.buildFileLabel(),
-              Location.fromFile(metadata.buildFilename().asPath().toString())));
+          new InputFile(pkg, metadata.buildFileLabel(), metadata.getBuildFileLocation()));
     }
   }
 
@@ -1544,6 +1526,11 @@ public class Package extends Packageoid {
       return getPackageDirectory(buildFilename);
     }
 
+    /** Returns the {@link Location} of the package's BUILD file. */
+    public Location getBuildFileLocation() {
+      return Location.fromFile(buildFilename.asPath().toString());
+    }
+
     private static Path getPackageDirectory(RootedPath buildFilename) {
       return buildFilename.asPath().getParentDirectory();
     }
@@ -1620,6 +1607,33 @@ public class Package extends Packageoid {
     @Nullable private ImmutableList<Module> directLoads;
     @Nullable private ImmutableList<Label> transitiveLoads;
 
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      return obj instanceof Declarations other
+          && Objects.equals(workspaceName, other.workspaceName)
+          && Objects.equals(packageArgs, other.packageArgs)
+          && Objects.equals(makeEnv, other.makeEnv)
+          // Serializers use getOrComputeTransitivelyLoadedStarlarkFiles() and don't distinguish
+          // between directLoads and transitiveLoads.
+          && Objects.equals(
+              getOrComputeTransitivelyLoadedStarlarkFilesInternal(),
+              other.getOrComputeTransitivelyLoadedStarlarkFilesInternal());
+    }
+
+    @Override
+    public int hashCode() {
+      return HashCodes.hashObjects(
+          workspaceName,
+          packageArgs,
+          makeEnv,
+          // Serializers use getOrComputeTransitivelyLoadedStarlarkFiles() and don't distinguish
+          // between directLoads and transitiveLoads.
+          getOrComputeTransitivelyLoadedStarlarkFilesInternal());
+    }
+
     /**
      * Returns the name of the workspace this package is in. Used as a prefix for the runfiles
      * directory.
@@ -1668,9 +1682,19 @@ public class Package extends Packageoid {
      * (i.e. after {@link TargetDefinitionContext#finishBuild} has been called).
      */
     public ImmutableList<Label> getOrComputeTransitivelyLoadedStarlarkFiles() {
-      return transitiveLoads != null
-          ? transitiveLoads
-          : computeTransitiveLoads(checkNotNull(directLoads));
+      return checkNotNull(getOrComputeTransitivelyLoadedStarlarkFilesInternal());
+    }
+
+    @Nullable
+    private ImmutableList<Label> getOrComputeTransitivelyLoadedStarlarkFilesInternal() {
+      if (transitiveLoads != null) {
+        return transitiveLoads;
+      } else if (directLoads != null) {
+        return computeTransitiveLoads(directLoads);
+      } else {
+        // Declarations not fully initialized.
+        return null;
+      }
     }
 
     /**

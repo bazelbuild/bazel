@@ -271,8 +271,9 @@ public class RuleFactory {
     }
 
     String generatorName =
-        targetDefinitionContext.getGeneratorNameByLocation(
-            macro != null ? macro.getBuildFileLocation() : callstack.get(0).location);
+        macro != null
+            ? macro.getGeneratorName()
+            : targetDefinitionContext.getGeneratorNameByLocation(callstack.get(0).location);
     if (generatorName == null) {
       // Fall back on target name (meh).
       generatorName = (String) args.getAttributeValue("name");

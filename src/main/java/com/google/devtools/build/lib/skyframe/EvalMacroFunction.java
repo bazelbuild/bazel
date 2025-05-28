@@ -19,6 +19,7 @@ import static java.lang.Math.max;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchPackagePieceException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackagePiece;
@@ -59,13 +60,21 @@ final class EvalMacroFunction implements SkyFunction {
           MacroInstanceFunctionException,
           InterruptedException {
     PackagePieceIdentifier.ForMacro key = (PackagePieceIdentifier.ForMacro) skyKey.argument();
-
-    // Get this package's top-level package piece, for common metadata and declarations shared by
-    // all package pieces of the package.
-    PackagePieceValue.ForBuildFile buildFileValue =
-        (PackagePieceValue.ForBuildFile)
-            env.getValueOrThrow(getBuildFileKey(key), PackageFunctionException.class);
-    if (buildFileValue == null) {
+    // Get the common metadata and declarations shared by all package pieces of the package.
+    PackageDeclarationsValue packageDeclarationsValue;
+    try {
+      packageDeclarationsValue =
+          (PackageDeclarationsValue)
+              env.getValueOrThrow(
+                  new PackageDeclarationsValue.Key(key.getPackageIdentifier()),
+                  NoSuchPackageException.class,
+                  NoSuchPackagePieceException.class);
+    } catch (NoSuchPackageException e) {
+      throw new EvalMacroFunctionException(e);
+    } catch (NoSuchPackagePieceException e) {
+      throw new EvalMacroFunctionException(e);
+    }
+    if (packageDeclarationsValue == null) {
       return null;
     }
 
@@ -88,26 +97,25 @@ final class EvalMacroFunction implements SkyFunction {
     if (macroInstanceValue.macroInstance().getMacroClass().isFinalizer()) {
       throw new EvalMacroFunctionException(
           new InvalidPackagePieceException(
-              key, "finalizers not yet supported under lazy macro expansion"),
-          Transience.PERSISTENT);
+              key, "finalizers not yet supported under lazy macro expansion"));
     }
 
     // Expand the macro.
     long startTimeNanos = BlazeClock.nanoTime();
     PackagePiece.ForMacro.Builder packagePieceBuilder =
         packageFactory.newPackagePieceForMacroBuilder(
+            packageDeclarationsValue.metadata(),
+            packageDeclarationsValue.declarations(),
             macroInstanceValue.macroInstance(),
             key.getParentIdentifier(),
-            buildFileValue.getPackagePiece(),
-            buildFileValue.starlarkSemantics(),
-            buildFileValue.mainRepositoryMapping(),
-            cpuBoundSemaphore.get(),
-            buildFileValue.generatorMap());
+            packageDeclarationsValue.starlarkSemantics(),
+            packageDeclarationsValue.mainRepositoryMapping(),
+            cpuBoundSemaphore.get());
     try {
       MacroClass.executeMacroImplementation(
           macroInstanceValue.macroInstance(),
           packagePieceBuilder,
-          buildFileValue.starlarkSemantics());
+          packageDeclarationsValue.starlarkSemantics());
     } catch (EvalException e) {
       packagePieceBuilder
           .getLocalEventHandler()
@@ -121,35 +129,30 @@ final class EvalMacroFunction implements SkyFunction {
       // TODO(https://github.com/bazelbuild/bazel/issues/23852): verify labels using
       // PackageFunction#handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions
     } catch (NoSuchPackageException e) {
-      throw new EvalMacroFunctionException(e, Transience.PERSISTENT);
+      throw new EvalMacroFunctionException(e);
     }
     PackagePiece.ForMacro packagePiece = packagePieceBuilder.finishBuild();
 
     try {
       packageFactory.afterDoneLoadingPackagePiece(
-          packagePiece, buildFileValue.starlarkSemantics(), loadTimeNanos, env.getListener());
+          packagePiece,
+          packageDeclarationsValue.starlarkSemantics(),
+          loadTimeNanos,
+          env.getListener());
     } catch (InvalidPackagePieceException e) {
-      throw new EvalMacroFunctionException(e, Transience.PERSISTENT);
+      throw new EvalMacroFunctionException(e);
     }
 
     return new PackagePieceValue.ForMacro(packagePiece);
   }
 
-  private static PackagePieceIdentifier.ForBuildFile getBuildFileKey(
-      PackagePieceIdentifier.ForMacro key) {
-    do {
-      PackagePieceIdentifier parent = key.getParentIdentifier();
-      if (parent instanceof PackagePieceIdentifier.ForBuildFile buildFileKey) {
-        return buildFileKey;
-      } else {
-        key = (PackagePieceIdentifier.ForMacro) parent;
-      }
-    } while (true);
-  }
-
   public static final class EvalMacroFunctionException extends SkyFunctionException {
-    EvalMacroFunctionException(Exception cause, Transience transience) {
-      super(cause, transience);
+    EvalMacroFunctionException(NoSuchPackageException cause) {
+      super(cause, Transience.PERSISTENT);
+    }
+
+    EvalMacroFunctionException(NoSuchPackagePieceException cause) {
+      super(cause, Transience.PERSISTENT);
     }
   }
 }

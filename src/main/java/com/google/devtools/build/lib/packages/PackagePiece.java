@@ -66,12 +66,6 @@ public abstract sealed class PackagePiece extends Packageoid
   public abstract PackagePieceIdentifier getIdentifier();
 
   /**
-   * Returns the {@link PackagePiece} corresponding to the evaluation of the BUILD file for this
-   * package.
-   */
-  public abstract PackagePiece.ForBuildFile getPackagePieceForBuildFile();
-
-  /**
    * Returns a (read-only, ordered) iterable of all the targets belonging to this package piece
    * which are instances of the specified class. Doesn't search in any other package pieces.
    */
@@ -87,23 +81,6 @@ public abstract sealed class PackagePiece extends Packageoid
     }
 
     throw noSuchTargetException(targetName);
-  }
-
-  /**
-   * Returns the target with a specified name, searching this package piece and the package piece
-   * for the package's BUILD file. Returns null if the target is not found. The target name must be
-   * valid, as defined by {@code LabelValidator#validateTargetName}.
-   *
-   * <p>Unlike {@link #getTarget}, this method does not throw an exception if the target is not
-   * found.
-   */
-  @Nullable
-  public Target tryGetTargetHereOrBuildFile(String targetName) {
-    @Nullable Target target = targets.get(targetName);
-    if (target == null && getPackagePieceForBuildFile() != this) {
-      target = getPackagePieceForBuildFile().targets.get(targetName);
-    }
-    return target;
   }
 
   /**
@@ -169,14 +146,16 @@ public abstract sealed class PackagePiece extends Packageoid
     this.macrosByName = macrosByName.buildOrThrow();
   }
 
+  protected PackagePiece(Metadata metadata, Declarations declarations) {
+    super(metadata, declarations);
+  }
+
   /**
    * A {@link PackagePiece} obtained by evaluating a BUILD file, without expanding any symbolic
    * macros.
    */
   public static final class ForBuildFile extends PackagePiece {
     private final PackagePieceIdentifier.ForBuildFile identifier;
-    private final Metadata metadata;
-    private final Declarations declarations;
     // Can be changed during BUILD file evaluation due to exports_files() modifying its visibility.
     // Cannot be in declarations because, since it's a Target, it holds a back reference to this
     // PackagePiece.ForBuildFile object.
@@ -185,21 +164,6 @@ public abstract sealed class PackagePiece extends Packageoid
     @Override
     public PackagePieceIdentifier.ForBuildFile getIdentifier() {
       return identifier;
-    }
-
-    @Override
-    public PackagePiece.ForBuildFile getPackagePieceForBuildFile() {
-      return this;
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return metadata;
-    }
-
-    @Override
-    public Package.Declarations getDeclarations() {
-      return declarations;
     }
 
     @Override
@@ -212,7 +176,7 @@ public abstract sealed class PackagePiece extends Packageoid
       return String.format("top-level package piece defined by %s", getCanonicalFormDefinedBy());
     }
 
-    @Override
+    /** Returns the InputFile target for this package's BUILD file. */
     public InputFile getBuildFile() {
       return buildFile;
     }
@@ -224,10 +188,9 @@ public abstract sealed class PackagePiece extends Packageoid
     }
 
     private ForBuildFile(PackagePieceIdentifier.ForBuildFile identifier, Metadata metadata) {
+      super(metadata, new Declarations());
       checkArgument(identifier.getPackageIdentifier().equals(metadata.packageIdentifier()));
       this.identifier = identifier;
-      this.metadata = metadata;
-      this.declarations = new Declarations();
     }
 
     /** Creates a new {@link PackagePiece.ForBuildFile.Builder}. */
@@ -367,28 +330,12 @@ public abstract sealed class PackagePiece extends Packageoid
   public static final class ForMacro extends PackagePiece {
     private final PackagePieceIdentifier.ForMacro identifier;
     private final MacroInstance evaluatedMacro;
-    private final PackagePiece.ForBuildFile pieceForBuildFile;
     // Null until the package piece is fully initialized by its builder's {@code finishBuild()}.
     @Nullable private ImmutableSet<String> macroNamespaceViolations = null;
 
     @Override
     public PackagePieceIdentifier.ForMacro getIdentifier() {
       return identifier;
-    }
-
-    @Override
-    public PackagePiece.ForBuildFile getPackagePieceForBuildFile() {
-      return pieceForBuildFile;
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return pieceForBuildFile.getMetadata();
-    }
-
-    @Override
-    public Declarations getDeclarations() {
-      return pieceForBuildFile.getDeclarations();
     }
 
     @Override
@@ -403,11 +350,6 @@ public abstract sealed class PackagePiece extends Packageoid
       return String.format(
           "package piece %s defined by %s",
           getIdentifier().getCanonicalFormName(), getCanonicalFormDefinedBy());
-    }
-
-    @Override
-    public InputFile getBuildFile() {
-      return pieceForBuildFile.getBuildFile();
     }
 
     public MacroInstance getEvaluatedMacro() {
@@ -447,52 +389,50 @@ public abstract sealed class PackagePiece extends Packageoid
     }
 
     private ForMacro(
+        Metadata metadata,
+        Declarations declarations,
         MacroInstance evaluatedMacro,
-        PackagePieceIdentifier parentIdentifier,
-        PackagePiece.ForBuildFile pieceForBuildFile) {
+        PackagePieceIdentifier parentIdentifier) {
+      super(metadata, declarations);
       checkArgument(
-          evaluatedMacro
-              .getPackageMetadata()
+          metadata
               .packageIdentifier()
-              .equals(pieceForBuildFile.getPackageIdentifier()));
-      checkArgument(
-          parentIdentifier.getPackageIdentifier().equals(pieceForBuildFile.getPackageIdentifier()));
+              .equals(evaluatedMacro.getPackageMetadata().packageIdentifier()));
+      checkArgument(metadata.packageIdentifier().equals(parentIdentifier.getPackageIdentifier()));
       if (evaluatedMacro.getParent() != null) {
         checkIdentifierMatchesMacro(
             (PackagePieceIdentifier.ForMacro) parentIdentifier, evaluatedMacro.getParent());
       } else {
-        checkArgument(parentIdentifier.equals(pieceForBuildFile.getIdentifier()));
+        checkArgument(parentIdentifier instanceof PackagePieceIdentifier.ForBuildFile);
       }
       this.identifier =
           new PackagePieceIdentifier.ForMacro(
-              pieceForBuildFile.getPackageIdentifier(), parentIdentifier, evaluatedMacro.getName());
+              metadata.packageIdentifier(), parentIdentifier, evaluatedMacro.getName());
       this.evaluatedMacro = evaluatedMacro;
-      this.pieceForBuildFile = pieceForBuildFile;
     }
 
     /** Creates a new {@link PackagePiece.ForMacro.Builder}. */
     // TODO(bazel-team): when JEP 482 ("flexible constructors") is enabled, we can remove this
     // method and use the builder's constructor directly.
     public static Builder newBuilder(
+        Metadata metadata,
+        Declarations declarations,
         MacroInstance evaluatedMacro,
         PackagePieceIdentifier parentIdentifier,
-        PackagePiece.ForBuildFile pieceForBuildFile,
         boolean simplifyUnconditionalSelectsInRuleAttrs,
         RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
         PackageOverheadEstimator packageOverheadEstimator,
-        @Nullable ImmutableMap<Location, String> generatorMap,
         boolean enableNameConflictChecking,
         boolean trackFullMacroInformation,
         PackageLimits packageLimits) {
-      ForMacro forMacro = new ForMacro(evaluatedMacro, parentIdentifier, pieceForBuildFile);
+      ForMacro forMacro = new ForMacro(metadata, declarations, evaluatedMacro, parentIdentifier);
       return new Builder(
           forMacro,
           simplifyUnconditionalSelectsInRuleAttrs,
           mainRepositoryMapping,
           cpuBoundSemaphore,
           packageOverheadEstimator,
-          generatorMap,
           enableNameConflictChecking,
           trackFullMacroInformation,
           packageLimits);
@@ -544,7 +484,6 @@ public abstract sealed class PackagePiece extends Packageoid
           RepositoryMapping mainRepositoryMapping,
           @Nullable Semaphore cpuBoundSemaphore,
           PackageOverheadEstimator packageOverheadEstimator,
-          @Nullable ImmutableMap<Location, String> generatorMap,
           boolean enableNameConflictChecking,
           boolean trackFullMacroInformation,
           PackageLimits packageLimits) {
@@ -553,11 +492,11 @@ public abstract sealed class PackagePiece extends Packageoid
             forMacro,
             SymbolGenerator.create(forMacro.getIdentifier()),
             simplifyUnconditionalSelectsInRuleAttrs,
-            forMacro.getPackagePieceForBuildFile().getDeclarations().getWorkspaceName(),
+            forMacro.getDeclarations().getWorkspaceName(),
             mainRepositoryMapping,
             cpuBoundSemaphore,
             packageOverheadEstimator,
-            generatorMap,
+            /* generatorMap= */ null,
             /* globber= */ null,
             enableNameConflictChecking,
             trackFullMacroInformation,

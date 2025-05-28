@@ -28,6 +28,9 @@ import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.MacroInstanceFunction.NoSuchMacroInstanceException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -215,6 +218,47 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
             "<PackagePieceIdentifier.ForMacro name=//pkg:foo_inner"
                 + " declared_in=<PackagePieceIdentifier.ForMacro name=//pkg:foo"
                 + " declared_in=<PackagePieceIdentifier.ForBuildFile pkg=//pkg>>> not found");
+  }
+
+  // TODO(https://github.com/bazelbuild/bazel/issues/26128): also prune outer macro changes at an
+  // inner macro instance.
+  @Test
+  public void buildFileChange_prunedAtMacroInstance() throws Exception {
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _impl(name, visibility):
+            native.cc_library(name = name, visibility = visibility)
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        """);
+    PackagePiece.ForMacro packagePieceBeforeUpdate = getPackagePieceWithoutErrors("pkg", "foo");
+
+    // Edit and invalidate BUILD file. Note that for change pruning to work, the edit must preserve
+    // line numbers in the macro call stack.
+    // TODO(https://github.com/bazelbuild/bazel/issues/26128): relax this requirement.
+    scratch.overwriteFile(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        cc_library(name = "unrelated")
+        """);
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(PathFragment.create("pkg/BUILD")).build(),
+            Root.fromPath(rootDirectory));
+
+    // PackagePieceValue.ForMacro is a NotComparableSkyValue; if we get back the same instance after
+    // update, it means all of the PackagePieceValue's deps were either change-pruned or unchanged.
+    assertThat(getPackagePieceWithoutErrors("pkg", "foo"))
+        .isSameInstanceAs(packagePieceBeforeUpdate);
   }
 
   @Test

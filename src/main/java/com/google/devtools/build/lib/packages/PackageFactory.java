@@ -286,23 +286,23 @@ public final class PackageFactory {
   // part of lib.packages, so that it can create empty package pieces in case of error before macro
   // execution. Do not call it from anywhere else.
   public PackagePiece.ForMacro.Builder newPackagePieceForMacroBuilder(
+      Package.Metadata metadata,
+      Package.Declarations declarations,
       MacroInstance macro,
       PackagePieceIdentifier parentIdentifier,
-      PackagePiece.ForBuildFile pieceForBuildFile,
       StarlarkSemantics starlarkSemantics,
       RepositoryMapping mainRepositoryMapping,
-      @Nullable Semaphore cpuBoundSemaphore,
-      @Nullable ImmutableMap<Location, String> generatorMap) {
+      @Nullable Semaphore cpuBoundSemaphore) {
     return PackagePiece.ForMacro.newBuilder(
+        metadata,
+        declarations,
         macro,
         parentIdentifier,
-        pieceForBuildFile,
         starlarkSemantics.getBool(
             BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
         mainRepositoryMapping,
         cpuBoundSemaphore,
         packageOverheadEstimator,
-        generatorMap,
         /* enableNameConflictChecking= */ true,
         /* trackFullMacroInformation= */ true,
         packageValidator.getPackageLimits());

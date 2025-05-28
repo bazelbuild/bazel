@@ -615,10 +615,7 @@ public abstract class PackageFunction implements SkyFunction {
       return new PackageValue(pkg);
     } else if (packageoid instanceof PackagePiece.ForBuildFile pkgPiece) {
       return new PackagePieceValue.ForBuildFile(
-          pkgPiece,
-          starlarkBuiltinsValue.starlarkSemantics,
-          pkgBuilder.getMainRepoMapping(),
-          pkgBuilder.getGeneratorMap());
+          pkgPiece, starlarkBuiltinsValue.starlarkSemantics, pkgBuilder.getMainRepoMapping());
     } else {
       throw new IllegalStateException("Unexpected packageoid type: " + packageoid.getClass());
     }

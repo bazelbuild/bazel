@@ -351,7 +351,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return new TransitiveLoadFilesHelperForTargets() {
       @Override
       public Target getLoadFileTarget(Target originalTarget, Label bzlLabel) {
-        return getNode(new FakeLoadTarget(bzlLabel, originalTarget.getPackageoid())).getLabel();
+        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
+        return getNode(new FakeLoadTarget(bzlLabel, originalTarget.getPackage())).getLabel();
       }
 
       @Nullable
@@ -363,10 +364,11 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         if (baseName == null) {
           return null;
         }
+        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
         return getNode(
                 new FakeLoadTarget(
                     Label.createUnvalidated(pkgIdOfBzlLabel, baseName),
-                    originalTarget.getPackageoid()))
+                    originalTarget.getPackage()))
             .getLabel();
       }
     };
