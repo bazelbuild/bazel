@@ -55,6 +55,7 @@ function test_rules_java_can_be_overridden() {
   # which would cause this test to fail to override the repo via a WORKSPACE file.
   sed -i.bak '/override_repository=rules_java=/d' $TEST_TMPDIR/bazelrc
 
+  mock_bazel_features
   # We test that a custom repository can override @platforms in their
   # WORKSPACE file.
   mkdir -p rules_java_can_be_overridden || fail "couldn't create directory"
