@@ -1,3 +1,19 @@
+## Release 9.0.0-pre.20250516.2 (2025-05-28)
+
+```
+Baseline: 9b8093bb4db3d6567e0f29eaa98fe16cd2e4a154
+
+Cherry picks:
+
+   + ebf299d14b297a5fd71e64f09b8ed176f75b51f9:
+     Relax checks for non-pic static libraries
+   + dbb16d503c13f93ea6915f4b60187d9b58d930cb:
+     Correctly handle failing finalizers; allow unexpanded finalizers
+     in a package which contains errors
+```
+
+This release contains contributions from many people at Google, as well as .
+
 ## Release 9.0.0-pre.20250516.1 (2025-05-23)
 
 ```
