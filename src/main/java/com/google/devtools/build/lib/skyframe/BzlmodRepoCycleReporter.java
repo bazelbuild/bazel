@@ -148,9 +148,6 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
             } else if (input.argument() instanceof ModuleExtensionId id) {
               return "module extension " + id;
             } else if (input.argument() instanceof RepositoryMappingValue.Key key) {
-              if (key == RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS) {
-                return "repository mapping of @@ without WORKSPACE repos";
-              }
               return String.format("repository mapping of %s", key.repoName());
             } else if (input.argument() == BazelModuleResolutionValue.KEY) {
               return "module resolution";

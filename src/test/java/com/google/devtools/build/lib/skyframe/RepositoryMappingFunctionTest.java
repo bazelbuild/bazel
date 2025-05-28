@@ -333,8 +333,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   @Test
   public void builtinsRepo() throws Exception {
     SkyKey builtinsKey = RepositoryMappingValue.key(RepositoryName.create("_builtins"));
-    SkyKey toolsKey =
-        RepositoryMappingValue.Key.create(ruleClassProvider.getToolsRepository(), false);
+    SkyKey toolsKey = RepositoryMappingValue.Key.create(ruleClassProvider.getToolsRepository());
     EvaluationResult<RepositoryMappingValue> builtinsResult = eval(builtinsKey);
     assertThat(builtinsResult.hasError()).isFalse();
     RepositoryMapping builtinsMapping = builtinsResult.get(builtinsKey).repositoryMapping();

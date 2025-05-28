@@ -2418,7 +2418,6 @@ java_library(
     name = "repository_mapping_function",
     srcs = ["RepositoryMappingFunction.java"],
     deps = [
-        ":package_value",
         ":precomputed_value",
         ":repository_mapping_value",
         ":starlark_builtins_value",
@@ -2427,7 +2426,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
@@ -2449,8 +2447,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
-        "//third_party:error_prone_annotations",
-        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )

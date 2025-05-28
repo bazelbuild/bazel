@@ -1671,7 +1671,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
       TargetDefinitionContext targetDefinitionContext =
           ruleClass.getWorkspaceOnly()
-              ? Package.Builder.fromOrFailAllowWorkspaceOrModuleExtension(
+              ? Package.Builder.fromOrFailAllowModuleExtension(
                   thread, "a repository rule", "instantiated")
               : TargetDefinitionContext.fromOrFailDisallowWorkspace(
                   thread, "a rule", "instantiated");

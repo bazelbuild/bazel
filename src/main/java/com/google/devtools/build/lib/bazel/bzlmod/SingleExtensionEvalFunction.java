@@ -100,8 +100,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       return null;
     }
     RepositoryMappingValue mainRepoMappingValue =
-        (RepositoryMappingValue)
-            env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS);
+        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     if (mainRepoMappingValue == null) {
       return null;
     }
@@ -383,18 +382,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       Environment env, ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappings)
       throws InterruptedException, NeedsSkyframeRestartException {
     // Request repo mappings for any 'source repos' in the recorded mapping entries.
-    // Note specially that the main repo needs to be treated differently: if any .bzl file from the
-    // main repo was used for module extension eval, it _has_ to be before WORKSPACE is evaluated
-    // (see relevant code in BzlLoadFunction#getRepositoryMapping), so we only request the main repo
-    // mapping _without_ WORKSPACE repos. See #20942 for more information.
     SkyframeLookupResult result =
         env.getValuesAndExceptions(
             recordedRepoMappings.rowKeySet().stream()
-                .map(
-                    repoName ->
-                        repoName.isMain()
-                            ? RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS
-                            : RepositoryMappingValue.key(repoName))
+                .map(RepositoryMappingValue::key)
                 .collect(toImmutableSet()));
     if (env.valuesMissing()) {
       // This likely means that one of the 'source repos' in the recorded mapping entries is no
@@ -403,11 +394,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     }
     for (Table.Cell<RepositoryName, String, RepositoryName> cell : recordedRepoMappings.cellSet()) {
       RepositoryMappingValue repoMappingValue =
-          (RepositoryMappingValue)
-              result.get(
-                  cell.getRowKey().isMain()
-                      ? RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS
-                      : RepositoryMappingValue.key(cell.getRowKey()));
+          (RepositoryMappingValue) result.get(RepositoryMappingValue.key(cell.getRowKey()));
       if (repoMappingValue == null) {
         throw new NeedsSkyframeRestartException();
       }

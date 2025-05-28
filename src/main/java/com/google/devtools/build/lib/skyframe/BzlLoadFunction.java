@@ -932,31 +932,14 @@ public class BzlLoadFunction implements SkyFunction {
   @Nullable
   private static RepositoryMapping getRepositoryMapping(BzlLoadValue.Key key, Environment env)
       throws InterruptedException {
-    Label enclosingFileLabel = key.getLabel();
-    RepositoryName repoName = enclosingFileLabel.getRepository();
+    RepositoryName repoName = key.getLabel().getRepository();
 
-    if (key instanceof BzlLoadValue.KeyForBzlmod) {
-      if (key instanceof BzlLoadValue.KeyForBzlmodBootstrap) {
-        // Special case: we're only here to get one of the rules in the @bazel_tools repo that
-        // load Bazel modules. At this point we can't load from any other modules and thus use a
-        // repository mapping that contains only @bazel_tools itself.
-        return RepositoryMapping.create(
-            ImmutableMap.of("bazel_tools", RepositoryName.BAZEL_TOOLS), RepositoryName.BAZEL_TOOLS);
-      }
-      if (repoName.isMain()) {
-        // Special case: when we try to run an extension in the main repo, we need to grab the repo
-        // mapping for the main repo, which normally would include all WORKSPACE repos. This is
-        // problematic if the reason we're running an extension at all is that we're trying to do a
-        // `load` in WORKSPACE. So we specifically say that, to run an extension in the main repo,
-        // we ask for a repo mapping *without* WORKSPACE repos.
-        RepositoryMappingValue repositoryMappingValue =
-            (RepositoryMappingValue)
-                env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS);
-        if (repositoryMappingValue == null) {
-          return null;
-        }
-        return repositoryMappingValue.repositoryMapping();
-      }
+    if (key instanceof BzlLoadValue.KeyForBzlmodBootstrap) {
+      // Special case: we're only here to get one of the rules in the @bazel_tools repo that
+      // load Bazel modules. At this point we can't load from any other modules and thus use a
+      // repository mapping that contains only @bazel_tools itself.
+      return RepositoryMapping.create(
+          ImmutableMap.of("bazel_tools", RepositoryName.BAZEL_TOOLS), RepositoryName.BAZEL_TOOLS);
     }
 
     // This is either a .bzl loaded from BUILD files, or a .bzl loaded for bzlmod, so we can just
@@ -972,20 +955,14 @@ public class BzlLoadFunction implements SkyFunction {
   @Nullable
   private static RepositoryMapping getMainRepositoryMapping(BzlLoadValue.Key key, Environment env)
       throws InterruptedException {
-    RepositoryMappingValue.Key repoMappingKey;
-    if (key instanceof BzlLoadValue.KeyForBuild) {
-      repoMappingKey = RepositoryMappingValue.key(RepositoryName.MAIN);
-    } else if (key instanceof BzlLoadValue.KeyForBzlmod
-        && !(key instanceof BzlLoadValue.KeyForBzlmodBootstrap)) {
-      // Since the main repo mapping requires evaluating WORKSPACE, but WORKSPACE can load from
-      // extension repos, requesting the full main repo mapping would cause a cycle.
-      repoMappingKey = RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS;
-    } else {
-      // For builtins, @bazel_tools, the key's local repo mapping can be used as the main repo
+    if (key instanceof BzlLoadValue.KeyForBuiltins
+        || key instanceof BzlLoadValue.KeyForBzlmodBootstrap) {
+      // For builtins and @bazel_tools, the key's local repo mapping can be used as the main repo
       // mapping.
       return getRepositoryMapping(key, env);
     }
-    var mainRepositoryMappingValue = (RepositoryMappingValue) env.getValue(repoMappingKey);
+    var mainRepositoryMappingValue =
+        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     if (mainRepositoryMappingValue == null) {
       return null;
     }

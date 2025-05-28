@@ -208,7 +208,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    boolean enableBzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
     RepoRuleId repoRuleId =
         new RepoRuleId(
             rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel(), rule.getRuleClass());
@@ -216,16 +215,13 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     if (NonRegistryOverride.BOOTSTRAP_REPO_RULES.contains(repoRuleId)) {
       // Avoid a cycle.
       mainRepoMapping = null;
-    } else if (enableBzlmod || !isWorkspaceRepo(rule)) {
+    } else {
       var mainRepoMappingValue =
-          (RepositoryMappingValue)
-              env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS);
+          (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
       if (mainRepoMappingValue == null) {
         return null;
       }
       mainRepoMapping = mainRepoMappingValue.repositoryMapping();
-    } else {
-      mainRepoMapping = rule.getPackageMetadata().repositoryMapping();
     }
 
     IgnoredSubdirectoriesValue ignoredSubdirectories =

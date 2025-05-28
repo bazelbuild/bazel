@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.skyframe;
 import static java.util.Objects.requireNonNull;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -73,9 +72,6 @@ public record RepositoryMappingValue(
     requireNonNull(associatedModuleVersion, "associatedModuleVersion");
   }
 
-  public static final Key KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS =
-      Key.create(RepositoryName.MAIN, /* rootModuleShouldSeeWorkspaceRepos= */ false);
-
   public static final RepositoryMappingValue VALUE_FOR_ROOT_MODULE_WITHOUT_REPOS =
       RepositoryMappingValue.createForWorkspaceRepo(RepositoryMapping.ALWAYS_FALLBACK);
 
@@ -105,22 +101,10 @@ public record RepositoryMappingValue(
   }
 
   /**
-   * Replaces the inner {@link #getRepositoryMapping() repository mapping} with one returned by
-   * calling its {@link RepositoryMapping#withAdditionalMappings} method.
+   * Replaces the inner {@link #repositoryMapping() repository mapping} with one returned by calling
+   * its {@link RepositoryMapping#withCachedInverseMap} method.
    */
-  public final RepositoryMappingValue withAdditionalMappings(
-      ImmutableMap<String, RepositoryName> mappings) {
-    return new RepositoryMappingValue(
-        repositoryMapping().withAdditionalMappings(mappings),
-        associatedModuleName(),
-        associatedModuleVersion());
-  }
-
-  /**
-   * Replaces the inner {@link #getRepositoryMapping() repository mapping} with one returned by
-   * calling its {@link RepositoryMapping#withCachedInverseMap} method.
-   */
-  public final RepositoryMappingValue withCachedInverseMap() {
+  public RepositoryMappingValue withCachedInverseMap() {
     return new RepositoryMappingValue(
         repositoryMapping().withCachedInverseMap(),
         associatedModuleName(),
@@ -129,8 +113,7 @@ public record RepositoryMappingValue(
 
   /** Returns the {@link Key} for {@link RepositoryMappingValue}s. */
   public static Key key(RepositoryName repositoryName) {
-    return RepositoryMappingValue.Key.create(
-        repositoryName, /* rootModuleShouldSeeWorkspaceRepos= */ true);
+    return RepositoryMappingValue.Key.create(repositoryName);
   }
 
   /** {@link SkyKey} for {@link RepositoryMappingValue}. */
@@ -138,20 +121,13 @@ public record RepositoryMappingValue(
   @AutoValue
   public abstract static class Key implements SkyKey {
 
-    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
-
     /** The name of the repo to grab mappings for. */
     public abstract RepositoryName repoName();
 
-    /**
-     * Whether the root module should see repos defined in WORKSPACE. This only takes effect when
-     * {@link #repoName} is the main repo.
-     */
-    public abstract boolean rootModuleShouldSeeWorkspaceRepos();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
-    public static Key create(RepositoryName repoName, boolean rootModuleShouldSeeWorkspaceRepos) {
-      return interner.intern(
-          new AutoValue_RepositoryMappingValue_Key(repoName, rootModuleShouldSeeWorkspaceRepos));
+    public static Key create(RepositoryName repoName) {
+      return interner.intern(new AutoValue_RepositoryMappingValue_Key(repoName));
     }
 
     @VisibleForSerialization

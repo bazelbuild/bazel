@@ -320,7 +320,7 @@ public class RuleFactory {
                   Package.AbstractBuilder.fromOrFailAllowBuildOnly(
                       thread, String.format("%s rule", ruleClass.getName()), "instantiated");
               case WORKSPACE ->
-                  Package.Builder.fromOrFailAllowWorkspaceOrModuleExtension(
+                  Package.Builder.fromOrFailAllowModuleExtension(
                       thread, "a repository rule", "instantiated");
               default ->
                   TargetDefinitionContext.fromOrFailDisallowWorkspace(
