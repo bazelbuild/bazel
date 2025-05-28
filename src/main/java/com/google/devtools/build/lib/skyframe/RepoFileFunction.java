@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.packages.DotBazelFileSyntaxChecker;
 import com.google.devtools.build.lib.packages.RepoThreadContext;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -76,11 +78,12 @@ public class RepoFileFunction implements SkyFunction {
       if (repoDirValue == null) {
         return null;
       }
-      if (!repoDirValue.repositoryExists()) {
-        throw new RepoFileFunctionException(
-            new IOException(repoDirValue.getErrorMsg()), Transience.PERSISTENT);
+      switch (repoDirValue) {
+        case Success s -> repoRoot = s.getPath();
+        case Failure f ->
+            throw new RepoFileFunctionException(
+                new IOException(f.getErrorMsg()), Transience.PERSISTENT);
       }
-      repoRoot = repoDirValue.getPath();
     }
     RootedPath repoFilePath =
         RootedPath.toRootedPath(Root.fromPath(repoRoot), LabelConstants.REPO_FILE_NAME);

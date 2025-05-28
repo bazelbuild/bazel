@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import java.util.Collection;
@@ -44,7 +44,7 @@ public record RegistryFileDownloadEvent(String uri, Optional<Checksum> checksum)
   private static Checksum computeHash(byte[] bytes) {
     try {
       return Checksum.fromString(
-          RepositoryCache.KeyType.SHA256, Hashing.sha256().hashBytes(bytes).toString());
+          DownloadCache.KeyType.SHA256, Hashing.sha256().hashBytes(bytes).toString());
     } catch (Checksum.InvalidChecksumException e) {
       // This can't happen since HashCode.toString() always returns a valid hash.
       throw new IllegalStateException(e);

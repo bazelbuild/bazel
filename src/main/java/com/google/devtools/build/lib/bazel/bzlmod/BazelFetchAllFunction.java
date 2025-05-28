@@ -98,7 +98,7 @@ public class BazelFetchAllFunction implements SkyFunction {
       if (repoDirValue == null) {
         return null;
       }
-      if (!repoDirValue.excludeFromVendoring()) {
+      if (repoDirValue instanceof RepositoryDirectoryValue.Success s && !s.excludeFromVendoring()) {
         shouldVendor.add((RepositoryName) repoDelegatorKey.argument());
       }
     }

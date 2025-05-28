@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
+import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface.MarkerRuntimeException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -41,7 +42,12 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
-import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
+import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -72,8 +78,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws PrepareDepsOfPatternFunctionException, InterruptedException {
-    TargetPatternValue.TargetPatternKey patternKey =
-        ((TargetPatternValue.TargetPatternKey) key.argument());
+    TargetPatternKey patternKey = ((TargetPatternKey) key.argument());
 
     // DepsOfPatternPreparer below expects to be able to ignore the filtering policy from the
     // TargetPatternKey, which should be valid because PrepareDepsOfPatternValue.keys
@@ -116,7 +121,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
           () -> repositoryIgnoredPatterns,
           ImmutableSet.of(),
           NullCallback.instance(),
-          QueryExceptionMarkerInterface.MarkerRuntimeException.class);
+          MarkerRuntimeException.class);
     } catch (TargetParsingException e) {
       throw new PrepareDepsOfPatternFunctionException(e);
     } catch (MissingDepException e) {
@@ -174,13 +179,11 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
           e);
       detailedExitCode =
           DetailedExitCode.of(
-              FailureDetails.FailureDetail.newBuilder()
+              FailureDetail.newBuilder()
                   .setMessage(getMessage())
                   .setPackageLoading(
-                      FailureDetails.PackageLoading.newBuilder()
-                          .setCode(
-                              FailureDetails.PackageLoading.Code
-                                  .TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR))
+                      PackageLoading.newBuilder()
+                          .setCode(Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR))
                   .build());
     }
 
@@ -191,8 +194,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
   }
 
   /**
-   * A {@link TargetPatternResolver} backed by an {@link
-   * com.google.devtools.build.skyframe.SkyFunction.Environment} whose methods do not actually
+   * A {@link TargetPatternResolver} backed by an {@link Environment} whose methods do not actually
    * return resolved targets, but that ensures the graph loads the matching targets <b>and</b> their
    * transitive dependencies. Its methods may throw {@link MissingDepException} if the package
    * values this depends on haven't been calculated and added to its environment.
@@ -319,14 +321,13 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
           throw new MissingDepException();
         }
 
-        if (!repositoryValue.repositoryExists()) {
+        if (repositoryValue instanceof Failure f) {
           // This shouldn't be possible; we're given a repository, so we assume that the caller has
           // already checked for its existence.
           throw new IllegalStateException(
-              String.format(
-                  "No such repository '%s': %s", repository, repositoryValue.getErrorMsg()));
+              String.format("No such repository '%s': %s", repository, f.getErrorMsg()));
         }
-        roots.add(Root.fromPath(repositoryValue.getPath()));
+        roots.add(Root.fromPath(((Success) repositoryValue).getPath()));
       }
 
       for (Root root : roots) {

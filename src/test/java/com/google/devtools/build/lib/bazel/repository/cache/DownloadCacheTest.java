@@ -19,7 +19,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 
 import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -41,16 +41,15 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-/** Tests for {@link RepositoryCache}. */
+/** Tests for {@link DownloadCache}. */
 @RunWith(Parameterized.class)
-public class RepositoryCacheTest {
+public class DownloadCacheTest {
 
   @Rule public ExpectedException thrown = ExpectedException.none();
 
   private Scratch scratch;
-  private RepositoryCache repositoryCache;
+  private DownloadCache downloadCache;
   private Path repositoryCachePath;
-  private Path contentAddressableCachePath;
   private Path downloadedFile;
 
   private final DigestHashFunction digestHashFunction;
@@ -85,7 +84,7 @@ public class RepositoryCacheTest {
     return keyTypes;
   }
 
-  public RepositoryCacheTest(DigestHashFunction digestHashFunction, KeyType keyType, String hash) {
+  public DownloadCacheTest(DigestHashFunction digestHashFunction, KeyType keyType, String hash) {
     this.digestHashFunction = digestHashFunction;
     this.keyType = keyType;
     this.hash = hash;
@@ -95,9 +94,8 @@ public class RepositoryCacheTest {
   public void setUp() throws Exception {
     scratch = new Scratch("/");
     repositoryCachePath = scratch.dir("/repository_cache");
-    repositoryCache = new RepositoryCache();
-    repositoryCache.setRepositoryCachePath(repositoryCachePath);
-    contentAddressableCachePath = repositoryCache.getContentAddressableCachePath();
+    downloadCache = new DownloadCache();
+    downloadCache.setPath(repositoryCachePath);
 
     downloadedFile = scratch.file("file.tmp", Charset.defaultCharset(), "contents");
   }
@@ -110,16 +108,16 @@ public class RepositoryCacheTest {
   @Test
   public void testNonExistentCacheValue() {
     String fakeHash = "a".repeat(64);
-    assertThat(repositoryCache.exists(fakeHash, keyType)).isFalse();
+    assertThat(downloadCache.exists(fakeHash, keyType)).isFalse();
   }
 
   /** Test that the put method correctly stores the downloaded file into the cache. */
   @Test
   public void testPutCacheValue() throws Exception {
-    repositoryCache.put(hash, downloadedFile, keyType, /* canonicalId= */ null);
+    downloadCache.put(hash, downloadedFile, keyType, /* canonicalId= */ null);
 
-    Path cacheEntry = keyType.getCachePath(contentAddressableCachePath).getChild(hash);
-    Path cacheValue = cacheEntry.getChild(RepositoryCache.DEFAULT_CACHE_FILENAME);
+    Path cacheEntry = keyType.getCachePath(repositoryCachePath).getChild(hash);
+    Path cacheValue = cacheEntry.getChild(DownloadCache.DEFAULT_CACHE_FILENAME);
 
     assertThat(FileSystemUtils.readContent(downloadedFile, Charset.defaultCharset()))
         .isEqualTo(FileSystemUtils.readContent(cacheValue, Charset.defaultCharset()));
@@ -130,11 +128,11 @@ public class RepositoryCacheTest {
    */
   @Test
   public void testPutCacheValueWithoutHash() throws Exception {
-    String cacheKey = repositoryCache.put(downloadedFile, keyType, /* canonicalId= */ null);
+    String cacheKey = downloadCache.put(downloadedFile, keyType, /* canonicalId= */ null);
     assertThat(cacheKey).isEqualTo(hash);
 
-    Path cacheEntry = keyType.getCachePath(contentAddressableCachePath).getChild(hash);
-    Path cacheValue = cacheEntry.getChild(RepositoryCache.DEFAULT_CACHE_FILENAME);
+    Path cacheEntry = keyType.getCachePath(repositoryCachePath).getChild(hash);
+    Path cacheValue = cacheEntry.getChild(DownloadCache.DEFAULT_CACHE_FILENAME);
 
     assertThat(FileSystemUtils.readContent(downloadedFile, Charset.defaultCharset()))
         .isEqualTo(FileSystemUtils.readContent(cacheValue, Charset.defaultCharset()));
@@ -146,11 +144,11 @@ public class RepositoryCacheTest {
    */
   @Test
   public void testPutCacheValueIdempotent() throws Exception {
-    repositoryCache.put(hash, downloadedFile, keyType, /* canonicalId= */ null);
-    repositoryCache.put(hash, downloadedFile, keyType, /* canonicalId= */ null);
+    downloadCache.put(hash, downloadedFile, keyType, /* canonicalId= */ null);
+    downloadCache.put(hash, downloadedFile, keyType, /* canonicalId= */ null);
 
-    Path cacheEntry = keyType.getCachePath(contentAddressableCachePath).getChild(hash);
-    Path cacheValue = cacheEntry.getChild(RepositoryCache.DEFAULT_CACHE_FILENAME);
+    Path cacheEntry = keyType.getCachePath(repositoryCachePath).getChild(hash);
+    Path cacheValue = cacheEntry.getChild(DownloadCache.DEFAULT_CACHE_FILENAME);
 
     assertThat(FileSystemUtils.readContent(downloadedFile, Charset.defaultCharset()))
         .isEqualTo(FileSystemUtils.readContent(cacheValue, Charset.defaultCharset()));
@@ -160,11 +158,11 @@ public class RepositoryCacheTest {
   @Test
   public void testGetCacheValue() throws Exception {
     // Inject file into cache
-    repositoryCache.put(hash, downloadedFile, keyType, /* canonicalId= */ null);
+    downloadCache.put(hash, downloadedFile, keyType, /* canonicalId= */ null);
 
     Path targetDirectory = scratch.dir("/external");
     Path targetPath = targetDirectory.getChild(downloadedFile.getBaseName());
-    Path actualTargetPath = repositoryCache.get(hash, targetPath, keyType, /* canonicalId= */ null);
+    Path actualTargetPath = downloadCache.get(hash, targetPath, keyType, /* canonicalId= */ null);
 
     // Check that the contents are the same.
     assertThat(FileSystemUtils.readContent(downloadedFile, Charset.defaultCharset()))
@@ -179,7 +177,7 @@ public class RepositoryCacheTest {
   public void testGetNullCacheValue() throws Exception {
     Path targetDirectory = scratch.dir("/external");
     Path targetPath = targetDirectory.getChild(downloadedFile.getBaseName());
-    Path actualTargetPath = repositoryCache.get(hash, targetPath, keyType, /* canonicalId= */ null);
+    Path actualTargetPath = downloadCache.get(hash, targetPath, keyType, /* canonicalId= */ null);
 
     assertThat(actualTargetPath).isNull();
   }
@@ -189,13 +187,13 @@ public class RepositoryCacheTest {
     String invalidSha = "foo";
     thrown.expect(IOException.class);
     thrown.expectMessage("Invalid key \"foo\" of type " + keyType);
-    repositoryCache.put(invalidSha, downloadedFile, keyType, /* canonicalId= */ null);
+    downloadCache.put(invalidSha, downloadedFile, keyType, /* canonicalId= */ null);
   }
 
   @Test
   public void testPoisonedCache() throws Exception {
-    Path poisonedEntry = keyType.getCachePath(contentAddressableCachePath).getChild(hash);
-    Path poisonedValue = poisonedEntry.getChild(RepositoryCache.DEFAULT_CACHE_FILENAME);
+    Path poisonedEntry = keyType.getCachePath(repositoryCachePath).getChild(hash);
+    Path poisonedValue = poisonedEntry.getChild(DownloadCache.DEFAULT_CACHE_FILENAME);
     scratch.file(poisonedValue.getPathString(), Charset.defaultCharset(), "poisoned");
 
     Path targetDirectory = scratch.dir("/external");
@@ -205,12 +203,12 @@ public class RepositoryCacheTest {
     thrown.expectMessage("does not match expected");
     thrown.expectMessage("Please delete the directory");
 
-    repositoryCache.get(hash, targetPath, keyType, /* canonicalId= */ null);
+    downloadCache.get(hash, targetPath, keyType, /* canonicalId= */ null);
   }
 
   @Test
   public void testGetChecksum() throws Exception {
-    String actualChecksum = RepositoryCache.getChecksum(keyType, downloadedFile);
+    String actualChecksum = DownloadCache.getChecksum(keyType, downloadedFile);
     assertThat(actualChecksum).isEqualTo(hash);
   }
 
@@ -224,20 +222,20 @@ public class RepositoryCacheTest {
         .getFastDigest();
     doReturn(fs).when(downloadedFile).getFileSystem();
 
-    String actualChecksum = RepositoryCache.getChecksum(keyType, downloadedFile);
+    String actualChecksum = DownloadCache.getChecksum(keyType, downloadedFile);
     assertThat(actualChecksum).isEqualTo(fastDigestChecksum);
   }
 
   @Test
   public void testAssertFileChecksumPass() throws Exception {
-    RepositoryCache.assertFileChecksum(hash, downloadedFile, keyType);
+    DownloadCache.assertFileChecksum(hash, downloadedFile, keyType);
   }
 
   @Test
   public void testAssertFileChecksumFail() throws Exception {
     thrown.expect(IOException.class);
     thrown.expectMessage("does not match expected");
-    RepositoryCache.assertFileChecksum(
+    DownloadCache.assertFileChecksum(
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         downloadedFile,
         keyType);
@@ -245,17 +243,17 @@ public class RepositoryCacheTest {
 
   @Test
   public void testCanonicalId() throws Exception {
-    repositoryCache.put(hash, downloadedFile, keyType, "fooid");
+    downloadCache.put(hash, downloadedFile, keyType, "fooid");
     Path targetDirectory = scratch.dir("/external");
     Path targetPath = targetDirectory.getChild(downloadedFile.getBaseName());
 
-    Path lookupWithSameId = repositoryCache.get(hash, targetPath, keyType, "fooid");
+    Path lookupWithSameId = downloadCache.get(hash, targetPath, keyType, "fooid");
     assertThat(lookupWithSameId).isEqualTo(targetPath);
 
-    Path lookupOtherId = repositoryCache.get(hash, targetPath, keyType, "barid");
+    Path lookupOtherId = downloadCache.get(hash, targetPath, keyType, "barid");
     assertThat(lookupOtherId).isNull();
 
-    Path lookupNoId = repositoryCache.get(hash, targetPath, keyType, /* canonicalId= */ null);
+    Path lookupNoId = downloadCache.get(hash, targetPath, keyType, /* canonicalId= */ null);
     assertThat(lookupNoId).isEqualTo(targetPath);
   }
 }

@@ -67,7 +67,8 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
   private final boolean informationReturned;
   private final String message;
 
-  public RepositoryResolvedEvent(Rule rule, StructImpl attrs, Path outputDirectory, Object result) {
+  public RepositoryResolvedEvent(
+      Rule rule, StructImpl attrs, Path outputDirectory, Map<?, ?> result) {
     this.outputDirectory = outputDirectory;
 
     String originalClass =
@@ -102,17 +103,17 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
 
     repositoryBuilder.put(ResolvedFileValue.RULE_CLASS, originalClass);
 
-    if (result == Starlark.NONE) {
+    if (result.isEmpty()) {
       // Rule claims to be already reproducible, so wants to be called as is.
       repositoryBuilder.put(ResolvedFileValue.ATTRIBUTES, origAttr);
       this.informationReturned = false;
       this.message = "Repository rule '" + rule.getName() + "' finished.";
-    } else if (result instanceof Map) {
+    } else {
       // Rule claims that the returned (probably changed) arguments are a reproducible
       // version of itself.
       repositoryBuilder.put(ResolvedFileValue.ATTRIBUTES, result);
       Pair<Map<String, Object>, List<String>> diff =
-          compare(origAttr, defaults.buildOrThrow(), (Map<?, ?>) result);
+          compare(origAttr, defaults.buildOrThrow(), result);
       if (diff.getFirst().isEmpty() && diff.getSecond().isEmpty()) {
         this.informationReturned = false;
         this.message = "Repository rule '" + rule.getName() + "' finished.";
@@ -143,13 +144,6 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
                   + Starlark.repr(diff.getSecond());
         }
       }
-    } else {
-      // TODO(aehlig): handle strings specially to allow encodings of the former
-      // values to be accepted as well.
-      resolvedInformationBuilder.put(ResolvedFileValue.REPOSITORIES, result);
-      repositoryBuilder = null; // We already added the REPOSITORIES entry
-      this.informationReturned = true;
-      this.message = "Repository rule '" + rule.getName() + "' returned: " + result;
     }
 
     this.name = rule.getName();

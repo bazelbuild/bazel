@@ -228,14 +228,13 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
     if (repository.isMain()) {
       return pkgRoots;
     } else {
-      RepositoryDirectoryValue repositoryValue =
-          (RepositoryDirectoryValue) graph.getValue(RepositoryDirectoryValue.key(repository));
-      if (repositoryValue == null || !repositoryValue.repositoryExists()) {
-        // If this key doesn't exist, the repository is outside the universe, so we return
-        // "nothing".
-        return ImmutableList.of();
+      if (graph.getValue(RepositoryDirectoryValue.key(repository))
+          instanceof RepositoryDirectoryValue.Success success) {
+        return ImmutableList.of(Root.fromPath(success.getPath()));
       }
-      return ImmutableList.of(Root.fromPath(repositoryValue.getPath()));
+      // If this key doesn't exist, the repository is outside the universe, so we return
+      // "nothing".
+      return ImmutableList.of();
     }
   }
 
