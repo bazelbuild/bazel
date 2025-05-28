@@ -99,6 +99,7 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "filegroup(name = 'stage2_bootstrap_template', srcs = ['stage2_bootstrap_template.py'])",
         "filegroup(name = 'zip_main_template', srcs = ['zip_main_template.py'])",
         "filegroup(name = 'bootstrap_template', srcs = ['python_bootstrap_template.txt'])",
+        "filegroup(name = 'site_init_template', srcs = ['site_init_template.py'])",
         "bool_setting(name = 'visible_for_testing', build_setting_default = False)");
     config.overwrite("rules_python_workspace/python/private/common/BUILD");
     config.overwrite(
@@ -111,6 +112,7 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "string_flag(name = 'pyc_collection', build_setting_default = 'disabled')",
         "string_flag(name = 'precompile_source_retention', build_setting_default = 'auto')",
         "string_flag(name = 'bootstrap_impl', build_setting_default = 'system_python')",
+        "string_flag(name = 'venvs_use_declare_symlink', build_setting_default = 'yes')",
         "string_flag(name = 'precompile_add_to_runfiles', build_setting_default = 'always')");
     config.overwrite("rules_python_workspace/python/private/python_bootstrap_template.txt");
     config.overwrite("rules_python_workspace/tools/build_defs/python/private/BUILD");
