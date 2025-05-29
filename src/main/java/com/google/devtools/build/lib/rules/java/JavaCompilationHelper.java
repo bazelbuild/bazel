@@ -168,7 +168,7 @@ public final class JavaCompilationHelper {
     if (turbineAnnotationProcessing) {
       Artifact turbineResources = turbineOutput(outputs.output(), "-turbine-resources.jar");
       resourceJars.add(turbineResources);
-      Artifact turbineJar = turbineOutput(outputs.output(), "-turbine-apt.jar");
+      Artifact outputJar = turbineOutput(outputs.output(), "-turbine-apt.jar");
       Artifact turbineJdeps = turbineOutput(outputs.output(), "-turbine-apt.jdeps");
       Artifact turbineGensrc =
           outputs.genSource() != null
@@ -176,7 +176,7 @@ public final class JavaCompilationHelper {
               : turbineOutput(outputs.output(), "-turbine-apt-gensrc.jar");
 
       JavaHeaderCompileAction.Builder builder = getJavaHeaderCompileActionBuilder();
-      builder.setOutputJar(turbineJar);
+      builder.setOutputJar(outputJar);
       builder.setOutputDepsProto(turbineJdeps);
       builder.setPlugins(plugins);
       builder.setResourceOutputJar(turbineResources);
@@ -415,10 +415,11 @@ public final class JavaCompilationHelper {
   /**
    * Creates the Action that compiles ijars from source.
    *
-   * @param headerJar the jar output of this java compilation
+   * @param outputJar the jar output of this java compilation
    * @param headerDeps the .jdeps output of this java compilation
    */
-  public void createHeaderCompilationAction(Artifact headerJar, Artifact headerDeps)
+  public void createHeaderCompilationAction(
+      Artifact outputJar, Artifact headerCompilationOutputJar, Artifact headerDeps)
       throws RuleErrorException, InterruptedException {
 
     JavaTargetAttributes attributes = getAttributes();
@@ -427,7 +428,11 @@ public final class JavaCompilationHelper {
     JavaPluginData plugins = attributes.plugins().apiGeneratingPlugins();
 
     JavaHeaderCompileAction.Builder builder = getJavaHeaderCompileActionBuilder();
-    builder.setOutputJar(headerJar);
+    builder.setOutputJar(outputJar);
+    if (getJavaConfiguration().javaHeaderCompilationDirectDeps()
+        && headerCompilationOutputJar != null) {
+      builder.setHeaderCompilationOutputJar(headerCompilationOutputJar);
+    }
     builder.setOutputDepsProto(headerDeps);
     builder.setPlugins(plugins);
     if (plugins
@@ -455,6 +460,10 @@ public final class JavaCompilationHelper {
     builder.setJavacOpts(customJavacOpts);
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
+    builder.setHeaderCompilationDirectJars(
+        getJavaConfiguration().javaHeaderCompilationDirectDeps()
+            ? attributes.getHeaderCompilationDirectJars()
+            : attributes.getDirectJars());
     builder.setDirectJars(attributes.getDirectJars());
     builder.setTargetLabel(attributes.getTargetLabel());
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
@@ -562,5 +571,4 @@ public final class JavaCompilationHelper {
   private ImmutableList<String> getJavacOpts() {
     return customJavacOpts;
   }
-
 }

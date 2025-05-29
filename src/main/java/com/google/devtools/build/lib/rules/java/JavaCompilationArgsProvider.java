@@ -62,7 +62,8 @@ public record JavaCompilationArgsProvider(
     NestedSet<Artifact> transitiveCompileTimeJars,
     NestedSet<Artifact> directFullCompileTimeJars,
     NestedSet<Artifact> transitiveFullCompileTimeJars,
-    NestedSet<Artifact> compileTimeJavaDependencyArtifacts)
+    NestedSet<Artifact> compileTimeJavaDependencyArtifacts,
+    NestedSet<Artifact> directHeaderCompilationJars)
     implements JavaInfoInternalProvider {
   public JavaCompilationArgsProvider {
     requireNonNull(runtimeJars, "runtimeJars");
@@ -71,11 +72,13 @@ public record JavaCompilationArgsProvider(
     requireNonNull(directFullCompileTimeJars, "directFullCompileTimeJars");
     requireNonNull(transitiveFullCompileTimeJars, "transitiveFullCompileTimeJars");
     requireNonNull(compileTimeJavaDependencyArtifacts, "compileTimeJavaDependencyArtifacts");
+    requireNonNull(directHeaderCompilationJars, "directHeaderCompilationJars");
   }
 
   @SerializationConstant
   public static final JavaCompilationArgsProvider EMPTY =
       create(
+          NestedSetBuilder.create(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.create(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.create(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.create(Order.NAIVE_LINK_ORDER),
@@ -89,14 +92,16 @@ public record JavaCompilationArgsProvider(
       NestedSet<Artifact> transitiveCompileTimeJars,
       NestedSet<Artifact> directFullCompileTimeJars,
       NestedSet<Artifact> transitiveFullCompileTimeJars,
-      NestedSet<Artifact> compileTimeJavaDependencyArtifacts) {
+      NestedSet<Artifact> compileTimeJavaDependencyArtifacts,
+      NestedSet<Artifact> directHeaderCompilationJars) {
     return new JavaCompilationArgsProvider(
         runtimeJars,
         directCompileTimeJars,
         transitiveCompileTimeJars,
         directFullCompileTimeJars,
         transitiveFullCompileTimeJars,
-        compileTimeJavaDependencyArtifacts);
+        compileTimeJavaDependencyArtifacts,
+        directHeaderCompilationJars);
   }
 
   /** Enum to specify transitive compilation args traversal */
@@ -169,6 +174,8 @@ public record JavaCompilationArgsProvider(
         NestedSetBuilder.naiveLinkOrder();
     private final NestedSetBuilder<Artifact> compileTimeJavaDependencyArtifactsBuilder =
         NestedSetBuilder.naiveLinkOrder();
+    private final NestedSetBuilder<Artifact> directHeaderCompilationJarsBuilder =
+        NestedSetBuilder.naiveLinkOrder();
 
     /** Use {@code TransitiveJavaCompilationArgs#builder()} to instantiate the builder. */
     private Builder() {}
@@ -229,6 +236,14 @@ public record JavaCompilationArgsProvider(
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder adddirectHeaderCompilationJars(
+        NestedSet<Artifact> directHeaderCompilationJars) {
+      this.directHeaderCompilationJarsBuilder.addTransitive(
+          directHeaderCompilationJars);
+      return this;
+    }
+
     /**
      * Add the {@link JavaCompilationArgsProvider} for a dependency with export-like semantics; see
      * also {@link #addExports(JavaCompilationArgsProvider, ClasspathType)}.
@@ -261,6 +276,7 @@ public record JavaCompilationArgsProvider(
           directFullCompileTimeJarsBuilder.addTransitive(args.directFullCompileTimeJars());
           compileTimeJavaDependencyArtifactsBuilder.addTransitive(
               args.compileTimeJavaDependencyArtifacts());
+          directHeaderCompilationJarsBuilder.addTransitive(args.directHeaderCompilationJars());
         }
         transitiveCompileTimeJarsBuilder.addTransitive(args.transitiveCompileTimeJars());
         transitiveFullCompileTimeJarsBuilder.addTransitive(args.transitiveFullCompileTimeJars());
@@ -287,7 +303,8 @@ public record JavaCompilationArgsProvider(
           transitiveCompileTimeJarsBuilder.build(),
           directFullCompileTimeJarsBuilder.build(),
           transitiveFullCompileTimeJarsBuilder.build(),
-          compileTimeJavaDependencyArtifactsBuilder.build());
+          compileTimeJavaDependencyArtifactsBuilder.build(),
+          directHeaderCompilationJarsBuilder.build());
     }
   }
 
@@ -325,7 +342,12 @@ public record JavaCompilationArgsProvider(
                     .getValue("_compile_time_java_dependencies", Depset.class)
                     .getSet(Artifact.class))
             .addRuntimeJars(
-                javaInfo.getValue("transitive_runtime_jars", Depset.class).getSet(Artifact.class));
+                javaInfo.getValue("transitive_runtime_jars", Depset.class).getSet(Artifact.class))
+            .adddirectHeaderCompilationJars(
+                javaInfo.getValue("header_compilation_direct_deps") != null ?
+                    javaInfo.getValue("header_compilation_direct_deps", Depset.class).getSet(
+                        Artifact.class) : NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER)
+            );
     return builder.build();
   }
 }

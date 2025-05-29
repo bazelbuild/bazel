@@ -463,7 +463,11 @@ public sealed class JavaInfo extends NativeInfo
 
   @Override
   public Depset headerCompilationDirectDeps() {
-    return Depset.of(Artifact.class, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    NestedSet<Artifact> headerCompilationDirectDeps =
+        getProviderAsNestedSet(
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider::directHeaderCompilationJars);
+    return Depset.of(Artifact.class, headerCompilationDirectDeps);
   }
 
   /**
