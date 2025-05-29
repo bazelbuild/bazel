@@ -1493,36 +1493,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void disallowJavaImportEmptyJars_fails() throws Exception {
-    scratch.file(
-        "foo/rule.bzl",
-        """
-        result = provider()
-
-        def _impl(ctx):
-            ctx.fragments.java.disallow_java_import_empty_jars()
-            return []
-
-        myrule = rule(
-            implementation = _impl,
-            fragments = ["java"],
-        )
-        """);
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":rule.bzl", "myrule")
-
-        myrule(name = "myrule")
-        """);
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:myrule");
-
-    assertContainsEvent("file '//foo:rule.bzl' cannot use private API");
-  }
-
-  @Test
   public void testRunIjarWithOutputParameterIsPrivateApi() throws Exception {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(

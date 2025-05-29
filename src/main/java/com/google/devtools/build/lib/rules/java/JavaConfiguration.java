@@ -100,7 +100,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean experimentalEnableJspecify;
   private final boolean multiReleaseDeployJars;
   private final boolean disallowJavaImportExports;
-  private final boolean disallowJavaImportEmptyJars;
   private final boolean autoCreateDeployJarForJavaTests;
 
   public JavaConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
@@ -131,7 +130,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.runAndroidLint = javaOptions.runAndroidLint;
     this.multiReleaseDeployJars = javaOptions.multiReleaseDeployJars;
     this.disallowJavaImportExports = javaOptions.disallowJavaImportExports;
-    this.disallowJavaImportEmptyJars = javaOptions.disallowJavaImportEmptyJars;
     this.autoCreateDeployJarForJavaTests = javaOptions.autoCreateDeployJarForJavaTests;
     Map<String, Label> optimizers = javaOptions.bytecodeOptimizers;
     if (optimizers.size() != 1) {
@@ -415,14 +413,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   @Override
   public boolean multiReleaseDeployJars() {
     return multiReleaseDeployJars;
-  }
-
-  /** Returns true if empty java_import jars are not allowed. */
-  @Override
-  public boolean getDisallowJavaImportEmptyJarsInStarlark(StarlarkThread thread)
-      throws EvalException {
-    checkPrivateAccess(thread);
-    return disallowJavaImportEmptyJars;
   }
 
   /** Returns true if java_import exports are not allowed. */
