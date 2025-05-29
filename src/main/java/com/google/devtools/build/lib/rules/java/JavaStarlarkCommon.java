@@ -143,6 +143,10 @@ public class JavaStarlarkCommon
             .addSourceJars(Sequence.cast(sourceJars, Artifact.class, "source_jars"))
             .addSourceFiles(sourceFiles.toList(Artifact.class))
             .addDirectJars(directJars.getSet(Artifact.class))
+            .addHeaderCompilationDirectJars(
+                headerCompilationDirectDeps == Starlark.NONE
+                    ? NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER)
+                    : ((Depset) headerCompilationDirectDeps).getSet(Artifact.class))
             .setCompileTimeClassPathEntriesWithPrependedDirectJars(
                 compileTimeClasspath.getSet(Artifact.class))
             .setStrictJavaDeps(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)))
@@ -167,7 +171,10 @@ public class JavaStarlarkCommon
             Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")
                 .getImmutableList());
     compilationHelper.enableDirectClasspath(enableDirectClasspath);
-    compilationHelper.createHeaderCompilationAction(headerJar, headerDepsProto);
+    compilationHelper.createHeaderCompilationAction(
+        headerJar,
+        headerCompilationJar == Starlark.NONE ? null : (Artifact) headerCompilationJar,
+        headerDepsProto);
   }
 
   @Override

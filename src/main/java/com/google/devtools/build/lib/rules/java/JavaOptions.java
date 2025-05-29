@@ -164,6 +164,15 @@ public class JavaOptions extends FragmentOptions {
   public boolean headerCompilation;
 
   @Option(
+      name = "experimental_java_header_compilation_direct_deps",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "Use separate outputs for header and regular compilation.")
+  public boolean javaHeaderCompilationDirectDeps;
+
+  @Option(
       name = "java_deps",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
