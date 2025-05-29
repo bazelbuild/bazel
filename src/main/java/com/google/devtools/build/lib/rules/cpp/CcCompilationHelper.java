@@ -1186,7 +1186,8 @@ public final class CcCompilationHelper {
     ActionOwner actionOwner = null;
     if (actionConstructionContext instanceof RuleContext ruleContext
         && ruleContext.useAutoExecGroups()) {
-      actionOwner = actionConstructionContext.getActionOwner(semantics.getCppToolchainType());
+      actionOwner =
+          actionConstructionContext.getActionOwner(semantics.getCppToolchainType().toString());
     }
     try {
       CppCompileActionTemplate actionTemplate =

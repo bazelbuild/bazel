@@ -86,7 +86,8 @@ public final class CppCompileActionBuilder {
     ActionOwner actionOwner = null;
     if (actionConstructionContext instanceof RuleContext ruleContext
         && ruleContext.useAutoExecGroups()) {
-      actionOwner = actionConstructionContext.getActionOwner(cppSemantics.getCppToolchainType());
+      actionOwner =
+          actionConstructionContext.getActionOwner(cppSemantics.getCppToolchainType().toString());
     }
 
     this.owner = actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner;
