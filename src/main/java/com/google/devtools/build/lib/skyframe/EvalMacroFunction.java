@@ -18,6 +18,7 @@ import static java.lang.Math.max;
 
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.packages.MacroClass;
+import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchPackagePieceException;
 import com.google.devtools.build.lib.packages.Package;
@@ -26,8 +27,7 @@ import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackagePieceException;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
-import com.google.devtools.build.lib.skyframe.MacroInstanceFunction.MacroInstanceFunctionException;
-import com.google.devtools.build.lib.skyframe.PackageFunction.PackageFunctionException;
+import com.google.devtools.build.lib.skyframe.MacroInstanceFunction.NoSuchMacroInstanceException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -55,10 +55,7 @@ final class EvalMacroFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws EvalMacroFunctionException,
-          PackageFunctionException,
-          MacroInstanceFunctionException,
-          InterruptedException {
+      throws EvalMacroFunctionException, InterruptedException {
     PackagePieceIdentifier.ForMacro key = (PackagePieceIdentifier.ForMacro) skyKey.argument();
     // Get the common metadata and declarations shared by all package pieces of the package.
     PackageDeclarationsValue packageDeclarationsValue;
@@ -80,21 +77,31 @@ final class EvalMacroFunction implements SkyFunction {
 
     // Get the macro instance (owned by the parent package piece) which we will be expanding to
     // produce this package piece.
-    MacroInstanceValue macroInstanceValue =
-        (MacroInstanceValue)
-            env.getValueOrThrow(
-                new MacroInstanceValue.Key(key.getParentIdentifier(), key.getInstanceName()),
-                EvalMacroFunctionException.class,
-                PackageFunctionException.class,
-                MacroInstanceFunctionException.class);
+    MacroInstanceValue macroInstanceValue;
+    try {
+      macroInstanceValue =
+          (MacroInstanceValue)
+              env.getValueOrThrow(
+                  new MacroInstanceValue.Key(key.getParentIdentifier(), key.getInstanceName()),
+                  NoSuchPackageException.class,
+                  NoSuchPackagePieceException.class,
+                  NoSuchMacroInstanceException.class);
+    } catch (NoSuchPackageException e) {
+      throw new EvalMacroFunctionException(e);
+    } catch (NoSuchPackagePieceException e) {
+      throw new EvalMacroFunctionException(e);
+    } catch (NoSuchMacroInstanceException e) {
+      throw new EvalMacroFunctionException(e);
+    }
     if (macroInstanceValue == null) {
       return null;
     }
+    MacroInstance macroInstance = macroInstanceValue.macroInstance();
 
     // TODO(https://github.com/bazelbuild/bazel/issues/23852): support finalizers. Requires
     // recursively expanding all non-finalizer macros in current package and creating a map of all
     // non-finalizer-defined rules for native.existing_rules().
-    if (macroInstanceValue.macroInstance().getMacroClass().isFinalizer()) {
+    if (macroInstance.getMacroClass().isFinalizer()) {
       throw new EvalMacroFunctionException(
           new InvalidPackagePieceException(
               key, "finalizers not yet supported under lazy macro expansion"));
@@ -106,16 +113,14 @@ final class EvalMacroFunction implements SkyFunction {
         packageFactory.newPackagePieceForMacroBuilder(
             packageDeclarationsValue.metadata(),
             packageDeclarationsValue.declarations(),
-            macroInstanceValue.macroInstance(),
+            macroInstance,
             key.getParentIdentifier(),
             packageDeclarationsValue.starlarkSemantics(),
             packageDeclarationsValue.mainRepositoryMapping(),
             cpuBoundSemaphore.get());
     try {
       MacroClass.executeMacroImplementation(
-          macroInstanceValue.macroInstance(),
-          packagePieceBuilder,
-          packageDeclarationsValue.starlarkSemantics());
+          macroInstance, packagePieceBuilder, packageDeclarationsValue.starlarkSemantics());
     } catch (EvalException e) {
       packagePieceBuilder
           .getLocalEventHandler()
@@ -152,6 +157,10 @@ final class EvalMacroFunction implements SkyFunction {
     }
 
     EvalMacroFunctionException(NoSuchPackagePieceException cause) {
+      super(cause, Transience.PERSISTENT);
+    }
+
+    EvalMacroFunctionException(NoSuchMacroInstanceException cause) {
       super(cause, Transience.PERSISTENT);
     }
   }
