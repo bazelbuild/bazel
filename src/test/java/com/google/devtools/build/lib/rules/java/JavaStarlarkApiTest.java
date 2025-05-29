@@ -454,9 +454,13 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, myRuleTarget);
-    List<String> directJars =
-        prettyArtifactNames(javaCompilationArgsProvider.directCompileTimeJars());
-    assertThat(directJars).containsExactly("foo/liba-hjar.jar");
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directCompileTimeJars()))
+        .containsExactly("foo/liba-hjar.jar");
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directFullCompileTimeJars()))
+        .containsExactly("foo/liba.jar");
+    // TODO: b/417791104 - enable after a Java rules release
+    // assertThat(prettyArtifactNames(javaCompilationArgsProvider.directHeaderCompilationJars()))
+    //     .containsExactly("foo/liba-hjar.jar");
   }
 
   @Test
@@ -507,8 +511,15 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, myRuleTarget);
-    List<String> directJars = prettyArtifactNames(javaCompilationArgsProvider.runtimeJars());
-    assertThat(directJars).containsExactly("foo/liba.jar", "foo/libb.jar");
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.runtimeJars()))
+        .containsExactly("foo/liba.jar", "foo/libb.jar");
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directCompileTimeJars()))
+        .containsExactly("foo/liba-hjar.jar", "foo/libb-hjar.jar");
+    assertThat(prettyArtifactNames(javaCompilationArgsProvider.directFullCompileTimeJars()))
+        .containsExactly("foo/liba.jar", "foo/libb.jar");
+    // TODO: b/417791104 - enable after a Java rules release
+    // assertThat(prettyArtifactNames(javaCompilationArgsProvider.directHeaderCompilationJars()))
+    //     .containsExactly("foo/liba-hjar.jar", "foo/libb-hjar.jar");
   }
 
   @Test
