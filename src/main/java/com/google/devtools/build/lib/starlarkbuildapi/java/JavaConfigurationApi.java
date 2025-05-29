@@ -120,6 +120,12 @@ public interface JavaConfigurationApi extends StarlarkValue {
   boolean getUseIjarsInStarlark(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
+      name = "use_header_compilation_direct_deps",
+      doc = "Returns true if Java header compilation should use separate outputs for direct deps.",
+      useStarlarkThread = true)
+  boolean getUseHeaderCompilationDirectDepsInStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "disallow_java_import_exports",
       doc = "Returns true if java_import exports are not allowed.",
       useStarlarkThread = true)

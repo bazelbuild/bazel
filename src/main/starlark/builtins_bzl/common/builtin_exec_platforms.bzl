@@ -397,6 +397,7 @@ bazel_fragments["JavaOptions"] = fragment(
         "//command_line_option:one_version_enforcement_on_java_tests",
         "//command_line_option:experimental_allow_runtime_deps_on_neverlink",
         "//command_line_option:experimental_add_test_support_to_compile_time_deps",
+        "//command_line_option:experimental_java_header_compilation_direct_deps",
         "//command_line_option:jplPropagateCcLinkParamsStore",
         "//command_line_option:incompatible_disallow_resource_jars",
         "//command_line_option:java_runtime_version",

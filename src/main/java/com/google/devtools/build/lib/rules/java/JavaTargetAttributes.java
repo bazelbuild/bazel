@@ -78,6 +78,8 @@ public class JavaTargetAttributes {
     private StrictDepsMode strictJavaDeps = StrictDepsMode.ERROR;
 
     private final NestedSetBuilder<Artifact> directJarsBuilder = NestedSetBuilder.naiveLinkOrder();
+    private final NestedSetBuilder<Artifact> headerCompilationDirectJarsBuilder =
+        NestedSetBuilder.naiveLinkOrder();
     private final NestedSetBuilder<Artifact> compileTimeDependencyArtifacts =
         NestedSetBuilder.stableOrder();
     private Label targetLabel;
@@ -219,6 +221,13 @@ public class JavaTargetAttributes {
     }
 
     @CanIgnoreReturnValue
+    public Builder addHeaderCompilationDirectJars(NestedSet<Artifact> headerCompilationDirectJars) {
+      Preconditions.checkArgument(!built);
+      this.headerCompilationDirectJarsBuilder.addTransitive(headerCompilationDirectJars);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public Builder addCompileTimeDependencyArtifacts(NestedSet<Artifact> dependencyArtifacts) {
       Preconditions.checkArgument(!built);
       compileTimeDependencyArtifacts.addTransitive(dependencyArtifacts);
@@ -271,6 +280,7 @@ public class JavaTargetAttributes {
     public JavaTargetAttributes build() {
       built = true;
       NestedSet<Artifact> directJars = directJarsBuilder.build();
+      NestedSet<Artifact> headerCompilationDirectJars = headerCompilationDirectJarsBuilder.build();
       NestedSet<Artifact> compileTimeClassPath =
           prependDirectJars
               ? NestedSetBuilder.<Artifact>naiveLinkOrder()
@@ -293,6 +303,7 @@ public class JavaTargetAttributes {
           classPathResources.build(),
           additionalOutputs.build(),
           directJars,
+          /* headerCompilationDirectJars= */ headerCompilationDirectJars,
           compileTimeDependencyArtifacts.build(),
           targetLabel,
           injectingRuleKind,
@@ -336,6 +347,7 @@ public class JavaTargetAttributes {
   private final ImmutableSet<Artifact> additionalOutputs;
 
   private final NestedSet<Artifact> directJars;
+  private final NestedSet<Artifact> headerCompilationDirectJars;
   private final NestedSet<Artifact> compileTimeDependencyArtifacts;
   private final Label targetLabel;
   @Nullable private final String injectingRuleKind;
@@ -359,6 +371,7 @@ public class JavaTargetAttributes {
       ImmutableList<Artifact> classPathResources,
       ImmutableSet<Artifact> additionalOutputs,
       NestedSet<Artifact> directJars,
+      NestedSet<Artifact> headerCompilationDirectJars,
       NestedSet<Artifact> compileTimeDependencyArtifacts,
       Label targetLabel,
       @Nullable String injectingRuleKind,
@@ -367,6 +380,7 @@ public class JavaTargetAttributes {
     this.sourceFiles = sourceFiles;
     this.runtimeClassPath = runtimeClassPath;
     this.directJars = directJars;
+    this.headerCompilationDirectJars = headerCompilationDirectJars;
     this.compileTimeClassPath = compileTimeClassPath;
     this.bootClassPath = bootClassPath;
     this.sourcePath = sourcePath;
@@ -406,6 +420,7 @@ public class JavaTargetAttributes {
         classPathResources,
         additionalOutputs,
         directJars,
+        /* headerCompilationDirectJars= */ headerCompilationDirectJars,
         compileTimeDependencyArtifacts,
         targetLabel,
         injectingRuleKind,
@@ -415,6 +430,10 @@ public class JavaTargetAttributes {
 
   public NestedSet<Artifact> getDirectJars() {
     return directJars;
+  }
+
+  public NestedSet<Artifact> getHeaderCompilationDirectJars() {
+    return headerCompilationDirectJars;
   }
 
   public NestedSet<Artifact> getCompileTimeDependencyArtifacts() {
