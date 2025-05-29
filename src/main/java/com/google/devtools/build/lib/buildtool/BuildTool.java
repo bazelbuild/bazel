@@ -1098,6 +1098,7 @@ public class BuildTool {
     private final RemoteAnalysisCachingEventListener listener;
     private final HashCode blazeInstallMD5;
     @Nullable private final String distinguisher;
+    private final boolean useFakeStampData;
 
     /** Cache lookup parameter requiring integration with external version control. */
     private final IntVersion evaluatingVersion;
@@ -1224,6 +1225,7 @@ public class BuildTool {
           env.getOptions()
               .getOptions(RemoteAnalysisCachingOptions.class)
               .analysisCacheKeyDistinguisherForTesting;
+      this.useFakeStampData = env.getUseFakeStampData();
 
       var workspaceInfoFromDiff = env.getWorkspaceInfoFromDiff();
       if (workspaceInfoFromDiff == null) {
@@ -1313,6 +1315,7 @@ public class BuildTool {
                     blazeInstallMD5,
                     evaluatingVersion,
                     nullToEmpty(distinguisher),
+                    useFakeStampData,
                     snapshot);
             logger.atInfo().log(
                 "Remote analysis caching SkyValue version: %s (actual evaluating version: %s)",

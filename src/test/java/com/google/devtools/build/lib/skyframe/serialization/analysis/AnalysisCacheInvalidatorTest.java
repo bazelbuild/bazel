@@ -165,6 +165,7 @@ public final class AnalysisCacheInvalidatorTest {
             HashCode.fromInt(42),
             IntVersion.of(9000),
             "distinguisher",
+            /* useFakeStampData= */ true,
             Optional.of(new ClientId("for_testing", 123)));
     var currentVersion =
         new FrontierNodeVersion(
@@ -172,6 +173,7 @@ public final class AnalysisCacheInvalidatorTest {
             HashCode.fromInt(42),
             IntVersion.of(9001), // changed
             "distinguisher",
+            /* useFakeStampData= */ true,
             Optional.of(new ClientId("for_testing", 123)));
     AnalysisCacheInvalidator invalidator =
         new AnalysisCacheInvalidator(
