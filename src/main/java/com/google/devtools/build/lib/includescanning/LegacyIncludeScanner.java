@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.MissingDepExecException;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
@@ -590,7 +591,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
       Set<Artifact> includes,
       ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
-      Artifact grepIncludes)
+      Artifact grepIncludes,
+      @Nullable PlatformInfo grepIncludesExecutionPlatform)
       throws IOException, NoSuchPackageException, ExecException, InterruptedException {
     SkyFunction.Environment env = actionExecutionContext.getEnvironmentForDiscoveringInputs();
     ImmutableSet<Artifact> pathHints;
@@ -609,6 +611,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
             actionExecutionMetadata,
             actionExecutionContext,
             grepIncludes,
+            grepIncludesExecutionPlatform,
             includeScanningHeaderData);
 
     try {
@@ -673,6 +676,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
     private final ActionExecutionMetadata actionExecutionMetadata;
     private final ActionExecutionContext actionExecutionContext;
     private final Artifact grepIncludes;
+    @Nullable private final PlatformInfo grepIncludesExecutionPlatform;
     private final IncludeScanningHeaderData headerData;
 
     /** The set of all processed inclusions, to avoid processing duplicate inclusions. */
@@ -682,6 +686,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
         ActionExecutionMetadata actionExecutionMetadata,
         ActionExecutionContext actionExecutionContext,
         Artifact grepIncludes,
+        @Nullable PlatformInfo grepIncludesExecutionPlatform,
         IncludeScanningHeaderData headerData) {
       super(
           includePool,
@@ -691,6 +696,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
       this.actionExecutionMetadata = actionExecutionMetadata;
       this.actionExecutionContext = actionExecutionContext;
       this.grepIncludes = grepIncludes;
+      this.grepIncludesExecutionPlatform = grepIncludesExecutionPlatform;
       this.headerData = headerData;
     }
 
@@ -790,6 +796,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
                     actionExecutionMetadata,
                     actionExecutionContext,
                     grepIncludes,
+                    grepIncludesExecutionPlatform,
                     spawnIncludeScannerSupplier.get(),
                     isOutputFile(source.getExecPath())));
           } catch (Throwable t) {
