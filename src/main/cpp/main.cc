@@ -31,7 +31,7 @@ int main_impl(int argc, char **argv) {
   return blaze::Main(argc, argv, workspace_layout.get(),
                      new blaze::OptionProcessor(workspace_layout.get(),
                                                 std::move(startup_options)),
-                     start_time);
+                     /*startup_interceptor=*/ nullptr, start_time);
 }
 
 #ifdef _WIN32
