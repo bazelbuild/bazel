@@ -42,6 +42,7 @@ add_to_bazelrc "build --package_path=%workspace%"
 
 function set_up() {
   add_rules_java MODULE.bazel
+  add_platforms MODULE.bazel
 }
 
 #### HELPER FUNCTIONS ##################################################

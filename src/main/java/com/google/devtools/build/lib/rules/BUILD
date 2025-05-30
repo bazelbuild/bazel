@@ -36,38 +36,13 @@ java_library(
         ":extra/extra_action_rule",
         ":filegroup/filegroup",
         ":label_build_settings",
-        ":repository/bind",
-        ":repository/bind_rule",
-        ":repository/local_repository_rule",
-        ":repository/new_local_repository_function",
-        ":repository/new_local_repository_rule",
-        ":repository/new_repository_file_handler",
         ":repository/repository_directory_value",
         ":repository/repository_function",
         ":repository/resolved_file_value",
         ":repository/workspace_attribute_mapper",
-        ":repository/workspace_base_rule",
         ":repository/workspace_configured_target_factory",
         ":repository/workspace_file_helper",
         ":toolchain_type",
-    ],
-)
-
-# TODO(bazel-team): Include in the srcs the implementations of the rules inside
-# CoreWorkspaceRules.java once they can be extracted from the "build-base" target. They can't be
-# extracted currently because of non-trivial inter-package dependencies.
-java_library(
-    name = "core_workspace_rules",
-    srcs = [
-        "repository/CoreWorkspaceRules.java",
-    ],
-    deps = [
-        ":repository/bind_rule",
-        ":repository/local_repository_rule",
-        ":repository/workspace_base_rule",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/rules/core",
-        "//third_party:guava",
     ],
 )
 
@@ -200,106 +175,6 @@ java_library(
 )
 
 java_library(
-    name = "repository/bind",
-    srcs = ["repository/Bind.java"],
-    deps = [
-        ":alias",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/analysis:visibility_provider",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "repository/bind_rule",
-    srcs = ["repository/BindRule.java"],
-    deps = [
-        ":repository/bind",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/util:filetype",
-    ],
-)
-
-java_library(
-    name = "repository/local_repository_rule",
-    srcs = ["repository/LocalRepositoryRule.java"],
-    deps = [
-        ":repository/workspace_base_rule",
-        ":repository/workspace_configured_target_factory",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-    ],
-)
-
-java_library(
-    name = "repository/new_local_repository_function",
-    srcs = ["repository/NewLocalRepositoryFunction.java"],
-    deps = [
-        ":repository/new_local_repository_rule",
-        ":repository/new_repository_file_handler",
-        ":repository/repo_recorded_input",
-        ":repository/repository_function",
-        ":repository/resolved_file_value",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
-        "//src/main/java/com/google/devtools/build/lib/bazel:resolved_event",
-        "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_value",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "repository/new_local_repository_rule",
-    srcs = ["repository/NewLocalRepositoryRule.java"],
-    deps = [
-        ":repository/workspace_base_rule",
-        ":repository/workspace_configured_target_factory",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-    ],
-)
-
-java_library(
-    name = "repository/new_repository_file_handler",
-    srcs = ["repository/NewRepositoryFileHandler.java"],
-    deps = [
-        ":repository/repo_recorded_input",
-        ":repository/repository_function",
-        ":repository/workspace_attribute_mapper",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",
-        "//src/main/java/com/google/devtools/build/lib/util:pair",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/net/starlark/java/eval",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "repository/repo_recorded_input",
     srcs = ["repository/RepoRecordedInput.java"],
     deps = [
@@ -340,7 +215,6 @@ java_library(
 java_library(
     name = "repository/repository_function",
     srcs = [
-        "repository/LocalRepositoryFunction.java",
         "repository/NeedsSkyframeRestartException.java",
         "repository/RepositoryDelegatorFunction.java",
         "repository/RepositoryDirectoryDirtinessChecker.java",
@@ -349,7 +223,6 @@ java_library(
         "repository/ResolvedHashesFunction.java",
     ],
     deps = [
-        ":repository/local_repository_rule",
         ":repository/repo_recorded_input",
         ":repository/repository_directory_value",
         ":repository/resolved_file_value",
@@ -358,7 +231,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
-        "//src/main/java/com/google/devtools/build/lib/bazel:resolved_event",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:repo_rule_value",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
@@ -413,16 +285,6 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "repository/workspace_base_rule",
-    srcs = ["repository/WorkspaceBaseRule.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
-        "//src/main/java/com/google/devtools/build/lib/packages",
     ],
 )
 

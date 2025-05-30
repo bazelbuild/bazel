@@ -35,10 +35,7 @@ import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
@@ -134,12 +131,9 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
 
-    ImmutableMap<String, RepositoryFunction> repositoryHandlers =
-        ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
     skyFunctions.put(
         SkyFunctions.REPOSITORY_DIRECTORY,
         new RepositoryDelegatorFunction(
-            repositoryHandlers,
             null,
             new AtomicBoolean(true),
             ImmutableMap::of,
@@ -171,7 +165,6 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
-    RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES.set(differencer, false);
     RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
 
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(

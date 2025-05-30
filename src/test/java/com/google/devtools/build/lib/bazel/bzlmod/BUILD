@@ -52,7 +52,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/local_repository_rule",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_cycle_reporter",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",

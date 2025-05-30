@@ -125,12 +125,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             rootPath,
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
-    RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
-    ImmutableMap<String, RepositoryFunction> repositoryHandlers =
-        ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);
     RepositoryDelegatorFunction delegatorFunction =
         new RepositoryDelegatorFunction(
-            repositoryHandlers,
             new StarlarkRepositoryFunction(),
             /* isFetch= */ new AtomicBoolean(true),
             /* clientEnvironmentSupplier= */ ImmutableMap::of,
@@ -244,7 +240,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
-    RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES.set(differencer, true);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, semantics);

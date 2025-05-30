@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
@@ -61,8 +60,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
 import com.google.devtools.build.lib.bazel.commands.ModCommand;
 import com.google.devtools.build.lib.bazel.commands.VendorCommand;
-import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
-import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
@@ -83,13 +80,8 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
-import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -122,7 +114,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -141,8 +132,6 @@ public class BazelRepositoryModule extends BlazeModule {
   public static final ImmutableSet<String> DEFAULT_REGISTRIES =
       ImmutableSet.of("https://bcr.bazel.build/");
 
-  // A map of repository handlers that can be looked up by rule class name.
-  private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
   private final StarlarkRepositoryFunction starlarkRepositoryFunction;
   private final RepositoryCache repositoryCache = new RepositoryCache();
@@ -163,7 +152,6 @@ public class BazelRepositoryModule extends BlazeModule {
 
   private Optional<Path> vendorDirectory = Optional.empty();
   private List<String> allowedYankedVersions = ImmutableList.of();
-  private boolean disableNativeRepoRules;
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
   private ModuleFileFunction moduleFileFunction;
   private RepoSpecFunction repoSpecFunction;
@@ -179,7 +167,6 @@ public class BazelRepositoryModule extends BlazeModule {
 
   public BazelRepositoryModule() {
     this.starlarkRepositoryFunction = new StarlarkRepositoryFunction();
-    this.repositoryHandlers = repositoryRules();
   }
 
   @VisibleForTesting
@@ -194,14 +181,6 @@ public class BazelRepositoryModule extends BlazeModule {
             .setMessage(message)
             .setExternalRepository(ExternalRepository.newBuilder().setCode(code))
             .build());
-  }
-
-  public static ImmutableMap<String, RepositoryFunction> repositoryRules() {
-    return ImmutableMap.<String, RepositoryFunction>builder()
-        .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
-        .put(NewLocalRepositoryRule.NAME, new NewLocalRepositoryFunction())
-        .put(LocalConfigPlatformRule.NAME, new LocalConfigPlatformFunction())
-        .buildOrThrow();
   }
 
   private static class RepositoryCacheInfoItem extends InfoItem {
@@ -241,7 +220,6 @@ public class BazelRepositoryModule extends BlazeModule {
     // Create the repository function everything flows through.
     RepositoryDelegatorFunction repositoryDelegatorFunction =
         new RepositoryDelegatorFunction(
-            repositoryHandlers,
             starlarkRepositoryFunction,
             isFetch,
             clientEnvironmentSupplier,
@@ -295,19 +273,6 @@ public class BazelRepositoryModule extends BlazeModule {
 
   @Override
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
-    for (Map.Entry<String, RepositoryFunction> handler : repositoryHandlers.entrySet()) {
-      RuleDefinition ruleDefinition;
-      try {
-        ruleDefinition =
-            handler.getValue().getRuleDefinition().getDeclaredConstructor().newInstance();
-      } catch (IllegalAccessException
-          | InstantiationException
-          | NoSuchMethodException
-          | InvocationTargetException e) {
-        throw new IllegalStateException(e);
-      }
-      builder.addRuleDefinition(ruleDefinition);
-    }
     builder.addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
   }
 
@@ -343,7 +308,6 @@ public class BazelRepositoryModule extends BlazeModule {
       if (repoOptions.repositoryDownloaderRetries >= 0) {
         downloadManager.setRetries(repoOptions.repositoryDownloaderRetries);
       }
-      disableNativeRepoRules = repoOptions.disableNativeRepoRules;
 
       repositoryCache.getDownloadCache().setHardlink(repoOptions.useHardlinks);
       if (repoOptions.experimentalScaleTimeouts > 0.0) {
@@ -717,8 +681,6 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, vendorDirectory),
         PrecomputedValue.injected(
             YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, allowedYankedVersions),
-        PrecomputedValue.injected(
-            RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, disableNativeRepoRules),
         PrecomputedValue.injected(RegistryFunction.LAST_INVALIDATION, lastRegistryInvalidation));
   }
 

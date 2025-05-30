@@ -1571,6 +1571,7 @@ function test_build_hello_world_with_remote_embedded_tool_targets() {
 
 
 function test_target_exec_properties_java() {
+  add_platforms "MODULE.bazel"
   cat > Hello.java << 'EOF'
 public class Hello {
   public static void main(String[] args) {
@@ -1590,7 +1591,7 @@ java_binary(
 
 platform(
     name = "my_platform",
-    parents = ["@local_config_platform//:host"],
+    parents = ["@platforms//host"],
     exec_properties = {
         "key2": "value2",
         "overridden": "parent_value",

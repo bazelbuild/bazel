@@ -90,15 +90,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   public static final Precomputed<Optional<Path>> VENDOR_DIRECTORY =
       new Precomputed<>("vendor_directory");
 
-  public static final Precomputed<Boolean> DISABLE_NATIVE_REPO_RULES =
-      new Precomputed<>("disable_native_repo_rules");
-
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
   private static final int MARKER_FILE_VERSION = 7;
 
-  // Mapping of rule class name to RepositoryFunction.
-  private final ImmutableMap<String, RepositoryFunction> handlers;
   // Delegate function to handle Starlark remote repositories
   private final RepositoryFunction starlarkHandler;
   // This is a reference to isFetch in BazelRepositoryModule, which tracks whether the current
@@ -110,14 +105,12 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   private final RepoContentsCache repoContentsCache;
 
   public RepositoryDelegatorFunction(
-      ImmutableMap<String, RepositoryFunction> handlers,
       @Nullable RepositoryFunction starlarkHandler,
       AtomicBoolean isFetch,
       Supplier<Map<String, String>> clientEnvironmentSupplier,
       BlazeDirectories directories,
       ExternalPackageHelper externalPackageHelper,
       RepoContentsCache repoContentsCache) {
-    this.handlers = handlers;
     this.starlarkHandler = starlarkHandler;
     this.isFetch = isFetch;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
@@ -142,24 +135,14 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
               env,
               starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE),
               repositoryName.isOwnerRepoMainRepo());
-      Boolean disableNativeRepoRules = DISABLE_NATIVE_REPO_RULES.get(env);
       if (env.valuesMissing()) {
         return null;
       }
-      String localConfigPlatformHelperMsg =
-          disableNativeRepoRules && repositoryName.getName().equals("local_config_platform")
-              ? """
-              . The local_config_platform built-in module is disabled by \
-              --incompatible_disable_native_repo_rules. Either remove that flag, or replace \
-              @local_config_platform with @platforms//host\
-              """
-              : "";
       return new RepositoryDirectoryValue.Failure(
           String.format(
-              "No repository visible as '@%s' from %s%s%s",
+              "No repository visible as '@%s' from %s%s",
               repositoryName.getName(),
               repositoryName.getOwnerRepoDisplayString(),
-              localConfigPlatformHelperMsg,
               workspaceDeprecationMsg));
     }
 
@@ -189,12 +172,13 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
             String.format("Repository '%s' is not defined", repositoryName));
       }
 
-      RepositoryFunction handler = getHandler(rule);
+      RepositoryFunction handler = starlarkHandler;
       if (handler == null) {
         // If we refer to a non repository rule then the repository does not exist.
         return new RepositoryDirectoryValue.Failure(
             String.format("'%s' is not a repository rule", repositoryName));
       }
+      handler.setClientEnvironment(clientEnvironmentSupplier.get());
 
       DigestWriter digestWriter =
           new DigestWriter(directories, repositoryName, rule, starlarkSemantics);
@@ -422,20 +406,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       return value.getRule();
     }
     return null;
-  }
-
-  private RepositoryFunction getHandler(Rule rule) {
-    RepositoryFunction handler;
-    if (rule.getRuleClassObject().isStarlark()) {
-      handler = starlarkHandler;
-    } else {
-      handler = handlers.get(rule.getRuleClass());
-    }
-    if (handler != null) {
-      handler.setClientEnvironment(clientEnvironmentSupplier.get());
-    }
-
-    return handler;
   }
 
   /* Determines whether we should use the cached repositories */

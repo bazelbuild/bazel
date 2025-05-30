@@ -655,6 +655,14 @@ public final class BazelRulesModule extends BlazeModule {
         help = "No-op.")
     public boolean incompatibleExistingRulesImmutableView;
 
+    @Option(
+        name = "incompatible_disable_native_repo_rules",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean incompatibleDisableNativeRepoRules;
+
     // Safe to delete after July 2025
     @Option(
         name = "incompatible_no_package_distribs",

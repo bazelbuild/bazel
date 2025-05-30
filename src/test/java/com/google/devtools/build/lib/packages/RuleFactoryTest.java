@@ -131,29 +131,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     assertThat(attributes.get("srcs", BuildType.LABEL_LIST)).isEmpty();
   }
 
-  @Test
-  public void testWorkspaceRuleFailsInBuildFile() {
-    Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
-    Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);
-
-    Map<String, Object> attributeValues = new HashMap<>();
-    attributeValues.put("name", "foo");
-    attributeValues.put("actual", "//bar:baz");
-
-    RuleClass ruleClass = provider.getRuleClassMap().get("bind");
-    RuleFactory.InvalidRuleException e =
-        assertThrows(
-            RuleFactory.InvalidRuleException.class,
-            () ->
-                RuleFactory.createAndAddRule(
-                    pkgBuilder,
-                    ruleClass,
-                    new BuildLangTypedAttributeValuesMap(attributeValues),
-                    true,
-                    DUMMY_STACK));
-    assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
-  }
-
   private static void assertAttr(RuleClass ruleClass, String attrName, Type<?> type) {
     assertWithMessage(
             "Rule class '"

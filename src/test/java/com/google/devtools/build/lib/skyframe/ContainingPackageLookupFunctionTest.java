@@ -30,10 +30,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupValue.ContainingPackage;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupValue.NoContainingPackage;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -123,12 +120,9 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
         new LocalRepositoryLookupFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
-    ImmutableMap<String, RepositoryFunction> repositoryHandlers =
-        ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
     skyFunctions.put(
         SkyFunctions.REPOSITORY_DIRECTORY,
         new RepositoryDelegatorFunction(
-            repositoryHandlers,
             null,
             new AtomicBoolean(true),
             ImmutableMap::of,
@@ -160,7 +154,6 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
-    RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES.set(differencer, false);
     RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
 
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(

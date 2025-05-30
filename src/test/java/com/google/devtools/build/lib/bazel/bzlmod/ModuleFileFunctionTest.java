@@ -39,10 +39,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
@@ -128,8 +125,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             directories);
     ConfiguredRuleClassProvider ruleClassProvider = AnalysisMock.get().createRuleClassProvider();
 
-    ImmutableMap<String, RepositoryFunction> repositoryHandlers =
-        ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -165,7 +160,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
                     new RepositoryDelegatorFunction(
-                        repositoryHandlers,
                         null,
                         new AtomicBoolean(true),
                         ImmutableMap::of,
@@ -198,7 +192,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
-    RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES.set(differencer, true);
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());
@@ -1437,8 +1430,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             "bazel_tools",
             new NonRegistryOverride(
                 LocalPathRepoSpecs.create(rootDirectory.getRelative("tools").getPathString())),
-            "local_config_platform",
-            new NonRegistryOverride(LocalPathRepoSpecs.create("/local_config_platform")));
+            "other_tools",
+            new NonRegistryOverride(LocalPathRepoSpecs.create("/other_tools")));
     setUpWithBuiltinModules(builtinModules);
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
@@ -1460,7 +1453,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         .isEqualTo(
             InterimModuleBuilder.create("bazel_tools", "1.0")
                 .setKey(createModuleKey("bazel_tools", ""))
-                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
+                .addDep("other_tools", createModuleKey("other_tools", ""))
                 .addDep("foo", createModuleKey("foo", "2.0"))
                 .build());
   }

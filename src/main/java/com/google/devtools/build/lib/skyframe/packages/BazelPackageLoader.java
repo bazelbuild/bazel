@@ -120,7 +120,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
           PrecomputedValue.injected(
               ModuleFileFunction.REGISTRIES, BazelRepositoryModule.DEFAULT_REGISTRIES),
           PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
-          PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
           PrecomputedValue.injected(
               BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
               RepositoryOptions.CheckDirectDepsMode.OFF),
@@ -188,7 +187,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               .put(
                   SkyFunctions.REPOSITORY_DIRECTORY,
                   new RepositoryDelegatorFunction(
-                      BazelRepositoryModule.repositoryRules(),
                       starlarkRepositoryFunction,
                       isFetch,
                       ImmutableMap::of,

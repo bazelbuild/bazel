@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.bazel.BazelConfiguration;
-import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -52,8 +51,6 @@ import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
-import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
-import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextGuardedValue;
@@ -329,29 +326,6 @@ public class BazelRuleClassProvider {
         }
       };
 
-  public static final RuleSet VARIOUS_WORKSPACE_RULES =
-      new RuleSet() {
-        @Override
-        public void init(ConfiguredRuleClassProvider.Builder builder) {
-          // TODO(ulfjack): Split this up by conceptual units.
-          builder.addRuleDefinition(new NewLocalRepositoryRule());
-          builder.addRuleDefinition(new LocalConfigPlatformRule());
-
-          try {
-            builder.addWorkspaceFileSuffix(
-                ResourceFileLoader.loadResource(
-                    LocalConfigPlatformRule.class, "local_config_platform.WORKSPACE"));
-          } catch (IOException e) {
-            throw new IllegalStateException(e);
-          }
-        }
-
-        @Override
-        public ImmutableList<RuleSet> requires() {
-          return ImmutableList.of(CoreRules.INSTANCE, CoreWorkspaceRules.INSTANCE);
-        }
-      };
-
   static final RuleSet PACKAGING_RULES =
       new RuleSet() {
         @Override
@@ -364,7 +338,6 @@ public class BazelRuleClassProvider {
       ImmutableSet.of(
           BAZEL_SETUP,
           CoreRules.INSTANCE,
-          CoreWorkspaceRules.INSTANCE,
           GenericRules.INSTANCE,
           ConfigRules.INSTANCE,
           PlatformRules.INSTANCE,
@@ -375,7 +348,6 @@ public class BazelRuleClassProvider {
           PYTHON_RULES,
           ObjcRules.INSTANCE,
           TestingSupportRules.INSTANCE,
-          VARIOUS_WORKSPACE_RULES,
           PACKAGING_RULES,
           // This rule set is a little special: it needs to depend on every configuration fragment
           // that has Make variables, so we put it last.

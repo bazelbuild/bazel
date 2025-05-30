@@ -185,7 +185,6 @@ public abstract class AnalysisMock extends LoadingMock {
         .put(
             SkyFunctions.REPOSITORY_DIRECTORY,
             new RepositoryDelegatorFunction(
-                ImmutableMap.of(),
                 new StarlarkRepositoryFunction(),
                 new AtomicBoolean(true),
                 ImmutableMap::of,
@@ -235,7 +234,6 @@ public abstract class AnalysisMock extends LoadingMock {
             RepositoryDelegatorFunction.FORCE_FETCH,
             RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
         PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
-        PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, ImmutableSet.of()),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
