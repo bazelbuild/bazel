@@ -8,7 +8,11 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/analysis:srcs",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/strings:srcs",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/serialization/testutils:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
 )
 

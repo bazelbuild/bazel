@@ -1240,6 +1240,7 @@ sh_test(
     srcs = ["srcs_test.sh"],
     data = [
         ":srcs_list",
+        "@bazel_tools//tools/bash/runfiles",
         "@local_bazel_source_list//:sources",
     ],
     tags = ["no_windows"],

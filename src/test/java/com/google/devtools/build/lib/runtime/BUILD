@@ -6,6 +6,15 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
+filegroup(
+    name = "srcs",
+    testonly = 0,
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/runtime/commands/info:srcs",
+    ],
+    visibility = ["//src:__subpackages__"],
+)
+
 java_library(
     name = "RuntimeTests_lib",
     srcs = glob(

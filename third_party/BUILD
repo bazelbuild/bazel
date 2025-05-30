@@ -20,6 +20,7 @@ filegroup(
         "//third_party/java/jcommander:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/pprof:srcs",
+        "//third_party/proguard:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
         "//third_party/py/concurrent:srcs",
