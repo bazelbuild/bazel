@@ -793,6 +793,7 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell/bazel/testdata:zstd_test_archive.tar.zst",
+        "@local_jdk//:jdk",  # for remote_helpers setup_localjdk_javabase
     ],
     shard_count = 15,
     tags = [
