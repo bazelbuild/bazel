@@ -111,7 +111,7 @@ def _compute_public_headers(
 
     module_map_headers = []
     virtual_to_original_headers_list = []
-    virtual_include_dir = paths.join(paths.join(package_source_root(label.workspace_name, label.package, is_sibling_repository_layout), _VIRTUAL_INCLUDES_DIR), label.name)
+    virtual_include_dir = paths.join(_VIRTUAL_INCLUDES_DIR, "%x" % hash(paths.join(package_source_root(label.workspace_name, label.package, is_sibling_repository_layout), label.name)))
     for original_header in public_headers_artifacts:
         repo_relative_path = _repo_relative_path(original_header)
         if not repo_relative_path.startswith(strip_prefix):
