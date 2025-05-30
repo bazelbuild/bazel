@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionCo
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.ExtraLinkTimeLibraryApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -902,10 +903,11 @@ public abstract class CcModule
     ImmutableSet<String> featureNames =
         featureList.stream().map(Feature::getName).collect(toImmutableSet());
 
+    OS execOs = starlarkRuleContext.getRuleContext().getExecutionPlatformOs();
     ImmutableList.Builder<ActionConfig> actionConfigBuilder = ImmutableList.builder();
     for (Object actionConfig : actionConfigs) {
       checkRightStarlarkInfoProvider(actionConfig, "action_configs", "ActionConfigInfo");
-      actionConfigBuilder.add(actionConfigFromStarlark((StarlarkInfo) actionConfig));
+      actionConfigBuilder.add(actionConfigFromStarlark((StarlarkInfo) actionConfig, execOs));
     }
     ImmutableList<ActionConfig> actionConfigList = actionConfigBuilder.build();
 
@@ -1373,7 +1375,8 @@ public abstract class CcModule
    * {@link StarlarkInfo}.
    */
   @VisibleForTesting
-  static CcToolchainFeatures.Tool toolFromStarlark(StarlarkInfo toolStruct) throws EvalException {
+  static CcToolchainFeatures.Tool toolFromStarlark(StarlarkInfo toolStruct, OS execOs)
+      throws EvalException {
     checkRightProviderType(toolStruct, "tool");
 
     String toolPathString = getOptionalFieldFromStarlarkProvider(toolStruct, "path", String.class);
@@ -1387,7 +1390,7 @@ public abstract class CcModule
         throw infoError(toolStruct, "\"tool\" and \"path\" cannot be set at the same time.");
       }
 
-      toolPath = PathFragment.create(toolPathString);
+      toolPath = PathFragment.createForOs(toolPathString, execOs);
       if (toolPath.isEmpty()) {
         throw infoError(toolStruct, "The 'path' field of tool must be a nonempty string.");
       }
@@ -1420,7 +1423,7 @@ public abstract class CcModule
 
   /** Creates an {@link ActionConfig} from a {@link StarlarkInfo}. */
   @VisibleForTesting
-  static ActionConfig actionConfigFromStarlark(StarlarkInfo actionConfigStruct)
+  static ActionConfig actionConfigFromStarlark(StarlarkInfo actionConfigStruct, OS execOs)
       throws EvalException {
     checkRightProviderType(actionConfigStruct, "action_config");
     String actionName =
@@ -1445,7 +1448,7 @@ public abstract class CcModule
     ImmutableList<StarlarkInfo> toolStructs =
         getStarlarkProviderListFromStarlarkField(actionConfigStruct, "tools");
     for (StarlarkInfo toolStruct : toolStructs) {
-      toolBuilder.add(toolFromStarlark(toolStruct));
+      toolBuilder.add(toolFromStarlark(toolStruct, execOs));
     }
 
     ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
