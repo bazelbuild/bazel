@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.Options;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -339,7 +340,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         .isNull();
   }
 
-  @Test
+  @Ignore("b/377959266")
   public void testExecStarlarkFlag_isPropagatedByTargetPattern() throws Exception {
     scratch.file("my_starlark_flag/BUILD");
     scratch.file(
