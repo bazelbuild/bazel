@@ -98,6 +98,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       name = "experimental_propagate_custom_flag",
       defaultValue = "null",
       allowMultiple = true,
+      converter = CoreOptionConverters.CustomFlagConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},

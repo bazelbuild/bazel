@@ -234,6 +234,45 @@ public class CoreOptionConverters {
     }
   }
 
+  /**
+   * Flag converter for canonicalizing a label (possibly with a "/..." suffix) and/or define by
+   * converting the label to unambiguous canonical form.
+   */
+  public static class CustomFlagConverter implements Converter<String> {
+    public static final String SUBPACKAGES_SUFFIX = "/...";
+
+    @Override
+    public String convert(String input, Object conversionContext) throws OptionsParsingException {
+      if (!input.startsWith("//") && !input.startsWith("@")) {
+        // This is a --define flag.
+        return input;
+      }
+      // A "/..." suffix is not valid label syntax, so replace it with arbitrary valid syntax and
+      // transform it back after conversion.
+      String invalidSubpackagesSuffix = SUBPACKAGES_SUFFIX;
+      String validSubpackagesSuffix = ":__subpackages__";
+      String escapedUnconvertedLabel =
+          input.endsWith(invalidSubpackagesSuffix)
+              ? input.substring(0, input.length() - invalidSubpackagesSuffix.length())
+                  + validSubpackagesSuffix
+              : input;
+      String escapedConvertedLabel =
+          convertOptionsLabel(escapedUnconvertedLabel, conversionContext)
+              .getUnambiguousCanonicalForm();
+      if (escapedConvertedLabel.endsWith(validSubpackagesSuffix)) {
+        return escapedConvertedLabel.substring(
+                0, escapedConvertedLabel.length() - validSubpackagesSuffix.length())
+            + invalidSubpackagesSuffix;
+      }
+      return escapedConvertedLabel;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an absolute label or define";
+    }
+  }
+
   /** Values for the --strict_*_deps option */
   public enum StrictDepsMode {
     /** Silently allow referencing transitive dependencies. */

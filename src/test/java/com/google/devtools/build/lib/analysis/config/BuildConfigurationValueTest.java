@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.Options;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -324,7 +325,9 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
                 "//my_starlark_flag:other_starlark_flag",
                 "true"),
             "--experimental_exclude_starlark_flags_from_exec_config=true",
-            "--experimental_propagate_custom_flag=//my_starlark_flag:starlark_flag");
+            // Verify that labels are parsed rather than compared as strings by specifying the
+            // label in non-canonical form.
+            "--experimental_propagate_custom_flag=@//my_starlark_flag:starlark_flag");
     assertThat(
             cfg.getOptions()
                 .getStarlarkOptions()
@@ -334,6 +337,55 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
             cfg.getOptions()
                 .getStarlarkOptions()
                 .get(Label.parseCanonicalUnchecked("//my_starlark_flag:other_starlark_flag")))
+        .isNull();
+  }
+
+  @Ignore("b/377959266")
+  public void testExecStarlarkFlag_isPropagatedByTargetPattern() throws Exception {
+    scratch.file("my_starlark_flag/BUILD");
+    scratch.file(
+        "my_starlark_flag/rule_defs.bzl",
+        """
+        bool_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.bool(flag = True),
+        )
+        """);
+    scratch.file(
+        "flags_to_propagate/BUILD",
+        """
+        load("//my_starlark_flag:rule_defs.bzl", "bool_flag")
+        bool_flag(
+            name = "include_me",
+            build_setting_default = False,
+        )
+        """);
+    scratch.file(
+        "flags_to_reset/BUILD",
+        """
+        load("//my_starlark_flag:rule_defs.bzl", "bool_flag")
+        bool_flag(
+            name = "exclude_me",
+            build_setting_default = False,
+        )
+        """);
+
+    BuildConfigurationValue cfg =
+        createExec(
+            ImmutableMap.of(
+                "//flags_to_propagate:include_me", "true", "//flags_to_reset:exclude_me", "true"),
+            "--experimental_exclude_starlark_flags_from_exec_config=true",
+            "--experimental_propagate_custom_flag=//flags_to_propagate/...");
+
+    assertThat(
+            cfg.getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonicalUnchecked("//flags_to_propagate:include_me")))
+        .isEqualTo("true");
+    assertThat(
+            cfg.getOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonicalUnchecked("//flags_to_reset:exclude_me")))
         .isNull();
   }
 
