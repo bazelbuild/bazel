@@ -201,21 +201,20 @@ projects](https://github.com/bazelbuild/bazel/tree/master/examples):
             data-terminal-prefix="C:\projects\bazel&gt; ">bazel-bin\examples\cpp\hello-world.exe</code>
 </pre>
 
-By default, the built binaries target x64 architecture. To specify a different
-target architecture, set the `--cpu` build option for your target architecture:
-*  x64 (default):  `--cpu=x64_windows` or no option
-*  x86: `--cpu=x64_x86_windows`
-*  ARM: `--cpu=x64_arm_windows`
-*  ARM64: `--cpu=arm64_windows`
+By default, the built binaries target x64 architecture. To build for ARM64
+architecture, use
 
-Note: `--cpu=x64_arm64_windows` to target ARM64 architecture is deprecated. Please use `--cpu=arm64_windows`
+```none
+--platforms=//:windows_arm64  --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
+```
 
-For example, to build targets for ARM architecture, run:
+You can introduce `@local_config_cc` in `MODULE.bazel` with
 
-<pre class="devsite-terminal devsite-click-to-copy"
-     data-terminal-prefix="C:\projects\bazel&gt; ">
-bazel build //examples/cpp:hello-world --cpu=x64_arm_windows
-</pre>
+```python
+bazel_dep(name = "rules_cc", version = "0.1.1")
+cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
+use_repo(cc_configure, "local_config_cc")
+```
 
 To build and use Dynamically Linked Libraries (DLL files), see [this
 example](https://github.com/bazelbuild/bazel/tree/master/examples/windows/dll){: .external}.
