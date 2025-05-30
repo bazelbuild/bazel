@@ -2458,7 +2458,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             .build();
     return memoizingEvaluator.evaluate(
         Iterables.concat(
-            buildDriverCTKeys, buildDriverAspectKeys, Artifact.keys(workspaceStatusArtifacts)),
+            buildDriverCTKeys, buildDriverAspectKeys),
         evaluationContext);
   }
 
