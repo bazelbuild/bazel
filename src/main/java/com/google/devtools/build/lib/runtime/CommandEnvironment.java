@@ -333,7 +333,10 @@ public class CommandEnvironment {
                 : UUID.randomUUID().toString();
 
     this.repoEnv.putAll(clientEnv);
-    if (command.buildPhase().analyzes() || command.name().equals("info")) {
+    // TODO: This only needs to check for loads() rather than analyzes() due to
+    //  the effect of --action_env on the repository env. Revert back to
+    //  analyzes() when --action_env no longer affects it.
+    if (command.buildPhase().loads() || command.name().equals("info")) {
       // Compute the set of environment variables that are allowlisted on the commandline
       // for inheritance.
       for (Map.Entry<String, String> entry :
@@ -345,6 +348,8 @@ public class CommandEnvironment {
           repoEnv.put(entry.getKey(), entry.getValue());
         }
       }
+    }
+    if (command.buildPhase().analyzes() || command.name().equals("info")) {
       for (Map.Entry<String, String> entry :
           options.getOptions(TestOptions.class).testEnvironment) {
         if (entry.getValue() == null) {
