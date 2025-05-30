@@ -199,7 +199,8 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                       repositoryCache.getRepoContentsCache()))
               .put(
                   SkyFunctions.BAZEL_LOCK_FILE,
-                  new BazelLockFileFunction(directories.getWorkspace()))
+                  new BazelLockFileFunction(
+                      directories.getWorkspace(), directories.getOutputBase()))
               .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
               .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
               .put(SkyFunctions.REPO_SPEC, repoSpecFunction)
