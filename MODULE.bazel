@@ -309,7 +309,6 @@ use_repo(
     "openjdk_macos_x86_64_vanilla",
     "openjdk_win_arm64_vanilla",
     "openjdk_win_vanilla",
-    "workspace_repo_cache",
 )
 
 # Required only by `--extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows` from .bazelrc

@@ -59,16 +59,6 @@ filegroup(
 )
 
 filegroup(
-    name = "workspace-deps-bzl",
-    srcs = [
-        ":workspace_deps.bzl",
-    ],
-    visibility = [
-        "//src/test/shell/bazel:__subpackages__",
-    ],
-)
-
-filegroup(
     name = "changelog-file",
     srcs = [":CHANGELOG.md"],
     visibility = [
@@ -151,9 +141,6 @@ filegroup(
     name = "generated_resources",
     srcs = [
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:builtins_bzl.zip",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules:coverage.WORKSPACE",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules:rules_suffix.WORKSPACE",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:cc_configure.WORKSPACE",
     ],
 )
 

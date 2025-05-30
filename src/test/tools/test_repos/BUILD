@@ -40,7 +40,6 @@ filegroup(
         "//conditions:default": [],
     }) + [
         "@bazel_tools_repo_cache//:files",
-        "@workspace_repo_cache//:files",
     ],
     visibility = ["//src:__subpackages__"],
 )

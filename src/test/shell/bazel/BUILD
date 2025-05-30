@@ -1,7 +1,6 @@
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_shell//shell:sh_library.bzl", "sh_library")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
-load("//:workspace_deps.bzl", "gen_workspace_stanza")
 load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 
 package(default_visibility = ["//visibility:private"])
@@ -17,19 +16,10 @@ filegroup(
     visibility = ["//src/test/shell:__pkg__"],
 )
 
-gen_workspace_stanza(
-    name = "rules_license_stanza",
-    out = "rules_license_stanza.txt",
-    repos = [
-        "rules_license",
-    ],
-)
-
 sh_library(
     name = "test-deps",
     testonly = 1,
     srcs = [
-        ":rules_license_stanza.txt",
         ":test-deps-wo-bazel",
         "//src:bazel",
         "//src/test/shell:bin/bazel",
@@ -1383,20 +1373,6 @@ sh_test(
     data = [":test-deps"],
     tags = ["no_windows"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
-)
-
-sh_test(
-    name = "verify_workspace",
-    srcs = ["verify_workspace.sh"],
-    data = [
-        ":test-deps",
-        "//:workspace-deps-bzl",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    tags = [
-        "no_windows",
-        "requires-network",
-    ],
 )
 
 sh_test(

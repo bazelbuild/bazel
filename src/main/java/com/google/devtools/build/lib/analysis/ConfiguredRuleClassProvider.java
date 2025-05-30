@@ -141,8 +141,6 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   /** Builder for {@link ConfiguredRuleClassProvider}. */
   public static final class Builder implements RuleDefinitionEnvironment {
-    private final StringBuilder defaultWorkspaceFilePrefix = new StringBuilder();
-    private final StringBuilder defaultWorkspaceFileSuffix = new StringBuilder();
     private Label preludeLabel;
     private String runfilesPrefix;
     private RepositoryName toolsRepository;
@@ -179,18 +177,6 @@ public /*final*/ class ConfiguredRuleClassProvider
 
     // TODO(b/192694287): Remove once we migrate all tests from the allowlist
     @Nullable private Label networkAllowlistForTests;
-
-    @CanIgnoreReturnValue
-    public Builder addWorkspaceFilePrefix(String contents) {
-      defaultWorkspaceFilePrefix.append(contents);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addWorkspaceFileSuffix(String contents) {
-      defaultWorkspaceFileSuffix.append(contents);
-      return this;
-    }
 
     @CanIgnoreReturnValue
     public Builder setPrelude(String preludeLabelString) {
@@ -587,8 +573,6 @@ public /*final*/ class ConfiguredRuleClassProvider
           ImmutableMap.copyOf(nativeAspectClassMap),
           FragmentRegistry.create(
               configurationFragmentClasses, universalFragments, configurationOptions),
-          defaultWorkspaceFilePrefix.toString(),
-          defaultWorkspaceFileSuffix.toString(),
           trimmingTransitionFactory,
           toolchainTaggedTrimmingTransition,
           shouldInvalidateCacheForOptionDiff,
@@ -620,12 +604,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       return this;
     }
   }
-
-  /** Default content that should be added at the beginning of the WORKSPACE file. */
-  private final String defaultWorkspaceFilePrefix;
-
-  /** Default content that should be added at the end of the WORKSPACE file. */
-  private final String defaultWorkspaceFileSuffix;
 
   /** Label for the prelude file. */
   private final Label preludeLabel;
@@ -700,8 +678,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       ImmutableMap<String, RuleDefinition> ruleDefinitionMap,
       ImmutableMap<String, NativeAspectClass> nativeAspectClassMap,
       FragmentRegistry fragmentRegistry,
-      String defaultWorkspaceFilePrefix,
-      String defaultWorkspaceFileSuffix,
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
       PatchTransition toolchainTaggedTrimmingTransition,
       OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
@@ -724,8 +700,6 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.ruleDefinitionMap = ruleDefinitionMap;
     this.nativeAspectClassMap = nativeAspectClassMap;
     this.fragmentRegistry = fragmentRegistry;
-    this.defaultWorkspaceFilePrefix = defaultWorkspaceFilePrefix;
-    this.defaultWorkspaceFileSuffix = defaultWorkspaceFileSuffix;
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
@@ -867,16 +841,6 @@ public /*final*/ class ConfiguredRuleClassProvider
   @Override
   public BazelStarlarkEnvironment getBazelStarlarkEnvironment() {
     return bazelStarlarkEnvironment;
-  }
-
-  @Override
-  public String getDefaultWorkspacePrefix() {
-    return defaultWorkspaceFilePrefix;
-  }
-
-  @Override
-  public String getDefaultWorkspaceSuffix() {
-    return defaultWorkspaceFileSuffix;
   }
 
   @Override

@@ -14,11 +14,6 @@ filegroup(
 java_library(
     name = "python",
     srcs = glob(["*.java"]),
-    resources = glob(
-        [
-            "*.WORKSPACE",
-        ],
-    ),
     deps = [
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",

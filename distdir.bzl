@@ -34,49 +34,6 @@ pkg_tar(
 
 """
 
-def _distdir_tar_impl(ctx):
-    for name in ctx.attr.archives:
-        ctx.download(ctx.attr.urls[name], name, ctx.attr.sha256[name], False)
-    ctx.file("WORKSPACE", "")
-    ctx.file(
-        "BUILD",
-        _BUILD.format(srcs = ctx.attr.archives, strip_prefix = "", dirname = ctx.attr.dirname),
-    )
-
-_distdir_tar_attrs = {
-    "archives": attr.string_list(),
-    "sha256": attr.string_dict(),
-    "urls": attr.string_list_dict(),
-    "dirname": attr.string(default = "distdir"),
-}
-
-_distdir_tar = repository_rule(
-    implementation = _distdir_tar_impl,
-    attrs = _distdir_tar_attrs,
-)
-
-def distdir_tar(name, dist_deps):
-    """Creates a repository whose content is a set of tar files.
-
-    Args:
-      name: repo name.
-      dist_deps: map of repo names to dict of archive, sha256, and urls.
-    """
-    archives = []
-    sha256 = {}
-    urls = {}
-    for _, info in dist_deps.items():
-        archive_file = info["archive"]
-        archives.append(archive_file)
-        sha256[archive_file] = info["sha256"]
-        urls[archive_file] = info["urls"]
-    _distdir_tar(
-        name = name,
-        archives = archives,
-        sha256 = sha256,
-        urls = urls,
-    )
-
 def _repo_cache_tar_impl(ctx):
     """Generate a repository cache as a tar file.
 

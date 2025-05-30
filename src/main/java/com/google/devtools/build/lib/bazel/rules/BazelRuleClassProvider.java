@@ -61,7 +61,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import java.io.IOException;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Function;
@@ -276,13 +275,6 @@ public class BazelRuleClassProvider {
                   BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
                   new AndroidStarlarkCommon(),
                   allowedRepositories));
-
-          try {
-            builder.addWorkspaceFileSuffix(
-                ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
-          } catch (IOException e) {
-            throw new IllegalStateException(e);
-          }
         }
 
         @Override
@@ -310,14 +302,6 @@ public class BazelRuleClassProvider {
               "py_internal",
               ContextGuardedValue.onlyInAllowedRepos(Starlark.NONE, allowedRepositories));
           builder.addStarlarkBuiltinsInternal(BazelPyBuiltins.NAME, new BazelPyBuiltins());
-
-          try {
-            builder.addWorkspaceFileSuffix(
-                ResourceFileLoader.loadResource(
-                    BazelPythonConfiguration.class, "python.WORKSPACE"));
-          } catch (IOException e) {
-            throw new IllegalStateException(e);
-          }
         }
 
         @Override
