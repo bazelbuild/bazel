@@ -91,6 +91,7 @@ public enum ProfilerTask {
   REPO_CACHE_GC_WAIT("blocked on repo contents cache GC", Threshold.TEN_MILLIS),
   SPAWN_LOG("logging spawn", Threshold.TEN_MILLIS),
   RPC("RPC"),
+  SKYCACHE("Skycache"),
 
   UNKNOWN("Unknown event");
 

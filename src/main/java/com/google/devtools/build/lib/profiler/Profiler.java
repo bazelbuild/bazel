@@ -1140,6 +1140,10 @@ public final class Profiler {
   @CanIgnoreReturnValue
   public <T> ListenableFuture<T> profileFuture(
       ListenableFuture<T> future, String prefix, ProfilerTask type, String description) {
+    if (!isActive()) {
+      return future;
+    }
+
     Lane lane = multiLaneGenerator.acquire(prefix);
     long startTimeNanos = clock.nanoTime();
     future.addListener(
