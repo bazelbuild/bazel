@@ -78,8 +78,7 @@ public class HttpStreamTest {
   @Rule
   public final ExpectedException thrown = ExpectedException.none();
 
-  @Rule
-  public final Timeout globalTimeout = new Timeout(10000);
+  @Rule public final Timeout globalTimeout = Timeout.seconds(10);
 
   private final HttpURLConnection connection = mock(HttpURLConnection.class);
   private final Reconnector reconnector = mock(Reconnector.class);
