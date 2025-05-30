@@ -397,9 +397,9 @@ public class BazelRepositoryModule extends BlazeModule {
       if (repoContentsCachePath != null
           && env.getWorkspace() != null
           && repoContentsCachePath.startsWith(env.getWorkspace())) {
-        // Having the repo contents cache inside the workspace is very dangerous. During the
-        // lifetime of a Bazel invocation, we treat files inside the workspace as immutable. This
-        // can cause mysterious failures if we write files inside the workspace during the
+        // Having the repo contents cache inside the main repo is very dangerous. During the
+        // lifetime of a Bazel invocation, we treat files inside the main repo as immutable. This
+        // can cause mysterious failures if we write files inside the main repo during the
         // invocation, as is often the case with the repo contents cache.
         // TODO: wyv@ - This is a crude check that disables some use cases (such as when the output
         //   base itself is inside the main repo). Investigate a better check.
@@ -407,9 +407,9 @@ public class BazelRepositoryModule extends BlazeModule {
         throw new AbruptExitException(
             detailedExitCode(
                 """
-                The repo contents cache [%s] is inside the workspace [%s]. This can cause spurious \
+                The repo contents cache [%s] is inside the main repo [%s]. This can cause spurious \
                 failures. Disable the repo contents cache with `--repo_contents_cache=`, or \
-                specify `--repo_contents_cache=<path outside the workspace>`.
+                specify `--repo_contents_cache=<path outside the main repo>`.
                 """
                     .formatted(repoContentsCachePath, env.getWorkspace()),
                 Code.BAD_REPO_CONTENTS_CACHE));
