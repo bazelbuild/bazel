@@ -54,6 +54,7 @@ final class StarlarkWasmModule implements StarlarkValue {
   private final Object origPath;
   private final WasmModule wasmModule;
   private final String allocFnName;
+  private final boolean hasInitializeFn;
 
   public StarlarkWasmModule(
       StarlarkPath path,
@@ -78,6 +79,18 @@ final class StarlarkWasmModule implements StarlarkValue {
     this.origPath = origPath;
     this.wasmModule = wasmModule;
     this.allocFnName = allocFnName;
+    this.hasInitializeFn = hasInitializeFn(wasmModule);
+  }
+
+  private static boolean hasInitializeFn(WasmModule wasmModule) {
+    var exports = wasmModule.exportSection();
+    int exportCount = exports.exportCount();
+    for (int ii = 0; ii < exportCount; ii++) {
+      if (exports.getExport(ii).name().equals("_initialize")) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
@@ -156,10 +169,14 @@ final class StarlarkWasmModule implements StarlarkValue {
       // Actual implementations such as LLVM have instead used the start function
       // as the equivalent of a native binary's entry point, and expect (or emit)
       // a function named `_initialize` to be used for early initialization.
-      ExportFunction initFn = instance.export("_initialize");
-      if (initFn != null) {
+      //
+      // For additional context, see:
+      // - https://bugs.llvm.org/show_bug.cgi?id=37198
+      // - https://reviews.llvm.org/D40559
+      // - https://github.com/WebAssembly/design/issues/1160
+      if (hasInitializeFn) {
         try (SilentCloseable c = prof.profile(WASM_EXEC, "initialize")) {
-          initFn.apply();
+          instance.export("_initialize").apply();
         }
       }
     } catch (ChicoryException e) {
@@ -168,12 +185,12 @@ final class StarlarkWasmModule implements StarlarkValue {
 
     var memory = instance.memory();
     ExportFunction allocFn = instance.export(allocFnName);
-    // FIXME: Is this check needed? Might be redundant with validateModule().
+    // TODO: #26092 - Is this check needed? Might be redundant with validateModule().
     if (allocFn == null) {
       throw Starlark.errorf("WebAssembly module doesn't export \"%s\"", allocFnName);
     }
     ExportFunction execFn = instance.export(execFnName);
-    // FIXME: Validate execFn has the expected signature?
+    // TODO: #26092 - Validate execFn has the expected signature?
     if (execFn == null) {
       throw Starlark.errorf("WebAssembly module doesn't export \"%s\"", execFnName);
     }
@@ -196,7 +213,7 @@ final class StarlarkWasmModule implements StarlarkValue {
       execResult = execFn.apply(inputPtr, inputLen, outputPtrPtr, outputLenPtr);
     }
 
-    // FIXME: Not 100% sure this check is necessary, but the ambiguity between
+    // TODO: #26092 - Not 100% sure this check is necessary, but the ambiguity between
     // signed/unsigned in Java vs WebAssembly makes me nervous.
     //
     // Might be unnecessary if the function signature is verified before execution?
@@ -223,20 +240,25 @@ final class StarlarkWasmModule implements StarlarkValue {
     for (int ii = 0; ii < exportCount; ii++) {
       var export = exports.getExport(ii);
       if (export.name().equals(allocFnName)) {
-        // FIXME: Validate exported type is a function and has the expected signature?
+        // TODO: #26092 - Validate exported type is a function and has the expected signature?
         return;
       }
     }
     throw Starlark.errorf("WebAssembly module doesn't contain an export named \"%s\"", allocFnName);
   }
 
-  MemoryLimits getMemLimits(long memLimitBytes) {
+  MemoryLimits getMemLimits(long memLimitBytes) throws EvalException {
     int initialPages = 1;
     int memLimitPages = getMemLimitPages(memLimitBytes);
 
     if (wasmModule.memorySection().isPresent()) {
       var memories = wasmModule.memorySection().get();
       int memoryCount = memories.memoryCount();
+      if (memoryCount > 1) {
+        // TODO: #26092 - Figure out what memory limits mean when applied to
+        // a WebAssembly module with multiple memories.
+        throw Starlark.errorf("WebAssembly modules with multiple memories not yet supported");
+      }
       for (int ii = 0; ii < memoryCount; ii++) {
         MemoryLimits limits = memories.getMemory(ii).limits();
         if (limits.initialPages() > initialPages) {
@@ -245,7 +267,7 @@ final class StarlarkWasmModule implements StarlarkValue {
       }
     }
     if (initialPages > memLimitPages) {
-      // FIXME: Should probably throw an exception. The execution will likely fail anyway, and
+      // TODO: #26092 - Should probably throw an exception. The execution will likely fail anyway, and
       // throwing an exception from this point would provide more relevant details.
       initialPages = memLimitPages;
     }
@@ -267,12 +289,12 @@ final class StarlarkWasmModule implements StarlarkValue {
       throw Starlark.errorf(
         "allocation failed: %s(%d, %d) returned NULL", allocFnName, size, align);
     }
-    int intPtr = (int)ptr;
-    if (intPtr != ptr) {
+    try {
+      return Math.toIntExact(ptr);
+    } catch (ArithmeticException e) {
       throw Starlark.errorf(
         "allocation failed: %s(%d, %d) returned invalid pointer 0x%08X (out of range)",
         allocFnName, size, align, ptr);
     }
-    return intPtr;
   }
 }
