@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
+import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.CombinedCache.createFailureDetail;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
@@ -70,6 +71,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -119,6 +121,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -161,6 +164,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -201,6 +205,7 @@ public class RemoteExecutionService {
 
   @Nullable private final Scrubber scrubber;
   private final Set<Digest> knownMissingCasDigests;
+  private final OutputPermissions outputPermissions;
 
   private Boolean useOutputPaths;
 
@@ -220,7 +225,8 @@ public class RemoteExecutionService {
       @Nullable Path captureCorruptedOutputsDir,
       @Nullable RemoteOutputChecker remoteOutputChecker,
       OutputService outputService,
-      Set<Digest> knownMissingCasDigests) {
+      Set<Digest> knownMissingCasDigests,
+      OutputPermissions outputPermissions) {
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
     this.execRoot = execRoot;
@@ -247,6 +253,7 @@ public class RemoteExecutionService {
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputService = outputService;
     this.knownMissingCasDigests = knownMissingCasDigests;
+    this.outputPermissions = outputPermissions;
   }
 
   private Command buildCommand(
@@ -905,8 +912,8 @@ public class RemoteExecutionService {
         result = true;
       }
     }
-    for (var entry : metadata.directories()) {
-      for (var file : entry.getValue().files()) {
+    for (var dir : metadata.directories().values()) {
+      for (var file : dir.files()) {
         if (knownMissingCasDigests.remove(file.digest())) {
           result = true;
         }
@@ -935,7 +942,13 @@ public class RemoteExecutionService {
                   progressStatusListener,
                   internalToUnicode(remotePathResolver.localPathToOutputPath(file.path())),
                   file.digest().getSizeBytes()));
-      return transform(future, (d) -> file, directExecutor());
+      return transformAsync(
+          future,
+          (d) -> {
+            tmpPath.chmod(outputPermissions.getPermissionsMode());
+            return immediateFuture(file);
+          },
+          directExecutor());
     } catch (IOException e) {
       return immediateFailedFuture(e);
     }
@@ -1005,26 +1018,30 @@ public class RemoteExecutionService {
     }
   }
 
-  private void createSymlinks(Iterable<SymlinkMetadata> symlinks) throws IOException {
+  private void createSymlinks(
+      Iterable<SymlinkMetadata> symlinks, @Nullable RemoteActionFileSystem remoteActionFileSystem)
+      throws IOException {
     for (SymlinkMetadata symlink : symlinks) {
+      Path path =
+          remoteActionFileSystem != null
+              ? remoteActionFileSystem.getPath(symlink.path().asFragment())
+              : symlink.path();
       Preconditions.checkNotNull(
-              symlink.path().getParentDirectory(),
-              "Failed creating directory and parents for %s",
-              symlink.path())
+              path.getParentDirectory(), "Failed creating directory and parents for %s", path)
           .createDirectoryAndParents();
       // If a directory output is being materialized as a symlink, creating the symlink fails as we
       // must first delete the preexisting empty directory. Since this is rare (and in the future
       // BwoB may no longer eagerly create these directories), we don't delete the directory
       // beforehand.
       try {
-        symlink.path().createSymbolicLink(symlink.target());
+        path.createSymbolicLink(symlink.target());
       } catch (IOException e) {
         if (!symlink.path().isDirectory(Symlinks.NOFOLLOW)) {
           throw e;
         }
         // Retry after deleting the directory.
-        symlink.path().delete();
-        symlink.path().createSymbolicLink(symlink.target());
+        path.delete();
+        path.createSymbolicLink(symlink.target());
       }
     }
   }
@@ -1126,8 +1143,8 @@ public class RemoteExecutionService {
       return files.values();
     }
 
-    public ImmutableSet<Entry<Path, DirectoryMetadata>> directories() {
-      return directories.entrySet();
+    public ImmutableMap<Path, DirectoryMetadata> directories() {
+      return directories;
     }
 
     public Collection<SymlinkMetadata> symlinks() {
@@ -1333,10 +1350,27 @@ public class RemoteExecutionService {
     // This avoids holding the output lock while downloading, which would prevent the local branch
     // from completing sooner under the dynamic execution strategy.
     Map<Path, Path> realToTmpPath = new HashMap<>();
+    // Files that are downloaded should be stated after they have been moved to their final
+    // locations so that future invalidation checks are faster.
+    Map<Path, Consumer<FileContentsProxy>> pathsToStat = new HashMap<>();
 
     for (FileMetadata file : metadata.files()) {
       if (realToTmpPath.containsKey(file.path)) {
         continue;
+      }
+
+      Consumer<FileContentsProxy> proxyConsumer;
+      if (hasBazelOutputService) {
+        proxyConsumer = null;
+        downloadsBuilder.add(immediateFuture(file));
+      } else {
+        proxyConsumer =
+            checkNotNull(remoteActionFileSystem)
+                .injectRemoteFile(
+                    file.path().asFragment(),
+                    DigestUtil.toBinaryDigest(file.digest()),
+                    file.digest().getSizeBytes(),
+                    expirationTime);
       }
 
       var execPath = file.path.relativeTo(execRoot);
@@ -1344,71 +1378,79 @@ public class RemoteExecutionService {
       if (!isInMemoryOutputFile && shouldDownload(result, execPath, /* treeRootExecPath= */ null)) {
         Path tmpPath = tempPathGenerator.generateTempPath();
         realToTmpPath.put(file.path, tmpPath);
+        if (proxyConsumer != null) {
+          pathsToStat.put(file.path(), proxyConsumer);
+        }
         downloadsBuilder.add(
             downloadFile(
                 context, progressStatusListener, file, tmpPath, action.getRemotePathResolver()));
-      } else {
-        if (hasBazelOutputService) {
-          downloadsBuilder.add(immediateFuture(file));
-        } else {
-          checkNotNull(remoteActionFileSystem)
-              .injectRemoteFile(
-                  file.path().asFragment(),
-                  DigestUtil.toBinaryDigest(file.digest()),
-                  file.digest().getSizeBytes(),
-                  expirationTime);
-        }
-
-        if (isInMemoryOutputFile) {
-          if (file.contents.isEmpty()) {
-            // As the contents field doesn't have presence information, we use the digest size to
-            // distinguish between an empty file and one that wasn't inlined.
-            if (file.digest.getSizeBytes() == 0) {
-              inMemoryOutputData.set(ByteString.EMPTY);
-            } else {
-              downloadsBuilder.add(
-                  transform(
-                      combinedCache.downloadBlob(
-                          context,
-                          inMemoryOutputPath.getPathString(),
-                          inMemoryOutputPath,
-                          file.digest()),
-                      data -> {
-                        inMemoryOutputData.set(ByteString.copyFrom(data));
-                        return null;
-                      },
-                      directExecutor()));
-            }
+      } else if (isInMemoryOutputFile) {
+        if (file.contents.isEmpty()) {
+          // As the contents field doesn't have presence information, we use the digest size to
+          // distinguish between an empty file and one that wasn't inlined.
+          if (file.digest.getSizeBytes() == 0) {
+            inMemoryOutputData.set(ByteString.EMPTY);
           } else {
-            inMemoryOutputData.set(file.contents);
+            downloadsBuilder.add(
+                transform(
+                    combinedCache.downloadBlob(
+                        context,
+                        inMemoryOutputPath.getPathString(),
+                        inMemoryOutputPath,
+                        file.digest()),
+                    data -> {
+                      inMemoryOutputData.set(ByteString.copyFrom(data));
+                      return null;
+                    },
+                    directExecutor()));
           }
+        } else {
+          inMemoryOutputData.set(file.contents);
         }
       }
     }
 
-    for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+    Set<Path> manualDirsWithOutputPermissions = new HashSet<>();
+    for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories().entrySet()) {
       PathFragment treeRootExecPath = entry.getKey().relativeTo(execRoot);
-
       for (FileMetadata file : entry.getValue().files()) {
         if (realToTmpPath.containsKey(file.path)) {
           continue;
         }
 
+        Consumer<FileContentsProxy> proxyConsumer;
+        if (hasBazelOutputService) {
+          proxyConsumer = null;
+          downloadsBuilder.add(immediateFuture(file));
+        } else {
+          proxyConsumer =
+              checkNotNull(remoteActionFileSystem)
+                  .injectRemoteFile(
+                      file.path().asFragment(),
+                      DigestUtil.toBinaryDigest(file.digest()),
+                      file.digest().getSizeBytes(),
+                      expirationTime);
+        }
+
         if (shouldDownload(result, file.path.relativeTo(execRoot), treeRootExecPath)) {
           Path tmpPath = tempPathGenerator.generateTempPath();
           realToTmpPath.put(file.path, tmpPath);
+          if (proxyConsumer != null) {
+            pathsToStat.put(file.path(), proxyConsumer);
+          }
           downloadsBuilder.add(
               downloadFile(
                   context, progressStatusListener, file, tmpPath, action.getRemotePathResolver()));
-        } else if (hasBazelOutputService) {
-          downloadsBuilder.add(immediateFuture(file));
-        } else {
-          checkNotNull(remoteActionFileSystem)
-              .injectRemoteFile(
-                  file.path().asFragment(),
-                  DigestUtil.toBinaryDigest(file.digest()),
-                  file.digest().getSizeBytes(),
-                  expirationTime);
+          // Windows doesn't maintain permission information for directories.
+          if (OS.getCurrent() != OS.WINDOWS) {
+            for (Path parentDir = file.path.getParentDirectory();
+                !parentDir.equals(entry.getKey());
+                parentDir = parentDir.getParentDirectory()) {
+              if (!manualDirsWithOutputPermissions.add(parentDir)) {
+                break;
+              }
+            }
+          }
         }
       }
     }
@@ -1459,12 +1501,27 @@ public class RemoteExecutionService {
     } else {
       moveOutputsToFinalLocation(
           Iterables.transform(finishedDownloads, FileMetadata::path), realToTmpPath);
+      for (var entry : pathsToStat.entrySet()) {
+        var path = entry.getKey();
+        var proxyConsumer = entry.getValue();
+        proxyConsumer.accept(FileContentsProxy.create(path.stat()));
+      }
     }
 
     List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
-    for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+    for (Entry<Path, DirectoryMetadata> entry : metadata.directories().entrySet()) {
       for (SymlinkMetadata symlink : entry.getValue().symlinks()) {
         symlinksInDirectories.add(symlink);
+        // Windows doesn't maintain permission information for directories.
+        if (OS.getCurrent() != OS.WINDOWS) {
+          for (Path parentDir = symlink.path.getParentDirectory();
+              !parentDir.equals(entry.getKey());
+              parentDir = parentDir.getParentDirectory()) {
+            if (!manualDirsWithOutputPermissions.add(parentDir)) {
+              break;
+            }
+          }
+        }
       }
     }
 
@@ -1473,7 +1530,22 @@ public class RemoteExecutionService {
 
     // Create the symbolic links after all downloads are finished, because dangling symlinks
     // might not be supported on all platforms.
-    createSymlinks(symlinks);
+    createSymlinks(symlinks, remoteActionFileSystem);
+    for (var dir : manualDirsWithOutputPermissions) {
+      dir.chmod(outputPermissions.getPermissionsMode());
+    }
+
+    if (remoteActionFileSystem != null) {
+      for (var output : action.getSpawn().getOutputFiles()) {
+        if (!(output instanceof Artifact.SpecialArtifact treeArtifact
+            && treeArtifact.isTreeArtifact())) {
+          continue;
+        }
+        if (metadata.directories().containsKey(treeArtifact.getPath())) {
+          remoteActionFileSystem.remoteSubtreeComplete(treeArtifact);
+        }
+      }
+    }
 
     if (result.success()) {
       // Check that all mandatory outputs are created.
