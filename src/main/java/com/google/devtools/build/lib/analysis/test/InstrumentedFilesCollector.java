@@ -83,7 +83,8 @@ public final class InstrumentedFilesCollector {
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         ImmutableMap.of(),
         reportedToActualSources,
-        /* additionalMetadata= */ null);
+        /* additionalMetadata= */ null,
+        /* baselineCoverageFiles= */ null);
   }
 
   /**
@@ -98,7 +99,8 @@ public final class InstrumentedFilesCollector {
       NestedSet<Artifact> coverageSupportFiles,
       ImmutableMap<String, String> coverageEnvironment,
       NestedSet<Tuple> reportedToActualSources,
-      @Nullable Iterable<Artifact> additionalMetadata) {
+      @Nullable Iterable<Artifact> additionalMetadata,
+      @Nullable List<Artifact> baselineCoverageFiles) {
     Preconditions.checkNotNull(ruleContext);
     Preconditions.checkNotNull(spec);
 
@@ -132,6 +134,9 @@ public final class InstrumentedFilesCollector {
       }
     }
     instrumentedFilesInfoBuilder.setLocalSources(localSources.build());
+    if (baselineCoverageFiles != null) {
+      instrumentedFilesInfoBuilder.setBaselineCoverageFiles(baselineCoverageFiles);
+    }
 
     if (additionalMetadata != null) {
       instrumentedFilesInfoBuilder.addMetadataFiles(additionalMetadata);
@@ -242,7 +247,8 @@ public final class InstrumentedFilesCollector {
     final NestedSetBuilder<Artifact> coverageSupportFilesBuilder;
     final ImmutableMap.Builder<String, String> coverageEnvironmentBuilder;
     final NestedSet<Tuple> reportedToActualSources;
-    NestedSet<Artifact> localSources;
+    private NestedSet<Artifact> localSources;
+    @Nullable private List<Artifact> localBaselineCoverageArtifacts;
 
     InstrumentedFilesInfoBuilder(
         RuleContext ruleContext,
@@ -286,15 +292,23 @@ public final class InstrumentedFilesCollector {
       this.localSources = localSourcesNestedSet;
     }
 
+    public void setBaselineCoverageFiles(List<Artifact> baselineCoverageFiles) {
+      localBaselineCoverageArtifacts = baselineCoverageFiles;
+    }
+
     void addMetadataFiles(Iterable<Artifact> files) {
       metadataFilesBuilder.addAll(files);
     }
 
     InstrumentedFilesInfo build() {
       if (localSources != null && !localSources.isEmpty()) {
-        var baselineCoverageAction = BaselineCoverageAction.create(ruleContext, localSources);
-        ruleContext.registerAction(baselineCoverageAction);
-        baselineCoverageArtifactsBuilder.add(baselineCoverageAction.getPrimaryOutput());
+        if (localBaselineCoverageArtifacts != null) {
+          baselineCoverageArtifactsBuilder.addAll(localBaselineCoverageArtifacts);
+        } else {
+          var baselineCoverageAction = BaselineCoverageAction.create(ruleContext, localSources);
+          ruleContext.registerAction(baselineCoverageAction);
+          baselineCoverageArtifactsBuilder.add(baselineCoverageAction.getPrimaryOutput());
+        }
       }
 
       return new InstrumentedFilesInfo(
