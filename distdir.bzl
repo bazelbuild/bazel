@@ -47,18 +47,29 @@ def _repo_cache_tar_impl(ctx):
     registry_files = parse_registry_files(ctx, lockfile_path, ctx.attr.module_files)
 
     archive_files = []
+    integrity_to_sha256 = {}
+    seen_sha256 = {}
     readme_content = "This directory contains repository cache artifacts for the following URLs:\n\n"
     for artifact in http_artifacts + registry_files:
         url = artifact["url"]
         if "integrity" in artifact:
+            integrity = artifact["integrity"]
+            if integrity in integrity_to_sha256:
+                artifact["sha256"] = integrity_to_sha256[integrity]
+                continue
+
             # ./tempfile could be a hard link if --experimental_repository_cache_hardlinks is used,
             # therefore we must delete it before creating or writing it again.
             ctx.delete("./tempfile")
-            checksum = ctx.download(url, "./tempfile", executable = False, integrity = artifact["integrity"])
+            checksum = ctx.download(url, "./tempfile", executable = False, integrity = integrity)
+            integrity_to_sha256[integrity] = checksum.sha256
             artifact["sha256"] = checksum.sha256
 
         if "sha256" in artifact:
             sha256 = artifact["sha256"]
+            if sha256 in seen_sha256:
+                continue
+            seen_sha256[sha256] = True
             output_file = "content_addressable/sha256/%s/file" % sha256
             ctx.download(url, output_file, sha256, executable = False)
             archive_files.append(output_file)

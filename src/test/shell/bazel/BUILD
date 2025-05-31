@@ -57,6 +57,9 @@ sh_library(
         "@bazel_skylib//:test_deps",
         "@rules_java//toolchains:current_java_runtime",
     ],
+    data = [
+        "//src/test/shell/bazel/testdata:exec_wasm",
+    ],
     visibility = [
         "//src/test/shell:__subpackages__",
     ],
