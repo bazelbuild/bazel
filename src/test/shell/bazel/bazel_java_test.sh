@@ -2032,6 +2032,40 @@ EOF
   bazel build //pkg:a >& $TEST_log || fail "build failed"
 }
 
+function test_header_compiler_direct_supports_unicode() {
+  if [[ "${JAVA_TOOLS_ZIP}" == released && "$is_windows" ]]; then
+      # TODO: Enable test after the next java_tools release.
+      return 0
+  fi
+
+  # JVMs on macOS always support UTF-8 since JEP 400.
+  # Windows releases of Turbine are built on a machine with system code page set
+  # to UTF-8 so that Graal picks up the correct sun.jnu.encoding value *and*
+  # have an app manifest patched in to set the system code page to UTF-8 at
+  # runtime.
+  if [[ "$(uname -s)" == "Linux" ]]; then
+    export LC_ALL=C.UTF-8
+    if [[ $(locale charmap) != "UTF-8" ]]; then
+      echo "Skipping test due to missing UTF-8 locale"
+      return 0
+    fi
+  fi
+  local -r unicode="äöüÄÖÜß🌱"
+  mkdir -p pkg
+  cat << EOF > pkg/BUILD
+java_library(name = "a", srcs = ["A.java"], deps = [":b"])
+java_library(name = "b", srcs = ["${unicode}.java"])
+EOF
+  cat << 'EOF' > pkg/A.java
+public class A extends B {}
+EOF
+  cat << 'EOF' > "pkg/${unicode}.java"
+class B {}
+EOF
+
+  bazel build //pkg:a //pkg:b >& $TEST_log || fail "build failed"
+}
+
 function test_sandboxed_multiplexing() {
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
