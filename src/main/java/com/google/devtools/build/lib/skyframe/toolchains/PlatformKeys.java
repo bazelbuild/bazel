@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.toolchains.ConstraintValueLookupUtil.InvalidConstraintValueException;
@@ -137,7 +138,10 @@ record PlatformKeys(
       // If debugging, describe rejected execution platforms.
       Optional.ofNullable(registeredExecutionPlatforms.rejectedPlatforms())
           .filter(Predicates.not(Map::isEmpty))
-          .ifPresent(debugPrinter::reportRejectedExecutionPlatforms);
+          .ifPresent(
+              rejected ->
+                  debugPrinter.reportRejectedExecutionPlatforms(
+                      environment.getListener(), rejected));
 
       this.executionPlatformKeys = new ArrayList<>();
       executionPlatformKeys.addAll(registeredExecutionPlatforms.registeredExecutionPlatformKeys());
@@ -218,16 +222,20 @@ record PlatformKeys(
       }
 
       return executionPlatformKeys.stream()
-          .filter(key -> filterPlatform(platformInfos.get(key), constraints))
+          .filter(
+              key -> filterPlatform(environment.getListener(), platformInfos.get(key), constraints))
           .collect(toImmutableList());
     }
 
     /** Returns {@code true} if the given platform has all of the constraints. */
     private boolean filterPlatform(
-        PlatformInfo platformInfo, List<ConstraintValueInfo> constraints) {
+        EventHandler eventHandler,
+        PlatformInfo platformInfo,
+        List<ConstraintValueInfo> constraints) {
       ImmutableList<ConstraintValueInfo> missingConstraints =
           platformInfo.constraints().findMissing(constraints);
-      debugPrinter.reportRemovedExecutionPlatform(platformInfo.label(), missingConstraints);
+      debugPrinter.reportRemovedExecutionPlatform(
+          eventHandler, platformInfo.label(), missingConstraints);
 
       return missingConstraints.isEmpty();
     }
