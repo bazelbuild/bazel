@@ -1639,49 +1639,11 @@ std::string CreateErrorTag(int exit_code) {
   }
 }
 
-bool ShouldCreateXml(const Path& xml_log, const MainType main_type,
-                     bool* result) {
-  *result = true;
-
-  // If running from the xml generator binary, we should always create the xml
-  // file.
-  if (main_type == MainType::kXmlWriterMain) {
-    return true;
-  }
-
-  DWORD attr = GetFileAttributesW(AddUncPrefixMaybe(xml_log).c_str());
-  if (attr != INVALID_FILE_ATTRIBUTES) {
-    // The XML file already exists, maybe the test framework wrote it.
-    // Leave the file alone.
-    *result = false;
-    return true;
-  }
-
-  std::wstring split_xml_generation;
-  if (!GetEnv(L"EXPERIMENTAL_SPLIT_XML_GENERATION", &split_xml_generation)) {
-    LogError(__LINE__, "Failed to get %EXPERIMENTAL_SPLIT_XML_GENERATION%");
-    return false;
-  }
-  if (split_xml_generation == L"1") {
-    // Bazel generates the test xml as a separate action, so we don't have to
-    // create it.
-    *result = false;
-  }
-
-  return true;
-}
-
 bool CreateXmlLog(const Path& output, const Path& test_outerr,
                   const Duration duration, const int exit_code,
                   const DeleteAfterwards delete_afterwards,
                   const MainType main_type) {
-  bool should_create_xml;
-  if (!ShouldCreateXml(output, main_type, &should_create_xml)) {
-    LogErrorWithArg(__LINE__, "Failed to decide if XML log is needed",
-                    output.Get());
-    return false;
-  }
-  if (!should_create_xml) {
+  if (main_type != MainType::kXmlWriterMain) {
     return true;
   }
 

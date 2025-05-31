@@ -322,9 +322,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(result.getData().getRunDurationMillis()).isEqualTo(10);
     assertThat(result.getData().getTestTimesList()).containsExactly(10L);
     TestAttempt attempt =
-        storedEvents
-            .getPosts()
-            .stream()
+        storedEvents.getPosts().stream()
             .filter(TestAttempt.class::isInstance)
             .map(TestAttempt.class::cast)
             .collect(MoreCollectors.onlyElement());
@@ -336,8 +334,6 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
   public void testRunFlakyTest() throws Exception {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
-    // TODO(ulfjack): Update this test for split xml generation.
-    executionOptions.splitXmlGeneration = false;
 
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     TestedStandaloneTestStrategy standaloneTestStrategy =
@@ -374,6 +370,10 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .build();
     when(spawnStrategy.exec(any(), any()))
         .thenThrow(new SpawnExecException("test failed", failSpawnResult, false))
+        // XML generation
+        .thenReturn(ImmutableList.of(passSpawnResult))
+        .thenReturn(ImmutableList.of(passSpawnResult))
+        // XML generation
         .thenReturn(ImmutableList.of(passSpawnResult));
 
     ActionExecutionContext actionExecutionContext =
@@ -384,7 +384,9 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     ImmutableList<SpawnResult> spawnResults =
         execute(testRunnerAction, actionExecutionContext, standaloneTestStrategy);
 
-    assertThat(spawnResults).containsExactly(failSpawnResult, passSpawnResult).inOrder();
+    assertThat(spawnResults)
+        .containsExactly(failSpawnResult, passSpawnResult, passSpawnResult, passSpawnResult)
+        .inOrder();
 
     TestResult result = standaloneTestStrategy.postedResult;
     assertThat(result).isNotNull();
@@ -468,9 +470,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(result.getData().getRunDurationMillis()).isEqualTo(10);
     assertThat(result.getData().getTestTimesList()).containsExactly(10L);
     TestAttempt attempt =
-        storedEvents
-            .getPosts()
-            .stream()
+        storedEvents.getPosts().stream()
             .filter(TestAttempt.class::isInstance)
             .map(TestAttempt.class::cast)
             .collect(MoreCollectors.onlyElement());
@@ -533,9 +533,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertThat(result.getData().getRunDurationMillis()).isEqualTo(10);
     assertThat(result.getData().getTestTimesList()).containsExactly(10L);
     TestAttempt attempt =
-        storedEvents
-            .getPosts()
-            .stream()
+        storedEvents.getPosts().stream()
             .filter(TestAttempt.class::isInstance)
             .map(TestAttempt.class::cast)
             .collect(MoreCollectors.onlyElement());
@@ -633,7 +631,6 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     ExecutionOptions executionOptions = Options.getDefaults(ExecutionOptions.class);
     TestSummaryOptions testSummaryOptions = Options.getDefaults(TestSummaryOptions.class);
     executionOptions.testOutput = ExecutionOptions.TestOutputFormat.ERRORS;
-    executionOptions.splitXmlGeneration = true;
     Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
     TestedStandaloneTestStrategy standaloneTestStrategy =
         new TestedStandaloneTestStrategy(executionOptions, testSummaryOptions, tmpDirRoot);
@@ -708,8 +705,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     // check that the test stdout contains all the expected output
     outErr.close(); // Create the output files.
     String outData = FileSystemUtils.readContent(outErr.getOutputPath(), UTF_8);
-    assertThat(outData)
-        .contains("==================== Test output for //standalone:failing_test:");
+    assertThat(outData).contains("==================== Test output for //standalone:failing_test:");
     assertThat(outData).doesNotContain("bla");
     assertThat(outData).doesNotContain(TestLogHelper.HEADER_DELIMITER);
     assertThat(outData).contains("foo");
