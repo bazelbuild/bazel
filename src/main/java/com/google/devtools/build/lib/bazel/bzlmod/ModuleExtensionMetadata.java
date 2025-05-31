@@ -100,6 +100,9 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
       boolean reproducible,
       Object facts)
       throws EvalException {
+    if (facts != Starlark.NONE && !reproducible) {
+      throw Starlark.errorf("Facts can only be specified for reproducible module extensions");
+    }
     validateFacts(facts, 0);
 
     if (rootModuleDirectDepsUnchecked == Starlark.NONE
@@ -393,8 +396,12 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
 
   private static final int MAX_FACTS_DEPTH = 5;
 
-  private static void validateFacts(Object facts, int currentDepth) throws EvalException {
-    if (currentDepth > MAX_FACTS_DEPTH) {
+  private static void validateFacts(Object facts) throws EvalException {
+    validateFacts(facts, MAX_FACTS_DEPTH);
+  }
+
+  private static void validateFacts(Object facts, int remainingDepth) throws EvalException {
+    if (remainingDepth == 0) {
       throw Starlark.errorf("Facts are too deeply nested");
     }
     switch (facts) {
@@ -405,7 +412,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
       case StarlarkInt ignored -> {}
       case StarlarkList<?> list -> {
         for (var element : list) {
-          validateFacts(element, currentDepth + 1);
+          validateFacts(element, remainingDepth - 1);
         }
       }
       case Dict<?, ?> dict -> {
@@ -415,7 +422,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
                 "Facts keys must be strings, got '%s' (%s)",
                 Starlark.repr(entry), Starlark.type(entry.getKey()));
           }
-          validateFacts(entry.getValue(), currentDepth + 1);
+          validateFacts(entry.getValue(), remainingDepth - 1);
         }
       }
       default ->

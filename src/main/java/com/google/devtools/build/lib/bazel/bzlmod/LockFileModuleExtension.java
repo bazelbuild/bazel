@@ -18,7 +18,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
@@ -31,7 +30,7 @@ import java.util.Optional;
  */
 @AutoValue
 @GenerateTypeAdapter
-public abstract class LockFileModuleExtension implements Postable {
+public abstract class LockFileModuleExtension {
 
   public static Builder builder() {
     return new AutoValue_LockFileModuleExtension.Builder()
