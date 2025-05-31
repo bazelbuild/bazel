@@ -105,22 +105,6 @@ public class InMemoryFileSystem extends AbstractFileSystem {
       this.message = message;
     }
 
-    @Nullable
-    @Override
-    public InMemoryContentInfo inode() {
-      return null;
-    }
-
-    @Override
-    public Errno error() {
-      return this;
-    }
-
-    @Override
-    public boolean isError() {
-      return true;
-    }
-
     @Override
     public InMemoryContentInfo inodeOrThrow(PathFragment path) throws IOException {
       throw exception(path);
@@ -266,9 +250,9 @@ public class InMemoryFileSystem extends AbstractFileSystem {
       InodeOrErrno childOrError = directoryLookupErrno(inode, name);
 
       InMemoryContentInfo child;
-      if (!childOrError.isError()) {
-        child = childOrError.inode();
-      } else if (childOrError.error() == Errno.ENOENT && behavior != OnEnoent.HALT) {
+      if (childOrError instanceof InMemoryContentInfo childInode) {
+        child = childInode;
+      } else if (childOrError == Errno.ENOENT && behavior != OnEnoent.HALT) {
         InMemoryDirectoryInfo parent = inode.asDirectory();
         Errno error;
         if (behavior == OnEnoent.CREATE_DIRECTORY_AND_PARENTS) {
@@ -324,11 +308,10 @@ public class InMemoryFileSystem extends AbstractFileSystem {
    * <p>May fail with ENOTDIR, or any exception from pathWalk.
    */
   private InodeOrErrno getDirectoryErrno(PathFragment path) {
-    InodeOrErrno dirInfoOrError = pathWalkErrno(path, OnEnoent.HALT);
-    if (dirInfoOrError.isError()) {
-      return dirInfoOrError;
-    }
-    return dirInfoOrError.inode().isDirectory() ? dirInfoOrError : Errno.ENOTDIR;
+    return switch (pathWalkErrno(path, OnEnoent.HALT)) {
+      case Errno error -> error;
+      case InMemoryContentInfo dirInfo -> dirInfo.isDirectory() ? dirInfo : Errno.ENOTDIR;
+    };
   }
 
   /**
@@ -342,11 +325,11 @@ public class InMemoryFileSystem extends AbstractFileSystem {
 
   /** Helper method for stat and inodeStat: return the path's (no symlink-followed) stat. */
   private synchronized InodeOrErrno noFollowStatErrno(PathFragment path) {
-    InodeOrErrno dirInfoOrError = getDirectoryErrno(path.getParentDirectory());
-    if (dirInfoOrError.isError()) {
-      return dirInfoOrError;
-    }
-    return directoryLookupErrno(dirInfoOrError.inode(), baseNameOrWindowsDrive(path));
+    return switch (getDirectoryErrno(path.getParentDirectory())) {
+      case Errno error -> error;
+      case InMemoryContentInfo dirInfo ->
+          directoryLookupErrno(dirInfo, baseNameOrWindowsDrive(path));
+    };
   }
 
   /**
@@ -362,21 +345,20 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   @Override
   @Nullable
   public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
-    InodeOrErrno inodeOrErrno = inodeStatErrno(path, followSymlinks);
-    if (!inodeOrErrno.isError()) {
-      return inodeOrErrno.inode();
-    }
-    Errno errorCode = inodeOrErrno.error();
-    if (errorCode == Errno.ENOENT || errorCode == Errno.ENOTDIR) {
-      return null;
-    }
-    throw errorCode.exception(path);
+    return switch (inodeStatErrno(path, followSymlinks)) {
+      case InMemoryContentInfo inode -> inode;
+      case Errno.ENOENT, Errno.ENOTDIR -> null;
+      case Errno error -> throw error.exception(path);
+    };
   }
 
   @Override
   @Nullable
   protected FileStatus statNullable(PathFragment path, boolean followSymlinks) {
-    return inodeStatErrno(path, followSymlinks).inode();
+    return switch (inodeStatErrno(path, followSymlinks)) {
+      case InMemoryContentInfo inode -> inode;
+      case Errno ignored -> null;
+    };
   }
 
   /** Version of stat that returns an InodeOrErrno of the input path. */
@@ -764,18 +746,9 @@ public class InMemoryFileSystem extends AbstractFileSystem {
   }
 
   /** Represents either an {@link Errno} or an {@link InMemoryContentInfo}. */
-  protected interface InodeOrErrno {
-
-    @Nullable
-    InMemoryContentInfo inode();
-
-    @Nullable
-    Errno error();
-
-    boolean isError();
-
+  protected sealed interface InodeOrErrno permits Errno, InMemoryContentInfo {
     /**
-     * Returns the underlying {@link InMemoryContentInfo} unless this {@link #isError}, in which
+     * Returns the underlying {@link InMemoryContentInfo} unless this is an {@link Errno}, in which
      * case {@link IOException} is thrown, using the given path to construct an error message.
      */
     InMemoryContentInfo inodeOrThrow(PathFragment path) throws IOException;
