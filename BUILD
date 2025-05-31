@@ -85,6 +85,7 @@ genrule(
         "//third_party:BUILD",
         "//third_party:rules_jvm_external_6.0.patch",
         "//third_party:rules_graalvm_fix.patch",
+        "//third_party:rules_graalvm_unicode.patch",
     ],
     outs = ["MODULE.bazel.lock.dist"],
     cmd = " && ".join([
