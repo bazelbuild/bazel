@@ -53,7 +53,9 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Evaluates a single module extension. This function loads the .bzl file containing the extension,
@@ -139,8 +141,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     }
 
     // Check the lockfile first for that module extension
-    LockFileModuleExtension lockedExtension = null;
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
+    StarlarkValue facts = Starlark.NONE;
     if (!lockfileMode.equals(LockfileMode.OFF)) {
       var lockfiles =
           env.getValuesAndExceptions(
@@ -151,8 +153,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       if (lockfile == null || hiddenLockfile == null) {
         return null;
       }
+      facts = lockfile.getFacts().getOrDefault(extensionId, Starlark.NONE);
       var lockedExtensionMap = lockfile.getModuleExtensions().get(extensionId);
-      lockedExtension =
+      var lockedExtension =
           lockedExtensionMap == null ? null : lockedExtensionMap.get(extension.getEvalFactors());
       if (lockedExtension == null) {
         lockedExtensionMap = hiddenLockfile.getModuleExtensions().get(extensionId);
@@ -189,7 +192,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               usagesValue,
               starlarkSemantics,
               extensionId,
-              mainRepoMappingValue.repositoryMapping());
+              mainRepoMappingValue.repositoryMapping(),
+              facts);
     } catch (ExternalDepsException e) {
       throw new SingleExtensionEvalFunctionException(e);
     }
@@ -228,6 +232,17 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               extension.getEvalFactors().isEmpty()
                   ? ""
                   : " for platform " + extension.getEvalFactors()));
+    }
+    var newFacts =
+        moduleExtensionMetadata.map(ModuleExtensionMetadata::getFacts).orElse(Starlark.NONE);
+    if (lockfileMode.equals(LockfileMode.ERROR) && !newFacts.equals(facts)) {
+      throw new SingleExtensionEvalFunctionException(
+          ExternalDepsException.withMessage(
+              Code.BAD_LOCKFILE,
+              "The module extension '%s' has changed its facts: %s != %s",
+              extensionId,
+              Starlark.repr(facts),
+              Starlark.repr(newFacts)));
     }
 
     Optional<LockFileModuleExtension.WithFactors> lockFileInfo;

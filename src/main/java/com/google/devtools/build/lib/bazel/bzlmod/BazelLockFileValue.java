@@ -25,6 +25,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.Optional;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * The result of reading a lockfile. Contains the lockfile version as well as registry and module
@@ -132,7 +133,7 @@ public abstract class BazelLockFileValue implements SkyValue {
           ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
       getModuleExtensions();
 
-  public abstract ImmutableMap<ModuleExtensionId, Object> getFacts();
+  public abstract ImmutableMap<ModuleExtensionId, StarlarkValue> getFacts();
 
   public abstract Builder toBuilder();
 
@@ -151,7 +152,7 @@ public abstract class BazelLockFileValue implements SkyValue {
                 ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
             value);
 
-    public abstract Builder setFacts(ImmutableMap<ModuleExtensionId, Object> value);
+    public abstract Builder setFacts(ImmutableMap<ModuleExtensionId, StarlarkValue> value);
 
     public abstract BazelLockFileValue build();
   }

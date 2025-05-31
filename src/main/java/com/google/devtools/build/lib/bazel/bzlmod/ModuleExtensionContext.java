@@ -32,8 +32,10 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkValue;
 
 /** The Starlark object passed to the implementation function of module extensions. */
 @StarlarkBuiltin(
@@ -47,6 +49,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   private final ModuleExtensionId extensionId;
   private final StarlarkList<StarlarkBazelModule> modules;
+  private final StarlarkValue facts;
   private final boolean rootModuleHasNonDevDependency;
 
   protected ModuleExtensionContext(
@@ -61,6 +64,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       @Nullable RepositoryRemoteExecutor remoteExecutor,
       ModuleExtensionId extensionId,
       StarlarkList<StarlarkBazelModule> modules,
+      StarlarkValue facts,
       boolean rootModuleHasNonDevDependency) {
     super(
         workingDirectory,
@@ -76,11 +80,8 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
         /* allowWatchingPathsOutsideWorkspace= */ false);
     this.extensionId = extensionId;
     this.modules = modules;
+    this.facts = facts;
     this.rootModuleHasNonDevDependency = rootModuleHasNonDevDependency;
-  }
-
-  public Path getWorkingDirectory() {
-    return workingDirectory;
   }
 
   @Override
@@ -97,7 +98,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   }
 
   @Override
-  protected ImmutableMap<String, String> getRemoteExecProperties() throws EvalException {
+  protected ImmutableMap<String, String> getRemoteExecProperties() {
     return ImmutableMap.of();
   }
 
@@ -112,6 +113,11 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
               + " breadth-first search starting from the root module.")
   public StarlarkList<StarlarkBazelModule> getModules() {
     return modules;
+  }
+
+  @StarlarkMethod(name = "facts", structField = true, doc = "foo")
+  public StarlarkValue getFacts() {
+    return facts;
   }
 
   @StarlarkMethod(

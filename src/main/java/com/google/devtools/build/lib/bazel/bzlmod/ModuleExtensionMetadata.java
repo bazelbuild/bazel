@@ -62,7 +62,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
           /* explicitRootModuleDirectDevDeps= */ null,
           UseAllRepos.NO,
           /* reproducible= */ true,
-          /* facts= */ null);
+          /* facts= */ Starlark.NONE);
 
   @Nullable
   abstract ImmutableSet<String> getExplicitRootModuleDirectDeps();
