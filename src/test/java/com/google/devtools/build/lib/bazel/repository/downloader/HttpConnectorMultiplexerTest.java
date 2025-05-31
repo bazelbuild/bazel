@@ -223,5 +223,96 @@ public class HttpConnectorMultiplexerTest {
     assertThat(combinedHeaders.apply(new URL("http://unreleated.example.org/user/foo/file.txt")))
         .containsExactly(
             "Authentication", ImmutableList.of("YW5vbnltb3VzOmZvb0BleGFtcGxlLm9yZw=="));
+
+    // Verify that host fallback headers are passed / overridden when appropriate.
+    additionalHeaders =
+        ImmutableMap.of(
+            new URI("http://hosting.example.com/user/foo/file.txt"),
+            ImmutableMap.of("Authentication", ImmutableList.of("Zm9vOmZvb3NlY3JldA==")),
+            new URI("http://hosting.example.com"),
+            ImmutableMap.of("Authentication", ImmutableList.of("YmFyOmJhcnNlY3JldA==")),
+            new URI("http://hosting9001.example.com"),
+            ImmutableMap.of("Authentication", ImmutableList.of("cXV4OnF1eHNlY3JldA==")),
+            new URI("http://hosting42.example.com/user/foo/file.txt"),
+            ImmutableMap.of("Authentication", ImmutableList.of("Zm9vOmZvb3NlY3JldA==")));
+    headerFunction =
+        HttpConnectorMultiplexer.getHeaderFunction(
+            baseHeaders, new StaticCredentials(additionalHeaders), eventHandler);
+
+    // Unrelated URL
+    assertThat(headerFunction.apply(new URL("http://example.org/some/path/file.txt")))
+        .containsExactly(
+            "Accept-Encoding",
+            ImmutableList.of("gzip"),
+            "User-Agent",
+            ImmutableList.of("Bazel/testing"));
+
+    // With exact url
+    assertThat(headerFunction.apply(new URL("http://hosting.example.com/user/foo/file.txt")))
+        .containsExactly(
+            "Accept-Encoding",
+            ImmutableList.of("gzip"),
+            "User-Agent",
+            ImmutableList.of("Bazel/testing"),
+            "Authentication",
+            ImmutableList.of("Zm9vOmZvb3NlY3JldA=="));
+
+    // With different url of covered domain.
+    assertThat(headerFunction.apply(new URL("http://hosting.example.com/user/bar/file99.xml")))
+        .containsExactly(
+            "Accept-Encoding",
+            ImmutableList.of("gzip"),
+            "User-Agent",
+            ImmutableList.of("Bazel/testing"),
+            "Authentication",
+            ImmutableList.of("YmFyOmJhcnNlY3JldA=="));
+
+    // Some url of different covered domain.
+    assertThat(headerFunction.apply(new URL("http://hosting9001.example.com/user/foo/file.txt")))
+        .containsExactly(
+            "Accept-Encoding",
+            ImmutableList.of("gzip"),
+            "User-Agent",
+            ImmutableList.of("Bazel/testing"),
+            "Authentication",
+            ImmutableList.of("cXV4OnF1eHNlY3JldA=="));
+
+    // Other url with only exact matching (no domain fallback).
+    assertThat(headerFunction.apply(new URL("http://hosting42.example.com/user/foo/file.txt")))
+        .containsExactly(
+            "Accept-Encoding",
+            ImmutableList.of("gzip"),
+            "User-Agent",
+            ImmutableList.of("Bazel/testing"),
+            "Authentication",
+            ImmutableList.of("Zm9vOmZvb3NlY3JldA=="));
+
+    // Other hosts
+    assertThat(headerFunction.apply(new URL("http://hosting2.example.com/user/foo/file.txt")))
+        .containsExactly(
+            "Accept-Encoding",
+            ImmutableList.of("gzip"),
+            "User-Agent",
+            ImmutableList.of("Bazel/testing"));
+    assertThat(headerFunction.apply(new URL("http://sub.hosting.example.com/user/foo/file.txt")))
+        .containsExactly(
+            "Accept-Encoding",
+            ImmutableList.of("gzip"),
+            "User-Agent",
+            ImmutableList.of("Bazel/testing"));
+    assertThat(headerFunction.apply(new URL("http://example.com/user/foo/file.txt")))
+        .containsExactly(
+            "Accept-Encoding",
+            ImmutableList.of("gzip"),
+            "User-Agent",
+            ImmutableList.of("Bazel/testing"));
+    assertThat(
+            headerFunction.apply(
+                new URL("http://hosting.example.com.evil.example/user/foo/file.txt")))
+        .containsExactly(
+            "Accept-Encoding",
+            ImmutableList.of("gzip"),
+            "User-Agent",
+            ImmutableList.of("Bazel/testing"));
   }
 }
