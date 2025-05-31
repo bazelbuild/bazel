@@ -259,8 +259,8 @@ final class StarlarkWasmModule implements StarlarkValue {
         // a WebAssembly module with multiple memories.
         throw Starlark.errorf("WebAssembly modules with multiple memories not yet supported");
       }
-      for (int ii = 0; ii < memoryCount; ii++) {
-        MemoryLimits limits = memories.getMemory(ii).limits();
+      if (memoryCount != 0) {
+        MemoryLimits limits = memories.getMemory(0).limits();
         if (limits.initialPages() > initialPages) {
           initialPages = limits.initialPages();
         }

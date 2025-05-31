@@ -8,18 +8,18 @@
     (local $orig_page_count i32)
 
     ;; Pass each allocation directly to `memory.grow`, which allocates the
-    ;; requested number of pages (each page is 65535 bytes).
+    ;; requested number of pages (each page is 65536 bytes).
 
-    ;; PAGE_SIZE = 65535
+    ;; PAGE_SIZE = 65536
     ;; page_count = min(1, $size % PAGE_SIZE) + ($size / PAGE_SIZE)
     local.get $size
-    i32.const 65535
+    i32.const 65536
     i32.rem_u
     (if (result i32)
       (then i32.const 1)
       (else i32.const 0))
     local.get $size
-    i32.const 65535
+    i32.const 65536
     i32.div_u
     i32.add
 
@@ -33,7 +33,7 @@
       (then i32.const 0)
       (else
         local.get $orig_page_count
-        i32.const 65535
+        i32.const 65536
         i32.mul
       )
     )
@@ -82,7 +82,7 @@
     return
   )
 
-  ;; Returns the output buffer "err" with return code 0.
+  ;; Returns the output buffer "err" with return code 1.
   (func (export "run_err")
     (param $input_ptr i32)
     (param $input_len i32)
