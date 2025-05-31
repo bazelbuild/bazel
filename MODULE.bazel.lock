@@ -895,7 +895,7 @@
     },
     "@@rules_apple+//apple:apple.bzl%provisioning_profile_repository_extension": {
       "general": {
-        "bzlTransitiveDigest": "H+cK6ZkpFsi9ulPs4B7qa9dl0LWFpjDXx6bH0o1+btA=",
+        "bzlTransitiveDigest": "LHKXlgNAOD/mPnrK/XkpizV9+0iGKBHhwM01yf3hJko=",
         "usagesDigest": "vsJl8Rw5NL+5Ag2wdUDoTeRF/5klkXO8545Iy7U1Q08=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -941,6 +941,11 @@
             "rules_cc+",
             "bazel_tools",
             "bazel_tools"
+          ],
+          [
+            "rules_cc+",
+            "rules_cc",
+            "rules_cc+"
           ],
           [
             "rules_swift+",
