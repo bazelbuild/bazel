@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -365,6 +366,13 @@ public class CommandEnvironment {
         value = clientEnv.get(name);
       }
       if (value != null) {
+        if (workspace.getWorkspace() != null) {
+          String nativeWorkspacePath = workspace.getWorkspace().getPathString();
+          if (OS.getCurrent() == OS.WINDOWS) {
+            nativeWorkspacePath = nativeWorkspacePath.replace('/', '\\');
+          }
+          value = value.replace("%bazel_workspace%", nativeWorkspacePath);
+        }
         repoEnv.put(name, value);
         repoEnvFromOptions.put(name, value);
       }

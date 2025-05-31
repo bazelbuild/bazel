@@ -579,7 +579,9 @@ public class CommonCommandOptions extends OptionsBase {
           "Specifies additional environment variables to be available only for repository rules."
               + " Note that repository rules see the full environment anyway, but in this way"
               + " configuration information can be passed to repositories through options without"
-              + " invalidating the action graph.")
+              + " invalidating the action graph. The string <code>%bazel_workspace%</code> in a"
+              + " value will be replaced with the absolute path of the workspace as printed by"
+              + " <code>bazel info workspace</code>.")
   public List<Map.Entry<String, String>> repositoryEnvironment;
 
   @Option(
