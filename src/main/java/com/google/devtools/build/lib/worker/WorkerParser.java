@@ -132,7 +132,16 @@ public class WorkerParser {
       WorkerProtocolFormat protocolFormat) {
     String workerKeyMnemonic = Spawns.getWorkerKeyMnemonic(spawn);
     boolean mustSandbox = dynamic || Spawns.usesPathMapping(spawn);
-    boolean sandboxed = shouldSandbox(spawn, options, mustSandbox);
+    boolean multiplex = canMultiplex(spawn, options)
+        && (!mustSandbox || canSandboxWithMultiplexing(spawn, options));
+    boolean sandboxed;
+    if (mustSandbox) {
+      sandboxed = true;
+    } else if (multiplex) {
+      sandboxed = canSandboxWithMultiplexing(spawn, options);
+    } else {
+      sandboxed = options.workerSandboxing;
+    }
     boolean useInMemoryTracking = false;
     if (sandboxed) {
       List<String> mnemonics = options.workerSandboxInMemoryTracking;
@@ -147,26 +156,20 @@ public class WorkerParser {
         workerFiles,
         sandboxed,
         useInMemoryTracking,
-        shouldMultiplex(spawn, options, mustSandbox),
+        multiplex,
         Spawns.supportsWorkerCancellation(spawn),
         protocolFormat);
   }
 
-  static boolean shouldMultiplex(Spawn spawn, WorkerOptions options, boolean mustSandbox) {
+  private static boolean canMultiplex(Spawn spawn, WorkerOptions options) {
     return options.workerMultiplex
-        && Spawns.supportsMultiplexWorkers(spawn)
-        && (!mustSandbox || (Spawns.supportsMultiplexSandboxing(spawn) && options.multiplexSandboxing));
+        && Spawns.supportsMultiplexWorkers(spawn);
   }
 
-  static boolean shouldSandbox(Spawn spawn, WorkerOptions options, boolean mustSandbox) {
-    if (mustSandbox) {
-      return true;
-    }
-    if (shouldMultiplex(spawn, options, /* mustSandbox= */ false)) {
-      return Spawns.supportsMultiplexSandboxing(spawn) && options.multiplexSandboxing;
-    } else {
-      return options.workerSandboxing;
-    }
+  private static boolean canSandboxWithMultiplexing(
+      Spawn spawn, WorkerOptions options) {
+    return Spawns.supportsMultiplexSandboxing(spawn)
+        && options.multiplexSandboxing;
   }
 
   private static boolean isFlagFileArg(String arg) {
