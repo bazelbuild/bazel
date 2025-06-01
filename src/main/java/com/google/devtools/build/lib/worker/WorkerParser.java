@@ -132,15 +132,15 @@ public class WorkerParser {
       WorkerProtocolFormat protocolFormat) {
     String workerKeyMnemonic = Spawns.getWorkerKeyMnemonic(spawn);
     boolean mustSandbox = dynamic || Spawns.usesPathMapping(spawn);
-    boolean multiplex = canMultiplex(spawn, options)
-        && (!mustSandbox || canSandboxWithMultiplexing(spawn, options));
-    boolean sandboxed;
+    boolean multiplex, sandboxed;
     if (mustSandbox) {
       sandboxed = true;
-    } else if (multiplex) {
-      sandboxed = canSandboxWithMultiplexing(spawn, options);
+      multiplex = canMultiplex(spawn, options)
+          && canSandboxWithMultiplexing(spawn, options);
     } else {
-      sandboxed = options.workerSandboxing;
+      multiplex = canMultiplex(spawn, options);
+      sandboxed = (multiplex && canSandboxWithMultiplexing(spawn, options))
+          || options.workerSandboxing;
     }
     boolean useInMemoryTracking = false;
     if (sandboxed) {
