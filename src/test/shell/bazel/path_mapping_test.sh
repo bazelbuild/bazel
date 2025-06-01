@@ -140,11 +140,6 @@ function test_path_stripping_sandboxed() {
 }
 
 function test_path_stripping_singleplex_worker() {
-  if is_windows; then
-    echo "Skipping test_path_stripping_singleplex_worker on Windows as it requires sandboxing"
-    return
-  fi
-
   cache_dir=$(mktemp -d)
 
   # Worker sandboxing is enabled automatically, multiplexing is disabled since
