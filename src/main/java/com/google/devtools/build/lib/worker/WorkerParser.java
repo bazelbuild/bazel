@@ -135,12 +135,16 @@ public class WorkerParser {
     boolean multiplex, sandboxed;
     if (mustSandbox) {
       sandboxed = true;
-      multiplex = canMultiplex(spawn, options)
-          && canSandboxWithMultiplexing(spawn, options);
+      multiplex = multiplexRequested(spawn, options)
+          && Spawns.supportsMultiplexSandboxing(spawn);
     } else {
-      multiplex = canMultiplex(spawn, options);
-      sandboxed = (multiplex && canSandboxWithMultiplexing(spawn, options))
-          || options.workerSandboxing;
+      multiplex = multiplexRequested(spawn, options);
+      if (multiplex) {
+        sandboxed = options.multiplexSandboxing
+            && Spawns.supportsMultiplexSandboxing(spawn);
+      } else {
+        sandboxed = options.workerSandboxing;
+      }
     }
     boolean useInMemoryTracking = false;
     if (sandboxed) {
@@ -161,13 +165,8 @@ public class WorkerParser {
         protocolFormat);
   }
 
-  private static boolean canMultiplex(Spawn spawn, WorkerOptions options) {
+  private static boolean multiplexRequested(Spawn spawn, WorkerOptions options) {
     return options.workerMultiplex && Spawns.supportsMultiplexWorkers(spawn);
-  }
-
-  private static boolean canSandboxWithMultiplexing(
-      Spawn spawn, WorkerOptions options) {
-    return options.multiplexSandboxing && Spawns.supportsMultiplexSandboxing(spawn);
   }
 
   private static boolean isFlagFileArg(String arg) {
