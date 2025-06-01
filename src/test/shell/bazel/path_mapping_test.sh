@@ -181,11 +181,11 @@ EOF
 
   cache_dir=$(mktemp -d)
 
-  # Multiplex sandboxing is enabled automatically if supported by the toolchain.
   bazel run -c fastbuild \
     --disk_cache=$cache_dir \
     --experimental_output_paths=strip \
     --strategy=Javac=worker \
+    --experimental_worker_multiplex_sandboxing \
     --extra_toolchains=//toolchain:java_toolchain_definition \
     --java_language_version=17 \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
@@ -200,6 +200,7 @@ EOF
     --disk_cache=$cache_dir \
     --experimental_output_paths=strip \
     --strategy=Javac=worker \
+    --experimental_worker_multiplex_sandboxing \
     --extra_toolchains=//toolchain:java_toolchain_definition \
     --java_language_version=17 \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"

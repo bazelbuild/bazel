@@ -133,14 +133,14 @@ public class WorkerParser {
     String workerKeyMnemonic = Spawns.getWorkerKeyMnemonic(spawn);
     boolean mustSandbox = dynamic || Spawns.usesPathMapping(spawn);
     boolean shouldMultiplex = options.workerMultiplex && Spawns.supportsMultiplexWorkers(spawn);
+    boolean canSandboxMultiplex =
+        options.multiplexSandboxing && Spawns.supportsMultiplexSandboxing(spawn);
     boolean sandboxed, multiplex;
     if (mustSandbox) {
       sandboxed = true;
-      multiplex = shouldMultiplex
-          && Spawns.supportsMultiplexSandboxing(spawn);
+      multiplex = shouldMultiplex && canSandboxMultiplex;
     } else if (shouldMultiplex) {
-      sandboxed = options.multiplexSandboxing
-          && Spawns.supportsMultiplexSandboxing(spawn);
+      sandboxed = canSandboxMultiplex;
       multiplex = true;
     } else {
       sandboxed = options.workerSandboxing;
