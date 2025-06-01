@@ -132,19 +132,19 @@ public class WorkerParser {
       WorkerProtocolFormat protocolFormat) {
     String workerKeyMnemonic = Spawns.getWorkerKeyMnemonic(spawn);
     boolean mustSandbox = dynamic || Spawns.usesPathMapping(spawn);
-    boolean multiplex, sandboxed;
+    boolean shouldMultiplex = options.workerMultiplex && Spawns.supportsMultiplexWorkers(spawn);
+    boolean sandboxed, multiplex;
     if (mustSandbox) {
       sandboxed = true;
-      multiplex = multiplexRequested(spawn, options)
+      multiplex = shouldMultiplex
           && Spawns.supportsMultiplexSandboxing(spawn);
+    } else if (shouldMultiplex) {
+      sandboxed = options.multiplexSandboxing
+          && Spawns.supportsMultiplexSandboxing(spawn);
+      multiplex = true;
     } else {
-      multiplex = multiplexRequested(spawn, options);
-      if (multiplex) {
-        sandboxed = options.multiplexSandboxing
-            && Spawns.supportsMultiplexSandboxing(spawn);
-      } else {
-        sandboxed = options.workerSandboxing;
-      }
+      sandboxed = options.workerSandboxing;
+      multiplex = false;
     }
     boolean useInMemoryTracking = false;
     if (sandboxed) {
@@ -163,10 +163,6 @@ public class WorkerParser {
         multiplex,
         Spawns.supportsWorkerCancellation(spawn),
         protocolFormat);
-  }
-
-  private static boolean multiplexRequested(Spawn spawn, WorkerOptions options) {
-    return options.workerMultiplex && Spawns.supportsMultiplexWorkers(spawn);
   }
 
   private static boolean isFlagFileArg(String arg) {
