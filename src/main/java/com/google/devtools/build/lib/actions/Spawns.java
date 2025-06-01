@@ -68,7 +68,7 @@ public final class Spawns {
   }
 
   /**
-   * Returns whether a Spawn must be executed on a separate exec root (i.e. in a sandbox) since it
+   * Returns whether a Spawn must be executed on a separate exec root (i.e., in a sandbox) since it
    * references rewritten input and output paths.
    */
   public static boolean usesPathMapping(Spawn spawn) {
