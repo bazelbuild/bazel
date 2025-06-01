@@ -32,7 +32,6 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkValue;
@@ -244,6 +243,9 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       Object facts)
       throws EvalException {
     return ModuleExtensionMetadata.create(
-        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked, reproducible, facts);
+        rootModuleDirectDepsUnchecked,
+        rootModuleDirectDevDepsUnchecked,
+        reproducible,
+        (StarlarkValue) facts);
   }
 }

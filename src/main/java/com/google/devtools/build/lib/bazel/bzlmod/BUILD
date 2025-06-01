@@ -453,6 +453,7 @@ java_library(
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@maven//:io_sweers_autotransient_autotransient",
     ],
 )
 

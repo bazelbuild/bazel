@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
+import io.sweers.autotransient.AutoTransient;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -62,7 +63,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
           /* explicitRootModuleDirectDevDeps= */ null,
           UseAllRepos.NO,
           /* reproducible= */ true,
-          /* facts= */ Starlark.NONE);
+          /* facts= */ null);
 
   @Nullable
   abstract ImmutableSet<String> getExplicitRootModuleDirectDeps();
@@ -74,14 +75,16 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
 
   abstract boolean getReproducible();
 
-  abstract Object getFacts();
+  @AutoTransient
+  @Nullable
+  abstract StarlarkValue getFacts();
 
   private static ModuleExtensionMetadata create(
       @Nullable Set<String> explicitRootModuleDirectDeps,
       @Nullable Set<String> explicitRootModuleDirectDevDeps,
       UseAllRepos useAllRepos,
       boolean reproducible,
-      Object facts) {
+      StarlarkValue facts) {
     return new AutoValue_ModuleExtensionMetadata(
         explicitRootModuleDirectDeps != null
             ? ImmutableSet.copyOf(explicitRootModuleDirectDeps)
@@ -91,18 +94,15 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
             : null,
         useAllRepos,
         reproducible,
-        facts);
+        facts == Starlark.NONE ? null : facts);
   }
 
   static ModuleExtensionMetadata create(
       Object rootModuleDirectDepsUnchecked,
       Object rootModuleDirectDevDepsUnchecked,
       boolean reproducible,
-      Object facts)
+      StarlarkValue facts)
       throws EvalException {
-    if (facts != Starlark.NONE && !reproducible) {
-      throw Starlark.errorf("Facts can only be specified for reproducible module extensions");
-    }
     validateFacts(facts, 0);
 
     if (rootModuleDirectDepsUnchecked == Starlark.NONE
