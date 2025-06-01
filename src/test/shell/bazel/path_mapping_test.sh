@@ -139,19 +139,6 @@ function test_path_stripping_sandboxed() {
   expect_not_log '[0-9] \(linux\|darwin\|processwrapper\)-sandbox'
 }
 
-function test_path_stripping_unsandboxed_singleplex_worker_fails() {
-  cache_dir=$(mktemp -d)
-
-  bazel build -c fastbuild \
-    --disk_cache=$cache_dir \
-    --experimental_output_paths=strip \
-    --strategy=Javac=worker \
-    --noworker_sandboxing \
-    --noexperimental_worker_multiplex \
-    //src/main/java/com/example:Main &> $TEST_log && fail "build succeeded unexpectedly"
-  expect_log 'Javac spawn, which requires sandboxing due to path mapping, cannot be executed with any of the available strategies'
-}
-
 function test_path_stripping_singleplex_worker() {
   if is_windows; then
     echo "Skipping test_path_stripping_singleplex_worker on Windows as it requires sandboxing"
@@ -160,12 +147,12 @@ function test_path_stripping_singleplex_worker() {
 
   cache_dir=$(mktemp -d)
 
+  # Worker sandboxing is enabled automatically, multiplexing is disabled since
+  # the default toolchain does not support it yet.
   bazel run -c fastbuild \
     --disk_cache=$cache_dir \
     --experimental_output_paths=strip \
     --strategy=Javac=worker \
-    --worker_sandboxing \
-    --noexperimental_worker_multiplex \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
   # JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses and header compilation.
@@ -178,25 +165,11 @@ function test_path_stripping_singleplex_worker() {
     --disk_cache=$cache_dir \
     --experimental_output_paths=strip \
     --strategy=Javac=worker \
-    --worker_sandboxing \
-    --noexperimental_worker_multiplex \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
   expect_log 'Hello, World!'
   expect_log '5 disk cache hit'
   expect_not_log '[0-9] \(linux\|darwin\|processwrapper\)-sandbox'
   expect_not_log '[0-9] worker'
-}
-
-function test_path_stripping_unsandboxed_multiplex_worker_fails() {
-  cache_dir=$(mktemp -d)
-
-  bazel run -c fastbuild \
-    --disk_cache=$cache_dir \
-    --experimental_output_paths=strip \
-    --strategy=Javac=worker \
-    --noexperimental_worker_multiplex_sandboxing \
-    //src/main/java/com/example:Main &> $TEST_log && fail "build succeeded unexpectedly"
-  expect_log 'Javac spawn, which requires sandboxing due to path mapping, cannot be executed with any of the available strategies'
 }
 
 function test_path_stripping_multiplex_worker() {
@@ -213,11 +186,11 @@ EOF
 
   cache_dir=$(mktemp -d)
 
+  # Multiplex worker sandboxing is enabled automatically.
   bazel run -c fastbuild \
     --disk_cache=$cache_dir \
     --experimental_output_paths=strip \
     --strategy=Javac=worker \
-    --experimental_worker_multiplex_sandboxing \
     --extra_toolchains=//toolchain:java_toolchain_definition \
     --java_language_version=17 \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
@@ -232,7 +205,6 @@ EOF
     --disk_cache=$cache_dir \
     --experimental_output_paths=strip \
     --strategy=Javac=worker \
-    --experimental_worker_multiplex_sandboxing \
     --extra_toolchains=//toolchain:java_toolchain_definition \
     --java_language_version=17 \
     //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"

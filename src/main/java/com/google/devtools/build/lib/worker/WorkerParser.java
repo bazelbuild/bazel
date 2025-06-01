@@ -131,7 +131,8 @@ public class WorkerParser {
       boolean dynamic,
       WorkerProtocolFormat protocolFormat) {
     String workerKeyMnemonic = Spawns.getWorkerKeyMnemonic(spawn);
-    boolean sandboxed = isSandboxed(spawn, options, dynamic);
+    boolean mustSandbox = dynamic || Spawns.usesPathMapping(spawn);
+    boolean sandboxed = shouldSandbox(spawn, options, mustSandbox);
     boolean useInMemoryTracking = false;
     if (sandboxed) {
       List<String> mnemonics = options.workerSandboxInMemoryTracking;
@@ -146,22 +147,25 @@ public class WorkerParser {
         workerFiles,
         sandboxed,
         useInMemoryTracking,
-        isMultiplexed(spawn, options, dynamic),
+        shouldMultiplex(spawn, options, mustSandbox),
         Spawns.supportsWorkerCancellation(spawn),
         protocolFormat);
   }
 
-  static boolean isMultiplexed(Spawn spawn, WorkerOptions options, boolean dynamic) {
+  static boolean shouldMultiplex(Spawn spawn, WorkerOptions options, boolean mustSandbox) {
     return options.workerMultiplex
         && Spawns.supportsMultiplexWorkers(spawn)
-        && (!dynamic || (Spawns.supportsMultiplexSandboxing(spawn) && options.multiplexSandboxing));
+        && (!mustSandbox || (Spawns.supportsMultiplexSandboxing(spawn) && options.multiplexSandboxing));
   }
 
-  static boolean isSandboxed(Spawn spawn, WorkerOptions options, boolean dynamic) {
-    if (isMultiplexed(spawn, options, dynamic)) {
-      return Spawns.supportsMultiplexSandboxing(spawn) && (options.multiplexSandboxing || dynamic);
+  static boolean shouldSandbox(Spawn spawn, WorkerOptions options, boolean mustSandbox) {
+    if (mustSandbox) {
+      return true;
+    }
+    if (shouldMultiplex(spawn, options, /* mustSandbox= */ false)) {
+      return Spawns.supportsMultiplexSandboxing(spawn) && options.multiplexSandboxing;
     } else {
-      return options.workerSandboxing || dynamic;
+      return options.workerSandboxing;
     }
   }
 
