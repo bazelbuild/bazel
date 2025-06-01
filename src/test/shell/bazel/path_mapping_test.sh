@@ -143,7 +143,7 @@ function test_path_stripping_singleplex_worker() {
   cache_dir=$(mktemp -d)
 
   # Worker sandboxing is enabled automatically, multiplexing is disabled since
-  # the default toolchain does not support it yet.
+  # the default toolchain does not support sandboxing yet.
   bazel run -c fastbuild \
     --disk_cache=$cache_dir \
     --experimental_output_paths=strip \
