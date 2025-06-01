@@ -162,14 +162,12 @@ public class WorkerParser {
   }
 
   private static boolean canMultiplex(Spawn spawn, WorkerOptions options) {
-    return options.workerMultiplex
-        && Spawns.supportsMultiplexWorkers(spawn);
+    return options.workerMultiplex && Spawns.supportsMultiplexWorkers(spawn);
   }
 
   private static boolean canSandboxWithMultiplexing(
       Spawn spawn, WorkerOptions options) {
-    return Spawns.supportsMultiplexSandboxing(spawn)
-        && options.multiplexSandboxing;
+    return options.multiplexSandboxing && Spawns.supportsMultiplexSandboxing(spawn);
   }
 
   private static boolean isFlagFileArg(String arg) {
