@@ -585,7 +585,7 @@ public class CommonCommandOptions extends OptionsBase {
   public List<Map.Entry<String, String>> repositoryEnvironment;
 
   @Option(
-      name = "incompatible_action_env_no_repo",
+      name = "incompatible_repo_env_ignores_action_env",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
@@ -595,7 +595,7 @@ public class CommonCommandOptions extends OptionsBase {
           If true, <code>--action_env=NAME=VALUE</code> will no longer affect repository rule \
           and module extension environments.
           """)
-    public boolean actionEnvNoRepo;
+    public boolean repoEnvIgnoresActionEnv;
 
   @Option(
       name = "heuristically_drop_nodes",

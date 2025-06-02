@@ -469,7 +469,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           environment. This option can be used multiple times; for options given for the same \
           variable, the latest wins, options for different variables accumulate.
           <br>
-          Note that unless <code>--incompatible_action_env_no_repo</code> is true, all <code>name=value</code> \
+          Note that unless <code>--incompatible_repo_env_ignores_action_env</code> is true, all <code>name=value</code> \
           pairs will be available to repository rules.
           """)
   public List<Map.Entry<String, String>> actionEnvironment;

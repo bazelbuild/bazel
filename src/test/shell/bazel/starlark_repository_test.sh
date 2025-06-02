@@ -2975,7 +2975,7 @@ EOF
     @repo//... &> $TEST_log || fail "expected Bazel to succeed"
 }
 
-function test_execute_environment_action_env_no_repo_off() {
+function test_execute_environment_repo_env_ignores_action_env_off() {
   cat >> $(setup_module_dot_bazel)  <<'EOF'
 my_repo = use_repo_rule("//:repo.bzl", "my_repo")
 my_repo(name="repo")
@@ -2996,12 +2996,12 @@ my_repo = repository_rule(_impl)
 EOF
 
   bazel build \
-    --noincompatible_action_env_no_repo \
+    --noincompatible_repo_env_ignores_action_env \
     --action_env=ACTION_ENV_PRESENT=value1 \
     @repo//... &> $TEST_log || fail "expected Bazel to succeed"
 }
 
-function test_execute_environment_action_env_no_repo_on() {
+function test_execute_environment_repo_env_ignores_action_env_on() {
   cat >> $(setup_module_dot_bazel)  <<'EOF'
 my_repo = use_repo_rule("//:repo.bzl", "my_repo")
 my_repo(name="repo")
@@ -3022,7 +3022,7 @@ my_repo = repository_rule(_impl)
 EOF
 
   bazel build \
-    --incompatible_action_env_no_repo \
+    --incompatible_repo_env_ignores_action_env \
     --action_env=ACTION_ENV_REMOVED=value1 \
     @repo//... &> $TEST_log || fail "expected Bazel to succeed"
 }
