@@ -1439,9 +1439,9 @@
     "@@rules_jvm_external+//:extensions.bzl%maven": {
       "general": {
         "bzlTransitiveDigest": "eFWAf0xs060wNpmZkersPexZt4+6p4VdZCCQb2swjng=",
-        "usagesDigest": "OCkFRFfODDV674mvj3f9q9cLJN+mxgi3R6qiPubnpWI=",
+        "usagesDigest": "t6N/dLyiNo/4Uy+GL482ry31Z0mDY8IWc1SubzbgcNk=",
         "recordedFileInputs": {
-          "@@//maven_install.json": "8dca756854269b30cabe8610a2f109b2535c904814a4e74e57efc6e4ae65cf85",
+          "@@//maven_install.json": "73f376b5837fa1bdf89ba1d0ee1d7c4817689be379ce454c3bfb31840ea1f7a7",
           "@@rules_jvm_external+//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
           "@@stardoc+//maven_install.json": "25f3c138ca52c61e0e7a564fe21f5709261b33d78d35427b6c18d7aa202d973b"
         },
@@ -1513,33 +1513,33 @@
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-protobuf\", \"version\": \"1.66.0\" }",
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-protobuf-lite\", \"version\": \"1.66.0\" }",
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-stub\", \"version\": \"1.66.0\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-buffer\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http2\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-common\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-handler\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-handler-proxy\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver-dns\", \"version\": \"4.1.100.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-buffer\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http2\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-common\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-handler\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-handler-proxy\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver-dns\", \"version\": \"4.1.119.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"windows-x86_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-classes\", \"version\": \"2.0.56.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-classes-epoll\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-classes-kqueue\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-epoll\", \"version\": \"4.1.100.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-epoll\", \"version\": \"4.1.100.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-kqueue\", \"version\": \"4.1.100.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-kqueue\", \"version\": \"4.1.100.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.100.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.100.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.100.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.100.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-classes-epoll\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-classes-kqueue\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-epoll\", \"version\": \"4.1.119.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-epoll\", \"version\": \"4.1.119.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-kqueue\", \"version\": \"4.1.119.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-kqueue\", \"version\": \"4.1.119.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.119.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.119.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.119.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.119.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }",
                 "{ \"group\": \"io.reactivex.rxjava3\", \"artifact\": \"rxjava\", \"version\": \"3.1.2\" }",
                 "{ \"group\": \"it.unimi.dsi\", \"artifact\": \"fastutil\", \"version\": \"7.2.1\" }",
                 "{ \"group\": \"javax.activation\", \"artifact\": \"javax.activation-api\", \"version\": \"1.2.0\" }",
@@ -2583,125 +2583,125 @@
               "downloaded_file_path": "v1/io/grpc/grpc-util/1.66.0/grpc-util-1.66.0.jar"
             }
           },
-          "io_netty_netty_buffer_4_1_100_Final": {
+          "io_netty_netty_buffer_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "462874b44ee782fbefec64078cda6eb8e7bf9f0e0af71a928ef4c1f2d564f7ee",
+              "sha256": "32226218d854c2e51d4935a7ebe4663b72ecb9af4da881b86bf518e61aed48d3",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.100.Final/netty-buffer-4.1.100.Final.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-buffer/4.1.100.Final/netty-buffer-4.1.100.Final.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.119.Final/netty-buffer-4.1.119.Final.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-buffer/4.1.119.Final/netty-buffer-4.1.119.Final.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-buffer/4.1.100.Final/netty-buffer-4.1.100.Final.jar"
+              "downloaded_file_path": "v1/io/netty/netty-buffer/4.1.119.Final/netty-buffer-4.1.119.Final.jar"
             }
           },
-          "io_netty_netty_codec_4_1_100_Final": {
+          "io_netty_netty_codec_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "180a01ed67af399602e24ff1c32864e7f57f57c4a0fa5e9ab3fe9b0e5e9cf051",
+              "sha256": "c497934a057444b126a86e06f2b509188e48ca6c5a5e14c182a02f1e8c8d5fdb",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-codec/4.1.100.Final/netty-codec-4.1.100.Final.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-codec/4.1.100.Final/netty-codec-4.1.100.Final.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-codec/4.1.119.Final/netty-codec-4.1.119.Final.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-codec/4.1.119.Final/netty-codec-4.1.119.Final.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-codec/4.1.100.Final/netty-codec-4.1.100.Final.jar"
+              "downloaded_file_path": "v1/io/netty/netty-codec/4.1.119.Final/netty-codec-4.1.119.Final.jar"
             }
           },
-          "io_netty_netty_codec_dns_4_1_100_Final": {
+          "io_netty_netty_codec_dns_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "f7f55bee95d2467e8bda6dda980a2830b351b0dd6f0f87fe5114645035ee55ca",
+              "sha256": "8893bb399849629eecaa1fa12d48aad73161721b7ce75fdeb72e6e40c549ad55",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-codec-dns/4.1.100.Final/netty-codec-dns-4.1.100.Final.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-codec-dns/4.1.100.Final/netty-codec-dns-4.1.100.Final.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-codec-dns/4.1.119.Final/netty-codec-dns-4.1.119.Final.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-codec-dns/4.1.119.Final/netty-codec-dns-4.1.119.Final.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-codec-dns/4.1.100.Final/netty-codec-dns-4.1.100.Final.jar"
+              "downloaded_file_path": "v1/io/netty/netty-codec-dns/4.1.119.Final/netty-codec-dns-4.1.119.Final.jar"
             }
           },
-          "io_netty_netty_codec_http_4_1_100_Final": {
+          "io_netty_netty_codec_http_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "326811d249cb0e5555e78e026e877834e792261c38f0666d80464426695d9590",
+              "sha256": "ff48db63e44e273e677832e52cc2a1ce2670da796f22af129a8bd4c3786a2d34",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-codec-http/4.1.100.Final/netty-codec-http-4.1.100.Final.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-codec-http/4.1.100.Final/netty-codec-http-4.1.100.Final.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-codec-http/4.1.119.Final/netty-codec-http-4.1.119.Final.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-codec-http/4.1.119.Final/netty-codec-http-4.1.119.Final.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-codec-http/4.1.100.Final/netty-codec-http-4.1.100.Final.jar"
+              "downloaded_file_path": "v1/io/netty/netty-codec-http/4.1.119.Final/netty-codec-http-4.1.119.Final.jar"
             }
           },
-          "io_netty_netty_codec_http2_4_1_100_Final": {
+          "io_netty_netty_codec_http2_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "23b4a74350f4cf8d41b93fb93d52b5050667d8d53fffc385672c86eab83b8749",
+              "sha256": "5ea89af402b6f59715a84780c4cd0388f4e602e339a5b7b888c17ce9f5537d1a",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-codec-http2/4.1.100.Final/netty-codec-http2-4.1.100.Final.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-codec-http2/4.1.100.Final/netty-codec-http2-4.1.100.Final.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-codec-http2/4.1.119.Final/netty-codec-http2-4.1.119.Final.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-codec-http2/4.1.119.Final/netty-codec-http2-4.1.119.Final.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-codec-http2/4.1.100.Final/netty-codec-http2-4.1.100.Final.jar"
+              "downloaded_file_path": "v1/io/netty/netty-codec-http2/4.1.119.Final/netty-codec-http2-4.1.119.Final.jar"
             }
           },
-          "io_netty_netty_codec_socks_4_1_100_Final": {
+          "io_netty_netty_codec_socks_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "608a453b90f8384ba4efcdc6db7f899a1f10b9ea1890954696e6cfac45ff1ba9",
+              "sha256": "a85103bb1a32cf56b8d77e57f6647a859751cab6be189085df76eed18bb54c9a",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-codec-socks/4.1.100.Final/netty-codec-socks-4.1.100.Final.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-codec-socks/4.1.100.Final/netty-codec-socks-4.1.100.Final.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-codec-socks/4.1.119.Final/netty-codec-socks-4.1.119.Final.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-codec-socks/4.1.119.Final/netty-codec-socks-4.1.119.Final.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-codec-socks/4.1.100.Final/netty-codec-socks-4.1.100.Final.jar"
+              "downloaded_file_path": "v1/io/netty/netty-codec-socks/4.1.119.Final/netty-codec-socks-4.1.119.Final.jar"
             }
           },
-          "io_netty_netty_common_4_1_100_Final": {
+          "io_netty_netty_common_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "d2908301f1ac6f2910900742473c15d701765d3d4467acdb1eebb9df3aa82885",
+              "sha256": "991a69b1594dcad9926e268e7e94530cfdaa89feef42af26922a302d3e2e9212",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-common/4.1.100.Final/netty-common-4.1.100.Final.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-common/4.1.100.Final/netty-common-4.1.100.Final.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-common/4.1.119.Final/netty-common-4.1.119.Final.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-common/4.1.119.Final/netty-common-4.1.119.Final.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-common/4.1.100.Final/netty-common-4.1.100.Final.jar"
+              "downloaded_file_path": "v1/io/netty/netty-common/4.1.119.Final/netty-common-4.1.119.Final.jar"
             }
           },
-          "io_netty_netty_handler_4_1_100_Final": {
+          "io_netty_netty_handler_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "0e10e584c2e7fdf7f4804e14760ed987003f1b62ab982f62eaf13a9892793d3a",
+              "sha256": "9b49be98e36bb79a2025ffb5159aec87da2720cfa545f56de39c3bc108587b1b",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-handler/4.1.100.Final/netty-handler-4.1.100.Final.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-handler/4.1.100.Final/netty-handler-4.1.100.Final.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-handler/4.1.119.Final/netty-handler-4.1.119.Final.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-handler/4.1.119.Final/netty-handler-4.1.119.Final.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-handler/4.1.100.Final/netty-handler-4.1.100.Final.jar"
+              "downloaded_file_path": "v1/io/netty/netty-handler/4.1.119.Final/netty-handler-4.1.119.Final.jar"
             }
           },
-          "io_netty_netty_handler_proxy_4_1_100_Final": {
+          "io_netty_netty_handler_proxy_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "686dbc2e61407f216d6cb267dd7954896f851dd34b58be3e757c5a89f20a5e67",
+              "sha256": "7a35e62259a43e5dbdc2e402934b1f64084ce73aecf7b42ce647c918a6e5f617",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-handler-proxy/4.1.100.Final/netty-handler-proxy-4.1.100.Final.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-handler-proxy/4.1.100.Final/netty-handler-proxy-4.1.100.Final.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-handler-proxy/4.1.119.Final/netty-handler-proxy-4.1.119.Final.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-handler-proxy/4.1.119.Final/netty-handler-proxy-4.1.119.Final.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-handler-proxy/4.1.100.Final/netty-handler-proxy-4.1.100.Final.jar"
+              "downloaded_file_path": "v1/io/netty/netty-handler-proxy/4.1.119.Final/netty-handler-proxy-4.1.119.Final.jar"
             }
           },
-          "io_netty_netty_resolver_4_1_100_Final": {
+          "io_netty_netty_resolver_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "c42c481c776e9d367a45cc3a67a06f65897d280334eb30b2362b8c55b7523f4f",
+              "sha256": "3b6c9f9f6f360747213d154971dec1fc8852820dc1a98d055ff09d09676f8836",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-resolver/4.1.100.Final/netty-resolver-4.1.100.Final.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-resolver/4.1.100.Final/netty-resolver-4.1.100.Final.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-resolver/4.1.119.Final/netty-resolver-4.1.119.Final.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-resolver/4.1.119.Final/netty-resolver-4.1.119.Final.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-resolver/4.1.100.Final/netty-resolver-4.1.100.Final.jar"
+              "downloaded_file_path": "v1/io/netty/netty-resolver/4.1.119.Final/netty-resolver-4.1.119.Final.jar"
             }
           },
-          "io_netty_netty_resolver_dns_4_1_100_Final": {
+          "io_netty_netty_resolver_dns_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "4bafbd3e571ed2d9fb3f9550f8348ba37c183eda4a253fba5354166e409624c4",
+              "sha256": "119e1dae4b207197ec6a4b434894894930b0b089a2459a88706d1407cf975b09",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-resolver-dns/4.1.100.Final/netty-resolver-dns-4.1.100.Final.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-resolver-dns/4.1.100.Final/netty-resolver-dns-4.1.100.Final.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-resolver-dns/4.1.119.Final/netty-resolver-dns-4.1.119.Final.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-resolver-dns/4.1.119.Final/netty-resolver-dns-4.1.119.Final.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-resolver-dns/4.1.100.Final/netty-resolver-dns-4.1.100.Final.jar"
+              "downloaded_file_path": "v1/io/netty/netty-resolver-dns/4.1.119.Final/netty-resolver-dns-4.1.119.Final.jar"
             }
           },
           "io_netty_netty_tcnative_boringssl_static_2_0_61_Final": {
@@ -2781,136 +2781,136 @@
               "downloaded_file_path": "v1/io/netty/netty-tcnative-classes/2.0.61.Final/netty-tcnative-classes-2.0.61.Final.jar"
             }
           },
-          "io_netty_netty_transport_4_1_100_Final": {
+          "io_netty_netty_transport_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "b1deeceedab3734cdb959c55f4be5ab4a667a8aed59121ff93763f49470f5470",
+              "sha256": "c0921ea0e79c3b936daabe08a26e926642a4ad24951d6115fb43362c21dfeb10",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.100.Final/netty-transport-4.1.100.Final.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-transport/4.1.100.Final/netty-transport-4.1.100.Final.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.119.Final/netty-transport-4.1.119.Final.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-transport/4.1.119.Final/netty-transport-4.1.119.Final.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-transport/4.1.100.Final/netty-transport-4.1.100.Final.jar"
+              "downloaded_file_path": "v1/io/netty/netty-transport/4.1.119.Final/netty-transport-4.1.119.Final.jar"
             }
           },
-          "io_netty_netty_transport_classes_epoll_4_1_100_Final": {
+          "io_netty_netty_transport_classes_epoll_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "9abc4b17b1212b33666eae4e8013d0bb78a9a2bcd0a9a621b9bd06a7e5fc0050",
+              "sha256": "38edbceb4d0f3c1c87bc8db9f812d317342c9c8e95a4a052fb796a2f78ad098e",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-transport-classes-epoll/4.1.100.Final/netty-transport-classes-epoll-4.1.100.Final.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-classes-epoll/4.1.100.Final/netty-transport-classes-epoll-4.1.100.Final.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-transport-classes-epoll/4.1.119.Final/netty-transport-classes-epoll-4.1.119.Final.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-classes-epoll/4.1.119.Final/netty-transport-classes-epoll-4.1.119.Final.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-transport-classes-epoll/4.1.100.Final/netty-transport-classes-epoll-4.1.100.Final.jar"
+              "downloaded_file_path": "v1/io/netty/netty-transport-classes-epoll/4.1.119.Final/netty-transport-classes-epoll-4.1.119.Final.jar"
             }
           },
-          "io_netty_netty_transport_classes_kqueue_4_1_100_Final": {
+          "io_netty_netty_transport_classes_kqueue_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "70b40962b01ab594bed5cd311cd8768b224155c948118af60412ab23bc55ed50",
+              "sha256": "af84f71a0bcde9e4ca2d8f1cb7bf6a6d4d249923a79ace14a86fea818a8f90f7",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-transport-classes-kqueue/4.1.100.Final/netty-transport-classes-kqueue-4.1.100.Final.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-classes-kqueue/4.1.100.Final/netty-transport-classes-kqueue-4.1.100.Final.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-transport-classes-kqueue/4.1.119.Final/netty-transport-classes-kqueue-4.1.119.Final.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-classes-kqueue/4.1.119.Final/netty-transport-classes-kqueue-4.1.119.Final.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-transport-classes-kqueue/4.1.100.Final/netty-transport-classes-kqueue-4.1.100.Final.jar"
+              "downloaded_file_path": "v1/io/netty/netty-transport-classes-kqueue/4.1.119.Final/netty-transport-classes-kqueue-4.1.119.Final.jar"
             }
           },
-          "io_netty_netty_transport_native_epoll_jar_linux_aarch_64_4_1_100_Final": {
+          "io_netty_netty_transport_native_epoll_jar_linux_aarch_64_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "81993265c3fb9098c0163943e71c14fbaa6ed17e345e7bf8205c90acfdf6cef5",
+              "sha256": "225aef9562189662e03c92bd5e5b3eb851a5499d87ef902b264cb924988b187d",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-epoll/4.1.100.Final/netty-transport-native-epoll-4.1.100.Final-linux-aarch_64.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-epoll/4.1.100.Final/netty-transport-native-epoll-4.1.100.Final-linux-aarch_64.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-epoll/4.1.119.Final/netty-transport-native-epoll-4.1.119.Final-linux-aarch_64.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-epoll/4.1.119.Final/netty-transport-native-epoll-4.1.119.Final-linux-aarch_64.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-transport-native-epoll/4.1.100.Final/netty-transport-native-epoll-4.1.100.Final-linux-aarch_64.jar"
+              "downloaded_file_path": "v1/io/netty/netty-transport-native-epoll/4.1.119.Final/netty-transport-native-epoll-4.1.119.Final-linux-aarch_64.jar"
             }
           },
-          "io_netty_netty_transport_native_epoll_jar_linux_x86_64_4_1_100_Final": {
+          "io_netty_netty_transport_native_epoll_jar_linux_x86_64_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "a108fb47babb7678b5b2abb1fc8b34510bd2f705faa450447860647f2de4ebaa",
+              "sha256": "12557923a5069e736a9305c73a87b303ba9e89b32da3ec95dea6a856f3fd6397",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-epoll/4.1.100.Final/netty-transport-native-epoll-4.1.100.Final-linux-x86_64.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-epoll/4.1.100.Final/netty-transport-native-epoll-4.1.100.Final-linux-x86_64.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-epoll/4.1.119.Final/netty-transport-native-epoll-4.1.119.Final-linux-x86_64.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-epoll/4.1.119.Final/netty-transport-native-epoll-4.1.119.Final-linux-x86_64.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-transport-native-epoll/4.1.100.Final/netty-transport-native-epoll-4.1.100.Final-linux-x86_64.jar"
+              "downloaded_file_path": "v1/io/netty/netty-transport-native-epoll/4.1.119.Final/netty-transport-native-epoll-4.1.119.Final-linux-x86_64.jar"
             }
           },
-          "io_netty_netty_transport_native_kqueue_jar_osx_aarch_64_4_1_100_Final": {
+          "io_netty_netty_transport_native_kqueue_jar_osx_aarch_64_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "0fdc323ad2efd85343713fbce6e0c2aec27e6852659984d03a5414018e01815f",
+              "sha256": "52d80683a7644cef4294a719d285cd68979a824319081e240d149cb2e65cc751",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-kqueue/4.1.100.Final/netty-transport-native-kqueue-4.1.100.Final-osx-aarch_64.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-kqueue/4.1.100.Final/netty-transport-native-kqueue-4.1.100.Final-osx-aarch_64.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-kqueue/4.1.119.Final/netty-transport-native-kqueue-4.1.119.Final-osx-aarch_64.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-kqueue/4.1.119.Final/netty-transport-native-kqueue-4.1.119.Final-osx-aarch_64.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-transport-native-kqueue/4.1.100.Final/netty-transport-native-kqueue-4.1.100.Final-osx-aarch_64.jar"
+              "downloaded_file_path": "v1/io/netty/netty-transport-native-kqueue/4.1.119.Final/netty-transport-native-kqueue-4.1.119.Final-osx-aarch_64.jar"
             }
           },
-          "io_netty_netty_transport_native_kqueue_jar_osx_x86_64_4_1_100_Final": {
+          "io_netty_netty_transport_native_kqueue_jar_osx_x86_64_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "9ca2ba0121e35ea25228cf27ec553279966ca0a7f9c61e33ad1d9ea50477360d",
+              "sha256": "bc3977b0cd56a3df61c6117a8df41dfd3aefee862e3c51ca0d4a38c333ff4aa0",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-kqueue/4.1.100.Final/netty-transport-native-kqueue-4.1.100.Final-osx-x86_64.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-kqueue/4.1.100.Final/netty-transport-native-kqueue-4.1.100.Final-osx-x86_64.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-kqueue/4.1.119.Final/netty-transport-native-kqueue-4.1.119.Final-osx-x86_64.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-kqueue/4.1.119.Final/netty-transport-native-kqueue-4.1.119.Final-osx-x86_64.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-transport-native-kqueue/4.1.100.Final/netty-transport-native-kqueue-4.1.100.Final-osx-x86_64.jar"
+              "downloaded_file_path": "v1/io/netty/netty-transport-native-kqueue/4.1.119.Final/netty-transport-native-kqueue-4.1.119.Final-osx-x86_64.jar"
             }
           },
-          "io_netty_netty_transport_native_unix_common_4_1_100_Final": {
+          "io_netty_netty_transport_native_unix_common_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "5d888230a04c4a3e647c64e933cefb64fd49056f969bfb734c8a3fcedf0bea8a",
+              "sha256": "8ae5618f69326e6d17b77b0140f9d277118dbd23906ca07638bc01365728c650",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.119.Final/netty-transport-native-unix-common-4.1.119.Final.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.119.Final/netty-transport-native-unix-common-4.1.119.Final.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final.jar"
+              "downloaded_file_path": "v1/io/netty/netty-transport-native-unix-common/4.1.119.Final/netty-transport-native-unix-common-4.1.119.Final.jar"
             }
           },
-          "io_netty_netty_transport_native_unix_common_jar_linux_aarch_64_4_1_100_Final": {
+          "io_netty_netty_transport_native_unix_common_jar_linux_aarch_64_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "adb619d38e0e3411c10c68934a3b9313da31e29ecb6123eaf88fafb25688812e",
+              "sha256": "57465b49ebf1663c20f10e87b72eb78ad61d91a7416e460bdc56a01de42f00d6",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final-linux-aarch_64.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final-linux-aarch_64.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.119.Final/netty-transport-native-unix-common-4.1.119.Final-linux-aarch_64.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.119.Final/netty-transport-native-unix-common-4.1.119.Final-linux-aarch_64.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final-linux-aarch_64.jar"
+              "downloaded_file_path": "v1/io/netty/netty-transport-native-unix-common/4.1.119.Final/netty-transport-native-unix-common-4.1.119.Final-linux-aarch_64.jar"
             }
           },
-          "io_netty_netty_transport_native_unix_common_jar_linux_x86_64_4_1_100_Final": {
+          "io_netty_netty_transport_native_unix_common_jar_linux_x86_64_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "14c2deedac8b5092a5740a04196dda76ea9291501f7d45cdc8420ef4fd95fdf3",
+              "sha256": "b248e4dc0f004ffc884ebf30db435d1889a3a2fa40779445f4b010c4fb272603",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final-linux-x86_64.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final-linux-x86_64.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.119.Final/netty-transport-native-unix-common-4.1.119.Final-linux-x86_64.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.119.Final/netty-transport-native-unix-common-4.1.119.Final-linux-x86_64.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final-linux-x86_64.jar"
+              "downloaded_file_path": "v1/io/netty/netty-transport-native-unix-common/4.1.119.Final/netty-transport-native-unix-common-4.1.119.Final-linux-x86_64.jar"
             }
           },
-          "io_netty_netty_transport_native_unix_common_jar_osx_aarch_64_4_1_100_Final": {
+          "io_netty_netty_transport_native_unix_common_jar_osx_aarch_64_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "411b2cfdbb108c26a1c585d9e3057151033cd3e770a0f4a8384df9aa519e6810",
+              "sha256": "ca21d9b9e26236c39d6db0ceae6cd6f65e12539143eb649cb1d95f6208485ff3",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final-osx-aarch_64.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final-osx-aarch_64.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.119.Final/netty-transport-native-unix-common-4.1.119.Final-osx-aarch_64.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.119.Final/netty-transport-native-unix-common-4.1.119.Final-osx-aarch_64.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final-osx-aarch_64.jar"
+              "downloaded_file_path": "v1/io/netty/netty-transport-native-unix-common/4.1.119.Final/netty-transport-native-unix-common-4.1.119.Final-osx-aarch_64.jar"
             }
           },
-          "io_netty_netty_transport_native_unix_common_jar_osx_x86_64_4_1_100_Final": {
+          "io_netty_netty_transport_native_unix_common_jar_osx_x86_64_4_1_119_Final": {
             "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
             "attributes": {
-              "sha256": "51624a67425e1fb5563ea51817171c9bc39c60be59e0ba78f19584aacc01b693",
+              "sha256": "0dc7a530458d1cae4963c3efc1bde9aa4727e2bba66dfa4ea0f3170725f26a5a",
               "urls": [
-                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final-osx-x86_64.jar",
-                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final-osx-x86_64.jar"
+                "https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.119.Final/netty-transport-native-unix-common-4.1.119.Final-osx-x86_64.jar",
+                "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.119.Final/netty-transport-native-unix-common-4.1.119.Final-osx-x86_64.jar"
               ],
-              "downloaded_file_path": "v1/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final-osx-x86_64.jar"
+              "downloaded_file_path": "v1/io/netty/netty-transport-native-unix-common/4.1.119.Final/netty-transport-native-unix-common-4.1.119.Final-osx-x86_64.jar"
             }
           },
           "io_opencensus_opencensus_api_0_31_1": {
@@ -3627,33 +3627,33 @@
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-protobuf\", \"version\": \"1.66.0\" }",
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-protobuf-lite\", \"version\": \"1.66.0\" }",
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-stub\", \"version\": \"1.66.0\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-buffer\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http2\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-common\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-handler\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-handler-proxy\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver-dns\", \"version\": \"4.1.100.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-buffer\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http2\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-common\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-handler\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-handler-proxy\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver-dns\", \"version\": \"4.1.119.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"windows-x86_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-classes\", \"version\": \"2.0.56.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-classes-epoll\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-classes-kqueue\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-epoll\", \"version\": \"4.1.100.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-epoll\", \"version\": \"4.1.100.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-kqueue\", \"version\": \"4.1.100.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-kqueue\", \"version\": \"4.1.100.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.100.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.100.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.100.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.100.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.100.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-classes-epoll\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-classes-kqueue\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-epoll\", \"version\": \"4.1.119.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-epoll\", \"version\": \"4.1.119.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-kqueue\", \"version\": \"4.1.119.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-kqueue\", \"version\": \"4.1.119.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.119.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.119.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.119.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.119.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.119.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }",
                 "{ \"group\": \"io.reactivex.rxjava3\", \"artifact\": \"rxjava\", \"version\": \"3.1.2\" }",
                 "{ \"group\": \"it.unimi.dsi\", \"artifact\": \"fastutil\", \"version\": \"7.2.1\" }",
                 "{ \"group\": \"javax.activation\", \"artifact\": \"javax.activation-api\", \"version\": \"1.2.0\" }",
@@ -5114,7 +5114,7 @@
     },
     "@@rules_python+//python/private/pypi:pip.bzl%pip_internal": {
       "general": {
-        "bzlTransitiveDigest": "IEf8nZ0kiULm/izVAYT0Ke4ZpTopmAF/FWPsoX3sJig=",
+        "bzlTransitiveDigest": "ZoQYFNLXlSUUJNWx+TNG2xoMDSdWXnbHjBn7oELQMU0=",
         "usagesDigest": "OLoIStnzNObNalKEMRq99FqenhPGLFZ5utVLV4sz7OI=",
         "recordedFileInputs": {
           "@@rules_python+//tools/publish/requirements_darwin.txt": "2994136eab7e57b083c3de76faf46f70fad130bc8e7360a7fed2b288b69e79dc",
