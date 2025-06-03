@@ -2037,6 +2037,12 @@ password passbar🌱
 # following lines mix tabs and spaces
 machine	  oauthlife.com
 	password	TOKEN
+
+# Password-only auth credentials, will not be passed into `patterns` like oauthlife.com.
+machine baz.example.org password ABCDEFG
+
+# Test for warning mechanism.
+machine qux.example.org
 EOF
   # Read a given .netrc file and combine it with a list of URL,
   # and write the obtained authentication dictionary to disk; this
@@ -2077,6 +2083,8 @@ authrepo(
     "https://bar.example.org/file3.tar",
     "https://evil.com/bar.example.org/file4.tar",
     "https://oauthlife.com/fizz/buzz/file5.tar",
+    "https://baz.example.org/file6.tar",
+    "http://qux.example.org/file7.tar",
   ],
 )
 EOF
@@ -2104,6 +2112,11 @@ expected = {
       "pattern" : "Bearer <password>",
       "password" : "TOKEN",
     },
+    "https://baz.example.org/file6.tar": {
+      "type" : "pattern",
+      "pattern" : "Bearer <password>",
+      "password" : "ABCDEFG",
+    },
 }
 EOF
   cat > verify.bzl <<'EOF'
@@ -2130,6 +2143,7 @@ EOF
   grep 'OK' `bazel info bazel-bin`/check_expected.txt \
        || fail "Authentication merged incorrectly"
   expect_log "authrepo is being evaluated"
+  expect_log "WARNING: Found machine in \.netrc for URL .*qux\.example\.org.*, but no password\."
 
   echo "modified" > .netrc
   bazel build //:check_expected &> $TEST_log || fail "Expected success"
