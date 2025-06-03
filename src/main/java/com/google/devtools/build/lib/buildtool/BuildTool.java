@@ -1142,19 +1142,19 @@ public class BuildTool {
               options.mode,
               options.serializedFrontierProfile);
 
-      switch (options.mode) {
-        case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY:
-        case RemoteAnalysisCacheMode.UPLOAD:
-          return dependenciesProvider;
-        case RemoteAnalysisCacheMode.DOWNLOAD:
+      return switch (options.mode) {
+        case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY, RemoteAnalysisCacheMode.UPLOAD ->
+            dependenciesProvider;
+        case RemoteAnalysisCacheMode.DOWNLOAD -> {
           checkNotNull(
               dependenciesProvider.getAnalysisCacheClient(),
               "Analysis cache client is null, did you forget to set"
                   + " --experimental_analysis_cache_service?");
-          return dependenciesProvider;
-        default:
-          throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.mode);
-      }
+          yield dependenciesProvider;
+        }
+        default ->
+            throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + options.mode);
+      };
     }
 
     /**
