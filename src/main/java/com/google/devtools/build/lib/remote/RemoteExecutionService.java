@@ -1014,13 +1014,20 @@ public class RemoteExecutionService {
               "Failed creating directory and parents for %s",
               symlink.path())
           .createDirectoryAndParents();
-      // If a directory output is being materialized as a symlink, we must first delete the
-      // preexisting empty directory.
-      if (symlink.path().exists(Symlinks.NOFOLLOW)
-          && symlink.path().isDirectory(Symlinks.NOFOLLOW)) {
+      // If a directory output is being materialized as a symlink, creating the symlink fails as we
+      // must first delete the preexisting empty directory. Since this is rare (and in the future
+      // BwoB may no longer eagerly create these directories), we don't delete the directory
+      // beforehand.
+      try {
+        symlink.path().createSymbolicLink(symlink.target());
+      } catch (IOException e) {
+        if (!symlink.path().isDirectory(Symlinks.NOFOLLOW)) {
+          throw e;
+        }
+        // Retry after deleting the directory.
         symlink.path().delete();
+        symlink.path().createSymbolicLink(symlink.target());
       }
-      symlink.path().createSymbolicLink(symlink.target());
     }
   }
 
