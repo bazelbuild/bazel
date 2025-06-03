@@ -296,7 +296,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
           new RepositoryResolvedEvent(
               rule,
               starlarkRepositoryContext.getAttr(),
-              outputDirectory,
               repoMetadata.attrsForReproducibility());
       if (resolved.isNewInformationReturned()) {
         env.getListener().handle(Event.debug(resolved.getMessage()));
@@ -321,8 +320,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
                 repoMappings.getRowKey(), repoMappings.getColumnKey()),
             repoMappings.getValue().getName());
       }
-
-      env.getListener().post(resolved);
     } catch (NeedsSkyframeRestartException e) {
       return null;
     } catch (EvalException e) {

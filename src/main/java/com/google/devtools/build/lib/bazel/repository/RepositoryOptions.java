@@ -230,14 +230,6 @@ public class RepositoryOptions extends OptionsBase {
   public double experimentalScaleTimeouts;
 
   @Option(
-      name = "experimental_resolved_file_instead_of_workspace",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS},
-      help = "If non-empty read the specified resolved file instead of the WORKSPACE file")
-  public String experimentalResolvedFileInsteadOfWorkspace;
-
-  @Option(
       name = "downloader_config",
       oldName = "experimental_downloader_config",
       defaultValue = "null",

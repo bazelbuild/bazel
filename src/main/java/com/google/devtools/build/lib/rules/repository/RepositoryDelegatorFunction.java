@@ -81,9 +81,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   public static final Precomputed<String> FORCE_FETCH_CONFIGURE =
       new Precomputed<>("dependency_for_force_fetching_configure_repositories");
 
-  public static final Precomputed<Optional<RootedPath>> RESOLVED_FILE_INSTEAD_OF_WORKSPACE =
-      new Precomputed<>("resolved_file_instead_of_workspace");
-
   public static final Precomputed<Boolean> IS_VENDOR_COMMAND =
       new Precomputed<>("is_vendor_command");
 

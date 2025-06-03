@@ -38,7 +38,6 @@ java_library(
         ":label_build_settings",
         ":repository/repository_directory_value",
         ":repository/repository_function",
-        ":repository/resolved_file_value",
         ":repository/workspace_attribute_mapper",
         ":repository/workspace_configured_target_factory",
         ":repository/workspace_file_helper",
@@ -219,13 +218,10 @@ java_library(
         "repository/RepositoryDelegatorFunction.java",
         "repository/RepositoryDirectoryDirtinessChecker.java",
         "repository/RepositoryFunction.java",
-        "repository/ResolvedFileFunction.java",
-        "repository/ResolvedHashesFunction.java",
     ],
     deps = [
         ":repository/repo_recorded_input",
         ":repository/repository_directory_value",
-        ":repository/resolved_file_value",
         ":repository/workspace_attribute_mapper",
         ":repository/workspace_file_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -251,29 +247,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_value_dirtiness_checker",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_util",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "repository/resolved_file_value",
-    srcs = ["repository/ResolvedFileValue.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )
 

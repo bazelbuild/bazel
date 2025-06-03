@@ -208,15 +208,6 @@ java_library(
     ],
 )
 
-java_library(
-    name = "resolved_event",
-    srcs = ["ResolvedEvent.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-    ],
-)
-
 java_binary(
     name = "BazelServer",
     javacopts = [

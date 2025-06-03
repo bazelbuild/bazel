@@ -107,8 +107,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               RepositoryMappingFunction.REPOSITORY_OVERRIDES,
               Suppliers.ofInstance(ImmutableMap.of())),
           PrecomputedValue.injected(
-              RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-          PrecomputedValue.injected(
               RepositoryDelegatorFunction.FORCE_FETCH,
               RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
           PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
