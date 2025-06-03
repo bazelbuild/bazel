@@ -246,6 +246,7 @@ java_library(
     name = "execution_info_modifier",
     srcs = ["ExecutionInfoModifier.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
         "//third_party:guava",
