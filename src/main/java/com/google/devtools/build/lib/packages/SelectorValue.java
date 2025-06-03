@@ -17,7 +17,6 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
@@ -52,7 +51,7 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
   private final Class<?> type;
   private final String noMatchError;
 
-  SelectorValue(Map<?, ?> dictionary, String noMatchError) {
+  SelectorValue(ImmutableMap<?, ?> dictionary, String noMatchError) {
     Preconditions.checkArgument(!dictionary.isEmpty());
     this.dictionary = ImmutableMap.copyOf(dictionary);
     // TODO(adonovan): doesn't this assume all the elements have the same type?
