@@ -109,6 +109,7 @@ abstract class ArtifactFunctionTestCase {
                         () -> true,
                         MetadataConsumerForMetrics.NO_OP,
                         SyscallCache.NO_CACHE,
+                        /* actionExecutor= */ null, // only used by remote analysis caching
                         () -> DisabledDependenciesProvider.INSTANCE))
                 .put(SkyFunctions.ACTION_EXECUTION, new SimpleActionExecutionFunction())
                 .put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build())

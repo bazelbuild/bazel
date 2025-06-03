@@ -705,7 +705,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             statusReporterRef,
             this::getPathEntries,
             this.syscallCache,
-            skyKeyStateReceiver::makeThreadStateReceiver);
+            skyKeyStateReceiver::makeThreadStateReceiver,
+            this::getExistingActionLookupValue);
     this.artifactFactory =
         new ArtifactFactory(
             /* execRootParent= */ directories.getExecRootBase(),
@@ -731,7 +732,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions() {
-    this.actionRewindStrategy = new ActionRewindStrategy(skyframeActionExecutor, bugReporter);
+    this.actionRewindStrategy =
+        new ActionRewindStrategy(
+            skyframeActionExecutor,
+            bugReporter,
+            this::getRemoteAnalysisCachingDependenciesProvider);
     BzlLoadFunction bzlLoadFunctionForInliningPackageAndWorkspaceNodes =
         getBzlLoadFunctionForInliningPackageAndWorkspaceNodes();
 
@@ -900,6 +905,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             () -> !skyframeActionExecutor.actionFileSystemType().inMemoryFileSystem(),
             sourceArtifactsSeen,
             syscallCache,
+            skyframeActionExecutor,
             this::getRemoteAnalysisCachingDependenciesProvider));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
@@ -4103,6 +4109,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       return null;
     }
     return value.getPackage();
+  }
+
+  @Nullable
+  private ActionLookupValue getExistingActionLookupValue(ActionLookupKey key)
+      throws InterruptedException {
+    return (ActionLookupValue) memoizingEvaluator.getExistingValue(key);
   }
 
   @VisibleForTesting

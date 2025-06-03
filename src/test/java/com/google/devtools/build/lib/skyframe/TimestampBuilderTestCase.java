@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
@@ -110,7 +111,6 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
-import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -220,6 +220,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
     ActionExecutionStatusReporter statusReporter =
         ActionExecutionStatusReporter.create(new StoredEventHandler(), eventBus);
+    AtomicReference<InMemoryMemoizingEvaluator> evaluatorRef = new AtomicReference<>();
     SkyframeActionExecutor skyframeActionExecutor =
         new SkyframeActionExecutor(
             actionKeyContext,
@@ -228,7 +229,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             new AtomicReference<>(statusReporter),
             /* sourceRootSupplier= */ ImmutableList::of,
             SyscallCache.NO_CACHE,
-            k -> ThreadStateReceiver.NULL_INSTANCE);
+            k -> ThreadStateReceiver.NULL_INSTANCE,
+            key -> (ActionLookupValue) evaluatorRef.get().getExistingValue(key));
 
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     skyframeActionExecutor.setActionLogBufferPathGenerator(
@@ -243,7 +245,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     skyframeActionExecutor.configure(
         cache, ActionInputPrefetcher.NONE, DiscoveredModulesPruner.DEFAULT);
 
-    AtomicReference<MemoizingEvaluator> evaluatorRef = new AtomicReference<>();
     InMemoryMemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -257,12 +258,15 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                         () -> true,
                         MetadataConsumerForMetrics.NO_OP,
                         SyscallCache.NO_CACHE,
+                        skyframeActionExecutor,
                         () -> DisabledDependenciesProvider.INSTANCE))
                 .put(
                     SkyFunctions.ACTION_EXECUTION,
                     new ActionExecutionFunction(
                         new ActionRewindStrategy(
-                            skyframeActionExecutor, BugReporter.defaultInstance()),
+                            skyframeActionExecutor,
+                            BugReporter.defaultInstance(),
+                            () -> DisabledDependenciesProvider.INSTANCE),
                         skyframeActionExecutor,
                         evaluatorRef::get,
                         directories,
