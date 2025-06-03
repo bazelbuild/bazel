@@ -264,11 +264,10 @@ public class BzlLoadValue implements SkyValue {
    * <p>This kind of key is only requested by {@link StarlarkBuiltinsFunction} and its transitively
    * loaded {@link BzlLoadFunction} calls.
    *
-   * <p>The label must have {@link StarlarkBuiltinsValue#BUILTINS_REPO} as its repository component.
-   * (It is valid for other key types to use that repo name, but since it is not a real repository
-   * and cannot be fetched, any attempt to resolve such a key would fail.)
+   * <p>The label must have {@link RepositoryName#BUILTINS} as its repository component. (It is
+   * valid for other key types to use that repo name, but since it is not a real repository and
+   * cannot be fetched, any attempt to resolve such a key would fail.)
    */
-  // TODO(#11437): Prevent users from trying to declare a repo named "@_builtins".
   @Immutable
   @VisibleForSerialization
   static final class KeyForBuiltins extends KeyForLocalEval {

@@ -477,8 +477,8 @@ public class AutoloadSymbols {
       repoContext =
           Label.RepoContext.of(
               RepositoryName.MAIN,
-              RepositoryMapping.createAllowingFallback(
-                  repositoryMappingValue.repositoryMapping().entries()));
+              RepositoryMapping.create(
+                  repositoryMappingValue.repositoryMapping().entries(), RepositoryName.MAIN));
     }
 
     // Inject loads for rules and symbols removed from Bazel

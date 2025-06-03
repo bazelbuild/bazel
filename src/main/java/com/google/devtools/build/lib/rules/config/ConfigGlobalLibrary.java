@@ -153,7 +153,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
                 singularErrorDescriptor,
                 label,
                 label.getRepository().getName(),
-                label.getRepository().getOwnerRepoDisplayString());
+                label.getRepository().getContextRepoDisplayString());
           }
         } catch (LabelSyntaxException e) {
           throw Starlark.errorf(

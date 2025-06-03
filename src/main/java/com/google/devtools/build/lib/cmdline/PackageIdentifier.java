@@ -235,11 +235,11 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
    *       <dt><code>//some/pkg</code>
    *       <dd>if this package lives in the main repository
    *       <dt><code>@protobuf//some/pkg</code>
-   *       <dd>if this package lives in a repository with "protobuf" as <code>name</code> of a
-   *           repository in WORKSPACE or as apparent name of a Bzlmod dependency of the main module
+   *       <dd>if this package lives in a repository with "protobuf" as apparent name of a
+   *           dependency of the main module
    *       <dt><code>@@protobuf+//some/pkg</code>
-   *       <dd>only with Bzlmod if the current package belongs to a repository that is not visible
-   *           from the main module
+   *       <dd>if the current package belongs to a repository that is not visible from the main
+   *           module
    */
   public String getDisplayForm(@Nullable RepositoryMapping mainRepositoryMapping) {
     return repository.getDisplayForm(mainRepositoryMapping) + "//" + pkgName;

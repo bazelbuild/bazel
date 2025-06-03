@@ -34,7 +34,7 @@ public final class LabelRenderer {
 
   /** A LabelRenderer which always uses {@link Label#getShorthandDisplayForm} for rendering. */
   public static final LabelRenderer DEFAULT =
-      new LabelRenderer(RepositoryMapping.ALWAYS_FALLBACK, Optional.empty());
+      new LabelRenderer(RepositoryMapping.EMPTY, Optional.empty());
 
   @SuppressWarnings("NonApiType") // for convenience of use by StarlarkDocExtract
   public LabelRenderer(RepositoryMapping repositoryMapping, Optional<String> mainRepoName) {

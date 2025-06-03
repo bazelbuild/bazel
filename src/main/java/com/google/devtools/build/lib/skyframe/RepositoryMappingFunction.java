@@ -14,13 +14,11 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
-import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -78,9 +76,9 @@ public class RepositoryMappingFunction implements SkyFunction {
     RepositoryName repositoryName = skyKey.repoName();
 
     if (StarlarkBuiltinsValue.isBuiltinsRepo(repositoryName)) {
-      // If tools repo is not set, repo mapping for @_builtins should be always fallback.
+      // If tools repo is not set, use the default empty mapping.
       if (ruleClassProvider.getToolsRepository() == null) {
-        return RepositoryMappingValue.createForWorkspaceRepo(RepositoryMapping.ALWAYS_FALLBACK);
+        return RepositoryMappingValue.DEFAULT_VALUE_FOR_BUILTINS_REPO;
       }
       // Builtins .bzl files should use the repo mapping of @bazel_tools, to get access to repos
       // such as @platforms.
@@ -90,24 +88,8 @@ public class RepositoryMappingFunction implements SkyFunction {
       if (bazelToolsMapping == null) {
         return null;
       }
-      // We need to make sure that @_builtins maps to @_builtins too.
-      return RepositoryMappingValue.createForBzlmodRepo(
-          RepositoryMapping.create(
-                  ImmutableMap.of(
-                      StarlarkBuiltinsValue.BUILTINS_NAME,
-                      StarlarkBuiltinsValue.BUILTINS_REPO,
-                      // TODO(wyv): Google internal tests that have Bzlmod enabled fail because
-                      //  they try to access cpp tools targets in the main repo from inside the
-                      //  @_builtin repo. This is just a workaround and needs a proper way to
-                      //  inject this mapping for google internal tests only.
-                      "",
-                      RepositoryName.MAIN),
-                  StarlarkBuiltinsValue.BUILTINS_REPO)
-              .withAdditionalMappings(bazelToolsMapping.repositoryMapping()),
-          // The "associated module" doesn't exist here (@_builtins doesn't come from a module),
-          // so we just supply dummy values.
-          "",
-          Version.EMPTY);
+      return RepositoryMappingValue.DEFAULT_VALUE_FOR_BUILTINS_REPO.withAdditionalMappings(
+          bazelToolsMapping.repositoryMapping());
     }
 
     BazelDepGraphValue bazelDepGraphValue =
@@ -136,7 +118,7 @@ public class RepositoryMappingFunction implements SkyFunction {
       if (repoMappingEntriesValue == null) {
         return null;
       }
-      return RepositoryMappingValue.createForBzlmodRepo(
+      return RepositoryMappingValue.create(
           RepositoryMapping.create(repoMappingEntriesValue.entries(), repositoryName),
           repoMappingEntriesValue.moduleKey().name(),
           repoMappingEntriesValue.moduleKey().version());
@@ -161,7 +143,7 @@ public class RepositoryMappingFunction implements SkyFunction {
     }
     Module module = bazelDepGraphValue.getDepGraph().get(moduleKey);
     return Optional.of(
-        RepositoryMappingValue.createForBzlmodRepo(
+        RepositoryMappingValue.create(
             bazelDepGraphValue.getFullRepoMapping(moduleKey),
             module.getName(),
             module.getVersion()));

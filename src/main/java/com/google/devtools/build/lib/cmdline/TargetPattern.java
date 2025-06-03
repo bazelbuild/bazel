@@ -82,7 +82,7 @@ public abstract class TargetPattern {
   // should always be a proper repo mapping. We should audit calls to this function and add a repo
   // mapping wherever appropriate.
   public static Parser mainRepoParser(PathFragment offset) {
-    return new Parser(offset, RepositoryName.MAIN, RepositoryMapping.ALWAYS_FALLBACK);
+    return new Parser(offset, RepositoryName.MAIN, RepositoryMapping.EMPTY);
   }
 
   /**

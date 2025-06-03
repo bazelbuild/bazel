@@ -3890,7 +3890,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
   }
 
   private CommandLine getCommandLine(String... lines) throws Exception {
-    return getCommandLine(RepositoryMapping.ALWAYS_FALLBACK, lines);
+    return getCommandLine(RepositoryMapping.EMPTY, lines);
   }
 
   private CommandLine getCommandLine(RepositoryMapping mainRepoMapping, String... lines)
@@ -3934,7 +3934,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
     Sequence<?> result = (Sequence<?>) ev.eval("args, directory");
     Args args = (Args) result.get(0);
     Artifact directory = (Artifact) result.get(1);
-    CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    CommandLine commandLine = args.build(() -> RepositoryMapping.EMPTY);
 
     // When asking for arguments without an artifact expander we just return the directory
     assertThat(commandLine.arguments()).containsExactly("foo/dir");
@@ -3958,7 +3958,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
     Sequence<?> result = (Sequence<?>) ev.eval("args, directory");
     Args args = (Args) result.get(0);
     Artifact directory = (Artifact) result.get(1);
-    CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    CommandLine commandLine = args.build(() -> RepositoryMapping.EMPTY);
 
     InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(directory.getRootRelativePathString(), "file1", "file2");
@@ -4007,7 +4007,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
         "args.add_all([directory, file3], map_each=_expand_dirs)");
     Args args = (Args) ev.eval("args");
     Artifact directory = (Artifact) ev.eval("directory");
-    CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    CommandLine commandLine = args.build(() -> RepositoryMapping.EMPTY);
 
     InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(directory.getRootRelativePathString(), "file1", "file2");
@@ -4025,7 +4025,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
         "  return dir_expander.expand('oh no a string')",
         "args.add_all([f], map_each=_expand_dirs)");
     Args args = (Args) ev.eval("args");
-    CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    CommandLine commandLine = args.build(() -> RepositoryMapping.EMPTY);
     assertThrows(CommandLineExpansionException.class, commandLine::arguments);
   }
 

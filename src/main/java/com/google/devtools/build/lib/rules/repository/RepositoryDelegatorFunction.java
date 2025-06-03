@@ -134,7 +134,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           externalPackageHelper.getWorkspaceDeprecationErrorMessage(
               env,
               starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE),
-              repositoryName.isOwnerRepoMainRepo());
+              repositoryName.isContextRepoMainRepo());
       if (env.valuesMissing()) {
         return null;
       }
@@ -142,7 +142,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           String.format(
               "No repository visible as '@%s' from %s%s",
               repositoryName.getName(),
-              repositoryName.getOwnerRepoDisplayString(),
+              repositoryName.getContextRepoDisplayString(),
               workspaceDeprecationMsg));
     }
 

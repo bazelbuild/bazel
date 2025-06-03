@@ -876,8 +876,7 @@ public class TestAspects {
       return AspectPropagationEdgesSupplier.createForToolchainsAspects(
           StarlarkList.immutableCopyOf(toolchainsAspects),
           /* thread= */ null,
-          new LabelConverter(
-              PackageIdentifier.createInMainRepo("quux"), RepositoryMapping.ALWAYS_FALLBACK));
+          new LabelConverter(PackageIdentifier.createInMainRepo("quux"), RepositoryMapping.EMPTY));
     } catch (EvalException e) {
       throw new IllegalStateException(e);
     }

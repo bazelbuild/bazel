@@ -100,7 +100,7 @@ final class InnateRunnableExtension implements RunnableExtension {
     ImmutableList<Tag> tags =
         Iterables.getOnlyElement(usagesValue.getExtensionUsages().values()).getTags();
     RepositoryMapping repoMapping = usagesValue.getRepoMappings().get(moduleKey);
-    Label.RepoContext repoContext = Label.RepoContext.of(repoMapping.ownerRepo(), repoMapping);
+    Label.RepoContext repoContext = Label.RepoContext.of(repoMapping.contextRepo(), repoMapping);
 
     // The name of the extension is of the form "<bzl_file_label> <rule_name>". Rule names cannot
     // contain spaces, so we can split on the last space.

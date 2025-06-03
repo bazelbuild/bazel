@@ -96,7 +96,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
           .put("bazel_tools", RepositoryName.create("bazel_tools"))
           .put("platforms", RepositoryName.create("platforms"));
     }
-    return RepositoryMappingValue.createForBzlmodRepo(
+    return RepositoryMappingValue.create(
         RepositoryMapping.create(allMappings.buildOrThrow(), ownerRepo),
         associatedModuleName,
         Version.parse(associatedModuleVersion));

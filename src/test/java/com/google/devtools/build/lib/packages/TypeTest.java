@@ -43,8 +43,7 @@ import org.junit.runners.JUnit4;
 public class TypeTest {
 
   private final LabelConverter labelConverter =
-      new LabelConverter(
-          PackageIdentifier.createInMainRepo("quux"), RepositoryMapping.ALWAYS_FALLBACK);
+      new LabelConverter(PackageIdentifier.createInMainRepo("quux"), RepositoryMapping.EMPTY);
 
   @Test
   public void testInteger() throws Exception {
