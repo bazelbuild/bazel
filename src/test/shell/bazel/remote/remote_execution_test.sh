@@ -354,31 +354,6 @@ EOF
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       --test_output=errors \
-      --noexperimental_split_xml_generation \
-      //a:test >& $TEST_log \
-      || fail "Failed to run //a:test with remote execution"
-}
-
-function test_cc_test_split_xml() {
-  add_rules_cc "MODULE.bazel"
-  mkdir -p a
-  cat > a/BUILD <<EOF
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
-package(default_visibility = ["//visibility:public"])
-cc_test(
-name = 'test',
-srcs = [ 'test.cc' ],
-)
-EOF
-  cat > a/test.cc <<EOF
-#include <iostream>
-int main() { std::cout << "Hello test!" << std::endl; return 0; }
-EOF
-  bazel test \
-      --spawn_strategy=remote \
-      --remote_executor=grpc://localhost:${worker_port} \
-      --test_output=errors \
-      --experimental_split_xml_generation \
       //a:test >& $TEST_log \
       || fail "Failed to run //a:test with remote execution"
 }
