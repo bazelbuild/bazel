@@ -108,7 +108,7 @@ public abstract class ActionOwner {
     if (label == null) {
       return null;
     }
-    String targetDescription = "target " + label;
+    String targetDescription = String.format("%s target %s", getTargetKind(), label);
 
     ImmutableList<AspectDescriptor> aspectDescriptors = getAspectDescriptors();
     if (aspectDescriptors.isEmpty()) {
