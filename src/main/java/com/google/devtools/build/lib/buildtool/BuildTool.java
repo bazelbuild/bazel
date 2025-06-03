@@ -1474,7 +1474,7 @@ public class BuildTool {
         .handle(
             Event.info(
                 String.format(
-                    "Remote analysis caching stats: %s bytes received in %s requests, %s/%s cache"
+                    "Skycache stats: %s bytes received in %s requests, %s/%s cache"
                         + " hits (%.2f%%) [Breakdown: %s]",
                     bytesReceived,
                     requests,
