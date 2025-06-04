@@ -345,7 +345,9 @@ public class CommandEnvironment {
           visibleActionEnv.add(entry.getKey());
         } else {
           visibleActionEnv.remove(entry.getKey());
-          repoEnv.put(entry.getKey(), entry.getValue());
+          if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
+            repoEnv.put(entry.getKey(), entry.getValue());
+          }
         }
       }
     }
@@ -943,7 +945,11 @@ public class CommandEnvironment {
     }
   }
 
-  /** Returns the client environment with all settings from --action_env and --repo_env. */
+  /**
+   * Returns the repository environment created from the client environment, {@code --repo_env}, and
+   * {@code --action_env=NAME=VALUE} (when {@code
+   * --incompatible_repo_env_ignores_action_env=false}).
+   */
   public Map<String, String> getRepoEnv() {
     return Collections.unmodifiableMap(repoEnv);
   }
