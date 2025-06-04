@@ -103,7 +103,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
       boolean reproducible,
       StarlarkValue facts)
       throws EvalException {
-    validateFacts(facts, 0);
+    validateFacts(facts);
 
     if (rootModuleDirectDepsUnchecked == Starlark.NONE
         && rootModuleDirectDevDepsUnchecked == Starlark.NONE) {

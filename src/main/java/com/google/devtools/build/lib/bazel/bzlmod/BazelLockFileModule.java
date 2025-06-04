@@ -41,6 +41,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Module collecting Bazel module and module extensions resolution results and updating the
@@ -116,8 +118,11 @@ public class BazelLockFileModule extends BlazeModule {
     // transitive closure of the current build. Since extension are potentially costly to evaluate,
     // this is seen as an advantage. Full reproducibility can be ensured by running 'bazel shutdown'
     // first if needed.
+    int maxNumExtensions = depGraphValue.getExtensionUsagesTable().rowMap().size();
     Map<ModuleExtensionId, LockFileModuleExtension.WithFactors> newExtensionInfos =
-        new ConcurrentHashMap<>();
+        new ConcurrentHashMap<>(maxNumExtensions);
+    Map<ModuleExtensionId, StarlarkValue> combinedFacts = new ConcurrentHashMap<>(maxNumExtensions);
+    combinedFacts.putAll(oldLockfile.getFacts());
     executor
         .getEvaluator()
         .getInMemoryGraph()
@@ -128,6 +133,7 @@ public class BazelLockFileModule extends BlazeModule {
                   // entry.getValue() can be null if the extension evaluation failed.
                   && entry.getValue() instanceof SingleExtensionValue value) {
                 newExtensionInfos.put(key.argument(), value.lockFileInfo().get());
+                combinedFacts.put(key.argument(), value.facts());
               }
             });
 
@@ -150,6 +156,9 @@ public class BazelLockFileModule extends BlazeModule {
                           ImmutableSortedMap.copyOf(moduleResolutionValue.getRegistryFileHashes()))
                       .setSelectedYankedVersions(moduleResolutionValue.getSelectedYankedVersions())
                       .setModuleExtensions(notReproducibleExtensionInfos)
+                      .setFacts(
+                          ImmutableMap.copyOf(
+                              Maps.filterValues(combinedFacts, v -> v != Starlark.NONE)))
                       .build();
 
               // Write the new values to the files, but only if needed. This is not just a
