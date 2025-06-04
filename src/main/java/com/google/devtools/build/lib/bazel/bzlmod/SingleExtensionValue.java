@@ -29,6 +29,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Optional;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * The result of evaluating a single module extension (see {@link SingleExtensionEvalFunction}).
@@ -42,19 +43,23 @@ import java.util.Optional;
  *     if and only if the lockfile mode is UPDATE.
  * @param fixup Returns the buildozer fixup for incorrect use_repo declarations by the root module
  *     (if any).
+ * @param facts Returns the facts about the extension, which can be used to generate the
+ *
  */
 @AutoCodec(explicitlyAllowClass = {Package.class})
 public record SingleExtensionValue(
     ImmutableMap<String, RepoSpec> generatedRepoSpecs,
     ImmutableBiMap<RepositoryName, String> canonicalRepoNameToInternalNames,
     Optional<LockFileModuleExtension.WithFactors> lockFileInfo,
-    Optional<RootModuleFileFixup> fixup)
+    Optional<RootModuleFileFixup> fixup,
+    StarlarkValue facts)
     implements SkyValue {
   public SingleExtensionValue {
     requireNonNull(generatedRepoSpecs, "generatedRepoSpecs");
     requireNonNull(canonicalRepoNameToInternalNames, "canonicalRepoNameToInternalNames");
     requireNonNull(lockFileInfo, "lockFileInfo");
     requireNonNull(fixup, "fixup");
+    requireNonNull(facts, "facts");
   }
 
   @AutoCodec.Instantiator
@@ -62,9 +67,10 @@ public record SingleExtensionValue(
       ImmutableMap<String, RepoSpec> generatedRepoSpecs,
       ImmutableBiMap<RepositoryName, String> canonicalRepoNameToInternalNames,
       Optional<LockFileModuleExtension.WithFactors> lockFileInfo,
-      Optional<RootModuleFileFixup> fixup) {
+      Optional<RootModuleFileFixup> fixup,
+      StarlarkValue facts) {
     return new SingleExtensionValue(
-        generatedRepoSpecs, canonicalRepoNameToInternalNames, lockFileInfo, fixup);
+        generatedRepoSpecs, canonicalRepoNameToInternalNames, lockFileInfo, fixup, facts);
   }
 
   public static Key key(ModuleExtensionId id) {

@@ -173,7 +173,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   extension,
                   usagesValue,
                   extension.getEvalFactors(),
-                  lockedExtension);
+                  lockedExtension,
+                  facts);
           if (singleExtensionValue != null) {
             return singleExtensionValue;
           }
@@ -241,8 +242,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               Code.BAD_LOCKFILE,
               "The module extension '%s' has changed its facts: %s != %s",
               extensionId,
-              Starlark.repr(facts),
-              Starlark.repr(newFacts)));
+              Starlark.repr(newFacts),
+              Starlark.repr(facts)));
     }
 
     Optional<LockFileModuleExtension.WithFactors> lockFileInfo;
@@ -282,7 +283,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       lockFileInfo = Optional.empty();
     }
     return createSingleExtensionValue(
-        generatedRepoSpecs, moduleExtensionMetadata, extensionId, usagesValue, lockFileInfo, env);
+        generatedRepoSpecs,
+        moduleExtensionMetadata,
+        extensionId,
+        usagesValue,
+        lockFileInfo,
+        newFacts,
+        env);
   }
 
   /**
@@ -299,7 +306,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       RunnableExtension extension,
       SingleExtensionUsagesValue usagesValue,
       ModuleExtensionEvalFactors evalFactors,
-      LockFileModuleExtension lockedExtension)
+      LockFileModuleExtension lockedExtension,
+      StarlarkValue facts)
       throws SingleExtensionEvalFunctionException,
           InterruptedException,
           NeedsSkyframeRestartException {
@@ -359,6 +367,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           extensionId,
           usagesValue,
           Optional.of(new LockFileModuleExtension.WithFactors(evalFactors, lockedExtension)),
+          facts,
           env);
     }
     // Reproducible extensions are always locked in the hidden lockfile to provide best-effort
@@ -449,20 +458,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     return outdated.isPresent();
   }
 
-  /**
-   * Validates the result of the module extension evaluation against the declared imports, throwing
-   * an exception if validation fails, and returns a SingleExtensionValue otherwise.
-   *
-   * <p>Since extension evaluation does not depend on the declared imports, the result of the
-   * evaluation of the extension implementation function can be reused and persisted in the lockfile
-   * even if validation fails.
-   */
   private SingleExtensionValue createSingleExtensionValue(
       ImmutableMap<String, RepoSpec> generatedRepoSpecs,
       Optional<ModuleExtensionMetadata> moduleExtensionMetadata,
       ModuleExtensionId extensionId,
       SingleExtensionUsagesValue usagesValue,
       Optional<LockFileModuleExtension.WithFactors> lockFileInfo,
+      StarlarkValue facts,
       Environment env)
       throws SingleExtensionEvalFunctionException {
     Optional<RootModuleFileFixup> fixup = Optional.empty();
@@ -488,7 +490,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       }
     }
 
-    return SingleExtensionValue.create(
+    return new SingleExtensionValue(
         generatedRepoSpecs,
         generatedRepoSpecs.keySet().stream()
             .collect(
@@ -498,7 +500,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                             usagesValue.getExtensionUniqueName() + "+" + e),
                     Function.identity())),
         lockFileInfo,
-        fixup);
+        fixup,
+        facts);
   }
 
   private static final class SingleExtensionEvalFunctionException extends SkyFunctionException {
