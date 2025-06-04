@@ -1537,7 +1537,7 @@ public final class ActionExecutionFunction implements SkyFunction {
                     case SOURCE_INPUT_IO_EXCEPTION -> sawSourceArtifactException.set(true);
                     case SOURCE_INPUT_MISSING -> sawMissingFile.set(true);
                     default ->
-                        BugReport.sendBugReport(
+                        BugReport.sendNonFatalBugReport(
                             new IllegalStateException(
                                 "Unexpected error code in " + code + " for " + debugInfo));
                   }
