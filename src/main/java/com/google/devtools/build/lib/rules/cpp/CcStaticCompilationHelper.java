@@ -914,18 +914,17 @@ public final class CcStaticCompilationHelper {
           buildVariables,
           featureConfiguration,
           ImmutableList.of(),
-          cppModuleMap,
           CppHelper.getFdoBuildStamp(cppConfiguration, fdoContext, featureConfiguration),
           isUsingMemProf,
           variablesExtensions,
           genericAdditionalBuildVariables,
-          ccCompilationContext.getDirectModuleMaps(),
           ccCompilationContext.getIncludeDirs(),
           ccCompilationContext.getQuoteIncludeDirs(),
           ccCompilationContext.getSystemIncludeDirs(),
           ccCompilationContext.getFrameworkIncludeDirs(),
           ccCompilationContext.getDefines(),
-          ccCompilationContext.getNonTransitiveDefines());
+          ccCompilationContext.getNonTransitiveDefines(),
+          ccCompilationContext.getExternalIncludeDirs());
 
       if (usePrebuiltParent) {
         parent = buildVariables.build();
@@ -963,7 +962,9 @@ public final class CcStaticCompilationHelper {
         builder.getDotdFile(),
         builder.getDiagnosticsFile(),
         usePic,
-        ccCompilationContext.getExternalIncludeDirs(),
+        featureConfiguration,
+        cppModuleMap,
+        ccCompilationContext.getDirectModuleMaps(),
         additionalBuildVariables);
     return buildVariables.build();
   }
