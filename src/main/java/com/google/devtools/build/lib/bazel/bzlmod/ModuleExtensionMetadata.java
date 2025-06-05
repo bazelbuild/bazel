@@ -28,16 +28,22 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
+import io.sweers.autotransient.AutoTransient;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFloat;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -57,7 +63,8 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
           /* explicitRootModuleDirectDeps= */ null,
           /* explicitRootModuleDirectDevDeps= */ null,
           UseAllRepos.NO,
-          /* reproducible= */ true);
+          /* reproducible= */ true,
+          /* facts= */ null);
 
   @Nullable
   abstract ImmutableSet<String> getExplicitRootModuleDirectDeps();
@@ -69,11 +76,16 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
 
   abstract boolean getReproducible();
 
+  @AutoTransient
+  @Nullable
+  abstract Object getFacts();
+
   private static ModuleExtensionMetadata create(
       @Nullable Set<String> explicitRootModuleDirectDeps,
       @Nullable Set<String> explicitRootModuleDirectDevDeps,
       UseAllRepos useAllRepos,
-      boolean reproducible) {
+      boolean reproducible,
+      Object facts) {
     return new AutoValue_ModuleExtensionMetadata(
         explicitRootModuleDirectDeps != null
             ? ImmutableSet.copyOf(explicitRootModuleDirectDeps)
@@ -82,29 +94,33 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
             ? ImmutableSet.copyOf(explicitRootModuleDirectDevDeps)
             : null,
         useAllRepos,
-        reproducible);
+        reproducible,
+        facts == Starlark.NONE ? null : facts);
   }
 
   static ModuleExtensionMetadata create(
       Object rootModuleDirectDepsUnchecked,
       Object rootModuleDirectDevDepsUnchecked,
-      boolean reproducible)
+      boolean reproducible,
+      Object facts)
       throws EvalException {
+    facts = validateAndNormalizeFacts(facts);
+
     if (rootModuleDirectDepsUnchecked == Starlark.NONE
         && rootModuleDirectDevDepsUnchecked == Starlark.NONE) {
-      return create(null, null, UseAllRepos.NO, reproducible);
+      return create(null, null, UseAllRepos.NO, reproducible, facts);
     }
 
     // When root_module_direct_deps = "all", accept both root_module_direct_dev_deps = None and
     // root_module_direct_dev_deps = [], but not root_module_direct_dev_deps = ["some_repo"].
     if (rootModuleDirectDepsUnchecked.equals("all")
         && rootModuleDirectDevDepsUnchecked.equals(StarlarkList.immutableOf())) {
-      return create(null, null, UseAllRepos.REGULAR, reproducible);
+      return create(null, null, UseAllRepos.REGULAR, reproducible, facts);
     }
 
     if (rootModuleDirectDevDepsUnchecked.equals("all")
         && rootModuleDirectDepsUnchecked.equals(StarlarkList.immutableOf())) {
-      return create(null, null, UseAllRepos.DEV, reproducible);
+      return create(null, null, UseAllRepos.DEV, reproducible, facts);
     }
 
     if (rootModuleDirectDepsUnchecked.equals("all")
@@ -166,7 +182,8 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
         explicitRootModuleDirectDeps,
         explicitRootModuleDirectDevDeps,
         UseAllRepos.NO,
-        reproducible);
+        reproducible,
+        facts);
   }
 
   public Optional<RootModuleFileFixup> generateFixup(
@@ -375,6 +392,52 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
       }
       case REGULAR -> Optional.of(ImmutableSet.of());
       case DEV -> Optional.of(ImmutableSet.copyOf(allRepos));
+    };
+  }
+
+  // This limit only exists to prevent pathological uses of facts, which are meant to be
+  // human-readable and friendly to VCS merges.
+  private static final int MAX_FACTS_DEPTH = 5;
+
+  private static Object validateAndNormalizeFacts(Object facts) throws EvalException {
+    return validateAndNormalizeFacts(facts, MAX_FACTS_DEPTH);
+  }
+
+  private static Object validateAndNormalizeFacts(Object facts, int remainingDepth)
+      throws EvalException {
+    if (remainingDepth == 0) {
+      throw Starlark.errorf("Facts cannot be nested more than %s levels deep", MAX_FACTS_DEPTH);
+    }
+    // Only permit types that can be serialized to JSON and ensure that they contain no information
+    // not captured by equality by sorting dicts.
+    return switch (facts) {
+      case String s -> s;
+      case NoneType n -> n;
+      case Boolean b -> b;
+      case StarlarkFloat f -> f;
+      case StarlarkInt i -> i;
+      case StarlarkList<?> list -> {
+        Object[] normalizedList = new Object[list.size()];
+        for (int i = 0; i < list.size(); i++) {
+          normalizedList[i] = validateAndNormalizeFacts(list.get(i), remainingDepth - 1);
+        }
+        yield StarlarkList.immutableOf(normalizedList);
+      }
+      case Dict<?, ?> dict -> {
+        var builder = new TreeMap<String, Object>();
+        for (var entry : dict.entrySet()) {
+          if (!(entry.getKey() instanceof String string)) {
+            throw Starlark.errorf(
+                "Facts keys must be strings, got '%s' (%s)",
+                Starlark.repr(entry), Starlark.type(entry.getKey()));
+          }
+          builder.put(string, validateAndNormalizeFacts(entry.getValue(), remainingDepth - 1));
+        }
+        yield Dict.immutableCopyOf(builder);
+      }
+      default ->
+          throw Starlark.errorf(
+              "'%s' (%s) is not supported in facts", Starlark.repr(facts), Starlark.type(facts));
     };
   }
 

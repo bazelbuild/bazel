@@ -132,6 +132,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:flogger",
         "//third_party:guava",
     ],
@@ -453,6 +454,7 @@ java_library(
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@maven//:io_sweers_autotransient_autotransient",
     ],
 )
 
