@@ -551,189 +551,6 @@ public final class CcStaticCompilationHelper {
     return result.build();
   }
 
-  private static Artifact createCompileActionTemplate(
-      ActionConstructionContext actionConstructionContext,
-      CcCompilationContext ccCompilationContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfigurationValue configuration,
-      ImmutableList<String> conlyopts,
-      ImmutableList<String> copts,
-      CppConfiguration cppConfiguration,
-      ImmutableList<String> cxxopts,
-      FdoContext fdoContext,
-      NestedSet<Artifact> auxiliaryFdoInputs,
-      FeatureConfiguration featureConfiguration,
-      Label label,
-      CcToolchainVariables commonToolchainVariables,
-      ImmutableMap<String, String> fdoBuildVariables,
-      RuleErrorConsumer ruleErrorConsumer,
-      CppSemantics semantics,
-      CppSource source,
-      String outputName,
-      CppCompileActionBuilder builder,
-      CcCompilationOutputs.Builder result,
-      ImmutableList<ArtifactCategory> outputCategories,
-      boolean usePic,
-      boolean bitcodeOutput)
-      throws RuleErrorException, EvalException {
-    if (usePic) {
-      builder = new CppCompileActionBuilder(builder).setPicMode(true);
-    }
-    SpecialArtifact sourceArtifact = (SpecialArtifact) source.getSource();
-    SpecialArtifact outputFiles =
-        CppHelper.getCompileOutputTreeArtifact(
-            actionConstructionContext, label, sourceArtifact, outputName, usePic);
-    // Dotd and dia file outputs are specified in the execution phase.
-    builder.setOutputs(outputFiles, /* dotdFile= */ null, /* diagnosticsFile= */ null);
-    builder.setVariables(
-        setupSpecificCompileBuildVariables(
-            commonToolchainVariables,
-            ccCompilationContext,
-            conlyopts,
-            copts,
-            cppConfiguration,
-            cxxopts,
-            fdoContext,
-            auxiliaryFdoInputs,
-            featureConfiguration,
-            semantics,
-            builder,
-            /* sourceLabel= */ null,
-            usePic,
-            /* needsFdoBuildVariables= */ false,
-            fdoBuildVariables,
-            ccCompilationContext.getCppModuleMap(),
-            /* enableCoverage= */ false,
-            /* gcnoFile= */ null,
-            /* isUsingFission= */ false,
-            /* dwoFile= */ null,
-            /* ltoIndexingFile= */ null,
-            /* additionalBuildVariables= */ ImmutableMap.of()));
-    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
-    // Make sure this builder doesn't reference ruleContext outside of analysis phase.
-    SpecialArtifact dotdTreeArtifact = null;
-    if (builder.dotdFilesEnabled()) {
-      dotdTreeArtifact =
-          CppHelper.getDotdOutputTreeArtifact(
-              actionConstructionContext, label, sourceArtifact, outputName, usePic);
-    }
-    SpecialArtifact diagnosticsTreeArtifact = null;
-    if (builder.serializedDiagnosticsFilesEnabled()) {
-      diagnosticsTreeArtifact =
-          CppHelper.getDiagnosticsOutputTreeArtifact(
-              actionConstructionContext, label, sourceArtifact, outputName, usePic);
-    }
-
-    // Currently we do not generate minimized bitcode files for tree artifacts because of issues
-    // with the indexing step.
-    // If ltoIndexTreeArtifact is set to a tree artifact, the minimized bitcode files will be
-    // properly generated and will be an input to the indexing step. However, the lto indexing step
-    // fails. The indexing step finds the full bitcode file by replacing the suffix of the
-    // minimized bitcode file, therefore they have to be in the same directory.
-    // Since the files are in the same directory, the command line artifact expander expands the
-    // tree artifact to both the minimized bitcode files and the full bitcode files, causing an
-    // error that functions are defined twice.
-    // TODO(b/289071777): support for minimized bitcode files.
-    SpecialArtifact ltoIndexTreeArtifact = null;
-
-    if (bitcodeOutput) {
-      Label sourceLabel = source.getLabel();
-      result.addLtoBitcodeFile(
-          outputFiles,
-          ltoIndexTreeArtifact,
-          getCopts(
-              conlyopts, copts, cppConfiguration, cxxopts, semantics, sourceArtifact, sourceLabel));
-    }
-
-    ActionOwner actionOwner = null;
-    if (actionConstructionContext instanceof RuleContext ruleContext
-        && ruleContext.useAutoExecGroups()) {
-      actionOwner =
-          actionConstructionContext.getActionOwner(semantics.getCppToolchainType().toString());
-    }
-    try {
-      CppCompileActionTemplate actionTemplate =
-          new CppCompileActionTemplate(
-              sourceArtifact,
-              outputFiles,
-              dotdTreeArtifact,
-              diagnosticsTreeArtifact,
-              ltoIndexTreeArtifact,
-              builder,
-              ccToolchain,
-              outputCategories,
-              actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner);
-      actionConstructionContext.registerAction(actionTemplate);
-    } catch (EvalException e) {
-      throw new RuleErrorException(e.getMessage());
-    }
-
-    return outputFiles;
-  }
-
-  /**
-   * Return flags that were specified on the Blaze command line. Take the filetype of sourceFilename
-   * into account.
-   */
-  public static ImmutableList<String> getCoptsFromOptions(
-      CppConfiguration config, CppSemantics semantics, String sourceFilename) {
-    ImmutableList.Builder<String> flagsBuilder = ImmutableList.builder();
-
-    flagsBuilder.addAll(config.getCopts());
-
-    if (CppFileTypes.C_SOURCE.matches(sourceFilename)) {
-      flagsBuilder.addAll(config.getConlyopts());
-    }
-
-    if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
-        || CppFileTypes.CPP_HEADER.matches(sourceFilename)
-        || CppFileTypes.CPP_MODULE_MAP.matches(sourceFilename)
-        || CppFileTypes.OBJCPP_SOURCE.matches(sourceFilename)
-        || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFilename)) {
-      flagsBuilder.addAll(config.getCxxopts());
-    }
-
-    if (CppFileTypes.OBJC_SOURCE.matches(sourceFilename)
-        || CppFileTypes.OBJCPP_SOURCE.matches(sourceFilename)
-        || (CppFileTypes.CPP_HEADER.matches(sourceFilename)
-            && semantics.language() == Language.OBJC)) {
-      flagsBuilder.addAll(config.getObjcopts());
-    }
-
-    return flagsBuilder.build();
-  }
-
-  private static ImmutableList<String> getCopts(
-      ImmutableList<String> conlyopts,
-      ImmutableList<String> copts,
-      CppConfiguration cppConfiguration,
-      ImmutableList<String> cxxopts,
-      CppSemantics semantics,
-      Artifact sourceFile,
-      Label sourceLabel) {
-    ImmutableList.Builder<String> coptsList = ImmutableList.builder();
-    String sourceFilename = sourceFile.getExecPathString();
-    coptsList.addAll(getCoptsFromOptions(cppConfiguration, semantics, sourceFilename));
-    coptsList.addAll(copts);
-
-    if (CppFileTypes.C_SOURCE.matches(sourceFilename)) {
-      coptsList.addAll(conlyopts);
-    }
-
-    if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
-        || CppFileTypes.CPP_HEADER.matches(sourceFilename)
-        || CppFileTypes.CPP_MODULE_MAP.matches(sourceFilename)
-        || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFilename)
-        || CppFileTypes.OBJCPP_SOURCE.matches(sourceFilename)) {
-      coptsList.addAll(cxxopts);
-    }
-
-    if (sourceFile != null && sourceLabel != null) {
-      coptsList.addAll(collectPerFileCopts(cppConfiguration, sourceFile, sourceLabel));
-    }
-    return coptsList.build();
-  }
-
   // Methods setting up compile build variables:
 
   private static CcToolchainVariables setupCommonCompileBuildVariables(
@@ -1028,6 +845,126 @@ public final class CcStaticCompilationHelper {
   }
 
   // Methods creating actions:
+
+  private static Artifact createCompileActionTemplate(
+      ActionConstructionContext actionConstructionContext,
+      CcCompilationContext ccCompilationContext,
+      CcToolchainProvider ccToolchain,
+      BuildConfigurationValue configuration,
+      ImmutableList<String> conlyopts,
+      ImmutableList<String> copts,
+      CppConfiguration cppConfiguration,
+      ImmutableList<String> cxxopts,
+      FdoContext fdoContext,
+      NestedSet<Artifact> auxiliaryFdoInputs,
+      FeatureConfiguration featureConfiguration,
+      Label label,
+      CcToolchainVariables commonToolchainVariables,
+      ImmutableMap<String, String> fdoBuildVariables,
+      RuleErrorConsumer ruleErrorConsumer,
+      CppSemantics semantics,
+      CppSource source,
+      String outputName,
+      CppCompileActionBuilder builder,
+      CcCompilationOutputs.Builder result,
+      ImmutableList<ArtifactCategory> outputCategories,
+      boolean usePic,
+      boolean bitcodeOutput)
+      throws RuleErrorException, EvalException {
+    if (usePic) {
+      builder = new CppCompileActionBuilder(builder).setPicMode(true);
+    }
+    SpecialArtifact sourceArtifact = (SpecialArtifact) source.getSource();
+    SpecialArtifact outputFiles =
+        CppHelper.getCompileOutputTreeArtifact(
+            actionConstructionContext, label, sourceArtifact, outputName, usePic);
+    // Dotd and dia file outputs are specified in the execution phase.
+    builder.setOutputs(outputFiles, /* dotdFile= */ null, /* diagnosticsFile= */ null);
+    builder.setVariables(
+        setupSpecificCompileBuildVariables(
+            commonToolchainVariables,
+            ccCompilationContext,
+            conlyopts,
+            copts,
+            cppConfiguration,
+            cxxopts,
+            fdoContext,
+            auxiliaryFdoInputs,
+            featureConfiguration,
+            semantics,
+            builder,
+            /* sourceLabel= */ null,
+            usePic,
+            /* needsFdoBuildVariables= */ false,
+            fdoBuildVariables,
+            ccCompilationContext.getCppModuleMap(),
+            /* enableCoverage= */ false,
+            /* gcnoFile= */ null,
+            /* isUsingFission= */ false,
+            /* dwoFile= */ null,
+            /* ltoIndexingFile= */ null,
+            /* additionalBuildVariables= */ ImmutableMap.of()));
+    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
+    // Make sure this builder doesn't reference ruleContext outside of analysis phase.
+    SpecialArtifact dotdTreeArtifact = null;
+    if (builder.dotdFilesEnabled()) {
+      dotdTreeArtifact =
+          CppHelper.getDotdOutputTreeArtifact(
+              actionConstructionContext, label, sourceArtifact, outputName, usePic);
+    }
+    SpecialArtifact diagnosticsTreeArtifact = null;
+    if (builder.serializedDiagnosticsFilesEnabled()) {
+      diagnosticsTreeArtifact =
+          CppHelper.getDiagnosticsOutputTreeArtifact(
+              actionConstructionContext, label, sourceArtifact, outputName, usePic);
+    }
+
+    // Currently we do not generate minimized bitcode files for tree artifacts because of issues
+    // with the indexing step.
+    // If ltoIndexTreeArtifact is set to a tree artifact, the minimized bitcode files will be
+    // properly generated and will be an input to the indexing step. However, the lto indexing step
+    // fails. The indexing step finds the full bitcode file by replacing the suffix of the
+    // minimized bitcode file, therefore they have to be in the same directory.
+    // Since the files are in the same directory, the command line artifact expander expands the
+    // tree artifact to both the minimized bitcode files and the full bitcode files, causing an
+    // error that functions are defined twice.
+    // TODO(b/289071777): support for minimized bitcode files.
+    SpecialArtifact ltoIndexTreeArtifact = null;
+
+    if (bitcodeOutput) {
+      Label sourceLabel = source.getLabel();
+      result.addLtoBitcodeFile(
+          outputFiles,
+          ltoIndexTreeArtifact,
+          getCopts(
+              conlyopts, copts, cppConfiguration, cxxopts, semantics, sourceArtifact, sourceLabel));
+    }
+
+    ActionOwner actionOwner = null;
+    if (actionConstructionContext instanceof RuleContext ruleContext
+        && ruleContext.useAutoExecGroups()) {
+      actionOwner =
+          actionConstructionContext.getActionOwner(semantics.getCppToolchainType().toString());
+    }
+    try {
+      CppCompileActionTemplate actionTemplate =
+          new CppCompileActionTemplate(
+              sourceArtifact,
+              outputFiles,
+              dotdTreeArtifact,
+              diagnosticsTreeArtifact,
+              ltoIndexTreeArtifact,
+              builder,
+              ccToolchain,
+              outputCategories,
+              actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner);
+      actionConstructionContext.registerAction(actionTemplate);
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
+    }
+
+    return outputFiles;
+  }
 
   private static void createModuleCodegenAction(
       ActionConstructionContext actionConstructionContext,
@@ -1670,6 +1607,8 @@ public final class CcStaticCompilationHelper {
     return ImmutableList.of(dAction.getPrimaryOutput(), sdAction.getPrimaryOutput());
   }
 
+  // Helper methods used when creating actions:
+
   private static String getOutputNameBaseWith(
       CcToolchainProvider ccToolchain, String base, boolean usePic) throws RuleErrorException {
     return usePic
@@ -1709,5 +1648,68 @@ public final class CcStaticCompilationHelper {
     String ext = Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions());
     return actionConstructionContext.getRelatedArtifact(
         outputFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()), ext);
+  }
+
+  /**
+   * Return flags that were specified on the Blaze command line. Take the filetype of sourceFilename
+   * into account.
+   */
+  public static ImmutableList<String> getCoptsFromOptions(
+      CppConfiguration config, CppSemantics semantics, String sourceFilename) {
+    ImmutableList.Builder<String> flagsBuilder = ImmutableList.builder();
+
+    flagsBuilder.addAll(config.getCopts());
+
+    if (CppFileTypes.C_SOURCE.matches(sourceFilename)) {
+      flagsBuilder.addAll(config.getConlyopts());
+    }
+
+    if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
+        || CppFileTypes.CPP_HEADER.matches(sourceFilename)
+        || CppFileTypes.CPP_MODULE_MAP.matches(sourceFilename)
+        || CppFileTypes.OBJCPP_SOURCE.matches(sourceFilename)
+        || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFilename)) {
+      flagsBuilder.addAll(config.getCxxopts());
+    }
+
+    if (CppFileTypes.OBJC_SOURCE.matches(sourceFilename)
+        || CppFileTypes.OBJCPP_SOURCE.matches(sourceFilename)
+        || (CppFileTypes.CPP_HEADER.matches(sourceFilename)
+            && semantics.language() == Language.OBJC)) {
+      flagsBuilder.addAll(config.getObjcopts());
+    }
+
+    return flagsBuilder.build();
+  }
+
+  private static ImmutableList<String> getCopts(
+      ImmutableList<String> conlyopts,
+      ImmutableList<String> copts,
+      CppConfiguration cppConfiguration,
+      ImmutableList<String> cxxopts,
+      CppSemantics semantics,
+      Artifact sourceFile,
+      Label sourceLabel) {
+    ImmutableList.Builder<String> coptsList = ImmutableList.builder();
+    String sourceFilename = sourceFile.getExecPathString();
+    coptsList.addAll(getCoptsFromOptions(cppConfiguration, semantics, sourceFilename));
+    coptsList.addAll(copts);
+
+    if (CppFileTypes.C_SOURCE.matches(sourceFilename)) {
+      coptsList.addAll(conlyopts);
+    }
+
+    if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
+        || CppFileTypes.CPP_HEADER.matches(sourceFilename)
+        || CppFileTypes.CPP_MODULE_MAP.matches(sourceFilename)
+        || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFilename)
+        || CppFileTypes.OBJCPP_SOURCE.matches(sourceFilename)) {
+      coptsList.addAll(cxxopts);
+    }
+
+    if (sourceFile != null && sourceLabel != null) {
+      coptsList.addAll(collectPerFileCopts(cppConfiguration, sourceFile, sourceLabel));
+    }
+    return coptsList.build();
   }
 }
