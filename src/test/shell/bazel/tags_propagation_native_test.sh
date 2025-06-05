@@ -162,6 +162,33 @@ EOF
   assert_contains_n "no-remote:" 4 output1
 }
 
+function test_java_test_tags_propagated() {
+  add_rules_java "MODULE.bazel"
+  mkdir -p test
+  cat > test/BUILD <<EOF
+load("@rules_java//java:java_test.bzl", "java_test")
+
+package(default_visibility = ["//visibility:public"])
+java_test(
+  name = "test",
+  srcs = [ "Tests.java" ],
+  test_class = "Tests",
+  tags = ["no-cache", "no-remote", "local"],
+  resources = ["resource.txt"],
+)
+EOF
+  touch test/Tests.java
+  touch test/resource.txt
+
+  bazel aquery --incompatible_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
+      || fail "should have generated output successfully"
+
+  assert_contains_n "Command Line:" 6 output1
+  assert_contains_n "local:" 6 output1
+  assert_contains_n "no-cache:" 6 output1
+  assert_contains_n "no-remote:" 6 output1
+}
+
 function write_hello_library_files() {
   add_rules_java "MODULE.bazel"
   local -r pkg="$1"
