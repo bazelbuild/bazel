@@ -696,21 +696,10 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       return;
     }
 
-    if (semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
-      // If Bzlmod is enabled, we use canonical label literal syntax here and prepend an extra '@'.
-      // So the result looks like "@@//foo:bar" for the main repo and "@@foo+//bar:quux" for
-      // other repos.
-      printer.append(getUnambiguousCanonicalForm());
-      return;
-    }
-    // If Bzlmod is not enabled, we just use a single '@'.
-    // So the result looks like "@//foo:bar" for the main repo and "@foo//bar:quux" for other repos.
-    printer.append(
-        String.format(
-            "@%s//%s:%s",
-            packageIdentifier.getRepository().getName(),
-            packageIdentifier.getPackageFragment(),
-            name));
+    // Otherwise, we use canonical label literal syntax here and prepend an extra '@'.
+    // So the result looks like "@@//foo:bar" for the main repo and "@@foo+//bar:quux" for
+    // other repos.
+    printer.append(getUnambiguousCanonicalForm());
   }
 
   @Override

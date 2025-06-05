@@ -190,8 +190,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       return null;
     }
 
-    if (autoloadSymbols.isEnabled()
-        && starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
+    if (autoloadSymbols.isEnabled()) {
       // We can't do autoloads where the rules are implemented (disabling them when running in
       // main repository named rules_python)
       ModuleFileValue rootModule =
@@ -252,8 +251,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       }
       autoBzlLoadValues = autoBzlLoadValuesBuilder.buildOrThrow();
     } catch (BzlLoadFailedException ex) {
-      throw BuiltinsFailedException.errorEvaluatingAutoloadedBzls(
-          ex, starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD));
+      throw BuiltinsFailedException.errorEvaluatingAutoloadedBzls(ex, /* bzlmodEnabled= */ true);
     }
     if (env.valuesMissing()) {
       return null;

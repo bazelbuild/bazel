@@ -189,7 +189,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                       isFetch,
                       ImmutableMap::of,
                       directories,
-                      EXTERNAL_PACKAGE_HELPER,
                       repositoryCache.getRepoContentsCache()))
               .put(
                   SkyFunctions.BAZEL_LOCK_FILE,

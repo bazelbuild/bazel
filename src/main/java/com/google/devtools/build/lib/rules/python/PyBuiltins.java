@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
@@ -70,11 +69,7 @@ public abstract class PyBuiltins implements StarlarkValue {
         @Param(name = "ctx", positional = true, named = true, defaultValue = "unbound")
       })
   public boolean isBzlmodEnabled(StarlarkRuleContext starlarkCtx) {
-    return starlarkCtx
-        .getRuleContext()
-        .getAnalysisEnvironment()
-        .getStarlarkSemantics()
-        .getBool(BuildLanguageOptions.ENABLE_BZLMOD);
+    return true;
   }
 
   @StarlarkMethod(

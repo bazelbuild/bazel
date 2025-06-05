@@ -32,11 +32,9 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleFormatter;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.NeverUpToDateRepoRecordedInput;
@@ -97,7 +95,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   // command is a fetch. Remote repository lookups are only allowed during fetches.
   private final AtomicBoolean isFetch;
   private final BlazeDirectories directories;
-  private final ExternalPackageHelper externalPackageHelper;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
   private final RepoContentsCache repoContentsCache;
 
@@ -106,13 +103,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       AtomicBoolean isFetch,
       Supplier<Map<String, String>> clientEnvironmentSupplier,
       BlazeDirectories directories,
-      ExternalPackageHelper externalPackageHelper,
       RepoContentsCache repoContentsCache) {
     this.starlarkHandler = starlarkHandler;
     this.isFetch = isFetch;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
     this.directories = directories;
-    this.externalPackageHelper = externalPackageHelper;
     this.repoContentsCache = repoContentsCache;
   }
 
@@ -127,20 +122,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
     if (!repositoryName.isVisible()) {
-      String workspaceDeprecationMsg =
-          externalPackageHelper.getWorkspaceDeprecationErrorMessage(
-              env,
-              starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE),
-              repositoryName.isContextRepoMainRepo());
-      if (env.valuesMissing()) {
-        return null;
-      }
       return new RepositoryDirectoryValue.Failure(
           String.format(
-              "No repository visible as '@%s' from %s%s",
-              repositoryName.getName(),
-              repositoryName.getContextRepoDisplayString(),
-              workspaceDeprecationMsg));
+              "No repository visible as '@%s' from %s",
+              repositoryName.getName(), repositoryName.getContextRepoDisplayString()));
     }
 
     try (SilentCloseable c =

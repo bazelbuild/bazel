@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
@@ -189,7 +188,6 @@ public abstract class AnalysisMock extends LoadingMock {
                 new AtomicBoolean(true),
                 ImmutableMap::of,
                 directories,
-                BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
                 new RepoContentsCache()))
         .put(
             SkyFunctions.MODULE_FILE,

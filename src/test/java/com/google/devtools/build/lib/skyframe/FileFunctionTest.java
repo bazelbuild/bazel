@@ -191,7 +191,6 @@ public class FileFunctionTest {
                         new AtomicBoolean(true),
                         ImmutableMap::of,
                         directories,
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
                         new RepoContentsCache()))
                 .put(
                     SkyFunctions.REPOSITORY_MAPPING,

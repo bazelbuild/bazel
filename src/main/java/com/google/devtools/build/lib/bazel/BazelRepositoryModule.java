@@ -93,7 +93,6 @@ import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
@@ -220,7 +219,6 @@ public class BazelRepositoryModule extends BlazeModule {
             isFetch,
             clientEnvironmentSupplier,
             directories,
-            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
             repositoryCache.getRepoContentsCache());
     singleExtensionEvalFunction =
         new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier);

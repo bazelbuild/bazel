@@ -183,7 +183,6 @@ public class DiscoveryTest extends FoundationTestCase {
                         new AtomicBoolean(true),
                         ImmutableMap::of,
                         directories,
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
                         new RepoContentsCache()))
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,

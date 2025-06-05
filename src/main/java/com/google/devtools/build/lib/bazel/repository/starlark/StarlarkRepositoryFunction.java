@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -359,10 +358,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       // Otherwise, we can just create an empty REPO.bazel file.
       try {
         FileSystemUtils.createEmptyFile(outputDirectory.getRelative(LabelConstants.REPO_FILE_NAME));
-        if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
-          FileSystemUtils.createEmptyFile(
-              outputDirectory.getRelative(LabelConstants.WORKSPACE_FILE_NAME));
-        }
       } catch (IOException e) {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }

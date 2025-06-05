@@ -127,7 +127,6 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
             new AtomicBoolean(true),
             ImmutableMap::of,
             directories,
-            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
             new RepoContentsCache()));
     skyFunctions.put(
         SkyFunctions.REPOSITORY_MAPPING,

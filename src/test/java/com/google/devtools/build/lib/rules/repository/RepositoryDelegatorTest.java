@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
@@ -131,7 +130,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             /* isFetch= */ new AtomicBoolean(true),
             /* clientEnvironmentSupplier= */ ImmutableMap::of,
             directories,
-            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
             new RepoContentsCache());
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(
@@ -405,8 +403,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     assertThat(repositoryDirectoryValue).isInstanceOf(Failure.class);
     assertThat(((Failure) repositoryDirectoryValue).getErrorMsg())
         .contains("No repository visible as '@foo' from repository '@@fake_owner_repo'");
-    assertThat(((Failure) repositoryDirectoryValue).getErrorMsg())
-        .doesNotContain(ExternalPackageHelper.WORKSPACE_DEPRECATION);
   }
 
   @Test
@@ -431,7 +427,5 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     assertThat(repositoryDirectoryValue).isInstanceOf(Failure.class);
     assertThat(((Failure) repositoryDirectoryValue).getErrorMsg())
         .contains("No repository visible as '@foo' from main repository");
-    assertThat(((Failure) repositoryDirectoryValue).getErrorMsg())
-        .contains(ExternalPackageHelper.WORKSPACE_DEPRECATION);
   }
 }
