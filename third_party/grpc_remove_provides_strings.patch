@@ -1,0 +1,62 @@
+commit ed7916161a405b0e01aa7c39494c7dd536264ea4
+Author: gRPC Team Bot <grpc-github-bot@google.com>
+Date:   Thu Apr 24 10:26:47 2025 -0700
+
+    Remove strings from providers list
+    
+    More information on: https://github.com/bazelbuild/bazel/issues/25836
+    
+    Strings used to refer to legacy struct providers, which were removed in a previous LSC.
+    
+    Legacy struct providers have been deprecated by Bazel. Replacing them with modern providers, will make it possible to simplify and remove legacy handling from Bazel.
+    
+    The change is a no-op.
+    
+    PiperOrigin-RevId: 751043453
+
+diff --git a/bazel/generate_cc.bzl b/bazel/generate_cc.bzl
+index d1e9d0edff..ee44332d14 100644
+--- a/bazel/generate_cc.bzl
++++ b/bazel/generate_cc.bzl
+@@ -192,7 +192,6 @@ _generate_cc = rule(
+         ),
+         "plugin": attr.label(
+             executable = True,
+-            providers = ["files_to_run"],
+             cfg = "exec",
+         ),
+         "flags": attr.string_list(
+diff --git a/bazel/python_rules.bzl b/bazel/python_rules.bzl
+index 8a34b14988..e6cf84dca2 100644
+--- a/bazel/python_rules.bzl
++++ b/bazel/python_rules.bzl
+@@ -114,7 +114,6 @@ _gen_py_aspect = aspect(
+     attrs = {
+         "_protoc": attr.label(
+             default = Label("@com_google_protobuf//:protoc"),
+-            providers = ["files_to_run"],
+             executable = True,
+             cfg = "exec",
+         ),
+@@ -170,7 +169,6 @@ _py_proto_library = rule(
+         ),
+         "_protoc": attr.label(
+             default = Label("@com_google_protobuf//:protoc"),
+-            providers = ["files_to_run"],
+             executable = True,
+             cfg = "exec",
+         ),
+@@ -287,13 +285,11 @@ _generate_pb2_grpc_src = rule(
+         "strip_prefixes": attr.string_list(),
+         "_grpc_plugin": attr.label(
+             executable = True,
+-            providers = ["files_to_run"],
+             cfg = "exec",
+             default = Label("//src/compiler:grpc_python_plugin"),
+         ),
+         "_protoc": attr.label(
+             executable = True,
+-            providers = ["files_to_run"],
+             cfg = "exec",
+             default = Label("@com_google_protobuf//:protoc"),
+         ),

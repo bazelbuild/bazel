@@ -1339,10 +1339,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
         foobar = rule(implementation = rule_impl)
         main_rule = rule(implementation = rule_impl, attrs = {
-            'deps': attr.label_list(providers = [
-                'files', 'data_runfiles', 'default_runfiles',
-                'files_to_run', 'output_groups',
-            ])
+            'deps': attr.label_list(providers = [DefaultInfo, OutputGroupInfo])
         })
         """);
     scratch.file(

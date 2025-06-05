@@ -1709,9 +1709,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
     assertThat(expected)
         .hasMessageThat()
-        .contains(
-            "element in 'provides' is of unexpected type. "
-                + "Should be list of providers, but got item of type int");
+        .contains("Error in rule: at index 0 of provides, got element of type int, want Provider");
   }
 
   @Test
