@@ -103,20 +103,6 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         reportedToActualSources);
   }
 
-  /**
-   * Returns a {@link InstrumentedFilesInfo} for the rule defined by the given rule context and
-   * various named parameters that define the "instrumentation specification" of the rule. For
-   * example, the instrumented sources are determined given the values of the attributes named in
-   * {@code sourceAttributes} given by the {@code ruleContext}.
-   *
-   * @param ruleContext the rule context
-   * @param sourceAttributes a list of attribute names which contain source files for the rule
-   * @param dependencyAttributes a list of attribute names which contain dependencies that might
-   *     propagate instances of {@link InstrumentedFilesInfo}
-   * @param extensions file extensions used to filter files from source_attributes. If null, all
-   *     files on the source attributes will be treated as instrumented. Otherwise, only files with
-   *     extensions listed in {@code extensions} will be used
-   */
   private static InstrumentedFilesInfo createInstrumentedFilesInfo(
       RuleContext ruleContext,
       List<String> sourceAttributes,

@@ -910,7 +910,6 @@ public class TestAspects {
       new AspectDefinition.Builder(FALSE_ADVERTISEMENT_ASPECT)
           .advertiseProvider(
               ImmutableList.of(
-                  StarlarkProviderIdentifier.forLegacy("advertised_provider"),
                   StarlarkProviderIdentifier.forKey(REQUIRED_PROVIDER_KEY)))
           .build();
 

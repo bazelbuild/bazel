@@ -897,9 +897,6 @@ public class AspectTest extends AnalysisTestCase {
     assertContainsEvent(
         "Aspect 'FalseAdvertisementAspect', applied to '//a:s',"
             + " does not provide advertised provider 'RequiredProvider'");
-    assertContainsEvent(
-        "Aspect 'FalseAdvertisementAspect', applied to '//a:s',"
-            + " does not provide advertised provider 'advertised_provider'");
   }
 
   @Test

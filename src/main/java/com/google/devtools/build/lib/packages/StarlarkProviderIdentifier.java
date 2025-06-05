@@ -33,20 +33,6 @@ public abstract class StarlarkProviderIdentifier {
     return interner.intern(new KeyedIdentifier(key));
   }
 
-  /** Creates an id for a provider with a given name. */
-  public static StarlarkProviderIdentifier forLegacy(String legacyId) {
-    return interner.intern(new LegacyIdentifier(legacyId));
-  }
-
-  /**
-   * Returns true if this {@link StarlarkProviderIdentifier} identifies a legacy provider (with a
-   * string name).
-   */
-  public abstract boolean isLegacy();
-
-  /** Returns a string identifying the provider (only for legacy providers). */
-  public abstract String getLegacyId();
-
   /** Returns a key identifying the declared provider (only for non-legacy providers). */
   public abstract Provider.Key getKey();
 
@@ -62,77 +48,11 @@ public abstract class StarlarkProviderIdentifier {
   public abstract String toString();
 
   @AutoCodec
-  static final class LegacyIdentifier extends StarlarkProviderIdentifier {
-    private final String legacyId;
-
-    private LegacyIdentifier(String legacyId) {
-      this.legacyId = legacyId;
-    }
-
-    @Override
-    public boolean isLegacy() {
-      return true;
-    }
-
-    @Override
-    public String getLegacyId() {
-      return legacyId;
-    }
-
-    @Override
-    public Provider.Key getKey() {
-      throw new IllegalStateException("Check !isLegacy() first");
-    }
-
-    @Override
-    void fingerprint(Fingerprint fp) {
-      fp.addBoolean(true);
-      fp.addString(legacyId);
-    }
-
-    @Override
-    public int hashCode() {
-      return legacyId.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (!(obj instanceof LegacyIdentifier)) {
-        return false;
-      }
-      return Objects.equals(legacyId, ((LegacyIdentifier) obj).legacyId);
-    }
-
-    @Override
-    public String toString() {
-      return legacyId;
-    }
-
-    @AutoCodec.Interner
-    static LegacyIdentifier intern(LegacyIdentifier id) {
-      return (LegacyIdentifier) interner.intern(id);
-    }
-  }
-
-  @AutoCodec
   static final class KeyedIdentifier extends StarlarkProviderIdentifier {
     private final Provider.Key key;
 
     private KeyedIdentifier(Provider.Key key) {
       this.key = key;
-    }
-
-    @Override
-    public boolean isLegacy() {
-      return false;
-    }
-
-    @Override
-    public String getLegacyId() {
-      throw new IllegalStateException("Check isLegacy() first");
     }
 
     @Override
