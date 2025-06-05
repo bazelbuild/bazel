@@ -16,12 +16,15 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import javax.annotation.Nullable;
 
 /** A {@link TransitiveInfoProvider} for configured targets that implement test rules. */
 @Immutable
@@ -54,15 +57,21 @@ public final class TestProvider implements TransitiveInfoProvider {
   /** A value class describing the properties of a test. */
   // Non-final only for mocking.
   public static class TestParams {
+    /** A value class describing the coverage-related properties of a test. */
+    @AutoCodec
+    record CoverageParams(
+        ImmutableList<Artifact> coverageArtifacts,
+        FilesToRunProvider coverageReportGenerator,
+        ActionOwner actionOwner) {}
+
     private final int runs;
     private final int shards;
     private final boolean runsDetectsFlakes;
     private final TestTimeout timeout;
     private final String testRuleClass;
     private final ImmutableList<Artifact.DerivedArtifact> testStatusArtifacts;
-    private final ImmutableList<Artifact> coverageArtifacts;
-    private final FilesToRunProvider coverageReportGenerator;
     private final ImmutableList<ActionInput> outputs;
+    @Nullable private final CoverageParams coverageParams;
 
     /**
      * Don't call this directly. Instead use {@link
@@ -75,18 +84,16 @@ public final class TestProvider implements TransitiveInfoProvider {
         TestTimeout timeout,
         String testRuleClass,
         ImmutableList<Artifact.DerivedArtifact> testStatusArtifacts,
-        ImmutableList<Artifact> coverageArtifacts,
-        FilesToRunProvider coverageReportGenerator,
-        ImmutableList<ActionInput> outputs) {
+        ImmutableList<ActionInput> outputs,
+        @Nullable CoverageParams coverageParams) {
       this.runs = runs;
       this.shards = shards;
       this.runsDetectsFlakes = runsDetectsFlakes;
       this.timeout = timeout;
       this.testRuleClass = testRuleClass;
       this.testStatusArtifacts = testStatusArtifacts;
-      this.coverageArtifacts = coverageArtifacts;
-      this.coverageReportGenerator = coverageReportGenerator;
       this.outputs = outputs;
+      this.coverageParams = coverageParams;
     }
 
     /** Returns the number of times this test should be run. */
@@ -122,19 +129,34 @@ public final class TestProvider implements TransitiveInfoProvider {
       return testStatusArtifacts;
     }
 
-    /** Returns the coverageArtifacts. */
-    public ImmutableList<Artifact> getCoverageArtifacts() {
-      return coverageArtifacts;
-    }
-
-    /** Returns the coverage report generator tool. */
-    public FilesToRunProvider getCoverageReportGenerator() {
-      return coverageReportGenerator;
-    }
-
     /** Returns the list of mandatory and optional test outputs. */
     public ImmutableList<ActionInput> getOutputs() {
       return outputs;
+    }
+
+    /** Returns the coverageArtifacts. */
+    public ImmutableList<Artifact> getCoverageArtifacts() {
+      return coverageParams != null ? coverageParams.coverageArtifacts() : ImmutableList.of();
+    }
+
+    /**
+     * Returns the coverage report generator tool.
+     *
+     * <p>Returns a non-null value if and only iff coverage is generally enabled.
+     */
+    @Nullable
+    public FilesToRunProvider getCoverageReportGenerator() {
+      return coverageParams != null ? coverageParams.coverageReportGenerator() : null;
+    }
+
+    /**
+     * Returns the test action owner.
+     *
+     * <p>Returns a non-null value if and only iff coverage is generally enabled.
+     */
+    @Nullable
+    public ActionOwner getActionOwnerForCoverage() {
+      return coverageParams != null ? coverageParams.actionOwner() : null;
     }
   }
 }
