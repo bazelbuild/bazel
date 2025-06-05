@@ -406,7 +406,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
   private static Object validateAndNormalizeFacts(Object facts, int remainingDepth)
       throws EvalException {
     if (remainingDepth == 0) {
-      throw Starlark.errorf("Facts are too deeply nested");
+      throw Starlark.errorf("Facts cannot be nested more than %s levels deep", MAX_FACTS_DEPTH);
     }
     // Only permit types that can be serialized to JSON and ensure that they contain no information
     // not captured by equality by sorting dicts.
@@ -416,7 +416,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
       case Boolean b -> b;
       case StarlarkFloat f -> f;
       case StarlarkInt i -> i;
-      case StarlarkList<?> list ->  {
+      case StarlarkList<?> list -> {
         Object[] normalizedList = new Object[list.size()];
         for (int i = 0; i < list.size(); i++) {
           normalizedList[i] = validateAndNormalizeFacts(list.get(i), remainingDepth - 1);
