@@ -71,7 +71,7 @@ public final class CcStaticCompilationHelper {
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
-      Map<String, String> variablesBuilder,
+      ImmutableMap.Builder<String, String> variablesBuilder,
       String fdoInstrument,
       String csFdoInstrument)
       throws EvalException {
@@ -187,13 +187,6 @@ public final class CcStaticCompilationHelper {
     }
 
     return auxiliaryInputs.build();
-  }
-
-  private static class CachedCcToolchainVariables {
-    private CcToolchainVariables prebuiltParent;
-    private CcToolchainVariables prebuiltParentWithFdo;
-
-    public CachedCcToolchainVariables() {}
   }
 
   /**
@@ -324,7 +317,31 @@ public final class CcStaticCompilationHelper {
       throws RuleErrorException, EvalException, InterruptedException {
     CcCompilationOutputs.Builder result = CcCompilationOutputs.builder();
     Preconditions.checkNotNull(ccCompilationContext);
-    CachedCcToolchainVariables cachedCcToolchainVariables = new CachedCcToolchainVariables();
+
+    if (generatePicAction
+        && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
+        && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
+      ruleErrorConsumer.ruleError(CcCommon.PIC_CONFIGURATION_ERROR);
+    }
+
+    CcToolchainVariables commonToolchainVariables =
+        setupCommonCompileBuildVariables(
+            ccCompilationContext,
+            ccToolchain,
+            cppConfiguration,
+            fdoContext,
+            featureConfiguration,
+            variablesExtensions);
+
+    ImmutableMap.Builder<String, String> fdoBuildVariablesBuilder = ImmutableMap.builder();
+    configureFdoBuildVariables(
+        ccToolchain,
+        fdoContext,
+        featureConfiguration,
+        fdoBuildVariablesBuilder,
+        cppConfiguration.getFdoInstrument(),
+        cppConfiguration.getCSFdoInstrument());
+    ImmutableMap<String, String> fdoBuildVariables = fdoBuildVariablesBuilder.buildOrThrow();
 
     if (shouldProvideHeaderModules(featureConfiguration, privateHeaders, publicHeaders)) {
       CppModuleMap cppModuleMap = ccCompilationContext.getCppModuleMap();
@@ -334,7 +351,6 @@ public final class CcStaticCompilationHelper {
               actionConstructionContext,
               ccCompilationContext,
               ccToolchain,
-              compilationUnitSources,
               configuration,
               conlyopts,
               copts,
@@ -347,10 +363,10 @@ public final class CcStaticCompilationHelper {
               generateNoPicAction,
               generatePicAction,
               label,
-              cachedCcToolchainVariables,
+              commonToolchainVariables,
+              fdoBuildVariables,
               ruleErrorConsumer,
               semantics,
-              variablesExtensions,
               result,
               cppModuleMap);
       ImmutableList<Artifact> separateModules = ImmutableList.of();
@@ -364,7 +380,6 @@ public final class CcStaticCompilationHelper {
                 actionConstructionContext,
                 ccCompilationContext,
                 ccToolchain,
-                compilationUnitSources,
                 configuration,
                 conlyopts,
                 copts,
@@ -377,10 +392,10 @@ public final class CcStaticCompilationHelper {
                 generateNoPicAction,
                 generatePicAction,
                 label,
-                cachedCcToolchainVariables,
+                commonToolchainVariables,
+                fdoBuildVariables,
                 ruleErrorConsumer,
                 semantics,
-                variablesExtensions,
                 result,
                 separateMap);
       }
@@ -392,7 +407,6 @@ public final class CcStaticCompilationHelper {
               actionConstructionContext,
               ccCompilationContext,
               ccToolchain,
-              compilationUnitSources,
               configuration,
               conlyopts,
               copts,
@@ -404,10 +418,10 @@ public final class CcStaticCompilationHelper {
               featureConfiguration,
               isCodeCoverageEnabled,
               label,
-              cachedCcToolchainVariables,
+              commonToolchainVariables,
+              fdoBuildVariables,
               ruleErrorConsumer,
               semantics,
-              variablesExtensions,
               result,
               moduleMapLabel,
               module);
@@ -467,7 +481,6 @@ public final class CcStaticCompilationHelper {
             actionConstructionContext,
             ccCompilationContext,
             ccToolchain,
-            compilationUnitSources,
             configuration,
             conlyopts,
             copts,
@@ -478,10 +491,10 @@ public final class CcStaticCompilationHelper {
             generateNoPicAction,
             generatePicAction,
             label,
-            cachedCcToolchainVariables,
+            commonToolchainVariables,
+            fdoBuildVariables,
             ruleErrorConsumer,
             semantics,
-            variablesExtensions,
             sourceLabel,
             outputName,
             result,
@@ -510,7 +523,6 @@ public final class CcStaticCompilationHelper {
                     actionConstructionContext,
                     ccCompilationContext,
                     ccToolchain,
-                    compilationUnitSources,
                     configuration,
                     conlyopts,
                     copts,
@@ -519,10 +531,10 @@ public final class CcStaticCompilationHelper {
                     fdoContext,
                     featureConfiguration,
                     label,
-                    cachedCcToolchainVariables,
+                    commonToolchainVariables,
+                    fdoBuildVariables,
                     ruleErrorConsumer,
                     semantics,
-                    variablesExtensions,
                     source,
                     outputName,
                     builder,
@@ -541,7 +553,6 @@ public final class CcStaticCompilationHelper {
                       actionConstructionContext,
                       ccCompilationContext,
                       ccToolchain,
-                      compilationUnitSources,
                       configuration,
                       conlyopts,
                       copts,
@@ -550,10 +561,10 @@ public final class CcStaticCompilationHelper {
                       fdoContext,
                       featureConfiguration,
                       label,
-                      cachedCcToolchainVariables,
+                      commonToolchainVariables,
+                      fdoBuildVariables,
                       ruleErrorConsumer,
                       semantics,
-                      variablesExtensions,
                       source,
                       outputName,
                       builder,
@@ -570,7 +581,6 @@ public final class CcStaticCompilationHelper {
                       actionConstructionContext,
                       ccCompilationContext,
                       ccToolchain,
-                      compilationUnitSources,
                       configuration,
                       conlyopts,
                       copts,
@@ -579,10 +589,10 @@ public final class CcStaticCompilationHelper {
                       fdoContext,
                       featureConfiguration,
                       label,
-                      cachedCcToolchainVariables,
+                      commonToolchainVariables,
+                      fdoBuildVariables,
                       ruleErrorConsumer,
                       semantics,
-                      variablesExtensions,
                       source,
                       outputName,
                       builder,
@@ -630,7 +640,6 @@ public final class CcStaticCompilationHelper {
           actionConstructionContext,
           ccCompilationContext,
           ccToolchain,
-          compilationUnitSources,
           configuration,
           conlyopts,
           copts,
@@ -640,10 +649,10 @@ public final class CcStaticCompilationHelper {
           featureConfiguration,
           generatePicAction,
           label,
-          cachedCcToolchainVariables,
+          commonToolchainVariables,
+          fdoBuildVariables,
           ruleErrorConsumer,
           semantics,
-          variablesExtensions,
           source.getLabel(),
           outputName,
           result,
@@ -657,7 +666,6 @@ public final class CcStaticCompilationHelper {
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
-      Map<Artifact, CppSource> compilationUnitSources,
       BuildConfigurationValue configuration,
       ImmutableList<String> conlyopts,
       ImmutableList<String> copts,
@@ -666,10 +674,10 @@ public final class CcStaticCompilationHelper {
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
       Label label,
-      CachedCcToolchainVariables cachedCcToolchainVariables,
+      CcToolchainVariables commonToolchainVariables,
+      ImmutableMap<String, String> fdoBuildVariables,
       RuleErrorConsumer ruleErrorConsumer,
       CppSemantics semantics,
-      List<VariablesExtension> variablesExtensions,
       CppSource source,
       String outputName,
       CppCompileActionBuilder builder,
@@ -677,7 +685,7 @@ public final class CcStaticCompilationHelper {
       ImmutableList<ArtifactCategory> outputCategories,
       boolean usePic,
       boolean bitcodeOutput)
-      throws RuleErrorException, EvalException, InterruptedException {
+      throws RuleErrorException, EvalException {
     if (usePic) {
       builder = new CppCompileActionBuilder(builder).setPicMode(true);
     }
@@ -688,24 +696,22 @@ public final class CcStaticCompilationHelper {
     // Dotd and dia file outputs are specified in the execution phase.
     builder.setOutputs(outputFiles, /* dotdFile= */ null, /* diagnosticsFile= */ null);
     builder.setVariables(
-        setupCompileBuildVariables(
+        setupSpecificCompileBuildVariables(
+            commonToolchainVariables,
             ccCompilationContext,
             ccToolchain,
-            compilationUnitSources,
             conlyopts,
             copts,
             cppConfiguration,
             cxxopts,
             fdoContext,
             featureConfiguration,
-            cachedCcToolchainVariables,
-            ruleErrorConsumer,
             semantics,
-            variablesExtensions,
             builder,
             /* sourceLabel= */ null,
             usePic,
             /* needsFdoBuildVariables= */ false,
+            fdoBuildVariables,
             ccCompilationContext.getCppModuleMap(),
             /* enableCoverage= */ false,
             /* gcnoFile= */ null,
@@ -838,24 +844,62 @@ public final class CcStaticCompilationHelper {
     return coptsList.build();
   }
 
-  private static CcToolchainVariables setupCompileBuildVariables(
+  private static CcToolchainVariables setupCommonCompileBuildVariables(
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
-      Map<Artifact, CppSource> compilationUnitSources,
+      CppConfiguration cppConfiguration,
+      FdoContext fdoContext,
+      FeatureConfiguration featureConfiguration,
+      List<VariablesExtension> variablesExtensions)
+      throws RuleErrorException, EvalException {
+    Map<String, String> genericAdditionalBuildVariables = new LinkedHashMap<>();
+    CcToolchainVariables cctoolchainVariables;
+    try {
+      cctoolchainVariables = ccToolchain.getBuildVars();
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
+    }
+    boolean isUsingMemProf = false;
+    if (fdoContext != null && fdoContext.getMemProfProfileArtifact() != null) {
+      isUsingMemProf = true;
+    }
+    CcToolchainVariables.Builder buildVariables =
+        CcToolchainVariables.builder(cctoolchainVariables);
+    CompileBuildVariables.setupCommonVariables(
+        buildVariables,
+        featureConfiguration,
+        ImmutableList.of(),
+        CppHelper.getFdoBuildStamp(cppConfiguration, fdoContext, featureConfiguration),
+        isUsingMemProf,
+        variablesExtensions,
+        genericAdditionalBuildVariables,
+        ccCompilationContext.getIncludeDirs(),
+        ccCompilationContext.getQuoteIncludeDirs(),
+        ccCompilationContext.getSystemIncludeDirs(),
+        ccCompilationContext.getFrameworkIncludeDirs(),
+        ccCompilationContext.getDefines(),
+        ccCompilationContext.getNonTransitiveDefines(),
+        ccCompilationContext.getExternalIncludeDirs());
+
+    return buildVariables.build();
+  }
+
+  private static CcToolchainVariables setupSpecificCompileBuildVariables(
+      CcToolchainVariables commonToolchainVariables,
+      CcCompilationContext ccCompilationContext,
+      CcToolchainProvider ccToolchain,
       ImmutableList<String> conlyopts,
       ImmutableList<String> copts,
       CppConfiguration cppConfiguration,
       ImmutableList<String> cxxopts,
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
-      CachedCcToolchainVariables cachedCcToolchainVariables,
-      RuleErrorConsumer ruleErrorConsumer,
       CppSemantics semantics,
-      List<VariablesExtension> variablesExtensions,
       CppCompileActionBuilder builder,
       Label sourceLabel,
       boolean usePic,
       boolean needsFdoBuildVariables,
+      ImmutableMap<String, String> fdoBuildVariables,
       CppModuleMap cppModuleMap,
       boolean enableCoverage,
       Artifact gcnoFile,
@@ -863,7 +907,7 @@ public final class CcStaticCompilationHelper {
       Artifact dwoFile,
       Artifact ltoIndexingFile,
       ImmutableMap<String, String> additionalBuildVariables)
-      throws RuleErrorException, EvalException, InterruptedException {
+      throws EvalException {
     Artifact sourceFile = builder.getSourceFile();
     if (needsFdoBuildVariables && fdoContext.hasArtifacts()) {
       // This modifies the passed-in builder, which is a surprising side-effect, and makes it unsafe
@@ -871,77 +915,8 @@ public final class CcStaticCompilationHelper {
       builder.addMandatoryInputs(
           getAuxiliaryFdoInputs(ccToolchain, fdoContext, featureConfiguration));
     }
-    CcToolchainVariables parent =
-        needsFdoBuildVariables
-            ? cachedCcToolchainVariables.prebuiltParentWithFdo
-            : cachedCcToolchainVariables.prebuiltParent;
-    // We use the prebuilt parent variables if and only if the passed in cppModuleMap is the
-    // identical to the one returned from ccCompilationContext.getCppModuleMap(): there is exactly
-    // one caller which passes in any other value (the verification module map), so this should be
-    // fine for now.
-    boolean usePrebuiltParent =
-        cppModuleMap == ccCompilationContext.getCppModuleMap()
-            // Only use the prebuilt parent if there are enough sources to make it worthwhile. The
-            // threshold was chosen by looking at a heap dump.
-            && (compilationUnitSources.size() > 1);
-    CcToolchainVariables.Builder buildVariables;
-    if (parent != null && usePrebuiltParent) {
-      // If we have a pre-built parent and we are allowed to use it, then do so.
-      buildVariables = CcToolchainVariables.builder(parent);
-    } else {
-      Map<String, String> genericAdditionalBuildVariables = new LinkedHashMap<>();
-      if (needsFdoBuildVariables) {
-        configureFdoBuildVariables(
-            ccToolchain,
-            fdoContext,
-            featureConfiguration,
-            genericAdditionalBuildVariables,
-            cppConfiguration.getFdoInstrument(),
-            cppConfiguration.getCSFdoInstrument());
-      }
-      CcToolchainVariables cctoolchainVariables;
-      try {
-        cctoolchainVariables = ccToolchain.getBuildVars();
-      } catch (EvalException e) {
-        throw new RuleErrorException(e.getMessage());
-      }
-      boolean isUsingMemProf = false;
-      if (fdoContext != null && fdoContext.getMemProfProfileArtifact() != null) {
-        isUsingMemProf = true;
-      }
-      buildVariables = CcToolchainVariables.builder(cctoolchainVariables);
-      CompileBuildVariables.setupCommonVariables(
-          buildVariables,
-          featureConfiguration,
-          ImmutableList.of(),
-          CppHelper.getFdoBuildStamp(cppConfiguration, fdoContext, featureConfiguration),
-          isUsingMemProf,
-          variablesExtensions,
-          genericAdditionalBuildVariables,
-          ccCompilationContext.getIncludeDirs(),
-          ccCompilationContext.getQuoteIncludeDirs(),
-          ccCompilationContext.getSystemIncludeDirs(),
-          ccCompilationContext.getFrameworkIncludeDirs(),
-          ccCompilationContext.getDefines(),
-          ccCompilationContext.getNonTransitiveDefines(),
-          ccCompilationContext.getExternalIncludeDirs());
-
-      if (usePrebuiltParent) {
-        parent = buildVariables.build();
-        if (needsFdoBuildVariables) {
-          cachedCcToolchainVariables.prebuiltParentWithFdo = parent;
-        } else {
-          cachedCcToolchainVariables.prebuiltParent = parent;
-        }
-        buildVariables = CcToolchainVariables.builder(parent);
-      }
-    }
-    if (usePic
-        && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
-        && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
-      ruleErrorConsumer.ruleError(CcCommon.PIC_CONFIGURATION_ERROR);
-    }
-
+    CcToolchainVariables.Builder buildVariables =
+        CcToolchainVariables.builder(commonToolchainVariables);
     CompileBuildVariables.setupSpecificVariables(
         buildVariables,
         sourceFile,
@@ -966,6 +941,9 @@ public final class CcStaticCompilationHelper {
         cppModuleMap,
         ccCompilationContext.getDirectModuleMaps(),
         additionalBuildVariables);
+    if (needsFdoBuildVariables) {
+      buildVariables.addAllStringVariables(fdoBuildVariables);
+    }
     return buildVariables.build();
   }
 
@@ -996,7 +974,6 @@ public final class CcStaticCompilationHelper {
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
-      Map<Artifact, CppSource> compilationUnitSources,
       BuildConfigurationValue configuration,
       ImmutableList<String> conlyopts,
       ImmutableList<String> copts,
@@ -1008,10 +985,10 @@ public final class CcStaticCompilationHelper {
       FeatureConfiguration featureConfiguration,
       boolean isCodeCoverageEnabled,
       Label label,
-      CachedCcToolchainVariables cachedCcToolchainVariables,
+      CcToolchainVariables commonToolchainVariables,
+      ImmutableMap<String, String> fdoBuildVariables,
       RuleErrorConsumer ruleErrorConsumer,
       CppSemantics semantics,
-      List<VariablesExtension> variablesExtensions,
       CcCompilationOutputs.Builder result,
       Label sourceLabel,
       Artifact module)
@@ -1064,24 +1041,22 @@ public final class CcStaticCompilationHelper {
     Preconditions.checkState(!bitcodeOutput);
 
     builder.setVariables(
-        setupCompileBuildVariables(
+        setupSpecificCompileBuildVariables(
+            commonToolchainVariables,
             ccCompilationContext,
             ccToolchain,
-            compilationUnitSources,
             conlyopts,
             copts,
             cppConfiguration,
             cxxopts,
             fdoContext,
             featureConfiguration,
-            cachedCcToolchainVariables,
-            ruleErrorConsumer,
             semantics,
-            variablesExtensions,
             builder,
             sourceLabel,
             /* usePic= */ pic,
             /* needsFdoBuildVariables= */ ccRelativeName != null,
+            fdoBuildVariables,
             ccCompilationContext.getCppModuleMap(),
             isCodeCoverageEnabled,
             gcnoFile,
@@ -1108,7 +1083,6 @@ public final class CcStaticCompilationHelper {
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
-      Map<Artifact, CppSource> compilationUnitSources,
       BuildConfigurationValue configuration,
       ImmutableList<String> conlyopts,
       ImmutableList<String> copts,
@@ -1118,10 +1092,10 @@ public final class CcStaticCompilationHelper {
       FeatureConfiguration featureConfiguration,
       boolean generatePicAction,
       Label label,
-      CachedCcToolchainVariables cachedCcToolchainVariables,
+      CcToolchainVariables commonToolchainVariables,
+      ImmutableMap<String, String> fdoBuildVariables,
       RuleErrorConsumer ruleErrorConsumer,
       CppSemantics semantics,
-      List<VariablesExtension> variablesExtensions,
       Label sourceLabel,
       String outputName,
       CcCompilationOutputs.Builder result,
@@ -1141,24 +1115,22 @@ public final class CcStaticCompilationHelper {
         // If we generate pic actions, we prefer the header actions to use the pic artifacts.
         .setPicMode(generatePicAction);
     builder.setVariables(
-        setupCompileBuildVariables(
+        setupSpecificCompileBuildVariables(
+            commonToolchainVariables,
             ccCompilationContext,
             ccToolchain,
-            compilationUnitSources,
             conlyopts,
             copts,
             cppConfiguration,
             cxxopts,
             fdoContext,
             featureConfiguration,
-            cachedCcToolchainVariables,
-            ruleErrorConsumer,
             semantics,
-            variablesExtensions,
             builder,
             sourceLabel,
             generatePicAction,
             /* needsFdoBuildVariables= */ false,
+            fdoBuildVariables,
             ccCompilationContext.getCppModuleMap(),
             /* enableCoverage= */ false,
             /* gcnoFile= */ null,
@@ -1177,7 +1149,6 @@ public final class CcStaticCompilationHelper {
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
-      Map<Artifact, CppSource> compilationUnitSources,
       BuildConfigurationValue configuration,
       ImmutableList<String> conlyopts,
       ImmutableList<String> copts,
@@ -1190,10 +1161,10 @@ public final class CcStaticCompilationHelper {
       boolean generateNoPicAction,
       boolean generatePicAction,
       Label label,
-      CachedCcToolchainVariables cachedCcToolchainVariables,
+      CcToolchainVariables commonToolchainVariables,
+      ImmutableMap<String, String> fdoBuildVariables,
       RuleErrorConsumer ruleErrorConsumer,
       CppSemantics semantics,
-      List<VariablesExtension> variablesExtensions,
       CcCompilationOutputs.Builder result,
       CppModuleMap cppModuleMap)
       throws RuleErrorException, EvalException, InterruptedException {
@@ -1219,7 +1190,6 @@ public final class CcStaticCompilationHelper {
         actionConstructionContext,
         ccCompilationContext,
         ccToolchain,
-        compilationUnitSources,
         configuration,
         conlyopts,
         copts,
@@ -1230,10 +1200,10 @@ public final class CcStaticCompilationHelper {
         generateNoPicAction,
         generatePicAction,
         label,
-        cachedCcToolchainVariables,
+        commonToolchainVariables,
+        fdoBuildVariables,
         ruleErrorConsumer,
         semantics,
-        variablesExtensions,
         sourceLabel,
         Path.of(sourceLabel.getName()).getFileName().toString(),
         result,
@@ -1252,7 +1222,6 @@ public final class CcStaticCompilationHelper {
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
-      Map<Artifact, CppSource> compilationUnitSources,
       BuildConfigurationValue configuration,
       ImmutableList<String> conlyopts,
       ImmutableList<String> copts,
@@ -1263,10 +1232,10 @@ public final class CcStaticCompilationHelper {
       boolean generateNoPicAction,
       boolean generatePicAction,
       Label label,
-      CachedCcToolchainVariables cachedCcToolchainVariables,
+      CcToolchainVariables commonToolchainVariables,
+      ImmutableMap<String, String> fdoBuildVariables,
       RuleErrorConsumer ruleErrorConsumer,
       CppSemantics semantics,
-      List<VariablesExtension> variablesExtensions,
       Label sourceLabel,
       String outputName,
       CcCompilationOutputs.Builder result,
@@ -1292,7 +1261,6 @@ public final class CcStaticCompilationHelper {
               actionConstructionContext,
               ccCompilationContext,
               ccToolchain,
-              compilationUnitSources,
               configuration,
               conlyopts,
               copts,
@@ -1301,10 +1269,10 @@ public final class CcStaticCompilationHelper {
               fdoContext,
               featureConfiguration,
               label,
-              cachedCcToolchainVariables,
+              commonToolchainVariables,
+              fdoBuildVariables,
               ruleErrorConsumer,
               semantics,
-              variablesExtensions,
               sourceLabel,
               outputName,
               result,
@@ -1331,7 +1299,6 @@ public final class CcStaticCompilationHelper {
               actionConstructionContext,
               ccCompilationContext,
               ccToolchain,
-              compilationUnitSources,
               configuration,
               conlyopts,
               copts,
@@ -1340,10 +1307,10 @@ public final class CcStaticCompilationHelper {
               fdoContext,
               featureConfiguration,
               label,
-              cachedCcToolchainVariables,
+              commonToolchainVariables,
+              fdoBuildVariables,
               ruleErrorConsumer,
               semantics,
-              variablesExtensions,
               sourceLabel,
               outputName,
               result,
@@ -1370,7 +1337,6 @@ public final class CcStaticCompilationHelper {
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
-      Map<Artifact, CppSource> compilationUnitSources,
       BuildConfigurationValue configuration,
       ImmutableList<String> conlyopts,
       ImmutableList<String> copts,
@@ -1379,10 +1345,10 @@ public final class CcStaticCompilationHelper {
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
       Label label,
-      CachedCcToolchainVariables cachedCcToolchainVariables,
+      CcToolchainVariables commonToolchainVariables,
+      ImmutableMap<String, String> fdoBuildVariables,
       RuleErrorConsumer ruleErrorConsumer,
       CppSemantics semantics,
-      List<VariablesExtension> variablesExtensions,
       Label sourceLabel,
       String outputName,
       CcCompilationOutputs.Builder result,
@@ -1430,24 +1396,22 @@ public final class CcStaticCompilationHelper {
             : null;
 
     builder.setVariables(
-        setupCompileBuildVariables(
+        setupSpecificCompileBuildVariables(
+            commonToolchainVariables,
             ccCompilationContext,
             ccToolchain,
-            compilationUnitSources,
             conlyopts,
             copts,
             cppConfiguration,
             cxxopts,
             fdoContext,
             featureConfiguration,
-            cachedCcToolchainVariables,
-            ruleErrorConsumer,
             semantics,
-            variablesExtensions,
             builder,
             sourceLabel,
             usePic,
             /* needsFdoBuildVariables= */ ccRelativeName != null && addObject,
+            fdoBuildVariables,
             cppModuleMap,
             enableCoverage,
             gcnoFile,
@@ -1461,7 +1425,6 @@ public final class CcStaticCompilationHelper {
             actionConstructionContext,
             ccCompilationContext,
             ccToolchain,
-            compilationUnitSources,
             configuration,
             conlyopts,
             copts,
@@ -1470,10 +1433,10 @@ public final class CcStaticCompilationHelper {
             fdoContext,
             featureConfiguration,
             label,
-            cachedCcToolchainVariables,
+            commonToolchainVariables,
+            fdoBuildVariables,
             ruleErrorConsumer,
             semantics,
-            variablesExtensions,
             sourceArtifact,
             sourceLabel,
             outputName,
@@ -1568,7 +1531,6 @@ public final class CcStaticCompilationHelper {
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
-      Map<Artifact, CppSource> compilationUnitSources,
       BuildConfigurationValue configuration,
       ImmutableList<String> conlyopts,
       ImmutableList<String> copts,
@@ -1577,10 +1539,10 @@ public final class CcStaticCompilationHelper {
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
       Label label,
-      CachedCcToolchainVariables cachedCcToolchainVariables,
+      CcToolchainVariables commonToolchainVariables,
+      ImmutableMap<String, String> fdoBuildVariables,
       RuleErrorConsumer ruleErrorConsumer,
       CppSemantics semantics,
-      List<VariablesExtension> variablesExtensions,
       Artifact source,
       Label sourceLabel,
       String outputName,
@@ -1611,24 +1573,22 @@ public final class CcStaticCompilationHelper {
     dBuilder.setOutputs(
         actionConstructionContext, ruleErrorConsumer, label, category, outputArtifactNameBase);
     dBuilder.setVariables(
-        setupCompileBuildVariables(
+        setupSpecificCompileBuildVariables(
+            commonToolchainVariables,
             ccCompilationContext,
             ccToolchain,
-            compilationUnitSources,
             conlyopts,
             copts,
             cppConfiguration,
             cxxopts,
             fdoContext,
             featureConfiguration,
-            cachedCcToolchainVariables,
-            ruleErrorConsumer,
             semantics,
-            variablesExtensions,
             dBuilder,
             sourceLabel,
             usePic,
             /* needsFdoBuildVariables= */ ccRelativeName != null,
+            fdoBuildVariables,
             ccCompilationContext.getCppModuleMap(),
             /* enableCoverage= */ false,
             /* gcnoFile= */ null,
@@ -1650,24 +1610,22 @@ public final class CcStaticCompilationHelper {
         ArtifactCategory.GENERATED_ASSEMBLY,
         outputArtifactNameBase);
     sdBuilder.setVariables(
-        setupCompileBuildVariables(
+        setupSpecificCompileBuildVariables(
+            commonToolchainVariables,
             ccCompilationContext,
             ccToolchain,
-            compilationUnitSources,
             conlyopts,
             copts,
             cppConfiguration,
             cxxopts,
             fdoContext,
             featureConfiguration,
-            cachedCcToolchainVariables,
-            ruleErrorConsumer,
             semantics,
-            variablesExtensions,
             sdBuilder,
             sourceLabel,
             usePic,
             /* needsFdoBuildVariables= */ ccRelativeName != null,
+            fdoBuildVariables,
             ccCompilationContext.getCppModuleMap(),
             /* enableCoverage= */ false,
             /* gcnoFile= */ null,
