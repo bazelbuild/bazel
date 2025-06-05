@@ -67,14 +67,15 @@ public final class CcStaticCompilationHelper {
    * Configures a compile action builder by setting up command line options and auxiliary inputs
    * according to the FDO configuration. This method does nothing If FDO is disabled.
    */
-  private static void configureFdoBuildVariables(
+  private static ImmutableMap<String, String> setupFdoBuildVariables(
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
+      NestedSet<Artifact> auxiliaryFdoInputs,
       FeatureConfiguration featureConfiguration,
-      ImmutableMap.Builder<String, String> variablesBuilder,
       String fdoInstrument,
       String csFdoInstrument)
       throws EvalException {
+    ImmutableMap.Builder<String, String> variablesBuilder = ImmutableMap.builder();
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       variablesBuilder.put(
           CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(), fdoInstrument);
@@ -87,7 +88,7 @@ public final class CcStaticCompilationHelper {
     // FDO is disabled -> do nothing.
     Preconditions.checkNotNull(fdoContext);
     if (!fdoContext.hasArtifacts()) {
-      return;
+      return variablesBuilder.buildOrThrow();
     }
 
     if (fdoContext.getPrefetchHintsArtifact() != null) {
@@ -119,7 +120,7 @@ public final class CcStaticCompilationHelper {
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     // Optimization phase
     if (branchFdoProfile != null) {
-      if (!getAuxiliaryFdoInputs(ccToolchain, fdoContext, featureConfiguration).isEmpty()) {
+      if (!auxiliaryFdoInputs.isEmpty()) {
         if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
             || featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
           variablesBuilder.put(
@@ -135,6 +136,7 @@ public final class CcStaticCompilationHelper {
         }
       }
     }
+    return variablesBuilder.buildOrThrow();
   }
 
   /** Returns whether Propeller profiles should be passed to a compile action. */
@@ -333,15 +335,17 @@ public final class CcStaticCompilationHelper {
             featureConfiguration,
             variablesExtensions);
 
-    ImmutableMap.Builder<String, String> fdoBuildVariablesBuilder = ImmutableMap.builder();
-    configureFdoBuildVariables(
-        ccToolchain,
-        fdoContext,
-        featureConfiguration,
-        fdoBuildVariablesBuilder,
-        cppConfiguration.getFdoInstrument(),
-        cppConfiguration.getCSFdoInstrument());
-    ImmutableMap<String, String> fdoBuildVariables = fdoBuildVariablesBuilder.buildOrThrow();
+    NestedSet<Artifact> auxiliaryFdoInputs =
+        getAuxiliaryFdoInputs(ccToolchain, fdoContext, featureConfiguration);
+
+    ImmutableMap<String, String> fdoBuildVariables =
+        setupFdoBuildVariables(
+            ccToolchain,
+            fdoContext,
+            auxiliaryFdoInputs,
+            featureConfiguration,
+            cppConfiguration.getFdoInstrument(),
+            cppConfiguration.getCSFdoInstrument());
 
     if (shouldProvideHeaderModules(featureConfiguration, privateHeaders, publicHeaders)) {
       CppModuleMap cppModuleMap = ccCompilationContext.getCppModuleMap();
@@ -359,6 +363,7 @@ public final class CcStaticCompilationHelper {
               cxxopts,
               executionInfo,
               fdoContext,
+              auxiliaryFdoInputs,
               featureConfiguration,
               generateNoPicAction,
               generatePicAction,
@@ -388,6 +393,7 @@ public final class CcStaticCompilationHelper {
                 cxxopts,
                 executionInfo,
                 fdoContext,
+                auxiliaryFdoInputs,
                 featureConfiguration,
                 generateNoPicAction,
                 generatePicAction,
@@ -415,6 +421,7 @@ public final class CcStaticCompilationHelper {
               cxxopts,
               executionInfo,
               fdoContext,
+              auxiliaryFdoInputs,
               featureConfiguration,
               isCodeCoverageEnabled,
               label,
@@ -452,9 +459,11 @@ public final class CcStaticCompilationHelper {
         continue;
       }
 
+      String outputName = outputNameMap.get(sourceArtifact);
+
       Label sourceLabel = source.getLabel();
       CppCompileActionBuilder builder =
-          initializeCompileAction(
+          createCppCompileActionBuilderWithInputs(
               actionConstructionContext,
               ccCompilationContext,
               ccToolchain,
@@ -463,21 +472,17 @@ public final class CcStaticCompilationHelper {
               executionInfo,
               featureConfiguration,
               semantics,
-              sourceArtifact);
-
-      builder
-          .addMandatoryInputs(additionalCompilationInputs)
-          .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots);
+              sourceArtifact,
+              additionalCompilationInputs,
+              additionalIncludeScanningRoots);
 
       boolean bitcodeOutput =
           featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
               && CppFileTypes.LTO_SOURCE.matches(sourceArtifact.getFilename());
 
-      String outputName = outputNameMap.get(sourceArtifact);
-
       if (!sourceArtifact.isTreeArtifact()) {
         compiledBasenames.add(Files.getNameWithoutExtension(sourceArtifact.getExecPathString()));
-        createSourceAction(
+        createCompileSourceActionFromBuilder(
             actionConstructionContext,
             ccCompilationContext,
             ccToolchain,
@@ -487,6 +492,7 @@ public final class CcStaticCompilationHelper {
             cppConfiguration,
             cxxopts,
             fdoContext,
+            auxiliaryFdoInputs,
             featureConfiguration,
             generateNoPicAction,
             generatePicAction,
@@ -529,6 +535,7 @@ public final class CcStaticCompilationHelper {
                     cppConfiguration,
                     cxxopts,
                     fdoContext,
+                    auxiliaryFdoInputs,
                     featureConfiguration,
                     label,
                     commonToolchainVariables,
@@ -559,6 +566,7 @@ public final class CcStaticCompilationHelper {
                       cppConfiguration,
                       cxxopts,
                       fdoContext,
+                      auxiliaryFdoInputs,
                       featureConfiguration,
                       label,
                       commonToolchainVariables,
@@ -587,6 +595,7 @@ public final class CcStaticCompilationHelper {
                       cppConfiguration,
                       cxxopts,
                       fdoContext,
+                      auxiliaryFdoInputs,
                       featureConfiguration,
                       label,
                       commonToolchainVariables,
@@ -620,8 +629,10 @@ public final class CcStaticCompilationHelper {
               Files.getNameWithoutExtension(artifact.getExecPathString()))) {
         continue;
       }
+      String outputName = outputNameMap.get(artifact);
+
       CppCompileActionBuilder builder =
-          initializeCompileAction(
+          createCppCompileActionBuilderWithInputs(
               actionConstructionContext,
               ccCompilationContext,
               ccToolchain,
@@ -630,13 +641,11 @@ public final class CcStaticCompilationHelper {
               executionInfo,
               featureConfiguration,
               semantics,
-              artifact);
-      builder
-          .addMandatoryInputs(additionalCompilationInputs)
-          .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots);
+              artifact,
+              additionalCompilationInputs,
+              additionalIncludeScanningRoots);
 
-      String outputName = outputNameMap.get(artifact);
-      createHeaderAction(
+      createParseHeaderAction(
           actionConstructionContext,
           ccCompilationContext,
           ccToolchain,
@@ -646,6 +655,7 @@ public final class CcStaticCompilationHelper {
           cppConfiguration,
           cxxopts,
           fdoContext,
+          auxiliaryFdoInputs,
           featureConfiguration,
           generatePicAction,
           label,
@@ -672,6 +682,7 @@ public final class CcStaticCompilationHelper {
       CppConfiguration cppConfiguration,
       ImmutableList<String> cxxopts,
       FdoContext fdoContext,
+      NestedSet<Artifact> auxiliaryFdoInputs,
       FeatureConfiguration featureConfiguration,
       Label label,
       CcToolchainVariables commonToolchainVariables,
@@ -699,12 +710,12 @@ public final class CcStaticCompilationHelper {
         setupSpecificCompileBuildVariables(
             commonToolchainVariables,
             ccCompilationContext,
-            ccToolchain,
             conlyopts,
             copts,
             cppConfiguration,
             cxxopts,
             fdoContext,
+            auxiliaryFdoInputs,
             featureConfiguration,
             semantics,
             builder,
@@ -887,15 +898,15 @@ public final class CcStaticCompilationHelper {
   private static CcToolchainVariables setupSpecificCompileBuildVariables(
       CcToolchainVariables commonToolchainVariables,
       CcCompilationContext ccCompilationContext,
-      CcToolchainProvider ccToolchain,
       ImmutableList<String> conlyopts,
       ImmutableList<String> copts,
       CppConfiguration cppConfiguration,
       ImmutableList<String> cxxopts,
       FdoContext fdoContext,
+      NestedSet<Artifact> auxiliaryFdoInputs,
       FeatureConfiguration featureConfiguration,
       CppSemantics semantics,
-      CppCompileActionBuilder builder,
+      CppCompileActionBuilder ccCompileActionBuilder,
       Label sourceLabel,
       boolean usePic,
       boolean needsFdoBuildVariables,
@@ -908,19 +919,18 @@ public final class CcStaticCompilationHelper {
       Artifact ltoIndexingFile,
       ImmutableMap<String, String> additionalBuildVariables)
       throws EvalException {
-    Artifact sourceFile = builder.getSourceFile();
+    Artifact sourceFile = ccCompileActionBuilder.getSourceFile();
     if (needsFdoBuildVariables && fdoContext.hasArtifacts()) {
       // This modifies the passed-in builder, which is a surprising side-effect, and makes it unsafe
       // to call this method multiple times for the same builder.
-      builder.addMandatoryInputs(
-          getAuxiliaryFdoInputs(ccToolchain, fdoContext, featureConfiguration));
+      ccCompileActionBuilder.addMandatoryInputs(auxiliaryFdoInputs);
     }
     CcToolchainVariables.Builder buildVariables =
         CcToolchainVariables.builder(commonToolchainVariables);
     CompileBuildVariables.setupSpecificVariables(
         buildVariables,
         sourceFile,
-        builder.getOutputFile(),
+        ccCompileActionBuilder.getOutputFile(),
         enableCoverage,
         gcnoFile,
         dwoFile,
@@ -932,10 +942,10 @@ public final class CcStaticCompilationHelper {
             cppConfiguration,
             cxxopts,
             semantics,
-            builder.getSourceFile(),
+            ccCompileActionBuilder.getSourceFile(),
             sourceLabel),
-        builder.getDotdFile(),
-        builder.getDiagnosticsFile(),
+        ccCompileActionBuilder.getDotdFile(),
+        ccCompileActionBuilder.getDiagnosticsFile(),
         usePic,
         featureConfiguration,
         cppModuleMap,
@@ -951,7 +961,7 @@ public final class CcStaticCompilationHelper {
    * Returns a {@code CppCompileActionBuilder} with the common fields for a C++ compile action being
    * initialized.
    */
-  private static CppCompileActionBuilder initializeCompileAction(
+  private static CppCompileActionBuilder createCppCompileActionBuilder(
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
@@ -970,6 +980,40 @@ public final class CcStaticCompilationHelper {
         .addExecutionInfo(executionInfo);
   }
 
+  /**
+   * Returns a {@code CppCompileActionBuilder} with the common fields for a C++ compile action being
+   * initialized, plus the mandatoryInputs and additionalIncludeScanningRoots fields
+   */
+  private static CppCompileActionBuilder createCppCompileActionBuilderWithInputs(
+      ActionConstructionContext actionConstructionContext,
+      CcCompilationContext ccCompilationContext,
+      CcToolchainProvider ccToolchain,
+      BuildConfigurationValue configuration,
+      CoptsFilter coptsFilter,
+      ImmutableMap<String, String> executionInfo,
+      FeatureConfiguration featureConfiguration,
+      CppSemantics semantics,
+      Artifact sourceArtifact,
+      List<Artifact> additionalCompilationInputs,
+      List<Artifact> additionalIncludeScanningRoots) {
+    CppCompileActionBuilder builder =
+        createCppCompileActionBuilder(
+            actionConstructionContext,
+            ccCompilationContext,
+            ccToolchain,
+            configuration,
+            coptsFilter,
+            executionInfo,
+            featureConfiguration,
+            semantics,
+            sourceArtifact);
+
+    builder
+        .addMandatoryInputs(additionalCompilationInputs)
+        .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots);
+    return builder;
+  }
+
   private static void createModuleCodegenAction(
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
@@ -982,6 +1026,7 @@ public final class CcStaticCompilationHelper {
       ImmutableList<String> cxxopts,
       ImmutableMap<String, String> executionInfo,
       FdoContext fdoContext,
+      NestedSet<Artifact> auxiliaryFdoInputs,
       FeatureConfiguration featureConfiguration,
       boolean isCodeCoverageEnabled,
       Label label,
@@ -999,7 +1044,7 @@ public final class CcStaticCompilationHelper {
     boolean pic = module.getFilename().contains(".pic.");
 
     CppCompileActionBuilder builder =
-        initializeCompileAction(
+        createCppCompileActionBuilder(
             actionConstructionContext,
             ccCompilationContext,
             ccToolchain,
@@ -1044,12 +1089,12 @@ public final class CcStaticCompilationHelper {
         setupSpecificCompileBuildVariables(
             commonToolchainVariables,
             ccCompilationContext,
-            ccToolchain,
             conlyopts,
             copts,
             cppConfiguration,
             cxxopts,
             fdoContext,
+            auxiliaryFdoInputs,
             featureConfiguration,
             semantics,
             builder,
@@ -1079,7 +1124,7 @@ public final class CcStaticCompilationHelper {
     }
   }
 
-  private static void createHeaderAction(
+  private static void createParseHeaderAction(
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
@@ -1089,6 +1134,7 @@ public final class CcStaticCompilationHelper {
       CppConfiguration cppConfiguration,
       ImmutableList<String> cxxopts,
       FdoContext fdoContext,
+      NestedSet<Artifact> auxiliaryFdoInputs,
       FeatureConfiguration featureConfiguration,
       boolean generatePicAction,
       Label label,
@@ -1118,12 +1164,12 @@ public final class CcStaticCompilationHelper {
         setupSpecificCompileBuildVariables(
             commonToolchainVariables,
             ccCompilationContext,
-            ccToolchain,
             conlyopts,
             copts,
             cppConfiguration,
             cxxopts,
             fdoContext,
+            auxiliaryFdoInputs,
             featureConfiguration,
             semantics,
             builder,
@@ -1157,6 +1203,7 @@ public final class CcStaticCompilationHelper {
       ImmutableList<String> cxxopts,
       ImmutableMap<String, String> executionInfo,
       FdoContext fdoContext,
+      NestedSet<Artifact> auxiliaryFdoInputs,
       FeatureConfiguration featureConfiguration,
       boolean generateNoPicAction,
       boolean generatePicAction,
@@ -1170,7 +1217,7 @@ public final class CcStaticCompilationHelper {
       throws RuleErrorException, EvalException, InterruptedException {
     Artifact moduleMapArtifact = cppModuleMap.getArtifact();
     CppCompileActionBuilder builder =
-        initializeCompileAction(
+        createCppCompileActionBuilder(
             actionConstructionContext,
             ccCompilationContext,
             ccToolchain,
@@ -1186,7 +1233,7 @@ public final class CcStaticCompilationHelper {
     // A header module compile action is just like a normal compile action, but:
     // - the compiled source file is the module map
     // - it creates a header module (.pcm file).
-    return createSourceAction(
+    return createCompileSourceActionFromBuilder(
         actionConstructionContext,
         ccCompilationContext,
         ccToolchain,
@@ -1196,6 +1243,7 @@ public final class CcStaticCompilationHelper {
         cppConfiguration,
         cxxopts,
         fdoContext,
+        auxiliaryFdoInputs,
         featureConfiguration,
         generateNoPicAction,
         generatePicAction,
@@ -1218,7 +1266,7 @@ public final class CcStaticCompilationHelper {
   }
 
   @CanIgnoreReturnValue
-  private static ImmutableList<Artifact> createSourceAction(
+  private static ImmutableList<Artifact> createCompileSourceActionFromBuilder(
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
@@ -1228,6 +1276,7 @@ public final class CcStaticCompilationHelper {
       CppConfiguration cppConfiguration,
       ImmutableList<String> cxxopts,
       FdoContext fdoContext,
+      NestedSet<Artifact> auxiliaryFdoInputs,
       FeatureConfiguration featureConfiguration,
       boolean generateNoPicAction,
       boolean generatePicAction,
@@ -1257,7 +1306,7 @@ public final class CcStaticCompilationHelper {
       CppCompileActionBuilder picBuilder = new CppCompileActionBuilder(builder);
       picBuilder.setPicMode(true);
       Artifact picOutputFile =
-          createSourceActionHelper(
+          createPicOrNoPicCompileSourceAction(
               actionConstructionContext,
               ccCompilationContext,
               ccToolchain,
@@ -1267,6 +1316,7 @@ public final class CcStaticCompilationHelper {
               cppConfiguration,
               cxxopts,
               fdoContext,
+              auxiliaryFdoInputs,
               featureConfiguration,
               label,
               commonToolchainVariables,
@@ -1295,7 +1345,7 @@ public final class CcStaticCompilationHelper {
 
     if (generateNoPicAction) {
       Artifact noPicOutputFile =
-          createSourceActionHelper(
+          createPicOrNoPicCompileSourceAction(
               actionConstructionContext,
               ccCompilationContext,
               ccToolchain,
@@ -1305,6 +1355,7 @@ public final class CcStaticCompilationHelper {
               cppConfiguration,
               cxxopts,
               fdoContext,
+              auxiliaryFdoInputs,
               featureConfiguration,
               label,
               commonToolchainVariables,
@@ -1333,7 +1384,7 @@ public final class CcStaticCompilationHelper {
     return directOutputs.build();
   }
 
-  private static Artifact createSourceActionHelper(
+  private static Artifact createPicOrNoPicCompileSourceAction(
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
@@ -1343,6 +1394,7 @@ public final class CcStaticCompilationHelper {
       CppConfiguration cppConfiguration,
       ImmutableList<String> cxxopts,
       FdoContext fdoContext,
+      NestedSet<Artifact> auxiliaryFdoInputs,
       FeatureConfiguration featureConfiguration,
       Label label,
       CcToolchainVariables commonToolchainVariables,
@@ -1399,12 +1451,12 @@ public final class CcStaticCompilationHelper {
         setupSpecificCompileBuildVariables(
             commonToolchainVariables,
             ccCompilationContext,
-            ccToolchain,
             conlyopts,
             copts,
             cppConfiguration,
             cxxopts,
             fdoContext,
+            auxiliaryFdoInputs,
             featureConfiguration,
             semantics,
             builder,
@@ -1431,6 +1483,7 @@ public final class CcStaticCompilationHelper {
             cppConfiguration,
             cxxopts,
             fdoContext,
+            auxiliaryFdoInputs,
             featureConfiguration,
             label,
             commonToolchainVariables,
@@ -1537,6 +1590,7 @@ public final class CcStaticCompilationHelper {
       CppConfiguration cppConfiguration,
       ImmutableList<String> cxxopts,
       FdoContext fdoContext,
+      NestedSet<Artifact> auxiliaryFdoInputs,
       FeatureConfiguration featureConfiguration,
       Label label,
       CcToolchainVariables commonToolchainVariables,
@@ -1576,12 +1630,12 @@ public final class CcStaticCompilationHelper {
         setupSpecificCompileBuildVariables(
             commonToolchainVariables,
             ccCompilationContext,
-            ccToolchain,
             conlyopts,
             copts,
             cppConfiguration,
             cxxopts,
             fdoContext,
+            auxiliaryFdoInputs,
             featureConfiguration,
             semantics,
             dBuilder,
@@ -1613,12 +1667,12 @@ public final class CcStaticCompilationHelper {
         setupSpecificCompileBuildVariables(
             commonToolchainVariables,
             ccCompilationContext,
-            ccToolchain,
             conlyopts,
             copts,
             cppConfiguration,
             cxxopts,
             fdoContext,
+            auxiliaryFdoInputs,
             featureConfiguration,
             semantics,
             sdBuilder,
