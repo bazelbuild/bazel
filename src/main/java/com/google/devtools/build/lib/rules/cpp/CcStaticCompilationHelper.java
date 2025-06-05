@@ -63,231 +63,15 @@ public final class CcStaticCompilationHelper {
 
   private CcStaticCompilationHelper() {}
 
-  /**
-   * Configures a compile action builder by setting up command line options and auxiliary inputs
-   * according to the FDO configuration. This method does nothing If FDO is disabled.
-   */
-  private static ImmutableMap<String, String> setupFdoBuildVariables(
-      CcToolchainProvider ccToolchain,
-      FdoContext fdoContext,
-      NestedSet<Artifact> auxiliaryFdoInputs,
-      FeatureConfiguration featureConfiguration,
-      String fdoInstrument,
-      String csFdoInstrument)
-      throws EvalException {
-    ImmutableMap.Builder<String, String> variablesBuilder = ImmutableMap.builder();
-    if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
-      variablesBuilder.put(
-          CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(), fdoInstrument);
-    }
-    if (featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_INSTRUMENT)) {
-      variablesBuilder.put(
-          CompileBuildVariables.CS_FDO_INSTRUMENT_PATH.getVariableName(), csFdoInstrument);
-    }
-
-    // FDO is disabled -> do nothing.
-    Preconditions.checkNotNull(fdoContext);
-    if (!fdoContext.hasArtifacts()) {
-      return variablesBuilder.buildOrThrow();
-    }
-
-    if (fdoContext.getPrefetchHintsArtifact() != null) {
-      variablesBuilder.put(
-          CompileBuildVariables.FDO_PREFETCH_HINTS_PATH.getVariableName(),
-          fdoContext.getPrefetchHintsArtifact().getExecPathString());
-    }
-
-    if (shouldPassPropellerProfiles(ccToolchain, fdoContext, featureConfiguration)) {
-      if (fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
-        variablesBuilder.put(
-            CompileBuildVariables.PROPELLER_OPTIMIZE_CC_PATH.getVariableName(),
-            fdoContext.getPropellerOptimizeInputFile().getCcArtifact().getExecPathString());
-      }
-
-      if (fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
-        variablesBuilder.put(
-            CompileBuildVariables.PROPELLER_OPTIMIZE_LD_PATH.getVariableName(),
-            fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
-      }
-    }
-
-    if (fdoContext.getMemProfProfileArtifact() != null) {
-      variablesBuilder.put(
-          CompileBuildVariables.MEMPROF_PROFILE_PATH.getVariableName(),
-          fdoContext.getMemProfProfileArtifact().getExecPathString());
-    }
-
-    FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
-    // Optimization phase
-    if (branchFdoProfile != null) {
-      if (!auxiliaryFdoInputs.isEmpty()) {
-        if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
-            || featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
-          variablesBuilder.put(
-              CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
-              branchFdoProfile.getProfileArtifact().getExecPathString());
-        }
-        if (featureConfiguration.isEnabled(CppRuleClasses.FDO_OPTIMIZE)) {
-          if (branchFdoProfile.isLlvmFdo() || branchFdoProfile.isLlvmCSFdo()) {
-            variablesBuilder.put(
-                CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
-                branchFdoProfile.getProfileArtifact().getExecPathString());
-          }
-        }
-      }
-    }
-    return variablesBuilder.buildOrThrow();
-  }
-
-  /** Returns whether Propeller profiles should be passed to a compile action. */
-  private static boolean shouldPassPropellerProfiles(
-      CcToolchainProvider ccToolchain,
-      FdoContext fdoContext,
-      FeatureConfiguration featureConfiguration)
-      throws EvalException {
-    if (ccToolchain.isToolConfiguration()) {
-      // Propeller doesn't make much sense for host builds.
-      return false;
-    }
-
-    if (fdoContext.getPropellerOptimizeInputFile() == null) {
-      // No Propeller profiles to pass.
-      return false;
-    }
-    // Don't pass Propeller input files if they have no effect (i.e. for ThinLTO).
-    return !featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
-        || featureConfiguration.isEnabled(
-            CppRuleClasses.PROPELLER_OPTIMIZE_THINLTO_COMPILE_ACTIONS);
-  }
-
-  /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
-  private static NestedSet<Artifact> getAuxiliaryFdoInputs(
-      CcToolchainProvider ccToolchain,
-      FdoContext fdoContext,
-      FeatureConfiguration featureConfiguration)
-      throws EvalException {
-    NestedSetBuilder<Artifact> auxiliaryInputs = NestedSetBuilder.stableOrder();
-
-    if (fdoContext.getPrefetchHintsArtifact() != null) {
-      auxiliaryInputs.add(fdoContext.getPrefetchHintsArtifact());
-    }
-    if (shouldPassPropellerProfiles(ccToolchain, fdoContext, featureConfiguration)) {
-      if (fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
-        auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getCcArtifact());
-      }
-      if (fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
-        auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
-      }
-    }
-    if (fdoContext.getMemProfProfileArtifact() != null) {
-      auxiliaryInputs.add(fdoContext.getMemProfProfileArtifact());
-    }
-    FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
-    // If --fdo_optimize was not specified, we don't have any additional inputs.
-    if (branchFdoProfile != null) {
-      auxiliaryInputs.add(branchFdoProfile.getProfileArtifact());
-    }
-
-    return auxiliaryInputs.build();
-  }
-
-  /**
-   * @return whether we want to provide header modules for the current target.
-   */
-  private static boolean shouldProvideHeaderModules(
-      FeatureConfiguration featureConfiguration,
-      List<Artifact> privateHeaders,
-      List<Artifact> publicHeaders) {
-    return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
-        && (!publicHeaders.isEmpty() || !privateHeaders.isEmpty());
-  }
-
-  /**
-   * Calculate the output names for object file paths from a set of source files.
-   *
-   * <p>The object file path is constructed in the following format:
-   *   {@code <bazel-bin>/<target_package_path>/_objs/<target_name>/<output_name>.<obj_extension>}.
-   *
-   * <p>When there's no two source files having the same basename:
-   *   {@code <output_name> = <prefixDir>/<source_file_base_name>}
-   * otherwise:
-   *   {@code <output_name> = <prefixDir>/N/<source_file_base_name>,
-   *   {@code N} = the file's order among the source files with the same basename, starts with 0
-   *
-   * <p>Examples:
-   * <ol>
-   * <li>Output names for ["lib1/foo.cc", "lib2/bar.cc"] are ["foo", "bar"]
-   * <li>Output names for ["foo.cc", "bar.cc", "foo.cpp", "lib/foo.cc"] are
-   *     ["0/foo", "bar", "1/foo", "2/foo"]
-   * </ol>
-   */
-  private static ImmutableMap<Artifact, String> calculateOutputNameMap(
-      ImmutableSet<Artifact> sourceArtifacts, String prefixDir) {
-    ImmutableMap.Builder<Artifact, String> builder = ImmutableMap.builder();
-
-    HashMap<String, Integer> count = new LinkedHashMap<>();
-    HashMap<String, Integer> number = new LinkedHashMap<>();
-    for (Artifact source : sourceArtifacts) {
-      String outputName =
-          FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
-      count.put(
-          outputName.toLowerCase(Locale.ROOT),
-          count.getOrDefault(outputName.toLowerCase(Locale.ROOT), 0) + 1);
-    }
-
-    for (Artifact source : sourceArtifacts) {
-      String outputName =
-          FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
-      if (count.getOrDefault(outputName.toLowerCase(Locale.ROOT), 0) > 1) {
-        int num = number.getOrDefault(outputName.toLowerCase(Locale.ROOT), 0);
-        number.put(outputName.toLowerCase(Locale.ROOT), num + 1);
-        outputName = num + "/" + outputName;
-      }
-      // If prefixDir is set, prepend it to the outputName
-      if (prefixDir != null) {
-        outputName = prefixDir + "/" + outputName;
-      }
-      builder.put(source, outputName);
-    }
-
-    return builder.buildOrThrow();
-  }
-
-  /**
-   * Calculate outputNameMap for different source types separately. Returns a merged outputNameMap
-   * for all artifacts.
-   */
-  private static ImmutableMap<Artifact, String> calculateOutputNameMapByType(
-      Map<Artifact, CppSource> sources, String prefixDir) {
-    ImmutableMap.Builder<Artifact, String> builder = ImmutableMap.builder();
-    builder.putAll(
-        calculateOutputNameMap(
-            getSourceArtifactsByType(sources, CppSource.Type.SOURCE), prefixDir));
-    builder.putAll(
-        calculateOutputNameMap(
-            getSourceArtifactsByType(sources, CppSource.Type.HEADER), prefixDir));
-    // TODO(plf): Removing CLIF logic
-    builder.putAll(
-        calculateOutputNameMap(
-            getSourceArtifactsByType(sources, CppSource.Type.CLIF_INPUT_PROTO), prefixDir));
-    return builder.buildOrThrow();
-  }
-
-  private static ImmutableSet<Artifact> getSourceArtifactsByType(
-      Map<Artifact, CppSource> sources, CppSource.Type type) {
-    ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
-    for (CppSource source : sources.values()) {
-      if (source.getType().equals(type)) {
-        result.add(source.getSource());
-      }
-    }
-    return result.build();
-  }
+  // Main entry point
 
   /**
    * Constructs the C++ compiler actions. It generally creates one action for every specified source
    * file. It takes into account coverage, and PIC, in addition to using the settings specified on
    * the current object. This method should only be called once.
+   *
+   * <p>This is the main entry point for the class, exported as create_cc_compile_actions() to
+   * Starlark.
    */
   static CcCompilationOutputs createCcCompileActions(
       ActionConstructionContext actionConstructionContext,
@@ -672,6 +456,101 @@ public final class CcStaticCompilationHelper {
     return result.build();
   }
 
+  // Misc. helper methods for createCcCompileActions():
+
+  /**
+   * @return whether we want to provide header modules for the current target.
+   */
+  private static boolean shouldProvideHeaderModules(
+      FeatureConfiguration featureConfiguration,
+      List<Artifact> privateHeaders,
+      List<Artifact> publicHeaders) {
+    return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
+        && (!publicHeaders.isEmpty() || !privateHeaders.isEmpty());
+  }
+
+  /**
+   * Calculate the output names for object file paths from a set of source files.
+   *
+   * <p>The object file path is constructed in the following format:
+   *   {@code <bazel-bin>/<target_package_path>/_objs/<target_name>/<output_name>.<obj_extension>}.
+   *
+   * <p>When there's no two source files having the same basename:
+   *   {@code <output_name> = <prefixDir>/<source_file_base_name>}
+   * otherwise:
+   *   {@code <output_name> = <prefixDir>/N/<source_file_base_name>,
+   *   {@code N} = the file's order among the source files with the same basename, starts with 0
+   *
+   * <p>Examples:
+   * <ol>
+   * <li>Output names for ["lib1/foo.cc", "lib2/bar.cc"] are ["foo", "bar"]
+   * <li>Output names for ["foo.cc", "bar.cc", "foo.cpp", "lib/foo.cc"] are
+   *     ["0/foo", "bar", "1/foo", "2/foo"]
+   * </ol>
+   */
+  private static ImmutableMap<Artifact, String> calculateOutputNameMap(
+      ImmutableSet<Artifact> sourceArtifacts, String prefixDir) {
+    ImmutableMap.Builder<Artifact, String> builder = ImmutableMap.builder();
+
+    HashMap<String, Integer> count = new LinkedHashMap<>();
+    HashMap<String, Integer> number = new LinkedHashMap<>();
+    for (Artifact source : sourceArtifacts) {
+      String outputName =
+          FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
+      count.put(
+          outputName.toLowerCase(Locale.ROOT),
+          count.getOrDefault(outputName.toLowerCase(Locale.ROOT), 0) + 1);
+    }
+
+    for (Artifact source : sourceArtifacts) {
+      String outputName =
+          FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
+      if (count.getOrDefault(outputName.toLowerCase(Locale.ROOT), 0) > 1) {
+        int num = number.getOrDefault(outputName.toLowerCase(Locale.ROOT), 0);
+        number.put(outputName.toLowerCase(Locale.ROOT), num + 1);
+        outputName = num + "/" + outputName;
+      }
+      // If prefixDir is set, prepend it to the outputName
+      if (prefixDir != null) {
+        outputName = prefixDir + "/" + outputName;
+      }
+      builder.put(source, outputName);
+    }
+
+    return builder.buildOrThrow();
+  }
+
+  /**
+   * Calculate outputNameMap for different source types separately. Returns a merged outputNameMap
+   * for all artifacts.
+   */
+  private static ImmutableMap<Artifact, String> calculateOutputNameMapByType(
+      Map<Artifact, CppSource> sources, String prefixDir) {
+    ImmutableMap.Builder<Artifact, String> builder = ImmutableMap.builder();
+    builder.putAll(
+        calculateOutputNameMap(
+            getSourceArtifactsByType(sources, CppSource.Type.SOURCE), prefixDir));
+    builder.putAll(
+        calculateOutputNameMap(
+            getSourceArtifactsByType(sources, CppSource.Type.HEADER), prefixDir));
+    // TODO(plf): Removing CLIF logic
+    builder.putAll(
+        calculateOutputNameMap(
+            getSourceArtifactsByType(sources, CppSource.Type.CLIF_INPUT_PROTO), prefixDir));
+    return builder.buildOrThrow();
+  }
+
+  private static ImmutableSet<Artifact> getSourceArtifactsByType(
+      Map<Artifact, CppSource> sources, CppSource.Type type) {
+    ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
+    for (CppSource source : sources.values()) {
+      if (source.getType().equals(type)) {
+        result.add(source.getSource());
+      }
+    }
+    return result.build();
+  }
+
   private static Artifact createCompileActionTemplate(
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
@@ -855,6 +734,8 @@ public final class CcStaticCompilationHelper {
     return coptsList.build();
   }
 
+  // Methods setting up compile build variables:
+
   private static CcToolchainVariables setupCommonCompileBuildVariables(
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
@@ -957,6 +838,138 @@ public final class CcStaticCompilationHelper {
     return buildVariables.build();
   }
 
+  // FDO related methods:
+
+  /**
+   * Configures a compile action builder by setting up command line options and auxiliary inputs
+   * according to the FDO configuration. This method does nothing If FDO is disabled.
+   */
+  private static ImmutableMap<String, String> setupFdoBuildVariables(
+      CcToolchainProvider ccToolchain,
+      FdoContext fdoContext,
+      NestedSet<Artifact> auxiliaryFdoInputs,
+      FeatureConfiguration featureConfiguration,
+      String fdoInstrument,
+      String csFdoInstrument)
+      throws EvalException {
+    ImmutableMap.Builder<String, String> variablesBuilder = ImmutableMap.builder();
+    if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
+      variablesBuilder.put(
+          CompileBuildVariables.FDO_INSTRUMENT_PATH.getVariableName(), fdoInstrument);
+    }
+    if (featureConfiguration.isEnabled(CppRuleClasses.CS_FDO_INSTRUMENT)) {
+      variablesBuilder.put(
+          CompileBuildVariables.CS_FDO_INSTRUMENT_PATH.getVariableName(), csFdoInstrument);
+    }
+
+    // FDO is disabled -> do nothing.
+    Preconditions.checkNotNull(fdoContext);
+    if (!fdoContext.hasArtifacts()) {
+      return variablesBuilder.buildOrThrow();
+    }
+
+    if (fdoContext.getPrefetchHintsArtifact() != null) {
+      variablesBuilder.put(
+          CompileBuildVariables.FDO_PREFETCH_HINTS_PATH.getVariableName(),
+          fdoContext.getPrefetchHintsArtifact().getExecPathString());
+    }
+
+    if (shouldPassPropellerProfiles(ccToolchain, fdoContext, featureConfiguration)) {
+      if (fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
+        variablesBuilder.put(
+            CompileBuildVariables.PROPELLER_OPTIMIZE_CC_PATH.getVariableName(),
+            fdoContext.getPropellerOptimizeInputFile().getCcArtifact().getExecPathString());
+      }
+
+      if (fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
+        variablesBuilder.put(
+            CompileBuildVariables.PROPELLER_OPTIMIZE_LD_PATH.getVariableName(),
+            fdoContext.getPropellerOptimizeInputFile().getLdArtifact().getExecPathString());
+      }
+    }
+
+    if (fdoContext.getMemProfProfileArtifact() != null) {
+      variablesBuilder.put(
+          CompileBuildVariables.MEMPROF_PROFILE_PATH.getVariableName(),
+          fdoContext.getMemProfProfileArtifact().getExecPathString());
+    }
+
+    FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
+    // Optimization phase
+    if (branchFdoProfile != null) {
+      if (!auxiliaryFdoInputs.isEmpty()) {
+        if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)
+            || featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO)) {
+          variablesBuilder.put(
+              CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
+              branchFdoProfile.getProfileArtifact().getExecPathString());
+        }
+        if (featureConfiguration.isEnabled(CppRuleClasses.FDO_OPTIMIZE)) {
+          if (branchFdoProfile.isLlvmFdo() || branchFdoProfile.isLlvmCSFdo()) {
+            variablesBuilder.put(
+                CompileBuildVariables.FDO_PROFILE_PATH.getVariableName(),
+                branchFdoProfile.getProfileArtifact().getExecPathString());
+          }
+        }
+      }
+    }
+    return variablesBuilder.buildOrThrow();
+  }
+
+  /** Returns whether Propeller profiles should be passed to a compile action. */
+  private static boolean shouldPassPropellerProfiles(
+      CcToolchainProvider ccToolchain,
+      FdoContext fdoContext,
+      FeatureConfiguration featureConfiguration)
+      throws EvalException {
+    if (ccToolchain.isToolConfiguration()) {
+      // Propeller doesn't make much sense for host builds.
+      return false;
+    }
+
+    if (fdoContext.getPropellerOptimizeInputFile() == null) {
+      // No Propeller profiles to pass.
+      return false;
+    }
+    // Don't pass Propeller input files if they have no effect (i.e. for ThinLTO).
+    return !featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
+        || featureConfiguration.isEnabled(
+            CppRuleClasses.PROPELLER_OPTIMIZE_THINLTO_COMPILE_ACTIONS);
+  }
+
+  /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
+  private static NestedSet<Artifact> getAuxiliaryFdoInputs(
+      CcToolchainProvider ccToolchain,
+      FdoContext fdoContext,
+      FeatureConfiguration featureConfiguration)
+      throws EvalException {
+    NestedSetBuilder<Artifact> auxiliaryInputs = NestedSetBuilder.stableOrder();
+
+    if (fdoContext.getPrefetchHintsArtifact() != null) {
+      auxiliaryInputs.add(fdoContext.getPrefetchHintsArtifact());
+    }
+    if (shouldPassPropellerProfiles(ccToolchain, fdoContext, featureConfiguration)) {
+      if (fdoContext.getPropellerOptimizeInputFile().getCcArtifact() != null) {
+        auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getCcArtifact());
+      }
+      if (fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null) {
+        auxiliaryInputs.add(fdoContext.getPropellerOptimizeInputFile().getLdArtifact());
+      }
+    }
+    if (fdoContext.getMemProfProfileArtifact() != null) {
+      auxiliaryInputs.add(fdoContext.getMemProfProfileArtifact());
+    }
+    FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
+    // If --fdo_optimize was not specified, we don't have any additional inputs.
+    if (branchFdoProfile != null) {
+      auxiliaryInputs.add(branchFdoProfile.getProfileArtifact());
+    }
+
+    return auxiliaryInputs.build();
+  }
+
+  // Methods creating CppCompileActionBuilder:
+
   /**
    * Returns a {@code CppCompileActionBuilder} with the common fields for a C++ compile action being
    * initialized.
@@ -1013,6 +1026,8 @@ public final class CcStaticCompilationHelper {
         .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots);
     return builder;
   }
+
+  // Methods creating actions:
 
   private static void createModuleCodegenAction(
       ActionConstructionContext actionConstructionContext,
@@ -1538,47 +1553,6 @@ public final class CcStaticCompilationHelper {
     return objectFile;
   }
 
-  private static String getOutputNameBaseWith(
-      CcToolchainProvider ccToolchain, String base, boolean usePic) throws RuleErrorException {
-    return usePic
-        ? CppHelper.getArtifactNameForCategory(ccToolchain, ArtifactCategory.PIC_FILE, base)
-        : base;
-  }
-
-  private static ImmutableList<String> collectPerFileCopts(
-      CppConfiguration cppConfiguration, Artifact sourceFile, Label sourceLabel) {
-    return cppConfiguration.getPerFileCopts().stream()
-        .filter(
-            perLabelOptions ->
-                (sourceLabel != null && perLabelOptions.isIncluded(sourceLabel))
-                    || perLabelOptions.isIncluded(sourceFile))
-        .map(PerLabelOptions::getOptions)
-        .flatMap(options -> options.stream())
-        .collect(ImmutableList.toImmutableList());
-  }
-
-  private static Artifact getDwoFile(
-      ActionConstructionContext actionConstructionContext,
-      BuildConfigurationValue configuration,
-      Artifact outputFile) {
-    return actionConstructionContext.getRelatedArtifact(
-        outputFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()), ".dwo");
-  }
-
-  @Nullable
-  private static Artifact getLtoIndexingFile(
-      ActionConstructionContext actionConstructionContext,
-      BuildConfigurationValue configuration,
-      FeatureConfiguration featureConfiguration,
-      Artifact outputFile) {
-    if (featureConfiguration.isEnabled(CppRuleClasses.NO_USE_LTO_INDEXING_BITCODE_FILE)) {
-      return null;
-    }
-    String ext = Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions());
-    return actionConstructionContext.getRelatedArtifact(
-        outputFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()), ext);
-  }
-
   /** Create the actions for "--save_temps". */
   private static ImmutableList<Artifact> createTempsActions(
       ActionConstructionContext actionConstructionContext,
@@ -1694,5 +1668,46 @@ public final class CcStaticCompilationHelper {
     actionConstructionContext.registerAction(sdAction);
 
     return ImmutableList.of(dAction.getPrimaryOutput(), sdAction.getPrimaryOutput());
+  }
+
+  private static String getOutputNameBaseWith(
+      CcToolchainProvider ccToolchain, String base, boolean usePic) throws RuleErrorException {
+    return usePic
+        ? CppHelper.getArtifactNameForCategory(ccToolchain, ArtifactCategory.PIC_FILE, base)
+        : base;
+  }
+
+  private static ImmutableList<String> collectPerFileCopts(
+      CppConfiguration cppConfiguration, Artifact sourceFile, Label sourceLabel) {
+    return cppConfiguration.getPerFileCopts().stream()
+        .filter(
+            perLabelOptions ->
+                (sourceLabel != null && perLabelOptions.isIncluded(sourceLabel))
+                    || perLabelOptions.isIncluded(sourceFile))
+        .map(PerLabelOptions::getOptions)
+        .flatMap(options -> options.stream())
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  private static Artifact getDwoFile(
+      ActionConstructionContext actionConstructionContext,
+      BuildConfigurationValue configuration,
+      Artifact outputFile) {
+    return actionConstructionContext.getRelatedArtifact(
+        outputFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()), ".dwo");
+  }
+
+  @Nullable
+  private static Artifact getLtoIndexingFile(
+      ActionConstructionContext actionConstructionContext,
+      BuildConfigurationValue configuration,
+      FeatureConfiguration featureConfiguration,
+      Artifact outputFile) {
+    if (featureConfiguration.isEnabled(CppRuleClasses.NO_USE_LTO_INDEXING_BITCODE_FILE)) {
+      return null;
+    }
+    String ext = Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions());
+    return actionConstructionContext.getRelatedArtifact(
+        outputFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()), ext);
   }
 }
