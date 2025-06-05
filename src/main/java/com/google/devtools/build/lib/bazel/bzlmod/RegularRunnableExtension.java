@@ -219,7 +219,7 @@ final class RegularRunnableExtension implements RunnableExtension {
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
       RepositoryMapping mainRepositoryMapping,
-      StarlarkValue facts)
+      Object facts)
       throws InterruptedException, ExternalDepsException {
     // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
     while (true) {
@@ -256,7 +256,7 @@ final class RegularRunnableExtension implements RunnableExtension {
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
       RepositoryMapping mainRepositoryMapping,
-      StarlarkValue facts)
+      Object facts)
       throws InterruptedException, ExternalDepsException {
     env.getListener().post(ModuleExtensionEvaluationProgress.ongoing(extensionId, "starting"));
     ModuleExtensionEvalStarlarkThreadContext threadContext =
@@ -336,7 +336,7 @@ final class RegularRunnableExtension implements RunnableExtension {
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
       Label.RepoMappingRecorder repoMappingRecorder,
-      StarlarkValue facts)
+      Object facts)
       throws ExternalDepsException {
     Path workingDirectory =
         directories

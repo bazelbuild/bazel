@@ -34,6 +34,7 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.Dict;
@@ -77,14 +78,14 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
 
   @AutoTransient
   @Nullable
-  abstract StarlarkValue getFacts();
+  abstract Object getFacts();
 
   private static ModuleExtensionMetadata create(
       @Nullable Set<String> explicitRootModuleDirectDeps,
       @Nullable Set<String> explicitRootModuleDirectDevDeps,
       UseAllRepos useAllRepos,
       boolean reproducible,
-      StarlarkValue facts) {
+      Object facts) {
     return new AutoValue_ModuleExtensionMetadata(
         explicitRootModuleDirectDeps != null
             ? ImmutableSet.copyOf(explicitRootModuleDirectDeps)
@@ -101,9 +102,9 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
       Object rootModuleDirectDepsUnchecked,
       Object rootModuleDirectDevDepsUnchecked,
       boolean reproducible,
-      StarlarkValue facts)
+      Object facts)
       throws EvalException {
-    validateFacts(facts);
+    facts = validateAndNormalizeFacts(facts);
 
     if (rootModuleDirectDepsUnchecked == Starlark.NONE
         && rootModuleDirectDevDepsUnchecked == Starlark.NONE) {
@@ -394,41 +395,50 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
     };
   }
 
+  // This limit only exists to prevent pathological uses of facts, which are meant to be
+  // human-readable and friendly to VCS merges.
   private static final int MAX_FACTS_DEPTH = 5;
 
-  private static void validateFacts(Object facts) throws EvalException {
-    validateFacts(facts, MAX_FACTS_DEPTH);
+  private static Object validateAndNormalizeFacts(Object facts) throws EvalException {
+    return validateAndNormalizeFacts(facts, MAX_FACTS_DEPTH);
   }
 
-  private static void validateFacts(Object facts, int remainingDepth) throws EvalException {
+  private static Object validateAndNormalizeFacts(Object facts, int remainingDepth)
+      throws EvalException {
     if (remainingDepth == 0) {
       throw Starlark.errorf("Facts are too deeply nested");
     }
-    switch (facts) {
-      case String ignored -> {}
-      case NoneType ignored -> {}
-      case Boolean ignored -> {}
-      case StarlarkFloat ignored -> {}
-      case StarlarkInt ignored -> {}
-      case StarlarkList<?> list -> {
-        for (var element : list) {
-          validateFacts(element, remainingDepth - 1);
+    // Only permit types that can be serialized to JSON and ensure that they contain no information
+    // not captured by equality by sorting dicts.
+    return switch (facts) {
+      case String s -> s;
+      case NoneType n -> n;
+      case Boolean b -> b;
+      case StarlarkFloat f -> f;
+      case StarlarkInt i -> i;
+      case StarlarkList<?> list ->  {
+        Object[] normalizedList = new Object[list.size()];
+        for (int i = 0; i < list.size(); i++) {
+          normalizedList[i] = validateAndNormalizeFacts(list.get(i), remainingDepth - 1);
         }
+        yield StarlarkList.immutableOf(normalizedList);
       }
       case Dict<?, ?> dict -> {
+        var builder = new TreeMap<String, Object>();
         for (var entry : dict.entrySet()) {
-          if (!(entry.getKey() instanceof String)) {
+          if (!(entry.getKey() instanceof String string)) {
             throw Starlark.errorf(
                 "Facts keys must be strings, got '%s' (%s)",
                 Starlark.repr(entry), Starlark.type(entry.getKey()));
           }
-          validateFacts(entry.getValue(), remainingDepth - 1);
+          builder.put(string, validateAndNormalizeFacts(entry.getValue(), remainingDepth - 1));
         }
+        yield Dict.immutableCopyOf(builder);
       }
       default ->
           throw Starlark.errorf(
               "'%s' (%s) is not supported in facts", Starlark.repr(facts), Starlark.type(facts));
-    }
+    };
   }
 
   enum UseAllRepos {

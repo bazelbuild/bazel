@@ -29,7 +29,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Optional;
-import net.starlark.java.eval.StarlarkValue;
 
 /**
  * The result of evaluating a single module extension (see {@link SingleExtensionEvalFunction}).
@@ -52,7 +51,7 @@ public record SingleExtensionValue(
     ImmutableBiMap<RepositoryName, String> canonicalRepoNameToInternalNames,
     Optional<LockFileModuleExtension.WithFactors> lockFileInfo,
     Optional<RootModuleFileFixup> fixup,
-    StarlarkValue facts)
+    Object facts)
     implements SkyValue {
   public SingleExtensionValue {
     requireNonNull(generatedRepoSpecs, "generatedRepoSpecs");
@@ -68,7 +67,7 @@ public record SingleExtensionValue(
       ImmutableBiMap<RepositoryName, String> canonicalRepoNameToInternalNames,
       Optional<LockFileModuleExtension.WithFactors> lockFileInfo,
       Optional<RootModuleFileFixup> fixup,
-      StarlarkValue facts) {
+      Object facts) {
     return new SingleExtensionValue(
         generatedRepoSpecs, canonicalRepoNameToInternalNames, lockFileInfo, fixup, facts);
   }

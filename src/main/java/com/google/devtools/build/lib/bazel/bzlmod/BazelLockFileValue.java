@@ -133,7 +133,7 @@ public abstract class BazelLockFileValue implements SkyValue {
           ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
       getModuleExtensions();
 
-  public abstract ImmutableMap<ModuleExtensionId, StarlarkValue> getFacts();
+  public abstract ImmutableMap<ModuleExtensionId, Object> getFacts();
 
   public abstract Builder toBuilder();
 
@@ -152,7 +152,7 @@ public abstract class BazelLockFileValue implements SkyValue {
                 ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
             value);
 
-    public abstract Builder setFacts(ImmutableMap<ModuleExtensionId, StarlarkValue> value);
+    public abstract Builder setFacts(ImmutableMap<ModuleExtensionId, Object> value);
 
     public abstract BazelLockFileValue build();
   }

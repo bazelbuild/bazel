@@ -52,7 +52,7 @@ interface RunnableExtension {
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
       RepositoryMapping mainRepositoryMapping,
-      StarlarkValue facts)
+      Object facts)
       throws InterruptedException, ExternalDepsException;
 
   /* Holds the result data from running a module extension */

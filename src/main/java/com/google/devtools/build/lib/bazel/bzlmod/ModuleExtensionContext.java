@@ -34,7 +34,6 @@ import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.eval.StarlarkValue;
 
 /** The Starlark object passed to the implementation function of module extensions. */
 @StarlarkBuiltin(
@@ -48,7 +47,7 @@ import net.starlark.java.eval.StarlarkValue;
 public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   private final ModuleExtensionId extensionId;
   private final StarlarkList<StarlarkBazelModule> modules;
-  private final StarlarkValue facts;
+  private final Object facts;
   private final boolean rootModuleHasNonDevDependency;
 
   protected ModuleExtensionContext(
@@ -63,7 +62,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       @Nullable RepositoryRemoteExecutor remoteExecutor,
       ModuleExtensionId extensionId,
       StarlarkList<StarlarkBazelModule> modules,
-      StarlarkValue facts,
+      Object facts,
       boolean rootModuleHasNonDevDependency) {
     super(
         workingDirectory,
@@ -115,7 +114,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   }
 
   @StarlarkMethod(name = "facts", structField = true, doc = "foo")
-  public StarlarkValue getFacts() {
+  public Object getFacts() {
     return facts;
   }
 
@@ -243,9 +242,6 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       Object facts)
       throws EvalException {
     return ModuleExtensionMetadata.create(
-        rootModuleDirectDepsUnchecked,
-        rootModuleDirectDevDepsUnchecked,
-        reproducible,
-        (StarlarkValue) facts);
+        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked, reproducible, facts);
   }
 }

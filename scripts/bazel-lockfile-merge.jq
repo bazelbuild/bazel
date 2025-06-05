@@ -43,8 +43,11 @@ def shallow_merge(f):
         moduleExtensions:  (map(.moduleExtensions | to_entries)
                            | flatten
                            | group_by(.key)
-                           | shallow_merge({(.[0].key): shallow_merge(.value)}))
+                           | shallow_merge({(.[0].key): shallow_merge(.value)})),
+        facts: .[0].facts,
     }
+    # Filter out null values for missing top-level keys such as facts.
+    | with_entries(select(.value != null))
 )? //
     # We get here if the lockfiles with the highest lockFileVersion could not be
     # processed, for example because all lockfiles have lockFileVersion < 10.

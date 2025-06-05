@@ -45,7 +45,6 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 
@@ -170,7 +169,7 @@ final class InnateRunnableExtension implements RunnableExtension {
       StarlarkSemantics starlarkSemantics,
       ModuleExtensionId extensionId,
       RepositoryMapping mainRepositoryMapping,
-      StarlarkValue facts)
+      Object facts)
       throws InterruptedException, ExternalDepsException {
     Object exported = loadedBzl.getModule().getGlobal(ruleName);
     if (exported == null) {

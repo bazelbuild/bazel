@@ -121,7 +121,7 @@ public class BazelLockFileModule extends BlazeModule {
     int maxNumExtensions = depGraphValue.getExtensionUsagesTable().rowMap().size();
     Map<ModuleExtensionId, LockFileModuleExtension.WithFactors> newExtensionInfos =
         new ConcurrentHashMap<>(maxNumExtensions);
-    Map<ModuleExtensionId, StarlarkValue> combinedFacts = new ConcurrentHashMap<>(maxNumExtensions);
+    Map<ModuleExtensionId, Object> combinedFacts = new ConcurrentHashMap<>(maxNumExtensions);
     combinedFacts.putAll(oldLockfile.getFacts());
     executor
         .getEvaluator()

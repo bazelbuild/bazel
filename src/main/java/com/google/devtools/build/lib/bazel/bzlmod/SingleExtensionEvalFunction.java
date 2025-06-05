@@ -142,7 +142,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
     // Check the lockfile first for that module extension
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
-    StarlarkValue facts = Starlark.NONE;
+    Object lockfileFacts = Starlark.NONE;
     if (!lockfileMode.equals(LockfileMode.OFF)) {
       var lockfiles =
           env.getValuesAndExceptions(
@@ -153,7 +153,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       if (lockfile == null || hiddenLockfile == null) {
         return null;
       }
-      facts = lockfile.getFacts().getOrDefault(extensionId, Starlark.NONE);
+      lockfileFacts = lockfile.getFacts().getOrDefault(extensionId, Starlark.NONE);
       var lockedExtensionMap = lockfile.getModuleExtensions().get(extensionId);
       var lockedExtension =
           lockedExtensionMap == null ? null : lockedExtensionMap.get(extension.getEvalFactors());
@@ -174,7 +174,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   usagesValue,
                   extension.getEvalFactors(),
                   lockedExtension,
-                  facts);
+                  lockfileFacts);
           if (singleExtensionValue != null) {
             return singleExtensionValue;
           }
@@ -194,7 +194,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               starlarkSemantics,
               extensionId,
               mainRepoMappingValue.repositoryMapping(),
-              facts);
+              lockfileFacts);
     } catch (ExternalDepsException e) {
       throw new SingleExtensionEvalFunctionException(e);
     }
@@ -236,14 +236,14 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     }
     var newFacts =
         moduleExtensionMetadata.map(ModuleExtensionMetadata::getFacts).orElse(Starlark.NONE);
-    if (lockfileMode.equals(LockfileMode.ERROR) && !newFacts.equals(facts)) {
+    if (lockfileMode.equals(LockfileMode.ERROR) && !newFacts.equals(lockfileFacts)) {
       throw new SingleExtensionEvalFunctionException(
           ExternalDepsException.withMessage(
               Code.BAD_LOCKFILE,
-              "The module extension '%s' has changed its facts: %s != %s",
+              "The module extension '%s' has changed its lockfileFacts: %s != %s",
               extensionId,
               Starlark.repr(newFacts),
-              Starlark.repr(facts)));
+              Starlark.repr(lockfileFacts)));
     }
 
     Optional<LockFileModuleExtension.WithFactors> lockFileInfo;
@@ -307,7 +307,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       SingleExtensionUsagesValue usagesValue,
       ModuleExtensionEvalFactors evalFactors,
       LockFileModuleExtension lockedExtension,
-      StarlarkValue facts)
+      Object facts)
       throws SingleExtensionEvalFunctionException,
           InterruptedException,
           NeedsSkyframeRestartException {
@@ -360,6 +360,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     } catch (DiffFoundEarlyExitException ignored) {
       // ignored
     }
+    // There is intentionally no diff check for facts - they are never invalidated by Bazel.
     if (!diffRecorder.anyDiffsDetected()) {
       return createSingleExtensionValue(
           lockedExtension.getGeneratedRepoSpecs(),
@@ -464,7 +465,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       ModuleExtensionId extensionId,
       SingleExtensionUsagesValue usagesValue,
       Optional<LockFileModuleExtension.WithFactors> lockFileInfo,
-      StarlarkValue facts,
+      Object facts,
       Environment env)
       throws SingleExtensionEvalFunctionException {
     Optional<RootModuleFileFixup> fixup = Optional.empty();
