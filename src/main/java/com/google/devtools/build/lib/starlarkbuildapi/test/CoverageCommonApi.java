@@ -117,6 +117,15 @@ public interface CoverageCommonApi<
             allowedTypes = {
               @ParamType(type = Depset.class),
               @ParamType(type = NoneType.class),
+            }),
+        @Param(
+            name = "baseline_coverage_files",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = FileApi.class),
+              @ParamType(type = NoneType.class),
             })
       },
       useStarlarkThread = true)
@@ -129,6 +138,7 @@ public interface CoverageCommonApi<
       Object extensions,
       Sequence<?> metadataFiles,
       Object reportedToActualSourcesObject,
+      Object baselineCoverageFiles, // Sequence<FileApi> or NoneType
       StarlarkThread thread)
       throws EvalException, TypeException;
 }

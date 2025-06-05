@@ -1336,12 +1336,10 @@ want to compute the test coverage for a binary, it is not enough to merge the
 coverage of all of the tests because there may be code in the binary that is not
 linked into any test. Therefore, what we do is to emit a coverage file for every
 binary which contains only the files we collect coverage for with no covered
-lines. The baseline coverage file for a target is at
-`bazel-testlogs/$PACKAGE/$TARGET/baseline_coverage.dat` . It is also generated
-for binaries and libraries in addition to tests if you pass the
-`--nobuild_tests_only` flag to Bazel.
-
-Baseline coverage is currently broken.
+lines. The default baseline coverage file for a target is at
+`bazel-testlogs/$PACKAGE/$TARGET/baseline_coverage.dat`, but rules are
+encouraged to generate their own baseline coverage files with more meaningful
+content than just the names of the source files.
 
 We track two groups of files for coverage collection for each rule: the set of
 instrumented files and the set of instrumentation metadata files.

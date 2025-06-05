@@ -132,7 +132,7 @@ custom_test = rule(
     implementation = _impl,
     test = True,
     attrs = {
-        "_lcov_merger": attr.label(default = ":lcov_merger", cfg = "exec"),
+        "_lcov_merger": attr.label(default = ":lcov_merger", cfg = config.exec(exec_group = "test")),
     },
 )
 EOF
@@ -184,7 +184,7 @@ custom_test = rule(
     attrs = {
         "_lcov_merger": attr.label(
             default = configuration_field(fragment = "coverage", name = "output_generator"),
-            cfg = "exec"
+            cfg = config.exec(exec_group = "test")
         ),
     },
     fragments = ["coverage"],
@@ -227,7 +227,7 @@ custom_test = rule(
     attrs = {
         "_lcov_merger": attr.label(
             default = configuration_field(fragment = "coverage", name = "output_generator"),
-            cfg = "exec"
+            cfg = config.exec(exec_group = "test")
         ),
     },
     fragments = ["coverage"],
@@ -247,17 +247,6 @@ EOF
 function test_starlark_rule_default_baseline_coverage() {
   mkdir -p test
   cat <<'EOF' > test/rules.bzl
-_COMMON_ATTRS = {
-    "srcs": attr.label_list(
-        allow_files = True,
-    ),
-    "deps": attr.label_list(),
-    "_lcov_merger": attr.label(
-        default = configuration_field(fragment = "coverage", name = "output_generator"),
-        cfg = "exec",
-    ),
-}
-
 def _my_library_impl(ctx):
     providers = []
 
@@ -280,7 +269,12 @@ def _my_library_impl(ctx):
 
 my_library = rule(
     implementation = _my_library_impl,
-    attrs = _COMMON_ATTRS,
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = True,
+        ),
+        "deps": attr.label_list(),
+    },
 )
 
 def _my_test_impl(ctx):
@@ -316,7 +310,16 @@ E_O_F
 my_test = rule(
     implementation = _my_test_impl,
     test = True,
-    attrs = _COMMON_ATTRS,
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = True,
+        ),
+        "deps": attr.label_list(),
+        "_lcov_merger": attr.label(
+            default = configuration_field(fragment = "coverage", name = "output_generator"),
+            cfg = config.exec(exec_group = "test"),
+        ),
+    },
 )
 EOF
 
@@ -395,8 +398,245 @@ FNH:0
 LH:0
 LF:0
 end_of_record"
+    local expected_baseline_coverage="SF:test/covered_1.txt
+FNF:0
+FNH:0
+LH:0
+LF:0
+end_of_record
+SF:test/covered_2.txt
+FNF:0
+FNH:0
+LH:0
+LF:0
+end_of_record
+SF:test/untested_1.txt
+FNF:0
+FNH:0
+LH:0
+LF:0
+end_of_record
+SF:test/untested_2.txt
+FNF:0
+FNH:0
+LH:0
+LF:0
+end_of_record"
 
     assert_coverage_result "$expected_coverage" bazel-out/_coverage/_coverage_report.dat
+    assert_coverage_result "$expected_baseline_coverage" bazel-out/_coverage/_baseline_report.dat
+}
+
+function test_starlark_rule_custom_baseline_coverage() {
+  mkdir -p test
+  cat <<'EOF' > test/rules.bzl
+def _my_library_impl(ctx):
+    providers = []
+
+    transitive_files = [dep[DefaultInfo].files for dep in (ctx.attr.deps + ctx.attr.srcs)]
+    providers.append(
+        DefaultInfo(
+            files = depset(transitive = transitive_files),
+        )
+    )
+
+    baseline_coverage_files = []
+    for src in ctx.files.srcs:
+        lcov_file = ctx.actions.declare_file(ctx.label.name + "_" + str(hash(src.path)) + ".dat")
+        ctx.actions.write(
+            lcov_file,
+            """
+SF:{}
+DA:1,0
+DA:2,0
+LF:2
+LH:0
+end_of_record
+""".format(src.path),
+        )
+        baseline_coverage_files.append(lcov_file)
+
+    providers.append(
+        coverage_common.instrumented_files_info(
+            ctx = ctx,
+            source_attributes = ["srcs"],
+            dependency_attributes = ["deps"],
+            baseline_coverage_files = baseline_coverage_files,
+        )
+    )
+
+    return providers
+
+my_library = rule(
+    implementation = _my_library_impl,
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = True,
+        ),
+        "deps": attr.label_list(),
+    },
+)
+
+def _my_test_impl(ctx):
+    providers = []
+
+    out = ctx.actions.declare_file(ctx.label.name)
+    all_files = depset(transitive = [dep[DefaultInfo].files for dep in (ctx.attr.deps + ctx.attr.srcs)])
+    script_content = "#!/bin/bash\n" + "\n".join([
+        """cat <<E_O_F >> "$COVERAGE_DIR/my_test.dat"
+SF:{}
+DA:1,1
+DA:2,0
+LF:2
+LH:1
+end_of_record
+E_O_F
+""".format(f.path)
+        for f in all_files.to_list()
+    ])
+    ctx.actions.write(out, script_content, is_executable = True)
+    providers.append(DefaultInfo(executable = out))
+
+    providers.append(
+        coverage_common.instrumented_files_info(
+            ctx = ctx,
+            source_attributes = ["srcs"],
+            dependency_attributes = ["deps"],
+        )
+    )
+
+    return providers
+
+my_test = rule(
+    implementation = _my_test_impl,
+    test = True,
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = True,
+        ),
+        "deps": attr.label_list(),
+        "_lcov_merger": attr.label(
+            default = configuration_field(fragment = "coverage", name = "output_generator"),
+            cfg = config.exec(exec_group = "test"),
+        ),
+    },
+)
+EOF
+
+  cat <<'EOF' > test/BUILD
+load(":rules.bzl", "my_library", "my_test")
+
+my_library(
+    name = "untested_lib",
+    srcs = [
+        "untested_1.txt",
+        "untested_2.txt",
+    ],
+)
+
+my_library(
+    name = "covered_lib",
+    srcs = [
+        "covered_1.txt",
+        "covered_2.txt",
+    ],
+)
+
+my_library(
+    name = "all_libs",
+    deps = [
+        ":untested_lib",
+        ":covered_lib",
+    ],
+)
+
+my_library(
+    name = "tested_libs",
+    deps = [
+        ":covered_lib",
+    ],
+)
+
+my_test(
+    name = "my_test",
+    srcs = [
+        "test_1.txt",
+        "test_2.txt",
+    ],
+    deps = [":tested_libs"],
+)
+EOF
+    touch test/{untested_1.txt,untested_2.txt,covered_1.txt,covered_2.txt,test_1.txt,test_2.txt}
+
+    bazel coverage //test:my_test //test:all_libs --combined_report=lcov &> $TEST_log \
+        || fail "Coverage run failed but should have succeeded."
+    local expected_coverage="SF:test/covered_1.txt
+FNF:0
+FNH:0
+DA:1,1
+DA:2,0
+LH:1
+LF:2
+end_of_record
+SF:test/covered_2.txt
+FNF:0
+FNH:0
+DA:1,1
+DA:2,0
+LH:1
+LF:2
+end_of_record
+SF:test/untested_1.txt
+FNF:0
+FNH:0
+DA:1,0
+DA:2,0
+LH:0
+LF:2
+end_of_record
+SF:test/untested_2.txt
+FNF:0
+FNH:0
+DA:1,0
+DA:2,0
+LH:0
+LF:2
+end_of_record"
+    local expected_baseline_coverage="SF:test/covered_1.txt
+FNF:0
+FNH:0
+DA:1,0
+DA:2,0
+LH:0
+LF:2
+end_of_record
+SF:test/covered_2.txt
+FNF:0
+FNH:0
+DA:1,0
+DA:2,0
+LH:0
+LF:2
+end_of_record
+SF:test/untested_1.txt
+FNF:0
+FNH:0
+DA:1,0
+DA:2,0
+LH:0
+LF:2
+end_of_record
+SF:test/untested_2.txt
+FNF:0
+FNH:0
+DA:1,0
+DA:2,0
+LH:0
+LF:2
+end_of_record"
+
+    assert_coverage_result "$expected_coverage" bazel-out/_coverage/_coverage_report.dat
+    assert_coverage_result "$expected_baseline_coverage" bazel-out/_coverage/_baseline_report.dat
 }
 
 run_suite "test tests"
