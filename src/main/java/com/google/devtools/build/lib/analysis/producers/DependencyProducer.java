@@ -235,7 +235,7 @@ final class DependencyProducer
 
   private String getMessageWithEdgeTransitionInfo(Throwable e) {
     return String.format(
-        "On dependency edge %s (%s) -|%s|-> %s: %s",
+        "on dependency edge %s (%s) -|%s|-> %s: %s",
         parameters.target().getLabel(),
         parameters.configurationKey().getOptions().shortId(),
         kind.getAttribute().getName(),
