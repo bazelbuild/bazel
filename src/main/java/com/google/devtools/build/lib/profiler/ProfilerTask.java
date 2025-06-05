@@ -92,6 +92,8 @@ public enum ProfilerTask {
   SPAWN_LOG("logging spawn", Threshold.TEN_MILLIS),
   RPC("RPC"),
   SKYCACHE("Skycache"),
+  WASM_LOAD("load WebAssembly module"),
+  WASM_EXEC("execute WebAssembly function"),
 
   UNKNOWN("Unknown event");
 

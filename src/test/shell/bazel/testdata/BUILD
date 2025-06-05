@@ -1,3 +1,5 @@
+load("//src/test/tools:wasm.bzl", "wat_binary")
+
 package(default_testonly = True)
 
 filegroup(
@@ -27,3 +29,9 @@ filegroup(
 )
 
 exports_files(["zstd_test_archive.tar.zst"])
+
+wat_binary(
+    name = "exec_wasm",
+    src = "exec_wasm.wat",
+    visibility = ["//src/test/shell/bazel:__pkg__"],
+)
