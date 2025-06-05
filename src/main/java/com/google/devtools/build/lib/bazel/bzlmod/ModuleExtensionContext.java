@@ -113,7 +113,19 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
     return modules;
   }
 
-  @StarlarkMethod(name = "facts", structField = true, doc = "foo")
+  @StarlarkMethod(
+      name = "facts",
+      structField = true,
+      doc =
+          """
+          The JSON-like value returned by a previous execution of this extension in the <code>\
+          facts</code> parameter of <a href="../builtins/module_ctx#extension_metadata"><code>\
+          extension_metadata</code></a> or else <code>None</code>.
+          This is useful for extensions that want to preserve universally true facts such as the \
+          hashes of artifacts in an immutable repository.
+          Note that the returned value may have been created by a different version of the \
+          extension, which may have used a different schema.
+          """)
   public Object getFacts() {
     return facts;
   }
