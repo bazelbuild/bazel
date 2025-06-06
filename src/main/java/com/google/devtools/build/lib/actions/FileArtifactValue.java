@@ -79,6 +79,9 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 public abstract class FileArtifactValue implements SkyValue, HasDigest {
+  // value of expirationTime indicating server lifetime expiration
+  public static final long SERVER_EXPIRATION_SENTINEL = -2;
+
   /**
    * The type of the underlying file system object. If it is a regular file, then it is guaranteed
    * to have a digest. Otherwise it does not have a digest.
@@ -191,7 +194,9 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    * Returns whether the file contents are available (either locally, or remotely and not expired).
    */
   public final boolean isAlive(Instant now) {
-    return getExpirationTime() == null || getExpirationTime().isAfter(now);
+    return getExpirationTime() == null ||
+      getExpirationTime().equals(Instant.ofEpochMilli(SERVER_EXPIRATION_SENTINEL)) ||
+      getExpirationTime().isAfter(now);
   }
 
   /**
@@ -727,7 +732,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Nullable
     private static Instant fromEpochMilli(long expirationTime) {
-      return expirationTime >= 0 ? Instant.ofEpochMilli(expirationTime) : null;
+      return expirationTime >= 0 || expirationTime == SERVER_EXPIRATION_SENTINEL ?
+          Instant.ofEpochMilli(expirationTime) : null;
     }
 
     @Override
@@ -738,7 +744,13 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     public void setExpirationTime(Instant expirationTime) {
-      this.expirationTime = toEpochMilli(expirationTime);
+      // This interface is used only to extend the expirationTime, which is only
+      // meaningful when this.expirationTime >= 0.  We wish to avoid altering
+      // this.expirationTime for entries that never expire, or entries that live
+      // only as long as the Bazel server.
+      if (this.expirationTime >= 0) {
+        this.expirationTime = toEpochMilli(expirationTime);
+      }
     }
 
     /**
@@ -788,7 +800,9 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
           .add("digest", bytesToString(getDigest()))
           .add("size", getSize())
           .add("locationIndex", getLocationIndex())
-          .add("expirationTime", fromEpochMilli(expirationTime))
+          .add("expirationTime", expirationTime == SERVER_EXPIRATION_SENTINEL ?
+                                 Long.toString(expirationTime) :
+                                 fromEpochMilli(expirationTime).toString())
           .add("proxy", proxy)
           .toString();
     }

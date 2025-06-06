@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.options;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
@@ -42,20 +44,42 @@ public class CommonRemoteOptions extends OptionsBase {
               + " repeating this flag.")
   public List<RegexPatternOption> remoteDownloadRegex;
 
+  @VisibleForTesting
+  static final String SERVER_KEYWORD = "server";
+
   @Option(
       name = "experimental_remote_cache_ttl",
       defaultValue = "3h",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.EXECUTION},
-      converter = RemoteDurationConverter.class,
+      converter = RemoteCacheTtlDurationConverter.class,
       help =
           "The guaranteed minimal TTL of blobs in the remote cache after their digests are recently"
               + " referenced e.g. by an ActionResult or FindMissingBlobs. Bazel does several"
               + " optimizations based on the blobs' TTL e.g. doesn't repeatedly call"
               + " GetActionResult in an incremental build. The value should be set slightly less"
               + " than the real TTL since there is a gap between when the server returns the"
-              + " digests and when Bazel receives them.")
+              + " digests and when Bazel receives them. The special value \"" + SERVER_KEYWORD + "\" allows entries"
+              + " to remain in the remote cache for the lifetime of the Bazel server, but no longer.")
   public Duration remoteCacheTtl;
+
+  /** Returns the specified CacheTtl duration. Assumes seconds if unitless. */
+  public static class RemoteCacheTtlDurationConverter extends RemoteDurationConverter {
+
+    @Override
+    public Duration convert(String input) throws OptionsParsingException {
+      /* We recognize the magic value SERVER_KEYWORD as a way to specify server lifetime ttl. */
+      if (input.equals(SERVER_KEYWORD)) {
+        return Duration.ofSeconds(FileArtifactValue.SERVER_EXPIRATION_SENTINEL);
+      }
+      return super.convert(input);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "An immutable length of time, or \"" + SERVER_KEYWORD + "\".";
+    }
+  }
 
   /** Returns the specified duration. Assumes seconds if unitless. */
   public static class RemoteDurationConverter extends Converter.Contextless<Duration> {
