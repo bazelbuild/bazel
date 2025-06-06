@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.bazel.BazelHashFunctions;
@@ -446,7 +447,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
             execRoot.asFragment(),
             outputRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
             outputs,
-            actionInputFetcher);
+            actionInputFetcher,
+            OutputPermissions.READONLY);
     Path remotePath = remoteFs.getPath(artifact.getPath().getPathString());
     assertThat(remotePath.getFileSystem()).isEqualTo(remoteFs);
     LocalFile file = new LocalFile(remotePath, LocalFileType.OUTPUT, /* artifactMetadata= */ null);
