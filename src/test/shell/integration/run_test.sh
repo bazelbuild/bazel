@@ -326,7 +326,7 @@ EOF
   if $is_windows; then
     expect_log "missing ';'"
   else
-    expect_log "expected ';'"
+    expect_log "expected .;."
   fi
   # Hack to make up for grep -P not being supported.
   grep $(echo -e '\x1b') $TEST_log && fail "Expected colorless output"
