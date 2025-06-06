@@ -181,35 +181,10 @@ config_setting(
 )
 
 config_setting(
-    name = "windows_arm64_constraint",
+    name = "windows_arm64",
     constraint_values = [
         "@platforms//os:windows",
         "@platforms//cpu:arm64",
-    ],
-)
-
-# TODO(https://github.com/bazelbuild/bazel/issues/7260)
-# Remove the flag after toolchain cc resolution is fixed
-config_setting(
-    name = "windows_x64_arm64_flag",
-    constraint_values = [
-        "@platforms//os:windows",
-        "@platforms//cpu:x86_64",
-    ],
-    values = {"cpu": "x64_arm64_windows"},
-)
-
-config_setting(
-    name = "windows_arm64_flag",
-    values = {"cpu": "arm64_windows"},
-)
-
-selects.config_setting_group(
-    name = "windows_arm64",
-    match_any = [
-        ":windows_arm64_constraint",
-        ":windows_arm64_flag",
-        ":windows_x64_arm64_flag",
     ],
     visibility = ["//visibility:public"],
 )
