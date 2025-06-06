@@ -561,6 +561,21 @@ public class CompactPersistentActionCacheTest {
   }
 
   @Test
+  public void putAndGet_savesRemoteFileMetadata_withServerExpirationTime() {
+    Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
+    Instant expirationTime = Instant.ofEpochMilli(FileArtifactValue.SERVER_EXPIRATION_SENTINEL);
+    FileArtifactValue metadata =
+        createRemoteMetadata(artifact, "content", expirationTime, /* resolvedPath= */ null);
+    var entry =
+        builder("key").addOutputFile(artifact, metadata, /* saveFileMetadata= */ true).build();
+    cache.put("key", entry);
+
+    entry = cache.get("key");
+
+    assertThat(entry.getOutputFile(artifact).getExpirationTime()).isEqualTo(expirationTime);
+  }
+
+  @Test
   public void putAndGet_savesRemoteFileMetadata_withResolvedPath() {
     Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
     FileArtifactValue metadata =
