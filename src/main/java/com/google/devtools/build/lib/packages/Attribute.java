@@ -1783,7 +1783,6 @@ public final class Attribute implements Comparable<Attribute> {
               + "configuration.");
       return new LabelLateBoundDefault<>(fragmentClass, defaultValueEvaluator, resolver);
     }
-
   }
 
   /** A {@link LateBoundDefault} for a {@link List} of {@link Label} objects. */
@@ -2459,7 +2458,7 @@ public final class Attribute implements Comparable<Attribute> {
     } else if (x instanceof BuildType.SelectorList<?> selectorList) {
       List<Object> selectors = new ArrayList<>();
       for (BuildType.Selector<?> selector : selectorList.getSelectors()) {
-        Dict.Builder<Object, Object> m = Dict.builder();
+        var m = ImmutableMap.builderWithExpectedSize(selector.getNumEntries());
         selector.forEach(
             (rawKey, rawValue) -> {
               Object key = valueToStarlark(rawKey);
@@ -2470,7 +2469,7 @@ public final class Attribute implements Comparable<Attribute> {
                   !selector.isValueSet(rawKey) ? Starlark.NONE : valueToStarlark(rawValue);
               m.put(key, mapVal);
             });
-        Dict<?, ?> selectorDict = m.build(/* mu= */ null);
+        var selectorDict = m.buildKeepingLast();
         if (!selectorDict.isEmpty()) {
           selectors.add(new SelectorValue(selectorDict, selector.getNoMatchError()));
         }
