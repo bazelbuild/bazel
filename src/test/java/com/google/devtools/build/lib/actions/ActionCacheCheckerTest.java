@@ -653,6 +653,45 @@ public class ActionCacheCheckerTest {
   }
 
   @Test
+  public void saveOutputMetadata_serverTtl_remoteFileMetadataLoaded() throws Exception {
+    cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
+    Artifact output = createArtifact(artifactRoot, "bin/dummy");
+    String content = "content";
+    Action action =
+        new InjectOutputFileMetadataAction(
+            output,
+            createRemoteMetadata(
+                content,
+                /* expirationTime= */ Instant.ofEpochMilli(FileArtifactValue.SERVER_EXPIRATION_SENTINEL),
+                /* resolvedPath= */ null));
+    FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
+
+    runAction(action);
+    Token token =
+        cacheChecker.getTokenIfNeedToExecute(
+            action,
+            /* resolvedCacheArtifacts= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            OutputPermissions.READONLY,
+            /* handler= */ null,
+            metadataHandler,
+            metadataHandler,
+            /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
+            CHECK_TTL,
+            /* useArchivedTreeArtifacts= */ false);
+
+    assertThat(output.getPath().exists()).isFalse();
+    assertThat(token).isNull();
+    ActionCache.Entry entry = cache.get(output.getExecPathString());
+    assertThat(entry).isNotNull();
+    assertThat(entry.getOutputFile(output)).isEqualTo(createRemoteMetadata(content));
+    assertThat(metadataHandler.getOutputMetadata(output)).isEqualTo(createRemoteMetadata(
+      content,
+      /* expirationTime= */ Instant.ofEpochMilli(FileArtifactValue.SERVER_EXPIRATION_SENTINEL),
+      /* resolvedPath= */ null));
+  }
+
+  @Test
   public void saveOutputMetadata_remoteFileExpired_remoteFileMetadataNotLoaded() throws Exception {
     cacheChecker = createActionCacheChecker(/* storeOutputMetadata= */ true);
     Artifact output = createArtifact(artifactRoot, "bin/dummy");
