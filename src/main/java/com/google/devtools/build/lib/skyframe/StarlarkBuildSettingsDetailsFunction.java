@@ -163,6 +163,9 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
       for (PackageIdentifier packageKey : packageKeys) {
         try {
           SkyValue skyValue = newlyLoaded.getOrThrow(packageKey, NoSuchPackageException.class);
+          if (skyValue == null) {
+            return null;
+          }
           buildSettingPackages.put(packageKey, (PackageValue) skyValue);
         } catch (NoSuchPackageException e) {
           throw new TransitionException(e);
