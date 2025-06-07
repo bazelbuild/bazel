@@ -34,6 +34,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.CharSource;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModTidyValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue;
@@ -105,7 +106,12 @@ import javax.annotation.Nullable;
 @Command(
     name = ModCommand.NAME,
     buildPhase = LOADS,
-    options = {ModOptions.class, PackageOptions.class, LoadingPhaseThreadsOption.class},
+    options = {
+      CoreOptions.class, // for --action_env, which affects the repo env
+      ModOptions.class,
+      PackageOptions.class,
+      LoadingPhaseThreadsOption.class
+    },
     help = "resource:mod.txt",
     shortDescription = "Queries the Bzlmod external dependency graph",
     allowResidue = true)

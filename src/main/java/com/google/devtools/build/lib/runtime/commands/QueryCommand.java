@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.LOADS;
 
 import com.google.common.hash.HashFunction;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -58,6 +59,7 @@ import java.util.Set;
     name = "query",
     buildPhase = LOADS,
     options = {
+      CoreOptions.class, // for --action_env, which affects the repo env
       PackageOptions.class,
       QueryOptions.class,
       KeepGoingOption.class,
