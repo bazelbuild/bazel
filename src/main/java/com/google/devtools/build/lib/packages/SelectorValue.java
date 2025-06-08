@@ -53,7 +53,7 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
 
   SelectorValue(ImmutableMap<?, ?> dictionary, String noMatchError) {
     Preconditions.checkArgument(!dictionary.isEmpty());
-    this.dictionary = ImmutableMap.copyOf(dictionary);
+    this.dictionary = dictionary;
     // TODO(adonovan): doesn't this assume all the elements have the same type?
     this.type = Iterables.getFirst(dictionary.values(), null).getClass();
     this.noMatchError = noMatchError;
