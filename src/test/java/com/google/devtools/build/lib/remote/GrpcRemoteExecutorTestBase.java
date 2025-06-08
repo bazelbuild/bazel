@@ -253,6 +253,57 @@ public abstract class GrpcRemoteExecutorTestBase {
   }
 
   @Test
+  public void executeRemotely_retryWaitExecutionWhenUnauthenticated()
+      throws IOException, InterruptedException {
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
+    executionService
+        .whenWaitExecution(DUMMY_REQUEST)
+        .thenError(Status.UNAUTHENTICATED.asRuntimeException());
+    executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenDone(DUMMY_RESPONSE);
+
+    ExecuteResponse response =
+        executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
+
+    assertThat(executionService.getExecTimes()).isEqualTo(1);
+    assertThat(executionService.getWaitTimes()).isEqualTo(2);
+    assertThat(response).isEqualTo(DUMMY_RESPONSE);
+  }
+
+  @Test
+  public void executeRemotely_operationWithoutResult_shouldNotCrash() {
+    executionService.whenExecute(DUMMY_REQUEST).thenDone();
+
+    assertThat(
+            assertThrows(
+                IllegalStateException.class,
+                () -> {
+                  executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
+                }))
+        .hasMessageThat()
+        .contains("Unexpected result of remote execution: result not set");
+
+    // Shouldn't retry in this case
+    assertThat(executionService.getExecTimes()).isEqualTo(1);
+  }
+
+  @Test
+  public void executeRemotely_responseWithoutResult_shouldNotRetry() {
+    executionService.whenExecute(DUMMY_REQUEST).thenDone(ExecuteResponse.getDefaultInstance());
+
+    assertThat(
+            assertThrows(
+                IllegalStateException.class,
+                () -> {
+                  executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
+                }))
+        .hasMessageThat()
+        .contains("Unexpected result of remote execution: no result");
+
+    // Shouldn't retry in this case
+    assertThat(executionService.getExecTimes()).isEqualTo(1);
+  }
+
+  @Test
   public void executeRemotely_retryExecuteIfNotFound() throws IOException, InterruptedException {
     executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
     executionService.whenWaitExecution(DUMMY_REQUEST).thenError(Code.NOT_FOUND);
@@ -343,5 +394,43 @@ public abstract class GrpcRemoteExecutorTestBase {
     assertThat(executionService.getExecTimes()).isEqualTo(2);
     assertThat(executionService.getWaitTimes()).isEqualTo(0);
     assertThat(response).isEqualTo(DUMMY_RESPONSE);
+  }
+
+  @Test
+  public void executeRemotely_executeAndRetryWait_forever() throws Exception {
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
+    int errorTimes = MAX_RETRY_ATTEMPTS;
+    for (int i = 0; i < errorTimes; ++i) {
+      executionService
+          .whenWaitExecution(DUMMY_REQUEST)
+          .thenError(Status.DEADLINE_EXCEEDED.asRuntimeException());
+    }
+    executionService.whenWaitExecution(DUMMY_REQUEST).thenDone(DUMMY_RESPONSE);
+
+    ExecuteResponse response =
+        executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
+
+    assertThat(executionService.getExecTimes()).isEqualTo(1);
+    assertThat(executionService.getWaitTimes()).isEqualTo(errorTimes + 1);
+    assertThat(response).isEqualTo(DUMMY_RESPONSE);
+  }
+
+  @Test
+  public void executeRemotely_executeAndRetryWait_failForConsecutiveErrors() {
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
+    for (int i = 0; i < MAX_RETRY_ATTEMPTS * 2; ++i) {
+      executionService
+          .whenWaitExecution(DUMMY_REQUEST)
+          .thenError(Status.UNAVAILABLE.asRuntimeException());
+    }
+
+    assertThrows(
+        IOException.class,
+        () -> {
+          executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
+        });
+
+    assertThat(executionService.getExecTimes()).isEqualTo(1);
+    assertThat(executionService.getWaitTimes()).isEqualTo(MAX_RETRY_ATTEMPTS + 1);
   }
 }
