@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -77,6 +78,7 @@ public final class StarlarkCustomCommandLineTest {
       };
 
   private ArtifactRoot derivedRoot;
+  private Path execRoot;
   private DerivedArtifact artifact1;
   private DerivedArtifact artifact2;
   private DerivedArtifact artifact3;
@@ -87,7 +89,7 @@ public final class StarlarkCustomCommandLineTest {
 
   @Before
   public void createArtifacts() throws IOException {
-    Path execRoot = new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot");
+    execRoot = new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot");
     derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "bin");
 
     ArtifactRoot derivedRoot2 =
@@ -601,7 +603,7 @@ public final class StarlarkCustomCommandLineTest {
   private static void verifyCommandLine(
       PathMapper pathMapper, CommandLine commandLine, String... expected)
       throws CommandLineExpansionException, InterruptedException {
-    ArgChunk chunk = commandLine.expand(new FakeActionInputFileCache(), pathMapper);
+    ArgChunk chunk = commandLine.expand(EMPTY_EXPANDER, pathMapper);
     assertThat(chunk.arguments(pathMapper)).containsExactlyElementsIn(expected).inOrder();
     // Check consistency of the total argument length calculation with SimpleArgChunk, which
     // materializes strings and adds up their lengths.

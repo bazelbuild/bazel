@@ -949,7 +949,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
   @Override
   public final Iterable<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
-    return expand(inputMetadataProvider, pathMapper).arguments(pathMapper);
+    return expand(artifactExpander, pathMapper).arguments(pathMapper);
   }
 
   private static Object /* String | DerivedArtifact */ expandToCommandLine(
