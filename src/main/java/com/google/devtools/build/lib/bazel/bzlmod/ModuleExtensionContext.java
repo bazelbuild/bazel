@@ -79,10 +79,6 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
     this.rootModuleHasNonDevDependency = rootModuleHasNonDevDependency;
   }
 
-  public Path getWorkingDirectory() {
-    return workingDirectory;
-  }
-
   @Override
   protected boolean shouldDeleteWorkingDirectoryOnClose(boolean successful) {
     // The contents of the working directory are purely ephemeral, only the repos instantiated by
@@ -97,7 +93,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   }
 
   @Override
-  protected ImmutableMap<String, String> getRemoteExecProperties() throws EvalException {
+  protected ImmutableMap<String, String> getRemoteExecProperties() {
     return ImmutableMap.of();
   }
 

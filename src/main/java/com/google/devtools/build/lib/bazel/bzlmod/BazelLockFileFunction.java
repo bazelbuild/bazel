@@ -94,7 +94,8 @@ public class BazelLockFileFunction implements SkyFunction {
         return BazelLockFileValue.EMPTY_LOCKFILE;
       }
       String actionSuffix;
-      if (POSSIBLE_MERGE_CONFLICT_PATTERN.matcher(e.getMessage()).find()) {
+      if (e.getMessage() != null
+          && POSSIBLE_MERGE_CONFLICT_PATTERN.matcher(e.getMessage()).find()) {
         actionSuffix =
             " This looks like a merge conflict. See"
                 + " https://bazel.build/external/lockfile#merge-conflicts for advice.";
@@ -137,7 +138,6 @@ public class BazelLockFileFunction implements SkyFunction {
       return BazelLockFileValue.EMPTY_LOCKFILE;
     }
   }
-
 
   static final class BazelLockfileFunctionException extends SkyFunctionException {
 

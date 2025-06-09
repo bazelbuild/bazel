@@ -473,7 +473,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       }
     }
 
-    return SingleExtensionValue.create(
+    return new SingleExtensionValue(
         generatedRepoSpecs,
         generatedRepoSpecs.keySet().stream()
             .collect(
