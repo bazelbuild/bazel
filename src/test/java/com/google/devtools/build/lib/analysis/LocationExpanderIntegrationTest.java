@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -180,10 +181,8 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         .matches("foo .*-out/.*/expansion/foo\\.txt bar");
     assertThat(expander.expand("foo $(execpaths :foo) bar"))
         .matches("foo .*-out/.*/expansion/foo\\.txt bar");
-    assertThat(expander.expand("foo $(rootpath :foo) bar"))
-        .matches("foo expansion/foo.txt bar");
-    assertThat(expander.expand("foo $(rootpaths :foo) bar"))
-        .matches("foo expansion/foo.txt bar");
+    assertThat(expander.expand("foo $(rootpath :foo) bar")).matches("foo expansion/foo.txt bar");
+    assertThat(expander.expand("foo $(rootpaths :foo) bar")).matches("foo expansion/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpath :foo) bar"))
         .isEqualTo("foo " + ruleClassProvider.getRunfilesPrefix() + "/expansion/foo.txt bar");
     assertThat(expander.expand("foo $(rlocationpaths :foo) bar"))
@@ -296,5 +295,38 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         .isEqualTo(
             "foo __main__/expansion/bar.txt __main__/expansion/foo.txt bar"
                 .replace("__main__", ruleClassProvider.getRunfilesPrefix()));
+  }
+
+  @Test
+  public void testDirname() throws Exception {
+    var expander = makeExpander("//files:lib");
+    assertThat(expander.expand("$(dirname a/b/c)")).isEqualTo("a/b");
+    assertThat(expander.expand("$(dirname a/b/c/)")).isEqualTo("a/b/c");
+    assertThat(expander.expand("$(dirname a///b///c)")).isEqualTo("a///b");
+    assertThat(expander.expand("$(dirname a/)")).isEqualTo("a");
+    assertThat(expander.expand("$(dirname a//)")).isEqualTo("a");
+    assertThat(expander.expand("$(dirname C:/a/b/c)")).isEqualTo("C:/a/b");
+    assertThat(expander.expand("$(dirname /a/)")).isEqualTo("/a");
+    assertThat(expander.expand("$(dirname /a/b/c)")).isEqualTo("/a/b");
+
+    assertThat(expander.expand("$(dirname $(dirname a/b/c))")).isEqualTo("a");
+    assertThat(expander.expand("$(dirname $(dirname $(dirname a1/b2/c3/d4/e5)))"))
+        .isEqualTo("a1/b2");
+    assertThat(expander.expand("$(dirname   $(dirname a/b/c  )  )")).isEqualTo("a");
+    assertThat(expander.expand("$(dirname   $(dirnam a/b/c  )  )")).isEqualTo("$(dirnam a/b");
+
+    assertThat(assertThrows(AssertionError.class, () -> expander.expand("$(dirname )")))
+        .hasMessageThat()
+        .endsWith("$(dirname ...) used with an empty string, which is not a valid path");
+    assertThat(assertThrows(AssertionError.class, () -> expander.expand("$(dirname .)")))
+        .hasMessageThat()
+        .endsWith("$(dirname ...) used with '.' or '..', which is not supported: .");
+    assertThat(assertThrows(AssertionError.class, () -> expander.expand("$(dirname ..)")))
+        .hasMessageThat()
+        .endsWith("$(dirname ...) used with '.' or '..', which is not supported: ..");
+    assertThat(assertThrows(AssertionError.class, () -> expander.expand("$(dirname a\\b\\c)")))
+        .hasMessageThat()
+        .endsWith(
+            "$(dirname ...) used with a path containing backslashes, which is not supported: a\\b\\c");
   }
 }

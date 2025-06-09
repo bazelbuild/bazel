@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -175,49 +176,65 @@ public final class LocationExpander {
     StringBuilder result = new StringBuilder(value.length());
 
     while (true) {
-      // (1) Find '$(<fname> '.
       int start = value.indexOf("$(", restart);
       if (start == -1) {
-        result.append(value.substring(restart));
+        result.append(value, restart, value.length());
         break;
       }
-      int nextWhitespace = value.indexOf(' ', start);
-      if (nextWhitespace == -1) {
-        result.append(value, restart, start + 2);
-        restart = start + 2;
-        continue;
-      }
-      String fname = value.substring(start + 2, nextWhitespace);
-      if (!functions.containsKey(fname)) {
-        result.append(value, restart, start + 2);
-        restart = start + 2;
-        continue;
-      }
-
       result.append(value, restart, start);
 
-      int end = value.indexOf(')', nextWhitespace);
-      if (end == -1) {
-        reporter.report(
-            String.format(
-                "unterminated $(%s) expression", value.substring(start + 2, nextWhitespace)));
-        return value;
+      int fnameStart = start + 2;
+      int fnameEnd = fnameStart;
+      while (fnameEnd < value.length()
+          && !Character.isSpaceChar(value.charAt(fnameEnd))
+          && value.charAt(fnameEnd) != ')') {
+        fnameEnd++;
+      }
+      if (fnameEnd == value.length() || value.charAt(fnameEnd) == ')') {
+        // Not a valid function call, just copy the text.
+        restart = fnameEnd + (fnameEnd < value.length() ? 1 : 0);
+        result.append(value, start, restart);
+        continue;
+      }
+      String fname = value.substring(fnameStart, fnameEnd);
+      if (!functions.containsKey(fname)) {
+        restart = fnameEnd;
+        result.append(value, start, restart);
+        continue;
       }
 
-      // (2) Call appropriate function to obtain string replacement.
-      String functionValue = value.substring(nextWhitespace + 1, end).trim();
+      // Find the matching closing parenthesis, supporting nested $()
+      int argStart = fnameEnd + 1;
+      int depth = 1;
+      int i = argStart;
+      while (i < value.length() && depth > 0) {
+        if (value.startsWith("$(", i)) {
+          depth++;
+          i += 2;
+        } else if (value.charAt(i) == ')') {
+          depth--;
+          if (depth == 0) break;
+          i++;
+        } else {
+          i++;
+        }
+      }
+      if (depth != 0) {
+        reporter.report(String.format("unterminated $(%s) expression", fname));
+        return value;
+      }
+      String functionValue = value.substring(argStart, i).trim();
+      // Recursively expand the argument
+      String expandedArg = expand(functionValue, reporter);
       try {
         String replacement =
-            functions
-                .get(fname)
-                .apply(functionValue, repositoryMapping, workspaceRunfilesDirectory);
+            functions.get(fname).apply(expandedArg, repositoryMapping, workspaceRunfilesDirectory);
         result.append(replacement);
       } catch (IllegalStateException ise) {
         reporter.report(ise.getMessage());
         return value;
       }
-
-      restart = end + 1;
+      restart = i + 1;
     }
 
     return result.toString();
@@ -401,6 +418,7 @@ public final class LocationExpander {
         .put(
             "rlocationpaths",
             new LabelLocationFunction(root, locationMap, PathType.RLOCATION, ALLOW_MULTIPLE))
+        .put("dirname", (arg, repositoryMapping, workspaceRunfilesDirectory) -> dirname(arg))
         .buildOrThrow();
   }
 
@@ -508,6 +526,28 @@ public final class LocationExpander {
     // We use sets not lists, because it's conceivable that the same label
     // could appear twice, in "srcs" and "deps".
     return map.computeIfAbsent(key, k -> Sets.newHashSet());
+  }
+
+  private static final CharMatcher forwardSlashMatcher = CharMatcher.is('/');
+
+  private static String dirname(String arg) {
+    if (arg.isEmpty()) {
+      throw new IllegalStateException(
+          "$(dirname ...) used with an empty string, which is not a valid path");
+    }
+    if (arg.indexOf('\\') != -1) {
+      throw new IllegalStateException(
+          "$(dirname ...) used with a path containing backslashes, which is not supported: " + arg);
+    }
+    int lastSlash = forwardSlashMatcher.lastIndexIn(arg);
+    if (lastSlash == -1) {
+      if (arg.equals(".") || arg.equals("..")) {
+        throw new IllegalStateException(
+            "$(dirname ...) used with '.' or '..', which is not supported: " + arg);
+      }
+      return ".";
+    }
+    return forwardSlashMatcher.trimTrailingFrom(arg.substring(0, lastSlash));
   }
 
   private static interface ErrorReporter {
