@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction.PathType;
+import com.google.devtools.build.lib.analysis.LocationExpander.LabelLocationFunction.PathType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -235,8 +235,23 @@ public final class LocationExpander {
     return expand(attrValue, new AttributeErrorReporter(ruleErrorConsumer, attrName));
   }
 
+  @FunctionalInterface
+  interface LocationFunction {
+    /**
+     * Expands the given string to a path.
+     *
+     * @param arg The string to be expanded, e.g. ":foo" or "//foo:bar"
+     * @param repositoryMapping map of apparent repository names to {@code RepositoryName}s
+     * @param workspaceRunfilesDirectory name of the runfiles directory corresponding to the main
+     *     repository
+     * @return The expanded value
+     */
+    String apply(
+        String arg, RepositoryMapping repositoryMapping, String workspaceRunfilesDirectory);
+  }
+
   @VisibleForTesting
-  static final class LocationFunction {
+  static final class LabelLocationFunction implements LocationFunction {
     enum PathType {
       LOCATION,
       EXEC,
@@ -251,7 +266,7 @@ public final class LocationExpander {
     private final PathType pathType;
     private final boolean multiple;
 
-    LocationFunction(
+    LabelLocationFunction(
         Label root,
         Supplier<Map<Label, Collection<Artifact>>> locationMapSupplier,
         String name,
@@ -373,7 +388,7 @@ public final class LocationExpander {
     return new ImmutableMap.Builder<String, LocationFunction>()
         .put(
             "location",
-            new LocationFunction(
+            new LabelLocationFunction(
                 root,
                 locationMap,
                 "location",
@@ -381,7 +396,7 @@ public final class LocationExpander {
                 EXACTLY_ONE))
         .put(
             "locations",
-            new LocationFunction(
+            new LabelLocationFunction(
                 root,
                 locationMap,
                 "locations",
@@ -389,23 +404,26 @@ public final class LocationExpander {
                 ALLOW_MULTIPLE))
         .put(
             "rootpath",
-            new LocationFunction(root, locationMap, "rootpath", PathType.LOCATION, EXACTLY_ONE))
+            new LabelLocationFunction(
+                root, locationMap, "rootpath", PathType.LOCATION, EXACTLY_ONE))
         .put(
             "rootpaths",
-            new LocationFunction(root, locationMap, "rootpaths", PathType.LOCATION, ALLOW_MULTIPLE))
+            new LabelLocationFunction(
+                root, locationMap, "rootpaths", PathType.LOCATION, ALLOW_MULTIPLE))
         .put(
             "execpath",
-            new LocationFunction(root, locationMap, "execpath", PathType.EXEC, EXACTLY_ONE))
+            new LabelLocationFunction(root, locationMap, "execpath", PathType.EXEC, EXACTLY_ONE))
         .put(
             "execpaths",
-            new LocationFunction(root, locationMap, "execpaths", PathType.EXEC, ALLOW_MULTIPLE))
+            new LabelLocationFunction(
+                root, locationMap, "execpaths", PathType.EXEC, ALLOW_MULTIPLE))
         .put(
             "rlocationpath",
-            new LocationFunction(
+            new LabelLocationFunction(
                 root, locationMap, "rlocationpath", PathType.RLOCATION, EXACTLY_ONE))
         .put(
             "rlocationpaths",
-            new LocationFunction(
+            new LabelLocationFunction(
                 root, locationMap, "rlocationpaths", PathType.RLOCATION, ALLOW_MULTIPLE))
         .buildOrThrow();
   }
@@ -511,14 +529,9 @@ public final class LocationExpander {
    * @return the value in the specified map corresponding to 'key'
    */
   private static <K, V> Collection<V> mapGet(Map<K, Collection<V>> map, K key) {
-    Collection<V> values = map.get(key);
-    if (values == null) {
-      // We use sets not lists, because it's conceivable that the same label
-      // could appear twice, in "srcs" and "deps".
-      values = new HashSet<>();
-      map.put(key, values);
-    }
-    return values;
+    // We use sets not lists, because it's conceivable that the same label
+    // could appear twice, in "srcs" and "deps".
+    return map.computeIfAbsent(key, k -> new HashSet<>());
   }
 
   private static interface ErrorReporter {
