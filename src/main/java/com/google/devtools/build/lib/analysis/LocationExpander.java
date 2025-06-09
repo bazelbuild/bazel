@@ -27,7 +27,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.LocationExpander.LocationFunction.PathType;
+import com.google.devtools.build.lib.analysis.LocationExpander.LabelLocationFunction.PathType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -224,20 +224,33 @@ public final class LocationExpander {
   }
 
   /**
-   * Expands attribute's location and locations tags based on the target and
-   * location map.
+   * Expands attribute's location and locations tags based on the target and location map.
    *
-   * @param attrName  name of the attribute; only used for error reporting
+   * @param attrName name of the attribute; only used for error reporting
    * @param attrValue initial value of the attribute
-   * @return attribute value with expanded location tags or original value in
-   *         case of errors
+   * @return attribute value with expanded location tags or original value in case of errors
    */
   public String expandAttribute(String attrName, String attrValue) {
     return expand(attrValue, new AttributeErrorReporter(ruleErrorConsumer, attrName));
   }
 
+  @FunctionalInterface
+  interface LocationFunction {
+    /**
+     * Expands the given string to a path.
+     *
+     * @param arg The string to be expanded, e.g. ":foo" or "//foo:bar"
+     * @param repositoryMapping map of apparent repository names to {@code RepositoryName}s
+     * @param workspaceRunfilesDirectory name of the runfiles directory corresponding to the main
+     *     repository
+     * @return The expanded value
+     */
+    String apply(
+        String arg, RepositoryMapping repositoryMapping, String workspaceRunfilesDirectory);
+  }
+
   @VisibleForTesting
-  static final class LocationFunction {
+  static final class LabelLocationFunction implements LocationFunction {
     enum PathType {
       LOCATION,
       EXEC,
@@ -251,7 +264,7 @@ public final class LocationExpander {
     private final PathType pathType;
     private final boolean multiple;
 
-    LocationFunction(
+    LabelLocationFunction(
         Label root,
         Supplier<Map<Label, Collection<Artifact>>> locationMapSupplier,
         PathType pathType,
@@ -282,8 +295,7 @@ public final class LocationExpander {
                 arg, PackageContext.of(root.getPackageIdentifier(), repositoryMapping));
       } catch (LabelSyntaxException e) {
         throw new IllegalStateException(
-            String.format(
-                "invalid label in %s expression: %s", functionName(), e.getMessage()), e);
+            String.format("invalid label in %s expression: %s", functionName(), e.getMessage()), e);
       }
       Set<String> paths = resolveLabel(label, workspaceRunfilesDirectory);
       return joinPaths(paths);
@@ -305,8 +317,7 @@ public final class LocationExpander {
       if (paths.isEmpty()) {
         throw new IllegalStateException(
             String.format(
-                "label '%s' in %s expression expands to no files",
-                unresolved, functionName()));
+                "label '%s' in %s expression expands to no files", unresolved, functionName()));
       }
 
       if (!multiple && paths.size() > 1) {
@@ -314,10 +325,7 @@ public final class LocationExpander {
             String.format(
                 "label '%s' in $(location) expression expands to more than one file, "
                     + "please use $(locations %s) instead.  Files (at most %d shown) are: %s",
-                unresolved,
-                unresolved,
-                MAX_PATHS_SHOWN,
-                Iterables.limit(paths, MAX_PATHS_SHOWN)));
+                unresolved, unresolved, MAX_PATHS_SHOWN, Iterables.limit(paths, MAX_PATHS_SHOWN)));
       }
       return paths;
     }
@@ -371,23 +379,28 @@ public final class LocationExpander {
     return new ImmutableMap.Builder<String, LocationFunction>()
         .put(
             "location",
-            new LocationFunction(
+            new LabelLocationFunction(
                 root, locationMap, execPaths ? PathType.EXEC : PathType.LOCATION, EXACTLY_ONE))
         .put(
             "locations",
-            new LocationFunction(
+            new LabelLocationFunction(
                 root, locationMap, execPaths ? PathType.EXEC : PathType.LOCATION, ALLOW_MULTIPLE))
-        .put("rootpath", new LocationFunction(root, locationMap, PathType.LOCATION, EXACTLY_ONE))
         .put(
-            "rootpaths", new LocationFunction(root, locationMap, PathType.LOCATION, ALLOW_MULTIPLE))
-        .put("execpath", new LocationFunction(root, locationMap, PathType.EXEC, EXACTLY_ONE))
-        .put("execpaths", new LocationFunction(root, locationMap, PathType.EXEC, ALLOW_MULTIPLE))
+            "rootpath",
+            new LabelLocationFunction(root, locationMap, PathType.LOCATION, EXACTLY_ONE))
+        .put(
+            "rootpaths",
+            new LabelLocationFunction(root, locationMap, PathType.LOCATION, ALLOW_MULTIPLE))
+        .put("execpath", new LabelLocationFunction(root, locationMap, PathType.EXEC, EXACTLY_ONE))
+        .put(
+            "execpaths",
+            new LabelLocationFunction(root, locationMap, PathType.EXEC, ALLOW_MULTIPLE))
         .put(
             "rlocationpath",
-            new LocationFunction(root, locationMap, PathType.RLOCATION, EXACTLY_ONE))
+            new LabelLocationFunction(root, locationMap, PathType.RLOCATION, EXACTLY_ONE))
         .put(
             "rlocationpaths",
-            new LocationFunction(root, locationMap, PathType.RLOCATION, ALLOW_MULTIPLE))
+            new LabelLocationFunction(root, locationMap, PathType.RLOCATION, ALLOW_MULTIPLE))
         .buildOrThrow();
   }
 
@@ -485,21 +498,16 @@ public final class LocationExpander {
   }
 
   /**
-   * Returns the value in the specified map corresponding to 'key', creating and
-   * inserting an empty container if absent. We use Map not Multimap because
-   * we need to distinguish the cases of "empty value" and "absent key".
+   * Returns the value in the specified map corresponding to 'key', creating and inserting an empty
+   * container if absent. We use Map not Multimap because we need to distinguish the cases of "empty
+   * value" and "absent key".
    *
    * @return the value in the specified map corresponding to 'key'
    */
   private static <K, V> Collection<V> mapGet(Map<K, Collection<V>> map, K key) {
-    Collection<V> values = map.get(key);
-    if (values == null) {
-      // We use sets not lists, because it's conceivable that the same label
-      // could appear twice, in "srcs" and "deps".
-      values = Sets.newHashSet();
-      map.put(key, values);
-    }
-    return values;
+    // We use sets not lists, because it's conceivable that the same label
+    // could appear twice, in "srcs" and "deps".
+    return map.computeIfAbsent(key, k -> Sets.newHashSet());
   }
 
   private static interface ErrorReporter {
