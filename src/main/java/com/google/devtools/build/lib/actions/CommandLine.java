@@ -57,12 +57,12 @@ public abstract class CommandLine {
     }
 
     @Override
-    public Iterable<String> arguments() {
+    public Iterable<String> arguments(PathMapper pathMapper) {
       return args;
     }
 
     @Override
-    public int totalArgLength() {
+    public int totalArgLength(PathMapper pathMapper) {
       int total = 0;
       for (String arg : args) {
         total += arg.length() + 1;

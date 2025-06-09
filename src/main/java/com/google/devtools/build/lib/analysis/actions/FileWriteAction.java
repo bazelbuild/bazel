@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.base.Preconditions.checkState;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
