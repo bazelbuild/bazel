@@ -224,7 +224,7 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
 
     @Override
     public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-      return out -> out.write(StringUnsafe.getInstance().getInternalStringBytes(getFileContents()));
+      return out -> out.write(StringUnsafe.getInternalStringBytes(getFileContents()));
     }
 
     @Override
