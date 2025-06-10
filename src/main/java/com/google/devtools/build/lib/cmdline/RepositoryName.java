@@ -55,7 +55,7 @@ public final class RepositoryName {
   private static final Pattern VALID_REPO_NAME = Pattern.compile("[\\w\\-.+]*");
 
   // Must start with a letter. Can contain ASCII letters and digits, underscore, dash, and dot.
-  private static final Pattern VALID_USER_PROVIDED_NAME = Pattern.compile("[a-zA-Z][-.\\w]*$");
+  private static final Pattern VALID_USER_PROVIDED_NAME = Pattern.compile("[a-zA-Z0-9][-.\\w]*$");
 
   /**
    * A valid module name must: 1) begin with a lowercase letter; 2) end with a lowercase letter or a
@@ -203,7 +203,7 @@ public final class RepositoryName {
     if (!VALID_USER_PROVIDED_NAME.matcher(name).matches()) {
       throw Starlark.errorf(
           "invalid user-provided repo name '%s': valid names may contain only A-Z, a-z, 0-9, '-',"
-              + " '_', '.', and must start with a letter",
+              + " '_', '.', and must start with a letter or a number",
           StringUtilities.sanitizeControlChars(name));
     }
   }
