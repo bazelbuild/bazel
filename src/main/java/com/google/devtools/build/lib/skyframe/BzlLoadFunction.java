@@ -1099,7 +1099,11 @@ public class BzlLoadFunction implements SkyFunction {
             && !baseWithinExperimental
             && isUnderExperimental.test(label.getPackageIdentifier())) {
           throw new LabelSyntaxException(
-              "Cannot load an experimental Starlark file from a non-experimental package");
+              """
+              Cannot load an experimental Starlark file from a non-experimental package.
+              Consider moving the loaded file to a non-experimental package.
+              To temporarily bypass this error, use --allow_experimental_loads.
+              """);
         }
         loadLabels.add(label);
       } catch (LabelSyntaxException ex) {
