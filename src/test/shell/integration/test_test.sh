@@ -477,4 +477,47 @@ EOF
   expect_log "ENV_DATA=${pkg}/t.dat"
 }
 
+function run_test_executable_in_symlinks_only() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg || fail "mkdir -p $pkg failed"
+  cat > $pkg/BUILD <<'EOF'
+load(":defs.bzl", "my_test")
+
+my_test(
+  name = "t",
+)
+EOF
+  cat > $pkg/defs.bzl <<EOF
+def _my_test_impl(ctx):
+    bin = ctx.actions.declare_file("bin.bat")
+    ctx.actions.write(bin, "")
+    return [
+        DefaultInfo(
+            executable = bin,
+            $1 = ctx.runfiles(
+                symlinks = {
+                    "custom_path": bin,
+                },
+            ),
+        ),
+    ]
+
+my_test = rule(
+    implementation = _my_test_impl,
+    test = True,
+)
+EOF
+
+  bazel test --test_output=streamed //$pkg:t &> $TEST_log \
+      || fail "expected test to pass"
+}
+
+function test_executable_in_symlinks_only_stateful_runfiles() {
+  run_test_executable_in_symlinks_only "default_runfiles"
+}
+
+function test_executable_in_symlinks_only_stateless_runfiles() {
+  run_test_executable_in_symlinks_only "runfiles"
+}
+
 run_suite "test tests"
