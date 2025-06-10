@@ -478,6 +478,7 @@ EOF
 }
 
 function run_test_executable_in_symlinks_only() {
+  add_platforms "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
   cat > $pkg/BUILD <<'EOF'
@@ -489,8 +490,12 @@ my_test(
 EOF
   cat > $pkg/defs.bzl <<EOF
 def _my_test_impl(ctx):
-    bin = ctx.actions.declare_file("bin.bat")
-    ctx.actions.write(bin, "")
+    if ctx.target_platform_has_constraint(ctx.attr._windows_constraint[platform_common.ConstraintValueInfo]):
+        bin = ctx.actions.declare_file("bin.bat")
+        ctx.actions.write(bin, "@REM hi", is_executable = True)
+    else:
+        bin = ctx.actions.declare_file("bin.sh")
+        ctx.actions.write(bin, "", is_executable = True)
     return [
         DefaultInfo(
             executable = bin,
@@ -505,6 +510,11 @@ def _my_test_impl(ctx):
 my_test = rule(
     implementation = _my_test_impl,
     test = True,
+    attrs = {
+        "_windows_constraint": attr.label(
+            default = "@platforms//os:windows",
+        ),
+    },
 )
 EOF
 
