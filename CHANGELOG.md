@@ -1,3 +1,34 @@
+## Release 9.0.0-pre.20250526.2 (2025-06-10)
+
+```
+Baseline: 668ec117af6bc293389cab611353bc4105c6518a
+
+Cherry picks:
+
+   + 8f88b3b36817e3d9e6119f9ebdd834134f6a05fd:
+     Automated rollback of commit
+     8868a9a1466fdb34578a8bdf808f9d2ed9b29fa5.
+```
+
+Incompatible changes:
+
+  - Baseline coverage files for individual tests are no longer
+    announced in the BES. Instead, a new `baseline_report.lcov` file
+    containing the merged baseline coverage information for the
+    entire invocation is now announced in the BES. It is also still
+    merged into the combined report.
+  - The `watchfs` startup option has been removed.
+  - The `bazel sync` command has been removed. Use `bazel fetch
+    --all` instead.
+
+Important changes:
+
+  - File change checks for non-output, non-repo external files
+    can now be disabled with the
+    `--experimental_check_external_other_files` flag.
+
+This release contains contributions from many people at Google, as well as Agustin Mista, Alex Eagle, Benjamin Peterson, DeeperMind, Fabian Meumertzheim, Farid Zakaria, Grzegorz Lukasik, Han-Wen Nienhuys, John Millikin, Markus Hofbauer, Matt Smith, Vy Hong, Xdng Yng.
+
 ## Release 9.0.0-pre.20250516.2 (2025-05-28)
 
 ```
