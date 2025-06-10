@@ -126,7 +126,10 @@ public class BazelLockFileModule extends BlazeModule {
               if (entry.isDone()
                   && entry.getKey() instanceof SingleExtensionValue.EvalKey key
                   // entry.getValue() can be null if the extension evaluation failed.
-                  && entry.getValue() instanceof SingleExtensionValue value) {
+                  && entry.getValue() instanceof SingleExtensionValue value
+                  // The innate extensions are implemented in Java and don't benefit from a lockfile
+                  // entry.
+                  && !key.argument().isInnate()) {
                 newExtensionInfos.put(key.argument(), value.lockFileInfo().get());
               }
             });
