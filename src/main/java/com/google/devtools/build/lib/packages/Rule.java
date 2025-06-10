@@ -338,20 +338,17 @@ public class Rule extends RuleOrMacroInstance implements Target {
     return this;
   }
 
-  /*
-   *******************************************************************
-   * Attribute accessor functions.
+  /**
+   * ****************************************************************** Attribute accessor
+   * functions.
    *
-   * The below provide access to attribute definitions and other generic
-   * metadata.
+   * <p>The below provide access to attribute definitions and other generic metadata.
    *
-   * For access to attribute *values* (e.g. "What's the value of attribute
-   * X for Rule Y?"), go through {@link RuleContext#attributes}. If no
-   * RuleContext is available, create a localized {@link AbstractAttributeMapper}
-   * instance instead.
-   *******************************************************************
+   * <p>For access to attribute *values* (e.g. "What's the value of attribute X for Rule Y?"), go
+   * through {@link RuleContext#attributes}. If no RuleContext is available, create a localized
+   * {@link AbstractAttributeMapper} instance instead.
+   * ******************************************************************
    */
-
   @Nullable
   private String getRelativeLocation() {
     // Determining the workspace root only works reliably if both location and label point to files
