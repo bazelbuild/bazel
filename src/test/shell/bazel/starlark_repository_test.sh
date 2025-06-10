@@ -3045,4 +3045,41 @@ EOF
   expect_log "attempted to watch path under external repository directory: invalid repository name '@invalid_name@'"
 }
 
+function test_load_and_execute_wasm() {
+  setup_starlark_repository
+
+  declare -r exec_wasm="$(rlocation "io_bazel/src/test/shell/bazel/testdata/exec_wasm.wasm")"
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  wasm_file = "$exec_wasm"
+  wasm_module = repository_ctx.load_wasm("$exec_wasm")
+
+  result_ok = repository_ctx.execute_wasm(wasm_module, "run_ok", input="")
+  print('result_ok.output: %r' % (result_ok.output,))
+  print('result_ok.return_code: %r' % (result_ok.return_code,))
+  print('result_ok.error_message: %r' % (result_ok.error_message,))
+
+  result_err = repository_ctx.execute_wasm(wasm_module, "run_err", input="")
+  print('result_err.output: %r' % (result_err.output,))
+  print('result_err.return_code: %r' % (result_err.return_code,))
+  print('result_err.error_message: %r' % (result_err.error_message,))
+
+  # Symlink so a repository is created
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
+
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  bazel build --experimental_repository_ctx_execute_wasm @foo//:bar >& $TEST_log \
+    || fail "Expected build to succeed"
+
+  expect_log 'result_ok.output: "ok"'
+  expect_log 'result_ok.return_code: 0'
+  expect_log 'result_ok.error_message: ""'
+
+  expect_log 'result_err.output: "err"'
+  expect_log 'result_err.return_code: 1'
+  expect_log 'result_err.error_message: ""'
+}
+
 run_suite "local repository tests"

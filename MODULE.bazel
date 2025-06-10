@@ -18,7 +18,7 @@ bazel_dep(name = "bazel_skylib", version = "1.7.1")
 bazel_dep(name = "grpc", version = "1.66.0.bcr.2", repo_name = "com_github_grpc_grpc")
 bazel_dep(name = "grpc-java", version = "1.66.0")
 bazel_dep(name = "googleapis", version = "0.0.0-20240819-fe8ba054a")
-bazel_dep(name = "platforms", version = "0.0.11")
+bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
 bazel_dep(name = "stardoc", version = "0.7.2", repo_name = "io_bazel_skydoc")
 bazel_dep(name = "zstd-jni", version = "1.5.6-9")
@@ -34,6 +34,7 @@ bazel_dep(name = "googletest", version = "1.15.2", repo_name = "com_google_googl
 bazel_dep(name = "with_cfg.bzl", version = "0.6.0")
 bazel_dep(name = "abseil-cpp", version = "20240722.0.bcr.2")
 bazel_dep(name = "rules_shell", version = "0.3.0")
+bazel_dep(name = "chicory", version = "1.1.0")
 
 # Keep in sync with MODULE.tools so that the correct version is available during
 # bootstrap.
@@ -42,6 +43,7 @@ bazel_dep(name = "buildozer", version = "8.2.0.bcr.1")
 # Depend on apple_support first and then rules_cc so that the Xcode toolchain
 # from apple_support wins over the generic Unix toolchain from rules_cc.
 bazel_dep(name = "apple_support", version = "1.21.1")
+
 # Upgraded to fix a bug finding swiftc.exe on Windows
 bazel_dep(name = "rules_swift", version = "2.8.2")
 bazel_dep(name = "rules_cc", version = "0.1.1")
@@ -76,7 +78,6 @@ single_version_override(
     patches = ["//third_party:grpc_remove_provides_strings.patch"],
     version = "1.66.0.bcr.2",
 )
-
 
 # TODO(pcloudy): Remove once the next version of rules_graalvm is available.
 single_version_override(
@@ -385,6 +386,7 @@ use_repo(
 
 bazel_dep(name = "bazel_ci_rules", version = "1.0.0")
 bazel_dep(name = "rules_fuzzing", version = "0.5.2")
+bazel_dep(name = "wabt", version = "1.0.37")
 
 rbe_preconfig = use_repo_rule("@bazel_ci_rules//:rbe_repo.bzl", "rbe_preconfig")
 
