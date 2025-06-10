@@ -59,6 +59,7 @@ filegroup(
         "//src/test/shell:bashunit",
         "//src/test/shell:integration_test_setup.sh",
         "//src/test/shell:testenv.sh",
+        "//src/test/shell/bazel/testdata:exec_wasm",
         "//src/tools/singlejar",
         "//third_party:srcs",
         "//third_party/ijar",
