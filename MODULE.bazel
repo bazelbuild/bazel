@@ -95,6 +95,14 @@ single_version_override(
     version = "0.15.0",
 )
 
+# Remove once https://github.com/bazelbuild/apple_support/pull/413 is available in an apple_support release.
+single_version_override(
+    module_name = "apple_support",
+    patch_strip = 1,
+    patches = ["//third_party:apple_support.patch"],
+    version = "1.21.1",
+)
+
 local_path_override(
     module_name = "remoteapis",
     path = "./third_party/remoteapis",
