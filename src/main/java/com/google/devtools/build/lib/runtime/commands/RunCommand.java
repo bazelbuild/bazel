@@ -663,7 +663,7 @@ public class RunCommand implements BlazeCommand {
     TreeMap<String, String> runEnvironment = makeMutableRunEnvironment(env);
     actionEnvironment.resolve(runEnvironment, env.getClientEnv());
     for (var entry : extraRunEnvironment) {
-      runEnvironment.put(entry.getKey(), entry.getValue());
+      runEnvironment.put(entry.getKey(), Strings.nullToEmpty(entry.getValue()));
     }
 
     ImmutableList<String> argsFromBinary;
