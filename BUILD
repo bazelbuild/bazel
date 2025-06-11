@@ -73,6 +73,7 @@ genrule(
         "//third_party/remoteapis:MODULE.bazel",
         "//third_party:BUILD",
         "//third_party:apple_support.patch",
+        "//third_party:grpc-java.patch",
         "//third_party:grpc_remove_provides_strings.patch",
         "//third_party:rules_java.patch",
         "//third_party:rules_jvm_external_6.5.patch",
