@@ -35,6 +35,7 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -180,6 +181,8 @@ import org.junit.Before;
  * <p>All integration tests are at least size medium.
  */
 public abstract class BuildIntegrationTestCase {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Thrown when an integration test case fails. */
   public static class IntegrationTestExecException extends ExecException {
@@ -396,7 +399,10 @@ public abstract class BuildIntegrationTestCase {
     try {
       doCleanup();
     } finally {
-      getRuntime().getBlazeModules().forEach(BlazeModule::blazeShutdown);
+      for (BlazeModule module : getRuntime().getBlazeModules()) {
+        logger.atFine().log("Calling blazeShutdown on %s", module);
+        module.blazeShutdown();
+      }
     }
   }
 
