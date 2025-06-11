@@ -103,6 +103,14 @@ single_version_override(
     version = "1.21.1",
 )
 
+# Remove once https://github.com/bazelbuild/rules_java/pull/303 is available in a rules_java release.
+single_version_override(
+    module_name = "rules_java",
+    patch_strip = 1,
+    patches = ["//third_party:rules_java.patch"],
+    version = "8.12.0",
+)
+
 local_path_override(
     module_name = "remoteapis",
     path = "./third_party/remoteapis",
