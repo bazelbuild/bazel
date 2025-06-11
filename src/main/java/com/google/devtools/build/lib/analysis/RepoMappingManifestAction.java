@@ -24,8 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -160,6 +158,11 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
     return newDeterministicWriter();
   }
 
+  // The separator character used to combine the segments of a canonical repository name.
+  // LINT.IfChange
+  private static final char REPO_NAME_SEPARATOR = '+';
+  // LINT.ThenChange(src/main/java/com/google/devtools/build/lib/bazel/bzlmod/BazelDepGraphFunction.java)
+
   public DeterministicWriter newDeterministicWriter() {
     return out -> {
       PrintWriter writer = new PrintWriter(out, /* autoFlush= */ false, ISO_8859_1);
@@ -196,41 +199,41 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
                       // All packages in a given repository have the same repository mapping, so the
                       // particular way of resolving duplicates does not matter.
                       (first, second) -> first));
+      if (sortedRepoMappings.isEmpty()) {
+        return;
+      }
       if (emitCompactRepoMapping) {
-        Entry<RepositoryName, RepositoryMapping> lastEntry = null;
-        boolean reused = false;
-        ImmutableSet<Entry<RepositoryName, RepositoryMapping>> sentinel =
-            ImmutableSet.of(
-                Maps.immutableEntry(
-                    RepositoryName.MAIN,
-                    // The entries of this repo mapping never equal any real repo mapping's entries
-                    // (never empty).
-                    RepositoryMapping.create(ImmutableMap.of(), RepositoryName.MAIN)));
-        for (var repoAndMapping : Iterables.concat(sortedRepoMappings.entrySet(), sentinel)) {
-          // Module extension repos (and only those repos) all have reference equal repo mapping
-          // entries due to ModuleExtensionRepoMappingEntriesFunction. We only emit these identical
-          // mappings once, with a prefix match for the source repo name.
-          if (lastEntry != null
-              && repoAndMapping.getValue().entries() == lastEntry.getValue().entries()) {
-            reused = true;
-          } else {
-            if (lastEntry != null) {
-              String sourceRepo = lastEntry.getKey().getName();
-              String prefix;
-              if (reused) {
-                prefix = sourceRepo.substring(0, sourceRepo.lastIndexOf('+') + 1) + "*";
-              } else {
-                prefix = sourceRepo;
-              }
-              computeRelevantEntries(reposInRunfilesPaths, lastEntry.getValue().entries())
-                  .forEach(
-                      mappingEntry ->
-                          writeEntry(
-                              writer, prefix, mappingEntry.getKey(), mappingEntry.getValue()));
-            }
-            reused = false;
-            lastEntry = repoAndMapping;
+        var repoAndMappings = sortedRepoMappings.entrySet().iterator();
+        var repoAndMapping = repoAndMappings.next();
+        while (repoAndMappings.hasNext()) {
+          // If multiple (consecutive in sort order) repositories have identical repo mappings, we
+          // merge them into a single entry in the manifest, with the source repo name being the
+          // common prefix of the individual names, followed by a wildcard '*'. This is meant to
+          // reduce the size of the manifest entries for module extension repos from quadratic to
+          // linear in the number of repos, so we limit ourselves to those repositories.
+          var firstRepoAndMapping = repoAndMapping;
+          var firstRepoName = firstRepoAndMapping.getKey().getName();
+          int groupSize = 1;
+          while (repoAndMappings.hasNext()
+              && (repoAndMapping = repoAndMappings.next())
+                  .getValue()
+                  .entries()
+                  .equals(repoAndMapping.getValue().entries())
+              && haveSamePrefix(firstRepoName, repoAndMapping.getKey().getName())) {
+            groupSize++;
           }
+          String prefix;
+          if (groupSize > 1) {
+            prefix =
+                firstRepoName.substring(0, firstRepoName.lastIndexOf(REPO_NAME_SEPARATOR) + 1)
+                    + "*";
+          } else {
+            prefix = firstRepoName;
+          }
+          computeRelevantEntries(reposInRunfilesPaths, firstRepoAndMapping.getValue().entries())
+              .forEach(
+                  mappingEntry ->
+                      writeEntry(writer, prefix, mappingEntry.getKey(), mappingEntry.getValue()));
         }
       } else {
         // All repositories generated by a module extension have the same Map instance as the
@@ -260,6 +263,16 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
       }
       writer.flush();
     };
+  }
+
+  /** Returns whether the two repository names agree up to the last segment of their names. */
+  private static boolean haveSamePrefix(String first, String second) {
+    int firstSeparatorPos = first.lastIndexOf(REPO_NAME_SEPARATOR);
+    int secondSeparatorPos = second.lastIndexOf(REPO_NAME_SEPARATOR);
+    if (firstSeparatorPos == -1 || firstSeparatorPos != secondSeparatorPos) {
+      return false;
+    }
+    return first.regionMatches(0, second, 0, firstSeparatorPos);
   }
 
   private static Stream<Entry<String, RepositoryName>> computeRelevantEntries(

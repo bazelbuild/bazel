@@ -184,6 +184,7 @@ public class BazelDepGraphFunction implements SkyFunction {
     return ImmutableBiMap.copyOf(extensionUniqueNames);
   }
 
+  // LINT.IfChange
   private static String makeUniqueNameCandidate(ModuleExtensionId id, int attempt) {
     Preconditions.checkArgument(attempt >= 1);
     String extensionNameDisambiguator = attempt == 1 ? "" : String.valueOf(attempt);
@@ -214,6 +215,7 @@ public class BazelDepGraphFunction implements SkyFunction {
                 + extensionName
                 + extensionNameDisambiguator);
   }
+  // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/analysis/RepoMappingManifestAction.java)
 
   private static ImmutableTable<ModuleExtensionId, String, RepositoryName> resolveRepoOverrides(
       ImmutableMap<ModuleKey, Module> depGraph,
