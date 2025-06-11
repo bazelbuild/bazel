@@ -34,6 +34,6 @@ public final class ExecutionRootInfoItem extends InfoItem {
   public byte[] get(
       Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
     checkNotNull(env);
-    return print(env.getDirectories().getExecRoot(configurationSupplier.get().getWorkspaceName()));
+    return print(env.getDirectories().getExecRoot(env.getWorkspaceName()));
   }
 }
