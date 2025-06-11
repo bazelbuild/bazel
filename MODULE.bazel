@@ -89,6 +89,12 @@ single_version_override(
     ],
 )
 
+# rules_foreign_cc is pulled in via grpc: remove this when grpc is updated.
+single_version_override(
+    module_name = "rules_foreign_cc",
+    version = "0.15.0",
+)
+
 local_path_override(
     module_name = "remoteapis",
     path = "./third_party/remoteapis",

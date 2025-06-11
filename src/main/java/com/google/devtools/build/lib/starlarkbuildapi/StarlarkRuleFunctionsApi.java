@@ -604,12 +604,6 @@ declared.
                     + " will be found by checking the current platform, and provided to the rule"
                     + " implementation via <code>ctx.toolchain</code>."),
         @Param(
-            name = "incompatible_use_toolchain_transition",
-            defaultValue = "False",
-            named = true,
-            positional = false,
-            doc = "Deprecated, this is no longer in use and should be removed."),
-        @Param(
             name = "doc",
             named = true,
             positional = false,
@@ -778,7 +772,6 @@ declared.
       Sequence<?> hostFragments,
       boolean starlarkTestable,
       Sequence<?> toolchains,
-      boolean useToolchainTransition,
       Object doc,
       Sequence<?> providesArg,
       boolean dependencyResolutionRule,
@@ -953,11 +946,6 @@ declared.
                     + " will be found by checking the current platform, and provided to the aspect"
                     + " implementation via <code>ctx.toolchain</code>."),
         @Param(
-            name = "incompatible_use_toolchain_transition",
-            defaultValue = "False",
-            named = true,
-            doc = "Deprecated, this is no longer in use and should be removed."),
-        @Param(
             name = "doc",
             named = true,
             allowedTypes = {
@@ -1031,7 +1019,6 @@ declared.
       Sequence<?> fragments,
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
-      boolean useToolchainTransition,
       Object doc,
       Boolean applyToGeneratingRules,
       Sequence<?> execCompatibleWith,
