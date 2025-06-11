@@ -510,7 +510,7 @@ def _check_no_repeated_srcs(ctx):
     seen = {}
     for target in ctx.attr.srcs:
         if DefaultInfo in target:
-            for file in target.files.to_list():
+            for file in target[DefaultInfo].files.to_list():
                 extension = "." + file.extension
                 if extension not in cc_helper.extensions.CC_HEADER:
                     if extension in cc_helper.extensions.CC_AND_OBJC:
