@@ -296,12 +296,14 @@ public class HttpCacheClientTest {
                   retryScheduler,
                   Retrier.ALLOW_ALL_CALLS);
             });
+    var longTimeoutSeconds = timeoutSeconds;
     if (socketAddress instanceof DomainSocketAddress domainSocketAddress) {
       URI uri = new URI("http://localhost");
       return HttpCacheClient.create(
           domainSocketAddress,
           uri,
           timeoutSeconds,
+          longTimeoutSeconds,
           /* remoteMaxConnections= */ 0,
           remoteVerifyDownloads,
           ImmutableList.of(),
@@ -314,6 +316,7 @@ public class HttpCacheClientTest {
       return HttpCacheClient.create(
           uri,
           timeoutSeconds,
+          longTimeoutSeconds,
           /* remoteMaxConnections= */ 0,
           remoteVerifyDownloads,
           ImmutableList.of(),

@@ -231,6 +231,17 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public Duration remoteTimeout;
 
   @Option(
+      name = "remote_long_timeout",
+      defaultValue = "5m",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = RemoteDurationConverter.class,
+      help =
+          "Similar to --remote_timeout, but is used for remote rpc calls which may transfer"
+              + " large amounts of data over the network.")
+  public Duration remoteLongTimeout;
+
+  @Option(
       name = "remote_bytestream_uri_prefix",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,

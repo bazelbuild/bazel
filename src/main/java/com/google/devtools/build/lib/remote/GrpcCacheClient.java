@@ -110,6 +110,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             channel,
             callCredentialsProvider,
             options.remoteTimeout.toSeconds(),
+            options.remoteLongTimeout.toSeconds(),
             retrier,
             options.maximumOpenFiles,
             digestUtil.getDigestFunction());
@@ -154,7 +155,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             new NetworkTimeInterceptor(context::getNetworkTime),
             new ResourceNameInterceptor(resourceName))
         .withCallCredentials(callCredentialsProvider.getCallCredentials())
-        .withDeadlineAfter(options.remoteTimeout.toSeconds(), TimeUnit.SECONDS);
+        .withDeadlineAfter(options.remoteLongTimeout.toSeconds(), TimeUnit.SECONDS);
   }
 
   private ActionCacheFutureStub acFutureStub(

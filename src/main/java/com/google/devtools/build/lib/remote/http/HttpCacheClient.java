@@ -132,6 +132,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
   private final ChannelPool channelPool;
   private final URI uri;
   private final int timeoutSeconds;
+  private final int longTimeoutSeconds;
   private final ImmutableList<Entry<String, String>> extraHttpHeaders;
   private final boolean useTls;
   private final boolean verifyDownloads;
@@ -154,6 +155,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
   public static HttpCacheClient create(
       URI uri,
       int timeoutSeconds,
+      int longTimeoutSeconds,
       int remoteMaxConnections,
       boolean verifyDownloads,
       ImmutableList<Entry<String, String>> extraHttpHeaders,
@@ -167,6 +169,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
         NioSocketChannel.class,
         uri,
         timeoutSeconds,
+        longTimeoutSeconds,
         remoteMaxConnections,
         verifyDownloads,
         extraHttpHeaders,
@@ -181,6 +184,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
       DomainSocketAddress domainSocketAddress,
       URI uri,
       int timeoutSeconds,
+      int longTimeoutSeconds,
       int remoteMaxConnections,
       boolean verifyDownloads,
       ImmutableList<Entry<String, String>> extraHttpHeaders,
@@ -196,6 +200,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
           KQueueDomainSocketChannel.class,
           uri,
           timeoutSeconds,
+          longTimeoutSeconds,
           remoteMaxConnections,
           verifyDownloads,
           extraHttpHeaders,
@@ -210,6 +215,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
           EpollDomainSocketChannel.class,
           uri,
           timeoutSeconds,
+          longTimeoutSeconds,
           remoteMaxConnections,
           verifyDownloads,
           extraHttpHeaders,
@@ -228,6 +234,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
       Class<? extends Channel> channelClass,
       URI uri,
       int timeoutSeconds,
+      int longTimeoutSeconds,
       int remoteMaxConnections,
       boolean verifyDownloads,
       ImmutableList<Entry<String, String>> extraHttpHeaders,
@@ -295,6 +302,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
     }
     this.creds = creds;
     this.timeoutSeconds = timeoutSeconds;
+    this.longTimeoutSeconds = longTimeoutSeconds;
     this.extraHttpHeaders = extraHttpHeaders;
     this.verifyDownloads = verifyDownloads;
     this.digestUtil = digestUtil;
@@ -302,7 +310,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
-  private Promise<Channel> acquireUploadChannel() {
+  private Promise<Channel> acquireUploadChannel(int timeoutSeconds) {
     Promise<Channel> channelReady = eventLoop.next().newPromise();
     channelPool
         .acquire()
@@ -377,7 +385,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
-  private Future<Channel> acquireDownloadChannel() {
+  private Future<Channel> acquireDownloadChannel(int timeoutSeconds) {
     Promise<Channel> channelReady = eventLoop.next().newPromise();
     channelPool
         .acquire()
@@ -460,7 +468,11 @@ public final class HttpCacheClient implements RemoteCacheClient {
     return Futures.transformAsync(
         retrier.executeAsync(
             () ->
-                get(digest, digestOut != null ? digestOut : out, Optional.of(casBytesDownloaded))),
+                get(
+                    digest,
+                    digestOut != null ? digestOut : out,
+                    Optional.of(casBytesDownloaded),
+                    this.longTimeoutSeconds)),
         (v) -> {
           try {
             if (digestOut != null) {
@@ -477,7 +489,10 @@ public final class HttpCacheClient implements RemoteCacheClient {
 
   @SuppressWarnings("FutureReturnValueIgnored")
   private ListenableFuture<Void> get(
-      Digest digest, final OutputStream out, Optional<AtomicLong> casBytesDownloaded) {
+      Digest digest,
+      final OutputStream out,
+      Optional<AtomicLong> casBytesDownloaded,
+      int timeoutSeconds) {
     final AtomicBoolean dataWritten = new AtomicBoolean();
     OutputStream wrappedOut =
         new OutputStream() {
@@ -515,7 +530,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
     DownloadCommand downloadCmd =
         new DownloadCommand(uri, casBytesDownloaded.isPresent(), digest, wrappedOut, offset);
     SettableFuture<Void> outerF = SettableFuture.create();
-    acquireDownloadChannel()
+    acquireDownloadChannel(timeoutSeconds)
         .addListener(
             (Future<Channel> channelPromise) -> {
               if (!channelPromise.isSuccess()) {
@@ -543,7 +558,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
                                 // again.
                                 try {
                                   refreshCredentials();
-                                  getAfterCredentialRefresh(downloadCmd, outerF);
+                                  getAfterCredentialRefresh(downloadCmd, timeoutSeconds, outerF);
                                   return;
                                 } catch (IOException e) {
                                   cause.addSuppressed(e);
@@ -567,8 +582,9 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
-  private void getAfterCredentialRefresh(DownloadCommand cmd, SettableFuture<Void> outerF) {
-    acquireDownloadChannel()
+  private void getAfterCredentialRefresh(
+      DownloadCommand cmd, int timeoutSeconds, SettableFuture<Void> outerF) {
+    acquireDownloadChannel(timeoutSeconds)
         .addListener(
             (Future<Channel> channelPromise) -> {
               if (!channelPromise.isSuccess()) {
@@ -627,12 +643,17 @@ public final class HttpCacheClient implements RemoteCacheClient {
         () ->
             Utils.downloadAsActionResult(
                 actionKey,
-                (digest, out) -> get(digest, out, /* casBytesDownloaded= */ Optional.empty())));
+                (digest, out) ->
+                    get(
+                        digest,
+                        out,
+                        /* casBytesDownloaded= */ Optional.empty(),
+                        this.timeoutSeconds)));
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
   private ListenableFuture<Void> uploadAsync(
-      String key, long length, InputStream in, boolean casUpload) {
+      String key, long length, InputStream in, boolean casUpload, int timeoutSeconds) {
     InputStream wrappedIn =
         new FilterInputStream(in) {
           @Override
@@ -644,7 +665,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
         };
     UploadCommand upload = new UploadCommand(uri, casUpload, key, wrappedIn, length);
     SettableFuture<Void> result = SettableFuture.create();
-    acquireUploadChannel()
+    acquireUploadChannel(timeoutSeconds)
         .addListener(
             (Future<Channel> channelPromise) -> {
               if (!channelPromise.isSuccess()) {
@@ -669,7 +690,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
                               if (authTokenExpired(response) && reset(in)) {
                                 try {
                                   refreshCredentials();
-                                  uploadAfterCredentialRefresh(upload, result);
+                                  uploadAfterCredentialRefresh(upload, timeoutSeconds, result);
                                 } catch (IOException e) {
                                   result.setException(e);
                                 } catch (RuntimeException e) {
@@ -693,8 +714,9 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")
-  private void uploadAfterCredentialRefresh(UploadCommand upload, SettableFuture<Void> result) {
-    acquireUploadChannel()
+  private void uploadAfterCredentialRefresh(
+      UploadCommand upload, int timeoutSeconds, SettableFuture<Void> result) {
+    acquireUploadChannel(timeoutSeconds)
         .addListener(
             (Future<Channel> channelPromise) -> {
               if (!channelPromise.isSuccess()) {
@@ -723,7 +745,11 @@ public final class HttpCacheClient implements RemoteCacheClient {
         () -> {
           var result =
               uploadAsync(
-                  digest.getHash(), digest.getSizeBytes(), blob.get(), /* casUpload= */ true);
+                  digest.getHash(),
+                  digest.getSizeBytes(),
+                  blob.get(),
+                  /* casUpload= */ true,
+                  this.longTimeoutSeconds);
           result.addListener(blob::close, MoreExecutors.directExecutor());
           return result;
         });
@@ -756,7 +782,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
         actionKey.getDigest().getHash(),
         serialized.size(),
         serialized.newInput(),
-        /* casUpload= */ false);
+        /* casUpload= */ false,
+        this.timeoutSeconds);
   }
 
   /**

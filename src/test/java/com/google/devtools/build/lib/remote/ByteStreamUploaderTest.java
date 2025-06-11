@@ -171,6 +171,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -242,6 +243,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -270,6 +272,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -333,7 +336,8 @@ public class ByteStreamUploaderTest {
             INSTANCE_NAME,
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
-            3,
+            /* callTimeoutSecs= */ 3,
+            /* callLongTimeoutSecs= */ 15,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -450,7 +454,8 @@ public class ByteStreamUploaderTest {
             INSTANCE_NAME,
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
-            300,
+            /* callTimeoutSecs= */ 300,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -570,7 +575,8 @@ public class ByteStreamUploaderTest {
             INSTANCE_NAME,
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
-            300,
+            /* callTimeoutSecs= */ 300,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -629,7 +635,8 @@ public class ByteStreamUploaderTest {
             INSTANCE_NAME,
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
-            1,
+            /* callTimeoutSecs= */ 1,
+            /* callLongTimeoutSecs= */ 5,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -688,7 +695,8 @@ public class ByteStreamUploaderTest {
             INSTANCE_NAME,
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
-            3,
+            /* callTimeoutSecs= */ 3,
+            /* callLongTimeoutSecs= */ 15,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -758,7 +766,8 @@ public class ByteStreamUploaderTest {
             INSTANCE_NAME,
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
-            3,
+            /* callTimeoutSecs= */ 3,
+            /* callLongTimeoutSecs= */ 15,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -797,7 +806,8 @@ public class ByteStreamUploaderTest {
             INSTANCE_NAME,
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
-            3,
+            /* callTimeoutSecs= */ 3,
+            /* callLongTimeoutSecs= */ 15,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -851,7 +861,8 @@ public class ByteStreamUploaderTest {
             INSTANCE_NAME,
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
-            300,
+            /* callTimeoutSecs= */ 300,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -885,6 +896,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -918,6 +930,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -952,6 +965,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             maximumOpenFiles,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -991,6 +1005,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -1028,6 +1043,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -1160,6 +1176,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -1222,6 +1239,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -1259,6 +1277,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -1299,6 +1318,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -1343,6 +1363,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.BLAKE3);
@@ -1388,6 +1409,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -1442,6 +1464,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             callCredentialsProvider,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -1499,6 +1522,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             callCredentialsProvider,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -1570,6 +1594,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
@@ -1630,6 +1655,7 @@ public class ByteStreamUploaderTest {
             referenceCountedChannel,
             CallCredentialsProvider.NO_CREDENTIALS,
             /* callTimeoutSecs= */ 60,
+            /* callLongTimeoutSecs= */ 300,
             retrier,
             /* maximumOpenFiles= */ -1,
             /* digestFunction= */ DigestFunction.Value.SHA256);
