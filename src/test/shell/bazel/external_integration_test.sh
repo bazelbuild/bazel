@@ -3183,6 +3183,45 @@ EOF
   expect_log "LAZYEVAL_KEY=xal3"
 }
 
+function test_environ_build_query_build() {
+  # Set up workspace with a repository rule that depends on env vars.
+  # Assert that the repo rule doesn't rerun when performing a sequence of
+  # build/query/build.
+  cat > repo.bzl <<EOF
+def _impl(rctx):
+  rctx.symlink(rctx.attr.build_file, 'BUILD')
+  print('UNTRACKED=%s' % rctx.os.environ.get('UNTRACKED'))
+  print('TRACKED=%s' % rctx.getenv('TRACKED'))
+
+dummy_repository = repository_rule(
+  implementation = _impl,
+  attrs = {'build_file': attr.label()},
+)
+EOF
+  cat > BUILD.dummy <<EOF
+filegroup(name='dummy', srcs=['BUILD'])
+EOF
+  touch BUILD
+  cat > $(setup_module_dot_bazel) <<EOF
+dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
+dummy_repository(name = 'foo', build_file = '@@//:BUILD.dummy')
+EOF
+  add_to_bazelrc "common --action_env=TRACKED=tracked"
+  add_to_bazelrc "common --action_env=UNTRACKED=untracked"
+
+  bazel build @foo//:BUILD 2>$TEST_log || fail 'Expected build to succeed'
+  expect_log "TRACKED=tracked"
+  expect_log "UNTRACKED=untracked"
+
+  bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
+  expect_not_log "TRACKED"
+  expect_not_log "UNTRACKED"
+
+  bazel build @foo//:BUILD 2>$TEST_log || fail 'Expected build to succeed'
+  expect_not_log "TRACKED"
+  expect_not_log "UNTRACKED"
+}
+
 function test_external_package_in_other_repo() {
   cat > $(setup_module_dot_bazel) <<EOF
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")

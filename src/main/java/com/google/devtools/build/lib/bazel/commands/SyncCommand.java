@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOrderEvent;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
@@ -71,6 +72,7 @@ import net.starlark.java.eval.Starlark;
     name = SyncCommand.NAME,
     buildPhase = LOADS,
     options = {
+      CoreOptions.class, // for --action_env, which affects the repo env
       PackageOptions.class,
       KeepGoingOption.class,
       LoadingPhaseThreadsOption.class,
