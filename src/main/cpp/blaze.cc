@@ -1352,24 +1352,24 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   // On Linux, only do this if the locale is available to avoid the JVM
   // falling back to ASCII-only mode.
 
-  const char *want_locale = "en_US.ISO-8859-1";
-  bool override_locale = true;
-#ifndef _WIN32
-  locale_t iso_locale = newlocale(LC_CTYPE_MASK, want_locale, (locale_t)0);
-  if (iso_locale == 0) {
-    // ISO-8859-1 locale not available, use whatever the user has defined.
-    override_locale = false;
-  } else {
-    freelocale(iso_locale);
-  }
-#endif
-
-  if (override_locale) {
-    result["LANG"] = EnvVarValue(EnvVarAction::SET, want_locale);
-    result["LANGUAGE"] = EnvVarValue(EnvVarAction::SET, want_locale);
-    result["LC_ALL"] = EnvVarValue(EnvVarAction::SET, want_locale);
-    result["LC_CTYPE"] = EnvVarValue(EnvVarAction::SET, want_locale);
-  }
+//  const char *want_locale = "en_US.ISO-8859-1";
+//  bool override_locale = true;
+//#ifndef _WIN32
+//  locale_t iso_locale = newlocale(LC_CTYPE_MASK, want_locale, (locale_t)0);
+//  if (iso_locale == 0) {
+//    // ISO-8859-1 locale not available, use whatever the user has defined.
+//    override_locale = false;
+//  } else {
+//    freelocale(iso_locale);
+//  }
+//#endif
+//
+//  if (override_locale) {
+//    result["LANG"] = EnvVarValue(EnvVarAction::SET, want_locale);
+//    result["LANGUAGE"] = EnvVarValue(EnvVarAction::SET, want_locale);
+//    result["LC_ALL"] = EnvVarValue(EnvVarAction::SET, want_locale);
+//    result["LC_CTYPE"] = EnvVarValue(EnvVarAction::SET, want_locale);
+//  }
 
   return result;
 }
