@@ -1271,6 +1271,85 @@ EOF
   expect_log "\"//foo:c.sh\"$"
 }
 
+function test_query_factored_graph_with_cycles_output() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+sh_binary(
+    name = "a1",
+    srcs = ["a.sh"],
+    deps = [
+        ":b1",
+        ":b2",
+    ],
+)
+
+sh_binary(
+    name = "a2",
+    srcs = ["a.sh"],
+    deps = [
+        ":b1",
+        ":b2",
+    ],
+)
+
+sh_binary(
+    name = "b1",
+    srcs = ["b.sh"],
+    deps = [
+        ":c",
+    ],
+)
+
+sh_binary(
+    name = "b2",
+    srcs = ["b.sh"],
+    deps = [
+        ":c",
+    ],
+)
+
+sh_binary(
+    name = "c",
+    srcs = ["c.sh"],
+    deps = [
+        ":d",
+    ],
+)
+
+sh_binary(
+    name = "d",
+    srcs = ["d.sh"],
+    deps = [
+        ":a1",
+        ":a2",
+    ],
+)
+EOF
+  bazel query --output=graph \
+      --graph:factored \
+      --notool_deps \
+      "allpaths(//foo:d, //foo:c)" > "$TEST_log" \
+      || fail "Expected success"
+
+  # Expected factored graph.
+  #   (a1,a2) <-
+  #      |     |
+  #   (b1,b2)  |
+  #      |     |
+  #     (c)    |
+  #      |     |
+  #     (d) ----
+  expect_log "\"//foo:a[12]\\\\n//foo:a[12]\"$"
+  expect_log "\"//foo:a[12]\\\\n//foo:a[12]\" -> \"//foo:b[12]\\\n//foo:b[12]\"$"
+  expect_log "\"//foo:b[12]\\\\n//foo:b[12]\"$"
+  expect_log "\"//foo:b[12]\\\\n//foo:b[12]\" -> \"//foo:c\"$"
+  expect_log "\"//foo:c\"$"
+  expect_log "\"//foo:c\" -> \"//foo:d\"$"
+  expect_log "\"//foo:d\"$"
+  expect_log "\"//foo:d\" -> \"//foo:a[12]\\\n//foo:a[12]\"$"
+}
+
 function test_query_non_factored_graph_output() {
   mkdir -p foo
   cat > foo/BUILD <<'EOF'
