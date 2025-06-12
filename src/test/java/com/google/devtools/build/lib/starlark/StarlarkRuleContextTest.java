@@ -2226,7 +2226,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     Map<?, ?> mapping = (Dict<?, ?>) ev.eval("actions.by_file");
     assertThat(mapping).hasSize(1);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     Object actionUnchecked = ev.eval("actions.by_file[file]");
     assertThat(actionUnchecked).isInstanceOf(ActionAnalysisMetadata.class);
   }
@@ -2372,7 +2372,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
@@ -2512,7 +2512,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
@@ -2534,7 +2534,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
@@ -2562,7 +2562,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
@@ -2585,7 +2585,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
@@ -2679,7 +2679,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     Object contentUnchecked = ev.eval("action.content");
@@ -2755,7 +2755,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
@@ -3711,7 +3711,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
@@ -3775,7 +3775,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
@@ -3836,7 +3836,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
@@ -3924,7 +3924,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     EvalException evalException =
@@ -3973,7 +3973,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     EvalException evalException =
@@ -4022,7 +4022,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     EvalException evalException =
@@ -4074,7 +4074,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     EvalException evalException =
