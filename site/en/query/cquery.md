@@ -422,7 +422,7 @@ Print a space-separated list of the base names of all files produced by `//foo`:
 
 <pre>
   bazel cquery //foo --output=starlark \
-    --starlark:expr="' '.join([f.basename for f in target.files.to_list()])"
+    --starlark:expr="' '.join([f.basename for f in providers(target)['DefaultInfo'].files.to_list()])"
 </pre>
 
 Print a space-separated list of the paths of all files produced by **rule** targets in
@@ -430,7 +430,7 @@ Print a space-separated list of the paths of all files produced by **rule** targ
 
 <pre>
   bazel cquery 'kind(rule, //bar/...)' --output=starlark \
-    --starlark:expr="' '.join([f.path for f in target.files.to_list()])"
+    --starlark:expr="' '.join([f.path for f in providers(target)['DefaultInfo'].files.to_list()])"
 </pre>
 
 Print a list of the mnemonics of all actions registered by `//foo`.
@@ -461,7 +461,7 @@ Starlark functions defined in a file.
   $ cat example.cquery
 
   def has_one_output(target):
-    return len(target.files.to_list()) == 1
+    return len(providers(target)["DefaultInfo"].files.to_list()) == 1
 
   def format(target):
     if has_one_output(target):
