@@ -50,7 +50,7 @@ def _cc_library_impl(ctx):
     compilation_contexts = cc_helper.get_compilation_contexts_from_deps(interface_deps)
     implementation_compilation_contexts = cc_helper.get_compilation_contexts_from_deps(ctx.attr.implementation_deps)
 
-    additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
+    additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(feature_configuration, cc_toolchain)
     additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain))
 
     (compilation_context, srcs_compilation_outputs) = cc_common.compile(

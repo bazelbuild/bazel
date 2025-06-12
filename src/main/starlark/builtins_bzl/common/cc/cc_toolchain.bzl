@@ -140,7 +140,7 @@ def _cc_toolchain_impl(ctx):
         requested_features = ctx.features,
         unsupported_features = ctx.disabled_features,
     )
-    template_vars = cc_toolchain._additional_make_variables | cc_helper.get_toolchain_global_make_variables(cc_toolchain) | cc_helper.get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain)
+    template_vars = cc_toolchain._additional_make_variables | cc_helper.get_toolchain_global_make_variables(feature_configuration, cc_toolchain) | cc_helper.get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain)
     template_variable_info = TemplateVariableInfo(template_vars)
     toolchain = ToolchainInfo(
         cc = cc_toolchain,
