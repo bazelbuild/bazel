@@ -29,8 +29,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
@@ -368,60 +366,6 @@ public class CcStarlarkInternal implements StarlarkValue {
                     .stream()
                     .map(PathFragment::create)
                     .collect(toImmutableList())));
-  }
-
-  @StarlarkMethod(
-      name = "create_module_map_action",
-      documented = false,
-      parameters = {
-        @Param(name = "actions", positional = false, named = true),
-        @Param(name = "feature_configuration", positional = false, named = true),
-        @Param(name = "module_map", positional = false, named = true),
-        @Param(name = "private_headers", positional = false, named = true),
-        @Param(name = "public_headers", positional = false, named = true),
-        @Param(name = "dependent_module_maps", positional = false, named = true),
-        @Param(name = "additional_exported_headers", positional = false, named = true),
-        @Param(name = "separate_module_headers", positional = false, named = true),
-        @Param(name = "compiled_module", positional = false, named = true),
-        @Param(name = "module_map_home_is_cwd", positional = false, named = true),
-        @Param(name = "generate_submodules", positional = false, named = true),
-        @Param(name = "without_extern_dependencies", positional = false, named = true),
-      })
-  public void createModuleMapAction(
-      StarlarkActionFactory actions,
-      FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      CppModuleMap moduleMap,
-      Sequence<?> privateHeaders,
-      Sequence<?> publicHeaders,
-      Sequence<?> dependentModuleMaps,
-      Sequence<?> additionalExportedHeaders,
-      Sequence<?> separateModuleHeaders,
-      Boolean compiledModule,
-      Boolean moduleMapHomeIsCwd,
-      Boolean generateSubmodules,
-      Boolean withoutExternDependencies)
-      throws EvalException {
-    RuleContext ruleContext = actions.getRuleContext();
-    ruleContext.registerAction(
-        new CppModuleMapAction(
-            ruleContext.getActionOwner(),
-            moduleMap,
-            Sequence.cast(privateHeaders, Artifact.class, "private_headers"),
-            Sequence.cast(publicHeaders, Artifact.class, "public_headers"),
-            Sequence.cast(dependentModuleMaps, CppModuleMap.class, "dependent_module_maps"),
-            Sequence.cast(additionalExportedHeaders, String.class, "additional_exported_headers")
-                .stream()
-                .map(PathFragment::create)
-                .collect(toImmutableList()),
-            Sequence.cast(separateModuleHeaders, Artifact.class, "separate_module_headers"),
-            compiledModule,
-            moduleMapHomeIsCwd,
-            generateSubmodules,
-            withoutExternDependencies,
-            PathMappers.getOutputPathsMode(ruleContext.getConfiguration()),
-            ruleContext
-                .getConfiguration()
-                .modifiedExecutionInfo(ImmutableMap.of(), CppModuleMapAction.MNEMONIC)));
   }
 
   @SerializationConstant @VisibleForSerialization

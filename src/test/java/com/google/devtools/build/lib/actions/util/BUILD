@@ -57,6 +57,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:action_cache_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/exec/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
