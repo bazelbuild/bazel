@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -57,7 +57,7 @@ public final class TargetPatternsHelper {
           env.getWorkingDirectory().getRelative(buildRequestOptions.targetPatternFile);
       try {
         targets =
-            FileSystemUtils.readLines(residuePath, UTF_8).stream()
+            FileSystemUtils.readLines(residuePath, ISO_8859_1).stream()
                 .map(s -> s.split("#")[0])
                 .map(String::trim)
                 .filter(Predicate.not(String::isEmpty))
