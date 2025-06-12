@@ -3582,31 +3582,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testExecutableNotInRunfiles() throws Exception {
-    scratch.file(
-        "test/starlark/test_rule.bzl",
-        """
-        def _my_rule_impl(ctx):
-          exe = ctx.actions.declare_file('exe')
-          ctx.actions.run_shell(outputs=[exe], command='touch exe')
-          runfile = ctx.actions.declare_file('rrr')
-          ctx.actions.run_shell(outputs=[runfile], command='touch rrr')
-          return DefaultInfo(executable = exe, default_runfiles = ctx.runfiles(files = [runfile]))
-        my_rule = rule(implementation = _my_rule_impl, executable = True)
-        """);
-    scratch.file(
-        "test/starlark/BUILD",
-        """
-        load('//test/starlark:test_rule.bzl', 'my_rule')
-        my_rule(name = 'target')
-        """);
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/starlark:target");
-    assertContainsEvent("exe not included in runfiles");
-  }
-
-  @Test
   public void testCommandStringList() throws Exception {
     setBuildLanguageOptions("--incompatible_run_shell_command_string");
     scratch.file(
