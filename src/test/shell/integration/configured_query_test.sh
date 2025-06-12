@@ -326,9 +326,7 @@ EOF
   assert_contains "//$pkg:cclib_with_py_dep .*CppConfiguration" output
   assert_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
 
-  # TODO(b/424144169) - figure out how to re-enable the assertion (broken by
-  # rules_python toolchain change).
-  # assert_not_contains "//$pkg:pylib .*CppConfiguration" output
+  assert_not_contains "//$pkg:pylib .*CppConfiguration" output
 
   assert_contains "//$pkg:pylib .*PythonConfiguration" output
 
