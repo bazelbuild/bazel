@@ -2807,30 +2807,13 @@ class BazelLockfileTest(test_base.TestBase):
       self.assertNotIn('Fetching repo names...', stderr)
       self.assertIn('Repositories: [hello, world]', stderr)
 
-      # Update extension in a way that does not change the facts.
-      self.ScratchFile(
-          'extension.bzl',
-          [
-              'def impl(ctx):',
-              '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
-              'repo_rule = repository_rule(implementation = impl)',
-              'def _fetch_repo_names(_ctx):',
-              '    # Fake function to simulate fetching repo names from the internet',
-              '    print("Fetching repo names...")',
-              '    return ["hello", "world"]',
-              'def _mod_ext_impl(ctx):',
-              '    print("Hello from this side!")',
-              '    repos = ctx.facts or _fetch_repo_names(ctx)',
-              '    for repo in repos:',
-              '        repo_rule(name = repo)',
-              '    print("Repositories: [" + ", ".join(repos) + "]")',
-              '    return ctx.extension_metadata(',
-              '        reproducible = True,',
-              '        facts = repos,',
-              '    )',
-              'lockfile_ext = module_extension(implementation = _mod_ext_impl)',
-          ],
-      )
+      # Update extension in a way that does *not* change the facts.
+      with open(self.Path('extension.bzl'), 'r') as f:
+          lines = [
+              l.replace('Hello from the other side!', 'Hello from this side!')
+              for l in f.readlines()
+          ]
+      self.ScratchFile('extension.bzl', lines)
 
       _, _, stderr = self.RunBazel(['build', '@hello//:all', '--lockfile_mode=error'])
       stderr = ''.join(stderr)
@@ -2839,29 +2822,15 @@ class BazelLockfileTest(test_base.TestBase):
       self.assertIn('Repositories: [hello, world]', stderr)
 
       # Update extension in a way that *does* change the facts.
-      self.ScratchFile(
-          'extension.bzl',
-          [
-              'def impl(ctx):',
-              '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
-              'repo_rule = repository_rule(implementation = impl)',
-              'def _fetch_repo_names(_ctx):',
-              '    # Fake function to simulate fetching repo names from the internet',
-              '    print("Fetching repo names...")',
-              '    return ["hello", "world", "baz"]',
-              'def _mod_ext_impl(ctx):',
-              '    print("Hello from this side!")',
-              '    repos = _fetch_repo_names(ctx)',
-              '    for repo in repos:',
-              '        repo_rule(name = repo)',
-              '    print("Repositories: [" + ", ".join(repos) + "]")',
-              '    return ctx.extension_metadata(',
-              '        reproducible = True,',
-              '        facts = repos,',
-              '    )',
-              'lockfile_ext = module_extension(implementation = _mod_ext_impl)',
-          ],
-      )
+      with open(self.Path('extension.bzl'), 'r') as f:
+          lines = [
+              (
+                  l.replace('return ["hello", "world"]', 'return ["hello", "world", "baz"]')
+                   .replace('repos = ctx.facts or _fetch_repo_names(ctx)', 'repos = _fetch_repo_names(ctx)')
+              )
+              for l in f.readlines()
+          ]
+      self.ScratchFile('extension.bzl', lines)
 
       exit_code, stdout, stderr = self.RunBazel(['build', '@hello//:all', '--lockfile_mode=error'], allow_failure=True)
       self.AssertExitCode(exit_code, 48, stderr, stdout)
