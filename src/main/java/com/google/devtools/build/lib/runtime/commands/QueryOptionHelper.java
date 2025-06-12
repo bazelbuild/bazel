@@ -13,7 +13,7 @@
 // limitations under the License.package com.google.devtools.build.lib.runtime.commands;
 package com.google.devtools.build.lib.runtime.commands;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
@@ -49,7 +49,7 @@ public final class QueryOptionHelper {
       // Works for absolute or relative query file.
       Path residuePath = env.getWorkingDirectory().getRelative(queryOptions.queryFile);
       try {
-        query = new String(FileSystemUtils.readContent(residuePath), UTF_8);
+        query = new String(FileSystemUtils.readContent(residuePath), ISO_8859_1);
       } catch (IOException unused) {
         throw new QueryException(
             "I/O error reading from " + residuePath.getPathString(),
