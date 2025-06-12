@@ -121,12 +121,6 @@ java_library(
 )
 
 java_library(
-    name = "path_compression",
-    srcs = ["PathCompression.java"],
-    deps = ["@com_google_protobuf//:protobuf_java"],
-)
-
-java_library(
     name = "invalidation_data_reference_or_future",
     srcs = ["InvalidationDataInfoOrFuture.java"],
     deps = [
