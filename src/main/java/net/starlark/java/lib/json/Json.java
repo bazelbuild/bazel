@@ -679,9 +679,9 @@ public final class Json implements StarlarkValue {
         @Param(name = "x"),
         @Param(name = "prefix", positional = false, named = true, defaultValue = "''"),
         @Param(name = "indent", positional = false, named = true, defaultValue = "'\\t'"),
-      },
-      useStarlarkThread = true)
-  public String encodeIndent(Object x, String prefix, String indent, StarlarkThread starlarkThread)
+      })
+  
+  public String encodeIndent(Object x, String prefix, String indent)
       throws EvalException {
     return indent(encode(x), prefix, indent);
   }

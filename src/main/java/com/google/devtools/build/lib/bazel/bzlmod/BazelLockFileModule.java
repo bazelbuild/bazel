@@ -112,12 +112,14 @@ public class BazelLockFileModule extends BlazeModule {
     // All nodes corresponding to module extensions that have been evaluated in the current build
     // are done at this point. Look up entries by eval keys to record results even if validation
     // later fails due to invalid imports.
-    // Note: This also picks up up-to-date result from previous builds that are not in the
-    // transitive closure of the current build. Since extension are potentially costly to evaluate,
+    // Note: This also picks up up-to-date results from previous builds that are not in the
+    // transitive closure of the current build. Since extensions are potentially costly to evaluate,
     // this is seen as an advantage. Full reproducibility can be ensured by running 'bazel shutdown'
     // first if needed.
+    int maxNumExtensions = depGraphValue.getExtensionUsagesTable().rowMap().size();
+    // Presize conservatively to avoid blocking for resizing.
     Map<ModuleExtensionId, LockFileModuleExtension.WithFactors> newExtensionInfos =
-        new ConcurrentHashMap<>();
+        new ConcurrentHashMap<>(maxNumExtensions);
     executor
         .getEvaluator()
         .getInMemoryGraph()

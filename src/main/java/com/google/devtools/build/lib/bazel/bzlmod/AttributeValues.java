@@ -20,7 +20,6 @@ import static java.util.Collections.singletonList;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +30,6 @@ import net.starlark.java.eval.Starlark;
 
 /** Wraps a dictionary of attribute names and values. Always uses a dict to represent them */
 @AutoValue
-@GenerateTypeAdapter
 public abstract class AttributeValues {
 
   public static AttributeValues create(Dict<String, Object> attribs) {
