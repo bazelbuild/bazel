@@ -31,7 +31,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline:LabelValidator",
         "//src/main/java/com/google/devtools/build/lib/cmdline:batch_callback",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/io:process_package_directory_exception",

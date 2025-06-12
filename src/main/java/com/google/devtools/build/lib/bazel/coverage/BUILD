@@ -30,7 +30,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:incompatible_platform_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_report_action_factory",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_resolver",
         "//src/main/java/com/google/devtools/build/lib/profiler",

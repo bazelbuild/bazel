@@ -61,7 +61,7 @@ java_library(
     srcs = ["TransitiveTestsProvider.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
     ],
 )
 
