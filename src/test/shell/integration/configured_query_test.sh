@@ -1274,7 +1274,7 @@ exports_files(srcs = ["foo"])
 EOF
 
   bazel cquery "//$pkg:foo" --output=starlark \
-    --starlark:expr="'path=' + target.files.to_list()[0].path" \
+    --starlark:expr="'path=' + providers(target)['DefaultInfo'].files.to_list()[0].path" \
     > output 2>"$TEST_log" || fail "Expected failure"
 
   assert_contains "^path=$pkg/foo$" output
