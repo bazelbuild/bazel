@@ -18,7 +18,7 @@ bazel_dep(name = "bazel_skylib", version = "1.7.1")
 bazel_dep(name = "grpc", version = "1.66.0.bcr.2", repo_name = "com_github_grpc_grpc")
 bazel_dep(name = "grpc-java", version = "1.66.0")
 bazel_dep(name = "googleapis", version = "0.0.0-20240819-fe8ba054a")
-bazel_dep(name = "platforms", version = "0.0.11")
+bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_pkg", version = "1.0.1")
 bazel_dep(name = "stardoc", version = "0.7.1", repo_name = "io_bazel_skydoc")
 bazel_dep(name = "zstd-jni", version = "1.5.6-9")
@@ -34,6 +34,7 @@ bazel_dep(name = "googletest", version = "1.15.2", repo_name = "com_google_googl
 bazel_dep(name = "with_cfg.bzl", version = "0.6.0")
 bazel_dep(name = "abseil-cpp", version = "20240722.0.bcr.2")
 bazel_dep(name = "rules_shell", version = "0.2.0")
+bazel_dep(name = "chicory", version = "1.1.0")
 
 # Depend on apple_support first and then rules_cc so that the Xcode toolchain
 # from apple_support wins over the generic Unix toolchain from rules_cc.
@@ -382,6 +383,7 @@ use_repo(
 
 bazel_dep(name = "bazel_ci_rules", version = "1.0.0")
 bazel_dep(name = "rules_fuzzing", version = "0.5.2")
+bazel_dep(name = "wabt", version = "1.0.37")
 
 rbe_preconfig = use_repo_rule("@bazel_ci_rules//:rbe_repo.bzl", "rbe_preconfig")
 

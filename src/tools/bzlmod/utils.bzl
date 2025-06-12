@@ -79,6 +79,12 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
                 "url": url.rsplit("/", 1)[0] + "/patches/" + patch,
             })
 
+        for overlay_file, integrity in source_json.get("overlay", {}).items():
+            http_artifacts.append({
+                "integrity": integrity,
+                "url": url.rsplit("/", 1)[0] + "/overlay/" + overlay_file,
+            })
+
     for extension_id, extension_entry in lockfile["moduleExtensions"].items():
         if extension_id.startswith("@@"):
             # "@@rules_foo+//:extensions.bzl%foo" --> "rules_foo+"
