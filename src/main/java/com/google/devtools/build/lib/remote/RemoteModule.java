@@ -1083,6 +1083,7 @@ public final class RemoteModule extends BlazeModule {
         remoteOutputService.setRemoteOutputChecker(remoteOutputChecker);
         remoteOutputService.setActionInputFetcher(actionInputFetcher);
         remoteOutputService.setLeaseService(leaseService);
+        remoteOutputService.setOutputPermissions(outputPermissions);
         env.getEventBus().register(outputService);
       }
     }
@@ -1223,5 +1224,4 @@ public final class RemoteModule extends BlazeModule {
   Downloader getRemoteDownloader() {
     return remoteDownloader;
   }
-
 }
