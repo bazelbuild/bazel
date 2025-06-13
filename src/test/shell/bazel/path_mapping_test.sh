@@ -740,6 +740,7 @@ std::string AsGreeting(const std::string& name) {
 EOF
 
   bazel run \
+    --repo_env=CC=clang \
     --verbose_failures \
     --experimental_output_paths=strip \
     --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
@@ -754,6 +755,7 @@ EOF
   expect_not_log 'remote cache hit'
 
   bazel run \
+    --repo_env=CC=clang \
     --verbose_failures \
     --experimental_output_paths=strip \
     --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping,CppArchive=+supports-path-mapping \
