@@ -47,7 +47,7 @@ public abstract class BazelLockFileValue implements SkyValue {
   // https://cs.opensource.google/bazel/bazel/+/release-7.3.0:src/main/java/com/google/devtools/build/lib/bazel/bzlmod/BazelLockFileModule.java;l=120-127;drc=5f5355b75c7c93fba1e15f6658f308953f4baf51
   // While this hack exists on 7.x, lockfile version increments should be done 2 at a time (i.e.
   // keep this number even).
-  public static final int LOCK_FILE_VERSION = 20;
+  public static final int LOCK_FILE_VERSION = 22;
 
   /** A valid empty lockfile. */
   public static final BazelLockFileValue EMPTY_LOCKFILE = builder().build();
@@ -111,7 +111,8 @@ public abstract class BazelLockFileValue implements SkyValue {
         .setLockFileVersion(LOCK_FILE_VERSION)
         .setRegistryFileHashes(ImmutableMap.of())
         .setSelectedYankedVersions(ImmutableMap.of())
-        .setModuleExtensions(ImmutableMap.of());
+        .setModuleExtensions(ImmutableMap.of())
+        .setFacts(ImmutableMap.of());
   }
 
   /** Current version of the lock file */
@@ -131,6 +132,8 @@ public abstract class BazelLockFileValue implements SkyValue {
           ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
       getModuleExtensions();
 
+  public abstract ImmutableMap<ModuleExtensionId, Facts> getFacts();
+
   public abstract Builder toBuilder();
 
   /** Builder type for {@link BazelLockFileValue}. */
@@ -147,6 +150,8 @@ public abstract class BazelLockFileValue implements SkyValue {
                 ModuleExtensionId,
                 ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
             value);
+
+    public abstract Builder setFacts(ImmutableMap<ModuleExtensionId, Facts> value);
 
     public abstract BazelLockFileValue build();
   }
