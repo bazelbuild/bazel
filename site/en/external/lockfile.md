@@ -70,7 +70,6 @@ The lockfile offers several benefits and can be utilized in various ways:
     preventing unexpected updates or breaking changes in external libraries. By
     locking the dependencies to specific versions, the risk of introducing bugs
     due to incompatible or untested updates is reduced.
--
 
 ### Hidden lockfile {:#hidden-lockfile}
 
