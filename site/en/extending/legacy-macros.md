@@ -188,6 +188,12 @@ def my_cc_wrapper(name, deps = [], **kwargs):
   )
 ```
 
+With the `--incompatible_eagerly_resolve_select_keys` flag enabled, all keys
+that are label strings will be automatically resolved to `Label` objects
+relative to the package of the file that contains the `select` call. If this is
+not desired, wrap the label string with
+[native.package_relative_label()](/rules/lib/toplevel/native#package_relative_label).
+
 ## Debugging {:#debugging}
 
 *   `bazel query --output=build //my/path:all` will show you how the `BUILD`
