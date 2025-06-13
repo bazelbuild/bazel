@@ -344,7 +344,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     final Action action;
     if (content instanceof String) {
       action =
-          FileWriteAction.create(ruleContext, (Artifact) output, (String) content, isExecutable, mnemonic);
+          FileWriteAction.create(
+              ruleContext, (Artifact) output, (String) content, isExecutable, mnemonic);
     } else if (content instanceof Args args) {
       action =
           new ParameterFileWriteAction(
@@ -354,7 +355,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               args.build(getMainRepoMappingSupplier()),
               args.getParameterFileType(),
               isExecutable,
-              mnemonic);
+              mnemonic,
+              ruleContext.getConfiguration());
     } else {
       throw new AssertionError("Unexpected type: " + content.getClass().getSimpleName());
     }
@@ -988,7 +990,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   private String getMnemonic(Object mnemonicUnchecked, @Nullable String defaultMnemonic) {
-    String mnemonic = mnemonicUnchecked == Starlark.NONE ? defaultMnemonic : (String) mnemonicUnchecked;
+    String mnemonic =
+        mnemonicUnchecked == Starlark.NONE ? defaultMnemonic : (String) mnemonicUnchecked;
     if (getRuleContext().getConfiguration().getReservedActionMnemonics().contains(mnemonic)) {
       mnemonic = mangleMnemonic(mnemonic);
     }
