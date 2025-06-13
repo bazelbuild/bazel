@@ -445,18 +445,6 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_utimensat(
 
 /*
  * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
- * Method:    umask
- * Signature: (I)I
- */
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_umask(JNIEnv *env,
-                                                  jclass clazz,
-                                                  jint new_umask) {
-  return ::umask(new_umask);
-}
-
-/*
- * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    mkdir
  * Signature: (Ljava/lang/String;I)Z
  * Throws:    java.io.IOException
