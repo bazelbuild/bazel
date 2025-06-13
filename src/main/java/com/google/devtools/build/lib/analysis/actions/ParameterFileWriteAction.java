@@ -60,6 +60,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   private final ParameterFileType type;
   private final boolean hasInputArtifactToExpand;
   private final boolean makeExecutable;
+  @Nullable private final String mnemonic;
 
   /**
    * Creates a new instance.
@@ -68,20 +69,24 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
    * @param output the Artifact that will be created by executing this Action
    * @param commandLine the contents to be written to the file
    * @param type the type of the file
+   * @param makeExecutable whether the output file should be made executable
+   * @param mnemonic the mnemonic for this action, or null if the default should be used
    */
   public ParameterFileWriteAction(
       ActionOwner owner,
       Artifact output,
       CommandLine commandLine,
       ParameterFileType type,
-      boolean makeExecutable) {
+      boolean makeExecutable,
+      @Nullable String mnemonic) {
     this(
         owner,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         output,
         commandLine,
         type,
-        makeExecutable);
+        makeExecutable,
+        mnemonic);
   }
 
   /**
@@ -93,6 +98,8 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
    * @param output the Artifact that will be created by executing this Action
    * @param commandLine the contents to be written to the file
    * @param type the type of the file
+   * @param makeExecutable whether the output file should be made executable
+   * @param mnemonic the mnemonic for this action, or null if the default should be used
    */
   public ParameterFileWriteAction(
       ActionOwner owner,
@@ -100,17 +107,24 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       Artifact output,
       CommandLine commandLine,
       ParameterFileType type,
-      boolean makeExecutable) {
+      boolean makeExecutable,
+      @Nullable String mnemonic) {
     super(owner, inputs, output);
     this.commandLine = commandLine;
     this.type = type;
     this.hasInputArtifactToExpand = !inputs.isEmpty();
     this.makeExecutable = makeExecutable;
+    this.mnemonic = mnemonic;
   }
 
   @Override
   public boolean makeExecutable() {
     return makeExecutable;
+  }
+
+  @Override
+  public String getMnemonic() {
+    return mnemonic != null ? mnemonic : super.getMnemonic();
   }
 
   @VisibleForTesting
@@ -197,6 +211,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
     fp.addString(type.toString());
+    fp.addString(getMnemonic());
     commandLine.addToFingerprint(
         actionKeyContext, inputMetadataProvider, CoreOptions.OutputPathsMode.OFF, fp);
   }
@@ -208,6 +223,8 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     message.append(GUID);
     message.append("\nParam File Type: ");
     message.append(type);
+    message.append("\nMnemonic: ");
+    message.append(getMnemonic());
     message.append("\nContent digest (approximate): ");
     try {
       // The full contents can be huge, which makes the final error message

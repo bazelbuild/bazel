@@ -70,6 +70,8 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
   private static final int COMPRESS_CHARS_THRESHOLD = 256;
 
   private final boolean makeExecutable;
+  @Nullable
+  private final String mnemonic;
 
   /**
    * Creates a FileWriteAction to write contents to the resulting artifact fileName in the genfiles
@@ -86,7 +88,7 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
     Artifact scriptFileArtifact =
         ruleContext.getPackageRelativeArtifact(fileName, ruleContext.getGenfilesDirectory());
     ruleContext.registerAction(
-        FileWriteAction.create(ruleContext, scriptFileArtifact, contents, executable));
+        FileWriteAction.create(ruleContext, scriptFileArtifact, contents, executable, /* mnemonic */ null));
     return scriptFileArtifact;
   }
 
@@ -102,7 +104,7 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
    */
   public static FileWriteAction createEmptyWithInputs(
       ActionOwner owner, NestedSet<Artifact> inputs, Artifact output) {
-    return createInternal(owner, inputs, output, "", false, Compression.DISALLOW);
+    return createInternal(owner, inputs, output, "", false, Compression.DISALLOW, /* mnemonic */ null);
   }
 
   /**
@@ -114,20 +116,23 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
    * @param fileContents the contents to be written to the file
    * @param makeExecutable whether the output file is made executable
    * @param allowCompression whether (transparent) compression is enabled
+   * @param mnemonic an optional custom mnemonic for the action, or null to use the default
    */
   public static FileWriteAction create(
       ActionOwner owner,
       Artifact output,
       CharSequence fileContents,
       boolean makeExecutable,
-      Compression allowCompression) {
+      Compression allowCompression,
+      @Nullable String mnemonic) {
     return createInternal(
         owner,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         output,
         fileContents,
         makeExecutable,
-        allowCompression);
+        allowCompression,
+        mnemonic);
   }
 
   /**
@@ -140,14 +145,16 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
    * @param output the Artifact that will be created by executing this Action
    * @param fileContents the contents to be written to the file
    * @param makeExecutable whether the output file is made executable
+   * @param mnemonic an optional custom mnemonic for the action, or null to use the default
    */
   public static FileWriteAction create(
       ActionConstructionContext context,
       Artifact output,
       CharSequence fileContents,
-      boolean makeExecutable) {
+      boolean makeExecutable,
+      @Nullable String mnemonic) {
     return create(
-        context.getActionOwner(), output, fileContents, makeExecutable, Compression.ALLOW);
+        context.getActionOwner(), output, fileContents, makeExecutable, Compression.ALLOW, mnemonic);
   }
 
   private static FileWriteAction createInternal(
@@ -156,23 +163,26 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
       Artifact output,
       CharSequence fileContents,
       boolean makeExecutable,
-      Compression allowCompression) {
+      Compression allowCompression,
+      @Nullable String mnemonic) {
     if (allowCompression == Compression.ALLOW
         && fileContents instanceof String
         && fileContents.length() > COMPRESS_CHARS_THRESHOLD) {
       return new CompressedFileWriteAction(
-          owner, inputs, output, makeExecutable, (String) fileContents);
+          owner, inputs, output, makeExecutable, mnemonic, (String) fileContents);
     }
-    return new RegularFileWriteAction(owner, inputs, output, makeExecutable, fileContents);
+    return new RegularFileWriteAction(owner, inputs, output, makeExecutable, mnemonic, fileContents);
   }
 
   private FileWriteAction(
       ActionOwner owner,
       NestedSet<Artifact> inputs,
       Artifact primaryOutput,
-      boolean makeExecutable) {
+      boolean makeExecutable,
+      @Nullable String mnemonic) {
     super(owner, inputs, primaryOutput);
     this.makeExecutable = makeExecutable;
+    this.mnemonic = mnemonic;
   }
 
   @Override
@@ -183,6 +193,11 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
   @Override
   public boolean makeExecutable() {
     return makeExecutable;
+  }
+
+  @Override
+  public String getMnemonic() {
+    return mnemonic != null ? mnemonic : super.getMnemonic();
   }
 
   /**
@@ -213,8 +228,9 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
         NestedSet<Artifact> inputs,
         Artifact primaryOutput,
         boolean makeExecutable,
+        @Nullable String mnemonic,
         CharSequence fileContents) {
-      super(owner, inputs, primaryOutput, makeExecutable);
+      super(owner, inputs, primaryOutput, makeExecutable, mnemonic);
       this.fileContents = fileContents;
     }
 
@@ -233,7 +249,7 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
         ActionKeyContext actionKeyContext,
         @Nullable InputMetadataProvider inputMetadataProvider,
         Fingerprint fp) {
-      fp.addString(GUID).addBoolean(makeExecutable()).addString(getFileContents());
+      fp.addString(GUID).addBoolean(makeExecutable()).addString(getMnemonic()).addString(getFileContents());
     }
   }
 
@@ -250,8 +266,9 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
         NestedSet<Artifact> inputs,
         Artifact primaryOutput,
         boolean makeExecutable,
+        @Nullable String mnemonic,
         String fileContents) {
-      super(owner, inputs, primaryOutput, makeExecutable);
+      super(owner, inputs, primaryOutput, makeExecutable, mnemonic);
 
       // Grab the string's internal byte array. Calling getBytes() makes a copy, which can cause
       // memory spikes resulting in OOMs (b/290807073). Do not mutate this!
@@ -309,7 +326,7 @@ public abstract class FileWriteAction extends AbstractFileWriteAction
         ActionKeyContext actionKeyContext,
         @Nullable InputMetadataProvider inputMetadataProvider,
         Fingerprint fp) {
-      fp.addString(GUID).addBoolean(makeExecutable()).addBytes(compressedBytes);
+      fp.addString(GUID).addBoolean(makeExecutable()).addString(getMnemonic()).addBytes(compressedBytes);
     }
   }
 }

@@ -82,6 +82,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -333,15 +334,17 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   @Override
-  public void write(FileApi output, Object content, Boolean isExecutable)
+  public void write(FileApi output, Object content, Boolean isExecutable, Object mnemonicUnchecked)
       throws EvalException, InterruptedException {
     context.checkMutable("actions.write");
     RuleContext ruleContext = getRuleContext();
 
+    String mnemonic = getMnemonic(mnemonicUnchecked, /* defaultMnemonic= */ null);
+
     final Action action;
     if (content instanceof String) {
       action =
-          FileWriteAction.create(ruleContext, (Artifact) output, (String) content, isExecutable);
+          FileWriteAction.create(ruleContext, (Artifact) output, (String) content, isExecutable, mnemonic);
     } else if (content instanceof Args args) {
       action =
           new ParameterFileWriteAction(
@@ -350,7 +353,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               (Artifact) output,
               args.build(getMainRepoMappingSupplier()),
               args.getParameterFileType(),
-              isExecutable);
+              isExecutable,
+              mnemonic);
     } else {
       throw new AssertionError("Unexpected type: " + content.getClass().getSimpleName());
     }
@@ -761,7 +765,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
     }
 
-    String mnemonic = getMnemonic(mnemonicUnchecked);
+    String mnemonic = getMnemonic(mnemonicUnchecked, "Action");
     try {
       builder.setMnemonic(mnemonic);
     } catch (IllegalArgumentException e) {
@@ -983,8 +987,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
   }
 
-  private String getMnemonic(Object mnemonicUnchecked) {
-    String mnemonic = mnemonicUnchecked == Starlark.NONE ? "Action" : (String) mnemonicUnchecked;
+  private String getMnemonic(Object mnemonicUnchecked, @Nullable String defaultMnemonic) {
+    String mnemonic = mnemonicUnchecked == Starlark.NONE ? defaultMnemonic : (String) mnemonicUnchecked;
     if (getRuleContext().getConfiguration().getReservedActionMnemonics().contains(mnemonic)) {
       mnemonic = mangleMnemonic(mnemonic);
     }
