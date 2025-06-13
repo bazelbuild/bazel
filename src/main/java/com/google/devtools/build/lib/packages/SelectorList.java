@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -34,7 +33,6 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.HasBinary;
-import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -91,10 +89,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
 
   /** Implementation of the Starlark {@code select()} function exposed to BUILD and .bzl files. */
   private static Object select(
-      Dict<?, ?> dict,
-      String noMatchError,
-      @Nullable Label.PackageContext packageContext,
-      @Nullable Label.RepoMappingRecorder repoMappingRecorder)
+      Dict<?, ?> dict, String noMatchError, @Nullable LabelConverter labelConverter)
       throws EvalException, LabelSyntaxException {
     if (dict.isEmpty()) {
       throw Starlark.errorf(
@@ -107,10 +102,7 @@ public final class SelectorList implements StarlarkValue, HasBinary {
         case Label label -> selectDict.put(label, entry.getValue());
         case String labelString ->
             selectDict.put(
-                packageContext != null
-                    ? Label.parseWithPackageContext(
-                        labelString, packageContext, repoMappingRecorder)
-                    : labelString,
+                labelConverter != null ? labelConverter.convert(labelString) : labelString,
                 entry.getValue());
         default ->
             throw Starlark.errorf(
@@ -118,6 +110,8 @@ public final class SelectorList implements StarlarkValue, HasBinary {
                 Starlark.type(entry.getKey()));
       }
     }
+    // TODO(#26281): Tighten SelectorValue to accept an ImmutableMap<Label, Object> after flipping
+    //  --incompatible_resolve_select_keys_eagerly.
     return SelectorList.of(new SelectorValue(selectDict.buildOrThrow(), noMatchError));
   }
 
@@ -284,26 +278,27 @@ public final class SelectorList implements StarlarkValue, HasBinary {
       // If this is not null, string keys in the dict will be resolved to Labels eagerly using the
       // given context. This is unnecessary for BUILD files and packageContext will remain null in
       // this case.
-      Label.PackageContext packageContext = null;
+      // Non-null in the case of an initializer.
+      LabelConverter labelConverter = null;
       if (thread
           .getSemantics()
           .getBool(BuildLanguageOptions.INCOMPATIBLE_RESOLVE_SELECT_KEYS_EAGERLY)) {
-        var module = Module.ofInnermostEnclosingStarlarkFunction(thread);
-        if (module != null) {
-          var ctx = BazelModuleContext.of(module);
-          if (ctx != null) {
-            packageContext = ctx.packageContext();
+        // Handle the case of an initializer.
+        labelConverter = thread.getThreadLocal(LabelConverter.class);
+        // Handle the case of a regular BUILD thread.
+        if (labelConverter == null) {
+          var targetDefinitionContext = TargetDefinitionContext.fromOrNull(thread);
+          if (targetDefinitionContext != null) {
+            labelConverter = targetDefinitionContext.getLabelConverter();
           }
+        }
+        // In all other cases, must be in a .bzl file.
+        if (labelConverter == null) {
+          labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
         }
       }
       try {
-        return SelectorList.select(
-            dict,
-            noMatchError,
-            packageContext,
-            // select() is not usually called in a repository rule or a module extension, but its
-            // string representation does provide a way to observe the repo mapping.
-            thread.getThreadLocal(Label.RepoMappingRecorder.class));
+        return SelectorList.select(dict, noMatchError, labelConverter);
       } catch (LabelSyntaxException e) {
         throw Starlark.errorf("invalid label in select(): %s", e.getMessage());
       }
