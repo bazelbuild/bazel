@@ -962,7 +962,7 @@ EOF
   assert_contains "//$pkg:pylibtwo" output
 
   bazel cquery "//$pkg:all" --output=starlark \
-    --starlark:expr="str(target.label) + '%' + str(target.files.to_list()[1].is_directory)" \
+    --starlark:expr="str(target.label) + '%' + str(providers(target)['DefaultInfo'].files.to_list()[1].is_directory)" \
     > output 2>"$TEST_log" || fail "Expected success"
 
   assert_contains "//$pkg:pylibtwo%False" output
@@ -1251,7 +1251,7 @@ cc_library(
 EOF
 
   bazel cquery "//$pkg:all" --output=starlark \
-    --starlark:expr="' '.join([f.basename for f in target.files.to_list()])" \
+    --starlark:expr="' '.join([f.basename for f in providers(target)['DefaultInfo'].files.to_list()])" \
     > output 2>"$TEST_log" || fail "Expected failure"
 
   if "$is_windows"; then
