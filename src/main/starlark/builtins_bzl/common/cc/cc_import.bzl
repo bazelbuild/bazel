@@ -165,6 +165,7 @@ def _cc_import_impl(ctx):
         public_hdrs = ctx.files.hdrs,
         includes = ctx.attr.includes,
         name = ctx.label.name,
+        strip_include_prefix = ctx.attr.strip_include_prefix,
     )
 
     this_cc_info = CcInfo(compilation_context = compilation_context, linking_context = linking_context)
@@ -406,6 +407,20 @@ The default <code>include</code> path doesn't include generated
 files. If you need to <code>#include</code> a generated header
 file, list it in the <code>srcs</code>.
 </p>
+"""),
+        "strip_include_prefix": attr.string(doc = """
+The prefix to strip from the paths of the headers of this rule.
+
+<p>When set, the headers in the <code>hdrs</code> attribute of this rule are accessible
+at their path with this prefix cut off.
+
+<p>If it's a relative path, it's taken as a package-relative one. If it's an absolute one,
+it's understood as a repository-relative path.
+
+<p>The prefix in the <code>include_prefix</code> attribute is added after this prefix is
+stripped.
+
+<p>This attribute is only legal under <code>third_party</code>.
 """),
         "deps": attr.label_list(doc = """
 The list of other libraries that the target depends upon.
