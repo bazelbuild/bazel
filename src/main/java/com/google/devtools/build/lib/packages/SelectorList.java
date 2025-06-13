@@ -264,8 +264,11 @@ public final class SelectorList implements StarlarkValue, HasBinary {
                   "A dict that maps configuration conditions to values. Each key is a "
                       + "<a href=\"../builtins/Label.html\">Label</a> or a label string"
                       + " that identifies a config_setting or constraint_value instance. See the"
-                      + " <a href=\"https://bazel.build/rules/macros#label-resolution\">"
-                      + "documentation on macros</a> for when to use a Label instead of a string."),
+                      + " <a href=\"https://bazel.build/extending/legacy-macros#label-resolution\">"
+                      + "documentation on macros</a> for when to use a Label instead of a string."
+                      + " If <code>--incompatible_resolve_select_keys_eagerly</code> is enabled,"
+                      + " the keys are resolved to <code>Label</code> objects relative to the"
+                      + " package of the file that contains this call to <code>select</code>."),
           @Param(
               name = "no_match_error",
               defaultValue = "''",
