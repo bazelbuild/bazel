@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -40,10 +42,9 @@ import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.SyntaxError;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests of {@code select} function and data type. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class SelectTest {
 
   private static Object eval(
@@ -155,7 +156,7 @@ public class SelectTest {
   }
 
   @Test
-  public void testEagerResolution() throws Exception {
+  public void testKeyResolution(@TestParameter boolean resolveSelectKeysEagerly) throws Exception {
     var ctx =
         BazelModuleContext.create(
             BazelModuleKey.createFakeModuleKeyForTesting(
@@ -172,18 +173,32 @@ public class SelectTest {
             /* bzlTransitiveDigest= */ new byte[0]);
     var semantics =
         StarlarkSemantics.builder()
-            .setBool(BuildLanguageOptions.INCOMPATIBLE_RESOLVE_SELECT_KEYS_EAGERLY, true)
+            .setBool(
+                BuildLanguageOptions.INCOMPATIBLE_RESOLVE_SELECT_KEYS_EAGERLY,
+                resolveSelectKeysEagerly)
             .build();
     var result =
         (SelectorList)
             eval("select({'a': 1, '//pkg:b': 2, '@other_repo//:file': 3})", semantics, ctx);
-    assertThat(((SelectorValue) Iterables.getOnlyElement(result.getElements())).getDictionary())
-        .containsExactly(
-            Label.parseCanonicalUnchecked("//other/pkg:a"),
-            StarlarkInt.of(1),
-            Label.parseCanonicalUnchecked("//pkg:b"),
-            StarlarkInt.of(2),
-            Label.parseCanonicalUnchecked("@@other_repo+//:file"),
-            StarlarkInt.of(3));
+    var selectDict =
+        ((SelectorValue) Iterables.getOnlyElement(result.getElements())).getDictionary();
+    if (resolveSelectKeysEagerly) {
+      assertThat(selectDict)
+          .containsExactly(
+              Label.parseCanonicalUnchecked("//other/pkg:a"),
+              StarlarkInt.of(1),
+              Label.parseCanonicalUnchecked("//pkg:b"),
+              StarlarkInt.of(2),
+              Label.parseCanonicalUnchecked("@@other_repo+//:file"),
+              StarlarkInt.of(3))
+          .inOrder();
+    } else {
+      assertThat(selectDict)
+          .containsExactly(
+              "a", StarlarkInt.of(1),
+              "//pkg:b", StarlarkInt.of(2),
+              "@other_repo//:file", StarlarkInt.of(3))
+          .inOrder();
+    }
   }
 }
