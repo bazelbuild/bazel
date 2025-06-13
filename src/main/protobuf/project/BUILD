@@ -13,7 +13,7 @@ filegroup(
 )
 
 filegroup(
-    name = "project_proto_scl",
+    name = "project_proto_scl_filegroup",
     srcs = ["project_proto.scl"],
     visibility = ["//src/test/java/com/google/devtools/build/lib/analysis/util:__pkg__"],
 )
