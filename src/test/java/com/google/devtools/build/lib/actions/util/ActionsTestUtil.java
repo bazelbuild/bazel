@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
@@ -173,6 +174,18 @@ public final class ActionsTestUtil {
 
   public static ActionExecutionContext createContext(ExtendedEventHandler eventHandler) {
     return createContext(new DummyExecutor(), eventHandler);
+  }
+
+  public static ActionExecutionContext createContextForFileWriteAction(
+      ExtendedEventHandler eventHandler) {
+    return createContext(
+        new DummyExecutor(),
+        eventHandler,
+        new ActionKeyContext(),
+        null,
+        new FakeActionInputFileCache(),
+        null,
+        ImmutableMap.of());
   }
 
   public static ActionExecutionContext createContext(

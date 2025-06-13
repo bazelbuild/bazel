@@ -33,6 +33,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:loading-phase-threads-option",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib:runtime/build_event_streamer_utils",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_dispatcher",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_line_path_factory",
         "//src/main/java/com/google/devtools/build/lib:runtime/config_flag_definitions",

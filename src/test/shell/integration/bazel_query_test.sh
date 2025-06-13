@@ -1497,4 +1497,20 @@ EOF
   done
 }
 
+function test_unicode_query() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+filegroup(name = "äöüÄÖÜß🌱")
+EOF
+
+  bazel query --output=label //foo:äöüÄÖÜß🌱 >& $TEST_log || fail "Expected success"
+  expect_log "//foo:äöüÄÖÜß🌱"
+
+  echo "//foo:äöüÄÖÜß🌱" > my_query || fail "Could not write my_query"
+  # Check that the unicode characters are preserved in the output.
+  bazel query --output=proto --query_file=my_query >& $TEST_log || fail "Expected success"
+  expect_log "//foo:äöüÄÖÜß🌱"
+}
+
 run_suite "${PRODUCT_NAME} query tests"

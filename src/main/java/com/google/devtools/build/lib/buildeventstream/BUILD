@@ -47,5 +47,5 @@ java_library(
 java_library(
     name = "large-buildevent-serialized-event",
     srcs = ["LargeBuildEventSerializedEvent.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/concurrent"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety"],
 )

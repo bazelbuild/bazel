@@ -192,18 +192,6 @@ java_test(
     ],
 )
 
-java_test(
-    name = "PathCompressionTest",
-    srcs = ["PathCompressionTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:path_compression",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-        "@com_google_protobuf//:protobuf_java",
-    ],
-)
-
 java_library(
     name = "controllable_file_dependencies",
     srcs = ["ControllableFileDependencies.java"],

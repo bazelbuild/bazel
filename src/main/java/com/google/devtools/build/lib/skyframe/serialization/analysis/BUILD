@@ -17,7 +17,7 @@ java_library(
     deps = [
         ":remote_analysis_cache_client",
         ":remote_analysis_caching_state",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
@@ -118,12 +118,6 @@ java_library(
         "@com_google_protobuf//:protobuf_java",
         "@zstd-jni",
     ],
-)
-
-java_library(
-    name = "path_compression",
-    srcs = ["PathCompression.java"],
-    deps = ["@com_google_protobuf//:protobuf_java"],
 )
 
 java_library(

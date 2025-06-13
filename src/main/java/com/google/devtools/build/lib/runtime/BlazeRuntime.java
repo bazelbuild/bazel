@@ -1167,7 +1167,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       pidFileWatcher.start();
 
       ShutdownHooks shutdownHooks = ShutdownHooks.createAndRegister();
-      shutdownHooks.deleteAtExit(pidFile);
+      shutdownHooks.cleanupPidFile(pidFile, pidFileWatcher);
 
       BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime, serverPid);
       BlazeServerStartupOptions startupOptions =

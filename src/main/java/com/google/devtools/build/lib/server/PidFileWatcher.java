@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.server;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -23,6 +21,7 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
+import java.time.Duration;
 import javax.annotation.concurrent.GuardedBy;
 
 /** A thread that watches if the PID file changes and shuts down the server immediately if so. */
@@ -35,6 +34,8 @@ public class PidFileWatcher extends Thread {
 
   @GuardedBy("this")
   private boolean shuttingDown = false;
+
+  private boolean endWatch;
 
   public PidFileWatcher(Path pidFile, int serverPid) {
     this(
@@ -61,10 +62,23 @@ public class PidFileWatcher extends Thread {
     shuttingDown = true;
   }
 
+  /**
+   * Signals the watcher thread to stop. This should invoked and the thread joined before the pid
+   * file is deleted by the Blaze server on an orderly shutdown.
+   */
+  synchronized void endWatch() {
+    endWatch = true;
+  }
+
   @Override
   public void run() {
     do {
-      Uninterruptibles.sleepUninterruptibly(5, SECONDS);
+      synchronized (this) {
+        if (endWatch) {
+          return;
+        }
+      }
+      Uninterruptibles.sleepUninterruptibly(Duration.ofSeconds(3));
     } while (runPidFileChecks());
   }
 
