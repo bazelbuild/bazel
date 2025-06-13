@@ -24,8 +24,12 @@
 #include <sys/stat.h>
 #include <time.h>
 
+#include <algorithm>
+#include <cinttypes>
 #include <cstdint>
 #include <cstring>
+#include <memory>
+#include <string>
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -377,7 +381,12 @@ bool OutputJar::AddJar(int jar_path_index) {
       continue;
     }
 
+    // Logic to determine if the entry should be included.
+    // An entry can be included by --include_prefixes, or excluded by
+    // --exclude_zip_entries. The latter shall have priority over the former.
     bool include_entry = true;
+    bool exclude_entry = false;
+    // Check if explicitly included
     if (!options_->include_prefixes.empty()) {
       for (auto &prefix : options_->include_prefixes) {
         if ((include_entry =
@@ -387,6 +396,13 @@ bool OutputJar::AddJar(int jar_path_index) {
         }
       }
     }
+    // Check if explicitly excluded
+    if (!options_->exclude_zip_entries.empty()) {
+      exclude_entry = options_->exclude_zip_entries.find(
+                          std::string(file_name, file_name_length)) !=
+                      options_->exclude_zip_entries.end();
+    }
+    include_entry &= !exclude_entry;
     if (!include_entry) {
       continue;
     }

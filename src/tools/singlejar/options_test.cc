@@ -106,6 +106,10 @@ TEST(OptionsTest, MultiOptargs) {
                         "--include_prefixes",
                         "prefix1",
                         "prefix2",
+                        "--exclude_zip_entries",
+                        "file1",
+                        "file2",
+                        "file3",
                         "--nocompress_suffixes",
                         ".png",
                         ".so",
@@ -131,6 +135,13 @@ TEST(OptionsTest, MultiOptargs) {
   ASSERT_EQ(2UL, options.include_prefixes.size());
   EXPECT_EQ("prefix1", options.include_prefixes[0]);
   EXPECT_EQ("prefix2", options.include_prefixes[1]);
+  ASSERT_EQ(3UL, options.exclude_zip_entries.size());
+  ASSERT_TRUE(options.exclude_zip_entries.find("file1") !=
+              options.exclude_zip_entries.end());
+  ASSERT_TRUE(options.exclude_zip_entries.find("file2") !=
+              options.exclude_zip_entries.end());
+  ASSERT_TRUE(options.exclude_zip_entries.find("file3") !=
+              options.exclude_zip_entries.end());
   EXPECT_EQ(2UL, options.nocompress_suffixes.size());
   EXPECT_EQ(".png", options.nocompress_suffixes[0]);
   EXPECT_EQ(".so", options.nocompress_suffixes[1]);

@@ -15,6 +15,7 @@
 #ifndef THIRD_PARTY_BAZEL_SRC_TOOLS_SINGLEJAR_OPTIONS_H_
 #define THIRD_PARTY_BAZEL_SRC_TOOLS_SINGLEJAR_OPTIONS_H_
 
+#include <set>
 #include <string>
 #include <vector>
 
@@ -58,6 +59,7 @@ class Options {
   std::vector<std::string> build_info_files;
   std::vector<std::string> build_info_lines;
   std::vector<std::string> include_prefixes;
+  std::set<std::string> exclude_zip_entries;
   std::vector<std::string> nocompress_suffixes;
   bool exclude_build_data;
   bool force_compression;
