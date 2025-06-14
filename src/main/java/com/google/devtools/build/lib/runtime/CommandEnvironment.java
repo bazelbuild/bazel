@@ -365,8 +365,10 @@ public class CommandEnvironment {
       String value = entry.getValue();
       if (value == null) {
         value = clientEnv.get(name);
-      }
-      if (value != null) {
+      } else if (name == null) {
+        repoEnv.remove(value);
+        repoEnvFromOptions.remove(value);
+      } else {
         repoEnv.put(name, value);
         repoEnvFromOptions.put(name, value);
       }

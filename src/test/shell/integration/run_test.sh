@@ -840,15 +840,21 @@ echo "OVERRIDDEN_RUN_ENV: '$OVERRIDDEN_RUN_ENV'"
 echo "RUN_ENV_ONLY: '$RUN_ENV_ONLY'"
 echo "EMPTY_RUN_ENV: '$EMPTY_RUN_ENV'"
 echo "INHERITED_RUN_ENV: '$INHERITED_RUN_ENV'"
+echo "REMOVED_RUN_ENV: '${REMOVED_RUN_ENV:=<unset>}'"
+echo "SET_UNSET_SET: '$SET_UNSET_SET'"
 EOF
 
   chmod +x "$pkg/foo.sh"
 
-  INHERITED_RUN_ENV=BAZ bazel run \
+  INHERITED_RUN_ENV=BAZ REMOVED_RUN_ENV=QUZ bazel run \
       --run_env=OVERRIDDEN_RUN_ENV=FOO \
       --run_env=RUN_ENV_ONLY=BAR \
       --run_env=EMPTY_RUN_ENV= \
       --run_env=INHERITED_RUN_ENV \
+      --run_env==REMOVED_RUN_ENV \
+      --run_env=SET_UNSET_SET=set1 \
+      --run_env==SET_UNSET_SET \
+      --run_env=SET_UNSET_SET=set2 \
       "//$pkg:foo" >"$TEST_log" || fail "expected run to succeed"
 
   expect_log "FROMBUILD: '1'"
@@ -856,6 +862,8 @@ EOF
   expect_log "RUN_ENV_ONLY: 'BAR'"
   expect_log "EMPTY_RUN_ENV: ''"
   expect_log "INHERITED_RUN_ENV: 'BAZ'"
+  expect_log "REMOVED_RUN_ENV: '<unset>'"
+  expect_log "SET_UNSET_SET: 'set2'"
 }
 
 function test_run_env_script_path() {
