@@ -52,11 +52,6 @@ public abstract class AssignmentConverterTest {
   }
 
   @Test
-  public void missingName() throws Exception {
-    assertThrows(OptionsParsingException.class, () -> convert("=VALUE"));
-  }
-
-  @Test
   public void emptyString() throws Exception {
     assertThrows(OptionsParsingException.class, () -> convert(""));
   }
@@ -75,6 +70,11 @@ public abstract class AssignmentConverterTest {
     }
 
     @Test
+    public void missingName() throws Exception {
+      assertThrows(OptionsParsingException.class, () -> convert("=VALUE"));
+    }
+
+    @Test
     public void missingValue() throws Exception {
       assertThrows(OptionsParsingException.class, () -> convert("NAME"));
     }
@@ -89,6 +89,11 @@ public abstract class AssignmentConverterTest {
     }
 
     @Test
+    public void missingName() throws Exception {
+      assertThat(convert("=VALUE")).isEqualTo(Maps.immutableEntry(null, "VALUE"));
+    }
+
+    @Test
     public void missingValue() throws Exception {
       assertThat(convert("NAME")).isEqualTo(Maps.immutableEntry("NAME", null));
     }
@@ -97,6 +102,7 @@ public abstract class AssignmentConverterTest {
     public void reverseConversionForStarlark() throws Exception {
       assertThat(converter.reverseForStarlark(converter.convert("a"))).isEqualTo("a");
       assertThat(converter.reverseForStarlark(converter.convert("a=1"))).isEqualTo("a=1");
+      assertThat(converter.reverseForStarlark(converter.convert("=a"))).isEqualTo("=a");
     }
   }
 }
