@@ -177,7 +177,11 @@ public class BazelRuleClassProvider {
         // ones inherited from the fragments. In the long run, these fragments will
         // be replaced by appropriate default rc files anyway.
         for (Map.Entry<String, String> entry : options.get(CoreOptions.class).actionEnvironment) {
-          env.put(entry.getKey(), entry.getValue());
+          if (entry.getKey() != null) {
+            env.put(entry.getKey(), entry.getValue());
+          } else {
+            env.remove(entry.getValue());
+          }
         }
 
         if (!BuildConfigurationValue.runfilesEnabled(options.get(CoreOptions.class))) {

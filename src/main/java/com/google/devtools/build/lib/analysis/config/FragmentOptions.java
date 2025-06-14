@@ -100,7 +100,11 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
       List<Map.Entry<String, String>> entries) {
     LinkedHashMap<String, String> normalizedEntries = new LinkedHashMap<>();
     for (Map.Entry<String, String> entry : entries) {
-      normalizedEntries.put(entry.getKey(), entry.getValue());
+      if (entry.getKey() == null) {
+        normalizedEntries.remove(entry.getValue());
+      } else {
+        normalizedEntries.put(entry.getKey(), entry.getValue());
+      }
     }
     // If we made no changes, return the same instance we got to reduce churn.
     if (normalizedEntries.size() == entries.size()) {

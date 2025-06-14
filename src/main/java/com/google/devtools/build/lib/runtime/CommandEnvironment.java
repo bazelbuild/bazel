@@ -343,6 +343,11 @@ public class CommandEnvironment {
           options.getOptions(CoreOptions.class).actionEnvironment) {
         if (entry.getValue() == null) {
           visibleActionEnv.add(entry.getKey());
+        } else if (entry.getKey() == null) {
+          visibleActionEnv.remove(entry.getValue());
+          if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
+            repoEnv.remove(entry.getValue());
+          }
         } else {
           visibleActionEnv.remove(entry.getKey());
           if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
@@ -363,6 +368,11 @@ public class CommandEnvironment {
     for (Map.Entry<String, String> entry : commandOptions.repositoryEnvironment) {
       String name = entry.getKey();
       String value = entry.getValue();
+      if (name == null) {
+        repoEnv.remove(value);
+        repoEnvFromOptions.remove(value);
+        continue;
+      }
       if (value == null) {
         value = clientEnv.get(name);
       }

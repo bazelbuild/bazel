@@ -579,8 +579,8 @@ public class CommonCommandOptions extends OptionsBase {
           """
           Specifies additional environment variables to be available only for repository rules. \
           Note that repository rules see the full environment anyway, but in this way \
-          configuration information can be passed to repositories through options without \
-          invalidating the action graph.
+          variables can be set via command-line flags and <code>.bazelrc</code> entries. \
+          The special syntax <code>=NAME</code> can be used to explicitly unset a variable.
           """)
   public List<Map.Entry<String, String>> repositoryEnvironment;
 

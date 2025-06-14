@@ -2947,7 +2947,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     LinkedHashMap<String, String> actionEnvironment = new LinkedHashMap<>();
     if (opt != null) {
       for (Map.Entry<String, String> v : opt.actionEnvironment) {
-        actionEnvironment.put(v.getKey(), v.getValue());
+        if (v.getKey() != null) {
+          actionEnvironment.put(v.getKey(), v.getValue());
+        } else {
+          actionEnvironment.remove(v.getValue());
+        }
       }
     }
     setActionEnv(actionEnvironment);

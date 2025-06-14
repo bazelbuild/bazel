@@ -96,6 +96,7 @@ public class TestConfiguration extends Fragment {
             "Specifies additional environment variables to be injected into the test runner "
                 + "environment. Variables can be either specified by name, in which case its value "
                 + "will be read from the Bazel client environment, or by the name=value pair. "
+                + "Previously set variables can be unset via <code>=name</code>."
                 + "This option can be used multiple times to specify several variables. "
                 + "Used only by the 'bazel test' command.")
     public List<Map.Entry<String, String>> testEnvironment;

@@ -647,7 +647,9 @@ public final class Converters {
    * A converter for variable assignments from the parameter list of a blaze command invocation.
    * Assignments are expected to have the form "name[=value]", where names and values are defined to
    * be as permissive as possible and value part can be optional (in which case it is considered to
-   * be null).
+   * be null). The special syntax "=name" is also supported and recorded as a null key with value
+   * set to the name. Consumers should interpret this as a request to remove any previously assigned
+   * value for that name.
    */
   public static class OptionalAssignmentConverter
       extends Converter.Contextless<Map.Entry<String, String>> {
@@ -655,9 +657,11 @@ public final class Converters {
     @Override
     public Map.Entry<String, String> convert(String input) throws OptionsParsingException {
       int pos = input.indexOf('=');
-      if (pos == 0 || input.length() == 0) {
+      if (input.isEmpty() || input.equals("=")) {
         throw new OptionsParsingException(
-            "Variable definitions must be in the form of a 'name=value' or 'name' assignment");
+            "Variable definitions must be in the form of a 'name=value', 'name', or '=name' assignment");
+      } else if (pos == 0) {
+        return Maps.immutableEntry(null, input.substring(1));
       } else if (pos < 0) {
         return Maps.immutableEntry(input, null);
       }
@@ -677,7 +681,9 @@ public final class Converters {
       Map.Entry<String, String> typedValue = (Map.Entry<String, String>) converted;
       return typedValue.getValue() == null
           ? typedValue.getKey()
-          : String.format("%s=%s", typedValue.getKey(), typedValue.getValue());
+          : String.format(
+              "%s=%s",
+              typedValue.getKey() == null ? "" : typedValue.getKey(), typedValue.getValue());
     }
 
     @Override
