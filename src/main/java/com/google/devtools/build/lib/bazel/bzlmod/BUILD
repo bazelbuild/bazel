@@ -123,6 +123,7 @@ java_library(
     srcs = ["BazelLockFileModule.java"],
     deps = [
         ":module_extension",
+        ":module_extension_metadata",
         ":resolution",
         ":resolution_impl",
         "//src/main/java/com/google/devtools/build/lib:runtime",
@@ -132,6 +133,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:flogger",
         "//third_party:guava",
     ],
@@ -215,6 +217,7 @@ java_library(
         "BazelModuleResolutionFunction.java",
         "DelegateTypeAdapterFactory.java",
         "Discovery.java",
+        "FactsAdapter.java",
         "GsonTypeAdapterUtil.java",
         "ModuleExtensionContext.java",
         "ModuleExtensionEvaluationProgress.java",
@@ -271,6 +274,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/lib/json",
         "//src/main/java/net/starlark/java/spelling",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:failure_details_java_proto",
@@ -438,6 +442,7 @@ java_library(
 java_library(
     name = "module_extension_metadata",
     srcs = [
+        "Facts.java",
         "ModuleExtensionMetadata.java",
     ],
     deps = [
@@ -453,6 +458,7 @@ java_library(
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@maven//:io_sweers_autotransient_autotransient",
     ],
 )
 
