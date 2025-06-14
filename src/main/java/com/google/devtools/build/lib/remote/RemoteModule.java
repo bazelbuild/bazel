@@ -61,6 +61,8 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.CombinedCacheClientFactory.CombinedCacheClient;
 import com.google.devtools.build.lib.remote.LeaseService.LeaseExtension;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
@@ -196,7 +198,7 @@ public final class RemoteModule extends BlazeModule {
     return !Strings.isNullOrEmpty(options.remoteOutputService);
   }
 
-  public static final Predicate<? super Exception> RETRIABLE_HTTP_ERRORS =
+  public static final ResultClassifier<? super Exception> HTTP_RESULT_CLASSIFIER =
       e -> {
         boolean retry = false;
         if (e instanceof ClosedChannelException) {
@@ -205,6 +207,9 @@ public final class RemoteModule extends BlazeModule {
           retry = true;
         } else if (e instanceof HttpException httpException) {
           int status = httpException.response().status().code();
+          if (status == HttpResponseStatus.NOT_FOUND.code()) {
+            return Result.SUCCESS;
+          }
           retry =
               status == HttpResponseStatus.INTERNAL_SERVER_ERROR.code()
                   || status == HttpResponseStatus.BAD_GATEWAY.code()
@@ -225,7 +230,7 @@ public final class RemoteModule extends BlazeModule {
             retry = true;
           }
         }
-        return retry;
+        return retry ? Result.TRANSIENT_FAILURE : Result.PERMANENT_FAILURE;
       };
 
   private void initHttpAndDiskCache(
@@ -248,7 +253,7 @@ public final class RemoteModule extends BlazeModule {
               digestUtil,
               executorService,
               new RemoteRetrier(
-                  remoteOptions, RETRIABLE_HTTP_ERRORS, retryScheduler, circuitBreaker));
+                  remoteOptions, HTTP_RESULT_CLASSIFIER, retryScheduler, circuitBreaker));
     } catch (IOException e) {
       handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
       return;
@@ -475,7 +480,7 @@ public final class RemoteModule extends BlazeModule {
         CircuitBreakerFactory.createCircuitBreaker(remoteOptions);
     RemoteRetrier retrier =
         new RemoteRetrier(
-            remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryScheduler, circuitBreaker);
+            remoteOptions, RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, retryScheduler, circuitBreaker);
 
     if (!Strings.isNullOrEmpty(remoteOptions.remoteOutputService)) {
       var bazelOutputServiceChannel =
@@ -647,7 +652,7 @@ public final class RemoteModule extends BlazeModule {
         RemoteRetrier execRetrier =
             new RemoteRetrier(
                 remoteOptions,
-                RemoteRetrier.RETRIABLE_GRPC_ERRORS, // Handle NOT_FOUND internally
+                RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, // Handle NOT_FOUND internally
                 retryScheduler,
                 circuitBreaker);
         remoteExecutor =
@@ -657,7 +662,7 @@ public final class RemoteModule extends BlazeModule {
         RemoteRetrier execRetrier =
             new RemoteRetrier(
                 remoteOptions,
-                RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
+                RemoteRetrier.GRPC_RESULT_CLASSIFIER,
                 retryScheduler,
                 circuitBreaker);
         remoteExecutor =
