@@ -2072,11 +2072,6 @@ EOF
 }
 
 function test_header_compiler_direct_supports_unicode() {
-  if [[ "${JAVA_TOOLS_ZIP}" == released && "$is_windows" ]]; then
-      # TODO: Enable test after the next java_tools release.
-      return 0
-  fi
-
   # JVMs on macOS always support UTF-8 since JEP 400.
   # Windows releases of Turbine are built on a machine with system code page set
   # to UTF-8 so that Graal picks up the correct sun.jnu.encoding value *and*
@@ -2137,6 +2132,12 @@ EOF
 }
 
 function test_sandboxed_multiplexing_hermetic_paths_in_diagnostics() {
+  if [[ "$is_windows" ]]; then
+    # https://bugs.openjdk.org/browse/JDK-8357249 makes sandboxed multiplex
+    # workers incompatible with the reduced classpath heuristic on Windows.
+    add_to_bazelrc "common --experimental_java_classpath=off"
+  fi
+
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
 load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
@@ -2166,6 +2167,59 @@ EOF
   # Verify that the working directory is only stripped from source file paths.
   expect_log "^pkg[\\/]Lib.java:3: error:"
   expect_log "^    String a = 5; // __sandbox/1/_main/pkg/Lib.java:3: error: incompatible types: int cannot be converted to String"
+}
+
+function test_sandboxed_multiplexing_full_classpath_fallback() {
+  if [[ "$is_windows" ]]; then
+    # https://bugs.openjdk.org/browse/JDK-8357249 makes sandboxed multiplex
+    # workers incompatible with the reduced classpath heuristic on Windows.
+    add_to_bazelrc "common --experimental_java_classpath=off"
+  fi
+
+  mkdir -p pkg/java/hello || fail "Expected success"
+  cat > "pkg/java/hello/A.java" <<'EOF'
+package hello;
+public class A {
+  public void f(B b) { b.getC().getD(); }
+}
+EOF
+  cat > "pkg/java/hello/B.java" <<'EOF'
+package hello;
+public class B {
+  public C getC() { return null; }
+}
+EOF
+  cat > "pkg/java/hello/C.java" <<'EOF'
+package hello;
+public class C {
+  public D getD() { return null; }
+}
+EOF
+  cat > "pkg/java/hello/D.java" <<'EOF'
+package hello;
+public class D {}
+EOF
+  cat > "pkg/java/hello/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+
+default_java_toolchain(
+    name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
+    javac_supports_worker_multiplex_sandboxing = True,
+)
+java_library(name='a', srcs=['A.java'], deps = [':b'])
+java_library(name='b', srcs=['B.java'], deps = [':c'])
+java_library(name='c', srcs=['C.java'], deps = [':d'])
+java_library(name='d', srcs=['D.java'])
+EOF
+
+  bazel build //pkg/java/hello:a \
+    --experimental_worker_multiplex_sandboxing \
+    --java_language_version=17 \
+    --extra_toolchains=//pkg/java/hello:java_toolchain_definition \
+    >& $TEST_log || fail "build failed"
 }
 
 function test_strict_deps_error_external_repo_starlark_action() {
