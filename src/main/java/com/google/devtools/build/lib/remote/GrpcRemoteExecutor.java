@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionGrpc;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
+import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.longrunning.Operation;
@@ -47,6 +50,7 @@ import javax.annotation.Nullable;
 @ThreadSafe
 class GrpcRemoteExecutor implements RemoteExecutionClient {
 
+  private final RemoteOptions remoteOptions;
   private final ReferenceCountedChannel channel;
   private final CallCredentialsProvider callCredentialsProvider;
   private final RemoteRetrier retrier;
@@ -54,18 +58,26 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
   private final AtomicBoolean closed = new AtomicBoolean();
 
   public GrpcRemoteExecutor(
+      RemoteOptions remoteOptions,
       ReferenceCountedChannel channel,
       CallCredentialsProvider callCredentialsProvider,
       RemoteRetrier retrier) {
+    this.remoteOptions = remoteOptions;
     this.channel = channel;
     this.callCredentialsProvider = callCredentialsProvider;
     this.retrier = retrier;
   }
 
   private ExecutionBlockingStub execBlockingStub(RequestMetadata metadata, Channel channel) {
-    return ExecutionGrpc.newBlockingStub(channel)
-        .withInterceptors(TracingMetadataUtils.attachMetadataInterceptor(metadata))
-        .withCallCredentials(callCredentialsProvider.getCallCredentials());
+    var stub =
+        ExecutionGrpc.newBlockingStub(channel)
+            .withInterceptors(TracingMetadataUtils.attachMetadataInterceptor(metadata))
+            .withCallCredentials(callCredentialsProvider.getCallCredentials());
+    if (remoteOptions.remoteExecutionKeepalive) {
+      stub.withDeadlineAfter(remoteOptions.remoteTimeout.toSeconds(), SECONDS);
+    }
+
+    return stub;
   }
 
   private void handleStatus(Status statusProto, @Nullable ExecuteResponse resp) {
@@ -81,7 +93,9 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
       handleStatus(op.getError(), null);
     }
     if (op.getDone()) {
-      Preconditions.checkState(op.getResultCase() != Operation.ResultCase.RESULT_NOT_SET);
+      Preconditions.checkState(
+          op.getResultCase() != Operation.ResultCase.RESULT_NOT_SET,
+          "Unexpected result of remote execution: result not set");
       ExecuteResponse resp = op.getResponse().unpack(ExecuteResponse.class);
       if (resp.hasStatus()) {
         handleStatus(resp.getStatus(), resp);
