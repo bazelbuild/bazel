@@ -343,6 +343,9 @@ public class CommandEnvironment {
           options.getOptions(CoreOptions.class).actionEnvironment) {
         if (entry.getValue() == null) {
           visibleActionEnv.add(entry.getKey());
+        } else if (entry.getKey() == null) {
+          visibleActionEnv.remove(entry.getValue());
+          // TODO: What to do about repo_env?
         } else {
           visibleActionEnv.remove(entry.getKey());
           if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
