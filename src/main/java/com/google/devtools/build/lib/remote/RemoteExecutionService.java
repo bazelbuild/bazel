@@ -1870,7 +1870,10 @@ public class RemoteExecutionService {
     if (remoteOptions.remoteCacheAsync
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
       AtomicLong startTime = new AtomicLong();
-      var unused =
+      // We use a Semaphore instead of a CountDownLatch since the Disposable may be disposed before
+      // the upload is started.
+      Semaphore uploadDone = new Semaphore(1);
+      var asyncUpload =
           Single.using(
                   () -> {
                     backgroundTaskPhaser.register();
@@ -1879,13 +1882,28 @@ public class RemoteExecutionService {
                     return cache;
                   },
                   combinedCache ->
-                      buildUploadManifestAsync(action, spawnResult)
-                          .flatMap(
-                              manifest ->
-                                  manifest.uploadAsync(
-                                      action.getRemoteActionExecutionContext(),
-                                      combinedCache,
-                                      reporter)),
+                      Single.using(
+                          () -> {
+                            uploadDone.acquire();
+                            return uploadDone;
+                          },
+                          doneSemaphore ->
+                              buildUploadManifestAsync(action, spawnResult)
+                                  .flatMap(
+                                      manifest ->
+                                          manifest.uploadAsync(
+                                              action.getRemoteActionExecutionContext(),
+                                              combinedCache,
+                                              reporter)),
+                          doneSemaphore -> {
+                            // Signal that the post-execution tasks touching the outputs are done.
+                            doneSemaphore.release();
+                            // Clean up the post-execution task, disposing and awaiting it is
+                            // effectively a no-op at this point.
+                            outputService.cancelPostExecutionTasks(
+                                action.getRemoteActionExecutionContext().getSpawnOwner());
+                          },
+                          /* eager= */ false),
                   cacheResource -> {
                     Profiler.instance()
                         .completeTask(startTime.get(), ProfilerTask.UPLOAD_TIME, "upload outputs");
@@ -1900,6 +1918,12 @@ public class RemoteExecutionService {
                   /* eager= */ false)
               .subscribeOn(scheduler)
               .subscribe(result -> {}, this::reportUploadError);
+      outputService.registerPostExecutionTask(
+          action.getRemoteActionExecutionContext().getSpawnOwner(),
+          () -> {
+            asyncUpload.dispose();
+            uploadDone.acquire();
+          });
     } else {
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
