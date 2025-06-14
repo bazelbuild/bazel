@@ -64,6 +64,7 @@ java_library(
             "BuildWithoutTheBytesIntegrationTest.java",
             "BuildWithoutTheBytesIntegrationTestBase.java",
             "DiskCacheIntegrationTest.java",
+            "ServerLifetimeIntegrationTest.java",
         ],
     ),
     deps = [
@@ -282,5 +283,28 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
+    ],
+)
+
+java_test(
+    name = "ServerLifetimeIntegrationTest",
+    size = "large",
+    srcs = ["ServerLifetimeIntegrationTest.java"],
+    tags = ["requires-network"],
+    runtime_deps = [
+        "//third_party/grpc-java:grpc-jar",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
+        "//src/main/java/com/google/devtools/build/lib/dynamic",
+        "//src/main/java/com/google/devtools/build/lib/remote",
+        "//src/main/java/com/google/devtools/build/lib/standalone",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/remote/util:integration_test_utils",
+        "//third_party:guava",
+        "//third_party:truth",
     ],
 )

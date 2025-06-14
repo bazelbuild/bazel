@@ -18,6 +18,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -93,6 +94,41 @@ public class RemoteOptionsTest {
       Duration convert =
           new CommonRemoteOptions.RemoteDurationConverter().convert(milliseconds + "ms");
       assertThat(Duration.ofMillis(milliseconds)).isEqualTo(convert);
+    } catch (OptionsParsingException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @Test
+  public void testRemoteCacheTtlOptionsConverterWithoutUnit() {
+    try {
+      int seconds = 60;
+      Duration convert =
+          new CommonRemoteOptions.RemoteCacheTtlDurationConverter().convert(String.valueOf(seconds));
+      assertThat(Duration.ofSeconds(seconds)).isEqualTo(convert);
+    } catch (OptionsParsingException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @Test
+  public void testRemoteCacheTtlOptionsConverterWithUnit() {
+    try {
+      int milliseconds = 60;
+      Duration convert =
+          new CommonRemoteOptions.RemoteCacheTtlDurationConverter().convert(milliseconds + "ms");
+      assertThat(Duration.ofMillis(milliseconds)).isEqualTo(convert);
+    } catch (OptionsParsingException e) {
+      fail(e.getMessage());
+    }
+  }
+
+  @Test
+  public void testRemoteCacheTtlOptionsConverterServer() {
+    try {
+      Duration convert =
+          new CommonRemoteOptions.RemoteCacheTtlDurationConverter().convert(CommonRemoteOptions.SERVER_KEYWORD);
+      assertThat(Duration.ofSeconds(FileArtifactValue.SERVER_EXPIRATION_SENTINEL)).isEqualTo(convert);
     } catch (OptionsParsingException e) {
       fail(e.getMessage());
     }
