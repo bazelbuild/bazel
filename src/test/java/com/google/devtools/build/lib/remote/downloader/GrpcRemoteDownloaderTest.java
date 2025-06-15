@@ -153,7 +153,7 @@ public class GrpcRemoteDownloaderTest {
     final RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),
-            RemoteRetrier.RETRIABLE_GRPC_ERRORS,
+            RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER,
             retryService);
     final ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
