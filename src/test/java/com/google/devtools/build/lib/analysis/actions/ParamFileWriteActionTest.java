@@ -225,6 +225,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
                   : ParameterFileType.UNQUOTED;
           return new ParameterFileWriteAction(
               ActionsTestUtil.NULL_ACTION_OWNER,
+              NestedSetBuilder.emptySet(Order.STABLE_ORDER),
               outputArtifact,
               commandLine,
               parameterFileType,
