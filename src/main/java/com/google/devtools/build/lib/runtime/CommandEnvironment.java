@@ -368,13 +368,15 @@ public class CommandEnvironment {
     for (Map.Entry<String, String> entry : commandOptions.repositoryEnvironment) {
       String name = entry.getKey();
       String value = entry.getValue();
-      if (value == null) {
-        value = clientEnv.get(name);
-      }
       if (name == null) {
         repoEnv.remove(value);
         repoEnvFromOptions.remove(value);
-      } else {
+        continue;
+      }
+      if (value == null) {
+        value = clientEnv.get(name);
+      }
+      if (value != null) {
         repoEnv.put(name, value);
         repoEnvFromOptions.put(name, value);
       }
