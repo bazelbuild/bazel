@@ -189,7 +189,7 @@ public class RunCommand implements BlazeCommand {
       "'run' only works with tests with one shard ('--test_sharding_strategy=disabled' is okay) "
           + "and without --runs_per_test";
 
-  private static final ImmutableSortedSet<String> ENV_VARIABLES_TO_CLEAR =
+  private static final ImmutableSortedSet<String> ENV_VARIABLES_TO_CLEAR_UNCONDITIONALLY =
       ImmutableSortedSet.of(
           // These variables are all used by runfiles libraries to locate the runfiles directory or
           // manifest and can cause incorrect behavior when set for the top-level binary run with
@@ -543,7 +543,7 @@ public class RunCommand implements BlazeCommand {
     }
     return execDescription
         .addAllEnvironmentVariableToClear(
-            runCommandLine.getEnvVariablesToClear().stream()
+            runCommandLine.getEnvironmentVariablesToClear().stream()
                 .map(s -> ByteString.copyFrom(s, ISO_8859_1))
                 .collect(toImmutableList()))
         .setShouldExec(shouldRunTarget)
@@ -706,7 +706,8 @@ public class RunCommand implements BlazeCommand {
         env,
         builtTargets,
         ImmutableSortedMap.copyOf(runEnvironment),
-        ImmutableSortedSet.copyOf(Iterables.concat(envVariablesToClear, ENV_VARIABLES_TO_CLEAR)),
+        ImmutableSortedSet.copyOf(
+            Iterables.concat(envVariablesToClear, ENV_VARIABLES_TO_CLEAR_UNCONDITIONALLY)),
         argsFromBinary,
         argsFromResidue);
   }
@@ -803,7 +804,7 @@ public class RunCommand implements BlazeCommand {
 
     return new RunCommandLine.Builder(
             ImmutableSortedMap.copyOf(runEnvironment),
-            ENV_VARIABLES_TO_CLEAR,
+            ENV_VARIABLES_TO_CLEAR_UNCONDITIONALLY,
             /* workingDir= */ devirtualizedExecRoot,
             /* isTestTarget= */ true)
         .addArgs(testArgs)

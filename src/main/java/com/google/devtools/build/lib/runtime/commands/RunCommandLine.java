@@ -43,7 +43,7 @@ class RunCommandLine {
   @Nullable private final String prettyRunUnderPrefix;
 
   private final ImmutableSortedMap<String, String> runEnvironment;
-  private final ImmutableSortedSet<String> envVariablesToUnset;
+  private final ImmutableSortedSet<String> environmentVariablesToClear;
   private final Path workingDir;
 
   private final boolean isTestTarget;
@@ -55,7 +55,7 @@ class RunCommandLine {
       @Nullable String runUnderPrefix,
       @Nullable String prettyRunUnderPrefix,
       ImmutableSortedMap<String, String> runEnvironment,
-      ImmutableSortedSet<String> envVariablesToUnset,
+      ImmutableSortedSet<String> environmentVariablesToClear,
       Path workingDir,
       boolean isTestTarget) {
     this.args = args;
@@ -64,7 +64,7 @@ class RunCommandLine {
     this.runUnderPrefix = runUnderPrefix;
     this.prettyRunUnderPrefix = prettyRunUnderPrefix;
     this.runEnvironment = runEnvironment;
-    this.envVariablesToUnset = envVariablesToUnset;
+    this.environmentVariablesToClear = environmentVariablesToClear;
     this.workingDir = workingDir;
     this.isTestTarget = isTestTarget;
   }
@@ -77,8 +77,8 @@ class RunCommandLine {
     return runEnvironment;
   }
 
-  ImmutableSortedSet<String> getEnvVariablesToClear() {
-    return envVariablesToUnset;
+  ImmutableSortedSet<String> getEnvironmentVariablesToClear() {
+    return environmentVariablesToClear;
   }
 
   boolean isTestTarget() {
@@ -139,7 +139,7 @@ class RunCommandLine {
         .getScriptForm(
             shExecutable,
             workingDir.getPathString(),
-            envVariablesToUnset,
+            environmentVariablesToClear,
             runEnvironment,
             runUnderPrefix,
             ImmutableList.<String>builder().addAll(args).addAll(residue).build());
@@ -319,7 +319,7 @@ class RunCommandLine {
 
   static class Builder {
     private final ImmutableSortedMap<String, String> runEnvironment;
-    private final ImmutableSortedSet<String> envVariablesToUnset;
+    private final ImmutableSortedSet<String> environmentVariablesToClear;
     private final Path workingDir;
     private final boolean isTestTarget;
 
@@ -332,11 +332,11 @@ class RunCommandLine {
 
     Builder(
         ImmutableSortedMap<String, String> runEnvironment,
-        ImmutableSortedSet<String> envVariablesToUnset,
+        ImmutableSortedSet<String> environmentVariablesToClear,
         Path workingDir,
         boolean isTestTarget) {
       this.runEnvironment = runEnvironment;
-      this.envVariablesToUnset = envVariablesToUnset;
+      this.environmentVariablesToClear = environmentVariablesToClear;
       this.workingDir = workingDir;
       this.isTestTarget = isTestTarget;
     }
@@ -408,7 +408,7 @@ class RunCommandLine {
           runUnderPrefix,
           prettyRunUnderPrefix,
           runEnvironment,
-          envVariablesToUnset,
+          environmentVariablesToClear,
           workingDir,
           isTestTarget);
     }
