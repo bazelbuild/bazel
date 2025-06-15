@@ -345,7 +345,9 @@ public class CommandEnvironment {
           visibleActionEnv.add(entry.getKey());
         } else if (entry.getKey() == null) {
           visibleActionEnv.remove(entry.getValue());
-          // TODO: What to do about repo_env?
+          if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
+            repoEnv.remove(entry.getValue());
+          }
         } else {
           visibleActionEnv.remove(entry.getKey());
           if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
@@ -368,7 +370,8 @@ public class CommandEnvironment {
       String value = entry.getValue();
       if (value == null) {
         value = clientEnv.get(name);
-      } else if (name == null) {
+      }
+      if (name == null) {
         repoEnv.remove(value);
         repoEnvFromOptions.remove(value);
       } else {
