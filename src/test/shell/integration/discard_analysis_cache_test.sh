@@ -149,7 +149,7 @@ function test_aspect_and_configured_target_cleared() {
 AspectInfo = provider()
 def _simple_aspect_impl(target, ctx):
   result=[]
-  for orig_out in target.files.to_list():
+  for orig_out in target[DefaultInfo].files.to_list():
     aspect_out = ctx.actions.declare_file(orig_out.basename + ".aspect")
     ctx.actions.write(
         output=aspect_out,
