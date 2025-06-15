@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
  * Subclasses must preserve this property.
  */
 @ThreadSafe
-public abstract class InMemoryContentInfo implements FileStatus, InodeOrErrno {
+public abstract non-sealed class InMemoryContentInfo implements FileStatus, InodeOrErrno {
 
   protected final Clock clock;
 
@@ -134,22 +134,6 @@ public abstract class InMemoryContentInfo implements FileStatus, InodeOrErrno {
       permissions |= 0111;
     }
     return permissions;
-  }
-
-  @Override
-  public final InMemoryContentInfo inode() {
-    return this;
-  }
-
-  @Nullable
-  @Override
-  public final Errno error() {
-    return null;
-  }
-
-  @Override
-  public final boolean isError() {
-    return false;
   }
 
   @Override
