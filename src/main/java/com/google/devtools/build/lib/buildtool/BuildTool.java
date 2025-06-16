@@ -1120,7 +1120,7 @@ public class BuildTool {
 
     public static RemoteAnalysisCachingDependenciesProvider forAnalysis(
         CommandEnvironment env, Optional<PathFragmentPrefixTrie> maybeActiveDirectoriesMatcher)
-        throws InterruptedException {
+        throws InterruptedException, AbruptExitException {
       var options = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
       if (options == null
           || !env.getCommand().buildPhase().executes()
@@ -1197,7 +1197,7 @@ public class BuildTool {
         Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher,
         RemoteAnalysisCacheMode mode,
         String serializedFrontierProfile)
-        throws InterruptedException {
+        throws InterruptedException, AbruptExitException {
       this.mode = mode;
       this.serializedFrontierProfile = serializedFrontierProfile;
       this.objectCodecsFuture =

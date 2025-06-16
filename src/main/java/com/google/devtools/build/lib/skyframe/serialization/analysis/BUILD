@@ -249,6 +249,7 @@ java_library(
         ":options",
         ":remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

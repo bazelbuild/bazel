@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import javax.annotation.Nullable;
 
 /**
@@ -36,7 +37,8 @@ public interface RemoteAnalysisCachingServicesSupplier {
    *
    * <p>This method updates the services and parameters when the relevant flags change.
    */
-  default void configure(RemoteAnalysisCachingOptions cachingOptions, @Nullable ClientId clientId) {
+  default void configure(RemoteAnalysisCachingOptions cachingOptions, @Nullable ClientId clientId)
+      throws AbruptExitException {
     // Does nothing by default.
   }
 
