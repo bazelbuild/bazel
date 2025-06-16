@@ -40,7 +40,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -255,7 +254,6 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
               MIN_TIME_FOR_LOGGING)) {
         // To avoid contention and scheduling too many jobs for our #cpus, we start
         // DEFAULT_THREAD_COUNT jobs, each processing a chunk of the pending visitations.
-        // TODO: b/404241620 - Combine similar logic in DeletingNodeVisitor and DirtyNodeVisitor.
         long listSize = pendingList.size();
         long numThreads = min(DEFAULT_THREAD_COUNT, listSize);
         for (long i = 0; i < numThreads; i++) {
@@ -403,7 +401,6 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
   /** A node-dirtying implementation. */
   static final class DirtyingNodeVisitor extends InvalidatingNodeVisitor<QueryableGraph> {
     private static final int SAFE_STACK_DEPTH = 1 << 9;
-    private static final int PARENT_VISITATION_FARM_OUT_THRESHOLD = 100;
 
     private final Set<SkyKey> changed =
         Collections.newSetFromMap(
@@ -561,48 +558,13 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       progressReceiver.dirtied(key, dirtyType);
       pendingVisitations.remove(Pair.of(key, invalidationType));
 
-      Collection<SkyKey> rdeps = markedDirtyResult.getReverseDepsUnsafe();
-
-      if (rdeps.size() < PARENT_VISITATION_FARM_OUT_THRESHOLD) {
-        // If rdeps size is less than the threshold, we know rdep visitation will not farm out. So
-        // just call visit() on the current thread and return.
-        visit(rdeps, InvalidationType.DIRTIED, depthForOverflowCheck, key);
-        return;
-      }
-
-      List<SkyKey> rdepsList = rdeps.stream().toList();
-      long listSize = rdepsList.size();
-      long numBatches =
-          (listSize + PARENT_VISITATION_FARM_OUT_THRESHOLD - 1)
-              / PARENT_VISITATION_FARM_OUT_THRESHOLD;
-
-      // Delegate all parents batch visitations to other "dirty node visitor" threads, except the
-      // last one.
-      // TODO: b/404241620 - Combine similar logic in DeletingNodeVisitor and DirtyNodeVisitor.
-      long i = 0;
-      for (; i < numBatches - 1; ++i) {
-        // Use long multiplication to avoid possible overflow, as numThreads * listSize might be
-        // larger than max int.
-        int startIdx = (int) ((i * listSize) / numBatches);
-        int endIdx = (int) (((i + 1) * listSize) / numBatches);
-        executor.execute(
-            () ->
-                visit(
-                    rdepsList.subList(startIdx, endIdx),
-                    InvalidationType.DIRTIED,
-                    depthForOverflowCheck,
-                    key));
-      }
-
-      // Visit the last batches of parents on the current thread.
-      int finalStartIdx = (int) ((i * listSize) / numBatches);
-      if (finalStartIdx < rdepsList.size()) {
-        visit(
-            rdepsList.subList(finalStartIdx, rdepsList.size()),
-            InvalidationType.DIRTIED,
-            depthForOverflowCheck,
-            key);
-      }
+      // Propagate dirtiness upwards and mark this node dirty/changed. Reverse deps should
+      // only be marked dirty (because only a dependency of theirs has changed).
+      visit(
+          markedDirtyResult.getReverseDepsUnsafe(),
+          InvalidationType.DIRTIED,
+          depthForOverflowCheck,
+          key);
     }
   }
 }
