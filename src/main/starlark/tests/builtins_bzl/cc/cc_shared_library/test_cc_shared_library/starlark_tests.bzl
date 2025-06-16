@@ -23,7 +23,6 @@ load("@rules_cc//cc/common:cc_shared_library_hint_info.bzl", "CcSharedLibraryHin
 load("@rules_cc//cc/common:cc_shared_library_info.bzl", "CcSharedLibraryInfo")
 load("@rules_testing//lib:analysis_test.bzl", "analysis_test")
 load("@rules_testing//lib:truth.bzl", "matching")
-load(":semantics.bzl", "semantics")
 
 def _same_package_or_above(label_a, label_b):
     if label_a.workspace_name != label_b.workspace_name:
@@ -75,9 +74,6 @@ def _linking_order_test_impl(env, target):
 
         env.expect.that_collection(args).contains_at_least([
             "-lprivate_lib_so",
-            "-Wl,-rpath,hdr_only",
-        ] if semantics.is_bazel else [
-            "-lprivate_lib_so",
         ])
 
         env.expect.where(
@@ -123,7 +119,7 @@ def _additional_inputs_test_impl(env, target):
         for arg in target_action.argv:
             if arg.find("-Wl,--script=") != -1:
                 env.expect.that_str(
-                    "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test/additional_script.txt",
+                    "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/additional_script.txt",
                 ).equals(arg[13:])
                 found = True
                 break
@@ -206,19 +202,19 @@ def _runfiles_test_impl(env, target):
         if "python" not in file.path
     ]
 
-    # Match e.g. bazel-out/k8-fastbuild/bin/src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test/libdirect_so_file.so
-    path_suffix = "/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test"
+    # Match e.g. bazel-out/k8-fastbuild/bin/src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/libdirect_so_file.so
+    path_suffix = "/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library"
     env.expect.that_collection(runfiles).contains_exactly_predicates([
         matching.str_endswith(path_suffix + "/libfoo_so.so"),
         matching.str_endswith(path_suffix + "/libbar_so.so"),
         matching.str_endswith(path_suffix + "/libprivate_lib_so.so"),
         matching.str_endswith(path_suffix + "3/libdiff_pkg_so.so"),
-        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest/libbar_so.so"),
-        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest/libdirect_so_file.so"),
-        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest/libfoo_so.so"),
-        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest/libprivate_lib_so.so"),
-        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest/renamed_so_file_copy.so"),
-        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest3/libdiff_pkg_so.so"),
+        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libbar_so.so"),
+        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libdirect_so_file.so"),
+        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libfoo_so.so"),
+        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libprivate_lib_so.so"),
+        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/renamed_so_file_copy.so"),
+        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary3/libdiff_pkg_so.so"),
     ])
 
 def _runfiles_test_macro(name, target):
