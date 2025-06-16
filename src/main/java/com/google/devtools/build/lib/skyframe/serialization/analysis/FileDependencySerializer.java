@@ -93,6 +93,8 @@ import javax.annotation.Nullable;
  * invalidation to a remote {@link FingerprintValueService}.
  */
 final class FileDependencySerializer {
+
+  @VisibleForTesting public static final int COMPRESSION_NUM_BYTES_THRESHOLD = 580;
   private final LongVersionGetter versionGetter;
   private final InMemoryGraph graph;
   private final FingerprintValueService fingerprintValueService;
@@ -605,7 +607,7 @@ final class FileDependencySerializer {
       NodeDataInfo result;
       try {
         result = dependencyHandler.call();
-      } catch (ExecutionException e) {
+      } catch (ExecutionException | IOException e) {
         // Only thrown when calling Future.get, but none should be present if this is reached.
         throw new IllegalStateException("unexpected failure", e);
       }
@@ -616,6 +618,10 @@ final class FileDependencySerializer {
   }
 
   static OutputStream getCompressedOutputStream(OutputStream outputStream) throws IOException {
+    // The default level and the fastest level (-7) results in 35% and 19% wall time overhead when
+    // not using a threshold to compress, the default level provided a 2x better compression. Since
+    // we do use a threshold and there is no wall time regression, we favor the better compression
+    // ratio.
     return new ZstdOutputStream(outputStream);
   }
 
@@ -641,7 +647,7 @@ final class FileDependencySerializer {
     private final ArrayList<FutureFileDataInfo> futureSourceFileInfo = new ArrayList<>();
 
     @Override
-    public NodeDataInfo call() throws ExecutionException {
+    public NodeDataInfo call() throws ExecutionException, IOException {
       for (FutureFileDataInfo futureInfo : futureFileDataInfo) {
         addFileInfo(Futures.getDone(futureInfo));
       }
@@ -674,8 +680,12 @@ final class FileDependencySerializer {
       }
 
       byte[] nodeBytes = computeNodeBytes(nodeDependencies, fileKeys, listingKeys, sourceFileKeys);
-      PackedFingerprint key = fingerprintValueService.fingerprint(nodeBytes);
-      writeStatuses.add(fingerprintValueService.put(key, nodeBytes));
+      byte[] maybeCompressedBytes = nodeBytes;
+      if (nodeBytes.length >= COMPRESSION_NUM_BYTES_THRESHOLD) {
+        maybeCompressedBytes = compressBytes(nodeBytes);
+      }
+      PackedFingerprint key = fingerprintValueService.fingerprint(maybeCompressedBytes);
+      writeStatuses.add(fingerprintValueService.put(key, maybeCompressedBytes));
       return new NodeInvalidationDataInfo(key, sparselyAggregateWriteStatuses(writeStatuses));
     }
 
@@ -774,6 +784,16 @@ final class FileDependencySerializer {
           .addAll(futureNodeDataInfo)
           .addAll(futureSourceFileInfo)
           .build();
+    }
+
+    private byte[] compressBytes(byte[] nodeBytes) throws IOException {
+      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+      MagicBytes.writeMagicBytes(outputStream);
+      try (OutputStream compressedBytesStream =
+          FileDependencySerializer.getCompressedOutputStream(outputStream)) {
+        compressedBytesStream.write(nodeBytes);
+      }
+      return outputStream.toByteArray();
     }
 
     /*

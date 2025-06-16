@@ -102,6 +102,7 @@ java_library(
     deps = [
         ":file_dependency_key_support",
         ":invalidation_data_reference_or_future",
+        ":magic_bytes",
         ":value_or_future_map",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
