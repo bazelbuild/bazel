@@ -831,9 +831,11 @@ public class OptionsParser implements OptionsParsingResult {
             .collect(toImmutableList());
   }
 
-  /* Sets the residue (all elements parsed as non-options) to {@code residue}, as well as the part
+  /**
+   * Sets the residue (all elements parsed as non-options) to {@code residue}, as well as the part
    * of the residue that follows the double-dash on the command line, {@code postDoubleDashResidue}.
-   * {@code postDoubleDashResidue} must be a subset of {@code residue}. */
+   * {@code postDoubleDashResidue} must be a subset of {@code residue}.
+   */
   public void setResidue(List<String> residue, List<String> postDoubleDashResidue) {
     Preconditions.checkArgument(residue.containsAll(postDoubleDashResidue));
     this.residue.clear();
