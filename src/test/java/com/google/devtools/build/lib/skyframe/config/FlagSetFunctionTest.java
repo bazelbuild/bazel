@@ -36,6 +36,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues;
 import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider;
+import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,6 +46,12 @@ import org.junit.runner.RunWith;
 public final class FlagSetFunctionTest extends BuildViewTestCase {
   // TODO: b/409377907 - Most of this enforcement has been moved to ProjectFunction. Move the
   // corresponding tests to ProjectFunctionTest.
+
+  @Before
+  public void setUp() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+    writeProjectSclDefinition("test/project_proto.scl");
+  }
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
@@ -109,11 +116,15 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--platforms=//buildenv/platforms/android:x86'],
-          }
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--platforms=//buildenv/platforms/android:x86"]
+              ),
+          ],
+        )
         """);
     scratch.file("test/BUILD");
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
@@ -142,11 +153,15 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--platforms=//buildenv/platforms/android:x86'],
-          },
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--platforms=//buildenv/platforms/android:x86"]
+              ),
+          ],
+        )
         """);
     scratch.file("test/BUILD");
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
@@ -195,12 +210,16 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--platforms=//buildenv/platforms/android:x86'],
-          },
-          "enforcement_policy": "invalid",
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          enforcement_policy = "invalid",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--platforms=//buildenv/platforms/android:x86"]
+              ),
+          ],
+        )
         """);
     scratch.file("test/BUILD");
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
@@ -252,11 +271,15 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ["--define=bar=bar"],
-          }
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--define=bar=bar"]
+              ),
+          ],
+        )
         """);
     scratch.file("test/BUILD");
     BuildOptions buildOptions =
@@ -308,13 +331,20 @@ public final class FlagSetFunctionTest extends BuildViewTestCase {
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--//test:myflag=test_config_value'],
-            "other_config": ['--//test:myflag=other_config_value'],
-          },
-          "default_config": "test_config",
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--//test:myflag=test_config_value"],
+                  is_default = True,
+              ),
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "other_config",
+                  flags = ["--//test:myflag=other_config_value"]
+              ),
+          ],
+        )
         """);
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
@@ -360,13 +390,20 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--//test:myflag=test_config_value'],
-            "other_config": ['--//test:myflag=other_config_value'],
-          },
-          "enforcement_policy": "strict",
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          enforcement_policy = "strict",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--//test:myflag=test_config_value"]
+              ),
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "other_config",
+                  flags = ["--//test:myflag=other_config_value"]
+              ),
+          ],
+        )
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
@@ -404,13 +441,20 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--//test:myflag=test_config_value'],
-            "other_config": ['--//test:myflag=other_config_value'],
-          },
-          "enforcement_policy": "warn",
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          enforcement_policy = "warn",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--//test:myflag=test_config_value"]
+              ),
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "other_config",
+                  flags = ["--//test:myflag=other_config_value"]
+              ),
+          ],
+        )
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
@@ -452,13 +496,20 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--//test:myflag=test_config_value'],
-            "other_config": ['--//test:myflag=other_config_value'],
-          },
-          "enforcement_policy": "compatible",
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          enforcement_policy = "compatible",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--//test:myflag=test_config_value"]
+              ),
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "other_config",
+                  flags = ["--//test:myflag=other_config_value"]
+              ),
+          ],
+        )
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
@@ -504,12 +555,16 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--//test:myflag=test_config_value', '--//test:other_flag=test_config_value'],
-          },
-          "enforcement_policy": "compatible",
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          enforcement_policy = "compatible",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--//test:myflag=test_config_value", "--//test:other_flag=test_config_value"]
+              ),
+          ],
+        )
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions =
@@ -532,7 +587,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
   }
 
   @Test
-  public void enforceCanonicalConfigs_wrongConfigsType() throws Exception {
+  public void oldSchema_enforceCanonicalConfigs_wrongConfigsType() throws Exception {
     scratch.file("test/BUILD");
     scratch.file(
         "test/PROJECT.scl",
@@ -561,7 +616,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
   }
 
   @Test
-  public void enforceCanonicalConfigs_wrongConfigsKeyType() throws Exception {
+  public void oldSchema_enforceCanonicalConfigs_wrongConfigsKeyType() throws Exception {
     scratch.file("test/BUILD");
     scratch.file(
         "test/PROJECT.scl",
@@ -592,7 +647,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
   }
 
   @Test
-  public void enforceCanonicalConfigs_wrongConfigsValueType() throws Exception {
+  public void oldSchema_enforceCanonicalConfigs_wrongConfigsValueType() throws Exception {
     scratch.file("test/BUILD");
     scratch.file(
         "test/PROJECT.scl",
@@ -647,13 +702,20 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--//test:myflag=test_config_value'],
-            "other_config": ['--//test:myflag=other_config_value'],
-          },
-          "enforcement_policy": "strict",
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          enforcement_policy = "strict",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--//test:myflag=test_config_value"]
+              ),
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "other_config",
+                  flags = ["--//test:myflag=other_config_value"]
+              ),
+          ],
+        )
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
@@ -697,12 +759,16 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--//test:myflag=test_config_value'],
-          },
-          "enforcement_policy": "strict",
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          enforcement_policy = "strict",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--//test:myflag=test_config_value"]
+              ),
+          ],
+        )
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--//test:myflag=other_value");
@@ -746,11 +812,15 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--//test:myflag=test_config_value'],
-          },
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--//test:myflag=test_config_value"]
+              ),
+          ],
+        )
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--//test:myflag=test_config_value");
@@ -798,13 +868,20 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--//test:myflag=test_config_value'],
-            "other_config": ['--//test:myflag=other_config_value'],
-          },
-          "enforcement_policy": "strict",
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          enforcement_policy = "strict",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--//test:myflag=test_config_value"]
+              ),
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "other_config",
+                  flags = ["--//test:myflag=other_config_value"]
+              ),
+          ],
+        )
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions =
@@ -856,15 +933,20 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--//test:myflag=test_config_value'],
-            "other_config": ['--//test:myflag=other_config_value'],
-          },
-          "supported_configs": {
-            "test_config": "User documentation for what this config means",
-          },
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          enforcement_policy = "strict",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--//test:myflag=test_config_value"]
+              ),
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "other_config",
+                  flags = ["--//test:myflag=other_config_value"]
+              ),
+          ],
+        )
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions =
@@ -904,12 +986,19 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--//test:myflag=test_config_value'],
-            "other_config": ['--//test:myflag=other_config_value'],
-          },
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--//test:myflag=test_config_value"]
+              ),
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "other_config",
+                  flags = ["--//test:myflag=other_config_value"]
+              ),
+          ],
+        )
         """);
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     BuildOptions buildOptions = createBuildOptions("--define=foo=bar");
@@ -934,11 +1023,16 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--//test:myflag=test_config_value'],
-          },
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          enforcement_policy = "strict",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--//test:myflag=test_config_value"]
+              ),
+          ],
+        )
         """);
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
@@ -967,12 +1061,19 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--//test:myflag=test_config_value'],
-            "other_config": ['--//test:myflag=other_config_value'],
-          },
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--//test:myflag=test_config_value"]
+              ),
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "other_config",
+                  flags = ["--//test:myflag=other_config_value"]
+              ),
+          ],
+        )
         """);
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
@@ -997,7 +1098,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
   }
 
   @Test
-  public void enforceCanonicalConfigsNonexistentDefaultConfig() throws Exception {
+  public void oldSchema_enforceCanonicalConfigsNonexistentDefaultConfig() throws Exception {
     createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
         "test/PROJECT.scl",
@@ -1032,7 +1133,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
   }
 
   @Test
-  public void enforceCanonicalConfigs_wrongDefaultConfigType() throws Exception {
+  public void oldSchema_enforceCanonicalConfigs_wrongDefaultConfigType() throws Exception {
     createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
         "test/PROJECT.scl",
@@ -1066,19 +1167,23 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
         .contains("default_config must be a string matching a configs variable definition");
   }
 
-  @Ignore("b/415352636")
+  @Test
   public void enforceCanonicalConfigsNoSclConfigFlagValidDefaultConfig() throws Exception {
     createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
         "test/PROJECT.scl",
-        """
-        project = {
-          "configs": {
-            "test_config": ['--//test:myflag=test_config_value'],
-          },
-          "default_config": "test_config",
-        }
-        """);
+"""
+load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+project = project_pb2.Project.create(
+  buildable_units = [
+      buildable_unit_pb2.BuildableUnit.create(
+          name = "test_config",
+          flags = ["--//test:myflag=test_config_value"],
+          is_default = True,
+      ),
+  ],
+)
+""");
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
@@ -1110,12 +1215,16 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--bazelrc=foo'],
-          },
-          "default_config": "test_config",
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--bazelrc=foo"],
+                  is_default = True,
+              ),
+          ],
+        )
         """);
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
@@ -1143,12 +1252,16 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     scratch.file(
         "test/PROJECT.scl",
         """
-        project = {
-          "configs": {
-            "test_config": ['--//test:myflag=test_config_value'],
-          },
-          "default_config": "test_config",
-        }
+        load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+        project = project_pb2.Project.create(
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "test_config",
+                  flags = ["--bazelrc=foo"]
+                  is_default = True,
+              ),
+          ],
+        )
         """);
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
@@ -1180,14 +1293,22 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
         "test/PROJECT.scl",
-        """
-        project = {
-          "configs": {
-            "debug": ['--//test:myflag=debug_value'],
-            "release": ['--//test:myflag=debug_value'],
-          },
-        }
-        """);
+"""
+load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+project = project_pb2.Project.create(
+  enforcement_policy = "strict",
+  buildable_units = [
+      buildable_unit_pb2.BuildableUnit.create(
+          name = "debug",
+          flags = ["--//test:myflag=debug_value"],
+      ),
+      buildable_unit_pb2.BuildableUnit.create(
+          name = "release",
+          flags = ["--//test:myflag=release_value"],
+      ),
+  ],
+)
+""");
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
@@ -1212,7 +1333,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
 
             This project supports:
               --scl_config=debug   -> [--//test:myflag=debug_value]
-              --scl_config=release -> [--//test:myflag=debug_value]
+              --scl_config=release -> [--//test:myflag=release_value]
 
             This policy is defined in test/PROJECT.scl.
             """);
@@ -1223,17 +1344,27 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
         "test/PROJECT.scl",
-        """
-        project = {
-          "configs": {
-            "default":[],
-            "debug": ['--//test:myflag=debug_value'],
-            "release": ['--//test:myflag=debug_value'],
-          },
-          "default_config": "default",
-          "enforcement_policy": "warn",
-        }
-        """);
+"""
+load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+project = project_pb2.Project.create(
+  enforcement_policy = "warn",
+  buildable_units = [
+      buildable_unit_pb2.BuildableUnit.create(
+          name = "default",
+          flags = [],
+          is_default = True,
+      ),
+      buildable_unit_pb2.BuildableUnit.create(
+          name = "debug",
+          flags = ["--//test:myflag=debug_value"],
+      ),
+      buildable_unit_pb2.BuildableUnit.create(
+          name = "release",
+          flags = ["--//test:myflag=release_value"],
+      ),
+  ],
+)
+""");
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
