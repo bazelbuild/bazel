@@ -7,3 +7,5 @@ bind(
     name = "cc_toolchain",
     actual = "@bazel_tools//tools/cpp:default-toolchain",
 )
+
+register_toolchains("@bazel_tools//tools/launcher:all")
