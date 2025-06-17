@@ -54,6 +54,7 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
       Object extensions,
       Sequence<?> metadataFiles, // Sequence<Artifact>
       Object reportedToActualSourcesObject,
+      Object baselineCoverageFilesObject, // Sequence<Artifact>|NoneType
       StarlarkThread thread)
       throws EvalException {
     List<String> extensionsList =
@@ -62,6 +63,10 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         reportedToActualSourcesObject == Starlark.NONE
             ? NestedSetBuilder.create(Order.STABLE_ORDER)
             : Depset.cast(reportedToActualSourcesObject, Tuple.class, "reported_to_actual_sources");
+    List<Artifact> baselineCoverageFiles =
+        baselineCoverageFilesObject == Starlark.NONE
+            ? null
+            : Sequence.cast(baselineCoverageFilesObject, Artifact.class, "baseline_coverage_files");
     Dict<String, String> environmentDict =
         Dict.cast(environment, String.class, String.class, "coverage_environment");
     NestedSetBuilder<Artifact> supportFilesBuilder = NestedSetBuilder.stableOrder();
@@ -100,9 +105,17 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         ImmutableMap.copyOf(environmentDict),
         extensionsList,
         Sequence.cast(metadataFiles, Artifact.class, "metadata_files"),
-        reportedToActualSources);
+        reportedToActualSources,
+        baselineCoverageFiles);
   }
 
+  /**
+   * @param extensions file extensions used to filter files from source_attributes. If null, all
+   *     files on the source attributes will be treated as instrumented. Otherwise, only files with
+   *     extensions listed in {@code extensions} will be used
+   * @param baselineCoverageFiles if not null, the files to use as baseline coverage instead of
+   *     running the default action to generate it
+   */
   private static InstrumentedFilesInfo createInstrumentedFilesInfo(
       RuleContext ruleContext,
       List<String> sourceAttributes,
@@ -111,7 +124,8 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
       ImmutableMap<String, String> environment,
       @Nullable List<String> extensions,
       @Nullable List<Artifact> metadataFiles,
-      NestedSet<Tuple> reportedToActualSources) {
+      NestedSet<Tuple> reportedToActualSources,
+      @Nullable List<Artifact> baselineCoverageFiles) {
     FileTypeSet fileTypeSet = FileTypeSet.ANY_FILE;
     if (extensions != null) {
       if (extensions.isEmpty()) {
@@ -132,7 +146,8 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         /* coverageSupportFiles= */ supportFiles,
         /* coverageEnvironment= */ environment,
         /* reportedToActualSources= */ reportedToActualSources,
-        /* additionalMetadata= */ metadataFiles);
+        /* additionalMetadata= */ metadataFiles,
+        /* baselineCoverageFiles= */ baselineCoverageFiles);
   }
 
   @Override

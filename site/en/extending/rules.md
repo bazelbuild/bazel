@@ -931,9 +931,7 @@ the dependencies' sources should be instrumented:
 ```python
 # Are this rule's sources or any of the sources for its direct dependencies
 # in deps instrumented?
-if (ctx.configuration.coverage_enabled and
-    (ctx.coverage_instrumented() or
-     any([ctx.coverage_instrumented(dep) for dep in ctx.attr.deps]))):
+if ctx.coverage_instrumented() or any([ctx.coverage_instrumented(dep) for dep in ctx.attr.deps]):
     # Do something to turn on coverage for this compile action
 ```
 
@@ -1004,6 +1002,26 @@ with unique names into the directory specified by the `COVERAGE_DIR` environment
 variable. Bazel will then merge these files into a single LCOV file using the
 `_lcov_merger` tool. If present, it will also collect C/C++ coverage using the
 `_collect_cc_coverage` tool.
+
+### Baseline coverage
+
+Since coverage is only collected for code that ends up in the dependency tree of
+a test, coverage reports can be misleading as they don't necessarily cover all
+the code matched by the `--instrumentation_filter` flag.
+
+For this reason, Bazel allows rules to specify baseline coverage files using the
+`baseline_coverage_files` attribute of `ctx.instrumented_files_info`). These
+files must be generated in LCOV format by a user-defined action and are supposed
+to list all lines, branches, functions and/or blocks in the target's source
+files (according to the `sources_attributes` and `extensions` parameters). For
+source files in targets that are instrumented for coverage, Bazel merges their
+baseline coverage into the combined coverage report generated with
+`--combined_report` and thus ensures that untested files still show up as
+uncovered.
+
+If a rule doesn't provide any baseline coverage files, Bazel generates synthetic
+coverage information that only mentions the source file paths, but doesn't
+contain any information about their contents.
 
 ### Validation Actions
 
