@@ -33,7 +33,6 @@ load(":common/paths.bzl", "paths")
 _cc_internal = _builtins.internal.cc_internal
 config_common = _builtins.toplevel.config_common
 coverage_common = _builtins.toplevel.coverage_common
-platform_common = _builtins.toplevel.platform_common
 
 extensions = _extensions
 
@@ -1109,14 +1108,6 @@ def _linker_scripts(ctx):
                 result.append(f)
     return result
 
-def _has_target_constraints(ctx, constraints):
-    # Constraints is a label_list.
-    for constraint in constraints:
-        constraint_value = constraint[platform_common.ConstraintValueInfo]
-        if ctx.target_platform_has_constraint(constraint_value):
-            return True
-    return False
-
 def _should_create_test_dwp_for_statically_linked_test(is_test, linking_mode, cpp_config):
     return is_test and linking_mode != linker_mode.LINKING_DYNAMIC and cpp_config.build_test_dwp()
 
@@ -1179,7 +1170,6 @@ cc_helper = struct(
     get_cc_flags_make_variable = _get_cc_flags_make_variable,
     get_copts = _get_copts,
     get_expanded_env = _get_expanded_env,
-    has_target_constraints = _has_target_constraints,
     is_non_empty_list_or_select = _is_non_empty_list_or_select,
     expand_make_variables_for_copts = _expand_make_variables_for_copts,
     build_linking_context_from_libraries = _build_linking_context_from_libraries,

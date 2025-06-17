@@ -463,8 +463,7 @@ public final class Crosstool {
       compilationTools.append(
           String.format(
               "filegroup(name = '%s', srcs = ['%s'])\n",
-              compilationTool,
-              Joiner.on("', '").join(archTargets)));
+              compilationTool, Joiner.on("', '").join(archTargets)));
       for (String archTarget : archTargets) {
         compilationTools.append(
             String.format("filegroup(name = '%s', srcs = [':everything-multilib'])\n", archTarget));
@@ -553,7 +552,7 @@ public final class Crosstool {
                 "package(default_visibility=['//visibility:public'])",
                 "licenses(['restricted'])",
                 "",
-                "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+                "load(':cc_toolchain_config.bzl', 'cc_toolchain_config', 'default_test_runner')",
                 "load('"
                     + TestConstants.TOOLS_REPOSITORY
                     + "//third_party/cc_rules/macros:defs.bzl', 'cc_library', 'cc_toolchain')",
@@ -596,6 +595,14 @@ public final class Crosstool {
                 "filegroup(",
                 "    name = 'generate-modmap',",
                 "    srcs = ['generate-modmap.sh'],",
+                ")",
+                "default_test_runner(name = 'default_test_runner')",
+                "toolchain(",
+                "  name = 'cc-test-runner',",
+                "  toolchain_type = '"
+                    + TestConstants.TOOLS_REPOSITORY
+                    + "//tools/cpp:test_runner_toolchain_type',",
+                "  toolchain = ':default_test_runner',",
                 ")");
 
     config.create(crosstoolTop + "/mock_version/x86/bin/gcc");
@@ -625,7 +632,7 @@ public final class Crosstool {
         ImmutableList.<String>builder()
             .add(
                 "package(default_visibility=['//visibility:public'])",
-                "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
+                "load(':cc_toolchain_config.bzl', 'cc_toolchain_config', 'default_test_runner')",
                 "load('"
                     + TestConstants.TOOLS_REPOSITORY
                     + "//third_party/cc_rules/macros:defs.bzl', 'cc_library', 'cc_toolchain')",
@@ -647,6 +654,14 @@ public final class Crosstool {
                 "        'libempty.a',",
                 String.format("        '%s//tools/objc:libtool'", TestConstants.TOOLS_REPOSITORY),
                 "    ],",
+                ")",
+                "default_test_runner(name = 'default_test_runner')",
+                "toolchain(",
+                "  name = 'cc-test-runner',",
+                "  toolchain_type = '"
+                    + TestConstants.TOOLS_REPOSITORY
+                    + "//tools/cpp:test_runner_toolchain_type',",
+                "  toolchain = ':default_test_runner',",
                 ")");
     for (CcToolchainConfig toolchainConfig : ccToolchainConfigList) {
       String staticRuntimeLabel =
