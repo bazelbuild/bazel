@@ -360,9 +360,12 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
                   + " https://bazel.build/docs/configurable-attributes#platforms.",
               optionName));
     }
-    Class<? extends FragmentOptions> optionClass = options.getOptionClass(optionName);
+    // If option --foo has oldName --old_foo and the config_setting references --old_foo, get the
+    // canonical name, which is where the actual option is stored.
+    String canonicalOptionName = options.getCanonicalName(optionName);
+    Class<? extends FragmentOptions> optionClass = options.getOptionClass(canonicalOptionName);
     if (optionClass == null) {
-      if (isTestOption(optionName)) {
+      if (isTestOption(canonicalOptionName)) {
         // If TestOptions isn't present then they were trimmed, so any test options set are
         // considered unset by default.
         return new NoMatch(
@@ -389,8 +392,8 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       return MatchResult.ALREADY_REPORTED_NO_MATCH;
     }
 
-    Object expectedParsedValue = parser.getOptions(optionClass).asMap().get(optionName);
-    return optionMatches(options, optionName, expectedParsedValue);
+    Object expectedParsedValue = parser.getOptions(optionClass).asMap().get(canonicalOptionName);
+    return optionMatches(options, canonicalOptionName, expectedParsedValue);
   }
 
   // Special hard-coded check to allow config_setting to handle test options even when the test
