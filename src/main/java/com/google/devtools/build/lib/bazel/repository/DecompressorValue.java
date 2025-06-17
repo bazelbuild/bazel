@@ -96,7 +96,8 @@ public class DecompressorValue implements SkyValue {
         || baseName.endsWith(".jar")
         || baseName.endsWith(".war")
         || baseName.endsWith(".aar")
-        || baseName.endsWith(".nupkg")) {
+        || baseName.endsWith(".nupkg")
+        || baseName.endsWith(".whl")) {
       return ZipDecompressor.INSTANCE;
     } else if (baseName.endsWith(".tar")) {
       return TarFunction.INSTANCE;
@@ -113,8 +114,8 @@ public class DecompressorValue implements SkyValue {
     } else {
       throw new RepositoryFunctionException(
           Starlark.errorf(
-              "Expected a file with a .zip, .jar, .war, .aar, .nupkg, .tar, .tar.gz, .tgz, .tar.xz,"
-                  + " , .tar.zst, .tzst, .tar.bz2, .tbz, .ar or .deb suffix (got %s)",
+              "Expected a file with a .zip, .jar, .war, .aar, .nupkg, .whl, .tar, .tar.gz, .tgz,"
+                  + " .tar.xz, , .tar.zst, .tzst, .tar.bz2, .tbz, .ar or .deb suffix (got %s)",
               archivePath),
           Transience.PERSISTENT);
     }
