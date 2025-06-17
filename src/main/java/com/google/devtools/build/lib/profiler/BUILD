@@ -94,7 +94,6 @@ java_library(
     deps = [
         ":system_network_stats",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -107,7 +106,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )
