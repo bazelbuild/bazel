@@ -323,11 +323,11 @@ public class RemoteOutputChecker implements OutputChecker {
       }
     }
 
-    if (shouldDownloadOutput(file, metadata)) {
-      return false;
-    }
-
-    return metadata.isAlive(clock.now());
+    // The remote metadata may have passed its TTL, but we optimistically assume that it's still
+    // available remotely. If it isn't, build or action rewinding will take care of rerunning the
+    // actions needed to produce the file and also evict the stale metadata. This incurs roughly the
+    // same performance hit, but only when actually needed.
+    return !shouldDownloadOutput(file, metadata);
   }
 
   public void maybeInvalidateSkyframeValues(MemoizingEvaluator memoizingEvaluator) {
