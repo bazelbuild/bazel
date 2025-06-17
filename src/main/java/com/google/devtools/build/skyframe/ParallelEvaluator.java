@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -34,6 +36,7 @@ import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -538,7 +541,10 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
     }
     if (!cycleRoots.isEmpty()) {
       logger.atInfo().log("Detecting cycles with roots: %s", cycleRoots);
-      cycleDetector.checkForCycles(cycleRoots, result, evaluatorContext);
+      try (AutoProfiler p =
+          GoogleAutoProfilerUtils.logged("Checking for Skyframe cycles", Duration.ofMillis(10))) {
+        cycleDetector.checkForCycles(cycleRoots, result, evaluatorContext);
+      }
     }
     Preconditions.checkState(
         !result.isEmpty() || !haveKeys,
