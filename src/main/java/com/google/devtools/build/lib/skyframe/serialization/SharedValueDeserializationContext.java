@@ -361,7 +361,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
 
     @Override
     public void onSuccess(byte[] bytes) {
-      if (bytes.length == 0) {
+      if (bytes == null) {
         // This error should be tolerated by falling back on computation.
         onFailure(
             new MissingSharedValueBytesException(

@@ -30,8 +30,6 @@ import javax.annotation.Nullable;
  * operations and makes their completion controllable by the caller.
  */
 public final class GetRecordingStore implements FingerprintValueStore {
-  private static final byte[] EMPTY_BYTES = new byte[] {};
-
   private final ConcurrentHashMap<KeyBytesProvider, byte[]> fingerprintToContents =
       new ConcurrentHashMap<>();
 
@@ -71,12 +69,12 @@ public final class GetRecordingStore implements FingerprintValueStore {
     }
 
     /**
-     * Simulates returning empty bytes.
+     * Simulates returning null bytes.
      *
-     * <p>In certain setups, empty bytes are used to signal missing data for the given key.
+     * <p>In certain setups, null bytes are used to signal missing data for the given key.
      */
-    public void completeWithEmptyBytes() {
-      response().set(EMPTY_BYTES);
+    public void completeWithNullBytes() {
+      response().set(null);
     }
   }
 }

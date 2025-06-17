@@ -296,8 +296,8 @@ public final class SharedValueDeserializationContextTest {
     ListenableFuture<Object> result =
         deserializeWithExecutor(codecs, fingerprintValueService, serialized.getObject());
 
-    // Completes the request for shared value bytes with empty bytes, indicating missing data.
-    store.takeFirstRequest().completeWithEmptyBytes();
+    // Completes the request for shared value bytes with null bytes, indicating missing data.
+    store.takeFirstRequest().completeWithNullBytes();
 
     var thrown =
         (MissingSharedValueBytesException)
@@ -337,8 +337,8 @@ public final class SharedValueDeserializationContextTest {
                 fingerprintValueService,
                 serialized.getObject().newCodedInput());
 
-    // Completes the request for shared value bytes with empty bytes, indicating missing data.
-    store.takeFirstRequest().completeWithEmptyBytes();
+    // Completes the request for shared value bytes with null bytes, indicating missing data.
+    store.takeFirstRequest().completeWithNullBytes();
 
     // The following get call hangs if the missing bytes are not propagated.
     var thrown =
