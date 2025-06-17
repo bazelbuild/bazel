@@ -193,10 +193,12 @@ public class RemoteLeaseExtension implements LeaseExtension {
     }
 
     var token = getActionCacheToken(action);
+    var delete = false;
     for (var remoteFile : remoteFiles) {
       var artifact = remoteFile.getKey();
       var metadata = remoteFile.getValue();
-      // Only extend the lease for the remote output if it is still alive remotely.
+      // Mark the lease for the remote output as extended if it is still alive remotely, otherwise
+      // delete the action cache entry.
       if (!missingDigests.contains(buildDigest(metadata))) {
         metadata.setExpirationTime(expirationTime);
         if (token != null) {
@@ -206,13 +208,20 @@ public class RemoteLeaseExtension implements LeaseExtension {
             token.extendOutputFile(artifact, expirationTime);
           }
         }
+      } else {
+        delete = true;
+        break;
       }
     }
 
-    if (actionCache != null && token != null && token.dirty) {
-      // Only update the action cache entry if the token was updated because it usually involves
-      // serialization.
-      actionCache.put(token.key, token.entry);
+    if (actionCache != null && token != null) {
+      if (delete) {
+        actionCache.remove(token.key);
+      } else if (token.dirty) {
+        // Only update the action cache entry if the token was updated because it usually involves
+        // serialization.
+        actionCache.put(token.key, token.entry);
+      }
     }
   }
 

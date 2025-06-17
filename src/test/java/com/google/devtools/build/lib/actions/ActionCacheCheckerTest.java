@@ -82,7 +82,9 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public class ActionCacheCheckerTest {
   private static final OutputChecker CHECK_TTL =
-      (file, metadata) -> metadata.isAlive(Instant.now());
+      (file, metadata) ->
+          metadata.getExpirationTime() == null
+              || metadata.getExpirationTime().isAfter(Instant.now());
 
   private CorruptibleActionCache cache;
   private ActionCacheChecker cacheChecker;
