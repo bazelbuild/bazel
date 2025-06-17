@@ -95,6 +95,30 @@ single_version_override(
     version = "0.15.0",
 )
 
+# Remove once https://github.com/bazelbuild/apple_support/pull/413 is available in an apple_support release.
+single_version_override(
+    module_name = "apple_support",
+    patch_strip = 1,
+    patches = ["//third_party:apple_support.patch"],
+    version = "1.21.1",
+)
+
+# Remove once https://github.com/bazelbuild/rules_java/pull/303 is available in a rules_java release.
+single_version_override(
+    module_name = "rules_java",
+    patch_strip = 1,
+    patches = ["//third_party:rules_java.patch"],
+    version = "8.12.0",
+)
+
+# Remove once https://github.com/grpc/grpc-java/pull/12148 is available in a grpc-java release.
+single_version_override(
+    module_name = "grpc-java",
+    patch_strip = 1,
+    patches = ["//third_party:grpc-java.patch"],
+    version = "1.66.0",
+)
+
 local_path_override(
     module_name = "remoteapis",
     path = "./third_party/remoteapis",
