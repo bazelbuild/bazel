@@ -730,18 +730,13 @@ public class BuildTool {
   }
 
   private static String getDefaultOutputFileName(String format) {
-    switch (format) {
-      case "proto":
-        return "aquery_dump.proto";
-      case "streamed_proto":
-        return "aquery_dump.pb";
-      case "textproto":
-        return "aquery_dump.textproto";
-      case "jsonproto":
-        return "aquery_dump.json";
-      default:
-        throw new IllegalArgumentException("Unsupported format type: " + format);
-    }
+    return switch (format) {
+      case "proto" -> "aquery_dump.proto";
+      case "streamed_proto" -> "aquery_dump.pb";
+      case "textproto" -> "aquery_dump.textproto";
+      case "jsonproto" -> "aquery_dump.json";
+      default -> throw new IllegalArgumentException("Unsupported format type: " + format);
+    };
   }
 
   private static OutputStream initOutputStream(
