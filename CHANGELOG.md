@@ -1,3 +1,66 @@
+## Release 9.0.0-pre.20250610.2 (2025-06-18)
+
+```
+Baseline: 35c36c42455ecd273ea6ced35342d88978c598f2
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 9.0.0-pre.20250608.1 (2025-06-12)
+
+```
+Baseline: 7b9a33fddb59f67f4d100c7a6df5a911376f00d3
+```
+
+Incompatible changes:
+
+  - strings in attribute's "provides" parameters are no longer
+    supported
+
+Important changes:
+
+  - java_import.jars attributes can no longer be empty, and
+    --noincompatible_disallow_java_import_empty_jars is no longer
+    supported
+  - The `--incompatible_disable_native_repo_rules` flag is flipped
+    and graveyarded. The `local_config_platform` builtin module has
+    been removed.
+  - The `--experimental_split_xml_postprocessing` flag no longer
+    exists.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, James Jenkins, Jim Carroll, Jordan Mele, Ryan Matthews, Xdng Yng.
+
+## Release 9.0.0-pre.20250526.2 (2025-06-10)
+
+```
+Baseline: 668ec117af6bc293389cab611353bc4105c6518a
+
+Cherry picks:
+
+   + 8f88b3b36817e3d9e6119f9ebdd834134f6a05fd:
+     Automated rollback of commit
+     8868a9a1466fdb34578a8bdf808f9d2ed9b29fa5.
+```
+
+Incompatible changes:
+
+  - Baseline coverage files for individual tests are no longer
+    announced in the BES. Instead, a new `baseline_report.lcov` file
+    containing the merged baseline coverage information for the
+    entire invocation is now announced in the BES. It is also still
+    merged into the combined report.
+  - The `watchfs` startup option has been removed.
+  - The `bazel sync` command has been removed. Use `bazel fetch
+    --all` instead.
+
+Important changes:
+
+  - File change checks for non-output, non-repo external files
+    can now be disabled with the
+    `--experimental_check_external_other_files` flag.
+
+This release contains contributions from many people at Google, as well as Agustin Mista, Alex Eagle, Benjamin Peterson, DeeperMind, Fabian Meumertzheim, Farid Zakaria, Grzegorz Lukasik, Han-Wen Nienhuys, John Millikin, Markus Hofbauer, Matt Smith, Vy Hong, Xdng Yng.
+
 ## Release 9.0.0-pre.20250516.2 (2025-05-28)
 
 ```
