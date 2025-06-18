@@ -135,6 +135,8 @@ std::string WstringToCstring(const std::wstring &input);
 
 // Deprecated. Use AcpToWcs or Utf8ToWcs.
 std::wstring CstringToWstring(const std::string &input);
+
+char** WArgsToCArgs(int argc, wchar_t **wargv);
 #endif  // defined(_WIN32) || defined(__CYGWIN__)
 
 }  // namespace blaze_util

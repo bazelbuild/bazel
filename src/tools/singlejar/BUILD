@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
@@ -587,4 +588,25 @@ genrule(
     cmd = "$(JAVABASE)/bin/jar -0cf \"$@\" $(location :output_jar.cc)",
     toolchains = ["@rules_java//toolchains:current_java_runtime"],
     tools = ["@rules_java//toolchains:current_java_runtime"],
+)
+
+build_test(
+    name = "singlejar_unicode_filenames_test",
+    targets = [
+        ":gen_singlejar_unicode_filenames",
+    ],
+)
+
+genrule(
+    name = "gen_singlejar_unicode_filenames",
+    outs = [
+        "unicode_filenames.jar",
+    ],
+    cmd = """
+          touch रैन्डम.txt らんどみ.txt 艾诶艾迪勒开.txt
+          $(location :singlejar) --resources रैन्डम.txt らんどみ.txt 艾诶艾迪勒开.txt --output $@
+          """,
+    tools = [
+        ":singlejar",
+    ],
 )
