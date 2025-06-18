@@ -61,7 +61,9 @@ def _compute_public_headers(
         binfiles_dir,
         non_module_map_headers,
         is_sibling_repository_layout,
-        shorten_virtual_includes):
+        shorten_virtual_includes,
+        *,
+        must_use_strip_prefix = True):
     if include_prefix:
         if not paths.is_normalized(include_prefix, False):
             fail("include prefix should not contain uplevel references: " + include_prefix)
@@ -129,8 +131,13 @@ def _compute_public_headers(
     else:
         virtual_include_dir = paths.join(source_package_path, _VIRTUAL_INCLUDES_DIR, label.name)
     for original_header in public_headers_artifacts:
+        module_map_headers.append(original_header)
+
         repo_relative_path = _repo_relative_path(original_header)
         if not repo_relative_path.startswith(strip_prefix):
+            if not must_use_strip_prefix:
+                continue
+
             fail("header '{}' is not under the specified strip prefix '{}'".format(repo_relative_path, strip_prefix))
         include_path = paths.relativize(repo_relative_path, strip_prefix)
         if include_prefix != None:
@@ -146,8 +153,6 @@ def _compute_public_headers(
         module_map_headers.append(virtual_header)
         if config.coverage_enabled:
             virtual_to_original_headers_list.append((virtual_header.path, original_header.path))
-
-        module_map_headers.append(original_header)
 
     virtual_headers = module_map_headers + non_module_map_headers
     return struct(
@@ -444,6 +449,7 @@ def _init_cc_compilation_context(
         binfiles_dir,
         non_module_map_headers,
         sibling_repo_layout,
+        must_use_strip_prefix = False,
     )
     if textual_headers.virtual_include_path:
         if external:
