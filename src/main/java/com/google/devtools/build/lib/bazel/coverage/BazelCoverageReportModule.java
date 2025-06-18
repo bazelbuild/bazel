@@ -51,7 +51,7 @@ public class BazelCoverageReportModule extends BlazeModule {
         converter = ReportTypeConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "none",
+        defaultValue = "lcov",
         help =
             "Specifies desired cumulative coverage report type. At this point only LCOV "
                 + "is supported.")
