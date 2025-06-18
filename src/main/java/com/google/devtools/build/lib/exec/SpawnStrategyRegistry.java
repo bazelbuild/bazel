@@ -173,8 +173,11 @@ public final class SpawnStrategyRegistry
   @Nullable
   @Override
   public AbstractSpawnStrategy getRemoteLocalFallbackStrategy(Spawn spawn) {
-    return strategyPlatformFilter.getStrategies(spawn, Lists.newArrayList(remoteLocalFallbackStrategy))
-        .getFirst();
+    var strategies = strategyPlatformFilter.getStrategies(spawn, Lists.newArrayList(remoteLocalFallbackStrategy));
+    if (strategies.isEmpty()) {
+      return null;
+    }
+    return strategies.getFirst();
   }
 
   /**
