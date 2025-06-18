@@ -97,6 +97,22 @@ function test_allowed_strategies_by_exec_platform() {
   assert_contains '"@@platforms//host:host" = \[StandaloneSpawnStrategy\]' "$SERVER_LOG"
 }
 
+# Tests that expected message is printed when no spawn strategy can be resolved.
+function test_allowed_strategies_by_exec_platform_exhausted() {
+  SERVER_LOG=$(bazel info server_log)
+  cat >BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = ["input.txt"],
+  outs = ["out"],
+  cmd = "",
+)
+EOF
+  touch input.txt
+  bazel build --spawn_strategy=worker,local --allowed_strategies_by_exec_platform=@platforms//host:host=sandboxed //:foo 2> $TEST_log || true
+  assert_contains "Your .* --allowed_strategies_by_exec_platform flags are probably too strict" "$TEST_log"
+}
+
 # Runs a build, waits for the given dir and file to appear, and then kills
 # Bazel to check what happens with said files.
 function build_and_interrupt() {
