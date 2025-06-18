@@ -731,7 +731,7 @@ public abstract class CcModule
     return CcLinkingContext.LinkerInput.builder()
         .setOwner(owner)
         .addLibraries(
-            Depset.noneableCast(librariesToLinkObject, LibraryToLink.class, "libraries").toList())
+            Depset.noneableCast(librariesToLinkObject, StarlarkInfo.class, "libraries").toList())
         .addUserLinkFlags(optionsBuilder.build())
         .addLinkstamps(convertToNestedSet(linkstampsObject, Linkstamp.class, "linkstamps").toList())
         .addNonCodeInputs(
@@ -787,7 +787,7 @@ public abstract class CcModule
         throw Starlark.errorf("linker_inputs cannot be None");
       }
       @SuppressWarnings("unchecked")
-      Sequence<LibraryToLink> librariesToLink = nullIfNone(librariesToLinkObject, Sequence.class);
+      Sequence<StarlarkInfo> librariesToLink = nullIfNone(librariesToLinkObject, Sequence.class);
       @SuppressWarnings("unchecked")
       Sequence<String> userLinkFlags = nullIfNone(userLinkFlagsObject, Sequence.class);
 

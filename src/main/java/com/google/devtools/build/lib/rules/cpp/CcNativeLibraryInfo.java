@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcNativeLibraryInfoApi;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
@@ -36,11 +37,11 @@ public final class CcNativeLibraryInfo extends NativeInfo implements CcNativeLib
   public static final CcNativeLibraryInfo EMPTY =
       new CcNativeLibraryInfo(NestedSetBuilder.emptySet(Order.LINK_ORDER));
 
-  private final NestedSet<LibraryToLink> transitiveCcNativeLibraries;
+  private final NestedSet<StarlarkInfo> transitiveCcNativeLibraries;
 
   public static final Provider PROVIDER = new Provider();
 
-  public CcNativeLibraryInfo(NestedSet<LibraryToLink> transitiveCcNativeLibraries) {
+  public CcNativeLibraryInfo(NestedSet<StarlarkInfo> transitiveCcNativeLibraries) {
     this.transitiveCcNativeLibraries = transitiveCcNativeLibraries;
   }
 
@@ -55,8 +56,16 @@ public final class CcNativeLibraryInfo extends NativeInfo implements CcNativeLib
    *
    * <p>In effect, returns all dynamic library (.so) artifacts provided by the transitive closure.
    */
-  public NestedSet<LibraryToLink> getTransitiveCcNativeLibraries() {
+  public NestedSet<StarlarkInfo> getTransitiveCcNativeLibraries() {
     return transitiveCcNativeLibraries;
+  }
+
+  /**
+   * @deprecated Use only in tests
+   */
+  @Deprecated
+  public NestedSet<LibraryToLink> getTransitiveCcNativeLibrariesForTests() {
+    return LibraryToLink.wrap(transitiveCcNativeLibraries);
   }
 
   /** Merge several CcNativeLibraryInfo objects into one. */
@@ -67,7 +76,8 @@ public final class CcNativeLibraryInfo extends NativeInfo implements CcNativeLib
       return Iterables.getOnlyElement(providers);
     }
 
-    NestedSetBuilder<LibraryToLink> transitiveCcNativeLibraries = NestedSetBuilder.linkOrder();
+    // TODO(b/425863238): Test the order of CCInfo.libraries_to_link
+    NestedSetBuilder<StarlarkInfo> transitiveCcNativeLibraries = NestedSetBuilder.linkOrder();
     for (CcNativeLibraryInfo provider : providers) {
       transitiveCcNativeLibraries.addTransitive(provider.getTransitiveCcNativeLibraries());
     }
@@ -84,8 +94,8 @@ public final class CcNativeLibraryInfo extends NativeInfo implements CcNativeLib
     @Override
     public CcNativeLibraryInfo createCcNativeLibraryInfo(Object librariesToLinkObject)
         throws EvalException {
-      NestedSet<LibraryToLink> librariesToLink =
-          Depset.cast(librariesToLinkObject, LibraryToLink.class, "libraries_to_link");
+      NestedSet<StarlarkInfo> librariesToLink =
+          Depset.cast(librariesToLinkObject, StarlarkInfo.class, "libraries_to_link");
       if (librariesToLink.isEmpty()) {
         return EMPTY;
       }

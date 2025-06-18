@@ -243,7 +243,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 hello
                     .get(CcInfo.PROVIDER)
                     .getCcNativeLibraryInfo()
-                    .getTransitiveCcNativeLibraries()))
+                    .getTransitiveCcNativeLibrariesForTests()))
         .containsExactly(implInterfaceSharedObjectLink);
     assertThat(
             hello
@@ -296,7 +296,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 hello
                     .get(CcInfo.PROVIDER)
                     .getCcNativeLibraryInfo()
-                    .getTransitiveCcNativeLibraries()))
+                    .getTransitiveCcNativeLibrariesForTests()))
         .containsExactly(sharedObjectLink);
     assertThat(
             hello

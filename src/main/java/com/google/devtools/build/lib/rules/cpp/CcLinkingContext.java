@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
@@ -27,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
@@ -197,14 +200,14 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     // Identifies which target created the LinkerInput. It doesn't have to be unique between
     // LinkerInputs.
     private final Label owner;
-    private final ImmutableList<LibraryToLink> libraries;
+    private final ImmutableList<StarlarkInfo> libraries;
     private final ImmutableList<LinkOptions> userLinkFlags;
     private final ImmutableList<Artifact> nonCodeInputs;
     private final ImmutableList<Linkstamp> linkstamps;
 
     public LinkerInput(
         Label owner,
-        ImmutableList<LibraryToLink> libraries,
+        ImmutableList<StarlarkInfo> libraries,
         ImmutableList<LinkOptions> userLinkFlags,
         ImmutableList<Artifact> nonCodeInputs,
         ImmutableList<Linkstamp> linkstamps) {
@@ -234,13 +237,17 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       return owner;
     }
 
+    /**
+     * @deprecated Use only in tests
+     */
+    @Deprecated
     public List<LibraryToLink> getLibraries() {
-      return libraries;
+      return libraries.stream().map(LibraryToLink::wrap).collect(toImmutableList());
     }
 
     @Override
-    public Sequence<LibraryToLink> getStarlarkLibrariesToLink(StarlarkSemantics semantics) {
-      return StarlarkList.immutableCopyOf(getLibraries());
+    public Sequence<StarlarkInfo> getStarlarkLibrariesToLink(StarlarkSemantics semantics) {
+      return StarlarkList.immutableCopyOf(libraries);
     }
 
     public List<LinkOptions> getUserLinkFlags() {
@@ -253,7 +260,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
           getUserLinkFlags().stream()
               .map(LinkOptions::get)
               .flatMap(Collection::stream)
-              .collect(ImmutableList.toImmutableList()));
+              .collect(toImmutableList()));
     }
 
     public List<Artifact> getNonCodeInputs() {
@@ -283,7 +290,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
         owner.debugPrint(printer, thread);
       }
       printer.append(", libraries=[");
-      for (LibraryToLink libraryToLink : libraries) {
+      for (StarlarkInfo libraryToLink : libraries) {
         libraryToLink.debugPrint(printer, thread);
         printer.append(", ");
       }
@@ -305,13 +312,13 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     /** Builder for {@link LinkerInput} */
     public static class Builder {
       private Label owner;
-      private final ImmutableList.Builder<LibraryToLink> libraries = ImmutableList.builder();
+      private final ImmutableList.Builder<StarlarkInfo> libraries = ImmutableList.builder();
       private final ImmutableList.Builder<LinkOptions> userLinkFlags = ImmutableList.builder();
       private final ImmutableList.Builder<Artifact> nonCodeInputs = ImmutableList.builder();
       private final ImmutableList.Builder<Linkstamp> linkstamps = ImmutableList.builder();
 
       @CanIgnoreReturnValue
-      public Builder addLibraries(List<LibraryToLink> libraries) {
+      public Builder addLibraries(List<StarlarkInfo> libraries) {
         this.libraries.addAll(libraries);
         return this;
       }
@@ -421,6 +428,10 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     return mergedCcLinkingContext.build();
   }
 
+  /**
+   * @deprecated Only use in tests
+   */
+  @Deprecated
   public List<Artifact> getStaticModeParamsForExecutableLibraries() {
     ImmutableList.Builder<Artifact> libraryListBuilder = ImmutableList.builder();
     for (LibraryToLink libraryToLink : getLibraries().toList()) {
@@ -437,6 +448,10 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     return libraryListBuilder.build();
   }
 
+  /**
+   * @deprecated Only use in tests
+   */
+  @Deprecated
   public List<Artifact> getStaticModeParamsForDynamicLibraryLibraries() {
     ImmutableList.Builder<Artifact> artifactListBuilder = ImmutableList.builder();
     for (LibraryToLink library : getLibraries().toList()) {
@@ -453,12 +468,29 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     return artifactListBuilder.build();
   }
 
+  /**
+   * @deprecated Use only in tests. @Deprecated
+   */
+  @Deprecated
   public List<Artifact> getDynamicLibrariesForRuntime(boolean linkingStatically) {
     return LibraryToLink.getDynamicLibrariesForRuntime(linkingStatically, getLibraries().toList());
   }
 
+  /**
+   * @deprecated Use only in tests
+   */
+  @Deprecated
   public NestedSet<LibraryToLink> getLibraries() {
     NestedSetBuilder<LibraryToLink> libraries = NestedSetBuilder.linkOrder();
+    for (LinkerInput linkerInput : linkerInputs.toList()) {
+      libraries.addAll(linkerInput.getLibraries());
+    }
+    return libraries.build();
+  }
+
+  @Deprecated
+  NestedSet<StarlarkInfo> getLibrariesFromLinkerInputs() {
+    NestedSetBuilder<StarlarkInfo> libraries = NestedSetBuilder.linkOrder();
     for (LinkerInput linkerInput : linkerInputs.toList()) {
       libraries.addAll(linkerInput.libraries);
     }
@@ -480,12 +512,13 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   @Override
+  @Deprecated
   public Object getStarlarkLibrariesToLink(StarlarkSemantics semantics) {
     // TODO(plf): Flag can be removed already.
     if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER)) {
-      return Depset.of(LibraryToLink.class, getLibraries());
+      return Depset.of(StarlarkInfo.class, getLibrariesFromLinkerInputs());
     } else {
-      return StarlarkList.immutableCopyOf(getLibraries().toList());
+      return StarlarkList.immutableCopyOf(getLibrariesFromLinkerInputs().toList());
     }
   }
 
@@ -506,7 +539,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     return getUserLinkFlags().toList().stream()
         .map(LinkOptions::get)
         .flatMap(Collection::stream)
-        .collect(ImmutableList.toImmutableList());
+        .collect(toImmutableList());
   }
 
   public NestedSet<Linkstamp> getLinkstamps() {
@@ -561,7 +594,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @CanIgnoreReturnValue
-    public Builder addLibraries(List<LibraryToLink> libraries) {
+    public Builder addLibraries(List<StarlarkInfo> libraries) {
       hasDirectLinkerInput = true;
       linkerInputBuilder.addLibraries(libraries);
       return this;

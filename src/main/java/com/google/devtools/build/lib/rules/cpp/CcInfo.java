@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
@@ -77,8 +78,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
   @Override
   public Depset getCcTransitiveNativeLibraries(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(
-        LibraryToLink.class, getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
+    return Depset.of(StarlarkInfo.class, getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
   }
 
   public CcDebugInfoContext getCcDebugInfoContext() {

@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
@@ -43,7 +42,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
@@ -502,81 +500,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         ImmutableSet.of());
   }
 
-  @StarlarkMethod(
-      name = "create_library_to_link",
-      documented = false,
-      parameters = {@Param(name = "library_to_link")})
-  @SuppressWarnings("CheckReturnValue")
-  public LibraryToLink createLibraryToLink(StructImpl libraryToLink) throws EvalException {
-    LibraryToLink.Builder builder = LibraryToLink.builder();
-    builder.setLibraryIdentifier(
-        libraryToLink.getNoneableValue("library_identifier", String.class));
-    builder.setDynamicLibrary(libraryToLink.getNoneableValue("dynamic_library", Artifact.class));
-    builder.setResolvedSymlinkDynamicLibrary(
-        libraryToLink.getNoneableValue("resolved_symlink_dynamic_library", Artifact.class));
-    builder.setInterfaceLibrary(
-        libraryToLink.getNoneableValue("interface_library", Artifact.class));
-    builder.setResolvedSymlinkInterfaceLibrary(
-        libraryToLink.getNoneableValue("resolve_symlink_interface_library", Artifact.class));
-    builder.setStaticLibrary(libraryToLink.getNoneableValue("static_library", Artifact.class));
-    builder.setPicStaticLibrary(
-        libraryToLink.getNoneableValue("pic_static_library", Artifact.class));
-    if (libraryToLink.getFieldNames().contains("object_files")) {
-      Object value = libraryToLink.getValue("object_files");
-      if (value != null && value != Starlark.NONE) {
-        builder.setObjectFiles(
-            Sequence.cast(value, Artifact.class, "object_files").getImmutableList());
-      } else {
-        builder.setObjectFiles(null);
-      }
-    }
-    if (libraryToLink.getFieldNames().contains("pic_object_files")) {
-      Object value = libraryToLink.getValue("pic_object_files");
-      if (value != null && value != Starlark.NONE) {
-        builder.setPicObjectFiles(
-            Sequence.cast(value, Artifact.class, "pic_object_files").getImmutableList());
-      } else {
-        builder.setPicObjectFiles(null);
-      }
-    }
-    builder.setLtoCompilationContext(
-        libraryToLink.getNoneableValue("lto_compilation_context", LtoCompilationContext.class));
-    builder.setPicLtoCompilationContext(
-        libraryToLink.getNoneableValue("pic_lto_compilation_context", LtoCompilationContext.class));
-    if (libraryToLink.getNoneableValue("shared_non_lto_backends", Dict.class) != null) {
-      builder.setSharedNonLtoBackends(
-          ImmutableMap.copyOf(
-              Dict.noneableCast(
-                  libraryToLink.getValue("shared_non_lto_backends"),
-                  Artifact.class,
-                  LtoBackendArtifacts.class,
-                  "shared_non_lto_backends")));
-    }
-    if (libraryToLink.getNoneableValue("pic_shared_non_lto_backends", Dict.class) != null) {
-      builder.setPicSharedNonLtoBackends(
-          ImmutableMap.copyOf(
-              Dict.noneableCast(
-                  libraryToLink.getValue("pic_shared_non_lto_backends"),
-                  Artifact.class,
-                  LtoBackendArtifacts.class,
-                  "shared_non_lto_backends")));
-    }
-    if (libraryToLink.getFieldNames().contains("disable_whole_archive")) {
-      builder.setDisableWholeArchive(
-          libraryToLink.getValue("disable_whole_archive", Boolean.class));
-    }
-    if (libraryToLink.getFieldNames().contains("alwayslink")) {
-      builder.setAlwayslink(libraryToLink.getValue("alwayslink", Boolean.class));
-    }
-    if (libraryToLink.getFieldNames().contains("must_keep_debug")) {
-      builder.setMustKeepDebug(libraryToLink.getValue("must_keep_debug", Boolean.class));
-    }
-    if (libraryToLink.getFieldNames().contains("contains_objects")) {
-      builder.setContainsObjects(libraryToLink.getValue("contains_objects", Boolean.class));
-    }
-    return builder.build();
-  }
-
   @StarlarkMethod(name = "empty_compilation_outputs", documented = false)
   public CcCompilationOutputs getEmpty() {
     return CcCompilationOutputs.EMPTY;
@@ -733,5 +656,18 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   public boolean isTreeArtifact(Artifact artifact) {
     return artifact.isTreeArtifact();
+  }
+
+  // TODO(b/420530680): remove after removing uses of depsets of LibraryToLink-s
+  @StarlarkMethod(
+      name = "freeze",
+      documented = false,
+      parameters = {@Param(name = "value")})
+  public Object freeze(StarlarkValue value) throws InterruptedException, EvalException {
+    return switch (value) {
+      case Dict<?, ?> dict -> Dict.immutableCopyOf(dict);
+      case Iterable<?> iterable -> StarlarkList.immutableCopyOf(iterable);
+      case Object val -> val;
+    };
   }
 }
