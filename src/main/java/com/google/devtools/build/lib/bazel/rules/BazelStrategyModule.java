@@ -92,8 +92,8 @@ public class BazelStrategyModule extends BlazeModule {
       registryBuilder.addDescriptionFilter(entry.getKey(), entry.getValue());
     }
 
-    for (Map.Entry<String, List<String>> strategy : options.allowedStrategiesByExecPlatform) {
-      registryBuilder.addExecPlatformFilter(Label.parseCanonicalUnchecked(strategy.getKey()), strategy.getValue());
+    for (Map.Entry<Label, List<String>> strategy : options.allowedStrategiesByExecPlatform) {
+      registryBuilder.addExecPlatformFilter(strategy.getKey(), strategy.getValue());
     }
   }
 }
