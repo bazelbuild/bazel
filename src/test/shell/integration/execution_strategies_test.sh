@@ -89,6 +89,36 @@ function test_empty_strategy_means_default() {
   assert_contains "\"FooBar\" = " "$SERVER_LOG"
 }
 
+# Tests that spawn filters for execution platform propagate into the spawn registry as expected.
+# Resolution tested in unit tests.
+function test_allowed_strategies_by_exec_platform() {
+  SERVER_LOG=$(bazel info server_log)
+  bazel build --spawn_strategy=worker,local --allowed_strategies_by_exec_platform=@platforms//host:host=local || fail
+  assert_contains '"@@platforms//host:host" = \[StandaloneSpawnStrategy\]' "$SERVER_LOG"
+}
+
+# Tests that canonical labels can be used to target execution platform strategy filters.
+function test_allowed_strategies_by_exec_platform_canonicalized() {
+  SERVER_LOG=$(bazel info server_log)
+  bazel build --spawn_strategy=worker,local --allowed_strategies_by_exec_platform=@@platforms//host:host=local || fail
+  assert_contains '"@@platforms//host:host" = \[StandaloneSpawnStrategy\]' "$SERVER_LOG"
+}
+
+# Tests that expected message is printed when no spawn strategy can be resolved.
+function test_allowed_strategies_by_exec_platform_exhausted() {
+  cat >BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = ["input.txt"],
+  outs = ["out"],
+  cmd = "",
+)
+EOF
+  touch input.txt
+  bazel build --spawn_strategy=remote --allowed_strategies_by_exec_platform=@platforms//host:host=worker,local //:foo 2> $TEST_log || true
+  assert_contains "Your .* --allowed_strategies_by_exec_platform flags are probably too strict" "$TEST_log"
+}
+
 # Runs a build, waits for the given dir and file to appear, and then kills
 # Bazel to check what happens with said files.
 function build_and_interrupt() {
