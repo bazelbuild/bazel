@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
+import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie.PathFragmentPrefixTrieException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
@@ -1070,8 +1071,13 @@ public class BuildTool {
           Code.INVALID_PROJECT);
     }
 
-    return PathFragmentPrefixTrie.of(
-        ((ProjectValue) result.get(key)).getDefaultProjectDirectories());
+    try {
+      return PathFragmentPrefixTrie.of(
+          ((ProjectValue) result.get(key)).getDefaultProjectDirectories());
+    } catch (PathFragmentPrefixTrieException e) {
+      throw new InvalidConfigurationException(
+          "Active directories configuration error: " + e.getMessage(), Code.INVALID_PROJECT);
+    }
   }
 
   private Reporter getReporter() {
@@ -1127,7 +1133,7 @@ public class BuildTool {
 
     public static RemoteAnalysisCachingDependenciesProvider forAnalysis(
         CommandEnvironment env, Optional<PathFragmentPrefixTrie> maybeActiveDirectoriesMatcher)
-        throws InterruptedException, AbruptExitException {
+        throws InterruptedException, AbruptExitException, InvalidConfigurationException {
       var options = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
       if (options == null
           || !env.getCommand().buildPhase().executes()
@@ -1175,7 +1181,8 @@ public class BuildTool {
     private static Optional<PathFragmentPrefixTrie> finalizeActiveDirectoriesMatcher(
         CommandEnvironment env,
         Optional<PathFragmentPrefixTrie> maybeProjectFileMatcher,
-        RemoteAnalysisCacheMode mode) {
+        RemoteAnalysisCacheMode mode)
+        throws InvalidConfigurationException {
       switch (mode) {
         case RemoteAnalysisCacheMode.DOWNLOAD:
           return Optional.empty();
@@ -1193,7 +1200,12 @@ public class BuildTool {
                   Event.warn(
                       "Specifying --experimental_active_directories will override the active"
                           + " directories specified in the PROJECT.scl file"));
+          try {
           return Optional.of(PathFragmentPrefixTrie.of(activeDirectories));
+          } catch (PathFragmentPrefixTrieException e) {
+            throw new InvalidConfigurationException(
+                "Active directories configuration error: " + e.getMessage(), Code.INVALID_PROJECT);
+          }
         default:
           throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + mode);
       }
@@ -1490,4 +1502,5 @@ public class BuildTool {
                     overallHitRate,
                     statsByFunction)));
   }
+
 }
