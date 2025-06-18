@@ -15,13 +15,13 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.bzlmod.ArchiveRepoSpecBuilder.RemoteFile;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum.MissingChecksumException;
@@ -145,9 +145,7 @@ public class IndexRegistry implements Registry {
       maybeContent = Optional.of(doGrabFile(downloadManager, url, eventHandler, useChecksum));
       return maybeContent.get();
     } finally {
-      if ((knownFileHashesMode == KnownFileHashesMode.USE_AND_UPDATE
-              || knownFileHashesMode == KnownFileHashesMode.USE_IMMUTABLE_AND_UPDATE)
-          && useChecksum) {
+      if (useChecksum) {
         eventHandler.post(RegistryFileDownloadEvent.create(url, maybeContent));
       }
     }
@@ -240,10 +238,13 @@ public class IndexRegistry implements Registry {
   public ModuleFile getModuleFile(
       ModuleKey key, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
       throws IOException, InterruptedException, NotFoundException {
-    String url =
-        constructUrl(getUrl(), "modules", key.name(), key.version().toString(), "MODULE.bazel");
+    String url = constructModuleFileUrl(key);
     byte[] content = grabFile(url, eventHandler, downloadManager, /* useChecksum= */ true);
     return ModuleFile.create(content, url);
+  }
+
+  private String constructModuleFileUrl(ModuleKey key) {
+    return constructUrl(getUrl(), "modules", key.name(), key.version().toString(), "MODULE.bazel");
   }
 
   /** Represents fields available in {@code bazel_registry.json} for the registry. */
@@ -333,7 +334,10 @@ public class IndexRegistry implements Registry {
 
   @Override
   public RepoSpec getRepoSpec(
-      ModuleKey key, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
+      ModuleKey key,
+      ImmutableMap<String, Optional<Checksum>> moduleFileRegistryHashes,
+      ExtendedEventHandler eventHandler,
+      DownloadManager downloadManager)
       throws IOException, InterruptedException {
     String jsonUrl = getSourceJsonUrl(key);
     Optional<String> jsonString =
@@ -348,8 +352,14 @@ public class IndexRegistry implements Registry {
       case "archive" -> {
         ArchiveSourceJson typedSourceJson =
             parseJson(jsonString.get(), jsonUrl, ArchiveSourceJson.class);
+        var moduleFileUrl = constructModuleFileUrl(key);
+        var moduleFileChecksum = moduleFileRegistryHashes.get(moduleFileUrl).get();
         return createArchiveRepoSpec(
-            typedSourceJson, getBazelRegistryJson(eventHandler, downloadManager), key);
+            typedSourceJson,
+            moduleFileUrl,
+            moduleFileChecksum,
+            getBazelRegistryJson(eventHandler, downloadManager),
+            key);
       }
       case "local_path" -> {
         LocalPathSourceJson typedSourceJson =
@@ -424,7 +434,11 @@ public class IndexRegistry implements Registry {
   }
 
   private RepoSpec createArchiveRepoSpec(
-      ArchiveSourceJson sourceJson, Optional<BazelRegistryJson> bazelRegistryJson, ModuleKey key)
+      ArchiveSourceJson sourceJson,
+      String moduleFileUrl,
+      Checksum moduleFileChecksum,
+      Optional<BazelRegistryJson> bazelRegistryJson,
+      ModuleKey key)
       throws IOException {
     URL sourceUrl = sourceJson.url;
     if (sourceUrl == null) {
@@ -472,32 +486,36 @@ public class IndexRegistry implements Registry {
       }
     }
 
-    ImmutableMap<String, String> sourceJsonOverlay =
-        sourceJson.overlay != null ? ImmutableMap.copyOf(sourceJson.overlay) : ImmutableMap.of();
-    ImmutableMap<String, ArchiveRepoSpecBuilder.RemoteFile> overlay =
-        sourceJsonOverlay.entrySet().stream()
-            .collect(
-                toImmutableMap(
-                    Entry::getKey,
-                    entry ->
-                        new ArchiveRepoSpecBuilder.RemoteFile(
-                            entry.getValue(), // integrity
-                            // URLs in the registry itself are not mirrored.
-                            ImmutableList.of(
-                                constructUrl(
-                                    getUrl(),
-                                    "modules",
-                                    key.name(),
-                                    key.version().toString(),
-                                    "overlay",
-                                    entry.getKey())))));
+    var overlay = ImmutableMap.<String, RemoteFile>builder();
+    if (sourceJson.overlay != null) {
+      for (var file : sourceJson.overlay.entrySet()) {
+        // URLs in the registry itself are not mirrored.
+        overlay.put(
+            file.getKey(),
+            new RemoteFile(
+                /* integrity= */ file.getValue(),
+                // URLs in the registry itself are not mirrored.
+                ImmutableList.of(
+                    constructUrl(
+                        getUrl(),
+                        "modules",
+                        key.name(),
+                        key.version().toString(),
+                        "overlay",
+                        file.getKey()))));
+      }
+    }
+    overlay.put(
+        "MODULE.bazel",
+        new RemoteFile(
+            moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)));
 
     return new ArchiveRepoSpecBuilder()
         .setUrls(urls.build())
         .setIntegrity(sourceJson.integrity)
         .setStripPrefix(Strings.nullToEmpty(sourceJson.stripPrefix))
         .setRemotePatches(remotePatches.buildOrThrow())
-        .setOverlay(overlay)
+        .setOverlay(overlay.buildKeepingLast())
         .setRemotePatchStrip(sourceJson.patchStrip)
         .setArchiveType(sourceJson.archiveType)
         .build();
