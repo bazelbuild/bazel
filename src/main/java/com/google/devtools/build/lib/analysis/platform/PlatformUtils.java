@@ -67,6 +67,30 @@ public final class PlatformUtils {
     return getPlatformProto(spawn, remoteOptions, ImmutableMap.of());
   }
 
+  private static boolean validate(
+      Spawn spawn, SortedMap<String, String> defaultExecProperties, Map<String, String> additionalProperties) {
+    PlatformInfo executionPlatform = spawn.getExecutionPlatform();
+    if (executionPlatform != null) {
+      return false;
+    }
+    if (!spawn.getCombinedExecProperties().isEmpty()) {
+      return false;
+    }
+    if (!executionPlatform.execProperties().isEmpty()) {
+      return false;
+    }
+    if (!executionPlatform.remoteExecutionProperties().isEmpty()) {
+      return false;
+    }
+    if (!defaultExecProperties.isEmpty()) {
+      return false;
+    }
+    if (!additionalProperties.isEmpty()) {
+      return false;
+    }
+    return true;
+  }
+
   @Nullable
   public static Platform getPlatformProto(
       Spawn spawn, @Nullable RemoteOptions remoteOptions, Map<String, String> additionalProperties)
@@ -76,14 +100,7 @@ public final class PlatformUtils {
             ? remoteOptions.getRemoteDefaultExecProperties()
             : ImmutableSortedMap.of();
 
-    if ((spawn.getExecutionPlatform() == null
-        || (
-          spawn.getExecutionPlatform().execProperties().isEmpty()
-          && spawn.getExecutionPlatform().remoteExecutionProperties().isEmpty()
-        ))
-        && spawn.getCombinedExecProperties().isEmpty()
-        && defaultExecProperties.isEmpty()
-        && additionalProperties.isEmpty()) {
+    if (!validate(spawn, defaultExecProperties, additionalProperties)) {
       return null;
     }
 

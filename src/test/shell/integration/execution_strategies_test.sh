@@ -89,6 +89,14 @@ function test_empty_strategy_means_default() {
   assert_contains "\"FooBar\" = " "$SERVER_LOG"
 }
 
+# Tests that spawn filters for execution platform propagate into the spawn registry as expected.
+# Resolution tested in unit tests.
+function test_allowed_strategies_by_exec_platform() {
+  SERVER_LOG=$(bazel info server_log)
+  bazel build --spawn_strategy=worker,local --allowed_strategies_by_exec_platform=@platforms//host:host=local || fail
+  assert_contains '"@@platforms//host:host" = \[StandaloneSpawnStrategy\]' "$SERVER_LOG"
+}
+
 # Runs a build, waits for the given dir and file to appear, and then kills
 # Bazel to check what happens with said files.
 function build_and_interrupt() {
