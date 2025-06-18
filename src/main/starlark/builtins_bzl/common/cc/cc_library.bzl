@@ -112,7 +112,6 @@ def _cc_library_impl(ctx):
     if ctx.file.linkstamp != None:
         linkstamps = []
         linkstamps.append(cc_internal.create_linkstamp(
-            actions = ctx.actions,
             linkstamp = ctx.file.linkstamp,
             compilation_context = compilation_context,
         ))

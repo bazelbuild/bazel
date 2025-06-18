@@ -25,7 +25,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
@@ -237,23 +236,11 @@ public class CcStarlarkInternal implements StarlarkValue {
       name = "create_linkstamp",
       documented = false,
       parameters = {
-        @Param(name = "actions", positional = false, named = true),
         @Param(name = "linkstamp", positional = false, named = true),
         @Param(name = "compilation_context", positional = false, named = true),
       })
-  public Linkstamp createLinkstamp(
-      StarlarkActionFactory starlarkActionFactoryApi,
-      Artifact linkstamp,
-      CcCompilationContext ccCompilationContext)
-      throws EvalException {
-    try {
-      return new Linkstamp( // throws InterruptedException
-          linkstamp,
-          ccCompilationContext.getDeclaredIncludeSrcs(),
-          starlarkActionFactoryApi.getRuleContext().getActionKeyContext());
-    } catch (CommandLineExpansionException | InterruptedException ex) {
-      throw new EvalException(ex);
-    }
+  public Linkstamp createLinkstamp(Artifact linkstamp, CcCompilationContext ccCompilationContext) {
+    return new Linkstamp(linkstamp, ccCompilationContext.getDeclaredIncludeSrcs());
   }
 
   /**

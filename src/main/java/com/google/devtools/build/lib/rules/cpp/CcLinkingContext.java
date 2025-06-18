@@ -20,9 +20,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -131,11 +129,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     // happen, so doing an expensive digest should be ok then. If this is ever moved to Starlark
     // and Starlark doesn't support custom equality or amortized deep equality of nested sets, a
     // Symbol can be used as an equality proxy, similar to what LinkOptions does above.
-    Linkstamp(
-        Artifact artifact,
-        NestedSet<Artifact> declaredIncludeSrcs,
-        ActionKeyContext actionKeyContext)
-        throws CommandLineExpansionException, InterruptedException {
+    Linkstamp(Artifact artifact, NestedSet<Artifact> declaredIncludeSrcs) {
       this.artifact = Preconditions.checkNotNull(artifact);
       this.declaredIncludeSrcs = Preconditions.checkNotNull(declaredIncludeSrcs);
       StringBuilder nestedDigestBuilder = new StringBuilder();
