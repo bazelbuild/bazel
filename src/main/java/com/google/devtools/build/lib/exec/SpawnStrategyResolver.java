@@ -88,7 +88,7 @@ public final class SpawnStrategyResolver implements ActionContext {
             String.format(
                 """
                 %s spawn cannot be executed with any of the available strategies: %s. Your \
-                --spawn_strategy, --genrule_strategy, strategy and/or \
+                --spawn_strategy, --genrule_strategy, --strategy and/or \
                 --allowed_strategies_by_exec_platform flags are probably too strict. \
                 Visit https://github.com/bazelbuild/bazel/issues/7480 for advice.
                 """,
