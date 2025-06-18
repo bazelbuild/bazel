@@ -1,3 +1,11 @@
+## Release 9.0.0-pre.20250610.2 (2025-06-18)
+
+```
+Baseline: 35c36c42455ecd273ea6ced35342d88978c598f2
+```
+
+This release contains contributions from many people at Google, as well as .
+
 ## Release 9.0.0-pre.20250608.1 (2025-06-12)
 
 ```
