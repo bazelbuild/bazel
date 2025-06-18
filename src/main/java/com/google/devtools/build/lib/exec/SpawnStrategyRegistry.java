@@ -123,7 +123,7 @@ public final class SpawnStrategyRegistry
    * <p>If the reason for selecting the context is worth mentioning to the user, logs a message
    * using the given {@link Reporter}.
    *
-   * NOTE: This method is public for Blaze, getStrategies(Spawn, EventHandler) must be used in Bazel.
+   * NOTE: This method is public for Blaze, `getStrategies(Spawn, EventHandler)` must not be used in Bazel.
    */
   public List<? extends SpawnStrategy> getStrategies(
       ActionExecutionMetadata resourceOwner, String mnemonic, @Nullable EventHandler reporter) {
@@ -215,12 +215,12 @@ public final class SpawnStrategyRegistry
           "FilterDescriptionToStrategyImplementations: \"%s\" = [%s]",
           entry.getKey(), toImplementationNames(value));
     }
-    for (Map.Entry<Label, ImmutableList<SpawnStrategy>> entry :
-        strategyPlatformFilter.getFilterToStrategies().entrySet()) {
+    for (Map.Entry<Label, Collection<SpawnStrategy>> entry :
+        strategyPlatformFilter.getFilterToStrategies().asMap().entrySet()) {
       Collection<SpawnStrategy> value = entry.getValue();
       logger.atInfo().log(
           "FilterPlatformToStrategyImplementations: \"%s\" = [%s]",
-          entry.getKey().getCanonicalName(), toImplementationNames(value));
+          entry.getKey().getCanonicalForm(), toImplementationNames(value));
     }
 
     logger.atInfo().log(
@@ -467,12 +467,12 @@ public final class SpawnStrategyRegistry
         }
       }
 
-      ImmutableMap.Builder<Label, ImmutableList<SpawnStrategy>> platformToStrategies = ImmutableMap.builder();
+      ImmutableListMultimap.Builder<Label, SpawnStrategy> platformToStrategies = ImmutableListMultimap.builder();
       for (Map.Entry<Label, List<String>> entry : execPlatformFilters.entrySet()) {
         Label platform = entry.getKey();
-        platformToStrategies.put(
+        platformToStrategies.putAll(
           platform,
-          strategyMapper.toStrategies(entry.getValue(), "platform " + platform.getCanonicalName()));
+          strategyMapper.toStrategies(entry.getValue(), "platform " + platform.getCanonicalForm()));
       }
 
       ImmutableListMultimap.Builder<String, SpawnStrategy> mnemonicToStrategies =
@@ -629,11 +629,11 @@ public final class SpawnStrategyRegistry
 
   private static class StrategyPlatformFilter {
     private final StrategyMapper strategyMapper;
-    private final ImmutableMap<Label, ImmutableList<SpawnStrategy>> platformToStrategies;
+    private final ImmutableListMultimap<Label, SpawnStrategy> platformToStrategies;
 
     private StrategyPlatformFilter(
       StrategyMapper strategyMapper,
-      ImmutableMap<Label, ImmutableList<SpawnStrategy>> platformToStrategies) {
+      ImmutableListMultimap<Label, SpawnStrategy> platformToStrategies) {
       this.strategyMapper = strategyMapper;
       this.platformToStrategies = platformToStrategies;
     }
@@ -662,7 +662,7 @@ public final class SpawnStrategyRegistry
       return ImmutableList.copyOf(getStrategies(spawn, Lists.newCopyOnWriteArrayList(candidateStrategies)));
     }
 
-    ImmutableMap<Label, ImmutableList<SpawnStrategy>> getFilterToStrategies() {
+    ImmutableListMultimap<Label, SpawnStrategy> getFilterToStrategies() {
       return platformToStrategies;
     }
   }

@@ -17,6 +17,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.util.CpuResourceConverter;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.RamResourceConverter;
@@ -25,6 +27,7 @@ import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.AssignmentToListOfValuesConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -121,7 +124,7 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
       name = "allowed_strategies_by_exec_platform",
       allowMultiple = true,
-      converter = Converters.StringToStringListConverter.class,
+      converter = LabelToStringListConverter.class,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
@@ -133,7 +136,7 @@ public class ExecutionOptions extends OptionsBase {
           Example: `--allowed_strategies_by_exec_platform=//:linux_amd64=remote` to prevent actions
           configured for a platform `//:linux_amd64` from being spawned locally.
           """)
-  public List<Map.Entry<String, List<String>>> allowedStrategiesByExecPlatform;
+  public List<Map.Entry<Label, List<String>>> allowedStrategiesByExecPlatform;
 
   @Option(
       name = "materialize_param_files",
@@ -656,6 +659,18 @@ public class ExecutionOptions extends OptionsBase {
     public ShowSubcommandsConverter() {
       super(
           ShowSubcommands.class, "subcommand option", ShowSubcommands.TRUE, ShowSubcommands.FALSE);
+    }
+  }
+
+  private static class LabelToStringListConverter extends AssignmentToListOfValuesConverter<Label, String> {
+
+    public LabelToStringListConverter() {
+        super(new LabelConverter(), new Converters.StringConverter(), AllowEmptyKeys.NO);
+    }
+
+    @Override
+    public String getTypeDescription() {
+        return "a '<Label>=value[,value]' assignment";
     }
   }
 }
