@@ -344,6 +344,7 @@ public class IndexRegistryTest extends FoundationTestCase {
         "  \"integrity\": \"sha256-blah\",",
         "  \"strip_prefix\": \"pref\"",
         "}");
+    server.serve("/modules/foo/1.0/MODULE.bazel", "module(name = \"foo\", version = \"1.0\")");
 
     Registry registry =
         registryFactory.createRegistry(
@@ -354,14 +355,25 @@ public class IndexRegistryTest extends FoundationTestCase {
             Optional.empty());
     assertThat(
             registry.getRepoSpec(
-                createModuleKey("foo", "1.0"), ImmutableMap.of(), reporter, downloadManager))
+                createModuleKey("foo", "1.0"),
+                ImmutableMap.of(
+                    server.getUrl() + "/modules/foo/1.0/MODULE.bazel",
+                    Optional.of(sha256("module(name = \"foo\", version = \"1.0\")"))),
+                reporter,
+                downloadManager))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
                 .setUrls(ImmutableList.of("http://mysite.com/thing.zip"))
                 .setIntegrity("sha256-blah")
                 .setStripPrefix("pref")
                 .setRemotePatches(ImmutableMap.of())
-                .setOverlay(ImmutableMap.of())
+                .setOverlay(
+                    ImmutableMap.of(
+                        "MODULE.bazel",
+                        new ArchiveRepoSpecBuilder.RemoteFile(
+                            sha256("module(name = \"foo\", version = \"1.0\")")
+                                .toSubresourceIntegrity(),
+                            ImmutableList.of(server.getUrl() + "/modules/foo/1.0/MODULE.bazel"))))
                 .setRemotePatchStrip(0)
                 .build());
   }
@@ -446,6 +458,9 @@ public class IndexRegistryTest extends FoundationTestCase {
         "  \"integrity\": \"sha256-blah\",",
         "  \"archive_type\": \"zip\"",
         "}");
+    server.serve(
+        "/modules/archive_type/1.0/MODULE.bazel",
+        "module(name = \"archive_type\", version = \"1.0\")");
     server.start();
 
     Registry registry =
@@ -458,7 +473,9 @@ public class IndexRegistryTest extends FoundationTestCase {
     assertThat(
             registry.getRepoSpec(
                 createModuleKey("archive_type", "1.0"),
-                ImmutableMap.of(),
+                ImmutableMap.of(
+                    server.getUrl() + "/modules/archive_type/1.0/MODULE.bazel",
+                    Optional.of(sha256("module(name = \"archive_type\", version = \"1.0\")"))),
                 reporter,
                 downloadManager))
         .isEqualTo(
@@ -469,7 +486,14 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setArchiveType("zip")
                 .setRemotePatches(ImmutableMap.of())
                 .setRemotePatchStrip(0)
-                .setOverlay(ImmutableMap.of())
+                .setOverlay(
+                    ImmutableMap.of(
+                        "MODULE.bazel",
+                        new ArchiveRepoSpecBuilder.RemoteFile(
+                            sha256("module(name = \"archive_type\", version = \"1.0\")")
+                                .toSubresourceIntegrity(),
+                            ImmutableList.of(
+                                server.getUrl() + "/modules/archive_type/1.0/MODULE.bazel"))))
                 .build());
   }
 
