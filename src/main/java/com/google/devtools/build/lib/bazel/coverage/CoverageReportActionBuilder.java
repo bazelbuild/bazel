@@ -154,7 +154,9 @@ public final class CoverageReportActionBuilder {
       Path coverageReportOutput = ctx.getPathResolver().toPath(getPrimaryOutput());
       try (var ignored =
           GoogleAutoProfilerUtils.profiledAndLogged(
-              "Informing important output handler of coverage report", ProfilerTask.INFO)) {
+              "Informing important output handler of coverage report",
+              ProfilerTask.INFO,
+              ImportantOutputHandler.LOG_THRESHOLD)) {
         importantOutputHandler.processTestOutputs(ImmutableList.of(coverageReportOutput));
       } catch (ImportantOutputException e) {
         throw new EnvironmentalExecException(e, e.getFailureDetail());
