@@ -2,11 +2,14 @@ cc_library(
     name = "lib",
     srcs = ["nested/lib.cc"],
     strip_include_prefix = "nested",
-    textual_hdrs = ["nested/lib.h"],
+    textual_hdrs = [
+        "nested/lib.h",
+        "not_nested.h",
+    ],
 )
 
 cc_test(
     name = "test_include_textual",
     srcs = ["test_include_textual.cc"],
-    deps =[ ":lib"],
+    deps = [":lib"],
 )

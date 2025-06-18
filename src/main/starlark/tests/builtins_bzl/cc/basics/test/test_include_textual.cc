@@ -12,10 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "lib.h"
+#include "not_nested.h"
 
 int main() {
   if (foo() != 42) {
     return 1;
+  }
+  if (NOT_NESTED != 42) {
+    return 2;
   }
   return 0;
 }
