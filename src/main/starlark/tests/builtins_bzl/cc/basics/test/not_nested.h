@@ -11,9 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef EXAMPLES_TEST_CC__LIB_H
-#define EXAMPLES_TEST_CC__LIB_H
 
-int foo();
+#ifndef EXAMPLES_TEST_CC__NOT_NESTED_H
+#define EXAMPLES_TEST_CC__NOT_NESTED_H
 
-#endif  // EXAMPLES_TEST_CC__LIB_H
+#define NOT_NESTED 42
+
+#endif  // EXAMPLES_TEST_CC__NOT_NESTED_H
