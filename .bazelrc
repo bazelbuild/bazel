@@ -57,9 +57,6 @@ build --java_language_version=21
 build --tool_java_language_version=21
 build --tool_java_runtime_version=21
 
-# TODO: Fix tests that fail without this flag
-coverage --test_env=IGNORE_COVERAGE_COLLECTION_FAILURES=1
-
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc
 
