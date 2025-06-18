@@ -263,7 +263,7 @@ public class RemoteSpawnRunnerTest {
     AbstractSpawnStrategy fakeLocalStrategy =
         new AbstractSpawnStrategy(localRunner, new ExecutionOptions()) {};
     ClassToInstanceMap<ActionContext> actionContextRegistry =
-        ImmutableClassToInstanceMap.of(RemoteLocalFallbackRegistry.class, () -> fakeLocalStrategy);
+        ImmutableClassToInstanceMap.of(RemoteLocalFallbackRegistry.class, (_spawn) -> fakeLocalStrategy);
 
     var actionInputFetcher =
         new RemoteActionInputFetcher(
