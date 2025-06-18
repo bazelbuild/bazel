@@ -36,6 +36,7 @@ fi
 _BAZEL_ARGS="--spawn_strategy=standalone \
       --nojava_header_compilation \
       --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
+      --experimental_java_classpath=off \
       --compilation_mode=opt \
       --repository_cache=derived/repository_cache \
       --repo_contents_cache= \
