@@ -71,6 +71,7 @@ public final class JavaCompilationHelper {
   private NestedSet<String> javaBuilderJvmFlags = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private final JavaSemantics semantics;
   private final ImmutableList<Artifact> additionalInputsForDatabinding;
+  @Nullable private final Artifact baselineCoverageFile;
   private boolean enableJspecify = true;
   private boolean enableDirectClasspath = true;
   private final String execGroup;
@@ -81,13 +82,15 @@ public final class JavaCompilationHelper {
       ImmutableList<String> javacOpts,
       JavaTargetAttributes.Builder attributes,
       JavaToolchainProvider javaToolchainProvider,
-      ImmutableList<Artifact> additionalInputsForDatabinding) {
+      ImmutableList<Artifact> additionalInputsForDatabinding,
+      @Nullable Artifact baselineCoverageFile) {
     this.ruleContext = ruleContext;
     this.javaToolchain = Preconditions.checkNotNull(javaToolchainProvider);
     this.attributes = attributes;
     this.customJavacOpts = javacOptsInterner.intern(javacOpts);
     this.semantics = semantics;
     this.additionalInputsForDatabinding = additionalInputsForDatabinding;
+    this.baselineCoverageFile = baselineCoverageFile;
 
     if (ruleContext.useAutoExecGroups()) {
       this.execGroup = semantics.getJavaToolchainType();
@@ -247,6 +250,7 @@ public final class JavaCompilationHelper {
     builder.setTargetLabel(label);
     Artifact coverageArtifact = maybeCreateCoverageArtifact(outputs.output());
     builder.setCoverageArtifact(coverageArtifact);
+    builder.setBaselineCoverageFile(baselineCoverageFile);
     BootClassPathInfo bootClassPathInfo = getBootclasspathOrDefault();
     builder.setBootClassPath(bootClassPathInfo);
     NestedSet<Artifact> classpath =
@@ -386,7 +390,9 @@ public final class JavaCompilationHelper {
    */
   @Nullable
   private Artifact maybeCreateCoverageArtifact(Artifact compileJar) {
-    if (!shouldInstrumentJar()) {
+    // baselineCoverageFile != null is meant to be equivalent to shouldInstrumentJar(), but we need
+    // to check both to support older versions of rules_java that do not set baseline_coverage_file.
+    if (!shouldInstrumentJar() && baselineCoverageFile == null) {
       return null;
     }
     PathFragment packageRelativePath =
