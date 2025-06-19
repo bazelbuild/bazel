@@ -1038,7 +1038,7 @@ def _get_coverage_environment(ctx, cc_config, cc_toolchain):
         env["FDO_DIR"] = cc_config.fdo_instrument()
     return env
 
-def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_files, virtual_to_original_headers = None):
+def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_files, virtual_to_original_headers = None, baseline_coverage_files = None):
     source_extensions = extensions.CC_SOURCE + \
                         extensions.C_SOURCE + \
                         extensions.CC_HEADER + \
@@ -1057,6 +1057,7 @@ def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_fi
         coverage_support_files = coverage_support_files,
         coverage_environment = coverage_environment,
         reported_to_actual_sources = virtual_to_original_headers,
+        baseline_coverage_files = baseline_coverage_files,
     )
     return info
 
@@ -1143,6 +1144,44 @@ def _check_cpp_modules(ctx, feature_configuration):
     ):
         fail("to use C++ modules, the feature cpp_modules must be enabled")
 
+def _generate_baseline_coverage_files(ctx, feature_configuration, cc_toolchain, compilation_outputs):
+    if not ctx.coverage_instrumented():
+        return []
+    gcov = _tool_path(cc_toolchain, "gcov")
+    if not _gcov:
+        return []
+
+    gcno_files = compilation_outputs.pic_gcno_files()
+    if not gcno_files:
+        gcno_files = compilation_outputs.gcno_files()
+    if not gcno_files:
+        # TODO(#5716): Add support for baseline coverage with LLVM-based coverage.
+        return []
+
+    baseline_coverage_file = ctx.actions.declare_file(ctx.label.name + "_baseline_coverage.dat")
+
+    args = ctx.actions.args()
+    args.add("-i")  # JSON format
+    args.add("-b")  # branch coverage (supported as of GCC 8)
+    args.add("-p")  # preserve paths to avoid collisions on basenames
+    args.add_all(gcno_files)
+
+    ctx.actions.run(
+        inputs = depset(
+            direct = gcno_files,
+            transitive = [cc_toolchain.all_files],
+        ),
+        outputs = [baseline_coverage_file],
+        executable = gcov,
+        use_default_shell_env = True,
+        arguments = [args],
+        toolchain = cc_helper.CPP_TOOLCHAIN_TYPE,
+        progress_message = "Generating baseline coverage for {}".format(ctx.label),
+        mnemonic = "CcBaselineCoverage",
+    )
+
+    return [baseline_coverage_file]
+
 cc_helper = struct(
     CPP_TOOLCHAIN_TYPE = _CPP_TOOLCHAIN_TYPE,
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
@@ -1211,4 +1250,5 @@ cc_helper = struct(
     tokenize = _tokenize,
     should_use_pic = _should_use_pic,
     check_cpp_modules = _check_cpp_modules,
+    generate_baseline_coverage_files = _generate_baseline_coverage_files,
 )
