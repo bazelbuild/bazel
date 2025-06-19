@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.List;
 
 /** Stores coverage information for a specific source file. */
 class SourceFileCoverage {
@@ -241,7 +242,31 @@ class SourceFileCoverage {
   }
 
   void addBranch(Integer lineNumber, BranchCoverage branch) {
-    branches.put(lineNumber, branch);
+    // BA records
+    if (branch.branchNumber().isEmpty()) {
+      branches.put(branch.lineNumber(), branch);
+    }
+    // BRDA records
+    else {
+      boolean exists = false;
+      List<BranchCoverage> branchList = (List<BranchCoverage>) branches.get(branch.lineNumber());
+      if (branchList != null) {
+        for (int i = 0; i < branchList.size(); i++) {
+          BranchCoverage existingBranch = branchList.get(i);
+          if (existingBranch.blockNumber().equals(branch.blockNumber())
+              && existingBranch.branchNumber().equals(branch.branchNumber())) {
+            exists = true;
+            BranchCoverage mergedBranch = BranchCoverage.merge(existingBranch, branch);
+            branchList.set(i, mergedBranch); // Replace the existing branch with the merged one
+            break;
+          }
+        }
+      }
+  
+      if (!exists) {
+        branches.put(branch.lineNumber(), branch);
+      }
+    }
   }
 
   void addAllBranches(ListMultimap<Integer, BranchCoverage> branches) {
