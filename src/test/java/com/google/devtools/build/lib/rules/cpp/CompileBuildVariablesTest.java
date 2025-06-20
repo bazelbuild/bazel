@@ -432,7 +432,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     ImmutableList.Builder<String> entries =
         ImmutableList.<String>builder()
             .add(
-                "/k8-fastbuild/bin/external/pkg+/_virtual_includes/foo2",
+                "/k8-fastbuild/bin/_virtual_includes/8a060f18",
                 "external/pkg+",
                 "/k8-fastbuild/bin/external/pkg+");
     if (analysisMock.isThisBazel()) {
