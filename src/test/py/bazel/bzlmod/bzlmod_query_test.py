@@ -80,7 +80,13 @@ class BzlmodQueryTest(test_base.TestBase):
         '--notool_deps',
     ])
     self.assertListEqual(
-        ['//:main', '@my_repo//:lib_aaa', '@@ccc+//:lib_ccc'], stdout
+        [
+            '//:main',
+            '@my_repo//:lib_aaa',
+            '@@ccc+//:lib_ccc',
+            '@@rules_cc+//:link_extra_lib',
+        ],
+        stdout,
     )
 
   def testQueryModuleRepoTransitiveDeps_consistentLabels(self):
@@ -108,7 +114,13 @@ class BzlmodQueryTest(test_base.TestBase):
         '--consistent_labels',
     ])
     self.assertListEqual(
-        ['@@//:main', '@@aaa+//:lib_aaa', '@@ccc+//:lib_ccc'], stdout
+        [
+            '@@//:main',
+            '@@aaa+//:lib_aaa',
+            '@@ccc+//:lib_ccc',
+            '@@rules_cc+//:link_extra_lib',
+        ],
+        stdout,
     )
 
   def testQueryModuleRepoTransitiveDeps_consistentLabels_outputPackage(self):
@@ -136,7 +148,9 @@ class BzlmodQueryTest(test_base.TestBase):
         '--consistent_labels',
         '--output=package',
     ])
-    self.assertListEqual(['@@//pkg', '@@aaa+//', '@@ccc+//'], stdout)
+    self.assertListEqual(
+        ['@@//pkg', '@@aaa+//', '@@ccc+//', '@@rules_cc+//'], stdout
+    )
 
   def testQueryModuleRepoTransitiveDeps_consistentLabels_outputBuild(self):
     self.ScratchFile(
@@ -238,13 +252,16 @@ class BzlmodQueryTest(test_base.TestBase):
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
     ])
-    self.ScratchFile('BUILD', [
-        'cc_binary(',
-        '  name = "main",',
-        '  srcs = ["main.cc"],',
-        '  deps = ["@my_repo//:lib_aaa"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@my_repo//:lib_aaa"],',
+            ')',
+        ],
+    )
     _, stdout, _ = self.RunBazel([
         'cquery',
         'kind("cc_.* rule", deps(//:main))',
@@ -252,9 +269,11 @@ class BzlmodQueryTest(test_base.TestBase):
         '--notool_deps',
     ])
     self.assertRegex(stdout[0], r'^//:main \([\w\d]+\)$')
-    self.assertRegex(stdout[1], r'^@my_repo//:lib_aaa \([\w\d]+\)$')
-    self.assertRegex(stdout[2], r'^@@ccc\+//:lib_ccc \([\w\d]+\)$')
-    self.assertEqual(len(stdout), 3)
+    self.assertRegex(stdout[1], r'^@@rules_cc\+//:link_extra_lib \([\w\d]+\)$')
+    self.assertRegex(stdout[2], r'^@my_repo//:lib_aaa \([\w\d]+\)$')
+    self.assertRegex(stdout[3], r'^@@ccc\+//:lib_ccc \([\w\d]+\)$')
+    self.assertRegex(stdout[4], r'^@@rules_cc\+//:empty_lib \([\w\d]+\)$')
+    self.assertEqual(len(stdout), 5)
 
   def testCqueryModuleRepoTransitiveDeps_consistentLabels(self):
     self.ScratchFile(
@@ -281,9 +300,11 @@ class BzlmodQueryTest(test_base.TestBase):
         '--consistent_labels',
     ])
     self.assertRegex(stdout[0], r'^@@//:main \([\w\d]+\)$')
-    self.assertRegex(stdout[1], r'^@@aaa\+//:lib_aaa \([\w\d]+\)$')
-    self.assertRegex(stdout[2], r'^@@ccc\+//:lib_ccc \([\w\d]+\)$')
-    self.assertEqual(len(stdout), 3)
+    self.assertRegex(stdout[1], r'^@@rules_cc\+//:link_extra_lib \([\w\d]+\)$')
+    self.assertRegex(stdout[2], r'^@@aaa\+//:lib_aaa \([\w\d]+\)$')
+    self.assertRegex(stdout[3], r'^@@ccc\+//:lib_ccc \([\w\d]+\)$')
+    self.assertRegex(stdout[4], r'^@@rules_cc\+//:empty_lib \([\w\d]+\)$')
+    self.assertEqual(len(stdout), 5)
 
   def testFetchModuleRepoTargetsBelow(self):
     self.ScratchFile('MODULE.bazel', [
