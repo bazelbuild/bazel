@@ -383,6 +383,7 @@ bazel_fragments["JavaOptions"] = fragment(
         "//command_line_option:enforce_proguard_file_extension",
         "//command_line_option:proguard_top",
         "//command_line_option:host_javacopt",
+        "//command_line_option:host_jvmopt",
         "//command_line_option:host_java_launcher",
         "//command_line_option:tool_java_runtime_version",
         "//command_line_option:tool_java_language_version",
