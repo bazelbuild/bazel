@@ -48,7 +48,7 @@ public class MainTest {
 
   @Test
   public void testMainEmptyCoverageDir() {
-    assertThat(Main.getCoverageFilesInDir(coverageDir.toAbsolutePath().toString())).isEmpty();
+    assertThat(Main.getCoverageFilesInDir(coverageDir)).isEmpty();
   }
 
   @Test
@@ -59,8 +59,8 @@ public class MainTest {
     Files.createTempFile(ccCoverageDir, "tracefile1", ".dat");
     Files.createTempFile(javaCoverageDir, "tracefile2", ".dat");
 
-    List<File> coverageFiles = Main.getCoverageFilesInDir(coverageDir.toAbsolutePath().toString());
-    List<File> tracefiles = Main.getFilesWithExtension(coverageFiles, TRACEFILE_EXTENSION);
+    List<Path> coverageFiles = Main.getCoverageFilesInDir(coverageDir);
+    List<Path> tracefiles = Main.getFilesWithExtension(coverageFiles, TRACEFILE_EXTENSION);
     assertThat(tracefiles).hasSize(2);
   }
 
@@ -119,7 +119,7 @@ public class MainTest {
     LcovMergerTestUtils.generateLcovFiles(
         "test_data/simple_test", numLcovFiles, numSourceFiles, numLinesPerSourceFile, coverageDir);
 
-    List<File> coverageFiles = Main.getCoverageFilesInDir(coverageDir.toAbsolutePath().toString());
+    List<Path> coverageFiles = Main.getCoverageFilesInDir(coverageDir);
 
     Coverage sequentialCoverage = Main.parseFilesSequentially(coverageFiles, LcovParser::parse);
     LcovPrinter.print(sequentialOutput, sequentialCoverage);
