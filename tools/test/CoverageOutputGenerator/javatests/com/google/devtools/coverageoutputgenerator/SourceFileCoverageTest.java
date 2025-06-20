@@ -145,5 +145,55 @@ public class SourceFileCoverageTest {
             LineCoverage.create(31, 3, ""),
             LineCoverage.create(32, 0, ""),
             LineCoverage.create(33, 1, ""));
+  }  
+  
+
+  // Regression test for bug where multiple instances of the same brda record cause randomized branch
+  // coverage. Bazel sometimes generates multiple BRDA records for the same branch but does not merge them.
+  // This checks that no duplices remain when adding branches to a source file
+  @Test
+  public void testDuplicatedBRDAInput() throws Exception {
+    sourceFile1 = new SourceFileCoverage("source");
+    sourceFile1.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "0", true, 1));
+    sourceFile1.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "1", true, 1));
+    sourceFile1.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "0", true, 1));
+    sourceFile1.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "1", false, 0));
+    sourceFile1.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "0", true, 3));
+    sourceFile1.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "1", true, 1));
+    
+    assertThat(sourceFile1.getAllBranches())
+        .containsExactly(
+            BranchCoverage.createWithBlockAndBranch(131, "0", "0", true, 5),
+            BranchCoverage.createWithBlockAndBranch(131, "0", "1", true, 2)
+        );
+  }
+
+  // Regression test for bug where multiple instances of the same brda record cause randomized branch
+  // coverage. Bazel sometimes generates multiple BRDA records for the same branch but does not merge them.
+  // This checks that the merge functions when merging source files. 
+  @Test
+  public void testDuplicatedBRDAInputMerged() throws Exception {
+    sourceFile1 = new SourceFileCoverage("source");
+    sourceFile2 = new SourceFileCoverage("source");
+    sourceFile1.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "0", true, 1));
+    sourceFile1.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "1", true, 1));
+    sourceFile1.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "0", true, 1));
+    sourceFile1.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "1", false, 0));
+    sourceFile1.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "0", true, 3));
+    sourceFile1.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "1", true, 1));
+
+    sourceFile2.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "0", true, 4));
+    sourceFile2.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "1", true, 4));
+    sourceFile2.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "0", true, 4));
+    sourceFile2.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "1", true, 4));
+    sourceFile2.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "1", false, 0));
+    sourceFile2.addBranch(131, BranchCoverage.createWithBlockAndBranch(131, "0", "0", true, 2));
+    
+    SourceFileCoverage merged = SourceFileCoverage.merge(sourceFile1, sourceFile2);
+    assertThat(merged.getAllBranches())
+        .containsExactly(
+            BranchCoverage.createWithBlockAndBranch(131, "0", "0", true, 15),
+            BranchCoverage.createWithBlockAndBranch(131, "0", "1", true, 10)
+        );
   }
 }
