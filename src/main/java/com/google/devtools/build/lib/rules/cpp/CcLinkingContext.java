@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -97,22 +98,11 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Immutable
   public static final class Linkstamp implements LinkstampApi<Artifact> {
     private final Artifact artifact;
-    private final NestedSet<Artifact> declaredIncludeSrcs;
-    private final int nestedDigest;
+    private final ImmutableList<Artifact> declaredIncludeSrcs;
 
-    // TODO(janakr): if action key context is not available, the digest can be computed lazily,
-    // only if we are doing an equality comparison and artifacts are equal. That should never
-    // happen, so doing an expensive digest should be ok then. If this is ever moved to Starlark
-    // and Starlark doesn't support custom equality or amortized deep equality of nested sets, a
-    // Symbol can be used as an equality proxy, similar to what LinkOptions does above.
     Linkstamp(Artifact artifact, NestedSet<Artifact> declaredIncludeSrcs) {
       this.artifact = Preconditions.checkNotNull(artifact);
-      this.declaredIncludeSrcs = Preconditions.checkNotNull(declaredIncludeSrcs);
-      StringBuilder nestedDigestBuilder = new StringBuilder();
-      for (Artifact declaredIncludeSrc : declaredIncludeSrcs.toList()) {
-        nestedDigestBuilder.append(declaredIncludeSrc.getExecPathString());
-      }
-      nestedDigest = nestedDigestBuilder.toString().hashCode();
+      this.declaredIncludeSrcs = declaredIncludeSrcs.toList();
     }
 
     /** Returns the linkstamp artifact. */
@@ -126,25 +116,20 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       return artifact;
     }
 
-    /** Returns the declared includes. */
-    public NestedSet<Artifact> getDeclaredIncludeSrcs() {
-      return declaredIncludeSrcs;
-    }
-
     @Override
     public Depset getDeclaredIncludeSrcsForStarlark(StarlarkThread thread) throws EvalException {
       CcModule.checkPrivateStarlarkificationAllowlist(thread);
-      return Depset.of(Artifact.class, getDeclaredIncludeSrcs());
+      return Depset.of(
+          Artifact.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, declaredIncludeSrcs));
     }
 
     @Override
     public int hashCode() {
-      // Artifact should be enough to disambiguate basically all the time.
-      return artifact.hashCode();
+      return Objects.hashCode(artifact, declaredIncludeSrcs);
     }
 
     @Override
-    public final boolean isImmutable() {
+    public boolean isImmutable() {
       return true; // immutable and Starlark-hashable
     }
 
@@ -156,7 +141,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       if (!(obj instanceof Linkstamp other)) {
         return false;
       }
-      return artifact.equals(other.artifact) && nestedDigest == other.nestedDigest;
+      return artifact.equals(other.artifact)
+          && declaredIncludeSrcs.equals(other.declaredIncludeSrcs);
     }
   }
 
@@ -458,6 +444,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     return libraries.build();
   }
 
+  /**
+   * @deprecated Don't use. The function will be removed.
+   */
   @Deprecated
   NestedSet<StarlarkInfo> getLibrariesFromLinkerInputs() {
     NestedSetBuilder<StarlarkInfo> libraries = NestedSetBuilder.linkOrder();
