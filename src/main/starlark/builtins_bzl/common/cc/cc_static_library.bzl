@@ -177,9 +177,6 @@ def _format_linker_inputs(*, actions, name, linker_inputs, map_each):
     return file
 
 def _cc_static_library_impl(ctx):
-    if not cc_common.check_experimental_cc_static_library():
-        fail("cc_static_library is an experimental rule and must be enabled with --experimental_cc_static_library")
-
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
@@ -243,9 +240,6 @@ def _cc_static_library_impl(ctx):
 cc_static_library = rule(
     implementation = _cc_static_library_impl,
     doc = """
-<b>This rule is currently experimental and can only be used with the <code>
---experimental_cc_static_library</code> flag.</b>
-
 Produces a static library from a list of targets and their transitive dependencies.
 
 <p>The resulting static library contains the object files of the targets listed in
