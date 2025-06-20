@@ -43,7 +43,8 @@ public class ShortCircuitingCycleDetector implements CycleDetector {
 
   @SerializationConstant
   public static final ErrorInfo CYCLE_ERROR_INFO =
-      ErrorInfo.fromCycle(new CycleInfo(ImmutableList.of(), ImmutableList.of(DUMMY_CYCLE_KEY)));
+      ErrorInfo.fromCycle(
+          CycleInfo.createCycleInfo(ImmutableList.of(), ImmutableList.of(DUMMY_CYCLE_KEY)));
 
   private final Set<SkyKey> seenNodes;
   private final int numThreads;
@@ -52,7 +53,7 @@ public class ShortCircuitingCycleDetector implements CycleDetector {
     this.numThreads = numThreads;
     seenNodes =
         Collections.newSetFromMap(
-            new ConcurrentHashMap<>(/*initialCapacity=*/ numThreads, /*loadFactor=*/ 0.75f));
+            new ConcurrentHashMap<>(/* initialCapacity= */ numThreads, /* loadFactor= */ 0.75f));
   }
 
   @Override
@@ -77,7 +78,7 @@ public class ShortCircuitingCycleDetector implements CycleDetector {
       result.addError(rootEntry.getKey(), CYCLE_ERROR_INFO);
     }
     try {
-      quiescingExecutor.awaitQuiescence(/*interruptWorkers=*/ true);
+      quiescingExecutor.awaitQuiescence(/* interruptWorkers= */ true);
     } catch (SchedulerException e) {
       Preconditions.checkState(e.getCause() instanceof InterruptedException, e);
       throw (InterruptedException) e.getCause();
@@ -143,7 +144,7 @@ public class ShortCircuitingCycleDetector implements CycleDetector {
             SkyFunctionEnvironment.createForError(
                 key,
                 entry.getTemporaryDirectDeps(),
-                /*bubbleErrorInfo=*/ ImmutableMap.of(),
+                /* bubbleErrorInfo= */ ImmutableMap.of(),
                 entry.getAllRemainingDirtyDirectDeps(),
                 evaluatorContext);
 

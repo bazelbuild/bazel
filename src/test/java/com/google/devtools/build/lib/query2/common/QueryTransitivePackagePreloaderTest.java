@@ -74,7 +74,7 @@ public class QueryTransitivePackagePreloaderTest {
                   new UndetailedException("bork"), SkyFunctionException.Transience.PERSISTENT) {}),
           /*isTransitivelyTransient=*/ false);
   private static final ErrorInfo CYCLE_ERROR =
-      ErrorInfo.fromCycle(new CycleInfo(ImmutableList.of(KEY)));
+      ErrorInfo.fromCycle(CycleInfo.createCycleInfo(ImmutableList.of(KEY)));
 
   @Mock MemoizingEvaluator memoizingEvaluator;
   @Mock EvaluationContext.Builder contextBuilder;

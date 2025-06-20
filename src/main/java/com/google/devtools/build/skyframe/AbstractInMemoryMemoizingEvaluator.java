@@ -175,7 +175,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
                                 evaluationContext.getParallelism(),
                                 ParallelEvaluatorErrorClassifier.instance())),
                 evaluationContext.detectCycles()
-                    ? new SimpleCycleDetector()
+                    ? new SimpleCycleDetector(evaluationContext.storeExactCycles())
                     : new ShortCircuitingCycleDetector(evaluationContext.getParallelism()),
                 evaluationContext.getUnnecessaryTemporaryStateDropperReceiver(),
                 getKeepGoingPredicate(evaluationContext));

@@ -34,6 +34,7 @@ public class EvaluationContext {
   private final ExtendedEventHandler eventHandler;
   private final boolean isExecutionPhase;
   private final boolean mergingSkyframeAnalysisExecutionPhases;
+  private final boolean storeExactCycles;
   private final UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver;
 
   private final boolean detectCycles;
@@ -45,6 +46,7 @@ public class EvaluationContext {
       ExtendedEventHandler eventHandler,
       boolean isExecutionPhase,
       boolean mergingSkyframeAnalysisExecutionPhases,
+      boolean storeExactCycles,
       UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver,
       boolean detectCycles) {
     this.parallelism = parallelism;
@@ -53,6 +55,7 @@ public class EvaluationContext {
     this.eventHandler = Preconditions.checkNotNull(eventHandler);
     this.isExecutionPhase = isExecutionPhase;
     this.mergingSkyframeAnalysisExecutionPhases = mergingSkyframeAnalysisExecutionPhases;
+    this.storeExactCycles = storeExactCycles;
     this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
     this.detectCycles = detectCycles;
   }
@@ -79,6 +82,10 @@ public class EvaluationContext {
 
   public boolean mergingSkyframeAnalysisExecutionPhases() {
     return mergingSkyframeAnalysisExecutionPhases;
+  }
+
+  public boolean storeExactCycles() {
+    return storeExactCycles;
   }
 
   /**
@@ -137,6 +144,7 @@ public class EvaluationContext {
     protected ExtendedEventHandler eventHandler;
     protected boolean isExecutionPhase = false;
     protected boolean mergingSkyframeAnalysisExecutionPhases;
+    protected boolean storeExactCycles = true;
     protected UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver =
         UnnecessaryTemporaryStateDropperReceiver.NULL;
 
@@ -153,6 +161,7 @@ public class EvaluationContext {
       this.isExecutionPhase = evaluationContext.isExecutionPhase;
       this.mergingSkyframeAnalysisExecutionPhases =
           evaluationContext.mergingSkyframeAnalysisExecutionPhases;
+      this.storeExactCycles = evaluationContext.storeExactCycles;
       this.unnecessaryTemporaryStateDropperReceiver =
           evaluationContext.unnecessaryTemporaryStateDropperReceiver;
       this.detectCycles = evaluationContext.detectCycles;
@@ -204,6 +213,12 @@ public class EvaluationContext {
     }
 
     @CanIgnoreReturnValue
+    public Builder setStoreExactCycles(boolean storeExactCycles) {
+      this.storeExactCycles = storeExactCycles;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public Builder setDetectCycles(boolean detectCycles) {
       this.detectCycles = detectCycles;
       return this;
@@ -217,6 +232,7 @@ public class EvaluationContext {
           eventHandler,
           isExecutionPhase,
           mergingSkyframeAnalysisExecutionPhases,
+          storeExactCycles,
           unnecessaryTemporaryStateDropperReceiver,
           detectCycles);
     }
