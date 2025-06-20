@@ -170,8 +170,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   /**
-   * Returns the time when the remote file contents expire. If the contents never expire, including
-   * when they're not remote, returns null.
+   * Returns the time when the remote file contents may expire. If the contents never expire,
+   * including when they're not remote, returns null.
    *
    * <p>The expiration time does not factor into equality, as it can be mutated by {@link
    * #setExpirationTime}.
@@ -186,13 +186,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    * nothing.
    */
   public void setExpirationTime(Instant newExpirationTime) {}
-
-  /**
-   * Returns whether the file contents are available (either locally, or remotely and not expired).
-   */
-  public final boolean isAlive(Instant now) {
-    return getExpirationTime() == null || getExpirationTime().isAfter(now);
-  }
 
   /**
    * Provides a best-effort determination whether the file was changed since the digest was
@@ -761,7 +754,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     public void setContentsProxy(FileContentsProxy proxy) {
       this.proxy = proxy;
     }
-
 
     @Override
     public boolean equals(Object o) {

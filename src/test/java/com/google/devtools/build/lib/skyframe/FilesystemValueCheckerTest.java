@@ -116,7 +116,9 @@ import org.mockito.ArgumentCaptor;
 @RunWith(TestParameterInjector.class)
 public final class FilesystemValueCheckerTest {
   private static final OutputChecker CHECK_TTL =
-      (file, metadata) -> metadata.isAlive(Instant.now());
+      (file, metadata) ->
+          metadata.getExpirationTime() == null
+              || metadata.getExpirationTime().isAfter(Instant.now());
   private static final int FSVC_THREADS_FOR_TEST = 200;
   private static final ActionLookupKey ACTION_LOOKUP_KEY =
       new ActionLookupKey() {
