@@ -998,19 +998,6 @@ java_library(
 )
 
 java_library(
-    name = "statically_linked_marker_provider",
-    srcs = ["StaticallyLinkedMarkerProvider.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/docgen/annot",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/net/starlark/java/annot",
-        "//src/main/java/net/starlark/java/eval",
-    ],
-)
-
-java_library(
     name = "symlink_entry",
     srcs = ["SymlinkEntry.java"],
     deps = [
