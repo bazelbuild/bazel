@@ -100,7 +100,6 @@ def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_config
         baseline_coverage_files = cc_helper.generate_baseline_coverage_files(
             ctx = ctx,
             compilation_outputs = cc_compilation_outputs,
-            feature_configuration = feature_configuration,
             cc_toolchain = cc_toolchain,
         ),
     )

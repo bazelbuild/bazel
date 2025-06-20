@@ -1144,11 +1144,15 @@ def _check_cpp_modules(ctx, feature_configuration):
     ):
         fail("to use C++ modules, the feature cpp_modules must be enabled")
 
-def _generate_baseline_coverage_files(ctx, feature_configuration, cc_toolchain, compilation_outputs):
+def _map_each_gcno_file(gcno_file, *, baseline_coverage_dir):
+    back_to_execroot = (baseline_coverage_dir.path.count("/") + 1) * "../"
+    return back_to_execroot + gcno_file.path
+
+def _generate_baseline_coverage_files(ctx, cc_toolchain, compilation_outputs):
     if not ctx.coverage_instrumented():
         return []
     gcov = _tool_path(cc_toolchain, "gcov")
-    if not _gcov:
+    if not gcov:
         return []
 
     gcno_files = compilation_outputs.pic_gcno_files()
@@ -1158,29 +1162,48 @@ def _generate_baseline_coverage_files(ctx, feature_configuration, cc_toolchain, 
         # TODO(#5716): Add support for baseline coverage with LLVM-based coverage.
         return []
 
-    baseline_coverage_file = ctx.actions.declare_file(ctx.label.name + "_baseline_coverage.dat")
+    # gcov can only emit output files into the current working directory and their names are either very long (with -p)
+    # or computed as MD5 hashes (with -x). We thus have to use a directory output as well as run_shell to change the
+    # working directory.
+    baseline_coverage_dir = ctx.actions.declare_directory(ctx.label.name + "_baseline_coverage")
 
     args = ctx.actions.args()
+    args.add_all([baseline_coverage_dir], expand_directories = False)
+    args.add(gcov)
     args.add("-i")  # JSON format
     args.add("-b")  # branch coverage (supported as of GCC 8)
-    args.add("-p")  # preserve paths to avoid collisions on basenames
-    args.add_all(gcno_files)
+    args.add("-x")  # prevent collisions if source files share the same basename
+    args.add_all(
+        gcno_files,
+        map_each = lambda gcno_file: _map_each_gcno_file(gcno_file, baseline_coverage_dir = baseline_coverage_dir),
+        allow_closure = True,
+    )
 
-    ctx.actions.run(
+    ctx.actions.run_shell(
         inputs = depset(
             direct = gcno_files,
             transitive = [cc_toolchain.all_files],
         ),
-        outputs = [baseline_coverage_file],
-        executable = gcov,
-        use_default_shell_env = True,
+        outputs = [baseline_coverage_dir],
+        command = """
+set -eu
+
+cd "$1"
+"${@:2}" 2> error.log || (
+    exit_code=$?
+    cat error.log >&2
+    exit $exit_code
+)
+rm error.log
+""",
         arguments = [args],
+        use_default_shell_env = True,
         toolchain = cc_helper.CPP_TOOLCHAIN_TYPE,
-        progress_message = "Generating baseline coverage for {}".format(ctx.label),
-        mnemonic = "CcBaselineCoverage",
+        progress_message = "Generating baseline coverage for %{label}",
+        mnemonic = "CppBaselineCoverage",
     )
 
-    return [baseline_coverage_file]
+    return [baseline_coverage_dir]
 
 cc_helper = struct(
     CPP_TOOLCHAIN_TYPE = _CPP_TOOLCHAIN_TYPE,

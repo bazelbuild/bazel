@@ -265,7 +265,6 @@ def _cc_library_impl(ctx):
         baseline_coverage_files = cc_helper.generate_baseline_coverage_files(
             ctx = ctx,
             compilation_outputs = compilation_outputs,
-            feature_configuration = feature_configuration,
             cc_toolchain = cc_toolchain,
         ),
     )
