@@ -21,7 +21,6 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -44,7 +43,6 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.SymbolGenerator.Symbol;
 
 /** Structure of CcLinkingContext. */
 public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
@@ -56,34 +54,21 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   public static final class LinkOptions {
     private final ImmutableList<String> linkOptions;
 
-    // This needs to be here to satisfy two constraints:
-    // 1. We cannot use reference equality so that when this object is serialized and then
-    // de-serialized, equality still works
-    // 2. Link options created from different configured targets but with the same contents must
-    // not be equal. If they were, the following error case would happen: if A depends on B1 and C1
-    // B1 depends on B2, C1 depends on C2 and B2 and C2 both have "-l<something>" in their linkopts,
-    // the nested set containing the linkopts would remove one of them, thereby moving
-    // "-l<something>" before the object files of C2 on the linker command line, thus making the
-    // symbols in them invisible from C2.
-    private final Object symbolForEquality;
-
-    private LinkOptions(ImmutableList<String> linkOptions, Object symbolForEquality) {
+    private LinkOptions(ImmutableList<String> linkOptions) {
       this.linkOptions = Preconditions.checkNotNull(linkOptions);
-      this.symbolForEquality = Preconditions.checkNotNull(symbolForEquality);
     }
 
     public ImmutableList<String> get() {
       return linkOptions;
     }
 
-    public static LinkOptions of(ImmutableList<String> linkOptions, Symbol<?> symbol) {
-      return new LinkOptions(linkOptions, symbol);
+    public static LinkOptions of(ImmutableList<String> linkOptions) {
+      return new LinkOptions(linkOptions);
     }
 
     @Override
     public int hashCode() {
-      // Symbol is sufficient for equality check.
-      return symbolForEquality.hashCode();
+      return linkOptions.hashCode();
     }
 
     @Override
@@ -94,21 +79,12 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       if (!(obj instanceof LinkOptions that)) {
         return false;
       }
-      if (!this.symbolForEquality.equals(that.symbolForEquality)) {
-        return false;
-      }
-      if (this.linkOptions.equals(that.linkOptions)) {
-        return true;
-      }
-      BugReport.sendBugReport(
-          new IllegalStateException(
-              "Unexpected inequality with equal symbols: " + this + ", " + that));
-      return false;
+      return this.linkOptions.equals(that.linkOptions);
     }
 
     @Override
     public String toString() {
-      return '[' + Joiner.on(",").join(linkOptions) + "] (owner: " + symbolForEquality;
+      return '[' + Joiner.on(",").join(linkOptions) + "]";
     }
   }
 
