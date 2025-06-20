@@ -72,7 +72,6 @@ class LcovParser {
       while ((line = bufferedReader.readLine()) != null) {
         parseLine(line, allSourceFiles);
       }
-      bufferedReader.close();
     }
     return allSourceFiles;
   }
