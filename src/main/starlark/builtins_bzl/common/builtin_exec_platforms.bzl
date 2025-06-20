@@ -397,9 +397,6 @@ bazel_fragments["JavaOptions"] = fragment(
         "//command_line_option:experimental_limit_android_lint_to_android_constrained_java",
         "//command_line_option:experimental_run_android_lint_on_java_rules",
     ],
-    inputs = [
-        "//command_line_option:host_jvmopt",
-    ],
     outputs = [
         "//command_line_option:jvmopt",
         "//command_line_option:javacopt",
