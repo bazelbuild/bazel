@@ -422,7 +422,8 @@ public final class CompletionFunction<
       try (var ignored =
           GoogleAutoProfilerUtils.profiledAndLogged(
               "Informing important output handler of top-level outputs for " + label,
-              ProfilerTask.INFO)) {
+              ProfilerTask.INFO,
+              ImportantOutputHandler.LOG_THRESHOLD)) {
         lostOutputs =
             importantOutputHandler.processOutputsAndGetLostArtifacts(
                 key.topLevelArtifactContext().expandFilesets()

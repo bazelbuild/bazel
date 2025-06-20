@@ -22,12 +22,19 @@ import com.google.devtools.build.lib.skyframe.rewinding.LostInputOwners;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
 /** Context to be informed of top-level outputs and their runfiles. */
 public interface ImportantOutputHandler extends ActionContext {
+
+  /**
+   * A threshold to pass to {@link com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils}
+   * for profiling {@link ImportantOutputHandler} operations.
+   */
+  Duration LOG_THRESHOLD = Duration.ofMillis(100);
 
   /**
    * Informs this handler that top-level outputs have been built.

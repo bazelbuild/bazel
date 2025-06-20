@@ -107,7 +107,7 @@ public final class FlagSetFunction implements SkyFunction {
     EnforcementPolicy enforcementPolicy = sclContent.getEnforcementPolicy();
 
     ImmutableMap<String, ProjectValue.BuildableUnit> configs = sclContent.getBuildableUnits();
-    if (configs == null) {
+    if (configs == null || configs.isEmpty()) {
       // This project file doesn't define configs, so it must not be used for canonical configs.
       return ImmutableSet.of();
     }
