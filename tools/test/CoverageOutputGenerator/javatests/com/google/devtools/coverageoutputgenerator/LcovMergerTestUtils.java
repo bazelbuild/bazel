@@ -54,6 +54,7 @@ public final class LcovMergerTestUtils {
   static List<Path> generateLcovFiles(
       String srcPrefix, int numLcovFiles, int numSrcFiles, int numLinesPerSrcFile, Path coverageDir)
       throws IOException {
+    Files.createDirectories(coverageDir);
     Path lcovFile = Files.createFile(Paths.get(coverageDir.toString(), "coverage0.dat"));
     List<Path> lcovFiles = new ArrayList<>();
     Files.write(lcovFile, generateLcovContents(srcPrefix, numSrcFiles, numLinesPerSrcFile));

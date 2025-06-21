@@ -25,7 +25,6 @@ import static java.lang.Math.max;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import java.io.BufferedReader;
@@ -37,6 +36,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -45,6 +45,10 @@ import java.util.stream.Stream;
 /** Command line utility to convert raw coverage files to lcov (text) format. */
 public class Main {
   private static final Logger logger = Logger.getLogger(Main.class.getName());
+
+  private static final LongAdder numTracefiles = new LongAdder();
+  private static final LongAdder numGcovFiles = new LongAdder();
+  private static final LongAdder numGcovJsonFiles = new LongAdder();
 
   public static void main(String... args) {
     try {
@@ -67,28 +71,41 @@ public class Main {
 
     Path outputFile = Paths.get(flags.outputFile());
 
-    List<Path> filesInCoverageDir =
-        flags.coverageDir() != null
-            ? getCoverageFilesInDir(Paths.get(flags.coverageDir()))
-            : ImmutableList.of();
-    Coverage coverage =
-        Coverage.merge(
-            parseFiles(
-                getTracefiles(flags, filesInCoverageDir),
-                LcovParser::parse,
-                flags.parseParallelism()),
-            parseFiles(
-                getGcovInfoFiles(filesInCoverageDir), GcovParser::parse, flags.parseParallelism()),
-            parseFiles(
-                getGcovJsonInfoFiles(filesInCoverageDir),
-                GcovJsonParser::parse,
-                flags.parseParallelism()));
+    List<Path> files;
+    if ((flags.coverageDir() != null) == (flags.reportsFile() != null)) {
+      logger.log(
+          Level.SEVERE, "Exactly one of --coverage_dir or --reports_file must be specified.");
+      return 1;
+    }
+    if (flags.coverageDir() != null) {
+      files = getCoverageFilesInDir(Paths.get(flags.coverageDir()));
+    } else {
+      files = getPathsFromFile(Paths.get(flags.reportsFile()));
+    }
+
+    Coverage coverage = parseFiles(files, flags.parseParallelism());
+    if (numTracefiles.sum() == 0) {
+      logger.log(Level.FINE, "No lcov tracefile found.");
+    } else {
+      logger.log(Level.FINE, "Found " + numTracefiles + " lcov tracefiles.");
+    }
+    if (numGcovFiles.sum() == 0) {
+      logger.log(Level.FINE, "No gcov file found.");
+    } else {
+      logger.log(Level.FINE, "Found " + numGcovFiles + " gcov files.");
+    }
+    if (numGcovJsonFiles.sum() == 0) {
+      logger.log(Level.FINE, "No gcov json file found.");
+    } else {
+      logger.log(Level.FINE, "Found " + numGcovJsonFiles + " gcov json files.");
+    }
 
     if (flags.sourcesToReplaceFile() != null) {
       coverage.maybeReplaceSourceFileNames(getMapFromFile(flags.sourcesToReplaceFile()));
     }
 
-    Path profdataFile = getProfdataFileOrNull(filesInCoverageDir);
+    // TODO: Consider removing this now that Bazel can convert profdata to lcov.
+    Path profdataFile = getProfdataFileOrNull(files);
     if (coverage.isEmpty()) {
       if (profdataFile == null) {
         try {
@@ -103,11 +120,6 @@ public class Main {
           return 1;
         }
       } else {
-        // Bazel doesn't support yet converting profdata files to lcov. We still want to output a
-        // coverage report so we copy the content of the profdata file to the output file. This is
-        // not ideal but it unblocks some Bazel C++
-        // coverage users.
-        // TODO(#5881): Add support for profdata files.
         try {
           Files.copy(profdataFile, outputFile, REPLACE_EXISTING);
         } catch (IOException e) {
@@ -124,11 +136,9 @@ public class Main {
       }
       return 0;
     }
-
     if (!coverage.isEmpty() && profdataFile != null) {
       // If there is one profdata file then there can't be other types of reports because there is
       // no way to merge them.
-      // TODO(#5881): Add support for profdata files.
       logger.log(
           Level.WARNING,
           "Bazel doesn't support LLVM profdata coverage amongst other coverage formats.");
@@ -197,32 +207,15 @@ public class Main {
     return filename.endsWith(".gcno") || filename.endsWith(".em");
   }
 
-  private static List<Path> getGcovInfoFiles(List<Path> filesInCoverageDir) {
-    List<Path> gcovFiles = getFilesWithExtension(filesInCoverageDir, GCOV_EXTENSION);
-    if (gcovFiles.isEmpty()) {
-      logger.log(Level.FINE, "No gcov info file found.");
-    } else {
-      logger.log(Level.FINE, "Found " + gcovFiles.size() + " gcov info files.");
-    }
-    return gcovFiles;
-  }
-
-  private static List<Path> getGcovJsonInfoFiles(List<Path> filesInCoverageDir) {
-    List<Path> gcovJsonFiles = getFilesWithExtension(filesInCoverageDir, GCOV_JSON_EXTENSION);
-    if (gcovJsonFiles.isEmpty()) {
-      logger.log(Level.FINE, "No gcov json file found.");
-    } else {
-      logger.log(Level.FINE, "Found " + gcovJsonFiles.size() + " gcov json files.");
-    }
-    return gcovJsonFiles;
-  }
-
   /**
    * Returns a .profdata file from the given files or null if none or more profdata files were
    * found.
    */
   private static Path getProfdataFileOrNull(List<Path> files) {
-    List<Path> profdataFiles = getFilesWithExtension(files, PROFDATA_EXTENSION);
+    List<Path> profdataFiles =
+        files.stream()
+            .filter(file -> file.toString().endsWith(PROFDATA_EXTENSION))
+            .collect(toImmutableList());
     if (profdataFiles.isEmpty()) {
       logger.log(Level.FINE, "No .profdata file found.");
       return null;
@@ -237,23 +230,6 @@ public class Main {
     }
     logger.log(Level.FINE, "Found one .profdata file.");
     return profdataFiles.get(0);
-  }
-
-  private static List<Path> getTracefiles(LcovMergerFlags flags, List<Path> filesInCoverageDir) {
-    List<Path> lcovTracefiles;
-    if (flags.reportsFile() != null) {
-      lcovTracefiles = getTracefilesFromFile(Paths.get(flags.reportsFile()));
-    } else if (flags.coverageDir() != null) {
-      lcovTracefiles = getFilesWithExtension(filesInCoverageDir, TRACEFILE_EXTENSION);
-    } else {
-      lcovTracefiles = ImmutableList.of();
-    }
-    if (lcovTracefiles.isEmpty()) {
-      logger.log(Level.FINE, "No lcov file found.");
-    } else {
-      logger.log(Level.FINE, "Found " + lcovTracefiles.size() + " tracefiles.");
-    }
-    return lcovTracefiles;
   }
 
   /**
@@ -276,48 +252,77 @@ public class Main {
     }
   }
 
-  static Coverage parseFiles(List<Path> files, Parser parser, int parallelism)
-      throws ExecutionException, InterruptedException {
-    if (parallelism == 1) {
-      return parseFilesSequentially(files, parser);
+  static void parseAndAddFile(Path file, Coverage coverage) {
+    String name = file.toString();
+    Parser parser;
+    if (name.endsWith(TRACEFILE_EXTENSION)) {
+      numTracefiles.increment();
+      parser = LcovParser::parse;
+    } else if (name.endsWith(GCOV_EXTENSION)) {
+      numGcovFiles.increment();
+      parser = GcovParser::parse;
+    } else if (name.endsWith(GCOV_JSON_EXTENSION)) {
+      numGcovJsonFiles.increment();
+      parser = GcovJsonParser::parse;
+    } else if (name.endsWith(PROFDATA_EXTENSION)) {
+      // Can't merge profdata, which will be handled specially by logic in main.
+      return;
+    } else if (Files.isDirectory(file)) {
+      for (Path nestedFile : getCoverageFilesInDir(file)) {
+        parseAndAddFile(nestedFile, coverage);
+      }
+      return;
     } else {
-      return parseFilesInParallel(files, parser, parallelism);
+      logger.log(
+          Level.SEVERE,
+          "File %s does not have a supported format (supported extensions: %s, %s, %s)"
+              .formatted(file, TRACEFILE_EXTENSION, GCOV_EXTENSION, GCOV_JSON_EXTENSION));
+      System.exit(1);
+      return;
+    }
+    logger.log(Level.FINE, "Parsing file " + file);
+    try {
+      for (SourceFileCoverage input : parser.parse(Files.newInputStream(file))) {
+        coverage.add(input);
+      }
+    } catch (IOException e) {
+      logger.log(
+          Level.SEVERE,
+          "File " + file.toAbsolutePath() + " could not be parsed due to: " + e.getMessage(),
+          e);
+      System.exit(1);
     }
   }
 
-  static Coverage parseFilesSequentially(List<Path> files, Parser parser) {
+  static Coverage parseFiles(List<Path> files, int parallelism)
+      throws ExecutionException, InterruptedException {
+    if (parallelism == 1) {
+      return parseFilesSequentially(files);
+    } else {
+      return parseFilesInParallel(files, parallelism);
+    }
+  }
+
+  static Coverage parseFilesSequentially(List<Path> files) {
     Coverage coverage = new Coverage();
     for (Path file : files) {
-      try {
-        logger.log(Level.FINE, "Parsing file " + file);
-        List<SourceFileCoverage> sourceFilesCoverage = parser.parse(Files.newInputStream(file));
-        for (SourceFileCoverage sourceFileCoverage : sourceFilesCoverage) {
-          coverage.add(sourceFileCoverage);
-        }
-      } catch (IOException e) {
-        logger.log(
-            Level.SEVERE,
-            "File " + file.toAbsolutePath() + " could not be parsed due to: " + e.getMessage(),
-            e);
-        System.exit(1);
-      }
+      parseAndAddFile(file, coverage);
     }
     return coverage;
   }
 
-  static Coverage parseFilesInParallel(List<Path> files, Parser parser, int parallelism)
+  static Coverage parseFilesInParallel(List<Path> files, int parallelism)
       throws ExecutionException, InterruptedException {
-    try (ForkJoinPool pool = new ForkJoinPool(parallelism)) {
-      int partitionSize = max(1, files.size() / parallelism);
-      List<List<Path>> partitions = Lists.partition(files, partitionSize);
-      return pool.submit(
-              () ->
-                  partitions.parallelStream()
-                      .map((p) -> parseFilesSequentially(p, parser))
-                      .reduce(Coverage::merge)
-                      .orElse(Coverage.create()))
-          .get();
-    }
+    ForkJoinPool pool = new ForkJoinPool(parallelism);
+    int partitionSize = max(1, files.size() / parallelism);
+    List<List<Path>> partitions = Lists.partition(files, partitionSize);
+    return pool.submit(
+            () ->
+                partitions.parallelStream()
+                    .map(Main::parseFilesSequentially)
+                    .reduce(Coverage::merge)
+                    .orElse(Coverage.create()))
+        .get();
   }
 
   /**
@@ -341,13 +346,7 @@ public class Main {
     }
   }
 
-  static List<Path> getFilesWithExtension(List<Path> files, String extension) {
-    return files.stream()
-        .filter(file -> file.toString().endsWith(extension))
-        .collect(toImmutableList());
-  }
-
-  static List<Path> getTracefilesFromFile(Path reportsFile) {
+  static List<Path> getPathsFromFile(Path reportsFile) {
     try (BufferedReader reader = Files.newBufferedReader(reportsFile)) {
       return reader.lines().map(Paths::get).collect(toImmutableList());
     } catch (IOException e) {
