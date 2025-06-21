@@ -23,6 +23,7 @@ import com.google.common.collect.Range;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
@@ -52,9 +53,11 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.Any;
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -97,6 +100,14 @@ public final class BlazeWorkspace {
    * garbage collection idle task.
    */
   @Nullable private ActionCache actionCache;
+
+  /**
+   * We unconditionally clear server-lifetime entries from the action cache when we first load the
+   * action cache. We do not know whether the previous instance of the server might have written
+   * such entries, and if it did, we want to be sure to prune them from the action cache even if the
+   * current server will not write any such entries.
+   */
+  private boolean clearActionCacheServerLifetimeEntries = true;
 
   /** The execution time range of the previous build command in this server, if any. */
   @Nullable private Range<Long> lastExecutionRange = null;
@@ -394,6 +405,23 @@ public final class BlazeWorkspace {
                 getActionCacheTmpDirectory(),
                 runtime.getClock(),
                 reporter);
+      }
+
+      // Here we clear any server-lifetime entries in the action cache that a previous instance of
+      // the server might have created.
+      if (clearActionCacheServerLifetimeEntries) {
+        // We only exercise this code at most once during the lifetime of the server.
+        clearActionCacheServerLifetimeEntries = false;
+        try (AutoProfiler p = profiledAndLogged("pruning server-lifetime entries from action cache", ProfilerTask.INFO)
+) {
+          actionCache.removeIf(
+            entry ->
+              Stream.concat(
+                entry.getOutputFiles().values().stream(),
+                entry.getOutputTrees().values().stream().flatMap(tv -> tv.childValues().values().stream())
+              ).anyMatch(e ->
+                e.getExpirationTime().equals(Instant.ofEpochMilli(FileArtifactValue.SERVER_EXPIRATION_SENTINEL))));
+        }
       }
     }
     return actionCache;

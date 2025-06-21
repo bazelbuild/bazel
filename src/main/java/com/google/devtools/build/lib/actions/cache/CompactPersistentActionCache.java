@@ -74,7 +74,7 @@ public class CompactPersistentActionCache implements ActionCache {
   // cache records.
   private static final int VALIDATION_KEY = -10;
 
-  private static final int VERSION = 21;
+  private static final int VERSION = 22;
 
   /**
    * A timestamp, represented as the number of minutes since the Unix epoch.
@@ -797,7 +797,7 @@ public class CompactPersistentActionCache implements ActionCache {
     }
 
     FileArtifactValue metadata;
-    if (expirationTimeEpochMilli < 0) {
+    if (expirationTimeEpochMilli < 0 && expirationTimeEpochMilli != FileArtifactValue.SERVER_EXPIRATION_SENTINEL) {
       metadata = FileArtifactValue.createForRemoteFile(digest, size, locationIndex);
     } else {
       metadata =
