@@ -878,10 +878,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     // assert
     assertThat(symlinkActionFs.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(symlinkActionFs.readSymbolicLink()).isEqualTo(targetPath);
-    assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
-        .isEqualTo(targetPath);
-    assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
-        .isEqualTo(targetPath);
+    assertThat(getLocalFileSystem(actionFs).getPath(linkPath).exists(Symlinks.NOFOLLOW)).isFalse();
   }
 
   @Test
@@ -901,11 +898,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     // assert
     assertThat(symlinkActionFs.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(symlinkActionFs.readSymbolicLink()).isEqualTo(targetPath);
-    assertThat(outputArtifact.getPath().readSymbolicLink()).isEqualTo(targetPath);
-    assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
-        .isEqualTo(targetPath);
-    assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
-        .isEqualTo(targetPath);
+    assertThat(outputArtifact.getPath().exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(getLocalFileSystem(actionFs).getPath(linkPath).exists(Symlinks.NOFOLLOW)).isFalse();
   }
 
   @Test
@@ -928,10 +922,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     // assert
     assertThat(symlinkActionFs.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(symlinkActionFs.readSymbolicLink()).isEqualTo(targetPath);
-    assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
-        .isEqualTo(targetPath);
-    assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
-        .isEqualTo(targetPath);
+    assertThat(getLocalFileSystem(actionFs).getPath(linkPath).exists(Symlinks.NOFOLLOW)).isFalse();
   }
 
   @Test
@@ -954,10 +945,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     // assert
     assertThat(symlinkActionFs.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(symlinkActionFs.readSymbolicLink()).isEqualTo(targetPath);
-    assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
-        .isEqualTo(targetPath);
-    assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
-        .isEqualTo(targetPath);
+    assertThat(getLocalFileSystem(actionFs).getPath(linkPath).exists(Symlinks.NOFOLLOW)).isFalse();
   }
 
   @Test
@@ -977,10 +965,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     // assert
     assertThat(symlinkActionFs.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(symlinkActionFs.readSymbolicLink()).isEqualTo(targetPath);
-    assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
-        .isEqualTo(targetPath);
-    assertThat(getLocalFileSystem(actionFs).getPath(linkPath).readSymbolicLink())
-        .isEqualTo(targetPath);
+    assertThat(getLocalFileSystem(actionFs).getPath(linkPath).exists(Symlinks.NOFOLLOW)).isFalse();
   }
 
   @Test

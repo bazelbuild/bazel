@@ -1005,26 +1005,36 @@ public class RemoteExecutionService {
     }
   }
 
-  private void createSymlinks(Iterable<SymlinkMetadata> symlinks) throws IOException {
+  private void createSymlinks(
+      RemoteActionResult result,
+      @Nullable RemoteActionFileSystem remoteActionFileSystem,
+      Iterable<SymlinkMetadata> symlinks,
+      @Nullable PathFragment treeRootExecPath)
+      throws IOException {
     for (SymlinkMetadata symlink : symlinks) {
-      Preconditions.checkNotNull(
-              symlink.path().getParentDirectory(),
-              "Failed creating directory and parents for %s",
-              symlink.path())
-          .createDirectoryAndParents();
-      // If a directory output is being materialized as a symlink, creating the symlink fails as we
-      // must first delete the preexisting empty directory. Since this is rare (and in the future
-      // BwoB may no longer eagerly create these directories), we don't delete the directory
-      // beforehand.
-      try {
-        symlink.path().createSymbolicLink(symlink.target());
-      } catch (IOException e) {
-        if (!symlink.path().isDirectory(Symlinks.NOFOLLOW)) {
-          throw e;
+      if (shouldDownload(result, symlink.path().relativeTo(execRoot), treeRootExecPath)) {
+        Preconditions.checkNotNull(
+                symlink.path().getParentDirectory(),
+                "Failed creating directory and parents for %s",
+                symlink.path())
+            .createDirectoryAndParents();
+        // If a directory output is being materialized as a symlink, creating the symlink fails as
+        // we must first delete the preexisting empty directory. Since this is rare (and in the
+        // future BwoB may no longer eagerly create these directories), we don't delete the
+        // directory beforehand.
+        try {
+          symlink.path().createSymbolicLink(symlink.target());
+        } catch (IOException e) {
+          if (!symlink.path().isDirectory(Symlinks.NOFOLLOW)) {
+            throw e;
+          }
+          // Retry after deleting the directory.
+          symlink.path().delete();
+          symlink.path().createSymbolicLink(symlink.target());
         }
-        // Retry after deleting the directory.
-        symlink.path().delete();
-        symlink.path().createSymbolicLink(symlink.target());
+      } else if (!(outputService instanceof BazelOutputService)) {
+        checkNotNull(remoteActionFileSystem)
+            .createSymbolicLink(symlink.path().asFragment(), symlink.target());
       }
     }
   }
@@ -1461,19 +1471,19 @@ public class RemoteExecutionService {
           Iterables.transform(finishedDownloads, FileMetadata::path), realToTmpPath);
     }
 
-    List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
-    for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-      for (SymlinkMetadata symlink : entry.getValue().symlinks()) {
-        symlinksInDirectories.add(symlink);
-      }
-    }
-
-    Iterable<SymlinkMetadata> symlinks =
-        Iterables.concat(metadata.symlinks(), symlinksInDirectories);
-
     // Create the symbolic links after all downloads are finished, because dangling symlinks
     // might not be supported on all platforms.
-    createSymlinks(symlinks);
+    for (var symlink : metadata.symlinks()) {
+      createSymlinks(
+          result, remoteActionFileSystem, ImmutableList.of(symlink), /* treeRootExecPath= */ null);
+    }
+    for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+      createSymlinks(
+          result,
+          remoteActionFileSystem,
+          entry.getValue().symlinks(),
+          entry.getKey().relativeTo(execRoot));
+    }
 
     if (result.success()) {
       // Check that all mandatory outputs are created.
