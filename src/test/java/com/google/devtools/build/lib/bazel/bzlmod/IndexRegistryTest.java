@@ -244,13 +244,12 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setIntegrity("sha256-blah")
                 .setStripPrefix("pref")
                 .setRemotePatches(ImmutableMap.of())
-                .setOverlay(
-                    ImmutableMap.of(
-                        "MODULE.bazel",
-                        new ArchiveRepoSpecBuilder.RemoteFile(
-                            sha256("module(name = \"foo\", version = \"1.0\")")
-                                .toSubresourceIntegrity(),
-                            ImmutableList.of(server.getUrl() + "/modules/foo/1.0/MODULE.bazel"))))
+                .setOverlay(ImmutableMap.of())
+                .setRemoteModuleFile(
+                    new ArchiveRepoSpecBuilder.RemoteFile(
+                        sha256("module(name = \"foo\", version = \"1.0\")")
+                            .toSubresourceIntegrity(),
+                        ImmutableList.of(server.getUrl() + "/modules/foo/1.0/MODULE.bazel")))
                 .setRemotePatchStrip(0)
                 .build());
     assertThat(
@@ -271,13 +270,12 @@ public class IndexRegistryTest extends FoundationTestCase {
                         server.getUrl() + "/modules/bar/2.0/patches/2.fix-that.patch",
                             "sha256-kek"))
                 .setRemotePatchStrip(3)
-                .setOverlay(
-                    ImmutableMap.of(
-                        "MODULE.bazel",
-                        new ArchiveRepoSpecBuilder.RemoteFile(
-                            sha256("module(name = \"bar\", version = \"2.0\")")
-                                .toSubresourceIntegrity(),
-                            ImmutableList.of(server.getUrl() + "/modules/bar/2.0/MODULE.bazel"))))
+                .setOverlay(ImmutableMap.of())
+                .setRemoteModuleFile(
+                    new ArchiveRepoSpecBuilder.RemoteFile(
+                        sha256("module(name = \"bar\", version = \"2.0\")")
+                            .toSubresourceIntegrity(),
+                        ImmutableList.of(server.getUrl() + "/modules/bar/2.0/MODULE.bazel")))
                 .build());
     assertThat(
             registry.getRepoSpec(
@@ -298,12 +296,12 @@ public class IndexRegistryTest extends FoundationTestCase {
                             "sha256-bleh-overlay",
                             // URLs in the registry itself are not mirrored.
                             ImmutableList.of(
-                                server.getUrl() + "/modules/baz/3.0/overlay/BUILD.bazel")),
-                        "MODULE.bazel",
-                        new ArchiveRepoSpecBuilder.RemoteFile(
-                            sha256("module(name = \"baz\", version = \"3.0\")")
-                                .toSubresourceIntegrity(),
-                            ImmutableList.of(server.getUrl() + "/modules/baz/3.0/MODULE.bazel"))))
+                                server.getUrl() + "/modules/baz/3.0/overlay/BUILD.bazel"))))
+                .setRemoteModuleFile(
+                    new ArchiveRepoSpecBuilder.RemoteFile(
+                        sha256("module(name = \"baz\", version = \"3.0\")")
+                            .toSubresourceIntegrity(),
+                        ImmutableList.of(server.getUrl() + "/modules/baz/3.0/MODULE.bazel")))
                 .setRemotePatches(ImmutableMap.of())
                 .setRemotePatchStrip(0)
                 .build());
@@ -367,13 +365,12 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setIntegrity("sha256-blah")
                 .setStripPrefix("pref")
                 .setRemotePatches(ImmutableMap.of())
-                .setOverlay(
-                    ImmutableMap.of(
-                        "MODULE.bazel",
-                        new ArchiveRepoSpecBuilder.RemoteFile(
-                            sha256("module(name = \"foo\", version = \"1.0\")")
-                                .toSubresourceIntegrity(),
-                            ImmutableList.of(server.getUrl() + "/modules/foo/1.0/MODULE.bazel"))))
+                .setOverlay(ImmutableMap.of())
+                .setRemoteModuleFile(
+                    new ArchiveRepoSpecBuilder.RemoteFile(
+                        sha256("module(name = \"foo\", version = \"1.0\")")
+                            .toSubresourceIntegrity(),
+                        ImmutableList.of(server.getUrl() + "/modules/foo/1.0/MODULE.bazel")))
                 .setRemotePatchStrip(0)
                 .build());
   }
@@ -486,14 +483,13 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setArchiveType("zip")
                 .setRemotePatches(ImmutableMap.of())
                 .setRemotePatchStrip(0)
-                .setOverlay(
-                    ImmutableMap.of(
-                        "MODULE.bazel",
-                        new ArchiveRepoSpecBuilder.RemoteFile(
-                            sha256("module(name = \"archive_type\", version = \"1.0\")")
-                                .toSubresourceIntegrity(),
-                            ImmutableList.of(
-                                server.getUrl() + "/modules/archive_type/1.0/MODULE.bazel"))))
+                .setOverlay(ImmutableMap.of())
+                .setRemoteModuleFile(
+                    new ArchiveRepoSpecBuilder.RemoteFile(
+                        sha256("module(name = \"archive_type\", version = \"1.0\")")
+                            .toSubresourceIntegrity(),
+                        ImmutableList.of(
+                            server.getUrl() + "/modules/archive_type/1.0/MODULE.bazel")))
                 .build());
   }
 

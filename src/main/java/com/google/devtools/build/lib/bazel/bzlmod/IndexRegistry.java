@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
@@ -145,6 +146,9 @@ public class IndexRegistry implements Registry {
       maybeContent = Optional.of(doGrabFile(downloadManager, url, eventHandler, useChecksum));
       return maybeContent.get();
     } finally {
+      // We intentionally don't check knownFileHashesMode here: The checksums of module files are
+      // always needed for the remote_module_file_integrity attributes of the http_archive backing
+      // the module repo.
       if (useChecksum) {
         eventHandler.post(RegistryFileDownloadEvent.create(url, maybeContent));
       }
@@ -486,36 +490,35 @@ public class IndexRegistry implements Registry {
       }
     }
 
-    var overlay = ImmutableMap.<String, RemoteFile>builder();
-    if (sourceJson.overlay != null) {
-      for (var file : sourceJson.overlay.entrySet()) {
-        // URLs in the registry itself are not mirrored.
-        overlay.put(
-            file.getKey(),
-            new RemoteFile(
-                /* integrity= */ file.getValue(),
-                // URLs in the registry itself are not mirrored.
-                ImmutableList.of(
-                    constructUrl(
-                        getUrl(),
-                        "modules",
-                        key.name(),
-                        key.version().toString(),
-                        "overlay",
-                        file.getKey()))));
-      }
-    }
-    overlay.put(
-        "MODULE.bazel",
-        new RemoteFile(
-            moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)));
+    ImmutableMap<String, String> sourceJsonOverlay =
+        sourceJson.overlay != null ? ImmutableMap.copyOf(sourceJson.overlay) : ImmutableMap.of();
+    ImmutableMap<String, ArchiveRepoSpecBuilder.RemoteFile> overlay =
+        sourceJsonOverlay.entrySet().stream()
+            .collect(
+                toImmutableMap(
+                    Entry::getKey,
+                    entry ->
+                        new ArchiveRepoSpecBuilder.RemoteFile(
+                            entry.getValue(), // integrity
+                            // URLs in the registry itself are not mirrored.
+                            ImmutableList.of(
+                                constructUrl(
+                                    getUrl(),
+                                    "modules",
+                                    key.name(),
+                                    key.version().toString(),
+                                    "overlay",
+                                    entry.getKey())))));
 
     return new ArchiveRepoSpecBuilder()
         .setUrls(urls.build())
         .setIntegrity(sourceJson.integrity)
         .setStripPrefix(Strings.nullToEmpty(sourceJson.stripPrefix))
         .setRemotePatches(remotePatches.buildOrThrow())
-        .setOverlay(overlay.buildKeepingLast())
+        .setOverlay(overlay)
+        .setRemoteModuleFile(
+            new RemoteFile(
+                moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)))
         .setRemotePatchStrip(sourceJson.patchStrip)
         .setArchiveType(sourceJson.archiveType)
         .build();
