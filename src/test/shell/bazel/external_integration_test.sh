@@ -749,14 +749,6 @@ function test_new_remote_repo_with_build_file_content() {
   do_new_remote_repo_test "build_file_content"
 }
 
-function test_new_remote_repo_with_workspace_file() {
-  do_new_remote_repo_test "workspace_file"
-}
-
-function test_new_remote_repo_with_workspace_file_content() {
-  do_new_remote_repo_test "workspace_file_content"
-}
-
 function do_new_remote_repo_test() {
   # Create a zipped-up repository HTTP response.
   local repo2=$TEST_TMPDIR/repo2
@@ -791,16 +783,6 @@ filegroup(
     build_file_attr="build_file = '@//:fox.BUILD'"
   else
     build_file_attr="build_file_content=\"\"\"${build_file_content}\"\"\""
-  fi
-
-  if [ "$1" = "workspace_file" ]; then
-    touch BUILD
-    cat > fox.WORKSPACE <<EOF
-workspace(name="endangered-fox")
-EOF
-    workspace_file_attr="workspace_file = '@//:fox.WORKSPACE'"
-  elif [ "$1" = "workspace_file_content" ]; then
-    workspace_file_attr="workspace_file_content = 'workspace(name=\"endangered-fox\")'"
   fi
 
   cat > $(setup_module_dot_bazel) <<EOF

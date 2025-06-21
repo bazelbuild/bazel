@@ -165,16 +165,10 @@ _common_attrs = {
             "The content for the BUILD file for this repository. ",
     ),
     "workspace_file": attr.label(
-        doc =
-            "The file to use as the `WORKSPACE` file for this repository. " +
-            "Either `workspace_file` or `workspace_file_content` can be " +
-            "specified, or neither, but not both.",
+        doc = "No-op attribute; do not use.",
     ),
     "workspace_file_content": attr.string(
-        doc =
-            "The content for the WORKSPACE file for this repository. " +
-            "Either `workspace_file` or `workspace_file_content` can be " +
-            "specified, or neither, but not both.",
+        doc = "No-op attribute; do not use.",
     ),
     "sparse_checkout_patterns": attr.string_list(
         default = [],
