@@ -15,15 +15,15 @@
 package com.google.devtools.coverageoutputgenerator;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.coverageoutputgenerator.Constants.TRACEFILE_EXTENSION;
+import static java.util.stream.Collectors.joining;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -52,7 +52,7 @@ public class MainTest {
   }
 
   @Test
-  public void testMainGetLcovTracefiles() throws IOException {
+  public void testMainGetCoverageFilesInDir() throws IOException {
     Path ccCoverageDir = Files.createTempDirectory(coverageDir, "cc_coverage");
     Path javaCoverageDir = Files.createTempDirectory(coverageDir, "java_coverage");
 
@@ -60,8 +60,7 @@ public class MainTest {
     Files.createTempFile(javaCoverageDir, "tracefile2", ".dat");
 
     List<Path> coverageFiles = Main.getCoverageFilesInDir(coverageDir);
-    List<Path> tracefiles = Main.getFilesWithExtension(coverageFiles, TRACEFILE_EXTENSION);
-    assertThat(tracefiles).hasSize(2);
+    assertThat(coverageFiles).hasSize(2);
   }
 
   @Test
@@ -110,6 +109,39 @@ public class MainTest {
     assertThat(output.toFile().length()).isGreaterThan(0L);
   }
 
+  @Test
+  public void testNestedCoverageFiles() throws Exception {
+    var directFiles =
+        LcovMergerTestUtils.generateLcovFiles("test_data/direct", 2, 2, 8, coverageDir);
+    var nestedDir = coverageDir.resolve("nested");
+    LcovMergerTestUtils.generateLcovFiles("test_data/nested", 2, 2, 8, nestedDir);
+
+    Path reportsFile =
+        Paths.get(
+            temporaryFolder.getRoot().getAbsolutePath(), testName.getMethodName() + ".reports.txt");
+    Files.writeString(
+        reportsFile,
+        Stream.concat(directFiles.stream(), Stream.of(nestedDir))
+            .map(Path::toString)
+            .collect(joining("\n")));
+
+    Path output =
+        Paths.get(
+            temporaryFolder.getRoot().getAbsolutePath(),
+            testName.getMethodName() + ".coverage.dat");
+    int exitCode =
+        Main.runWithArgs(
+            "--reports_file", reportsFile.toString(),
+            "--output_file", output.toAbsolutePath().toString());
+    assertThat(exitCode).isEqualTo(0);
+    assertThat(output.toFile().exists()).isTrue();
+    var outputContent = Files.readString(output);
+    assertThat(outputContent).contains("SF:test_data/direct0");
+    assertThat(outputContent).contains("SF:test_data/direct1");
+    assertThat(outputContent).contains("SF:test_data/nested0");
+    assertThat(outputContent).contains("SF:test_data/nested1");
+  }
+
   private void assertParallelParse(int numLcovFiles, int numSourceFiles, int numLinesPerSourceFile)
       throws Exception {
 
@@ -121,11 +153,10 @@ public class MainTest {
 
     List<Path> coverageFiles = Main.getCoverageFilesInDir(coverageDir);
 
-    Coverage sequentialCoverage = Main.parseFilesSequentially(coverageFiles, LcovParser::parse);
+    Coverage sequentialCoverage = Main.parseFilesSequentially(coverageFiles);
     LcovPrinter.print(sequentialOutput, sequentialCoverage);
 
-    Coverage parallelCoverage =
-        Main.parseFilesInParallel(coverageFiles, LcovParser::parse, TEST_PARSE_PARALLELISM);
+    Coverage parallelCoverage = Main.parseFilesInParallel(coverageFiles, TEST_PARSE_PARALLELISM);
     LcovPrinter.print(parallelOutput, parallelCoverage);
 
     assertThat(parallelOutput.toString()).isEqualTo(sequentialOutput.toString());
