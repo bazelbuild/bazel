@@ -308,6 +308,56 @@ public class IndexRegistryTest extends FoundationTestCase {
   }
 
   @Test
+  public void testGetGitRepoSpec() throws Exception {
+    server.serve(
+        "/bazel_registry.json",
+        "{",
+        "  \"mirrors\": [",
+        "    \"https://mirror.bazel.build/\",",
+        "    \"file:///home/bazel/mymirror/\"",
+        "  ]",
+        "}");
+    server.serve(
+        "/modules/foo/1.0/source.json",
+        """
+        {
+            "type": "git_repository",
+            "remote": "https://github.com/raspberrypi/pico-sdk.git",
+            "commit": "4b6e647590213f253f2789ad9026df1d00f38c5d"
+        }
+        """);
+    server.serve("/modules/foo/1.0/MODULE.bazel", "module(name = \"foo\", version = \"1.0\")");
+    server.start();
+    var moduleFileRegistryHashes =
+        ImmutableMap.of(
+            server.getUrl() + "/modules/foo/1.0/MODULE.bazel",
+            Optional.of(sha256("module(name = \"foo\", version = \"1.0\")")));
+
+    Registry registry =
+        registryFactory.createRegistry(
+            server.getUrl(),
+            LockfileMode.UPDATE,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty());
+    assertThat(
+            registry.getRepoSpec(
+                createModuleKey("foo", "1.0"), moduleFileRegistryHashes, reporter, downloadManager))
+        .isEqualTo(
+            new GitRepoSpecBuilder()
+                .setRemote("https://github.com/raspberrypi/pico-sdk.git")
+                .setCommit("4b6e647590213f253f2789ad9026df1d00f38c5d")
+                .setInitSubmodules(false)
+                .setVerbose(false)
+                .setRemoteModuleFile(
+                    new ArchiveRepoSpecBuilder.RemoteFile(
+                        sha256("module(name = \"foo\", version = \"1.0\")")
+                            .toSubresourceIntegrity(),
+                        ImmutableList.of(server.getUrl() + "/modules/foo/1.0/MODULE.bazel")))
+                .build());
+  }
+
+  @Test
   public void testGetLocalPathRepoSpec() throws Exception {
     server.serve("/bazel_registry.json", "{", "  \"module_base_path\": \"/hello/foo\"", "}");
     server.serve(

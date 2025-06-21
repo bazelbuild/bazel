@@ -158,7 +158,6 @@ def _http_archive_impl(ctx):
         ctx.download(
             ctx.attr.remote_module_file_urls,
             "MODULE.bazel",
-            canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, ctx.attr.remote_module_file_urls),
             auth = get_auth(ctx, ctx.attr.remote_module_file_urls),
             integrity = ctx.attr.remote_module_file_integrity,
         )

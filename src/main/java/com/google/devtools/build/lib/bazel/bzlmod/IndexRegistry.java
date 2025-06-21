@@ -374,7 +374,9 @@ public class IndexRegistry implements Registry {
       case "git_repository" -> {
         GitRepoSourceJson typedSourceJson =
             parseJson(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
-        return createGitRepoSpec(typedSourceJson);
+        var moduleFileUrl = constructModuleFileUrl(key);
+        var moduleFileChecksum = moduleFileRegistryHashes.get(moduleFileUrl).get();
+        return createGitRepoSpec(typedSourceJson, moduleFileUrl, moduleFileChecksum);
       }
       default ->
           throw new IOException(
@@ -524,7 +526,8 @@ public class IndexRegistry implements Registry {
         .build();
   }
 
-  private RepoSpec createGitRepoSpec(GitRepoSourceJson sourceJson) {
+  private RepoSpec createGitRepoSpec(
+      GitRepoSourceJson sourceJson, String moduleFileUrl, Checksum moduleFileChecksum) {
     return new GitRepoSpecBuilder()
         .setRemote(sourceJson.remote)
         .setCommit(sourceJson.commit)
@@ -533,6 +536,9 @@ public class IndexRegistry implements Registry {
         .setInitSubmodules(sourceJson.initSubmodules)
         .setVerbose(sourceJson.verbose)
         .setStripPrefix(sourceJson.stripPrefix)
+        .setRemoteModuleFile(
+            new RemoteFile(
+                moduleFileChecksum.toSubresourceIntegrity(), ImmutableList.of(moduleFileUrl)))
         .build();
   }
 

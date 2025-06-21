@@ -23,6 +23,7 @@
 load(":git_worker.bzl", "git_repo")
 load(
     ":utils.bzl",
+    "get_auth",
     "patch",
     "update_attrs",
     "workspace_and_buildfile",
@@ -151,6 +152,14 @@ _common_attrs = {
               "applied. If this attribute is not set, patch_cmds will be executed on Windows, " +
               "which requires Bash binary to exist.",
     ),
+    "remote_module_file_urls": attr.string_list(
+        default = [],
+        doc = "For internal use only.",
+    ),
+    "remote_module_file_integrity": attr.string(
+        default = "",
+        doc = "For internal use only.",
+    ),
     "build_file": attr.label(
         allow_single_file = True,
         doc =
@@ -191,6 +200,18 @@ def _git_repository_implementation(ctx):
     update = _clone_or_update_repo(ctx)
     workspace_and_buildfile(ctx)
     patch(ctx)
+
+    # Download the module file after applying patches since modules may decide
+    # to patch their packaged module and the patch may not apply to the file
+    # checked in to the registry. This overrides the file if it exists.
+    if ctx.attr.remote_module_file_urls:
+        ctx.download(
+            ctx.attr.remote_module_file_urls,
+            "MODULE.bazel",
+            auth = get_auth(ctx, ctx.attr.remote_module_file_urls),
+            integrity = ctx.attr.remote_module_file_integrity,
+        )
+
     if ctx.attr.strip_prefix:
         ctx.delete(ctx.path(".tmp_git_root/.git"))
     else:

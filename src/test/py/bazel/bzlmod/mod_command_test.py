@@ -452,8 +452,11 @@ class ModCommandTest(test_base.TestBase):
         ],
         rstrip=True,
     )
+    print('\n'.join(stdout))
     self.assertRegex(stdout.pop(4), r'^  urls = \[".*"\],$')
     self.assertRegex(stdout.pop(4), r'^  integrity = ".*",$')
+    self.assertRegex(stdout.pop(7), r'^  remote_module_file_urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(7), r'^  remote_module_file_integrity = ".*",$')
     self.assertRegex(stdout.pop(19), r'^  path = ".*",$')
     # lines after '# Rule local_repository defined at (most recent call last):'
     stdout.pop(23)
