@@ -87,6 +87,7 @@ function test_cc_test_coverage_gcov() {
   setup_a_cc_lib_and_t_cc_test
   BEP=bep.txt
   bazel coverage  --test_output=all \
+     --combined_report=lcov \
      --build_event_text_file="${BEP}" //:t &>"$TEST_log" \
      || fail "Coverage for //:t failed"
 
@@ -110,6 +111,24 @@ LH:3
 LF:4
 end_of_record"
   assert_cc_coverage_result "$expected_result_a_cc" "$coverage_file_path"
+  assert_cc_coverage_result "$expected_result_a_cc" bazel-out/_coverage/_coverage_report.dat
+  local expected_baseline_result_a_cc="SF:a.cc
+FN:3,_Z1ab
+FNDA:1,_Z1ab
+FNF:1
+FNH:0
+BRDA:4,0,0,0
+BRDA:4,0,1,0
+BRF:2
+BRH:0
+DA:3,0
+DA:4,0
+DA:5,0
+DA:7,0
+LH:0
+LF:4
+end_of_record"
+  assert_cc_coverage_result "$expected_baseline_result_a_cc" bazel-out/_coverage/_baseline_report.dat
   # t.cc is not included in the coverage report because test targets are not
   # instrumented by default.
   assert_not_contains "SF:t\.cc" "$coverage_file_path"
