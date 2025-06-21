@@ -18,11 +18,11 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -152,7 +152,7 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
         return;
       }
 
-      var filesToDownload = new ArrayList<ActionInput>(treeArtifactValue.getChildren().size());
+      var filesToDownload = new ArrayList<TreeFileArtifact>(treeArtifactValue.getChildren().size());
       for (var entry : treeArtifactValue.getChildValues().entrySet()) {
         if (remoteOutputChecker.shouldDownloadOutput(entry.getKey(), entry.getValue())) {
           filesToDownload.add(entry.getKey());
@@ -161,7 +161,9 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
       if (!filesToDownload.isEmpty()) {
         futures.add(
             actionInputPrefetcher.prefetchFiles(
-                getGeneratingAction(derivedArtifact),
+                // derivedArtifact's generating action may be an action template, which doesn't
+                // implement the required ActionExecutionMetadata.
+                getGeneratingAction(filesToDownload.getFirst()),
                 filesToDownload,
                 metadataProvider,
                 ActionInputPrefetcher.Priority.LOW,
@@ -190,8 +192,9 @@ public final class RemoteImportantOutputHandler implements ImportantOutputHandle
     var action = Actions.getGeneratingAction(graph, artifact);
     Preconditions.checkState(
         action instanceof ActionExecutionMetadata,
-        "generating action for artifact %s is not an ActionExecutionMetadata",
-        artifact);
+        "generating action for artifact %s is not an ActionExecutionMetadata, but %s",
+        artifact,
+        action != null ? action.getClass() : null);
     return (ActionExecutionMetadata) action;
   }
 }
