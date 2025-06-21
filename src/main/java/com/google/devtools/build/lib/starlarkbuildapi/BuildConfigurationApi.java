@@ -43,7 +43,16 @@ public interface BuildConfigurationApi extends StarlarkValue {
   @StarlarkMethod(
       name = "host_path_separator",
       structField = true,
-      doc = "Returns the separator for PATH environment variable, which is ':' on Unix.")
+      doc =
+          """
+          Deprecated: This returns the path separator for the OS on which Bazel runs, which may
+          differ from the execution platforms for actions registered by this rule. Instead, use
+          <code>ctx.target_platform_has_constraint</code> to check for
+          <code>@platforms//os:windows</code>, possibly in a dependency with
+          <code>cfg = "exec"</code>.
+          <p>Returns the separator for PATH environment variable, which is ':' on Unix.
+          """)
+  @Deprecated
   String getHostPathSeparator();
 
   @StarlarkMethod(
