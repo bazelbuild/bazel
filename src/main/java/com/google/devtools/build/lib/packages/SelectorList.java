@@ -20,7 +20,9 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -33,6 +35,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.HasBinary;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.TokenKind;
 
@@ -85,19 +88,31 @@ public final class SelectorList implements StarlarkValue, HasBinary {
   }
 
   /** Implementation of the Starlark {@code select()} function exposed to BUILD and .bzl files. */
-  private static Object select(Dict<?, ?> dict, String noMatchError) throws EvalException {
+  private static Object select(
+      Dict<?, ?> dict, String noMatchError, @Nullable LabelConverter labelConverter)
+      throws EvalException, LabelSyntaxException {
     if (dict.isEmpty()) {
       throw Starlark.errorf(
           "select({}) with an empty dictionary can never resolve because it includes no conditions"
               + " to match");
     }
-    for (Object key : dict.keySet()) {
-      if (!(key instanceof String || key instanceof Label)) {
-        throw Starlark.errorf(
-            "select: got %s for dict key, want a Label or label string", Starlark.type(key));
+    var selectDict = ImmutableMap.builderWithExpectedSize(dict.size());
+    for (var entry : dict.entrySet()) {
+      switch (entry.getKey()) {
+        case Label label -> selectDict.put(label, entry.getValue());
+        case String labelString ->
+            selectDict.put(
+                labelConverter != null ? labelConverter.convert(labelString) : labelString,
+                entry.getValue());
+        default ->
+            throw Starlark.errorf(
+                "select: got %s for dict key, want a Label or label string",
+                Starlark.type(entry.getKey()));
       }
     }
-    return SelectorList.of(new SelectorValue(dict, noMatchError));
+    // TODO(#26281): Tighten SelectorValue to accept an ImmutableMap<Label, Object> after flipping
+    //  --incompatible_resolve_select_keys_eagerly.
+    return SelectorList.of(new SelectorValue(selectDict.buildOrThrow(), noMatchError));
   }
 
   /** Creates a "wrapper" list that consists of a single select. */
@@ -249,16 +264,46 @@ public final class SelectorList implements StarlarkValue, HasBinary {
                   "A dict that maps configuration conditions to values. Each key is a "
                       + "<a href=\"../builtins/Label.html\">Label</a> or a label string"
                       + " that identifies a config_setting or constraint_value instance. See the"
-                      + " <a href=\"https://bazel.build/rules/macros#label-resolution\">"
-                      + "documentation on macros</a> for when to use a Label instead of a string."),
+                      + " <a href=\"https://bazel.build/extending/legacy-macros#label-resolution\">"
+                      + "documentation on macros</a> for when to use a Label instead of a string."
+                      + " If <code>--incompatible_resolve_select_keys_eagerly</code> is enabled,"
+                      + " the keys are resolved to <code>Label</code> objects relative to the"
+                      + " package of the file that contains this call to <code>select</code>."),
           @Param(
               name = "no_match_error",
               defaultValue = "''",
               doc = "Optional custom error to report if no condition matches.",
               named = true),
-        })
-    public Object select(Dict<?, ?> dict, String noMatchError) throws EvalException {
-      return SelectorList.select(dict, noMatchError);
+        },
+        useStarlarkThread = true)
+    public Object select(Dict<?, ?> dict, String noMatchError, StarlarkThread thread)
+        throws EvalException {
+      // If this is not null, string keys in the dict will be resolved to Labels eagerly using the
+      // given context. This is unnecessary for BUILD files and packageContext will remain null in
+      // this case.
+      LabelConverter labelConverter = null;
+      if (thread
+          .getSemantics()
+          .getBool(BuildLanguageOptions.INCOMPATIBLE_RESOLVE_SELECT_KEYS_EAGERLY)) {
+        // Handle the case of an initializer.
+        labelConverter = thread.getThreadLocal(LabelConverter.class);
+        // Handle the case of a regular BUILD thread.
+        if (labelConverter == null) {
+          var targetDefinitionContext = TargetDefinitionContext.fromOrNull(thread);
+          if (targetDefinitionContext != null) {
+            labelConverter = targetDefinitionContext.getLabelConverter();
+          }
+        }
+        // In all other cases, must be in a .bzl file.
+        if (labelConverter == null) {
+          labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
+        }
+      }
+      try {
+        return SelectorList.select(dict, noMatchError, labelConverter);
+      } catch (LabelSyntaxException e) {
+        throw Starlark.errorf("invalid label in select(): %s", e.getMessage());
+      }
     }
   }
 }
