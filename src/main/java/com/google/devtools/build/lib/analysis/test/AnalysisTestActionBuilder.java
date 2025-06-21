@@ -63,7 +63,8 @@ public class AnalysisTestActionBuilder {
             ruleContext,
             ruleContext.createOutputArtifactScript(),
             sb.toString(),
-            /*makeExecutable=*/ true);
+            /*makeExecutable=*/ true,
+            /*mnemonic=*/ null);
     ruleContext.registerAction(action);
   }
 }

@@ -31,7 +31,12 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
   protected FileWriteAction createAction(
       ActionOwner actionOwner, Artifact outputArtifact, String data, boolean makeExecutable) {
     return FileWriteAction.create(
-        actionOwner, outputArtifact, data, makeExecutable, Compression.DISALLOW);
+        actionOwner,
+        outputArtifact,
+        data,
+        makeExecutable,
+        Compression.DISALLOW,
+        /* mnemonic= */ null);
   }
 
   @Test
@@ -68,8 +73,9 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
             NULL_ACTION_OWNER,
             outputArtifact,
             contents,
-            /*makeExecutable=*/ false,
-            Compression.DISALLOW);
+            /* makeExecutable= */ false,
+            Compression.DISALLOW,
+            /* mnemonic= */ null);
     assertThat(action.getFileContents()).isEqualTo(contents);
   }
 
@@ -89,8 +95,9 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
             NULL_ACTION_OWNER,
             outputArtifact,
             contents,
-            /*makeExecutable=*/ false,
-            Compression.DISALLOW);
+            /* makeExecutable= */ false,
+            Compression.DISALLOW,
+            /* mnemonic= */ null);
     assertThat(action.getFileContents()).isEqualTo(backingString);
   }
 
@@ -117,8 +124,9 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
             NULL_ACTION_OWNER,
             outputArtifact,
             contents,
-            /*makeExecutable=*/ false,
-            Compression.ALLOW);
+            /* makeExecutable= */ false,
+            Compression.ALLOW,
+            /* mnemonic= */ null);
     assertThat(action.getFileContents()).isEqualTo(contents);
   }
 
@@ -142,8 +150,9 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
             NULL_ACTION_OWNER,
             outputArtifact,
             contents,
-            /*makeExecutable=*/ false,
-            Compression.ALLOW);
+            /* makeExecutable= */ false,
+            Compression.ALLOW,
+            /* mnemonic= */ null);
 
     // The string should only be forced once we actually read it, not when the action is
     // constructed.
