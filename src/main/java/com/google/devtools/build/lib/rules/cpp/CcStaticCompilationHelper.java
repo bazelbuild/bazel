@@ -91,7 +91,6 @@ public final class CcStaticCompilationHelper {
       FeatureConfiguration featureConfiguration,
       boolean generateNoPicAction,
       boolean generatePicAction,
-      boolean isCodeCoverageEnabled,
       Label label,
       List<Artifact> privateHeaders,
       List<Artifact> publicHeaders,
@@ -207,7 +206,6 @@ public final class CcStaticCompilationHelper {
               fdoContext,
               auxiliaryFdoInputs,
               featureConfiguration,
-              isCodeCoverageEnabled,
               label,
               commonToolchainVariables,
               fdoBuildVariables,
@@ -298,7 +296,6 @@ public final class CcStaticCompilationHelper {
                 : ArtifactCategory.OBJECT_FILE,
             ccCompilationContext.getCppModuleMap(),
             /* addObject= */ true,
-            isCodeCoverageEnabled,
             // The source action does not generate dwo when it has bitcode
             // output (since it isn't generating a native object with debug
             // info). In that case the LtoBackendAction will generate the dwo.
@@ -610,7 +607,6 @@ public final class CcStaticCompilationHelper {
       boolean needsFdoBuildVariables,
       ImmutableMap<String, String> fdoBuildVariables,
       CppModuleMap cppModuleMap,
-      boolean enableCoverage,
       Artifact gcnoFile,
       boolean isUsingFission,
       Artifact dwoFile,
@@ -629,7 +625,6 @@ public final class CcStaticCompilationHelper {
         buildVariables,
         sourceFile,
         ccCompileActionBuilder.getOutputFile(),
-        enableCoverage,
         gcnoFile,
         dwoFile,
         isUsingFission,
@@ -898,7 +893,6 @@ public final class CcStaticCompilationHelper {
             /* needsFdoBuildVariables= */ false,
             fdoBuildVariables,
             ccCompilationContext.getCppModuleMap(),
-            /* enableCoverage= */ false,
             /* gcnoFile= */ null,
             /* isUsingFission= */ false,
             /* dwoFile= */ null,
@@ -980,7 +974,6 @@ public final class CcStaticCompilationHelper {
       FdoContext fdoContext,
       NestedSet<Artifact> auxiliaryFdoInputs,
       FeatureConfiguration featureConfiguration,
-      boolean isCodeCoverageEnabled,
       Label label,
       CcToolchainVariables commonToolchainVariables,
       ImmutableMap<String, String> fdoBuildVariables,
@@ -1020,7 +1013,8 @@ public final class CcStaticCompilationHelper {
             ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
     // TODO(djasper): This is now duplicated. Refactor the various create..Action functions.
     Artifact gcnoFile =
-        isCodeCoverageEnabled && !cppConfiguration.useLLVMCoverageMapFormat()
+        featureConfiguration.getRequestedFeatures().contains(CppRuleClasses.COVERAGE_INSTRUMENTED)
+                && !cppConfiguration.useLLVMCoverageMapFormat()
             ? CppHelper.getCompileOutputArtifact(
                 actionConstructionContext, label, gcnoFileName, configuration)
             : null;
@@ -1055,7 +1049,6 @@ public final class CcStaticCompilationHelper {
             /* needsFdoBuildVariables= */ ccRelativeName != null,
             fdoBuildVariables,
             ccCompilationContext.getCppModuleMap(),
-            isCodeCoverageEnabled,
             gcnoFile,
             generateDwo,
             dwoFile,
@@ -1130,7 +1123,6 @@ public final class CcStaticCompilationHelper {
             /* needsFdoBuildVariables= */ false,
             fdoBuildVariables,
             ccCompilationContext.getCppModuleMap(),
-            /* enableCoverage= */ false,
             /* gcnoFile= */ null,
             /* isUsingFission= */ false,
             /* dwoFile= */ null,
@@ -1212,7 +1204,6 @@ public final class CcStaticCompilationHelper {
         ArtifactCategory.CPP_MODULE,
         cppModuleMap,
         /* addObject= */ false,
-        /* enableCoverage= */ false,
         /* generateDwo= */ false,
         /* bitcodeOutput= */ false);
   }
@@ -1245,7 +1236,6 @@ public final class CcStaticCompilationHelper {
       ArtifactCategory outputCategory,
       CppModuleMap cppModuleMap,
       boolean addObject,
-      boolean enableCoverage,
       boolean generateDwo,
       boolean bitcodeOutput)
       throws RuleErrorException, EvalException, InterruptedException {
@@ -1283,7 +1273,6 @@ public final class CcStaticCompilationHelper {
               outputCategory,
               cppModuleMap,
               addObject,
-              enableCoverage,
               generateDwo,
               bitcodeOutput,
               ccRelativeName,
@@ -1322,7 +1311,6 @@ public final class CcStaticCompilationHelper {
               outputCategory,
               cppModuleMap,
               addObject,
-              enableCoverage,
               generateDwo,
               bitcodeOutput,
               ccRelativeName,
@@ -1361,7 +1349,6 @@ public final class CcStaticCompilationHelper {
       ArtifactCategory outputCategory,
       CppModuleMap cppModuleMap,
       boolean addObject,
-      boolean enableCoverage,
       boolean generateDwo,
       boolean bitcodeOutput,
       PathFragment ccRelativeName,
@@ -1381,7 +1368,8 @@ public final class CcStaticCompilationHelper {
             getOutputNameBaseWith(ccToolchain, outputName, usePic));
 
     Artifact gcnoFile =
-        enableCoverage && !cppConfiguration.useLLVMCoverageMapFormat()
+        featureConfiguration.getRequestedFeatures().contains(CppRuleClasses.COVERAGE_INSTRUMENTED)
+                && !cppConfiguration.useLLVMCoverageMapFormat()
             ? CppHelper.getCompileOutputArtifact(
                 actionConstructionContext, label, gcnoFileName, configuration)
             : null;
@@ -1417,7 +1405,6 @@ public final class CcStaticCompilationHelper {
             /* needsFdoBuildVariables= */ ccRelativeName != null && addObject,
             fdoBuildVariables,
             cppModuleMap,
-            enableCoverage,
             gcnoFile,
             generateDwo,
             dwoFile,
@@ -1555,7 +1542,6 @@ public final class CcStaticCompilationHelper {
             /* needsFdoBuildVariables= */ ccRelativeName != null,
             fdoBuildVariables,
             ccCompilationContext.getCppModuleMap(),
-            /* enableCoverage= */ false,
             /* gcnoFile= */ null,
             /* isUsingFission= */ false,
             /* dwoFile= */ null,
@@ -1592,7 +1578,6 @@ public final class CcStaticCompilationHelper {
             /* needsFdoBuildVariables= */ ccRelativeName != null,
             fdoBuildVariables,
             ccCompilationContext.getCppModuleMap(),
-            /* enableCoverage= */ false,
             /* gcnoFile= */ null,
             /* isUsingFission= */ false,
             /* dwoFile= */ null,
