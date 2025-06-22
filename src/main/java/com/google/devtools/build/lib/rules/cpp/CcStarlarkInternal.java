@@ -840,7 +840,6 @@ public class CcStarlarkInternal implements StarlarkValue {
             name = "feature_configuration",
             positional = false,
             named = true), // FeatureConfigurationForStarlark
-        @Param(name = "is_code_coverage_enabled", positional = false, named = true),
         @Param(name = "label", positional = false, named = true),
         @Param(name = "common_toolchain_variables", positional = false, named = true),
         @Param(name = "fdo_build_variables", positional = false, named = true, defaultValue = "{}"),
@@ -862,7 +861,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       StructImpl fdoContext,
       Depset auxiliaryFdoInputs,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      boolean isCodeCoverageEnabled,
       Label label,
       CcToolchainVariables commonToolchainVariables,
       Dict<?, ?> fdoBuildVariables,
@@ -887,7 +885,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         new FdoContext(fdoContext),
         Depset.cast(auxiliaryFdoInputs, Artifact.class, "auxiliary_fdo_inputs"),
         featureConfigurationForStarlark.getFeatureConfiguration(),
-        isCodeCoverageEnabled,
         label,
         commonToolchainVariables,
         ImmutableMap.copyOf(

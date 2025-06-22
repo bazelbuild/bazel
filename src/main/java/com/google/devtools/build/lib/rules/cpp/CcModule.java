@@ -306,7 +306,6 @@ public abstract class CcModule
                     ccToolchainProvider,
                     convertFromNoneable(sourceFile, /* defaultValue= */ null),
                     convertFromNoneable(outputFile, /* defaultValue= */ null),
-                    /* isCodeCoverageEnabled= */ false,
                     /* gcnoFile= */ null,
                     /* isUsingFission= */ false,
                     /* dwoFile= */ null,
@@ -1660,7 +1659,6 @@ public abstract class CcModule
       Object additionalModuleMapsNoneable,
       Object propagateModuleMapToCompileActionObject,
       Object doNotGenerateModuleMapObject,
-      Object codeCoverageEnabledObject,
       Object hdrsCheckingModeObject,
       Object variablesExtension,
       Object languageObject,
@@ -1706,7 +1704,7 @@ public abstract class CcModule
         asClassImmutableList(additionalModuleMapsNoneable);
 
     String coptsFilterRegex = convertFromNoneable(coptsFilterObject, /* defaultValue= */ null);
-    CoptsFilter coptsFilter = null;
+    CoptsFilter coptsFilter;
     if (Strings.isNullOrEmpty(coptsFilterRegex)) {
       coptsFilter = CoptsFilter.alwaysPasses();
     } else {
@@ -1733,8 +1731,6 @@ public abstract class CcModule
         convertFromNoneable(propagateModuleMapToCompileActionObject, /* defaultValue= */ true);
     boolean doNotGenerateModuleMap =
         convertFromNoneable(doNotGenerateModuleMapObject, /* defaultValue= */ false);
-    boolean codeCoverageEnabled =
-        convertFromNoneable(codeCoverageEnabledObject, /* defaultValue= */ false);
     String purpose = convertFromNoneable(purposeObject, null);
     ImmutableList<CcCompilationContext> implementationContexts =
         asClassImmutableList(implementationCcCompilationContextsObject);
@@ -1812,8 +1808,7 @@ public abstract class CcModule
         .setPurpose(defaultPurpose)
         .addAdditionalExportedHeaders(
             additionalExportedHeaders.stream().map(PathFragment::create).collect(toImmutableList()))
-        .setPropagateModuleMapToCompileAction(propagateModuleMapToCompileAction)
-        .setCodeCoverageEnabled(codeCoverageEnabled);
+        .setPropagateModuleMapToCompileAction(propagateModuleMapToCompileAction);
 
     if (textualHeadersObject instanceof NestedSet) {
       compilationHelper.addPublicTextualHeaders(
@@ -1827,9 +1822,7 @@ public abstract class CcModule
     if (moduleMap != null) {
       compilationHelper.setCppModuleMap(moduleMap);
     }
-    if (coptsFilter != null) {
-      compilationHelper.setCoptsFilter(coptsFilter);
-    }
+    compilationHelper.setCoptsFilter(coptsFilter);
     for (CppModuleMap additionalModuleMap : additionalModuleMaps) {
       compilationHelper.registerAdditionalModuleMap(additionalModuleMap);
     }
@@ -2041,7 +2034,7 @@ public abstract class CcModule
       Object stampingObject,
       Object additionalLinkstampDefines,
       StarlarkThread thread)
-      throws EvalException, InterruptedException, TypeException, RuleErrorException {
+      throws EvalException, InterruptedException, TypeException {
     isCalledFromStarlarkCcCommon(thread);
     RuleContext ruleContext = starlarkActionFactoryApi.getRuleContext();
     boolean stamping =
@@ -2079,7 +2072,6 @@ public abstract class CcModule
                     .toList(),
             asStringImmutableList(additionalLinkstampDefines),
             ccToolchain,
-            ruleContext.getConfiguration().isCodeCoverageEnabled(),
             CppHelper.getFdoBuildStamp(
                 cppConfiguration,
                 ccToolchain.getFdoContext(),
@@ -2189,11 +2181,6 @@ public abstract class CcModule
             positional = false,
             named = true,
             doc = "Whether to generate a PIC action."),
-        @Param(
-            name = "is_code_coverage_enabled",
-            positional = false,
-            named = true,
-            doc = "Whether code coverage is enabled."),
         @Param(name = "label", positional = false, named = true, doc = "The label."),
         @Param(
             name = "private_headers",
@@ -2247,7 +2234,6 @@ public abstract class CcModule
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       boolean generateNoPicAction,
       boolean generatePicAction,
-      boolean isCodeCoverageEnabled,
       Label label,
       Sequence<?> privateHeaders,
       Sequence<?> publicHeaders,
@@ -2291,7 +2277,6 @@ public abstract class CcModule
         featureConfigurationForStarlark.getFeatureConfiguration(),
         generateNoPicAction,
         generatePicAction,
-        isCodeCoverageEnabled,
         label,
         Sequence.cast(privateHeaders, Artifact.class, "create_cc_compile_actions"),
         Sequence.cast(publicHeaders, Artifact.class, "create_cc_compile_actions"),

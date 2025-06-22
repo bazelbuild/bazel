@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -26,15 +25,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
@@ -297,7 +293,6 @@ public final class CcCompilationHelper {
   private String purpose = "";
   private boolean generateNoPicAction;
   private boolean generatePicAction;
-  private boolean isCodeCoverageEnabled = true;
   private String stripIncludePrefix = null;
   private String includePrefix = null;
 
@@ -727,12 +722,6 @@ public final class CcCompilationHelper {
     return this;
   }
 
-  @CanIgnoreReturnValue
-  public CcCompilationHelper setCodeCoverageEnabled(boolean codeCoverageEnabled) {
-    this.isCodeCoverageEnabled = codeCoverageEnabled;
-    return this;
-  }
-
   private static StarlarkList<String> convertPathFragmentsToStarlarkList(
       Iterable<PathFragment> pathFragments) {
     ImmutableList.Builder<String> pathStrings = ImmutableList.builder();
@@ -1040,7 +1029,6 @@ public final class CcCompilationHelper {
                 : ArtifactCategory.OBJECT_FILE,
             ccCompilationContext.getCppModuleMap(),
             /* addObject= */ true,
-            isCodeCoverageEnabled,
             // The source action does not generate dwo when it has bitcode
             // output (since it isn't generating a native object with debug
             // info). In that case the LtoBackendAction will generate the dwo.
@@ -1127,7 +1115,7 @@ public final class CcCompilationHelper {
       ImmutableList<ArtifactCategory> outputCategories,
       boolean usePic,
       boolean bitcodeOutput)
-      throws RuleErrorException, EvalException, InterruptedException {
+      throws RuleErrorException, EvalException {
     if (usePic) {
       builder = new CppCompileActionBuilder(builder).setPicMode(true);
     }
@@ -1144,7 +1132,6 @@ public final class CcCompilationHelper {
             usePic,
             /* needsFdoBuildVariables= */ false,
             ccCompilationContext.getCppModuleMap(),
-            /* enableCoverage= */ false,
             /* gcnoFile= */ null,
             /* isUsingFission= */ false,
             /* dwoFile= */ null,
@@ -1271,13 +1258,12 @@ public final class CcCompilationHelper {
       boolean usePic,
       boolean needsFdoBuildVariables,
       CppModuleMap cppModuleMap,
-      boolean enableCoverage,
       Artifact gcnoFile,
       boolean isUsingFission,
       Artifact dwoFile,
       Artifact ltoIndexingFile,
       ImmutableMap<String, String> additionalBuildVariables)
-      throws RuleErrorException, EvalException, InterruptedException {
+      throws RuleErrorException, EvalException {
     Artifact sourceFile = builder.getSourceFile();
     if (needsFdoBuildVariables && fdoContext.hasArtifacts()) {
       // This modifies the passed-in builder, which is a surprising side-effect, and makes it unsafe
@@ -1353,7 +1339,6 @@ public final class CcCompilationHelper {
         buildVariables,
         sourceFile,
         builder.getOutputFile(),
-        enableCoverage,
         gcnoFile,
         dwoFile,
         isUsingFission,
@@ -1406,7 +1391,8 @@ public final class CcCompilationHelper {
             ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
     // TODO(djasper): This is now duplicated. Refactor the various create..Action functions.
     Artifact gcnoFile =
-        isCodeCoverageEnabled && !cppConfiguration.useLLVMCoverageMapFormat()
+        featureConfiguration.getRequestedFeatures().contains(CppRuleClasses.COVERAGE_INSTRUMENTED)
+                && !cppConfiguration.useLLVMCoverageMapFormat()
             ? CppHelper.getCompileOutputArtifact(
                 actionConstructionContext, label, gcnoFileName, configuration)
             : null;
@@ -1427,7 +1413,6 @@ public final class CcCompilationHelper {
             /* usePic= */ pic,
             /* needsFdoBuildVariables= */ ccRelativeName != null,
             ccCompilationContext.getCppModuleMap(),
-            isCodeCoverageEnabled,
             gcnoFile,
             generateDwo,
             dwoFile,
@@ -1474,7 +1459,6 @@ public final class CcCompilationHelper {
             generatePicAction,
             /* needsFdoBuildVariables= */ false,
             ccCompilationContext.getCppModuleMap(),
-            /* enableCoverage= */ false,
             /* gcnoFile= */ null,
             /* isUsingFission= */ false,
             /* dwoFile= */ null,
@@ -1507,7 +1491,6 @@ public final class CcCompilationHelper {
         ArtifactCategory.CPP_MODULE,
         cppModuleMap,
         /* addObject= */ false,
-        /* enableCoverage= */ false,
         /* generateDwo= */ false,
         /* bitcodeOutput= */ false);
   }
@@ -1522,7 +1505,6 @@ public final class CcCompilationHelper {
       ArtifactCategory outputCategory,
       CppModuleMap cppModuleMap,
       boolean addObject,
-      boolean enableCoverage,
       boolean generateDwo,
       boolean bitcodeOutput)
       throws RuleErrorException, EvalException, InterruptedException {
@@ -1544,7 +1526,6 @@ public final class CcCompilationHelper {
               outputCategory,
               cppModuleMap,
               addObject,
-              enableCoverage,
               generateDwo,
               bitcodeOutput,
               ccRelativeName,
@@ -1567,7 +1548,6 @@ public final class CcCompilationHelper {
               outputCategory,
               cppModuleMap,
               addObject,
-              enableCoverage,
               generateDwo,
               bitcodeOutput,
               ccRelativeName,
@@ -1590,13 +1570,12 @@ public final class CcCompilationHelper {
       ArtifactCategory outputCategory,
       CppModuleMap cppModuleMap,
       boolean addObject,
-      boolean enableCoverage,
       boolean generateDwo,
       boolean bitcodeOutput,
       PathFragment ccRelativeName,
       boolean usePic,
       ImmutableMap<String, String> additionalBuildVariables)
-      throws RuleErrorException, EvalException, InterruptedException {
+      throws RuleErrorException, EvalException {
     builder.setOutputs(
         actionConstructionContext,
         ruleErrorConsumer,
@@ -1610,7 +1589,8 @@ public final class CcCompilationHelper {
             getOutputNameBaseWith(outputName, usePic));
 
     Artifact gcnoFile =
-        enableCoverage && !cppConfiguration.useLLVMCoverageMapFormat()
+        featureConfiguration.getRequestedFeatures().contains(CppRuleClasses.COVERAGE_INSTRUMENTED)
+                && !cppConfiguration.useLLVMCoverageMapFormat()
             ? CppHelper.getCompileOutputArtifact(
                 actionConstructionContext, label, gcnoFileName, configuration)
             : null;
@@ -1625,7 +1605,6 @@ public final class CcCompilationHelper {
             usePic,
             /* needsFdoBuildVariables= */ ccRelativeName != null && addObject,
             cppModuleMap,
-            enableCoverage,
             gcnoFile,
             generateDwo,
             dwoFile,
@@ -1679,41 +1658,6 @@ public final class CcCompilationHelper {
         : base;
   }
 
-  /** Returns true iff code coverage is enabled for the given target. */
-  public static boolean isCodeCoverageEnabled(RuleContext ruleContext) {
-    BuildConfigurationValue configuration = ruleContext.getConfiguration();
-    if (configuration.isCodeCoverageEnabled()) {
-      // If rule is matched by the instrumentation filter, enable instrumentation
-      if (InstrumentedFilesCollector.shouldIncludeLocalSources(
-          configuration, ruleContext.getLabel(), ruleContext.isTestTarget())) {
-        return true;
-      }
-      // At this point the rule itself is not matched by the instrumentation filter. However, we
-      // might still want to instrument C++ rules if one of the targets listed in "deps" is
-      // instrumented and, therefore, can supply header files that we would want to collect code
-      // coverage for. For example, think about cc_test rule that tests functionality defined in a
-      // header file that is supplied by the cc_library.
-      //
-      // Note that we only check direct prerequisites and not the transitive closure. This is done
-      // for two reasons:
-      // a) It is a good practice to declare libraries which you directly rely on. Including headers
-      //    from a library hidden deep inside the transitive closure makes build dependencies less
-      //    readable and can lead to unexpected breakage.
-      // b) Traversing the transitive closure for each C++ compile action would require more complex
-      //    implementation (with caching results of this method) to avoid O(N^2) slowdown.
-      if (ruleContext.getRule().isAttrDefined("deps", BuildType.LABEL_LIST)) {
-        for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps")) {
-          CcInfo ccInfo = dep.get(CcInfo.PROVIDER);
-          if (ccInfo != null
-              && InstrumentedFilesCollector.shouldIncludeLocalSources(configuration, dep)) {
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  }
-
   private ImmutableList<String> collectPerFileCopts(Artifact sourceFile, Label sourceLabel) {
     return cppConfiguration.getPerFileCopts().stream()
         .filter(
@@ -1748,7 +1692,7 @@ public final class CcCompilationHelper {
       CppCompileActionBuilder builder,
       boolean usePic,
       PathFragment ccRelativeName)
-      throws RuleErrorException, EvalException, InterruptedException {
+      throws RuleErrorException, EvalException {
     if (!cppConfiguration.getSaveTemps()) {
       return ImmutableList.of();
     }
@@ -1778,7 +1722,6 @@ public final class CcCompilationHelper {
             usePic,
             /* needsFdoBuildVariables= */ ccRelativeName != null,
             ccCompilationContext.getCppModuleMap(),
-            /* enableCoverage= */ false,
             /* gcnoFile= */ null,
             /* isUsingFission= */ false,
             /* dwoFile= */ null,
@@ -1804,7 +1747,6 @@ public final class CcCompilationHelper {
             usePic,
             /* needsFdoBuildVariables= */ ccRelativeName != null,
             ccCompilationContext.getCppModuleMap(),
-            /* enableCoverage= */ false,
             /* gcnoFile= */ null,
             /* isUsingFission= */ false,
             /* dwoFile= */ null,

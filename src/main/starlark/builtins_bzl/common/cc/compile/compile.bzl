@@ -75,7 +75,6 @@ def compile(
         additional_module_maps = [],
         propagate_module_map_to_compile_action = True,
         do_not_generate_module_map = False,
-        code_coverage_enabled = False,
         hdrs_checking_mode = None,  # TODO(b/396122076): seems unused; double-check and remove
         variables_extension = None,
         language = None,
@@ -143,7 +142,6 @@ def compile(
         additional_module_maps: undocumented
         propagate_module_map_to_compile_action: undocumented
         do_not_generate_module_map: undocumented
-        code_coverage_enabled: undocumented
         hdrs_checking_mode: undocumented
         variables_extension: undocumented
         language: undocumented
@@ -307,7 +305,6 @@ def compile(
         feature_configuration = feature_configuration,
         generate_no_pic_action = generate_no_pic_action,
         generate_pic_action = generate_pic_action,
-        is_code_coverage_enabled = code_coverage_enabled,
         label = label,
         private_headers = private_hdrs_artifacts,
         public_headers = public_hdrs_artifacts,
@@ -336,7 +333,6 @@ def compile(
         feature_configuration = feature_configuration,
         generate_no_pic_action = generate_no_pic_action,
         generate_pic_action = generate_pic_action,
-        is_code_coverage_enabled = code_coverage_enabled,
         label = label,
         private_headers = private_hdrs_artifacts,
         public_headers = public_hdrs_artifacts,
@@ -464,7 +460,6 @@ def _create_cc_compile_actions_starlark_part(
         feature_configuration,
         generate_no_pic_action,
         generate_pic_action,
-        is_code_coverage_enabled,
         label,
         private_headers,
         public_headers,
@@ -547,7 +542,6 @@ def _create_cc_compile_actions_starlark_part(
                     fdo_context = fdo_context,
                     auxiliary_fdo_inputs = auxiliary_fdo_inputs,
                     feature_configuration = feature_configuration,
-                    is_code_coverage_enabled = is_code_coverage_enabled,
                     label = label,
                     common_toolchain_variables = common_compile_build_variables,
                     fdo_build_variables = fdo_build_variables,
