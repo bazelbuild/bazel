@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.Charset.UTF8;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.LOADS;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
@@ -576,7 +577,7 @@ public final class ModCommand implements BlazeCommand {
       buildozerInput.append("format\n");
     }
 
-    try (var stdin = CharSource.wrap(buildozerInput).asByteSource(UTF_8).openStream()) {
+    try (var stdin = CharSource.wrap(buildozerInput).asByteSource(ISO_8859_1).openStream()) {
       new CommandBuilder(env.getClientEnv())
           .setWorkingDir(env.getWorkspace())
           .addArg(modTidyValue.buildozer().getPathString())
@@ -593,7 +594,9 @@ public final class ModCommand implements BlazeCommand {
           return reportAndCreateTidyResult(env, modTidyValue);
         }
         suffix =
-            ":\n" + new String(((AbnormalTerminationException) e).getResult().getStderr(), UTF_8);
+            ":\n"
+                + new String(
+                    ((AbnormalTerminationException) e).getResult().getStderr(), ISO_8859_1);
       }
       return reportAndCreateFailureResult(
           env,
