@@ -480,6 +480,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
     )
     features = ctx.features
     features.append(linking_mode)
+    features.extend(cc_helper.get_coverage_features(ctx, cpp_config))
     disabled_features = ctx.disabled_features
 
     feature_configuration = cc_common.configure_features(
@@ -516,7 +517,6 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         srcs = cc_helper.get_srcs(ctx),
         module_interfaces = cc_helper.get_cpp_module_interfaces(ctx),
         compilation_contexts = compilation_context_deps,
-        code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx = ctx),
     )
     precompiled_file_objects = cc_common.create_compilation_outputs(
         objects = depset(precompiled_files[0]),  # objects
