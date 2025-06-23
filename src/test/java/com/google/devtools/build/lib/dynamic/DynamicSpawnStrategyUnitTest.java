@@ -102,7 +102,7 @@ public class DynamicSpawnStrategyUnitTest {
   public void initMocks() throws IOException {
     scratch = new Scratch();
     execDir = scratch.dir("/base/exec");
-    rootDir = ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "root");
+    rootDir = ArtifactRoot.asDerivedRoot(execDir, RootType.OUTPUT, "root");
     output1 =
         Artifact.DerivedArtifact.create(
             rootDir,

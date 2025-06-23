@@ -415,7 +415,7 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
   private Artifact createArtifact(String path) throws IOException {
     Path execRoot = scratch.dir("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "fake-root");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "fake-root");
     return ActionsTestUtil.createArtifact(root, path);
   }
 

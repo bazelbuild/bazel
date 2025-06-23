@@ -85,12 +85,12 @@ public final class StarlarkCustomCommandLineTest {
   @Before
   public void createArtifacts() throws IOException {
     Path execRoot = new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot");
-    derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "bin");
+    derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "bin");
 
     ArtifactRoot derivedRoot2 =
-        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "bazel-out", "k8-fastbuild", "bin");
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "bazel-out", "k8-fastbuild", "bin");
     ArtifactRoot derivedRoot3 =
-        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "bazel-out", "k8-opt", "bin");
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "bazel-out", "k8-opt", "bin");
     artifact1 = (DerivedArtifact) ActionsTestUtil.createArtifact(derivedRoot2, "pkg/artifact1");
     artifact2 = (DerivedArtifact) ActionsTestUtil.createArtifact(derivedRoot3, "pkg/artifact2");
     artifact3 = (DerivedArtifact) ActionsTestUtil.createArtifact(derivedRoot3, "artifact3");

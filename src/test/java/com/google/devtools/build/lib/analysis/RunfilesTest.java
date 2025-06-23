@@ -174,7 +174,7 @@ public class RunfilesTest extends FoundationTestCase {
   @Test
   public void testPutDerivedArtifactWithDifferentOwner() throws Exception {
     ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(scratch.dir("/workspace"), RootType.Output, "out");
+        ArtifactRoot.asDerivedRoot(scratch.dir("/workspace"), RootType.OUTPUT, "out");
     PathFragment path = PathFragment.create("src/foo.cc");
 
     ActionLookupKey owner1 = ActionsTestUtil.createActionLookupKey("//owner1");

@@ -85,7 +85,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   private final Path execRoot = fs.getPath("/exec");
   private final ArtifactRoot sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
   private final ArtifactRoot outputRoot =
-      ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, RELATIVE_OUTPUT_PATH);
+      ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, RELATIVE_OUTPUT_PATH);
 
   enum FilesystemTestParam {
     LOCAL,

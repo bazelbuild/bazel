@@ -62,7 +62,7 @@ public class SkyframeInputMetadataProviderTest extends FoundationTestCase {
     ActionLookupData actionKey = ActionLookupData.create(owner, 0);
     DerivedArtifact artifact =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root.asPath(), RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root.asPath(), RootType.OUTPUT, "out"),
             PathFragment.create("out/foo"),
             owner);
     artifact.getPath().getParentDirectory().createDirectoryAndParents();
@@ -117,7 +117,7 @@ public class SkyframeInputMetadataProviderTest extends FoundationTestCase {
     ActionLookupData actionKey = ActionLookupData.create(owner, 0);
     DerivedArtifact artifact =
         DerivedArtifact.create(
-            ArtifactRoot.asDerivedRoot(root.asPath(), RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root.asPath(), RootType.OUTPUT, "out"),
             PathFragment.create("out/foo"),
             owner);
     artifact.getPath().getParentDirectory().createDirectoryAndParents();

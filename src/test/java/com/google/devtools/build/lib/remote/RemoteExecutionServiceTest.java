@@ -217,7 +217,7 @@ public class RemoteExecutionServiceTest {
     execRoot = fs.getPath("/execroot");
     execRoot.createDirectoryAndParents();
 
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outputs");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "outputs");
 
     checkNotNull(artifactRoot.getRoot().asPath()).createDirectoryAndParents();
 

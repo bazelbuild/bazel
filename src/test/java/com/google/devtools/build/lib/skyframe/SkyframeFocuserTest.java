@@ -223,7 +223,7 @@ public final class SkyframeFocuserTest extends BuildViewTestCase {
 
     ArtifactRoot artifactRoot =
         ArtifactRoot.asDerivedRoot(
-            this.directories.getExecRoot("workspace"), RootType.Output, "blaze-out");
+            this.directories.getExecRoot("workspace"), RootType.OUTPUT, "blaze-out");
 
     Action catAction = new NullAction(createArtifact(artifactRoot, "cat"));
     Action dogAction = new NullAction(createArtifact(artifactRoot, "dog"));

@@ -100,7 +100,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
 
   @Before
   public final void initializeRoots() throws Exception {
-    artifactRoot = ArtifactRoot.asDerivedRoot(scratch.resolve("/"), RootType.Output, "output");
+    artifactRoot = ArtifactRoot.asDerivedRoot(scratch.resolve("/"), RootType.OUTPUT, "output");
   }
 
   private static ImmutableList<ExecutionGraph.Node> parse(ByteArrayOutputStream buffer)

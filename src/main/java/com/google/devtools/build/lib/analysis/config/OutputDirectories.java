@@ -87,7 +87,7 @@ public class OutputDirectories {
       Path execRoot = directories.getExecRoot(workspaceName);
       // e.g., [[execroot/my_workspace]/bazel-out/config/bin]
       return ArtifactRoot.asDerivedRoot(
-          execRoot, RootType.Output, directories.getRelativeOutputPath(), outputDirName, name);
+          execRoot, RootType.OUTPUT, directories.getRelativeOutputPath(), outputDirName, name);
     }
   }
 
@@ -134,7 +134,7 @@ public class OutputDirectories {
         // TODO(jungjw): Ideally, we would like to do execroot_base/repoName/bazel-out/config/bin
         // instead. However, it requires individually symlinking the top-level elements of external
         // repositories, which is blocked by a Windows symlink issue #8704.
-        repository.isMain() ? RootType.SiblingMainOutput : RootType.SiblingExternalOutput,
+        repository.isMain() ? RootType.SIBLING_MAIN_OUTPUT : RootType.SIBLING_EXTERNAL_OUTPUT,
         directories.getRelativeOutputPath(),
         repository.getName(),
         mnemonic,

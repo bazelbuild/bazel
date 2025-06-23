@@ -56,7 +56,7 @@ public final class ActionExecutionValueTest {
   private static final ActionLookupData ACTION_LOOKUP_DATA_2 = ActionLookupData.create(KEY, 2);
 
   private static final ArtifactRoot OUTPUT_ROOT =
-      ArtifactRoot.asDerivedRoot(new Scratch().resolve("/execroot"), RootType.Output, "out");
+      ArtifactRoot.asDerivedRoot(new Scratch().resolve("/execroot"), RootType.OUTPUT, "out");
 
   @Test
   public void equality() {

@@ -110,7 +110,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     Artifact output =
         ActionsTestUtil.createArtifact(
             ArtifactRoot.asDerivedRoot(
-                commandEnvironment.getExecRoot(), RootType.Output, "blaze-out"),
+                commandEnvironment.getExecRoot(), RootType.OUTPUT, "blaze-out"),
             commandEnvironment.getExecRoot().getRelative("blaze-out/output"));
     Spawn spawn =
         new SpawnBuilder("_bin/tool", output.getExecPathString())

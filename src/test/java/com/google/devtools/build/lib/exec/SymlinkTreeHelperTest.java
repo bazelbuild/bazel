@@ -51,7 +51,7 @@ public final class SymlinkTreeHelperTest {
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final Path execRoot = fs.getPath("/execroot");
   private final ArtifactRoot outputRoot =
-      ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+      ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
 
   @Before
   public void setUp() throws Exception {

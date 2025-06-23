@@ -57,7 +57,7 @@ public final class TreeArtifactValueTest {
   private final Scratch scratch = new Scratch();
   private final ArtifactRoot root =
       ArtifactRoot.asDerivedRoot(
-          scratch.resolve("root"), RootType.Output, PathFragment.create("bin"));
+          scratch.resolve("root"), RootType.OUTPUT, PathFragment.create("bin"));
 
   record VisitTreeArgs(
       PathFragment parentRelativePath, Dirent.Type type, boolean traversedSymlink) {

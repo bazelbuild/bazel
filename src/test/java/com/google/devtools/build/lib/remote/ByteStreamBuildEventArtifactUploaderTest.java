@@ -136,7 +136,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
           }
         };
 
-    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
     outputRoot.getRoot().asPath().createDirectoryAndParents();
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));

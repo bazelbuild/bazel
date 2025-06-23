@@ -162,7 +162,7 @@ public final class FilesystemValueCheckerTest {
     Path outputPath = outputDir.getRelative(relPath);
     outputDir.createDirectory();
     ArtifactRoot derivedRoot =
-        ArtifactRoot.asDerivedRoot(fs.getPath("/"), RootType.Output, outSegment);
+        ArtifactRoot.asDerivedRoot(fs.getPath("/"), RootType.OUTPUT, outSegment);
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
         derivedRoot,
         derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)));
@@ -1275,7 +1275,7 @@ public final class FilesystemValueCheckerTest {
     Path outputPath = fs.getPath("/" + outSegment);
     outputPath.createDirectory();
     return ActionsTestUtil.createArtifact(
-        ArtifactRoot.asDerivedRoot(fs.getPath("/"), RootType.Output, outSegment),
+        ArtifactRoot.asDerivedRoot(fs.getPath("/"), RootType.OUTPUT, outSegment),
         outputPath.getRelative(relPath));
   }
 

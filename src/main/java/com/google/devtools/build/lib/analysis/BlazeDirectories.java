@@ -225,7 +225,7 @@ public final class BlazeDirectories {
    */
   public ArtifactRoot getBuildDataDirectory(String workspaceName) {
     return ArtifactRoot.asDerivedRoot(
-        getExecRoot(workspaceName), RootType.Output, getRelativeOutputPath(productName));
+        getExecRoot(workspaceName), RootType.OUTPUT, getRelativeOutputPath(productName));
   }
 
   /**

@@ -46,7 +46,7 @@ public final class ActionInputMapTest {
   private final ArtifactRoot artifactRoot =
       ArtifactRoot.asDerivedRoot(
           new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot"),
-          RootType.Output,
+          RootType.OUTPUT,
           "bazel-out");
 
   @Test

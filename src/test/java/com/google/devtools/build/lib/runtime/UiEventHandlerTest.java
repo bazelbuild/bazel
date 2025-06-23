@@ -71,7 +71,7 @@ public sealed class UiEventHandlerTest {
   private static final ArtifactRoot OUTPUT_ROOT =
       ArtifactRoot.asDerivedRoot(
           new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/base/exec"),
-          RootType.Output,
+          RootType.OUTPUT,
           "out");
 
   @TestParameter private boolean skymeldMode;

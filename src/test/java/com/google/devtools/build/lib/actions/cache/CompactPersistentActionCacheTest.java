@@ -89,7 +89,7 @@ public class CompactPersistentActionCacheTest {
     indexJournalFile = CompactPersistentActionCache.indexJournalFile(cacheRoot);
     timestampFile = CompactPersistentActionCache.timestampFile(cacheRoot);
     timestampJournalFile = CompactPersistentActionCache.timestampJournalFile(cacheRoot);
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, ArtifactRoot.RootType.Output, "bin");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, ArtifactRoot.RootType.OUTPUT, "bin");
   }
 
   @Test

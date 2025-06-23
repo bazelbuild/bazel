@@ -86,7 +86,7 @@ public class CriticalPathComputerTest extends FoundationTestCase {
   @Before
   public final void initializeRoots() {
     Path workspaceRoot = scratch.resolve("/workspace");
-    derivedArtifactRoot = ArtifactRoot.asDerivedRoot(workspaceRoot, RootType.Output, "test");
+    derivedArtifactRoot = ArtifactRoot.asDerivedRoot(workspaceRoot, RootType.OUTPUT, "test");
     artifactRoot = ArtifactRoot.asSourceRoot(Root.fromPath(workspaceRoot));
   }
 

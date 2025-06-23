@@ -105,7 +105,7 @@ public class ActionCacheCheckerTest {
     cacheChecker = createActionCacheChecker(/*storeOutputMetadata=*/ false);
     digestHashFunction = DigestHashFunction.SHA256;
     fileSystem = new InMemoryFileSystem(digestHashFunction);
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "bin");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "bin");
   }
 
   private byte[] digest(byte[] content) {
