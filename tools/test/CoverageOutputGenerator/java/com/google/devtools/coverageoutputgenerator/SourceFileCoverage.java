@@ -270,7 +270,11 @@ class SourceFileCoverage {
   }
 
   void addAllBranches(ListMultimap<Integer, BranchCoverage> branches) {
-    this.branches.putAll(branches);
+    for (Integer line : branches.keySet()) {
+      for (BranchCoverage branch : branches.get(line)) {
+      addBranch(line, branch);
+      }
+    }
   }
 
   void addLine(Integer lineNumber, LineCoverage line) {
