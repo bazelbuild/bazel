@@ -273,6 +273,7 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:experimental_inprocess_symlink_creation",
         "//command_line_option:experimental_throttle_action_cache_check",
         "//command_line_option:experimental_use_platforms_in_output_dir_legacy_heuristic",
+        "//command_line_option:incompatible_compact_repo_mapping_manifest",
         "//command_line_option:incompatible_filegroup_runfiles_for_data",
     ],
     inputs = ["//command_line_option:features"],

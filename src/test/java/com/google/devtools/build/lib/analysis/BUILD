@@ -794,6 +794,9 @@ java_test(
 java_test(
     name = "RunfilesRepoMappingManifestTest",
     srcs = ["RunfilesRepoMappingManifestTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
@@ -809,6 +812,7 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 
