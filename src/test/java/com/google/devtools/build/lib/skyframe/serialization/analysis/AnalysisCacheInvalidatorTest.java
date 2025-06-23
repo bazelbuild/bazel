@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.SkyKeySerializationHelper;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -166,7 +167,7 @@ public final class AnalysisCacheInvalidatorTest {
             IntVersion.of(9000),
             "distinguisher",
             /* useFakeStampData= */ true,
-            Optional.of(new ClientId("for_testing", 123)));
+            Optional.of(new SnapshotClientId("for_testing", 123)));
     var currentVersion =
         new FrontierNodeVersion(
             "123",
@@ -174,7 +175,7 @@ public final class AnalysisCacheInvalidatorTest {
             IntVersion.of(9001), // changed
             "distinguisher",
             /* useFakeStampData= */ true,
-            Optional.of(new ClientId("for_testing", 123)));
+            Optional.of(new SnapshotClientId("for_testing", 123)));
     AnalysisCacheInvalidator invalidator =
         new AnalysisCacheInvalidator(
             mockAnalysisCacheClient,

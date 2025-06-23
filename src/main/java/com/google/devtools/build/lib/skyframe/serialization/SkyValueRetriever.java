@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.StateEvictedException;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.proto.DataType;
 import com.google.devtools.build.skyframe.IntVersion;
@@ -454,7 +455,7 @@ public final class SkyValueRetriever {
             IntVersion.of(9000),
             "distinguisher",
             /* useFakeStampData= */ true,
-            Optional.of(new ClientId("for_testing", 123)));
+            Optional.of(new SnapshotClientId("for_testing", 123)));
 
     // Fingerprints of version components.
     private final byte[] topLevelConfigFingerprint;

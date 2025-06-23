@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Wa
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForFutureResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForFutureValueBytes;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.WaitingForLookupContinuation;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.GetRecordingStore;
@@ -301,7 +301,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             /* evaluatingVersion= */ IntVersion.of(9000),
             /* distinguisherBytesForTesting= */ "distinguisher",
             /* useFakeStampData= */ true,
-            /* clientId= */ Optional.of(new ClientId("for/testing", 123)));
+            /* clientId= */ Optional.of(new SnapshotClientId("for/testing", 123)));
     uploadKeyValuePair(key, version, value, fingerprintValueService);
 
     RetrievalResult result =
@@ -332,7 +332,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             /* evaluatingVersion= */ IntVersion.of(1234),
             /* distinguisherBytesForTesting= */ "distinguisher",
             /* useFakeStampData= */ true,
-            /* clientId= */ Optional.of(new ClientId("for/testing", 123)));
+            /* clientId= */ Optional.of(new SnapshotClientId("for/testing", 123)));
     uploadKeyValuePair(key, version, value, fingerprintValueService);
 
     RetrievalResult result =
@@ -350,7 +350,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
                 /* evaluatingVersion= */ IntVersion.of(5678),
                 /* distinguisherBytesForTesting= */ "distinguisher",
                 /* useFakeStampData= */ true,
-                /* clientId= */ Optional.of(new ClientId("for/testing", 123))));
+                /* clientId= */ Optional.of(new SnapshotClientId("for/testing", 123))));
 
     assertThat(result).isSameInstanceAs(NO_CACHED_DATA);
   }
@@ -911,7 +911,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             IntVersion.of(9000),
             "distinguisher",
             true,
-            Optional.of(new ClientId("changed", 123)));
+            Optional.of(new SnapshotClientId("changed", 123)));
     var second =
         new FrontierNodeVersion(
             "foo",
