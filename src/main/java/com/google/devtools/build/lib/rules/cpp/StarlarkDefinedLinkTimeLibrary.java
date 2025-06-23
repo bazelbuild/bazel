@@ -77,15 +77,6 @@ public class StarlarkDefinedLinkTimeLibrary implements ExtraLinkTimeLibraryApi, 
     return key;
   }
 
-  /**
-   * Get a new Builder for this ExtraLinkTimeLibrary class. This acts like a static method, in that
-   * the result does not depend on the current state of the object, and the new Builder starts out
-   * empty.
-   */
-  public Builder getBuilder() {
-    return new Builder();
-  }
-
   /** Output of {@link #buildLibraries}. Pair of libraries to link and runtime libraries. */
   static class BuildLibraryOutput {
     public NestedSet<LinkerInput> linkerInputs;
@@ -227,42 +218,14 @@ public class StarlarkDefinedLinkTimeLibrary implements ExtraLinkTimeLibraryApi, 
   }
 
   /** The Builder interface builds an ExtraLinkTimeLibrary. */
-  public static class Builder {
+  /** Merge the ExtraLinkTimeLibrary based on the inputs. */
+  public static StarlarkDefinedLinkTimeLibrary merge(
+      ImmutableList<StarlarkDefinedLinkTimeLibrary> libraries) {
+    StarlarkCallable buildLibraryFunction = null;
+    HashMap<String, ImmutableList.Builder<Depset>> depsetMapBuilder = new HashMap<>();
+    HashMap<String, Object> constantsMap = new HashMap<>();
 
-    private StarlarkCallable buildLibraryFunction;
-
-    private final HashMap<String, ImmutableList.Builder<Depset>> depsetMapBuilder = new HashMap<>();
-
-    private final HashMap<String, Object> constantsMap = new HashMap<>();
-
-    private Builder() {}
-
-    /** Build the ExtraLinkTimeLibrary based on the inputs. */
-    public StarlarkDefinedLinkTimeLibrary build() {
-      ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
-      for (String key : depsetMapBuilder.keySet()) {
-        try {
-          builder.put(
-              key,
-              Depset.fromDirectAndTransitive(
-                  Order.LINK_ORDER,
-                  ImmutableList.of(),
-                  depsetMapBuilder.get(key).build(),
-                  /* strict= */ true));
-        } catch (EvalException e) {
-          // should never happen; exception comes from bad order argument.
-          throw new IllegalStateException(e);
-        }
-      }
-      builder.putAll(constantsMap);
-      return new StarlarkDefinedLinkTimeLibrary(buildLibraryFunction, builder.buildOrThrow());
-    }
-
-    /**
-     * Add the inputs associated with another instance of the same underlying ExtraLinkTimeLibrary
-     * type.
-     */
-    public void addTransitive(StarlarkDefinedLinkTimeLibrary library) {
+    for (StarlarkDefinedLinkTimeLibrary library : libraries) {
       if (buildLibraryFunction == null) {
         buildLibraryFunction = library.buildLibraryFunction;
       }
@@ -275,5 +238,23 @@ public class StarlarkDefinedLinkTimeLibrary implements ExtraLinkTimeLibraryApi, 
         }
       }
     }
+
+    ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
+    for (String key : depsetMapBuilder.keySet()) {
+      try {
+        builder.put(
+            key,
+            Depset.fromDirectAndTransitive(
+                Order.LINK_ORDER,
+                ImmutableList.of(),
+                depsetMapBuilder.get(key).build(),
+                /* strict= */ true));
+      } catch (EvalException e) {
+        // should never happen; exception comes from bad order argument.
+        throw new IllegalStateException(e);
+      }
+    }
+    builder.putAll(constantsMap);
+    return new StarlarkDefinedLinkTimeLibrary(buildLibraryFunction, builder.buildOrThrow());
   }
 }
