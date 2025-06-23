@@ -83,8 +83,20 @@ public interface FingerprintValueStore {
 
   /** An in-memory {@link FingerprintValueStore} for testing. */
   static class InMemoryFingerprintValueStore implements FingerprintValueStore {
+    private static final ListenableFuture<byte[]> IMMEDIATE_NULL = immediateFuture((byte[]) null);
+
     public final ConcurrentHashMap<KeyBytesProvider, byte[]> fingerprintToContents =
         new ConcurrentHashMap<>();
+
+    private final boolean useNullForMissingValues;
+
+    public InMemoryFingerprintValueStore() {
+      this(/* useNullForMissingValues= */ false);
+    }
+
+    public InMemoryFingerprintValueStore(boolean useNullForMissingValues) {
+      this.useNullForMissingValues = useNullForMissingValues;
+    }
 
     @Override
     public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
@@ -96,7 +108,9 @@ public interface FingerprintValueStore {
     public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
       byte[] serializedBytes = fingerprintToContents.get(fingerprint);
       if (serializedBytes == null) {
-        return immediateFailedFuture(new MissingFingerprintValueException(fingerprint));
+        return useNullForMissingValues
+            ? IMMEDIATE_NULL
+            : immediateFailedFuture(new MissingFingerprintValueException(fingerprint));
       }
       return immediateFuture(serializedBytes);
     }
