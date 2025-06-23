@@ -231,7 +231,7 @@ Here’s a complete implementation of the `foo_library` and `foo_binary` rules.
 # //depsets/foo.bzl
 
 # A provider with one field, transitive_sources.
-FooFiles = provider(fields = ["transitive_sources"])
+foo_files = provider(fields = ["transitive_sources"])
 
 def get_transitive_srcs(srcs, deps):
   """Obtain the source files for a target and its transitive dependencies.
@@ -244,11 +244,11 @@ def get_transitive_srcs(srcs, deps):
   """
   return depset(
         srcs,
-        transitive = [dep[FooFiles].transitive_sources for dep in deps])
+        transitive = [dep[foo_files].transitive_sources for dep in deps])
 
 def _foo_library_impl(ctx):
   trans_srcs = get_transitive_srcs(ctx.files.srcs, ctx.attr.deps)
-  return [FooFiles(transitive_sources=trans_srcs)]
+  return [foo_files(transitive_sources=trans_srcs)]
 
 foo_library = rule(
     implementation = _foo_library_impl,
@@ -294,7 +294,7 @@ To see the motivation for using depsets, consider what would happen if
 def get_transitive_srcs(srcs, deps):
   trans_srcs = []
   for dep in deps:
-    trans_srcs += dep[FooFiles].transitive_sources
+    trans_srcs += dep[foo_files].transitive_sources
   trans_srcs += srcs
   return trans_srcs
 ```
@@ -310,7 +310,7 @@ dictionary where the keys are the elements and all the keys map to `True`.
 def get_transitive_srcs(srcs, deps):
   trans_srcs = {}
   for dep in deps:
-    for file in dep[FooFiles].transitive_sources:
+    for file in dep[foo_files].transitive_sources:
       trans_srcs[file] = True
   for file in srcs:
     trans_srcs[file] = True
