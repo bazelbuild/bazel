@@ -636,7 +636,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           directories.getExecRoot(ruleClassProvider.getRunfilesPrefix()).asFragment(),
           directories.getRelativeOutputPath(),
           fileSystem,
-          getPathEntries(),
+          getPackagePathEntries(),
           actionInputMap,
           treeArtifacts,
           filesets);
@@ -702,7 +702,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             outputArtifactsSeen,
             outputArtifactsFromActionCache,
             statusReporterRef,
-            this::getPathEntries,
+            this::getPackagePathEntries,
             this.syscallCache,
             skyKeyStateReceiver::makeThreadStateReceiver,
             this::getExistingActionLookupValue);
@@ -1564,13 +1564,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return eventBus.get();
   }
 
-  @VisibleForTesting
-  ImmutableList<Root> getPathEntries() {
+  public final ImmutableList<Root> getPackagePathEntries() {
     return pkgLocator.get().getPathEntries();
-  }
-
-  public AtomicReference<PathPackageLocator> getPackageLocator() {
-    return pkgLocator;
   }
 
   public IgnoredSubdirectories getIgnoredPaths() {
@@ -3509,7 +3504,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         Maps.newHashMap();
     Set<Pair<Root, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation =
         Sets.newHashSet();
-    ImmutableList<Root> pkgRoots = pkgLocator.get().getPathEntries();
+    ImmutableList<Root> pkgRoots = getPackagePathEntries();
 
     Path workspacePath = directories.getWorkspace();
     EvaluationResult<SkyValue> evaluationResult =

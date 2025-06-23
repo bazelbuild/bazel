@@ -352,10 +352,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
-        new PathPackageLocator(
-            outputBase,
-            ImmutableList.of(root),
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
+        createPackageLocator(),
         packageOptions,
         buildLanguageOptions,
         UUID.randomUUID(),
@@ -367,6 +364,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     setUpSkyframe();
     this.actionLogBufferPathGenerator =
         new ActionLogBufferPathGenerator(directories.getActionTempsDirectory(getExecRoot()));
+  }
+
+  protected final PathPackageLocator createPackageLocator() {
+    return new PathPackageLocator(
+        outputBase, ImmutableList.of(root), BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
   }
 
   @ForOverride

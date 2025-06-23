@@ -378,7 +378,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testPropagatesFilesystemInconsistencies() throws Exception {
     RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
-    Root pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
+    Root pkgRoot = getSkyframeExecutor().getPackagePathEntries().getFirst();
     Path fooBuildFile = scratch.file("foo/BUILD");
     Path fooDir = fooBuildFile.getParentDirectory();
 
@@ -448,7 +448,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testPropagatesFilesystemInconsistencies_globbing() throws Exception {
     RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
-    Root pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
+    Root pkgRoot = getSkyframeExecutor().getPackagePathEntries().getFirst();
     scratch.file(
         "foo/BUILD",
         """
@@ -1713,7 +1713,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testGlobbingSkyframeDependencyStructure() throws Exception {
     reporter.removeHandler(failFastHandler);
 
-    Root pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
+    Root pkgRoot = getSkyframeExecutor().getPackagePathEntries().getFirst();
 
     Path fooBuildPath =
         scratch.file("foo/BUILD", "glob(['dir/*.sh'])", "subpackages(include = ['subpkg/**'])");

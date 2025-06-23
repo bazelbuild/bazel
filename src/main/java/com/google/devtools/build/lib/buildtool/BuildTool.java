@@ -1284,9 +1284,7 @@ public class BuildTool {
                   skyframeExecutor.getSkyframeBuildView().getArtifactFactory()::getSourceArtifact)
               .put(RuleClassProvider.class, ruleClassProvider)
               .put(RootCodecDependencies.class, new RootCodecDependencies(roots.build()))
-              .put(
-                  PackagePathCodecDependencies.class,
-                  () -> skyframeExecutor.getPackageLocator().get().getPathEntries())
+              .put(PackagePathCodecDependencies.class, skyframeExecutor::getPackagePathEntries)
               // This is needed to determine TargetData for a ConfiguredTarget during serialization.
               .put(PrerequisitePackageFunction.class, skyframeExecutor::getExistingPackage);
 

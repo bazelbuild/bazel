@@ -2694,7 +2694,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     var unused =
         skyframeExecutor.sync(
             reporter,
-            skyframeExecutor.getPackageLocator().get(),
+            createPackageLocator(),
             UUID.randomUUID(),
             /* clientEnv= */ ImmutableMap.of(),
             /* repoEnvOption= */ ImmutableMap.of(),
