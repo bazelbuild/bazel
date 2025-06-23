@@ -21,8 +21,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.ExtraLinkTimeLibraryApi;
 import java.util.HashMap;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -38,9 +41,16 @@ import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.eval.Tuple;
 
 /**
- * An implementation of ExtraLinkTimeLibrary that uses functions and data passed in from Starlark.
+ * An extra library to include in a link. The actual library is built at link time.
+ *
+ * <p>This can be used for non-C++ inputs to a C++ link. A class that implements this interface will
+ * support transitively gathering all inputs from link dependencies, and then combine them all
+ * together into a set of C++ libraries.
+ *
+ * <p>Any implementations must be immutable (and therefore thread-safe), because this is passed
+ * between rules and accessed in a multi-threaded context.
  */
-public class StarlarkDefinedLinkTimeLibrary implements ExtraLinkTimeLibrary, Structure {
+public class StarlarkDefinedLinkTimeLibrary implements ExtraLinkTimeLibraryApi, Structure {
 
   StarlarkDefinedLinkTimeLibrary(
       StarlarkCallable buildLibraryFunction, ImmutableMap<String, Object> objectMap) {
@@ -59,17 +69,48 @@ public class StarlarkDefinedLinkTimeLibrary implements ExtraLinkTimeLibrary, Str
   // The equals method is used to determine equality.
   private final Key key;
 
-  @Override
+  /**
+   * Used to identify the "class" of this Library. The Java class is usually sufficient unless
+   * behaviour is controlled dynamically.
+   */
   public Key getKey() {
     return key;
   }
 
-  @Override
-  public ExtraLinkTimeLibrary.Builder getBuilder() {
+  /**
+   * Get a new Builder for this ExtraLinkTimeLibrary class. This acts like a static method, in that
+   * the result does not depend on the current state of the object, and the new Builder starts out
+   * empty.
+   */
+  public Builder getBuilder() {
     return new Builder();
   }
 
-  @Override
+  /** Output of {@link #buildLibraries}. Pair of libraries to link and runtime libraries. */
+  static class BuildLibraryOutput {
+    public NestedSet<LinkerInput> linkerInputs;
+    public NestedSet<Artifact> runtimeLibraries;
+
+    public BuildLibraryOutput(
+        NestedSet<CcLinkingContext.LinkerInput> linkerInputs,
+        NestedSet<Artifact> runtimeLibraries) {
+      this.linkerInputs = linkerInputs;
+      this.runtimeLibraries = runtimeLibraries;
+    }
+
+    public NestedSet<CcLinkingContext.LinkerInput> getLinkerInputs() {
+      return linkerInputs;
+    }
+
+    public NestedSet<Artifact> getRuntimeLibraries() {
+      return runtimeLibraries;
+    }
+  }
+
+  /**
+   * Build and return the LinkerInput inputs to pass to the C++ linker and the associated runtime
+   * libraries.
+   */
   public BuildLibraryOutput buildLibraries(
       RuleContext ruleContext,
       boolean staticMode,
@@ -185,7 +226,8 @@ public class StarlarkDefinedLinkTimeLibrary implements ExtraLinkTimeLibrary, Str
     }
   }
 
-  private static class Builder implements ExtraLinkTimeLibrary.Builder {
+  /** The Builder interface builds an ExtraLinkTimeLibrary. */
+  public static class Builder {
 
     private StarlarkCallable buildLibraryFunction;
 
@@ -195,8 +237,8 @@ public class StarlarkDefinedLinkTimeLibrary implements ExtraLinkTimeLibrary, Str
 
     private Builder() {}
 
-    @Override
-    public ExtraLinkTimeLibrary build() {
+    /** Build the ExtraLinkTimeLibrary based on the inputs. */
+    public StarlarkDefinedLinkTimeLibrary build() {
       ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
       for (String key : depsetMapBuilder.keySet()) {
         try {
@@ -216,9 +258,11 @@ public class StarlarkDefinedLinkTimeLibrary implements ExtraLinkTimeLibrary, Str
       return new StarlarkDefinedLinkTimeLibrary(buildLibraryFunction, builder.buildOrThrow());
     }
 
-    @Override
-    public void addTransitive(ExtraLinkTimeLibrary dep) {
-      StarlarkDefinedLinkTimeLibrary library = (StarlarkDefinedLinkTimeLibrary) dep;
+    /**
+     * Add the inputs associated with another instance of the same underlying ExtraLinkTimeLibrary
+     * type.
+     */
+    public void addTransitive(StarlarkDefinedLinkTimeLibrary library) {
       if (buildLibraryFunction == null) {
         buildLibraryFunction = library.buildLibraryFunction;
       }

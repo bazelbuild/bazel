@@ -73,7 +73,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExt
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcModuleApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.ExtraLinkTimeLibraryApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -815,7 +814,7 @@ public abstract class CcModule
       CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
       ccLinkingContextBuilder.addTransitiveLinkerInputs(
           Depset.noneableCast(linkerInputs, CcLinkingContext.LinkerInput.class, "linker_inputs"));
-      ExtraLinkTimeLibrary extraLinkTimeLibrary =
+      StarlarkDefinedLinkTimeLibrary extraLinkTimeLibrary =
           convertFromNoneable(extraLinkTimeLibraryObject, /* defaultValue= */ null);
       if (extraLinkTimeLibrary != null) {
         ccLinkingContextBuilder.setExtraLinkTimeLibraries(
@@ -2174,7 +2173,7 @@ public abstract class CcModule
       },
       extraKeywords = @Param(name = "data"),
       useStarlarkThread = true)
-  public ExtraLinkTimeLibraryApi createExtraLinkTimeLibrary(
+  public StarlarkDefinedLinkTimeLibrary createExtraLinkTimeLibrary(
       StarlarkCallable buildLibraryFunc, Dict<String, Object> dataSetsMap, StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
