@@ -31,12 +31,23 @@ public interface StarlarkValue {
    * {@code "<foo object>"}.
    *
    * @param printer a printer to be used for formatting nested values.
+   * @deprecated use {@link #repr(Printer, StarlarkSemantics)} instead
    */
-  // TODO(brandjon): We can consider adding a StarlarkSemantics param to repr(), to match str() and
-  // debugPrint(). Counterargument is that it's nice to have a supported way of stringifying a
-  // Starlark value independently of a Starlark evaluation environment. If necessary we could use
-  // toString for that purpose, or even define a separate semantics-independent repr-like method.
+  @Deprecated
   default void repr(Printer printer) {
+    repr(printer, StarlarkSemantics.DEFAULT);
+  }
+
+  /**
+   * Prints an official representation of object x.
+   *
+   * <p>Convention is that the string should be parseable back to the value x. If this isn't
+   * feasible then it should be a short human-readable description enclosed in angled brackets, e.g.
+   * {@code "<foo object>"}.
+   *
+   * @param printer a printer to be used for formatting nested values.
+   */
+  default void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<unknown object ").append(getClass().getName()).append(">");
   }
 
