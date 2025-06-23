@@ -121,7 +121,7 @@ public class RemoteLeaseExtension implements LeaseExtension {
         if (value != null && ACTION_FILTER.test(key)) {
           var action = getActionFromSkyKey(key);
           var actionExecutionValue = (ActionExecutionValue) value;
-          var remoteFiles = collectRemoteFiles(actionExecutionValue);
+          var remoteFiles = collectRemoteFiles(actionExecutionValue, earliestExpiration);
           if (!remoteFiles.isEmpty()) {
             // Lease extensions are performed on action basis, not by collecting all outputs and
             // issue one giant `FindMissingBlobs` call to avoid increasing memory footprint. Since
@@ -150,22 +150,25 @@ public class RemoteLeaseExtension implements LeaseExtension {
     var unused = scheduledExecutor.schedule(this::extendLeases, delay.toMillis(), MILLISECONDS);
   }
 
-  private static boolean isRemoteMetadataWithTtl(FileArtifactValue metadata) {
-    return metadata.isRemote() && metadata.getExpirationTime() != null;
+  private static boolean isRemoteMetadataExpiringBefore(
+      FileArtifactValue metadata, Instant expirationTime) {
+    return metadata.isRemote()
+        && metadata.getExpirationTime() != null
+        && metadata.getExpirationTime().isBefore(expirationTime);
   }
 
   private ImmutableList<Map.Entry<? extends Artifact, FileArtifactValue>> collectRemoteFiles(
-      ActionExecutionValue actionExecutionValue) {
+      ActionExecutionValue actionExecutionValue, Instant earliestExpiration) {
     var result = ImmutableList.<Map.Entry<? extends Artifact, FileArtifactValue>>builder();
     for (var entry : actionExecutionValue.getAllFileValues().entrySet()) {
-      if (isRemoteMetadataWithTtl(entry.getValue())) {
+      if (isRemoteMetadataExpiringBefore(entry.getValue(), earliestExpiration)) {
         result.add(entry);
       }
     }
 
     for (var treeMetadata : actionExecutionValue.getAllTreeArtifactValues().values()) {
       for (var entry : treeMetadata.getChildValues().entrySet()) {
-        if (isRemoteMetadataWithTtl(entry.getValue())) {
+        if (isRemoteMetadataExpiringBefore(entry.getValue(), earliestExpiration)) {
           result.add(entry);
         }
       }
