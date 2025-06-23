@@ -97,16 +97,29 @@ class SourceFileCoverage {
         merged.putAll(line, s2Branches);
       } else if (s2Branches.isEmpty()) {
         merged.putAll(line, s1Branches);
-      } else if (s1Branches.size() != s2Branches.size()) {
-        // Preserve the LHS of the merge and drop the records on the RHS that conflict.
-        // TODO(cmita): Improve this as much as possible.
-        merged.putAll(line, s1Branches);
       } else {
         Iterator<BranchCoverage> it1 = s1Branches.iterator();
         Iterator<BranchCoverage> it2 = s2Branches.iterator();
-        while (it1.hasNext() && it2.hasNext()) {
-          BranchCoverage b1 = it1.next();
-          BranchCoverage b2 = it2.next();
+        while (it1.hasNext() || it2.hasNext()) {
+          // If a branch has only been identified in one of the two files, it is potentially due to problems in 
+          // the upstream branch data. Previously, b2 would be dropped, but now we adopt a `superset` approach,
+          // which assumes that the file with more branches is the more complete one and other branch data should
+          // be merged into it. Note, without fixing the upstream branch data, there is no guaranteed correct branch
+          // merging. 
+          BranchCoverage b1 = it1.hasNext() ? it1.next() : null;
+          BranchCoverage b2 = it2.hasNext() ? it2.next() : null;
+          
+          // If only one branch exists, add it
+          if (b1 == null) {
+            merged.put(line, b2);
+            continue;
+          }
+          if (b2 == null) {
+            merged.put(line, b1);
+            continue;
+          }
+          
+          // if both exist, use below.
           if (b1.lineNumber() != b2.lineNumber()
               || !b1.blockNumber().equals(b2.blockNumber())
               || !b1.branchNumber().equals(b2.branchNumber())) {

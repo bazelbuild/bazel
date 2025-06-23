@@ -77,22 +77,6 @@ public class SourceFileCoverageTest {
   }
 
   @Test
-  public void testIncompatibleBaBranchMergeDrops() throws Exception {
-    sourceFile1 = new SourceFileCoverage("source");
-    sourceFile2 = new SourceFileCoverage("source");
-    sourceFile1.addBranch(800, BranchCoverage.create(800, 2));
-    sourceFile1.addBranch(800, BranchCoverage.create(800, 1));
-    sourceFile2.addBranch(800, BranchCoverage.create(800, 2));
-    sourceFile2.addBranch(800, BranchCoverage.create(800, 2));
-    sourceFile2.addBranch(800, BranchCoverage.create(800, 1));
-
-    SourceFileCoverage merged = SourceFileCoverage.merge(sourceFile1, sourceFile2);
-
-    assertThat(merged.getAllBranches())
-        .containsExactly(BranchCoverage.create(800, 2), BranchCoverage.create(800, 1));
-  }
-
-  @Test
   public void testIncompatibleBrdaBranchMergeDrops() throws Exception {
     sourceFile1 = new SourceFileCoverage("source");
     sourceFile2 = new SourceFileCoverage("source");
