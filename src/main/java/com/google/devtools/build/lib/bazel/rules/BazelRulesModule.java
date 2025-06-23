@@ -702,6 +702,14 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         help = "No-op.")
     public boolean verboseExplanations;
+
+    @Option(
+        name = "experimental_cc_static_library",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean experimentalCcStaticLibrary;
   }
 
   @Override
