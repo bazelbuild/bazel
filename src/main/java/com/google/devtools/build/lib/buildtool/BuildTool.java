@@ -1493,9 +1493,9 @@ public class BuildTool {
         .handle(
             Event.info(
                 String.format(
-                    "Skycache stats: %s bytes received in %s requests, %s/%s cache"
+                    "Skycache stats: %s received in %s requests, %s/%s cache"
                         + " hits (%.2f%%) [Breakdown: %s]",
-                    bytesReceived,
+                    formatBytes(bytesReceived),
                     requests,
                     totalHits,
                     totalRequests,
@@ -1503,4 +1503,14 @@ public class BuildTool {
                     statsByFunction)));
   }
 
+  /** Formats a number of bytes in a human-readable prefixed format. */
+  private static String formatBytes(long bytes) {
+    var k = 1024;
+    if (bytes < k) {
+      return bytes + " B";
+    }
+    int exponent = (int) (Math.log((double) bytes) / Math.log(k));
+    String prefixedUnit = "KMGTPE".charAt(exponent - 1) + "B";
+    return String.format("%.2f %s", bytes / Math.pow(k, exponent), prefixedUnit);
+  }
 }
