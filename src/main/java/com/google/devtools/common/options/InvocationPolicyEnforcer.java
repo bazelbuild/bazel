@@ -257,7 +257,9 @@ public final class InvocationPolicyEnforcer {
             "Invocation policy is applied after --config expansion, changing config values now "
                 + "would have no effect and is disallowed to prevent confusion. Please remove the "
                 + "following policy : "
-                + policy);
+                +
+            policy
+            );
       }
 
       // These policies are high-level, before expansion, and so are not the implicitDependents or
@@ -312,7 +314,9 @@ public final class InvocationPolicyEnforcer {
       throws OptionsParsingException {
     throw new OptionsParsingException(
         String.format(
-            "SetValue operation from invocation policy for has an undefined behavior: %s", policy));
+            "SetValue operation from invocation policy for has an undefined behavior: %s",
+            policy
+            ));
   }
 
   /**

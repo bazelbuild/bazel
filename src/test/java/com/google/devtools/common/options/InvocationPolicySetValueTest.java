@@ -552,10 +552,12 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
             () -> enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder()));
     assertThat(e)
         .hasMessageThat()
-        .startsWith("SetValue operation from invocation policy for has an undefined behavior:");
-    assertThat(e)
-        .hasMessageThat()
-        .contains(String.format("flag_name: \"%s\"\nset_value {\n", flagName));
+        .startsWith(
+            String.format(
+                "SetValue operation from invocation policy for has an undefined behavior:"
+                    + " flag_name: \"%s\"\n"
+                    + "set_value {\n",
+                flagName));
   }
 
   @Test
@@ -580,11 +582,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
         .startsWith(
             "Invocation policy is applied after --config expansion, changing config values now "
                 + "would have no effect and is disallowed to prevent confusion. Please remove "
-                + "the following policy :");
-    assertThat(expected)
-        .hasMessageThat()
-        .contains(
-            "flag_name: \"config\"\n"
+                + "the following policy : flag_name: \"config\"\n"
                 + "set_value {\n"
                 + "  flag_value: \"foo\"\n"
                 + "  behavior: "
