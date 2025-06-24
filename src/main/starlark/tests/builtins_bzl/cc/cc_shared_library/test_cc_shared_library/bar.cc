@@ -11,6 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test/baz.h"
+#include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/bar.h"
 
-int baz() { return 42; }
+int bar() { return 42; }
