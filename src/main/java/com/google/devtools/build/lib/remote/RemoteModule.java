@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
-import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -401,7 +400,6 @@ public final class RemoteModule extends BlazeModule {
 
     remoteOutputChecker =
         new RemoteOutputChecker(
-            new JavaClock(),
             env.getCommandName(),
             remoteOptions.remoteOutputsMode,
             patternsToDownloadBuilder.build(),

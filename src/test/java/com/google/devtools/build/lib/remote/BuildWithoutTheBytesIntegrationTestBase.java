@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.CommandBuilder;
@@ -1634,9 +1635,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void remoteFilesExpiredBetweenBuilds_rerunGeneratingActions() throws Exception {
+  public void remoteFilesExpiredBetweenBuilds_buildRewound() throws Exception {
     // Arrange: Prepare workspace and populate remote cache
-    addOptions("--experimental_remote_cache_eviction_retries=0");
     write(
         "a/BUILD",
         """
@@ -1677,9 +1677,15 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Evict blobs from remote cache
     evictAllBlobs();
 
-    // Act: Do an incremental build
+    // Act: Do an incremental build, which is expected to fail with the exit code
+    // that, in a non-integration test setup, would retry the invocation
+    // automatically. Then simulate the retry.
     write("a/bar.in", "updated bar");
     addOptions("--strategy_regexp=.*bar=local");
+    var e = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    assertThat(e.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
+        .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED);
+
     buildTarget("//a:bar");
     waitDownloads();
 
@@ -1688,63 +1694,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void remoteFilesExpiredBetweenBuilds_rerunGeneratingActions_notDownloadedWithMinimal()
-      throws Exception {
+  public void remoteTreeFilesExpiredBetweenBuilds_buildRewound() throws Exception {
     // Arrange: Prepare workspace and populate remote cache
-    addOptions("--experimental_remote_cache_eviction_retries=0");
-    write(
-        "a/BUILD",
-        """
-        genrule(
-            name = "foo",
-            srcs = ["foo.in"],
-            outs = ["foo.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                "foo.out",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "cat $(SRCS) > $@",
-        )
-        """);
-    write("a/foo.in", "foo");
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out");
-    assertOutputDoesNotExist("a/bar.out");
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out and bar.out aren't downloaded
-    addOptions("--experimental_remote_cache_ttl=0s");
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out");
-    assertOutputDoesNotExist("a/bar.out");
-
-    // Evict blobs from remote cache
-    evictAllBlobs();
-
-    // Act: Do an incremental build
-    write("a/bar.in", "updated bar");
-    buildTarget("//a:bar");
-    waitDownloads();
-
-    // Assert: target was successfully built
-    assertOnlyOutputRemoteContent("//a:foo", "foo.out", "foo\n");
-    assertOnlyOutputRemoteContent("//a:bar", "bar.out", "foo\nupdated bar\n");
-  }
-
-  @Test
-  public void remoteTreeFilesExpiredBetweenBuilds_rerunGeneratingActions() throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    addOptions("--experimental_remote_cache_eviction_retries=0");
     write("BUILD");
     writeOutputDirRule();
     write(
@@ -1786,70 +1737,20 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     // Evict blobs from remote cache
     evictAllBlobs();
 
-    // Act: Do an incremental build
+    // Act: Do an incremental build, which is expected to fail with the exit code
+    // that, in a non-integration test setup, would retry the invocation
+    // automatically. Then simulate the retry.
     write("a/bar.in", "updated bar");
     addOptions("--strategy_regexp=.*bar=local");
+    var e = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+    assertThat(e.getDetailedExitCode().getFailureDetail().getSpawn().getCode())
+        .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED);
+
     buildTarget("//a:bar");
     waitDownloads();
 
     // Assert: target was successfully built
     assertValidOutputFile("a/bar.out", "file-inside\nupdated bar\n");
-  }
-
-  @Test
-  public void remoteTreeFilesExpiredBetweenBuilds_rerunGeneratingActions_notDownloadedWithMinimal()
-      throws Exception {
-    // Arrange: Prepare workspace and populate remote cache
-    addOptions("--experimental_remote_cache_eviction_retries=0");
-    write("BUILD");
-    writeOutputDirRule();
-    write(
-        "a/BUILD",
-        """
-        load("//:output_dir.bzl", "output_dir")
-
-        output_dir(
-            name = "foo.out",
-            content_map = {"file-inside": "hello world"},
-        )
-
-        genrule(
-            name = "bar",
-            srcs = [
-                "foo.out",
-                "bar.in",
-            ],
-            outs = ["bar.out"],
-            cmd = "( ls $(location :foo.out); cat $(location :bar.in) ) > $@",
-        )
-        """);
-    write("a/bar.in", "bar");
-
-    // Populate remote cache
-    buildTarget("//a:bar");
-    assertThat(getOutputPath("a/foo.out").getDirectoryEntries()).isEmpty();
-    assertOutputDoesNotExist("a/bar.out");
-    getOutputBase().getRelative("action_cache").deleteTreesBelow();
-    restartServer();
-
-    // Clean build, foo.out and bar.out aren't downloaded
-    addOptions("--experimental_remote_cache_ttl=0s");
-    buildTarget("//a:bar");
-    assertOutputDoesNotExist("a/foo.out/file-inside");
-    assertOutputDoesNotExist("a/bar.out");
-
-    // Evict blobs from remote cache
-    evictAllBlobs();
-
-    // Act: Do an incremental build
-    write("a/bar.in", "updated bar");
-    // Also request foo.out to verify that tree files aren't downloaded.
-    buildTarget("//a:bar", "//a:foo.out");
-    waitDownloads();
-
-    // Assert: target was successfully built
-    assertOutputDoesNotExist("a/foo.out/file-inside");
-    assertOnlyOutputRemoteContent("//a:bar", "bar.out", "file-inside\nupdated bar\n");
   }
 
   @Test

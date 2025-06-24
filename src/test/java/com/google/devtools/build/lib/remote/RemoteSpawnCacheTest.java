@@ -121,8 +121,7 @@ import org.mockito.stubbing.Answer;
 public class RemoteSpawnCacheTest {
 
   private static final RemoteOutputChecker DUMMY_REMOTE_OUTPUT_CHECKER =
-      new RemoteOutputChecker(
-          new JavaClock(), "build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
+      new RemoteOutputChecker("build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
 
   private static final String BUILD_REQUEST_ID = "build-req-id";
   private static final String COMMAND_ID = "command-id";
