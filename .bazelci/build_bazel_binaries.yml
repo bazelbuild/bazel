@@ -1,13 +1,6 @@
 ---
 platforms:
-  rockylinux8:
-    build_targets:
-      - "//src:bazel"
-      - "//src:bazel_nojdk"
-    build_flags:
-      - "-c"
-      - "opt"
-  rockylinux8_arm64:
+  centos7:
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"

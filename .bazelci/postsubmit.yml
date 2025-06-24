@@ -1,7 +1,7 @@
 ---
 
 tasks:
-  rockylinux8:
+  centos7:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -19,6 +19,8 @@ tasks:
       - "//src/tools/execlog/..."
     test_flags:
       - "--config=ci-linux"
+      # Override REMOTE_NETWORK_ADDRESS since bazel_sandboxing_networking_test doesn't work on this platform
+      - "--test_env=REMOTE_NETWORK_ADDRESS="
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
@@ -33,7 +35,7 @@ tasks:
       - "//tools/compliance/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # These tests are not compatible with the gcov version of Rocky Linux 8.
+      # These tests are not compatible with the gcov version of CentOS 7.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
