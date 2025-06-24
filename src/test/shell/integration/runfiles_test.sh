@@ -434,7 +434,7 @@ EOF
   if [[ $exit_code -ne 1 ]]; then
     fail "Expected regular build failure but instead got exit code $exit_code"
   fi
-  expect_log_once "Runfiles must not contain runfiles tree artifacts"
+  expect_log_once "Runfiles must not contain middleman artifacts"
 }
 
 function test_manifest_action_reruns_on_output_base_change() {
