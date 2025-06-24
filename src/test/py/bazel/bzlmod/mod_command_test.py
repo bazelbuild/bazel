@@ -1192,7 +1192,7 @@ class ModCommandTest(test_base.TestBase):
         'MODULE.bazel',
         [
             'include("//:firstProd.MODULE.bazel")',
-            'include("//:second.MODULE.bazel")',
+            'include("//:secondäöüÄÖÜß🌱.MODULE.bazel")',
         ],
     )
     self.ScratchFile(
@@ -1214,7 +1214,7 @@ class ModCommandTest(test_base.TestBase):
         ],
     )
     self.ScratchFile(
-        'second.MODULE.bazel',
+        'secondäöüÄÖÜß🌱.MODULE.bazel',
         [
             'ext = use_extension("//:extension.bzl", "ext")',
             'use_repo(ext, "blad_dep")',
@@ -1266,11 +1266,11 @@ class ModCommandTest(test_base.TestBase):
         'INFO: Updated use_repo calls for @//:extension.bzl%ext', stderr
     )
 
-    with open('MODULE.bazel', 'r') as module_file:
+    with open('MODULE.bazel', 'r', encoding='utf-8') as module_file:
       self.assertEqual(
           [
               'include("//:firstProd.MODULE.bazel")',
-              'include("//:second.MODULE.bazel")',
+              'include("//:secondäöüÄÖÜß🌱.MODULE.bazel")',
               '',
           ],
           module_file.read().split('\n'),
@@ -1298,7 +1298,7 @@ class ModCommandTest(test_base.TestBase):
           ],
           module_file.read().split('\n'),
       )
-    with open('second.MODULE.bazel', 'r') as module_file:
+    with open('secondäöüÄÖÜß🌱.MODULE.bazel', 'r') as module_file:
       self.assertEqual(
           [
               'ext = use_extension("//:extension.bzl", "ext")',
