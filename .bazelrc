@@ -42,6 +42,7 @@ build:macos --cxxopt=-std=c++17
 build:macos --host_cxxopt=-std=c++17
 build:windows --cxxopt=/std:c++17
 build:windows --host_cxxopt=/std:c++17
+common --experimental_cc_static_library
 
 # Suppress warnings from external repos, we have no direct control on them anyway.
 build:linux --per_file_copt=external/.*@-w
