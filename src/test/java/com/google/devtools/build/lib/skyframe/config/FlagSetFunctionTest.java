@@ -1387,6 +1387,98 @@ project = project_pb2.Project.create(
         "Cannot parse options: Building target(s) with different configurations are not supported");
   }
 
+  @Test
+  public void multipleTargetsWithMismatchingDefaultBuildableUnitsFails() throws Exception {
+    createStringFlag("//test:myflag", /* defaultValue= */ "default");
+    scratch.file(
+        "test/PROJECT.scl",
+"""
+load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+project = project_pb2.Project.create(
+  buildable_units = [
+      buildable_unit_pb2.BuildableUnit.create(
+          name = "foo_default",
+          target_patterns = ["//test:test_target"],
+          flags = ["--//test:myflag=foo_default_value"],
+          is_default = True,
+      ),
+      buildable_unit_pb2.BuildableUnit.create(
+          name = "bar_default",
+          target_patterns = ["//test:test_target2"],
+          flags = ["--//test:myflag=bar_default_value"],
+          is_default = True,
+      ),
+  ],
+)
+""");
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            ImmutableSet.of(
+                Label.parseCanonical("//test:test_target"),
+                Label.parseCanonical("//test:test_target2")),
+            Label.parseCanonical("//test:PROJECT.scl"),
+            /* sclConfig= */ null,
+            buildOptions,
+            /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("Building target(s) with different configurations are not supported");
+  }
+
+  @Test
+  public void multipleTargetsWithDifferentDefaultsSucceedsIfSameFlags() throws Exception {
+    createStringFlag("//test:myflag", /* defaultValue= */ "default");
+    scratch.file(
+        "test/PROJECT.scl",
+"""
+load("//test:project_proto.scl", "buildable_unit_pb2", "project_pb2")
+project = project_pb2.Project.create(
+  buildable_units = [
+      buildable_unit_pb2.BuildableUnit.create(
+          name = "foo_default",
+          target_patterns = ["//test:test_target"],
+          flags = ["--//test:myflag=common_default_value"],
+          is_default = True,
+      ),
+      buildable_unit_pb2.BuildableUnit.create(
+          name = "bar_default",
+          target_patterns = ["//test:test_target2"],
+          flags = ["--//test:myflag=common_default_value"],
+          is_default = True,
+      ),
+  ],
+)
+""");
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            ImmutableSet.of(
+                Label.parseCanonical("//test:test_target"),
+                Label.parseCanonical("//test:test_target2")),
+            Label.parseCanonical("//test:PROJECT.scl"),
+            /* sclConfig= */ null,
+            buildOptions,
+            /* userOptions= */ ImmutableMap.of(),
+            /* configFlagDefinitions= */ ConfigFlagDefinitions.NONE,
+            /* enforceCanonical= */ true);
+
+    var unused = executeFunction(key);
+    assertNoEvents();
+  }
+
   private FlagSetValue executeFunction(FlagSetValue.Key key) throws Exception {
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
     EvaluationResult<FlagSetValue> result =

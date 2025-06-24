@@ -42,6 +42,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -124,7 +125,7 @@ public final class FlagSetFunction implements SkyFunction {
 
       // check that all targets resolves to the same set of flags.
       // orders of flags should not matter here.
-      ImmutableList<ProjectValue.BuildableUnit> resolvedDefaultBuildableUnit =
+      ImmutableSet<ProjectValue.BuildableUnit> resolvedDefaultBuildableUnit =
           resolveSingleMatchingDefaultBuildableUnitForAllTargets(defaultBuildableUnits);
       if (resolvedDefaultBuildableUnit.size() > 1) {
         throw new FlagSetFunctionException(
@@ -143,8 +144,9 @@ public final class FlagSetFunction implements SkyFunction {
                     supportedConfigsDesc(projectFile, configs))),
             Transience.PERSISTENT);
       }
-      sclConfigValue = resolvedDefaultBuildableUnit.get(0).flags();
-      sclConfigNameForMessage = resolvedDefaultBuildableUnit.get(0).description();
+      ProjectValue.BuildableUnit buildableUnit = resolvedDefaultBuildableUnit.iterator().next();
+      sclConfigValue = buildableUnit.flags();
+      sclConfigNameForMessage = buildableUnit.description();
     } else {
       if (!configs.containsKey(sclConfigName)) {
         // The user set --scl_config to an unknown config.
@@ -223,34 +225,21 @@ public final class FlagSetFunction implements SkyFunction {
   }
 
   /**
-   * Takes a list of default buildable units and compare the flags values of all buildable units. If
-   * the flags from buildable units are different, it returns multiple buildable units. If the flags
-   * from all buildable units are the same, it returns the first matching buildable unit. The
-   * consumer of this method should check that there are no more than 1 buildable unit returned.
+   * Takes a list of default buildable units and compares the flags values of all buildable units.
+   * If the flags from all buildable units are the same, returns the first matching buildable unit.
+   * Else returns the first matching buildable unit for each distinct set of flags.
+   *
+   * <p>The caller should check that there are no more than 1 buildable unit returned.
    */
-  private static ImmutableList<ProjectValue.BuildableUnit>
+  private static ImmutableSet<ProjectValue.BuildableUnit>
       resolveSingleMatchingDefaultBuildableUnitForAllTargets(
           ImmutableList<ProjectValue.BuildableUnit> defaultBuildableUnitsForAllTargets) {
-    if (defaultBuildableUnitsForAllTargets.isEmpty()) {
-      return ImmutableList.of();
+    LinkedHashMap<ImmutableList<String>, ProjectValue.BuildableUnit> flagsToFirstBuildableUnit =
+        new LinkedHashMap<>();
+    for (ProjectValue.BuildableUnit buildableUnit : defaultBuildableUnitsForAllTargets) {
+      flagsToFirstBuildableUnit.putIfAbsent(buildableUnit.flags(), buildableUnit);
     }
-
-    ImmutableList.Builder<ProjectValue.BuildableUnit> resolvedBuildableUnits =
-        ImmutableList.builder();
-
-    ImmutableList<String> firstBuildableUnitFlags =
-        defaultBuildableUnitsForAllTargets.get(0).flags();
-
-    for (int i = 1; i < defaultBuildableUnitsForAllTargets.size(); i++) {
-      if (!firstBuildableUnitFlags.equals(defaultBuildableUnitsForAllTargets.get(i).flags())) {
-        resolvedBuildableUnits.add(defaultBuildableUnitsForAllTargets.get(i));
-      }
-    }
-
-    if (resolvedBuildableUnits.build().isEmpty()) {
-      resolvedBuildableUnits.add(defaultBuildableUnitsForAllTargets.get(0));
-    }
-    return resolvedBuildableUnits.build();
+    return ImmutableSet.copyOf(flagsToFirstBuildableUnit.values());
   }
 
   /**
