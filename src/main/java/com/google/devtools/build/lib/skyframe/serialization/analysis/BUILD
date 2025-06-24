@@ -165,8 +165,10 @@ java_library(
 java_library(
     name = "versioned_changes_validator",
     srcs = [
+        "AlwaysMatch.java",
         "FileOpMatchMemoizingLookup.java",
         "FileOpMatchResultTypes.java",
+        "MatchIndicator.java",
         "NestedMatchMemoizingLookup.java",
         "NestedMatchResultTypes.java",
         "NoMatch.java",

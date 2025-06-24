@@ -16,17 +16,22 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FileOpMatchResultTypes.FileOpMatchResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.NestedMatchResultTypes.NestedMatchResult;
 
-/** The delta didn't match the set of dependencies, meaning a <b>cache hit</b>. */
-enum NoMatch implements FileOpMatchResult, NestedMatchResult, MatchIndicator {
-  NO_MATCH_RESULT;
+/**
+ * The delta matches any set of dependencies, meaning a <b>cache miss</b>.
+ *
+ * <p>This occurs when there is missing data, and thus no guarantee can be made about the cache
+ * entry's validity.
+ */
+enum AlwaysMatch implements FileOpMatchResult, NestedMatchResult, MatchIndicator {
+  ALWAYS_MATCH_RESULT;
 
   @Override
   public boolean isMatch() {
-    return false;
+    return true;
   }
 
   @Override
   public final int version() {
-    return VersionedChanges.NO_MATCH;
+    return VersionedChanges.ALWAYS_MATCH;
   }
 }

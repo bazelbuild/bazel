@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.AlwaysMatch.ALWAYS_MATCH_RESULT;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMatch.NO_MATCH_RESULT;
 
 import com.google.common.collect.ImmutableList;
@@ -143,7 +144,7 @@ public final class FileOpMatchMemoizingLookupTest {
   public void matchingListing_matchesContainedFileChange() {
     changes.registerFileChange("dir/a", 100);
 
-    var key = new ListingDependencies(FileDependencies.builder("dir").build());
+    var key = ListingDependencies.from(FileDependencies.builder("dir").build());
     assertThat(getLookupResult(key, 99)).isEqualTo(new FileOpMatch(100));
   }
 
@@ -151,7 +152,7 @@ public final class FileOpMatchMemoizingLookupTest {
   public void matchListingChange_matchesDirectoryChange() {
     changes.registerFileChange("dir", 100);
 
-    var key = new ListingDependencies(FileDependencies.builder("dir").build());
+    var key = ListingDependencies.from(FileDependencies.builder("dir").build());
     assertThat(getLookupResult(key, 99)).isEqualTo(new FileOpMatch(100));
   }
 
@@ -160,12 +161,30 @@ public final class FileOpMatchMemoizingLookupTest {
     changes.registerFileChange("dep/a", 100);
 
     var key =
-        new ListingDependencies(
+        ListingDependencies.from(
             FileDependencies.builder("dir")
                 .addDependency(FileDependencies.builder("dep/a").build())
                 .build());
 
     assertThat(getLookupResult(key, 99)).isEqualTo(new FileOpMatch(100));
+  }
+
+  @Test
+  public void invalidation_missingFile() {
+    FileDependencies missingFile = FileDependencies.newMissingInstance();
+
+    var result = lookup.getValueOrFuture(missingFile, 99);
+
+    assertThat(result).isEqualTo(ALWAYS_MATCH_RESULT);
+  }
+
+  @Test
+  public void invalidation_missingListing() {
+    ListingDependencies missingListing = ListingDependencies.newMissingInstance();
+
+    var result = lookup.getValueOrFuture(missingListing, 99);
+
+    assertThat(result).isEqualTo(ALWAYS_MATCH_RESULT);
   }
 
   private FileOpMatchResult getLookupResult(FileOpDependency key, int validityHorizon) {

@@ -74,6 +74,10 @@ abstract non-sealed class FileDependencies
     return new Builder(firstResolvedPath);
   }
 
+  static FileDependencies newMissingInstance() {
+    return new MissingFileDependencies();
+  }
+
   static final class Builder {
     private final ArrayList<String> paths = new ArrayList<>();
     private final ArrayList<FileDependencies> dependencies = new ArrayList<>();
@@ -124,6 +128,11 @@ abstract non-sealed class FileDependencies
     }
 
     @Override
+    public boolean isMissingData() {
+      return false;
+    }
+
+    @Override
     int findEarliestMatch(VersionedChanges changes, int validityHorizon) {
       return changes.matchFileChange(resolvedPath, validityHorizon);
     }
@@ -161,6 +170,11 @@ abstract non-sealed class FileDependencies
     private SingleResolvedPathAndDependency(String resolvedPath, FileDependencies dependency) {
       this.resolvedPath = resolvedPath;
       this.dependency = dependency;
+    }
+
+    @Override
+    public boolean isMissingData() {
+      return false;
     }
 
     @Override
@@ -211,6 +225,11 @@ abstract non-sealed class FileDependencies
     }
 
     @Override
+    public boolean isMissingData() {
+      return false;
+    }
+
+    @Override
     int findEarliestMatch(VersionedChanges changes, int validityHorizon) {
       int minMatch = VersionedChanges.NO_MATCH;
       for (String element : resolvedPaths) {
@@ -248,6 +267,46 @@ abstract non-sealed class FileDependencies
           .add("resolvedPaths", resolvedPaths)
           .add("dependencies", dependencies)
           .toString();
+    }
+  }
+
+  /**
+   * Signals missing data in the nested set of dependencies.
+   *
+   * <p>This is deliberately not a singleton to avoid a memory leak in the weak-value caches in
+   * {@link FileDependencyDeserializer}.
+   */
+  private static final class MissingFileDependencies extends FileDependencies {
+    private MissingFileDependencies() {}
+
+    @Override
+    public boolean isMissingData() {
+      return true;
+    }
+
+    @Override
+    int findEarliestMatch(VersionedChanges changes, int validityHorizon) {
+      return VersionedChanges.ALWAYS_MATCH;
+    }
+
+    @Override
+    int getDependencyCount() {
+      return 0;
+    }
+
+    @Override
+    FileDependencies getDependency(int index) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    String resolvedPath() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    ImmutableList<String> getAllResolvedPathsForTesting() {
+      throw new UnsupportedOperationException();
     }
   }
 }

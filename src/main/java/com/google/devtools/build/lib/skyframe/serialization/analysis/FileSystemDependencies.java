@@ -28,4 +28,14 @@ sealed interface FileSystemDependencies
   /** Dependencies, excluding nested dependencies. */
   sealed interface FileOpDependency extends FileSystemDependencies
       permits FileDependencies, ListingDependencies {}
+
+  /**
+   * True if data was missing for this dependency.
+   *
+   * <p>Dependencies are fetched from a remote cache without durability guarantees. It's possible
+   * for the corresponding data to be missing. Any missing data induces missing data on anything
+   * that references it. From an invalidation perspective, if {@link isMissingData} is true, the
+   * dependency should never allow a cache hit and always signal matching everything.
+   */
+  boolean isMissingData();
 }

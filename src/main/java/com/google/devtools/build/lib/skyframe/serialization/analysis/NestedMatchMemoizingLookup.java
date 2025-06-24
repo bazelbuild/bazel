@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.AlwaysMatch.ALWAYS_MATCH_RESULT;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.NestedMatchResultTypes.createNestedMatchResult;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMatch.NO_MATCH_RESULT;
 
@@ -74,41 +75,46 @@ final class NestedMatchMemoizingLookup
 
   private NestedMatchResultOrFuture populateFutureNestedMatchResult(
       int validityHorizon, FutureNestedMatchResult ownedFuture) {
-    NestedDependencies nested = ownedFuture.key();
-    var aggregator = new NestedFutureResultAggregator();
-    for (int i = 0; i < nested.analysisDependenciesCount(); i++) {
-      switch (nested.getAnalysisDependency(i)) {
-        case FileOpDependency dependency:
-          aggregator.addAnalysisResultOrFuture(
-              fileOpMatches.getValueOrFuture(dependency, validityHorizon));
-          break;
-        case NestedDependencies child:
-          // In a common case, the cache reader sends a single top-level request that traverses the
-          // full set of dependencies and waits for that request to complete. Parallelizes
-          // recursive traversal of child nodes to avoid being singly-threaded in this scenario.
-          aggregator.signalNestedTaskAdded();
-          executor.execute(
-              () -> {
-                switch (getValueOrFuture(child, validityHorizon)) {
-                  case NestedMatchResult result:
-                    aggregator.addNestedResult(result);
-                    aggregator.signalNestedTaskComplete();
-                    break;
-                  case FutureNestedMatchResult future:
-                    // The aggregator decrements when the future completes.
-                    aggregator.addFutureNestedMatchResult(future);
-                    break;
-                }
-              });
-          break;
+    return switch (ownedFuture.key()) {
+      case NestedDependencies.AvailableNestedDependencies nested -> {
+        var aggregator = new NestedFutureResultAggregator();
+        for (int i = 0; i < nested.analysisDependenciesCount(); i++) {
+          switch (nested.getAnalysisDependency(i)) {
+            case FileOpDependency dependency:
+              aggregator.addAnalysisResultOrFuture(
+                  fileOpMatches.getValueOrFuture(dependency, validityHorizon));
+              break;
+            case NestedDependencies child:
+              // In a common case, the cache reader sends a single top-level request that traverses
+              // the full set of dependencies and waits for that request to complete. Parallelizes
+              // recursive traversal of child nodes to avoid being singly-threaded in this scenario.
+              aggregator.signalNestedTaskAdded();
+              executor.execute(
+                  () -> {
+                    switch (getValueOrFuture(child, validityHorizon)) {
+                      case NestedMatchResult result:
+                        aggregator.addNestedResult(result);
+                        aggregator.signalNestedTaskComplete();
+                        break;
+                      case FutureNestedMatchResult future:
+                        // The aggregator decrements when the future completes.
+                        aggregator.addFutureNestedMatchResult(future);
+                        break;
+                    }
+                  });
+              break;
+          }
+        }
+        for (int i = 0; i < nested.sourcesCount(); i++) {
+          aggregator.addSourceResultOrFuture(
+              fileOpMatches.getValueOrFuture(nested.getSource(i), validityHorizon));
+        }
+        aggregator.notifyAllDependenciesAdded();
+        yield ownedFuture.completeWith(aggregator);
       }
-    }
-    for (int i = 0; i < nested.sourcesCount(); i++) {
-      aggregator.addSourceResultOrFuture(
-          fileOpMatches.getValueOrFuture(nested.getSource(i), validityHorizon));
-    }
-    aggregator.notifyAllDependenciesAdded();
-    return ownedFuture.completeWith(aggregator);
+      case NestedDependencies.MissingNestedDependencies missing ->
+          ownedFuture.completeWith(ALWAYS_MATCH_RESULT);
+    };
   }
 
   private static final class NestedFutureResultAggregator
@@ -159,6 +165,9 @@ final class NestedMatchMemoizingLookup
     private void addNestedResult(NestedMatchResult result) {
       switch (result) {
         case NO_MATCH_RESULT:
+          break;
+        case ALWAYS_MATCH_RESULT:
+          earliestAnalysisMatch = VersionedChanges.ALWAYS_MATCH;
           break;
         case AnalysisMatch(int version):
           updateAnalysisVersionIfEarlier(version);

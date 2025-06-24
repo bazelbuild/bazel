@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.AlwaysMatch.ALWAYS_MATCH_RESULT;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.NestedMatchResultTypes.createNestedMatchResult;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.NoMatch.NO_MATCH_RESULT;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.VersionedChanges.NO_MATCH;
@@ -80,7 +81,7 @@ public final class NestedMatchMemoizingLookupTest {
     changes.registerFileChange("src/a", 98);
 
     var key =
-        new NestedDependencies(
+        NestedDependencies.from(
             ImmutableList.of(
                 FileDependencies.builder("dep/a").build(),
                 FileDependencies.builder("dep/b").build(),
@@ -115,7 +116,7 @@ public final class NestedMatchMemoizingLookupTest {
     var depB = new ControllableFileDependencies(ImmutableList.of("dep/b"), ImmutableList.of());
     var depC = new ControllableFileDependencies(ImmutableList.of("dep/c"), ImmutableList.of());
     var srcA = new ControllableFileDependencies(ImmutableList.of("src/a"), ImmutableList.of());
-    var key = new NestedDependencies(ImmutableList.of(depA, depB, depC), ImmutableList.of(srcA));
+    var key = NestedDependencies.from(ImmutableList.of(depA, depB, depC), ImmutableList.of(srcA));
 
     var pool = new ForkJoinPool(4); // one for each dependency and source
     pool.execute(
@@ -173,14 +174,14 @@ public final class NestedMatchMemoizingLookupTest {
     changes.registerFileChange("src/a", 102);
 
     var nestedDep =
-        new NestedDependencies(
+        NestedDependencies.from(
             ImmutableList.of(
                 FileDependencies.builder("dep/b").build(),
                 FileDependencies.builder("dep/c").build()),
             ImmutableList.of(FileDependencies.builder("src/a").build()));
 
     var key =
-        new NestedDependencies(
+        NestedDependencies.from(
             ImmutableList.of(FileDependencies.builder("dep/a").build(), nestedDep),
             ImmutableList.of());
 
@@ -208,14 +209,14 @@ public final class NestedMatchMemoizingLookupTest {
     changes.registerFileChange("src/a", 102);
 
     var nestedDep =
-        new NestedDependencies(
+        NestedDependencies.from(
             ImmutableList.of(
                 FileDependencies.builder("dep/b").build(),
                 FileDependencies.builder("dep/c").build()),
             ImmutableList.of(FileDependencies.builder("src/a").build()));
 
     var key =
-        new NestedDependencies(
+        NestedDependencies.from(
             ImmutableList.of(FileDependencies.builder("dep/a").build(), nestedDep),
             ImmutableList.of());
 
@@ -284,6 +285,15 @@ public final class NestedMatchMemoizingLookupTest {
     assertThat(result).isEqualTo(NO_MATCH_RESULT);
   }
 
+  @Test
+  public void invalidation_missingNested() throws Exception {
+    NestedDependencies missingNested = NestedDependencies.newMissingInstance();
+
+    var lookupResult = lookup.getValueOrFuture(missingNested, 99);
+
+    assertThat(lookupResult).isEqualTo(ALWAYS_MATCH_RESULT);
+  }
+
   private NestedMatchResult getLookupResult(NestedDependencies key, int validityHorizon) {
     try {
       switch (lookup.getValueOrFuture(key, validityHorizon)) {
@@ -317,7 +327,7 @@ public final class NestedMatchMemoizingLookupTest {
   }
 
   private static NestedDependencies createNestedDependencies(FileDependencies fileDependency) {
-    return new NestedDependencies(
+    return NestedDependencies.from(
         new FileSystemDependencies[] {fileDependency}, NestedDependencies.EMPTY_SOURCES);
   }
 }

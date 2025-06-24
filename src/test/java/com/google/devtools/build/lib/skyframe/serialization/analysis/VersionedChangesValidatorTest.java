@@ -70,7 +70,7 @@ public final class VersionedChangesValidatorTest {
     changes.registerFileChange("src/a", 98);
 
     var key =
-        new NestedDependencies(
+        NestedDependencies.from(
             ImmutableList.of(
                 FileDependencies.builder("dep/a").build(),
                 FileDependencies.builder("dep/b").build(),
@@ -91,14 +91,14 @@ public final class VersionedChangesValidatorTest {
     changes.registerFileChange("dep/b", 102);
 
     var keyA =
-        new NestedDependencies(
+        NestedDependencies.from(
             ImmutableList.of(
                 FileDependencies.builder("shared").build(),
                 FileDependencies.builder("dep/a").build()),
             ImmutableList.of());
 
     var keyB =
-        new NestedDependencies(
+        NestedDependencies.from(
             ImmutableList.of(
                 FileDependencies.builder("shared").build(),
                 FileDependencies.builder("dep/b").build()),

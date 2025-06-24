@@ -261,6 +261,10 @@ final class FileDependencyDeserializer {
     @Override
     public ListenableFuture<FileDependencies> apply(byte[] bytes)
         throws InvalidProtocolBufferException {
+      if (bytes == null) {
+        return immediateFuture(FileDependencies.newMissingInstance());
+      }
+
       var data = FileInvalidationData.parseFrom(bytes, getEmptyRegistry());
       if (data.hasOverflowKey() && !data.getOverflowKey().equals(key)) {
         return immediateFailedFuture(
@@ -485,6 +489,10 @@ final class FileDependencyDeserializer {
     @Override
     public ListenableFuture<ListingDependencies> apply(byte[] bytes)
         throws InvalidProtocolBufferException {
+      if (bytes == null) {
+        return immediateFuture(ListingDependencies.newMissingInstance());
+      }
+
       var data = DirectoryListingInvalidationData.parseFrom(bytes, getEmptyRegistry());
       if (data.hasOverflowKey() && !data.getOverflowKey().equals(key)) {
         return immediateFailedFuture(
@@ -499,7 +507,7 @@ final class FileDependencyDeserializer {
 
       String path = key.substring(pathBegin);
       if (path.isEmpty()) {
-        return immediateFuture(new ListingDependencies(ROOT_FILE));
+        return immediateFuture(ListingDependencies.from(ROOT_FILE));
       }
 
       String fileKey =
@@ -509,9 +517,9 @@ final class FileDependencyDeserializer {
               FILE_KEY_DELIMITER);
       switch (getFileDependencies(fileKey)) {
         case FileDependencies dependencies:
-          return immediateFuture(new ListingDependencies(dependencies));
+          return immediateFuture(ListingDependencies.from(dependencies));
         case FutureFileDependencies future:
-          return Futures.transform(future, ListingDependencies::new, directExecutor());
+          return Futures.transform(future, ListingDependencies::from, directExecutor());
       }
     }
   }
@@ -529,6 +537,10 @@ final class FileDependencyDeserializer {
      */
     @Override
     public ListenableFuture<NestedDependencies> apply(byte[] bytes) {
+      if (bytes == null) {
+        return immediateFuture(NestedDependencies.newMissingInstance());
+      }
+
       try {
         boolean usesZstdCompression = MagicBytes.hasMagicBytes(bytes);
         CodedInputStream codedIn;
@@ -649,7 +661,7 @@ final class FileDependencyDeserializer {
 
     @Override
     protected NestedDependencies getValue() {
-      return new NestedDependencies(elements, sources);
+      return NestedDependencies.from(elements, sources);
     }
   }
 

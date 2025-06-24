@@ -16,41 +16,77 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 /** Type representing a directory listing operation. */
-final class ListingDependencies
+abstract sealed class ListingDependencies
     implements FileSystemDependencies.FileOpDependency,
-        FileDependencyDeserializer.ListingDependenciesOrFuture {
-  private final FileDependencies realDirectory;
+        FileDependencyDeserializer.ListingDependenciesOrFuture
+    permits ListingDependencies.AvailableListingDependencies,
+        ListingDependencies.MissingListingDependencies {
 
-  ListingDependencies(FileDependencies realDirectory) {
-    this.realDirectory = realDirectory;
+  static ListingDependencies from(FileDependencies realDirectory) {
+    if (realDirectory.isMissingData()) {
+      return newMissingInstance();
+    }
+    return new AvailableListingDependencies(realDirectory);
+  }
+
+  static ListingDependencies newMissingInstance() {
+    return new MissingListingDependencies();
+  }
+
+  static final class AvailableListingDependencies extends ListingDependencies {
+    private final FileDependencies realDirectory;
+
+    private AvailableListingDependencies(FileDependencies realDirectory) {
+      this.realDirectory = realDirectory;
+    }
+
+    @Override
+    public boolean isMissingData() {
+      return false;
+    }
+
+    /**
+     * Determines if this listing is invalidated by anything in {@code changes}.
+     *
+     * <p>The caller should ensure the following.
+     *
+     * <ul>
+     *   <li>This listing is known to be valid at {@code validityHorizon} (VH).
+     *   <li>All changes over the range {@code (VH, VC])} are registered with {@code changes} before
+     *       calling this method. (VC is the synced version of the cache reader.)
+     * </ul>
+     *
+     * <p>See description of {@link VersionedChanges} for more details.
+     *
+     * @return the earliest version where a matching (invalidating) change is identified, otherwise
+     *     {@link VersionedChanges#NO_MATCH}.
+     */
+    int findEarliestMatch(VersionedChanges changes, int validityHorizon) {
+      return changes.matchListingChange(realDirectory.resolvedPath(), validityHorizon);
+    }
+
+    FileDependencies realDirectory() {
+      return realDirectory;
+    }
+
+    @Override
+    public String toString() {
+      return toStringHelper(this).add("realDirectory", realDirectory).toString();
+    }
   }
 
   /**
-   * Determines if this listing is invalidated by anything in {@code changes}.
+   * Signals missing listing data.
    *
-   * <p>The caller should ensure the following.
-   *
-   * <ul>
-   *   <li>This listing is known to be valid at {@code validityHorizon} (VH).
-   *   <li>All changes over the range {@code (VH, VC])} are registered with {@code changes} before
-   *       calling this method. (VC is the synced version of the cache reader.)
-   * </ul>
-   *
-   * <p>See description of {@link VersionedChanges} for more details.
-   *
-   * @return the earliest version where a matching (invalidating) change is identified, otherwise
-   *     {@link VersionedChanges#NO_MATCH}.
+   * <p>This is deliberately not a singleton to avoid a memory leak in the weak-value caches in
+   * {@link FileDependencyDeserializer}.
    */
-  int findEarliestMatch(VersionedChanges changes, int validityHorizon) {
-    return changes.matchListingChange(realDirectory.resolvedPath(), validityHorizon);
-  }
+  static final class MissingListingDependencies extends ListingDependencies {
+    private MissingListingDependencies() {}
 
-  FileDependencies realDirectory() {
-    return realDirectory;
-  }
-
-  @Override
-  public String toString() {
-    return toStringHelper(this).add("realDirectory", realDirectory).toString();
+    @Override
+    public boolean isMissingData() {
+      return true;
+    }
   }
 }
