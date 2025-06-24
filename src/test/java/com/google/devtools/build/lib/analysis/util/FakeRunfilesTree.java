@@ -73,8 +73,7 @@ public final class FakeRunfilesTree implements RunfilesTree {
 
   @Override
   public Map<PathFragment, Artifact> getMapping() {
-    return runfiles.getRunfilesInputs(
-        /* eventHandler= */ null, /* location= */ null, repoMappingManifest);
+    return runfiles.getRunfilesInputs(repoMappingManifest);
   }
 
   @Override
