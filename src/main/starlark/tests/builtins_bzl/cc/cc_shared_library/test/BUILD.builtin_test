@@ -477,9 +477,6 @@ genrule(
 cc_library(
     name = "hdr_only",
     hdrs = [":hdr_only_hdr"],
-    linkopts = [
-        "-Wl,-rpath,hdr_only",
-    ],
 )
 
 cc_library(
