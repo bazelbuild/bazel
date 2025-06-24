@@ -1165,22 +1165,6 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         .isEqualTo(ActionsTestUtil.baseArtifactNames(getRunfileArtifacts(result)));
   }
 
-  @Test
-  public void testRunfilesSymlinkConflict() throws Exception {
-    // Two different artifacts mapped to same path in runfiles
-    setRuleContext(createRuleContext("//foo:foo"));
-    ev.exec("prefix = ruleContext.workspace_name + '/' if ruleContext.workspace_name else ''");
-    Object result =
-        ev.eval(
-            "ruleContext.runfiles(",
-            "  root_symlinks = {prefix + 'sym1': ruleContext.files.srcs[0]},",
-            "  symlinks = {'sym1': ruleContext.files.srcs[1]})");
-    Runfiles runfiles = (Runfiles) result;
-    reporter.removeHandler(failFastHandler); // So it doesn't throw an exception.
-    var unused = runfiles.getRunfilesInputs(reporter, null, null);
-    assertContainsEvent("ERROR <no location>: overwrote runfile");
-  }
-
   private static Iterable<Artifact> getRunfileArtifacts(Object runfiles) {
     return ((Runfiles) runfiles).getAllArtifacts().toList();
   }

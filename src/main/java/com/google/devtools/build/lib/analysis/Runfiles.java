@@ -46,13 +46,15 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -279,16 +281,11 @@ public final class Runfiles implements RunfilesApi {
     return entriesToMap(symlinks, checker);
   }
 
-  /**
-   * @param eventHandler Used for throwing an error if we have an obscuring runlink.
-   *                 May be null, in which case obscuring symlinks are silently discarded.
-   * @param location Location for reporter. Ignored if reporter is null.
-   * @param workingManifest Manifest to be checked for obscuring symlinks.
-   * @return map of source file names mapped to their location on disk.
-   */
   @VisibleForTesting
   static Map<PathFragment, Artifact> filterListForObscuringSymlinks(
-      EventHandler eventHandler, Location location, Map<PathFragment, Artifact> workingManifest) {
+      boolean report,
+      Consumer<String> messageReceiver,
+      Map<PathFragment, Artifact> workingManifest) {
     Map<PathFragment, Artifact> newManifest =
         Maps.newHashMapWithExpectedSize(workingManifest.size());
     Set<PathFragment> noFurtherObstructions = new HashSet<>();
@@ -309,24 +306,22 @@ public final class Runfiles implements RunfilesApi {
         Artifact ancestor = workingManifest.get(prefix);
         if (ancestor != null) {
           // This is an obscuring symlink, so just drop it and move on if there's no reporter.
-          if (eventHandler == null) {
+          if (!report) {
             continue outer;
           }
           PathFragment suffix = source.subFragment(n - j, n);
           PathFragment viaAncestor = ancestor.getExecPath().getRelative(suffix);
           PathFragment expected = symlink.getExecPath();
           if (!viaAncestor.equals(expected)) {
-            eventHandler.handle(
-                Event.warn(
-                    location,
-                    "runfiles symlink "
-                        + source
-                        + " -> "
-                        + expected
-                        + " obscured by "
-                        + prefix
-                        + " -> "
-                        + ancestor.getExecPath()));
+            messageReceiver.accept(
+                "runfiles symlink "
+                    + source
+                    + " -> "
+                    + expected
+                    + " obscured by "
+                    + prefix
+                    + " -> "
+                    + ancestor.getExecPath());
           }
           continue outer;
         }
@@ -338,12 +333,46 @@ public final class Runfiles implements RunfilesApi {
   }
 
   /**
+   * Returns the symlinks as a map from {@link PathFragment} to {@link Artifact}.
+   *
+   * <p>Any errors during the conversion are ignored.
+   *
+   * @param repoMappingManifest repository mapping manifest to add as a root symlink. This manifest
+   *     has to be added automatically for every executable and is thus not part of the Runfiles
+   *     advertised by a configured target.
+   * @return {@code Map<PathFragment, Artifact>} path fragment to artifact, of normal source tree
+   *     entries and elements that live outside the source tree. Null values represent empty input
+   *     files.
+   */
+  public Map<PathFragment, Artifact> getRunfilesInputs(Artifact repoMappingManifest) {
+    return getRunfilesInputs(EnumSet.noneOf(ConflictType.class), null, repoMappingManifest);
+  }
+
+  /** Creates a receiver for runfiles conflicts that reports them on an {@link EventHandler}. */
+  public BiConsumer<ConflictType, String> eventRunfilesConflictReceiver(
+      EventHandler eventHandler, Location location) {
+    return (conflictType, message) -> {
+      EventKind kind =
+          switch (conflictType) {
+            case NESTED_RUNFILES_TREE -> EventKind.ERROR;
+            case PREFIX_CONFLICT ->
+                conflictPolicy == ConflictPolicy.ERROR ? EventKind.ERROR : EventKind.WARNING;
+            default ->
+                switch (conflictPolicy) {
+                  case IGNORE -> throw new IllegalStateException();
+                  default ->
+                      conflictPolicy == ConflictPolicy.ERROR ? EventKind.ERROR : EventKind.WARNING;
+                };
+          };
+
+      eventHandler.handle(Event.of(kind, location, message));
+    };
+  }
+
+  /**
    * Returns the symlinks as a map from PathFragment to Artifact.
    *
-   * @param eventHandler Used for throwing an error if we have an obscuring runlink within the
-   *     normal source tree entries, or runfile conflicts. May be null, in which case obscuring
-   *     symlinks are silently discarded, and conflicts are overwritten.
-   * @param location Location for eventHandler warnings. Ignored if eventHandler is null.
+   * @param receiver called for each conflict
    * @param repoMappingManifest repository mapping manifest to add as a root symlink. This manifest
    *     has to be added automatically for every executable and is thus not part of the Runfiles
    *     advertised by a configured target.
@@ -351,15 +380,33 @@ public final class Runfiles implements RunfilesApi {
    *     and elements that live outside the source tree. Null values represent empty input files.
    */
   public Map<PathFragment, Artifact> getRunfilesInputs(
-      EventHandler eventHandler, Location location, @Nullable Artifact repoMappingManifest) {
-    ConflictChecker checker = new ConflictChecker(conflictPolicy, eventHandler, location);
+      BiConsumer<ConflictType, String> receiver, @Nullable Artifact repoMappingManifest) {
+    EnumSet<ConflictType> conflictsToReport =
+        conflictPolicy == ConflictPolicy.IGNORE
+            ? EnumSet.of(
+                ConflictType.NESTED_RUNFILES_TREE,
+                ConflictType.PREFIX_CONFLICT)
+            : EnumSet.allOf(ConflictType.class);
+
+    return getRunfilesInputs(conflictsToReport, receiver, repoMappingManifest);
+  }
+
+  private Map<PathFragment, Artifact> getRunfilesInputs(
+      EnumSet<ConflictType> conflictSet,
+      BiConsumer<ConflictType, String> receiver,
+      @Nullable Artifact repoMappingManifest) {
+    ConflictChecker checker = new ConflictChecker(receiver, conflictSet);
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap(checker);
     // Add artifacts (committed to inclusion on construction of runfiles).
     for (Artifact artifact : artifacts.toList()) {
       checker.put(manifest, artifact.getRunfilesPath(), artifact);
     }
 
-    manifest = filterListForObscuringSymlinks(eventHandler, location, manifest);
+    manifest =
+        filterListForObscuringSymlinks(
+            conflictSet.contains(ConflictType.PREFIX_CONFLICT),
+            message -> receiver.accept(ConflictType.PREFIX_CONFLICT, message),
+            manifest);
 
     // TODO(bazel-team): Create /dev/null-like Artifact to avoid nulls?
     for (PathFragment extraPath : emptyFilesSupplier.getExtraPaths(manifest.keySet())) {
@@ -372,13 +419,7 @@ public final class Runfiles implements RunfilesApi {
     ManifestBuilder builder =
         new ManifestBuilder(PathFragment.create(prefix), legacyExternalRunfiles);
     builder.addUnderWorkspace(manifest, checker);
-
-    // Finally add symlinks relative to the root of the runfiles tree, on top of everything else.
-    // This operation is always checked for conflicts, to match historical behavior.
-    if (conflictPolicy == ConflictPolicy.IGNORE) {
-      checker = new ConflictChecker(ConflictPolicy.WARN, eventHandler, location);
-    }
-    builder.add(getRootSymlinksAsMap(checker), checker);
+    builder.addRootSymlinks(getRootSymlinksAsMap(checker), checker);
     if (repoMappingManifest != null) {
       checker.put(builder.manifest, REPO_MAPPING_PATH_FRAGMENT, repoMappingManifest);
     }
@@ -427,10 +468,9 @@ public final class Runfiles implements RunfilesApi {
       }
     }
 
-    /**
-     * Adds a map to the root directory.
-     */
-    public void add(Map<PathFragment, Artifact> inputManifest, ConflictChecker checker) {
+    /** Adds a map to the root directory. */
+    public void addRootSymlinks(
+        Map<PathFragment, Artifact> inputManifest, ConflictChecker checker) {
       for (Map.Entry<PathFragment, Artifact> entry : inputManifest.entrySet()) {
         checker.put(manifest, checkForWorkspace(entry.getKey()), entry.getValue());
       }
@@ -495,7 +535,7 @@ public final class Runfiles implements RunfilesApi {
    * account.
    */
   public Map<PathFragment, Artifact> asMapWithoutRootSymlinks() {
-    Map<PathFragment, Artifact> result = entriesToMap(symlinks, null);
+    Map<PathFragment, Artifact> result = entriesToMap(symlinks, ConflictChecker.IGNORE_CHECKER);
     // If multiple artifacts have the same output-dir-relative path, the last one in the list will
     // win. That is because the runfiles tree cannot contain the same artifact for different
     // configurations, because it only uses output-dir-relative paths.
@@ -551,9 +591,9 @@ public final class Runfiles implements RunfilesApi {
    */
   private static Map<PathFragment, Artifact> entriesToMap(
       NestedSet<SymlinkEntry> entrySet, @Nullable ConflictChecker checker) {
-    checker = (checker != null) ? checker : ConflictChecker.IGNORE_CHECKER;
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
     for (SymlinkEntry entry : entrySet.toList()) {
+      // ConflictType does not matter, we ignore conflicts here
       checker.put(map, entry.getPath(), entry.getArtifact());
     }
     return map;
@@ -571,73 +611,46 @@ public final class Runfiles implements RunfilesApi {
     return this;
   }
 
-  /**
-   * Checks for conflicts between entries in a runfiles tree while putting them in a map.
-   */
-  public static final class ConflictChecker {
+  /** What kind of conflict in the runfiles tree is being reported. */
+  public enum ConflictType {
+    NESTED_RUNFILES_TREE, // A runfiles tree artifact in a runfiles tree
+    PREFIX_CONFLICT, // An entry is the prefix of another
+  };
+
+  /** Checks for conflicts between entries in a runfiles tree while putting them in a map. */
+  @VisibleForTesting
+  static final class ConflictChecker {
     /** Prebuilt ConflictChecker with policy set to IGNORE */
     static final ConflictChecker IGNORE_CHECKER =
-        new ConflictChecker(ConflictPolicy.IGNORE, null, null);
+        new ConflictChecker(null, EnumSet.noneOf(ConflictType.class));
 
-    /** Behavior when a conflict is found. */
-    private final ConflictPolicy policy;
-
-    /** Used for warning on conflicts. May be null, in which case conflicts are ignored. */
-    private final EventHandler eventHandler;
-
-    /** Location for eventHandler warnings. Ignored if eventHandler is null. */
-    private final Location location;
-
-    /** Type of event to emit */
-    private final EventKind eventKind;
+    private final BiConsumer<ConflictType, String> receiver;
+    private final EnumSet<ConflictType> conflictsToReport;
 
     /** Construct a ConflictChecker for the given reporter with the given behavior */
-    public ConflictChecker(ConflictPolicy policy, EventHandler eventHandler, Location location) {
-      if (eventHandler == null) {
-        this.policy = ConflictPolicy.IGNORE; // Can't warn even if we wanted to
-      } else {
-        this.policy = policy;
-      }
-      this.eventHandler = eventHandler;
-      this.location = location;
-      this.eventKind = (policy == ConflictPolicy.ERROR) ? EventKind.ERROR : EventKind.WARNING;
+    public ConflictChecker(
+        BiConsumer<ConflictType, String> receiver, EnumSet<ConflictType> conflictsToReport) {
+      this.receiver = receiver;
+      this.conflictsToReport = conflictsToReport;
     }
 
     /**
-     * Add an entry to a Map of symlinks, optionally reporting conflicts.
+     * Add an entry to a Map of symlinks.
      *
      * @param map Manifest of runfile entries.
      * @param path Path fragment to use as key in map.
      * @param artifact Artifact to store in map. This may be null to indicate an empty file.
      */
-    public void put(Map<PathFragment, Artifact> map, PathFragment path, Artifact artifact) {
-      if (artifact != null && artifact.isMiddlemanArtifact() && eventHandler != null) {
-        eventHandler.handle(
-            Event.of(
-                EventKind.ERROR,
-                location,
-                "Runfiles must not contain middleman artifacts: " + artifact));
+    void put(Map<PathFragment, Artifact> map, PathFragment path, Artifact artifact) {
+      if (artifact != null && artifact.isMiddlemanArtifact()) {
+        if (conflictsToReport.contains(ConflictType.NESTED_RUNFILES_TREE)) {
+          receiver.accept(
+              ConflictType.NESTED_RUNFILES_TREE,
+              "Runfiles must not contain middleman artifacts: " + artifact);
+        }
         return;
       }
-      Preconditions.checkArgument(
-          artifact == null || !artifact.isMiddlemanArtifact(), "%s", artifact);
-      if (policy != ConflictPolicy.IGNORE && map.containsKey(path)) {
-        // Previous and new entry might have value of null
-        Artifact previous = map.get(path);
-        if (!Objects.equals(previous, artifact)) {
-          String previousStr =
-              (previous == null) ? "empty file" : previous.getExecPath().toString();
-          String artifactStr =
-              (artifact == null) ? "empty file" : artifact.getExecPath().toString();
-          if (!previousStr.equals(artifactStr)) {
-            String message =
-                String.format(
-                    "overwrote runfile %s, was symlink to %s, now symlink to %s",
-                    path.getSafePathString(), previousStr, artifactStr);
-            eventHandler.handle(Event.of(eventKind, location, message));
-          }
-        }
-      }
+
       map.put(path, artifact);
     }
   }

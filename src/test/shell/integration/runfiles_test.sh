@@ -403,7 +403,9 @@ EOF
 }
 
 # regression test for b/237547165
-function test_fail_on_middleman_in_transitive_runfiles_for_executable() {
+function test_fail_on_runfiles_tree_in_transitive_runfiles_for_executable() {
+  local exit_code
+
   cat > rule.bzl <<EOF
 def _impl(ctx):
     exe = ctx.actions.declare_file(ctx.label.name + '.out')
@@ -428,7 +430,10 @@ EOF
   cat > thing.cc <<EOF
 int main() { return 0; }
 EOF
-  bazel build //:test &> $TEST_log && fail "Expected build to fail but it succeeded"
+  bazel build //:test &> $TEST_log || exit_code=$?
+  if [[ $exit_code -ne 1 ]]; then
+    fail "Expected regular build failure but instead got exit code $exit_code"
+  fi
   expect_log_once "Runfiles must not contain middleman artifacts"
 }
 
