@@ -450,7 +450,7 @@ public class CommandEnvironment {
     return directories;
   }
 
-  @Nullable
+  @Nullable // Null for commands that don't have PackageOptions (version, help, shutdown, etc).
   public PathPackageLocator getPackageLocator() {
     return packageLocator;
   }
