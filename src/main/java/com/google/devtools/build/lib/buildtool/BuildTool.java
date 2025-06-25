@@ -117,6 +117,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Fr
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.AnalysisCacheInvalidator;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.LongVersionClientId;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCacheClient;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
@@ -1260,7 +1261,7 @@ public class BuildTool {
           env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
       servicesSupplier.configure(
           env.getOptions().getOptions(RemoteAnalysisCachingOptions.class),
-          this.snapshot.orElse(null));
+          this.snapshot.orElse(new LongVersionClientId(this.evaluatingVersion.getVal())));
       this.fingerprintValueServiceFuture = servicesSupplier.getFingerprintValueService();
       this.analysisCacheClient = servicesSupplier.getAnalysisCacheClient();
       this.eventHandler = env.getReporter();
