@@ -67,19 +67,19 @@ public final class FlagSetFunction implements SkyFunction {
       throws FlagSetFunctionException, InterruptedException {
     FlagSetValue.Key key = (FlagSetValue.Key) skyKey.argument();
     if (!key.enforceCanonical()) {
-      if (!key.getSclConfig().isEmpty()) {
+      if (!key.sclConfig().isEmpty()) {
         env.getListener()
             .handle(
                 Event.info(
                     String.format(
                         "Ignoring --scl_config=%s because --enforce_project_configs is not set",
-                        key.getSclConfig())));
+                        key.sclConfig())));
       }
       // --noenforce_project_configs. Nothing to do.
       return FlagSetValue.create(ImmutableSet.of(), ImmutableSet.of());
     }
     ProjectValue projectValue =
-        (ProjectValue) env.getValue(new ProjectValue.Key(key.getProjectFile()));
+        (ProjectValue) env.getValue(new ProjectValue.Key(key.projectFile()));
     if (projectValue == null) {
       return null;
     }
@@ -89,7 +89,7 @@ public final class FlagSetFunction implements SkyFunction {
     // return them in the Skyvalue for the caller to emit.
     ImmutableSet.Builder<Event> persistentMessages = ImmutableSet.builder();
     ImmutableSet<String> sclConfigAsStarlarkList =
-        getSclConfig(key, projectValue, persistentMessages, key.getTargets());
+        getSclConfig(key, projectValue, persistentMessages, key.targets());
     return FlagSetValue.create(sclConfigAsStarlarkList, persistentMessages.build());
   }
 
@@ -103,8 +103,8 @@ public final class FlagSetFunction implements SkyFunction {
       ImmutableSet.Builder<Event> persistentMessages,
       Set<Label> targets)
       throws FlagSetFunctionException {
-    Label projectFile = key.getProjectFile();
-    String sclConfigName = key.getSclConfig();
+    Label projectFile = key.projectFile();
+    String sclConfigName = key.sclConfig();
     EnforcementPolicy enforcementPolicy = sclContent.getEnforcementPolicy();
 
     ImmutableMap<String, ProjectValue.BuildableUnit> configs = sclContent.getBuildableUnits();
@@ -161,10 +161,9 @@ public final class FlagSetFunction implements SkyFunction {
     }
 
     // Replace --config=foo entries with their expanded definitions.
-    sclConfigValue =
-        expandConfigFlags(sclConfigName, sclConfigValue, key.getConfigFlagDefinitions());
+    sclConfigValue = expandConfigFlags(sclConfigName, sclConfigValue, key.configFlagDefinitions());
 
-    ImmutableList<String> buildOptionsAsStrings = getBuildOptionsAsStrings(key.getTargetOptions());
+    ImmutableList<String> buildOptionsAsStrings = getBuildOptionsAsStrings(key.targetOptions());
     ImmutableSet<String> optionsToApply = filterOptions(sclConfigValue, buildOptionsAsStrings);
 
     if (optionsToApply.isEmpty()) {
@@ -180,7 +179,7 @@ public final class FlagSetFunction implements SkyFunction {
         enforcementPolicy,
         alwaysAllowedConfigs,
         buildOptionsAsStrings,
-        key.getUserOptions(),
+        key.userOptions(),
         optionsToApply,
         persistentMessages,
         projectFile);
