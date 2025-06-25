@@ -463,7 +463,8 @@ EOF
   expect_log "^  @@bazel_tools//tools/jdk:runtime_toolchain_type$"
 }
 
-function test_executable_java_binary_fails_without_runtime_with_remote_jdk() {
+# TODO(https://github.com/bazelbuild/rules_java/issues/305): reenable when rules_java is released with bugfix
+function DISABLED_test_executable_java_binary_fails_without_runtime_with_remote_jdk() {
   add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
