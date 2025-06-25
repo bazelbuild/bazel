@@ -46,7 +46,7 @@ bazel_dep(name = "apple_support", version = "1.21.1")
 
 # Upgraded to fix a bug finding swiftc.exe on Windows
 bazel_dep(name = "rules_swift", version = "2.8.2")
-bazel_dep(name = "rules_cc", version = "0.1.1")
+bazel_dep(name = "rules_cc", version = "0.1.2")
 
 # repo_name needs to be used, until WORKSPACE mode is to be supported in bazel_tools
 bazel_dep(name = "protobuf", version = "29.0", repo_name = "com_google_protobuf")
