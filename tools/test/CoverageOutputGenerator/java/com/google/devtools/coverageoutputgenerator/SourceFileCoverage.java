@@ -17,9 +17,7 @@ package com.google.devtools.coverageoutputgenerator;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MultimapBuilder;
-import com.google.common.collect.Sets;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -81,46 +79,6 @@ class SourceFileCoverage {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum, TreeMap::new));
   }
 
-  /** Returns the merged branches found in the two given {@code SourceFileCoverage}s. */
-  @VisibleForTesting
-  static ListMultimap<Integer, BranchCoverage> mergeBranches(
-      SourceFileCoverage s1, SourceFileCoverage s2) {
-
-    ListMultimap<Integer, BranchCoverage> merged =
-        MultimapBuilder.treeKeys().arrayListValues().build();
-
-    for (int line : Sets.union(s1.branches.keySet(), s2.branches.keySet())) {
-      Collection<BranchCoverage> s1Branches = s1.branches.get(line);
-      Collection<BranchCoverage> s2Branches = s2.branches.get(line);
-
-      if (s1Branches.isEmpty()) {
-        merged.putAll(line, s2Branches);
-      } else if (s2Branches.isEmpty()) {
-        merged.putAll(line, s1Branches);
-      } else if (s1Branches.size() != s2Branches.size()) {
-        // Preserve the LHS of the merge and drop the records on the RHS that conflict.
-        // TODO(cmita): Improve this as much as possible.
-        merged.putAll(line, s1Branches);
-      } else {
-        Iterator<BranchCoverage> it1 = s1Branches.iterator();
-        Iterator<BranchCoverage> it2 = s2Branches.iterator();
-        while (it1.hasNext() && it2.hasNext()) {
-          BranchCoverage b1 = it1.next();
-          BranchCoverage b2 = it2.next();
-          if (b1.lineNumber() != b2.lineNumber()
-              || !b1.blockNumber().equals(b2.blockNumber())
-              || !b1.branchNumber().equals(b2.branchNumber())) {
-            merged.put(line, b1);
-            continue;
-          }
-          BranchCoverage branch = BranchCoverage.merge(b1, b2);
-          merged.put(line, branch);
-        }
-      }
-    }
-    return merged;
-  }
-
   static int getNumberOfBranchesHit(SourceFileCoverage sourceFileCoverage) {
     return (int)
         sourceFileCoverage.branches.values().stream().filter(BranchCoverage::wasExecuted).count();
@@ -159,7 +117,8 @@ class SourceFileCoverage {
 
     merged.addAllLineNumbers(mergeLineNumbers(source1, source2));
     merged.addAllFunctionsExecution(mergeFunctionsExecution(source1, source2));
-    merged.addAllBranches(mergeBranches(source1, source2));
+    merged.addAllBranches(source1.branches);
+    merged.addAllBranches(source2.branches);
     merged.addAllLines(mergeLines(source1, source2));
     return merged;
   }
@@ -240,12 +199,44 @@ class SourceFileCoverage {
     this.functionsExecution.putAll(functionsExecution);
   }
 
+  /** Creates and adds a new "BA" branch to the source file. */
+  void addNewBranch(int lineNumber, int takenValue) {
+    int branchNumber = branches.get(lineNumber).size();
+    BranchCoverage branch = BranchCoverage.create(lineNumber, branchNumber, takenValue);
+    addBranch(lineNumber, branch);
+  }
+
+  /** Creates and adds a new "BRDA" branch to the source file. */
+  void addNewBrdaBranch(
+      int lineNumber,
+      String blockNumber,
+      String branchNumber,
+      boolean evaluated,
+      long executionCount) {
+    BranchCoverage branch =
+        BranchCoverage.createWithBlockAndBranch(
+            lineNumber, blockNumber, branchNumber, evaluated, executionCount);
+    addBranch(lineNumber, branch);
+  }
+
   void addBranch(Integer lineNumber, BranchCoverage branch) {
+    // if a line was already given for the same block and branch, merge it with the new one.
+    for (int i = 0; i < branches.get(lineNumber).size(); i++) {
+      BranchCoverage original = branches.get(lineNumber).get(i);
+      if (original.blockNumber().equals(branch.blockNumber())
+          && original.branchNumber().equals(branch.branchNumber())) {
+        BranchCoverage merged = BranchCoverage.merge(original, branch);
+        branches.get(lineNumber).set(i, merged);
+        return;
+      }
+    }
     branches.put(lineNumber, branch);
   }
 
   void addAllBranches(ListMultimap<Integer, BranchCoverage> branches) {
-    this.branches.putAll(branches);
+    for (Entry<Integer, BranchCoverage> entry : branches.entries()) {
+      addBranch(entry.getKey(), entry.getValue());
+    }
   }
 
   void addLine(Integer lineNumber, LineCoverage line) {

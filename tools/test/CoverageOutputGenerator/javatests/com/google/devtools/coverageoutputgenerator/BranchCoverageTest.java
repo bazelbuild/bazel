@@ -27,10 +27,10 @@ import org.junit.runners.JUnit4;
 public class BranchCoverageTest {
 
   @Test
-  public void testNoBlockBranchSemantics() {
-    BranchCoverage b0 = BranchCoverage.create(3, 0);
-    BranchCoverage b1 = BranchCoverage.create(3, 1);
-    BranchCoverage b2 = BranchCoverage.create(3, 2);
+  public void testNoBlockSemantics() {
+    BranchCoverage b0 = BranchCoverage.create(3, 0, 0);
+    BranchCoverage b1 = BranchCoverage.create(3, 1, 1);
+    BranchCoverage b2 = BranchCoverage.create(3, 1, 2);
 
     assertThat(b0.lineNumber()).isEqualTo(3);
     assertThat(b0.evaluated()).isFalse();
@@ -50,8 +50,8 @@ public class BranchCoverageTest {
 
   @Test
   public void testNoBlockBranchInvalidValuesFail() {
-    assertThrows(VerifyException.class, () -> BranchCoverage.create(3, -1));
-    assertThrows(VerifyException.class, () -> BranchCoverage.create(3, 4));
+    assertThrows(VerifyException.class, () -> BranchCoverage.create(3, 0, -1));
+    assertThrows(VerifyException.class, () -> BranchCoverage.create(3, 0, 4));
   }
 
   @Test
@@ -101,10 +101,10 @@ public class BranchCoverageTest {
   }
 
   @Test
-  public void testMergesWithNoBlockBranch() {
-    BranchCoverage b1 = BranchCoverage.create(3, 1);
-    BranchCoverage b2 = BranchCoverage.create(3, 0);
-    BranchCoverage b3 = BranchCoverage.create(3, 2);
+  public void testMergesWithNoBlock() {
+    BranchCoverage b1 = BranchCoverage.create(3, 0, 1);
+    BranchCoverage b2 = BranchCoverage.create(3, 0, 0);
+    BranchCoverage b3 = BranchCoverage.create(3, 0, 2);
 
     BranchCoverage m1 = BranchCoverage.merge(b1, b2);
     BranchCoverage m2 = BranchCoverage.merge(m1, b3);
@@ -114,16 +114,28 @@ public class BranchCoverageTest {
     assertThat(m1.evaluated()).isTrue();
     assertThat(m2.lineNumber()).isEqualTo(3);
     assertThat(m2.blockNumber()).isEmpty();
-    assertThat(m2.branchNumber()).isEmpty();
+    assertThat(m2.branchNumber()).isEqualTo("0");
     assertThat(m2.nrOfExecutions()).isEqualTo(2);
     assertThat(m2.wasExecuted()).isTrue();
     assertThat(m2.evaluated()).isTrue();
   }
 
   @Test
+  public void testUnexectedMergeWithNoBlock() {
+    BranchCoverage b1 = BranchCoverage.create(3, 0, 0);
+    BranchCoverage b2 = BranchCoverage.create(3, 0, 0);
+
+    BranchCoverage m = BranchCoverage.merge(b1, b2);
+
+    assertThat(m.nrOfExecutions()).isEqualTo(0);
+    assertThat(m.wasExecuted()).isFalse();
+    assertThat(m.evaluated()).isFalse();
+  }
+
+  @Test
   public void testDifferentLineNumbersFail() {
-    BranchCoverage b1 = BranchCoverage.create(2, 1);
-    BranchCoverage b2 = BranchCoverage.create(3, 2);
+    BranchCoverage b1 = BranchCoverage.create(2, 0, 1);
+    BranchCoverage b2 = BranchCoverage.create(3, 0, 2);
     assertThrows(VerifyException.class, () -> BranchCoverage.merge(b1, b2));
   }
 

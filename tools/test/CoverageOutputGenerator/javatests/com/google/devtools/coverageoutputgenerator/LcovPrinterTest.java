@@ -22,6 +22,7 @@ import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.cr
 
 import com.google.common.base.Splitter;
 import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
@@ -93,14 +94,15 @@ public class LcovPrinterTest {
   @Test
   public void testPrintBrdaLines() throws Exception {
     SourceFileCoverage sourceFile = new SourceFileCoverage("foo");
-    sourceFile.addBranch(3, BranchCoverage.createWithBlockAndBranch(3, "0", "0", true, 1));
-    sourceFile.addBranch(3, BranchCoverage.createWithBlockAndBranch(3, "0", "1", true, 0));
-    sourceFile.addBranch(7, BranchCoverage.createWithBlockAndBranch(7, "0", "0", false, 0));
-    sourceFile.addBranch(7, BranchCoverage.createWithBlockAndBranch(7, "0", "1", false, 0));
+    sourceFile.addNewBrdaBranch(3, "0", "0", true, 1);
+    sourceFile.addNewBrdaBranch(3, "0", "1", true, 0);
+    sourceFile.addNewBrdaBranch(7, "0", "0", false, 0);
+    sourceFile.addNewBrdaBranch(7, "0", "1", false, 0);
     coverage.add(sourceFile);
 
     LcovPrinter.print(byteOutputStream, coverage);
-    Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString());
+    Iterable<String> fileLines =
+        Splitter.on('\n').split(byteOutputStream.toString(StandardCharsets.UTF_8));
     assertThat(fileLines)
         .containsExactly(
             "SF:foo",
@@ -110,6 +112,35 @@ public class LcovPrinterTest {
             "BRDA:3,0,1,0",
             "BRDA:7,0,0,-",
             "BRDA:7,0,1,-",
+            "BRF:4",
+            "BRH:1",
+            "LH:0",
+            "LF:0",
+            "end_of_record",
+            "");
+  }
+
+  @Test
+  public void testPrintBaLines() throws Exception {
+    SourceFileCoverage sourceFile = new SourceFileCoverage("foo");
+    sourceFile.addNewBranch(3, 2);
+    sourceFile.addNewBranch(3, 1);
+    sourceFile.addNewBranch(7, 0);
+    sourceFile.addNewBranch(7, 0);
+    coverage.add(sourceFile);
+
+    LcovPrinter.print(byteOutputStream, coverage);
+    Iterable<String> fileLines =
+        Splitter.on('\n').split(byteOutputStream.toString(StandardCharsets.UTF_8));
+    assertThat(fileLines)
+        .containsExactly(
+            "SF:foo",
+            "FNF:0",
+            "FNH:0",
+            "BA:3,2",
+            "BA:3,1",
+            "BA:7,0",
+            "BA:7,0",
             "BRF:4",
             "BRH:1",
             "LH:0",

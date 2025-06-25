@@ -77,51 +77,72 @@ public class SourceFileCoverageTest {
   }
 
   @Test
-  public void testIncompatibleBaBranchMergeDrops() throws Exception {
+  public void testMismatchedBaBranchMerge() throws Exception {
     sourceFile1 = new SourceFileCoverage("source");
     sourceFile2 = new SourceFileCoverage("source");
-    sourceFile1.addBranch(800, BranchCoverage.create(800, 2));
-    sourceFile1.addBranch(800, BranchCoverage.create(800, 1));
-    sourceFile2.addBranch(800, BranchCoverage.create(800, 2));
-    sourceFile2.addBranch(800, BranchCoverage.create(800, 2));
-    sourceFile2.addBranch(800, BranchCoverage.create(800, 1));
+    sourceFile1.addNewBranch(800, 2);
+    sourceFile1.addNewBranch(800, 1);
+    sourceFile2.addNewBranch(800, 2);
+    sourceFile2.addNewBranch(800, 2);
+    sourceFile2.addNewBranch(800, 1);
 
-    SourceFileCoverage merged = SourceFileCoverage.merge(sourceFile1, sourceFile2);
+    // Check the results are the same no matter the order of the merge.
+    SourceFileCoverage merged1 = SourceFileCoverage.merge(sourceFile1, sourceFile2);
+    SourceFileCoverage merged2 = SourceFileCoverage.merge(sourceFile2, sourceFile1);
 
-    assertThat(merged.getAllBranches())
-        .containsExactly(BranchCoverage.create(800, 2), BranchCoverage.create(800, 1));
+    assertThat(merged1.getAllBranches())
+        .containsExactly(
+            BranchCoverage.create(800, 0, 2),
+            BranchCoverage.create(800, 1, 2),
+            BranchCoverage.create(800, 2, 1));
+    assertThat(merged2.getAllBranches())
+        .containsExactly(
+            BranchCoverage.create(800, 0, 2),
+            BranchCoverage.create(800, 1, 2),
+            BranchCoverage.create(800, 2, 1));
   }
 
   @Test
-  public void testIncompatibleBrdaBranchMergeDrops() throws Exception {
+  public void testMismatchedBrdaBranchMerge() throws Exception {
     sourceFile1 = new SourceFileCoverage("source");
     sourceFile2 = new SourceFileCoverage("source");
-    sourceFile1.addBranch(800, BranchCoverage.createWithBlockAndBranch(800, "0", "0", true, 1));
-    sourceFile1.addBranch(800, BranchCoverage.createWithBlockAndBranch(800, "0", "1", true, 0));
-    sourceFile2.addBranch(800, BranchCoverage.createWithBlockAndBranch(800, "1", "0", true, 3));
-    sourceFile2.addBranch(800, BranchCoverage.createWithBlockAndBranch(800, "1", "1", true, 4));
+    sourceFile1.addNewBrdaBranch(800, "0", "0", true, 1);
+    sourceFile1.addNewBrdaBranch(800, "0", "1", true, 0);
+    sourceFile1.addNewBrdaBranch(800, "1", "0", true, 1);
+    sourceFile2.addNewBrdaBranch(800, "1", "0", true, 3);
+    sourceFile2.addNewBrdaBranch(800, "1", "1", true, 4);
 
-    SourceFileCoverage merged = SourceFileCoverage.merge(sourceFile1, sourceFile2);
+    // Check the results are the same no matter the order of the merge.
+    SourceFileCoverage merged1 = SourceFileCoverage.merge(sourceFile1, sourceFile2);
+    SourceFileCoverage merged2 = SourceFileCoverage.merge(sourceFile2, sourceFile1);
 
-    assertThat(merged.getAllBranches())
+    assertThat(merged1.getAllBranches())
         .containsExactly(
             BranchCoverage.createWithBlockAndBranch(800, "0", "0", true, 1),
-            BranchCoverage.createWithBlockAndBranch(800, "0", "1", true, 0));
+            BranchCoverage.createWithBlockAndBranch(800, "0", "1", true, 0),
+            BranchCoverage.createWithBlockAndBranch(800, "1", "0", true, 4),
+            BranchCoverage.createWithBlockAndBranch(800, "1", "1", true, 4));
+    assertThat(merged2.getAllBranches())
+        .containsExactly(
+            BranchCoverage.createWithBlockAndBranch(800, "0", "0", true, 1),
+            BranchCoverage.createWithBlockAndBranch(800, "0", "1", true, 0),
+            BranchCoverage.createWithBlockAndBranch(800, "1", "0", true, 4),
+            BranchCoverage.createWithBlockAndBranch(800, "1", "1", true, 4));
   }
 
   @Test
   public void testDifferentLinesReportedAreMergeable() throws Exception {
     sourceFile1 = new SourceFileCoverage("source");
     sourceFile2 = new SourceFileCoverage("source");
-    sourceFile1.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "0", "0", true, 1));
-    sourceFile1.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "0", "1", true, 1));
+    sourceFile1.addNewBrdaBranch(1, "0", "0", true, 1);
+    sourceFile1.addNewBrdaBranch(1, "0", "1", true, 1);
     sourceFile1.addLine(1, LineCoverage.create(1, 2, ""));
     sourceFile1.addLine(2, LineCoverage.create(2, 1, ""));
     sourceFile1.addLine(3, LineCoverage.create(3, 1, ""));
 
-    sourceFile2.addBranch(30, BranchCoverage.createWithBlockAndBranch(30, "0", "0", true, 3));
-    sourceFile2.addBranch(30, BranchCoverage.createWithBlockAndBranch(30, "0", "1", true, 0));
-    sourceFile2.addBranch(30, BranchCoverage.createWithBlockAndBranch(30, "0", "2", true, 1));
+    sourceFile2.addNewBrdaBranch(30, "0", "0", true, 3);
+    sourceFile2.addNewBrdaBranch(30, "0", "1", true, 0);
+    sourceFile2.addNewBrdaBranch(30, "0", "2", true, 1);
     sourceFile2.addLine(30, LineCoverage.create(30, 4, ""));
     sourceFile2.addLine(31, LineCoverage.create(31, 3, ""));
     sourceFile2.addLine(32, LineCoverage.create(32, 0, ""));
@@ -145,5 +166,21 @@ public class SourceFileCoverageTest {
             LineCoverage.create(31, 3, ""),
             LineCoverage.create(32, 0, ""),
             LineCoverage.create(33, 1, ""));
+  }
+
+  @Test
+  public void testRepeatedBrdaLinesAreMerged() {
+    SourceFileCoverage sourceFile = new SourceFileCoverage("source");
+    sourceFile.addNewBrdaBranch(1, "0", "0", false, 0);
+    sourceFile.addNewBrdaBranch(1, "0", "1", false, 0);
+    sourceFile.addNewBrdaBranch(1, "0", "0", true, 1);
+    sourceFile.addNewBrdaBranch(1, "0", "1", true, 1);
+    sourceFile.addNewBrdaBranch(1, "0", "0", true, 2);
+    sourceFile.addNewBrdaBranch(1, "0", "1", true, 2);
+
+    assertThat(sourceFile.getAllBranches())
+        .containsExactly(
+            BranchCoverage.createWithBlockAndBranch(1, "0", "0", true, 3),
+            BranchCoverage.createWithBlockAndBranch(1, "0", "1", true, 3));
   }
 }

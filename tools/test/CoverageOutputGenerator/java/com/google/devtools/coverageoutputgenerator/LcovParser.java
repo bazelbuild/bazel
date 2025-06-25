@@ -258,10 +258,7 @@ class LcovParser {
             "Tracefile contains invalid BA " + line + " - value not one of {0, 1, 2}");
         return false;
       }
-
-      BranchCoverage branchCoverage = BranchCoverage.create(lineNumber, taken);
-
-      currentSourceFileCoverage.addBranch(lineNumber, branchCoverage);
+      currentSourceFileCoverage.addNewBranch(lineNumber, taken);
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "Tracefile contains an invalid number BA line " + line);
       return false;

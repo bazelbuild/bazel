@@ -235,7 +235,7 @@ public class GcovParser {
         }
         currentSourceFileCoverage.addBranch(
             lineEntry.getKey(),
-            BranchCoverage.createWithBranch(
+            BranchCoverage.createWithDummyBlock(
                 lineEntry.getKey(), Integer.toString(branchNumber), evaluated, execCount));
         branchNumber++;
       }

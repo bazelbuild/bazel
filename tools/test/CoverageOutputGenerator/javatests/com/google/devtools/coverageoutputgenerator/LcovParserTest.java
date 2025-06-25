@@ -172,13 +172,13 @@ public class LcovParserTest {
         sourceFile.getAllBranches().stream().collect(Collectors.toList());
     assertThat(branches)
         .containsExactly(
-            BranchCoverage.create(2, 1),
-            BranchCoverage.create(2, 2),
-            BranchCoverage.create(4, 0),
-            BranchCoverage.create(4, 0),
-            BranchCoverage.create(7, 2),
-            BranchCoverage.create(7, 1),
-            BranchCoverage.create(7, 2));
+            BranchCoverage.create(2, 0, 1),
+            BranchCoverage.create(2, 1, 2),
+            BranchCoverage.create(4, 0, 0),
+            BranchCoverage.create(4, 1, 0),
+            BranchCoverage.create(7, 0, 2),
+            BranchCoverage.create(7, 1, 1),
+            BranchCoverage.create(7, 2, 2));
   }
 
   @Test

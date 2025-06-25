@@ -289,13 +289,12 @@ public class LcovMergerTestUtils {
       }
     }
 
-    sourceFile.addBranch(15, BranchCoverage.create(15, 1));
-    sourceFile.addBranch(15, BranchCoverage.create(15, 2));
-    sourceFile.addBranch(23, BranchCoverage.create(23, 2));
-    sourceFile.addBranch(23, BranchCoverage.create(23, 1));
-    sourceFile.addBranch(25, BranchCoverage.create(25, 0));
-    sourceFile.addBranch(25, BranchCoverage.create(25, 0));
-
+    sourceFile.addNewBranch(15, 1);
+    sourceFile.addNewBranch(15, 2);
+    sourceFile.addNewBranch(23, 2);
+    sourceFile.addNewBranch(23, 1);
+    sourceFile.addNewBranch(25, 0);
+    sourceFile.addNewBranch(25, 0);
     return sourceFile;
   }
 
@@ -318,12 +317,12 @@ public class LcovMergerTestUtils {
       }
     }
 
-    sourceFile.addBranch(15, BranchCoverage.create(15, 2));
-    sourceFile.addBranch(15, BranchCoverage.create(15, 1));
-    sourceFile.addBranch(23, BranchCoverage.create(23, 2));
-    sourceFile.addBranch(23, BranchCoverage.create(23, 2));
-    sourceFile.addBranch(25, BranchCoverage.create(25, 1));
-    sourceFile.addBranch(25, BranchCoverage.create(25, 2));
+    sourceFile.addNewBranch(15, 2);
+    sourceFile.addNewBranch(15, 1);
+    sourceFile.addNewBranch(23, 2);
+    sourceFile.addNewBranch(23, 2);
+    sourceFile.addNewBranch(25, 1);
+    sourceFile.addNewBranch(25, 2);
     return sourceFile;
   }
 
