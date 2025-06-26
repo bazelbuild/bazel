@@ -181,7 +181,6 @@ public class DiscoveryTest extends FoundationTestCase {
                     new RepositoryDelegatorFunction(
                         null,
                         new AtomicBoolean(true),
-                        ImmutableMap::of,
                         directories,
                         new RepoContentsCache()))
                 .put(

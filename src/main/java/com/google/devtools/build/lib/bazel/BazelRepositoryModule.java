@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCom
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.WorkerForRepoFetching;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter;
@@ -129,7 +128,6 @@ public class BazelRepositoryModule extends BlazeModule {
       ImmutableSet.of("https://bcr.bazel.build/");
 
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
-  private final StarlarkRepositoryFunction starlarkRepositoryFunction;
   private final RepositoryCache repositoryCache = new RepositoryCache();
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
@@ -155,18 +153,17 @@ public class BazelRepositoryModule extends BlazeModule {
   private final VendorCommand vendorCommand = new VendorCommand(clientEnvironmentSupplier);
   private final RegistryFactoryImpl registryFactory =
       new RegistryFactoryImpl(clientEnvironmentSupplier);
+  private final StarlarkRepositoryFunction starlarkRepositoryFunction =
+      new StarlarkRepositoryFunction(clientEnvironmentSupplier);
 
   @Nullable private CredentialModule credentialModule;
 
   private ImmutableMap<String, NonRegistryOverride> builtinModules = null;
 
-  public BazelRepositoryModule() {
-    this.starlarkRepositoryFunction = new StarlarkRepositoryFunction();
-  }
+  public BazelRepositoryModule() {}
 
   @VisibleForTesting
   public BazelRepositoryModule(ImmutableMap<String, NonRegistryOverride> builtinModules) {
-    this();
     this.builtinModules = builtinModules;
   }
 
@@ -217,7 +214,6 @@ public class BazelRepositoryModule extends BlazeModule {
         new RepositoryDelegatorFunction(
             starlarkRepositoryFunction,
             isFetch,
-            clientEnvironmentSupplier,
             directories,
             repositoryCache.getRepoContentsCache());
     singleExtensionEvalFunction =
@@ -295,8 +291,6 @@ public class BazelRepositoryModule extends BlazeModule {
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
-      starlarkRepositoryFunction.setUseWorkers(
-          repoOptions.workerForRepoFetching != WorkerForRepoFetching.OFF);
       downloadManager.setDisableDownload(repoOptions.disableDownload);
       if (repoOptions.repositoryDownloaderRetries >= 0) {
         downloadManager.setRetries(repoOptions.repositoryDownloaderRetries);

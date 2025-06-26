@@ -245,32 +245,6 @@ public class RepositoryOptions extends OptionsBase {
               + "given, and in this case multiple URLs will be returned.")
   public PathFragment downloaderConfig;
 
-  /** See {@link #workerForRepoFetching}. */
-  public enum WorkerForRepoFetching {
-    OFF,
-    PLATFORM,
-    VIRTUAL,
-    AUTO;
-
-    static class Converter extends EnumConverter<WorkerForRepoFetching> {
-      public Converter() {
-        super(WorkerForRepoFetching.class, "worker for repo fetching");
-      }
-    }
-  }
-
-  @Option(
-      name = "experimental_worker_for_repo_fetching",
-      defaultValue = "auto",
-      converter = WorkerForRepoFetching.Converter.class,
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "The threading mode to use for repo fetching. If set to 'off', no worker thread is used,"
-              + " and the repo fetching is subject to restarts. Otherwise, uses a virtual worker"
-              + " thread.")
-  public WorkerForRepoFetching workerForRepoFetching;
-
   @Option(
       name = "ignore_dev_dependency",
       defaultValue = "false",
