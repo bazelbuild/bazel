@@ -118,8 +118,7 @@ public final class Reporter implements ExtendedEventHandler {
   public void handle(Event e) {
     if (e.getKind() != EventKind.ERROR
         && e.getKind() != EventKind.DEBUG
-        && e.getTag() != null
-        && !showOutput(e.getTag())) {
+        && !showOutput(e)) {
       return;
     }
 
@@ -183,14 +182,18 @@ public final class Reporter implements ExtendedEventHandler {
   }
 
   /**
-   * Returns true iff the given tag matches the output filter.
+   * Returns true iff the given event should be shown.
    */
-  public boolean showOutput(String tag) {
-    return outputFilter.showOutput(tag);
+  public boolean showOutput(Event event) {
+    return outputFilter.showOutput(event);
   }
 
   public void setOutputFilter(OutputFilter outputFilter) {
     this.outputFilter = outputFilter;
+  }
+
+  public OutputFilter getOutputFilter() {
+    return outputFilter;
   }
 
   /**

@@ -23,10 +23,12 @@ import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.List;
 import java.util.regex.Pattern;
 
 /**
@@ -52,6 +54,15 @@ public final class OutputFilteringModule extends BlazeModule {
                 + "'packages' and 'subpackages' values //java/foo and //javatests/foo are treated "
                 + "as one package)'.")
     public AutoOutputFilter autoOutputFilter;
+
+    @Option(
+        name = "output_suppression",
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Specifies a suppression rule for build output.")
+    public List<String> outputSuppressions;
   }
 
   private CommandEnvironment env;
@@ -70,6 +81,23 @@ public final class OutputFilteringModule extends BlazeModule {
 
   @Override
   public void afterCommand() {
+    if (env != null) {
+      if (env.getReporter().getOutputFilter() instanceof OutputSuppressionFilter) {
+        OutputSuppressionFilter filter =
+            (OutputSuppressionFilter) env.getReporter().getOutputFilter();
+        filter.verifyCounts(env.getReporter());
+        int totalSuppressed = filter.getTotalSuppressedCount();
+        if (totalSuppressed > 0) {
+          env.getReporter()
+              .handle(
+                  Event.info(
+                      String.format(
+                          "Suppressed %d messages via --output_suppression; pass"
+                              + " --no_output_suppression to display.",
+                          totalSuppressed)));
+        }
+      }
+    }
     this.env = null;
     this.autoOutputFilter = null;
   }
@@ -77,6 +105,13 @@ public final class OutputFilteringModule extends BlazeModule {
   @Subscribe
   @SuppressWarnings("unused")
   public void buildStarting(BuildStartingEvent event) {
+    Options options = env.getOptions().getOptions(Options.class);
+    if (options.outputSuppressions != null && !options.outputSuppressions.isEmpty()) {
+      env.getReporter()
+          .setOutputFilter(new OutputSuppressionFilter(options.outputSuppressions));
+      return;
+    }
+
     BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
     Pattern outputFilter =
         (requestOptions != null) && (requestOptions.outputFilter != null)

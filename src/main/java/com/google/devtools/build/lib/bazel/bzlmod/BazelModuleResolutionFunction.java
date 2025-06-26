@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCom
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventContext;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -279,7 +280,9 @@ public class BazelModuleResolutionFunction implements SkyFunction {
                     + " or set --check_direct_dependencies=off",
                 dep.getKey(), dep.getValue().toModuleKey(), resolved);
         if (mode == CheckDirectDepsMode.WARNING) {
-          eventHandler.handle(Event.warn(message));
+          eventHandler.handle(
+              Event.warn(message)
+                  .withProperty(EventContext.class, EventContext.builder().setPackage(dep.getKey()).build()));
         } else {
           eventHandler.handle(Event.error(message));
           failure = true;
@@ -319,7 +322,9 @@ public class BazelModuleResolutionFunction implements SkyFunction {
                   curVersion.getOriginal(), module.getKey(), module.getBazelCompatibility());
 
           if (mode == BazelCompatibilityMode.WARNING) {
-            eventHandler.handle(Event.warn(message));
+            eventHandler.handle(
+                Event.warn(message)
+                    .withProperty(EventContext.class, EventContext.builder().setPackage(module.getKey().toString()).build()));
           } else {
             eventHandler.handle(Event.error(message));
             throw new BazelModuleResolutionFunctionException(

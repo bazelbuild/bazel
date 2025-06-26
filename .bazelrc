@@ -95,3 +95,20 @@ test:ci-windows --test_env=JAVA_HOME
 test:ci-windows --test_env=TEST_INSTALL_BASE=C:/b/bazeltest_install_base
 test:ci-windows --test_env=REPOSITORY_CACHE=C:/b/bazeltest_repo_cache
 test:ci-windows --test_tag_filters=-no_windows,-slow
+
+
+
+# Suppress known, non-actionable warnings from external dependencies.
+# See https://our-issue-tracker/XYZ for details.
+
+# This warning appears twice, and we want to be notified if that changes.
+build --output_suppression="count:2 package://external/rules_jvm_external The maven repository 'maven' is used in two different bazel modules"
+
+# Suppress all other known warnings from external packages.
+build --output_suppression="package://external/.* depends on deprecated target"
+build --output_suppression="package://external/rules_jvm_external Found duplicate artifact versions"
+build --output_suppression="package://external/protobuf The py_proto_library macro is deprecated"
+build --output_suppression="package://external/protobuf.* AccessController in java.security has been deprecated"
+build --output_suppression="package://external/zstd-jni finalize() in Object has been deprecated"
+build --output_suppression="package://external/protobuf.* deprecated item is not annotated with @Deprecated"
+
