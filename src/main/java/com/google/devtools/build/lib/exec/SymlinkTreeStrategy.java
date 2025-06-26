@@ -144,12 +144,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
   private static Map<PathFragment, Artifact> getRunfilesMap(SymlinkTreeAction action) {
     // This call outputs warnings about overlapping symlinks. However, since this has already been
     // called by the SourceManifestAction, we silence the warnings here.
-    return action
-        .getRunfiles()
-        .getRunfilesInputs(
-            /* eventHandler= */ null,
-            action.getOwner().getLocation(),
-            action.getRepoMappingManifest());
+    return action.getRunfiles().getRunfilesInputs(action.getRepoMappingManifest());
   }
 
   private static void createOutput(
