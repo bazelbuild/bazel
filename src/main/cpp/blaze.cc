@@ -915,7 +915,9 @@ static void StartServerAndConnect(
     const StartupOptions &startup_options, LoggingInfo *logging_info,
     BlazeServer *server, const string &build_label,
     StartupInterceptor *interceptor) {
-  if (interceptor != nullptr) interceptor->MaybeReroute(&startup_options);
+  if (interceptor != nullptr) {
+    interceptor->MaybeReroute(&startup_options, build_label);
+  }
 
   // Delete the old command_port file if it already exists. Otherwise we might
   // run into the race condition that we read the old command_port file before

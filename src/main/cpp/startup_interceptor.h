@@ -15,6 +15,8 @@
 #ifndef THIRD_PARTY_BAZEL_SRC_MAIN_CPP_STARTUP_INTERCEPTOR_H_
 #define THIRD_PARTY_BAZEL_SRC_MAIN_CPP_STARTUP_INTERCEPTOR_H_
 
+#include <string_view>
+
 #include "src/main/cpp/startup_options.h"
 
 namespace blaze {
@@ -26,8 +28,10 @@ class StartupInterceptor {
 
   virtual ~StartupInterceptor() = default;
 
-  // Reroutes the invocation based on startup options and other criteria.
-  virtual void MaybeReroute(StartupOptions const* startup_options) = 0;
+  // Reroutes the invocation based on startup options, build label, and other
+  // criteria.
+  virtual void MaybeReroute(StartupOptions const* startup_options,
+                            std::string_view build_label) = 0;
 };
 
 }  // namespace blaze
