@@ -16,7 +16,9 @@
 
 import os
 import tempfile
+
 from absl.testing import absltest
+
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
 
@@ -364,6 +366,12 @@ class BazelFetchTest(test_base.TestBase):
     # Restart the server. Make sure the cache entry with "bar" is selected.
     self.RunBazel(['shutdown'])
     self.RunBazel(['build', '@hello//:bar'])
+
+  def testForceFetchWithRepoCacheNoRepoWorkers(self):
+    self.ScratchFile('.bazelrc',
+                     ['common --experimental_worker_for_repo_fetching=off'],
+                     mode='a')
+    self.testForceFetchWithRepoCache()
 
   def testFetchTarget(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
