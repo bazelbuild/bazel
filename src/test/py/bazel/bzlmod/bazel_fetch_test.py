@@ -357,11 +357,8 @@ class BazelFetchTest(test_base.TestBase):
     self.assertNotIn('name is ', ''.join(stderr))
 
   def testForceFetchWithRepoCacheNoRepoWorkers(self):
-    self.ScratchFile(
-        '.bazelrc',
-        ['common --experimental_worker_for_repo_fetching=off'],
-        mode='a',
-    )
+    with open(self.Path('.bazelrc'), 'a') as f:
+      f.write('common --experimental_worker_for_repo_fetching=off\n')
     self.testForceFetchWithRepoCache()
 
   def testFetchTarget(self):
