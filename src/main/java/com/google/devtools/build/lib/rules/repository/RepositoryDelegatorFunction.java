@@ -450,6 +450,14 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   /* Determines whether we should use the cached repositories */
   private boolean shouldUseCachedRepos(Environment env, RepositoryFunction handler, Rule rule)
       throws InterruptedException {
+    if (handler.wasJustFetched(env)) {
+      // If this SkyFunction has finished fetching once, then we should always use the cached
+      // result. This means that we _very_ recently (as in, in the same command invocation) fetched
+      // this repo (possibly with --force or --configure), and are only here again due to a Skyframe
+      // restart very late into RepositoryDelegatorFunction.
+      return true;
+    }
+
     boolean forceFetchEnabled = !FORCE_FETCH.get(env).isEmpty();
     boolean forceFetchConfigureEnabled =
         handler.isConfigure(rule) && !FORCE_FETCH_CONFIGURE.get(env).isEmpty();
