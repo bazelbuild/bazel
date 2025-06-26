@@ -323,10 +323,6 @@ public class RuleContext extends TargetContext
     return getConfiguration().getGenfilesDirectory(getLabel().getRepository());
   }
 
-  public ArtifactRoot getCoverageMetadataDirectory() {
-    return getConfiguration().getCoverageMetadataDirectory(getLabel().getRepository());
-  }
-
   public ArtifactRoot getTestLogsDirectory() {
     return getConfiguration().getTestLogsDirectory(getLabel().getRepository());
   }

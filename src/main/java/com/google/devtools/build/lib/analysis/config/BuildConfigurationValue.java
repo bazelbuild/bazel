@@ -439,18 +439,6 @@ public class BuildConfigurationValue
   }
 
   /**
-   * Returns the directory where coverage-related artifacts and metadata files should be stored.
-   * This includes for example uninstrumented class files needed for Jacoco's coverage reporting
-   * tools.
-   *
-   * @deprecated Use {@code RuleContext#getCoverageMetadataDirectory} instead whenever possible.
-   */
-  @Deprecated
-  public ArtifactRoot getCoverageMetadataDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getCoverageMetadataDirectory(repositoryName);
-  }
-
-  /**
    * Returns the testlogs directory for this build configuration.
    *
    * <p>Use {@code RuleContext#getTestLogsDirectory} instead whenever possible.
