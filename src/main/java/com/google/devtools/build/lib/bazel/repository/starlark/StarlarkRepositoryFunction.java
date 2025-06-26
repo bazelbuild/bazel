@@ -127,6 +127,11 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     @Nullable FetchResult result;
   }
 
+  @Override
+  public boolean wasJustFetched(Environment env) {
+    return env.getState(State::new).result != null;
+  }
+
   private record FetchArgs(
       Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env, SkyKey key) {
     FetchArgs toWorkerArgs(Environment env) {
@@ -139,19 +144,21 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
   public FetchResult fetch(
       Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env, SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
+    var state = env.getState(State::new);
+    if (state.result != null) {
+      // Escape early if we've already finished fetching once. This can happen if
+      // RepositoryDelegatorFunction triggers a Skyframe restart _after_
+      // StarlarkRepositoryFunction#fetch is finished.
+      return state.result;
+    }
     var args = new FetchArgs(rule, outputDirectory, directories, env, key);
     if (!useWorkers) {
-      return fetchInternal(args);
+      state.result = fetchInternal(args);
+      return state.result;
     }
     // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
     while (true) {
-      var state = env.getState(State::new);
-      if (state.result != null) {
-        // Escape early if we've already finished fetching once. This can happen if
-        // RepositoryDelegatorFunction triggers a Skyframe restart _after_
-        // StarlarkRepositoryFunction#fetch is finished.
-        return state.result;
-      }
+      state = env.getState(State::new);
       try {
         state.result =
             state.startOrContinueWork(

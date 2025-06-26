@@ -121,10 +121,16 @@ public final class RepoContentsCache {
     try {
       return entryDir.getDirectoryEntries().stream()
           .filter(path -> path.getBaseName().endsWith(RECORDED_INPUTS_SUFFIX))
-          // We're just sorting for consistency here. (Note that "10.recorded_inputs" would sort
-          // before "1.recorded_inputs".) If necessary, we could use some sort of heuristics here
-          // to speed up the subsequent up-to-date-ness checking.
-          .sorted(Comparator.comparing(Path::getBaseName))
+          // Prefer newer cache entries over older ones. They're more likely to be up-to-date; plus,
+          // if a repo is force-fetched, we want to use the new repo instead of always being stuck
+          // with the old one.
+          // To "prefer newer cache entries", we sort the entry file names by length DESC and then
+          // lexicographically DESC. This approximates sorting by converting to int and then DESC,
+          // but is defensive against non-numerically named entries.
+          .sorted(
+              Comparator.comparing((Path path) -> path.getBaseName().length())
+                  .thenComparing(Path::getBaseName)
+                  .reversed())
           .map(CandidateRepo::fromRecordedInputsFile)
           .collect(toImmutableList());
     } catch (IOException e) {

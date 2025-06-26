@@ -16,6 +16,7 @@
 
 import os
 import tempfile
+
 from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
@@ -304,6 +305,61 @@ class BazelFetchTest(test_base.TestBase):
     # One more time to validate force is invoked and not cached by skyframe
     _, _, stderr = self.RunBazel(['fetch', '--repo=@hello', '--force'])
     self.assertIn('No more Orange Juice!', ''.join(stderr))
+
+  def testForceFetchWithRepoCache(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile('name.txt', ['foo'])
+    file_path = self.Path('name.txt').replace('\\', '\\\\')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    file_content = ctx.read("' + file_path + '", watch="no")',
+            '    print("name is " + file_content)',
+            '    ctx.file("BUILD",',
+            '             "filegroup(name=\'" + file_content.strip() + "\')")',
+            '    return ctx.repo_metadata(reproducible=True)',
+            'repo_rule = repository_rule(implementation=impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="hello")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@hello'])
+    self.assertIn('name is foo', ''.join(stderr))
+    self.RunBazel(['build', '@hello//:foo'])
+
+    # Change file content and run WITHOUT force, assert no fetching!
+    self.ScratchFile('name.txt', ['bar'])
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@hello'])
+    self.assertNotIn('name is bar', ''.join(stderr))
+    self.RunBazel(['build', '@hello//:foo'])
+
+    # Run again WITH --force and assert fetching
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@hello', '--force'])
+    self.assertIn('name is bar', ''.join(stderr))
+    self.RunBazel(['build', '@hello//:bar'])
+
+    # Clean expunge. Assert the cache entry with "bar" is selected (despite
+    # "foo" also still existing in the cache).
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('name.txt', ['quux'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:bar'])
+    self.assertNotIn('name is ', ''.join(stderr))
+
+  def testForceFetchWithRepoCacheNoRepoWorkers(self):
+    with open(self.Path('.bazelrc'), 'a') as f:
+      f.write('common --experimental_worker_for_repo_fetching=off\n')
+    self.testForceFetchWithRepoCache()
 
   def testFetchTarget(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
