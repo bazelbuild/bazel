@@ -363,9 +363,12 @@ class BazelFetchTest(test_base.TestBase):
     self.assertIn('name is bar', ''.join(stderr))
     self.RunBazel(['build', '@hello//:bar'])
 
-    # Restart the server. Make sure the cache entry with "bar" is selected.
-    self.RunBazel(['shutdown'])
-    self.RunBazel(['build', '@hello//:bar'])
+    # Clean expunge. Assert the cache entry with "bar" is selected (despite
+    # "foo" also still existing in the cache).
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('name.txt', ['quux'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:bar'])
+    self.assertNotIn('name is ', ''.join(stderr))
 
   def testForceFetchWithRepoCacheNoRepoWorkers(self):
     self.ScratchFile('.bazelrc',
