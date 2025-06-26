@@ -547,11 +547,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
           // fingerprinting stringificationType here.
           CommandLineItemMapEachAdaptor commandLineItemMapFn =
               new CommandLineItemMapEachAdaptor(
-                  mapEach,
-                  location,
-                  starlarkSemantics,
-                  (features & EXPAND_DIRECTORIES) != 0 ? inputMetadataProvider : null,
-                  outputPathsMode);
+                  mapEach, location, starlarkSemantics, inputMetadataProvider, outputPathsMode);
           try {
             actionKeyContext.addNestedSetToFingerprint(commandLineItemMapFn, fingerprint, values);
           } finally {
