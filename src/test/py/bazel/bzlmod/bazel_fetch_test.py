@@ -318,6 +318,53 @@ class BazelFetchTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['fetch', '--repo=@hello', '--force'])
     self.assertIn('No more Orange Juice!', ''.join(stderr))
 
+  def testForceFetchWithRepoCache(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile('name.txt', ['foo'])
+    file_path = self.Path('name.txt').replace('\\', '\\\\')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    file_content = ctx.read("' + file_path + '", watch="no")',
+            '    print("name is " + file_content)',
+            '    ctx.file("BUILD",',
+            '             "filegroup(name=\'" + file_content.strip() + "\')")',
+            '    return ctx.repo_metadata(reproducible=True)',
+            'repo_rule = repository_rule(implementation=impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="hello")',
+            'ext = module_extension(implementation=_ext_impl)',
+            ],
+    )
+
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@hello'])
+    self.assertIn('name is foo', ''.join(stderr))
+    self.RunBazel(['build', '@hello//:foo'])
+
+    # Change file content and run WITHOUT force, assert no fetching!
+    self.ScratchFile('name.txt', ['bar'])
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@hello'])
+    self.assertNotIn('name is bar', ''.join(stderr))
+    self.RunBazel(['build', '@hello//:foo'])
+
+    # Run again WITH --force and assert fetching
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@hello', '--force'])
+    self.assertIn('name is bar', ''.join(stderr))
+    self.RunBazel(['build', '@hello//:bar'])
+
+    # Restart the server. Make sure the cache entry with "bar" is selected.
+    self.RunBazel(['shutdown'])
+    self.RunBazel(['build', '@hello//:bar'])
+
   def testFetchTarget(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}

@@ -124,6 +124,11 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     @Nullable FetchResult result;
   }
 
+  @Override
+  public boolean wasJustFetched(Environment env) {
+    return env.getState(State::new).result != null;
+  }
+
   private record FetchArgs(
       Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env, SkyKey key) {
     FetchArgs toWorkerArgs(Environment env) {
