@@ -78,9 +78,9 @@ When a list is provided, it can be a heterogenous collection of:
     <li><code>FilesToRunProvider</code> instances</li>
     <li><code>depset</code>s of <code>File</code>s</li>
 </ul>
-Executable <code>File</code>s (created by another target) and <code>FilesToRunProvider</code>s \
-which are directly in the list will have their runfiles automatically added. All tools are \
-implicitly added as inputs.
+<code>File</code>s from <a href="../builtins/ctx#executable"><code>ctx.executable</code></a> \
+and <code>FilesToRunProvider</code>s which are directly in the list will have their runfiles \
+automatically added. All tools are implicitly added as inputs.
 </p>
     """;
 
