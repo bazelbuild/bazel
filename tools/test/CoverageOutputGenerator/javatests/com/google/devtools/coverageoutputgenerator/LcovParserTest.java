@@ -15,18 +15,12 @@
 package com.google.devtools.coverageoutputgenerator;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.TRACEFILE1;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.TRACEFILE2;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertTracefile1;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertTracefile2;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -46,31 +40,50 @@ public class LcovParserTest {
   }
 
   @Test
-  public void testParseTracefileWithOneSourcefile() throws IOException {
+  public void testParseTracefile() throws IOException {
+    ImmutableList<String> lcovLines =
+        ImmutableList.of(
+            "SF:src1.foo",
+            "FN:4,bar",
+            "FN:2,foo",
+            "FNDA:0,bar",
+            "FNDA:3,foo",
+            "FNF:2",
+            "FNH:1",
+            "DA:2,3,hash",
+            "DA:4,0,hash2",
+            "LH:1",
+            "LF:2",
+            "end_of_record",
+            "SF:src2.foo",
+            "FN:3,foo",
+            "FNDA:1,foo",
+            "FNF:1",
+            "FNH:1",
+            "DA:3,1",
+            "DA:4,1",
+            "LH:2",
+            "LF:2",
+            "end_of_record");
+
     List<SourceFileCoverage> sourceFiles =
-        LcovParser.parse(
-            new ByteArrayInputStream(Joiner.on("\n").join(TRACEFILE1).getBytes(UTF_8)));
-    assertThat(sourceFiles).hasSize(1);
-    assertTracefile1(sourceFiles.get(0));
-  }
-
-  @Test
-  public void testParseTracefileWithTwoSourcefiles() throws IOException {
-    List<String> tracefile2ModifiedLines = new ArrayList<>();
-    tracefile2ModifiedLines.addAll(TRACEFILE2);
-    tracefile2ModifiedLines.set(0, "SF:BSOME_OTHER_FILE_THAT_IS_NOT_MERGED");
-
-    List<String> tracefileLines = new ArrayList<>();
-    tracefileLines.addAll(TRACEFILE1);
-    tracefileLines.addAll(tracefile2ModifiedLines);
-
-    InputStream inputStream =
-        new ByteArrayInputStream(Joiner.on("\n").join(tracefileLines).getBytes(UTF_8));
-    List<SourceFileCoverage> sourceFiles = LcovParser.parse(inputStream);
+        LcovParser.parse(new ByteArrayInputStream(Joiner.on("\n").join(lcovLines).getBytes(UTF_8)));
 
     assertThat(sourceFiles).hasSize(2);
-    assertTracefile1(sourceFiles.get(0));
-    assertTracefile2(sourceFiles.get(1));
+    assertThat(sourceFiles.get(0).sourceFileName()).isEqualTo("src1.foo");
+    assertThat(sourceFiles.get(1).sourceFileName()).isEqualTo("src2.foo");
+    assertThat(sourceFiles.get(0).getLines())
+        .containsExactly(
+            2, LineCoverage.create(2, 3, "hash"),
+            4, LineCoverage.create(4, 0, "hash2"));
+    assertThat(sourceFiles.get(1).getLines())
+        .containsExactly(3, LineCoverage.create(3, 1, null), 4, LineCoverage.create(4, 1, null));
+    assertThat(sourceFiles.get(0).getLineNumbers()).containsExactly("bar", 4, "foo", 2);
+    assertThat(sourceFiles.get(1).getLineNumbers()).containsExactly("foo", 3);
+    assertThat(sourceFiles.get(0).getFunctionsExecution()).containsExactly("bar", 0L, "foo", 3L);
+    assertThat(sourceFiles.get(1).getFunctionsExecution()).containsExactly("foo", 1L);
+    assertThat(sourceFiles.get(0).getAllBranches()).isEmpty();
+    assertThat(sourceFiles.get(1).getAllBranches()).isEmpty();
   }
 
   @Test

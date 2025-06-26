@@ -15,17 +15,7 @@
 package com.google.devtools.coverageoutputgenerator;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertMergedFunctionsExecution;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertMergedLineNumbers;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertMergedLines;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertMergedSourceFile;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertTracefile1;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createLinesExecution1;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createLinesExecution2;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createSourceFile1;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createSourceFile2;
 
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,52 +24,100 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class SourceFileCoverageTest {
 
-  private int[] linesExecution1;
-  private int[] linesExecution2;
-  private SourceFileCoverage sourceFile1;
-  private SourceFileCoverage sourceFile2;
-
-  @Before
-  public void initializeExecutionCountTracefiles() {
-    linesExecution1 = createLinesExecution1();
-    linesExecution2 = createLinesExecution2();
-
-    sourceFile1 = createSourceFile1(linesExecution1);
-    sourceFile2 = createSourceFile2(linesExecution2);
-  }
-
   @Test
   public void testCopyConstructor() {
-    assertTracefile1(new SourceFileCoverage(sourceFile1));
+    SourceFileCoverage sourceFile = new SourceFileCoverage("src.foo");
+    sourceFile.addLineNumber("foo", 3);
+    sourceFile.addLine(3, LineCoverage.create(3, 2, "1"));
+    sourceFile.addLine(4, LineCoverage.create(4, 1, "2"));
+    sourceFile.addLine(5, LineCoverage.create(5, 0, "3"));
+    sourceFile.addBranch(3, BranchCoverage.create(3, 0, 2));
+    sourceFile.addBranch(3, BranchCoverage.create(3, 1, 1));
+    sourceFile.addBranch(5, BranchCoverage.create(5, 0, 0));
+    sourceFile.addBranch(5, BranchCoverage.create(5, 1, 0));
+
+    SourceFileCoverage copy = new SourceFileCoverage(sourceFile);
+
+    assertThat(copy.getLines()).isEqualTo(sourceFile.getLines());
+    assertThat(copy.getLineNumbers()).isEqualTo(sourceFile.getLineNumbers());
+    assertThat(copy.getAllBranches())
+        .containsExactly(
+            BranchCoverage.create(3, 0, 2),
+            BranchCoverage.create(3, 1, 1),
+            BranchCoverage.create(5, 0, 0),
+            BranchCoverage.create(5, 1, 0));
   }
 
   @Test
   public void testMergeFunctionNameToLineNumber() {
-    assertMergedLineNumbers(SourceFileCoverage.mergeLineNumbers(sourceFile1, sourceFile2));
+    SourceFileCoverage sourceFile1 = new SourceFileCoverage("src.foo");
+    SourceFileCoverage sourceFile2 = new SourceFileCoverage("src.foo");
+    sourceFile1.addLineNumber("foo", 3);
+    sourceFile1.addLineNumber("bar", 10);
+    sourceFile2.addLineNumber("foo", 3);
+    sourceFile2.addLineNumber("bar", 10);
+
+    SourceFileCoverage merged = SourceFileCoverage.merge(sourceFile1, sourceFile2);
+
+    assertThat(merged.getLineNumbers()).containsExactly("foo", 3, "bar", 10);
   }
 
   @Test
   public void testMergeFunctionNameToExecutionCount() {
-    assertMergedFunctionsExecution(
-        SourceFileCoverage.mergeFunctionsExecution(sourceFile1, sourceFile2));
+    SourceFileCoverage sourceFile1 = new SourceFileCoverage("src.foo");
+    SourceFileCoverage sourceFile2 = new SourceFileCoverage("src.foo");
+    sourceFile1.addLineNumber("foo", 3);
+    sourceFile1.addFunctionExecution("foo", 5L);
+    sourceFile2.addLineNumber("foo", 3);
+    sourceFile2.addFunctionExecution("foo", 7L);
+
+    SourceFileCoverage merged = SourceFileCoverage.merge(sourceFile1, sourceFile2);
+
+    assertThat(merged.getFunctionsExecution()).containsExactly("foo", 12L);
   }
 
   @Test
   public void testMergeLineNumberToLineExecution() {
-    assertMergedLines(
-        SourceFileCoverage.mergeLines(sourceFile1, sourceFile2), linesExecution1, linesExecution2);
+    SourceFileCoverage sourceFile1 = new SourceFileCoverage("src.foo");
+    SourceFileCoverage sourceFile2 = new SourceFileCoverage("src.foo");
+    sourceFile1.addLine(4, LineCoverage.create(4, 3, "1"));
+    sourceFile1.addLine(5, LineCoverage.create(5, 4, "2"));
+    sourceFile1.addLine(10, LineCoverage.create(10, 0, "3"));
+    sourceFile2.addLine(4, LineCoverage.create(4, 5, "1"));
+    sourceFile2.addLine(5, LineCoverage.create(5, 0, "2"));
+    sourceFile2.addLine(10, LineCoverage.create(10, 3, "3"));
+
+    SourceFileCoverage merged = SourceFileCoverage.merge(sourceFile1, sourceFile2);
+
+    assertThat(merged.getLines())
+        .containsExactly(
+            4, LineCoverage.create(4, 8, "1"),
+            5, LineCoverage.create(5, 4, "2"),
+            10, LineCoverage.create(10, 3, "3"));
   }
 
   @Test
-  public void testMerge() throws Exception {
-    assertMergedSourceFile(
-        SourceFileCoverage.merge(sourceFile1, sourceFile2), linesExecution1, linesExecution2);
+  public void testMergeBranches() {
+    SourceFileCoverage sourceFile1 = new SourceFileCoverage("src.foo");
+    SourceFileCoverage sourceFile2 = new SourceFileCoverage("src.foo");
+    sourceFile1.addBranch(1, BranchCoverage.create(1, 0, 2));
+    sourceFile1.addBranch(1, BranchCoverage.create(1, 1, 1));
+    sourceFile1.addBranch(1, BranchCoverage.create(1, 2, 1));
+    sourceFile2.addBranch(1, BranchCoverage.create(1, 0, 1));
+    sourceFile2.addBranch(1, BranchCoverage.create(1, 1, 1));
+    sourceFile2.addBranch(1, BranchCoverage.create(1, 2, 2));
+
+    assertThat(SourceFileCoverage.merge(sourceFile1, sourceFile2).getAllBranches())
+        .containsExactly(
+            BranchCoverage.create(1, 0, 2),
+            BranchCoverage.create(1, 1, 1),
+            BranchCoverage.create(1, 2, 2));
   }
 
   @Test
   public void testMismatchedBaBranchMerge() throws Exception {
-    sourceFile1 = new SourceFileCoverage("source");
-    sourceFile2 = new SourceFileCoverage("source");
+    SourceFileCoverage sourceFile1 = new SourceFileCoverage("source");
+    SourceFileCoverage sourceFile2 = new SourceFileCoverage("source");
     sourceFile1.addNewBranch(800, 2);
     sourceFile1.addNewBranch(800, 1);
     sourceFile2.addNewBranch(800, 2);
@@ -104,8 +142,8 @@ public class SourceFileCoverageTest {
 
   @Test
   public void testMismatchedBrdaBranchMerge() throws Exception {
-    sourceFile1 = new SourceFileCoverage("source");
-    sourceFile2 = new SourceFileCoverage("source");
+    SourceFileCoverage sourceFile1 = new SourceFileCoverage("source");
+    SourceFileCoverage sourceFile2 = new SourceFileCoverage("source");
     sourceFile1.addNewBrdaBranch(800, "0", "0", true, 1);
     sourceFile1.addNewBrdaBranch(800, "0", "1", true, 0);
     sourceFile1.addNewBrdaBranch(800, "1", "0", true, 1);
@@ -132,8 +170,8 @@ public class SourceFileCoverageTest {
 
   @Test
   public void testDifferentLinesReportedAreMergeable() throws Exception {
-    sourceFile1 = new SourceFileCoverage("source");
-    sourceFile2 = new SourceFileCoverage("source");
+    SourceFileCoverage sourceFile1 = new SourceFileCoverage("source");
+    SourceFileCoverage sourceFile2 = new SourceFileCoverage("source");
     sourceFile1.addNewBrdaBranch(1, "0", "0", true, 1);
     sourceFile1.addNewBrdaBranch(1, "0", "1", true, 1);
     sourceFile1.addLine(1, LineCoverage.create(1, 2, ""));
