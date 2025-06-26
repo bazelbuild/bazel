@@ -219,6 +219,15 @@ public abstract class RepositoryFunction {
   }
 
   /**
+   * We sometimes get to the point before fetching a repo when we have <em>just</em> fetched it,
+   * particularly because of Skyframe restarts very late into RepositoryDelegatorFunction. In that
+   * case, this method can be used to report that fact.
+   */
+  public boolean wasJustFetched(Environment env) {
+    return false;
+  }
+
+  /**
    * Verify the data provided by the marker file to check if a refetch is needed. Returns an empty
    * Optional if the data is up to date and no refetch is needed and an Optional with a
    * human-readable reason if the data is obsolete and a refetch is needed.
