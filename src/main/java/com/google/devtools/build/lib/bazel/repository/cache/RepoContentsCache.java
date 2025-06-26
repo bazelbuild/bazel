@@ -158,7 +158,7 @@ public final class RepoContentsCache {
     Path cacheRepoDir = entryDir.getChild(counter);
 
     cacheRepoDir.deleteTree();
-    cacheRepoDir.createDirectoryAndParents();
+    cacheRepoDir.getParentDirectory().createDirectoryAndParents();
     // Move the fetched marker file to a temp location, so that if following operations fail, both
     // the fetched repo and the cache locations are considered out-of-date.
     Path temporaryMarker = ensureTrashDir().getChild(UUID.randomUUID().toString());
@@ -167,6 +167,7 @@ public final class RepoContentsCache {
     try {
       fetchedRepoDir.renameTo(cacheRepoDir);
     } catch (IOException e) {
+      cacheRepoDir.createDirectoryAndParents();
       FileSystemUtils.moveTreesBelow(fetchedRepoDir, cacheRepoDir);
     }
     temporaryMarker.renameTo(cacheRecordedInputsFile);
