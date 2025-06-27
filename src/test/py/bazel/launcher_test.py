@@ -238,7 +238,7 @@ class LauncherTest(test_base.TestBase):
 
   def testJavaBinaryLauncher(self):
     self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.12.0")']
+        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.13.0")']
     )
     self.ScratchFile(
         'foo/BUILD',
@@ -274,7 +274,7 @@ class LauncherTest(test_base.TestBase):
 
   def testJavaBinaryArgumentPassing(self):
     self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.12.0")']
+        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.13.0")']
     )
     self.ScratchFile(
         'foo/BUILD',
@@ -503,7 +503,7 @@ class LauncherTest(test_base.TestBase):
     if not self.IsWindows():
       return
     self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.12.0")']
+        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.13.0")']
     )
     self.ScratchFile(
         'foo/BUILD',
