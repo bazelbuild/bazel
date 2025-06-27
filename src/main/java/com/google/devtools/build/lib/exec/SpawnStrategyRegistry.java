@@ -646,8 +646,8 @@ public final class SpawnStrategyRegistry
       var platformLabel = spawn.getExecutionPlatformLabel();
       Preconditions.checkNotNull(platformLabel, "Attempting to spawn action without an execution platform.");
       
+      if (platformToStrategies.containsKey(platformLabel)) {
       var allowedStrategies = platformToStrategies.get(platformLabel);
-      if (allowedStrategies != null) {
         List<T> filteredStrategies = new ArrayList<>();
         for (var strategy : candidateStrategies) {
           if (allowedStrategies.contains(strategy)) {
