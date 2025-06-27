@@ -141,52 +141,35 @@ INFO: Build completed successfully, 790 total actions
 
 ## 3. Design
 
-The proposed solution is to introduce a new repeatable flag, `--output_suppression`, and a filtering mechanism that is performant, backward-compatible, and uses a new, generic `EventContext` object to provide rich, decoupled information to any interested consumer.
+The implemented solution introduces a new repeatable flag, `--output_suppression`, and a filtering mechanism that is performant and backward-compatible. It uses a new, generic `EventContext` object to provide rich, decoupled information for events that have it, and falls back to parsing raw file paths for events that don't (like those from Starlark).
 
 ### Decoupled Data Binding via `EventContext`
 
-To avoid tightly coupling event generators with the suppression system, we will introduce a generic context object. The code that creates an event should not need to know *why* context is needed, only that it should provide it. This design is focused on the standard `Event` stream that is processed by the `Reporter` and ultimately displayed to the user on the console; it does not affect the `BuildEvent` stream.
+To avoid tightly coupling event generators with the suppression system, we introduced a generic context object. The code that creates an event should not need to know *why* context is needed, only that it should provide it. This design is focused on the standard `Event` stream that is processed by the `Reporter` and ultimately displayed to the user on the console; it does not affect the `BuildEvent` stream.
 
-1.  **Define `EventContext.java`:** A new, simple POJO that acts as a generic container for information about an event's origin. It will have fields for `targetLabel`, `package`, etc. This name is neutral and describes the data's purpose, not its use by a specific consumer.
+1.  **`EventContext.java`:** A simple POJO that acts as a generic container for information about an event's origin. It has fields for `targetLabel`, `package`, etc.
 2.  **Instrument Event Creation:**
-    *   **For Actions:** In `SkyframeActionExecutor`, when processing an action's result, we will gather context from the `ActionOwner`. We will populate an `EventContext` object and attach it to any warning/info events using `event.withProperty(EventContext.class, context)`. The richness of this context is high, including the target label and package.
-    *   **For Core Bazel Warnings:** For warnings generated outside of an action context (e.g., during module resolution), we will instrument the specific call sites. For example, in `BazelModuleResolutionFunction.verifyRootModuleDirectDepsAreAccurate`, we have access to the repository name and can add it to an `EventContext`. The context here is less rich than for an action, but still provides a valuable `package` scope for filtering.
-    *   **For Starlark `print()`:** These events lack action context. Our filter will detect a missing `EventContext` and fall back to inspecting the `event.getLocation()` property, allowing filtering by the package of the `.bzl` file that contains the `print` statement.
-3.  **Filter Logic:** The `OutputSuppressionFilter` becomes a specialized consumer of this generic context. It will call `event.getProperty(EventContext.class)` to get the context and apply its suppression rules. Other tools, like IDE integrations or build analyzers, could also consume this same `EventContext` for their own purposes in the future.
-
-### Feasibility, Performance, and Compatibility
-
-*   **Performance:** This design remains highly performant. The cost is one small `EventContext` object allocation per relevant warning, created where the context is already available.
-*   **Backward Compatibility:** This approach is fully backward-compatible. We use the `Event.withProperty()` system, which does not alter the `Event`'s structure or its existing `tag` property. The `--output_filter` flag will continue to function without change.
+    *   **For Actions:** In `SkyframeActionExecutor`, when processing an action's result, we gather context from the `ActionOwner` and attach an `EventContext` object to any warning/info events.
+    *   **For Core Bazel Warnings:** For warnings generated outside of an action context (e.g., during module resolution), we instrumented the specific call sites to add an `EventContext`.
+    *   **For Starlark `print()` and other path-based events:** These events often lack a rich `EventContext`. The filter detects this and falls back to inspecting the `event.getLocation().file()` property, allowing filtering by the raw file path of the `.bzl` file that contains the `print` statement.
 
 ### Suppression Rule Format
 
-Each instance of the `--output_suppression` flag will define a single rule. The rule string will consist of one or more space-separated keywords followed by a regular expression.
+Each instance of the `--output_suppression` flag defines a single rule. The rule string consists of one or more space-separated keywords followed by a regular expression.
 
 **Syntax:** `[keyword:value]... <regular_expression>`
 
 **Supported Keywords:**
 
-*   `*`: (Required) A placeholder for global rules where no other scope is specified.
-*   `package`: Scopes the rule to a specific package (e.g., `package://foo/bar`).
+*   `package`: Scopes the rule to a specific package (e.g., `package:@@foo//bar`). Best for events with a rich `EventContext`.
+*   `path`: Scopes the rule to events where the file path in the `Location` matches the provided regex. This is the most reliable way to suppress warnings from Starlark files or other events that don't have a package context.
 *   `target`: Scopes the rule to a specific target (e.g., `target://foo/bar:baz`).
 *   `tag`: Scopes the rule to events with a specific tag.
-*   `count`: (Optional) Specifies an exact number of expected matches for a rule.
-
-To avoid ambiguity, every rule must begin with a keyword. For global rules, the `*:` keyword will be used.
-
-### Fragile Suppressions
-
-To prevent accidental suppression of new or important warnings, the `count` keyword can be combined with any other set of scoping keywords. This creates a "fragile" suppression that will trigger a "suppression expectation violation" warning if the number of matched messages does not equal the expected count.
-
-```
-# Expect exactly 2 warnings about maven repositories from this package
---output_suppression="count:2 package://external/rules_jvm_external The maven repository 'maven' is used in two different bazel modules"
-```
+*   `count`: (Optional) Specifies an exact number of expected matches for a rule. If the actual number of matches is different, a warning is issued.
 
 ### Relationship with Existing Flags
 
-The `--output_filter` and `--auto_output_filter` flags could be deprecated in favor of the new `--output_suppression` flag. Their functionality can be replicated by generating the equivalent suppression rules on the fly. For example, `--output_filter=//foo` would become `--output_suppression="target://foo/.* .*"`.
+The new `--output_suppression` flag takes precedence over the existing `--output_filter` and `--auto_output_filter` flags. If any `--output_suppression` rules are active, the other two flags are ignored, and a warning is printed to the console to inform the user of the conflict.
 
 ### Detailed Implementation Plan
 
@@ -232,7 +215,11 @@ This section lists files that are relevant to the implementation of this feature
 - [X] Phase 3: Enriching Events (Incremental)
   - [X] Instrument Action Execution
   - [X] Instrument Core Warnings
-- [ ] Phase 4: Testing and Documentation
-  - [ ] Add unit tests
-  - [ ] Add integration tests
-  - [ ] Update documentation
+- [X] Phase 4: Testing and Documentation
+  - [X] Add unit tests for core logic and real-world cases.
+  - [ ] Add integration tests that run Bazel with a custom `.bazelrc`.
+  - [X] Update this design document.
+- [ ] Phase 5: Finalization
+  - [ ] Achieve 100% suppression of warnings in the upstream Bazel build.
+  - [ ] Remove all temporary debugging logs.
+  - [ ] Submit the final, clean pull request.

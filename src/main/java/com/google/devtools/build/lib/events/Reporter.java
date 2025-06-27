@@ -116,9 +116,7 @@ public final class Reporter implements ExtendedEventHandler {
    */
   @Override
   public void handle(Event e) {
-    if (e.getKind() != EventKind.ERROR
-        && e.getKind() != EventKind.DEBUG
-        && !showOutput(e)) {
+    if (e.getKind() != EventKind.ERROR && !showOutput(e)) {
       return;
     }
 
@@ -225,3 +223,4 @@ public final class Reporter implements ExtendedEventHandler {
     }
   }
 }
+

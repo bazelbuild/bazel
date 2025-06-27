@@ -58,10 +58,27 @@ public final class OutputSuppressionFilter implements OutputFilter {
   private boolean matches(SuppressionRule rule, Event event) {
     EventContext context = event.getProperty(EventContext.class);
 
+    if (rule.hasKeyword("path")) {
+      String path = event.getLocation() != null ? event.getLocation().file() : null;
+      if (path == null || !Pattern.matches(rule.getKeywordValue("path"), path)) {
+        return false;
+      }
+    }
+
     if (rule.hasKeyword("package")) {
       String pkg = context != null ? context.getPackage() : null;
       if (pkg == null && event.getLocation() != null) {
-        pkg = Paths.get(event.getLocation().file()).getParent().toString();
+        String path = event.getLocation().file();
+        // Starlark events from external repositories have a path like
+        // /private/var/tmp/.../external/repo_name/path/to/file.bzl
+        // We want to extract "@@repo_name" from this path.
+        Pattern p = Pattern.compile(".*/external/([^/]+)/.*");
+        Matcher m = p.matcher(path);
+        if (m.matches()) {
+          pkg = "@@" + m.group(1);
+        } else {
+          pkg = Paths.get(path).getParent().toString();
+        }
       }
       if (pkg == null || !Pattern.matches(rule.getKeywordValue("package"), pkg)) {
         return false;
