@@ -160,7 +160,7 @@ import com.google.errorprone.bugpatterns.flogger.FloggerLogVarargs;
 import com.google.errorprone.bugpatterns.flogger.FloggerSplitLogStatement;
 import com.google.errorprone.bugpatterns.formatstring.FormatString;
 import com.google.errorprone.bugpatterns.formatstring.FormatStringAnnotationChecker;
-import com.google.errorprone.bugpatterns.LenientFormatStringValidation;
+import com.google.errorprone.bugpatterns.formatstring.LenientFormatStringValidation;
 import com.google.errorprone.bugpatterns.inject.InjectOnMemberAndConstructor;
 import com.google.errorprone.bugpatterns.inject.JavaxInjectOnAbstractMethod;
 import com.google.errorprone.bugpatterns.inject.MisplacedScopeAnnotations;
