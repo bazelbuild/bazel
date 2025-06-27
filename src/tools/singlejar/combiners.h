@@ -98,7 +98,7 @@ class XmlCombiner : public Combiner {
 
   void *OutputEntry(bool compress) override;
 
-  const std::string filename() const { return filename_; }
+  std::string filename() const { return filename_; }
 
  private:
   const std::string filename_;
@@ -157,7 +157,7 @@ class ManifestCombiner : public Combiner {
 
   void *OutputEntry(bool compress) override;
 
-  const std::string filename() const { return filename_; }
+  std::string filename() const { return filename_; }
 
  private:
   bool HandleModuleFlags(std::vector<std::string> &output, const char *key,
