@@ -297,8 +297,8 @@ public class ExternalFilesHelper {
   }
 
   /**
-   * For files that are under $OUTPUT_BASE/external, add a dependency on the corresponding rule so
-   * that if the WORKSPACE file changes, the File/DirectoryStateValue will be re-evaluated.
+   * For files that are under $OUTPUT_BASE/external, add a dependency on the corresponding repo so
+   * that if the repo definition changes, the File/DirectoryStateValue will be re-evaluated.
    *
    * <p>Note that: - We don't add a dependency on the parent directory at the package root boundary,
    * so the only transitive dependencies from files inside the package roots to external files are
