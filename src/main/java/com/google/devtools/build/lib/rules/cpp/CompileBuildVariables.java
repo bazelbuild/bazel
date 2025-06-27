@@ -148,7 +148,6 @@ public enum CompileBuildVariables {
       CcToolchainProvider ccToolchainProvider,
       Artifact sourceFile,
       Artifact outputFile,
-      boolean isCodeCoverageEnabled,
       Artifact gcnoFile,
       boolean isUsingFission,
       Artifact dwoFile,
@@ -180,7 +179,6 @@ public enum CompileBuildVariables {
         ccToolchainProvider.getBuildVars(),
         sourceFile,
         outputFile,
-        isCodeCoverageEnabled,
         gcnoFile,
         isUsingFission,
         dwoFile,
@@ -212,7 +210,6 @@ public enum CompileBuildVariables {
       CcToolchainProvider ccToolchainProvider,
       String sourceFile,
       String outputFile,
-      boolean isCodeCoverageEnabled,
       Artifact gcnoFile,
       boolean isUsingFission,
       Artifact dwoFile,
@@ -247,7 +244,6 @@ public enum CompileBuildVariables {
         ccToolchainProvider.getBuildVars(),
         sourceFile,
         outputFile,
-        isCodeCoverageEnabled,
         gcnoFile,
         isUsingFission,
         dwoFile,
@@ -279,7 +275,6 @@ public enum CompileBuildVariables {
       CcToolchainVariables parent,
       Object sourceFile,
       Object outputFile,
-      boolean isCodeCoverageEnabled,
       Artifact gcnoFile,
       boolean isUsingFission,
       Artifact dwoFile,
@@ -324,7 +319,6 @@ public enum CompileBuildVariables {
         buildVariables,
         sourceFile,
         outputFile,
-        isCodeCoverageEnabled,
         gcnoFile,
         dwoFile,
         isUsingFission,
@@ -347,7 +341,6 @@ public enum CompileBuildVariables {
       CcToolchainVariables.Builder buildVariables,
       Artifact sourceFile,
       Artifact outputFile,
-      boolean isCodeCoverageEnabled,
       Artifact gcnoFile,
       Artifact dwoFile,
       boolean isUsingFission,
@@ -364,7 +357,6 @@ public enum CompileBuildVariables {
         buildVariables,
         sourceFile,
         outputFile,
-        isCodeCoverageEnabled,
         gcnoFile,
         dwoFile,
         isUsingFission,
@@ -386,7 +378,6 @@ public enum CompileBuildVariables {
       CcToolchainVariables.Builder buildVariables,
       Object sourceFile,
       Object outputFile,
-      boolean isCodeCoverageEnabled,
       Artifact gcnoFile,
       Artifact dwoFile,
       boolean isUsingFission,
@@ -435,9 +426,9 @@ public enum CompileBuildVariables {
 
     if (gcnoFile != null) {
       buildVariables.addVariable(GCOV_GCNO_FILE.getVariableName(), gcnoFile);
-    } else if (isCodeCoverageEnabled) {
-      // TODO: Blaze currently uses `gcov_gcno_file` to detect if code coverage is enabled. It
-      // should use a different signal.
+    } else if (featureConfiguration.getRequestedFeatures().contains(CppRuleClasses.COVERAGE_INSTRUMENTED)) {
+      // TODO: Blaze currently uses `gcov_gcno_file` to detect if the current target is instrumented
+      // for coverage. It should use the `coverage_instrumented` feature instead.
       buildVariables.addVariable(GCOV_GCNO_FILE.getVariableName(), "");
     }
 

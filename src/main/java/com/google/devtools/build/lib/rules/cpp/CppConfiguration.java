@@ -492,7 +492,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.experimentalLinkStaticLibrariesOnce;
   }
 
-
   public boolean legacyWholeArchive() {
     return cppOptions.legacyWholeArchive;
   }
@@ -758,6 +757,7 @@ public final class CppConfiguration extends Fragment
     return cppOptions.getMemProfProfileLabel();
   }
 
+  @StarlarkMethod(name = "use_llvm_coverage_map_format", documented = false)
   public boolean useLLVMCoverageMapFormat() {
     return cppOptions.useLLVMCoverageMapFormat;
   }
@@ -815,10 +815,6 @@ public final class CppConfiguration extends Fragment
 
   public boolean dontEnableHostNonhost() {
     return cppOptions.dontEnableHostNonhost;
-  }
-
-  public boolean collectCodeCoverage() {
-    return collectCodeCoverage;
   }
 
   public boolean saveFeatureState() {

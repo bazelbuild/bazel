@@ -44,7 +44,6 @@ public final class CppLinkstampCompileHelper {
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
       Iterable<String> additionalLinkstampDefines,
       CcToolchainProvider ccToolchainProvider,
-      boolean codeCoverageEnabled,
       String fdoBuildStamp,
       FeatureConfiguration featureConfiguration,
       boolean needsPic,
@@ -71,7 +70,6 @@ public final class CppLinkstampCompileHelper {
                     ccToolchainProvider,
                     needsPic,
                     fdoBuildStamp,
-                    codeCoverageEnabled,
                     semantics))
             .setFeatureConfiguration(featureConfiguration)
             .setSourceFile(sourceFile)
@@ -93,15 +91,17 @@ public final class CppLinkstampCompileHelper {
       String outputReplacement,
       Iterable<String> additionalLinkstampDefines,
       CcToolchainProvider ccToolchainProvider,
-      String fdoBuildStamp,
-      boolean codeCoverageEnabled)
+      FeatureConfiguration featureConfiguration,
+      String fdoBuildStamp)
       throws EvalException {
     String labelPattern = Pattern.quote("${LABEL}");
     String outputPathPattern = Pattern.quote("${OUTPUT_PATH}");
     ImmutableList.Builder<String> defines =
         ImmutableList.<String>builder()
             .add("GPLATFORM=\"" + ccToolchainProvider.getToolchainIdentifier() + "\"")
-            .add("BUILD_COVERAGE_ENABLED=" + (codeCoverageEnabled ? "1" : "0"))
+            .add(
+                "BUILD_COVERAGE_ENABLED="
+                    + (featureConfiguration.isEnabled(CppRuleClasses.COVERAGE_ENABLED) ? "1" : "0"))
             // G3_TARGET_NAME is a C string literal that normally contain the label of the target
             // being linked.  However, they are set differently when using shared native deps. In
             // that case, a single .so file is shared by multiple targets, and its contents cannot
@@ -139,7 +139,6 @@ public final class CppLinkstampCompileHelper {
       CcToolchainProvider ccToolchainProvider,
       boolean needsPic,
       String fdoBuildStamp,
-      boolean codeCoverageEnabled,
       CppSemantics semantics)
       throws EvalException {
     // TODO(b/34761650): Remove all this hardcoding by separating a full blown compile action.
@@ -151,7 +150,6 @@ public final class CppLinkstampCompileHelper {
         ccToolchainProvider,
         sourceFile,
         outputFile,
-        /* isCodeCoverageEnabled= */ false,
         /* gcnoFile= */ null,
         /* isUsingFission= */ false,
         /* dwoFile= */ null,
@@ -178,8 +176,8 @@ public final class CppLinkstampCompileHelper {
             outputReplacement,
             additionalLinkstampDefines,
             ccToolchainProvider,
-            fdoBuildStamp,
-            codeCoverageEnabled),
+            featureConfiguration,
+            fdoBuildStamp),
         /* localDefines= */ ImmutableList.of());
   }
 
