@@ -93,7 +93,8 @@ public final class SpawnStrategyRegistry
     this.mnemonicToLocalDynamicStrategies = mnemonicToLocalDynamicStrategies;
     this.remoteLocalFallbackStrategy = remoteLocalFallbackStrategy;
     logger.atInfo().log("Default strategies: %s", defaultStrategies);
-    logger.atInfo().log("Filter strategies: %s", strategyRegexFilter);
+    logger.atInfo().log("Regex filter strategies: %s", strategyRegexFilter);
+    logger.atInfo().log("Platform filter strategies: %s", strategyPlatformFilter);
     logger.atInfo().log("Mnemonic strategies: %s", mnemonicToStrategies);
     logger.atInfo().log("Remote strategies: %s", mnemonicToRemoteDynamicStrategies);
     logger.atInfo().log("Local strategies: %s", mnemonicToLocalDynamicStrategies);
@@ -645,9 +646,9 @@ public final class SpawnStrategyRegistry
         Spawn spawn, List<T> candidateStrategies) {
       var platformLabel = spawn.getExecutionPlatformLabel();
       Preconditions.checkNotNull(platformLabel, "Attempting to spawn action without an execution platform.");
-      
+
       if (platformToStrategies.containsKey(platformLabel)) {
-      var allowedStrategies = platformToStrategies.get(platformLabel);
+        var allowedStrategies = platformToStrategies.get(platformLabel);
         List<T> filteredStrategies = new ArrayList<>();
         for (var strategy : candidateStrategies) {
           if (allowedStrategies.contains(strategy)) {
@@ -667,6 +668,11 @@ public final class SpawnStrategyRegistry
 
     ImmutableListMultimap<Label, SpawnStrategy> getFilterToStrategies() {
       return platformToStrategies;
+    }
+
+    @Override
+    public String toString() {
+      return platformToStrategies.toString();
     }
   }
 
