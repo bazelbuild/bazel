@@ -620,6 +620,17 @@ public final class TreeArtifactValueTest {
   }
 
   @Test
+  public void multiBuilder_injectsEmptyTreeArtifact() {
+    TreeArtifactValue.MultiBuilder treeArtifacts = TreeArtifactValue.newMultiBuilder();
+    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
+
+    treeArtifacts.addTree(parent).forEach(results::put);
+
+    assertThat(results).containsExactly(parent, TreeArtifactValue.empty());
+  }
+
+  @Test
   public void multiBuilder_injectsSingleTreeArtifact() {
     TreeArtifactValue.MultiBuilder treeArtifacts = TreeArtifactValue.newMultiBuilder();
     SpecialArtifact parent = createTreeArtifact("bin/tree");

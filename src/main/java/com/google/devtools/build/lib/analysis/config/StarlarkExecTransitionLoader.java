@@ -20,9 +20,9 @@ import com.google.common.base.Verify;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
-import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -91,8 +91,7 @@ public final class StarlarkExecTransitionLoader {
     try {
       bzlValue =
           bzlFileLoader.getValue(
-              Objects.equals(
-                      parsedRef.bzlFile().getRepository(), StarlarkBuiltinsValue.BUILTINS_REPO)
+              Objects.equals(parsedRef.bzlFile().getRepository(), RepositoryName.BUILTINS)
                   ? BzlLoadValue.keyForBuiltins(parsedRef.bzlFile())
                   : BzlLoadValue.keyForBuild(parsedRef.bzlFile()));
     } catch (BzlLoadFailedException e) {

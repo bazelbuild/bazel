@@ -1269,6 +1269,15 @@ public class RuleContext extends TargetContext
     return toolchainContext == null ? null : toolchainContext.executionPlatform();
   }
 
+  @Nullable
+  public PlatformInfo getExecutionPlatformForToolchainType(Label toolchainType) {
+    if (toolchainContexts == null) {
+      return null;
+    }
+    ResolvedToolchainContext toolchainContext = getToolchainContextForToolchainType(toolchainType);
+    return toolchainContext == null ? null : toolchainContext.executionPlatform();
+  }
+
   /**
    * For the specified attribute "attributeName" (which must be of type list(label)), resolve all
    * the labels into ConfiguredTargets (for the configuration appropriate to the attribute) and

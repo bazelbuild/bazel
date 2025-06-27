@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.BzlCompileFunction;
@@ -65,7 +64,6 @@ import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.DefaultSyscallCache;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
-import com.google.devtools.build.lib.skyframe.ExternalPackageFunction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesFunction;
@@ -83,8 +81,6 @@ import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction;
-import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
-import com.google.devtools.build.lib.skyframe.WorkspaceNameFunction;
 import com.google.devtools.build.lib.util.ValueOrException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
@@ -557,8 +553,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             new PackageLookupFunction(
                 /* deletedPackages= */ new AtomicReference<>(ImmutableSet.of()),
                 getCrossRepositoryLabelViolationStrategy(),
-                getBuildFilesByPriority(),
-                getExternalPackageHelper()))
+                getBuildFilesByPriority()))
         .put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.NOOP)
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
         .put(
@@ -571,17 +566,11 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             SkyFunctions.BZL_LOAD,
             BzlLoadFunction.create(
                 ruleClassProvider, directories, hashFunction, Caffeine.newBuilder().build()))
-        .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction(ruleClassProvider))
-        .put(
-            WorkspaceFileValue.WORKSPACE_FILE,
-            new WorkspaceFileFunction(
-                ruleClassProvider, pkgFactory, directories, /* bzlLoadFunctionForInlining= */ null))
         .put(
             SkyFunctions.REPO_FILE,
             new RepoFileFunction(
                 ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()))
         .put(SkyFunctions.REPO_PACKAGE_ARGS, RepoPackageArgsFunction.INSTANCE)
-        .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(getExternalPackageHelper()))
         .put(
             BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
             new BzlmodRepoRuleFunction(ruleClassProvider, directories))

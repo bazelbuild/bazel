@@ -88,7 +88,12 @@ public enum ProfilerTask {
   DYNAMIC_LOCK("Acquiring dynamic execution output lock", Threshold.FIFTY_MILLIS),
   REPOSITORY_FETCH("Fetching repository"),
   REPOSITORY_VENDOR("Vendoring repository"),
+  REPO_CACHE_GC_WAIT("blocked on repo contents cache GC", Threshold.TEN_MILLIS),
   SPAWN_LOG("logging spawn", Threshold.TEN_MILLIS),
+  RPC("RPC"),
+  SKYCACHE("Skycache"),
+  WASM_LOAD("load WebAssembly module"),
+  WASM_EXEC("execute WebAssembly function"),
 
   UNKNOWN("Unknown event");
 

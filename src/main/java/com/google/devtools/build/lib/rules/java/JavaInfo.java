@@ -135,8 +135,9 @@ public sealed class JavaInfo extends NativeInfo
   private final JavaModuleFlagsProvider providerModuleFlags;
   private final JavaPluginInfo providerJavaPlugin;
 
-  /*
+  /**
    * Contains the .jar files to be put on the runtime classpath by the configured target.
+   *
    * <p>Unlike {@link JavaCompilationArgs#getRuntimeJars()}, it does not contain transitive runtime
    * jars, only those produced by the configured target itself.
    *
@@ -436,7 +437,11 @@ public sealed class JavaInfo extends NativeInfo
 
   @Override
   public Depset headerCompilationDirectDeps() {
-    return Depset.of(Artifact.class, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    NestedSet<Artifact> headerCompilationDirectDeps =
+        getProviderAsNestedSet(
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider::directHeaderCompilationJars);
+    return Depset.of(Artifact.class, headerCompilationDirectDeps);
   }
 
   /**

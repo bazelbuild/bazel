@@ -516,17 +516,6 @@ public class ExecutionOptions extends OptionsBase {
   public boolean executionLogSort;
 
   @Option(
-      name = "experimental_split_xml_generation",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "If this flag is set, and a test action does not generate a test.xml file, then "
-              + "Bazel uses a separate action to generate a dummy test.xml file containing the "
-              + "test log. Otherwise, Bazel generates a test.xml as part of the test action.")
-  public boolean splitXmlGeneration;
-
-  @Option(
       // TODO: when this flag is moved to non-experimental, rename it to a more general name
       // to reflect the new logic - it's not only about cache evictions.
       name = "experimental_remote_cache_eviction_retries",

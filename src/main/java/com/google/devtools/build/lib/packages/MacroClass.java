@@ -54,6 +54,10 @@ import net.starlark.java.spelling.SpellChecker;
  * <p>This is analogous to {@link RuleClass}. In essence, a {@code MacroClass} consists of the
  * macro's schema and its implementation function.
  */
+// Do not implement equals() or hashCode() for MacroClass unless they guarantee identical behavior
+// of executeMacroImplementation() after arbitrary Skyframe invalidations. In particular,
+// token-based equality comparison of the implementation StarlarkFunction is not sufficient - we'd
+// also need to verify e.g. the digests of the underlying Starlark modules.
 public final class MacroClass {
 
   /**

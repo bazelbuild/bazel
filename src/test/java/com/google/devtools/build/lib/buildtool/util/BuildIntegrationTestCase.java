@@ -35,6 +35,7 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -180,6 +181,8 @@ import org.junit.Before;
  * <p>All integration tests are at least size medium.
  */
 public abstract class BuildIntegrationTestCase {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Thrown when an integration test case fails. */
   public static class IntegrationTestExecException extends ExecException {
@@ -396,7 +399,10 @@ public abstract class BuildIntegrationTestCase {
     try {
       doCleanup();
     } finally {
-      getRuntime().getBlazeModules().forEach(BlazeModule::blazeShutdown);
+      for (BlazeModule module : getRuntime().getBlazeModules()) {
+        logger.atFine().log("Calling blazeShutdown on %s", module);
+        module.blazeShutdown();
+      }
     }
   }
 
@@ -785,7 +791,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /** Gets all the already computed configured targets. */
-  protected Iterable<ConfiguredTarget> getAllConfiguredTargets() {
+  protected ImmutableList<ConfiguredTarget> getAllConfiguredTargets() {
     return SkyframeExecutorTestUtils.getAllExistingConfiguredTargets(getSkyframeExecutor());
   }
 
@@ -1008,7 +1014,7 @@ public abstract class BuildIntegrationTestCase {
       boolean verboseFailures)
       throws ExecException, InterruptedException {
     Command command =
-        new CommandBuilder()
+        new CommandBuilder(System.getenv())
             .addArgs(argv)
             .setEnv(environment)
             .setWorkingDir(workingDirectory)
@@ -1034,6 +1040,15 @@ public abstract class BuildIntegrationTestCase {
 
   protected void assertContents(String expectedContents, String target) throws Exception {
     assertContents(expectedContents, Iterables.getOnlyElement(getArtifacts(target)).getPath());
+  }
+
+  protected void assertContentsContainsAtLeast(String expectedContents, String target)
+      throws Exception {
+    String actualContents =
+        new String(
+            FileSystemUtils.readContentAsLatin1(
+                Iterables.getOnlyElement(getArtifacts(target)).getPath()));
+    assertThat(actualContents).contains(expectedContents);
   }
 
   protected void assertContents(String expectedContents, Path path) throws Exception {

@@ -32,6 +32,8 @@ import static com.google.devtools.build.lib.vfs.RootedPath.toRootedPath;
 import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.github.luben.zstd.ZstdOutputStream;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.AsyncFunction;
@@ -74,7 +76,10 @@ import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.Callable;
@@ -610,6 +615,10 @@ final class FileDependencySerializer {
         Futures.whenAllComplete(allFutures).call(dependencyHandler, directExecutor()));
   }
 
+  static OutputStream getCompressedOutputStream(OutputStream outputStream) throws IOException {
+    return new ZstdOutputStream(outputStream);
+  }
+
   /**
    * Accepts all the dependencies associated with a node, registers their serialization and waits
    * for processing to complete, signalled through the {@link #call} callback.
@@ -617,7 +626,7 @@ final class FileDependencySerializer {
    * <p>Once processing is complete and all keys are known, uploads the node value. {@link
    * #computeNodeBytes} defines the wire format of nodes.
    */
-  private class NodeDependencyHandler implements Callable<NodeDataInfo> {
+  class NodeDependencyHandler implements Callable<NodeDataInfo> {
     private final TreeSet<String> fileKeys = new TreeSet<>();
     private final TreeSet<String> listingKeys = new TreeSet<>();
     private final TreeMap<PackedFingerprint, NodeInvalidationDataInfo> nodeDependencies =
@@ -664,7 +673,7 @@ final class FileDependencySerializer {
         }
       }
 
-      byte[] nodeBytes = computeNodeBytes();
+      byte[] nodeBytes = computeNodeBytes(nodeDependencies, fileKeys, listingKeys, sourceFileKeys);
       PackedFingerprint key = fingerprintValueService.fingerprint(nodeBytes);
       writeStatuses.add(fingerprintValueService.put(key, nodeBytes));
       return new NodeInvalidationDataInfo(key, sparselyAggregateWriteStatuses(writeStatuses));
@@ -767,7 +776,7 @@ final class FileDependencySerializer {
           .build();
     }
 
-    /**
+    /*
      * Computes a canonical byte representation of the node.
      *
      * <p>Logically, a node is a set of string file or listing keys, as described at {@link
@@ -788,32 +797,38 @@ final class FileDependencySerializer {
      *
      * <p>More compact formats are possible, but this reduces the complexity of the deserializer.
      */
-    private byte[] computeNodeBytes() {
-      try {
-        var bytesOut = new ByteArrayOutputStream();
-        var codedOut = CodedOutputStream.newInstance(bytesOut);
-        codedOut.writeInt32NoTag(nodeDependencies.size());
-        codedOut.writeInt32NoTag(fileKeys.size());
-        codedOut.writeInt32NoTag(listingKeys.size());
-        codedOut.writeInt32NoTag(sourceFileKeys.size());
-        for (PackedFingerprint fp : nodeDependencies.keySet()) {
-          fp.writeTo(codedOut);
-        }
-        for (String key : fileKeys) {
-          codedOut.writeStringNoTag(key);
-        }
-        for (String key : listingKeys) {
-          codedOut.writeStringNoTag(key);
-        }
-        for (String key : sourceFileKeys) {
-          codedOut.writeStringNoTag(key);
-        }
-        codedOut.flush();
-        bytesOut.flush();
-        return bytesOut.toByteArray();
-      } catch (IOException e) {
-        throw new AssertionError("Unexpected IOException from ByteArrayOutputStream", e);
+  }
+
+  @VisibleForTesting
+  static byte[] computeNodeBytes(
+      Map<PackedFingerprint, NodeInvalidationDataInfo> nodeDependencies,
+      Set<String> fileKeys,
+      Set<String> listingKeys,
+      Set<String> sourceFileKeys) {
+    try {
+      var bytesOut = new ByteArrayOutputStream();
+      var codedOut = CodedOutputStream.newInstance(bytesOut);
+      codedOut.writeInt32NoTag(nodeDependencies.size());
+      codedOut.writeInt32NoTag(fileKeys.size());
+      codedOut.writeInt32NoTag(listingKeys.size());
+      codedOut.writeInt32NoTag(sourceFileKeys.size());
+      for (PackedFingerprint fp : nodeDependencies.keySet()) {
+        fp.writeTo(codedOut);
       }
+      for (String key : fileKeys) {
+        codedOut.writeStringNoTag(key);
+      }
+      for (String key : listingKeys) {
+        codedOut.writeStringNoTag(key);
+      }
+      for (String key : sourceFileKeys) {
+        codedOut.writeStringNoTag(key);
+      }
+      codedOut.flush();
+      bytesOut.flush();
+      return bytesOut.toByteArray();
+    } catch (IOException e) {
+      throw new AssertionError("Unexpected IOException from ByteArrayOutputStream", e);
     }
   }
 

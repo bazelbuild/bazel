@@ -629,6 +629,56 @@ public class ProjectFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void unknownProjectFieldError() throws Exception {
+    reporter.removeHandler(failFastHandler); // expect errors
+    assertParseError(
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = "test",
+          invalid_field = "not valid",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "default",
+              ),
+          ],
+        )
+        """,
+        // The direct exception doesn't explain the cause but actual builds fail with more context:
+        // "Error: project_project_Project() got unexpected keyword argument: invalid_field"
+        "initialization of module 'test/PROJECT.scl' failed");
+  }
+
+  @Test
+  public void unknownBuildableUntFieldError() throws Exception {
+    reporter.removeHandler(failFastHandler); // expect errors
+    assertParseError(
+        """
+        load(
+            "//test:project_proto.scl",
+            "buildable_unit_pb2",
+            "project_pb2",
+        )
+        project = project_pb2.Project.create(
+          name = "test",
+          buildable_units = [
+              buildable_unit_pb2.BuildableUnit.create(
+                  name = "default",
+                  invalid_field = "not valid",
+              ),
+          ],
+        )
+        """,
+        // The direct exception doesn't explain the cause but actual builds fail with more context:
+        // "Error: project_project_Project() got unexpected keyword argument: invalid_field"
+        "initialization of module 'test/PROJECT.scl' failed");
+  }
+
+  @Test
   public void projectFunction_catchSyntaxError() throws Exception {
     scratch.file(
         "test/PROJECT.scl",

@@ -235,7 +235,7 @@ final class DependencyProducer
 
   private String getMessageWithEdgeTransitionInfo(Throwable e) {
     return String.format(
-        "On dependency edge %s (%s) -|%s|-> %s: %s",
+        "on dependency edge %s (%s) -|%s|-> %s: %s",
         parameters.target().getLabel(),
         parameters.configurationKey().getOptions().shortId(),
         kind.getAttribute().getName(),
@@ -398,8 +398,7 @@ final class DependencyProducer
    * package.
    *
    * <p>If the parent target is owned by a {@link PackagePiece}, this method will look for {@code
-   * label} in that package piece and in the package piece for the BUILD file - but cannot examine
-   * other package pieces.
+   * label} in that package piece only, and cannot examine other package pieces.
    *
    * @throws NoSuchTargetException if it can be determined without a skyframe call that {@code
    *     label} is not a valid target.
@@ -414,9 +413,13 @@ final class DependencyProducer
         // this guarantees that label is not a valid target.
         return parentPkg.getTarget(label.getName());
       } else if (parentPackageoid instanceof PackagePiece parentPkgPiece) {
-        // Returns null on failure to resolve label - which is what we want to return (since label
-        // might be owned by a sibling package piece, and we would need a skyframe call to resolve).
-        return parentPkgPiece.tryGetTargetHereOrBuildFile(label.getName());
+        // NoSuchTargetException could indicate that label is owned by a different package piece,
+        // and we would need a skyframe call to resolve.
+        try {
+          return parentPkgPiece.getTarget(label.getName());
+        } catch (NoSuchTargetException e) {
+          return null;
+        }
       }
     }
     return null;

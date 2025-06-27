@@ -800,22 +800,6 @@ function test_java_library_runtime_deps_java_sandwich() {
   expect_log "Message from B"
 }
 
-function test_java_import_exports_java_sandwich() {
-  write_files_for_java_provider_in_attr "java_import" "exports"
-  write_java_custom_rule
-
-  bazel run java/com/google/sandwich:Main > $TEST_log || fail "Java sandwich build failed"
-  expect_log "Message from B"
-}
-
-function test_java_import_runtime_deps_java_sandwich() {
-  write_files_for_java_provider_in_attr "java_import" "runtime_deps"
-  write_java_custom_rule
-
-  bazel run java/com/google/sandwich:Main > $TEST_log || fail "Java sandwich build failed"
-  expect_log "Message from B"
-}
-
 function test_java_binary_deps_java_sandwich() {
   mkdir -p java/com/google/sandwich
   touch java/com/google/sandwich/{BUILD,{A,B,Main}.java,java_custom_library.bzl}
@@ -1587,6 +1571,7 @@ function test_build_hello_world_with_remote_embedded_tool_targets() {
 
 
 function test_target_exec_properties_java() {
+  add_platforms "MODULE.bazel"
   cat > Hello.java << 'EOF'
 public class Hello {
   public static void main(String[] args) {
@@ -1606,7 +1591,7 @@ java_binary(
 
 platform(
     name = "my_platform",
-    parents = ["@local_config_platform//:host"],
+    parents = ["@platforms//host"],
     exec_properties = {
         "key2": "value2",
         "overridden": "parent_value",

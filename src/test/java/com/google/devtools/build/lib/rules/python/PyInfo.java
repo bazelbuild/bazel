@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -27,14 +26,12 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
-import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import net.starlark.java.eval.EvalException;
 
 /** Instance of the provider type for the Python rules. */
 @VisibleForTesting
 public final class PyInfo {
-  private static final BuiltinPyInfoProvider BUILTIN_PROVIDER = new BuiltinPyInfoProvider();
   private static final RulesPythonPyInfoProvider RULES_PYTHON_PROVIDER =
       new RulesPythonPyInfoProvider();
 
@@ -46,10 +43,6 @@ public final class PyInfo {
 
   public static PyInfo fromTarget(ConfiguredTarget target) throws RuleErrorException {
     PyInfo provider = target.get(RULES_PYTHON_PROVIDER);
-    if (provider != null) {
-      return provider;
-    }
-    provider = target.get(BUILTIN_PROVIDER);
     if (provider != null) {
       return provider;
     }
@@ -78,30 +71,15 @@ public final class PyInfo {
     return info.getValue("has_py3_only_sources", Boolean.class);
   }
 
-  private static class BaseProvider extends StarlarkProviderWrapper<PyInfo> {
-    private BaseProvider(BzlLoadValue.Key bzlKey) {
-      super(bzlKey, "PyInfo");
+  /** The PyInfo provider type object for the rules_python provider. */
+  public static class RulesPythonPyInfoProvider extends StarlarkProviderWrapper<PyInfo> {
+    private RulesPythonPyInfoProvider() {
+      super(keyForBuild(Label.parseCanonicalUnchecked(TestConstants.PYINFO_BZL)), "PyInfo");
     }
 
     @Override
     public PyInfo wrap(Info value) {
       return new PyInfo((StarlarkInfo) value);
-    }
-  }
-
-  /** The PyInfo provider type object for the builtin provider. */
-  public static class BuiltinPyInfoProvider extends BaseProvider {
-    private BuiltinPyInfoProvider() {
-      super(
-          keyForBuiltins(
-              Label.parseCanonicalUnchecked("@_builtins//:common/python/providers.bzl")));
-    }
-  }
-
-  /** The PyInfo provider type object for the rules_python provider. */
-  public static class RulesPythonPyInfoProvider extends BaseProvider {
-    private RulesPythonPyInfoProvider() {
-      super(keyForBuild(Label.parseCanonicalUnchecked(TestConstants.PYINFO_BZL)));
     }
   }
 }

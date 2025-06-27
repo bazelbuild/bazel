@@ -160,7 +160,7 @@ attributes common to all test rules (*_test)</a>.</p>
         "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
         # testing.ExecutionInfo defaults to an exec_group of "test".
         "test": exec_group(toolchains = [config_common.toolchain_type(_CC_TEST_TOOLCHAIN_TYPE, mandatory = False)]),
-    },
+    } | semantics.extra_exec_groups,
     toolchains = [] +
                  cc_helper.use_cpp_toolchain() +
                  semantics.get_runtimes_toolchain(),

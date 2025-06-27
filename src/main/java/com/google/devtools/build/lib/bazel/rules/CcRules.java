@@ -34,8 +34,6 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcLinkingRule;
 import com.google.devtools.build.lib.rules.cpp.DebugPackageProvider;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcBootstrap;
-import com.google.devtools.build.lib.util.ResourceFileLoader;
-import java.io.IOException;
 import net.starlark.java.eval.Starlark;
 
 /**
@@ -82,13 +80,6 @@ public class CcRules implements RuleSet {
             CcInfo.PROVIDER,
             DebugPackageProvider.PROVIDER,
             CcToolchainConfigInfo.PROVIDER));
-
-    try {
-      builder.addWorkspaceFileSuffix(
-          ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
   }
 
   @Override

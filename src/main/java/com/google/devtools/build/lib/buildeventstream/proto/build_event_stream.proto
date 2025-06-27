@@ -1363,6 +1363,18 @@ message BuildMetrics {
   message RemoteAnalysisCacheStatistics {
     int64 cache_hits = 1;
     int64 cache_misses = 2;
+    int64 value_store_value_bytes_received = 3;
+    int64 value_store_value_bytes_sent = 4;
+    int64 value_store_key_bytes_sent = 5;
+    int64 value_store_write_ops = 6;
+    int64 value_store_read_ops_successful = 7;
+    int64 value_store_read_ops_not_found = 8;
+    int64 value_store_read_batches = 10;
+    int64 value_store_write_batches = 11;
+    int64 analysis_cache_bytes_received = 12;
+    int64 analysis_cache_key_bytes_sent = 13;
+    int64 analysis_cache_ops = 14;
+    int64 analysis_cache_batches = 15;
   }
   RemoteAnalysisCacheStatistics remote_analysis_cache_statistics = 13;
 }

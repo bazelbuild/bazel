@@ -51,9 +51,14 @@ public final class SkyFunctions {
   public static final SkyFunctionName GLOB = SkyFunctionName.createHermetic("GLOB");
   public static final SkyFunctionName GLOBS = SkyFunctionName.createHermetic("GLOBS");
   public static final SkyFunctionName PACKAGE = SkyFunctionName.createHermetic("PACKAGE");
+  public static final SkyFunctionName PACKAGE_DECLARATIONS =
+      SkyFunctionName.createHermetic("PACKAGE_DECLARATIONS");
   static final SkyFunctionName PACKAGE_ERROR = SkyFunctionName.createHermetic("PACKAGE_ERROR");
   public static final SkyFunctionName PACKAGE_ERROR_MESSAGE =
       SkyFunctionName.createHermetic("PACKAGE_ERROR_MESSAGE");
+  public static final SkyFunctionName EVAL_MACRO = SkyFunctionName.createHermetic("EVAL_MACRO");
+  public static final SkyFunctionName MACRO_INSTANCE =
+      SkyFunctionName.createHermetic("MACRO_INSTANCE");
   // Semi-hermetic because accesses package locator
   public static final SkyFunctionName TARGET_PATTERN =
       SkyFunctionName.createSemiHermetic("TARGET_PATTERN");
@@ -117,18 +122,12 @@ public final class SkyFunctions {
   public static final SkyFunctionName FILESET_ENTRY =
       SkyFunctionName.createHermetic("FILESET_ENTRY");
   public static final SkyFunctionName BUILD_INFO = SkyFunctionName.createHermetic("BUILD_INFO");
-  public static final SkyFunctionName WORKSPACE_NAME =
-      SkyFunctionName.createHermetic("WORKSPACE_NAME");
   public static final SkyFunctionName PLATFORM = SkyFunctionName.createHermetic("PLATFORM");
   public static final SkyFunctionName PLATFORM_MAPPING =
       SkyFunctionName.createHermetic("PLATFORM_MAPPING");
   static final SkyFunctionName COVERAGE_REPORT = SkyFunctionName.createHermetic("COVERAGE_REPORT");
   public static final SkyFunctionName REPOSITORY_DIRECTORY =
       SkyFunctionName.createNonHermetic("REPOSITORY_DIRECTORY");
-  public static final SkyFunctionName WORKSPACE_AST =
-      SkyFunctionName.createHermetic("WORKSPACE_AST");
-  public static final SkyFunctionName EXTERNAL_PACKAGE =
-      SkyFunctionName.createHermetic("EXTERNAL_PACKAGE");
   public static final SkyFunctionName ACTION_TEMPLATE_EXPANSION =
       SkyFunctionName.createHermetic("ACTION_TEMPLATE_EXPANSION");
   public static final SkyFunctionName LOCAL_REPOSITORY_LOOKUP =
@@ -143,8 +142,6 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("TOOLCHAIN_RESOLUTION");
   public static final SkyFunctionName REPOSITORY_MAPPING =
       SkyFunctionName.createHermetic("REPOSITORY_MAPPING");
-  public static final SkyFunctionName RESOLVED_FILE =
-      SkyFunctionName.createHermetic("RESOLVED_FILE");
   public static final SkyFunctionName MODULE_FILE =
       SkyFunctionName.createNonHermetic("MODULE_FILE");
   public static final SkyFunctionName REPO_PACKAGE_ARGS =

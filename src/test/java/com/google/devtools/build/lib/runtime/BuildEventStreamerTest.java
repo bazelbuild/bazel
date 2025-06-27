@@ -1824,7 +1824,6 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
     return BuildConfigurationValue.createForTesting(
         BuildOptions.of(ImmutableList.of(CoreOptions.class)),
         "some_mnemonic",
-        "workspace",
         /* siblingRepositoryLayout= */ false,
         new BlazeDirectories(
             new ServerDirectories(outputBase, outputBase, outputBase),
@@ -1846,6 +1845,11 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
           @Override
           public ImmutableSet<String> getReservedActionMnemonics() {
             return ImmutableSet.of();
+          }
+
+          @Override
+          public String getRunfilesPrefix() {
+            return "bleh";
           }
         },
         new FragmentFactory());

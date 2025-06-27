@@ -838,15 +838,24 @@ set -euo pipefail
 echo "FROMBUILD: '$FROMBUILD'"
 echo "OVERRIDDEN_RUN_ENV: '$OVERRIDDEN_RUN_ENV'"
 echo "RUN_ENV_ONLY: '$RUN_ENV_ONLY'"
+echo "EMPTY_RUN_ENV: '$EMPTY_RUN_ENV'"
+echo "INHERITED_RUN_ENV: '$INHERITED_RUN_ENV'"
 EOF
 
   chmod +x "$pkg/foo.sh"
 
-  bazel run --run_env=OVERRIDDEN_RUN_ENV=FOO --run_env=RUN_ENV_ONLY=BAR "//$pkg:foo" >"$TEST_log" || fail "expected run to succeed"
+  INHERITED_RUN_ENV=BAZ bazel run \
+      --run_env=OVERRIDDEN_RUN_ENV=FOO \
+      --run_env=RUN_ENV_ONLY=BAR \
+      --run_env=EMPTY_RUN_ENV= \
+      --run_env=INHERITED_RUN_ENV \
+      "//$pkg:foo" >"$TEST_log" || fail "expected run to succeed"
 
   expect_log "FROMBUILD: '1'"
   expect_log "OVERRIDDEN_RUN_ENV: 'FOO'"
   expect_log "RUN_ENV_ONLY: 'BAR'"
+  expect_log "EMPTY_RUN_ENV: ''"
+  expect_log "INHERITED_RUN_ENV: 'BAZ'"
 }
 
 function test_run_env_script_path() {

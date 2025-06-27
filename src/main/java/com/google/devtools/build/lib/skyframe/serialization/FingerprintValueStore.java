@@ -32,10 +32,12 @@ public interface FingerprintValueStore {
       long keyBytesSent,
       long entriesWritten,
       long entriesFound,
-      long entriesNotFound) {}
+      long entriesNotFound,
+      long getBatches,
+      long setBatches) {}
 
   default Stats getStats() {
-    return new Stats(0, 0, 0, 0, 0, 0);
+    return new Stats(0, 0, 0, 0, 0, 0, 0, 0);
   }
 
   /**

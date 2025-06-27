@@ -238,7 +238,7 @@ class LauncherTest(test_base.TestBase):
 
   def testJavaBinaryLauncher(self):
     self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.11.0")']
+        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.12.0")']
     )
     self.ScratchFile(
         'foo/BUILD',
@@ -274,7 +274,7 @@ class LauncherTest(test_base.TestBase):
 
   def testJavaBinaryArgumentPassing(self):
     self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.11.0")']
+        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.12.0")']
     )
     self.ScratchFile(
         'foo/BUILD',
@@ -376,9 +376,7 @@ class LauncherTest(test_base.TestBase):
     self._buildAndCheckArgumentPassing('foo', 'bin')
 
   def testPyBinaryLauncher(self):
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_python", version = "0.40.0")']
-    )
+    self.AddBazelDep('rules_python')
     self.ScratchFile(
         'foo/foo.bzl',
         [
@@ -453,9 +451,7 @@ class LauncherTest(test_base.TestBase):
     self._buildPyTargets(bazel_bin, '.exe' if self.IsWindows() else '')
 
   def testPyBinaryArgumentPassing(self):
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_python", version = "0.40.0")']
-    )
+    self.AddBazelDep('rules_python')
     self.ScratchFile(
         'foo/BUILD',
         [
@@ -476,9 +472,7 @@ class LauncherTest(test_base.TestBase):
 
   def testPyBinaryLauncherWithDifferentArgv0(self):
     """Test for https://github.com/bazelbuild/bazel/issues/14343."""
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_python", version = "0.40.0")']
-    )
+    self.AddBazelDep('rules_python')
     self.ScratchFile(
         'foo/BUILD',
         [
@@ -509,7 +503,7 @@ class LauncherTest(test_base.TestBase):
     if not self.IsWindows():
       return
     self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.11.0")']
+        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.12.0")']
     )
     self.ScratchFile(
         'foo/BUILD',
@@ -637,11 +631,9 @@ class LauncherTest(test_base.TestBase):
   def testWindowsNativeLauncherInNonEnglishPath(self):
     if not self.IsWindows():
       return
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.11.0")',
-                         'bazel_dep(name = "rules_python", version = "0.40.0")',
-                         'bazel_dep(name = "rules_shell", version = "0.3.0")']
-    )
+    self.AddBazelDep('rules_java')
+    self.AddBazelDep('rules_python')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'bin/BUILD',
         [
@@ -695,11 +687,9 @@ class LauncherTest(test_base.TestBase):
   def testWindowsNativeLauncherInLongPath(self):
     if not self.IsWindows():
       return
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.11.0")',
-                         'bazel_dep(name = "rules_python", version = "0.40.0")',
-                         'bazel_dep(name = "rules_shell", version = "0.3.0")']
-    )
+    self.AddBazelDep('rules_java')
+    self.AddBazelDep('rules_python')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'bin/BUILD',
         [
@@ -799,11 +789,9 @@ class LauncherTest(test_base.TestBase):
   def testWindowsNativeLauncherInvalidArgv0(self):
     if not self.IsWindows():
       return
-    self.ScratchFile(
-        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.11.0")',
-                         'bazel_dep(name = "rules_python", version = "0.40.0")',
-                         'bazel_dep(name = "rules_shell", version = "0.3.0")']
-    )
+    self.AddBazelDep('rules_java')
+    self.AddBazelDep('rules_python')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'bin/BUILD',
         [

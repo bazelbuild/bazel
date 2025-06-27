@@ -151,17 +151,28 @@ final class MethodDescriptor {
       if (parameters[i].isNamed()) {
         parameterNames.add(parameters[i].getName());
       }
-      // TODO(ilist@): handle union types once we have them
-      parameterTypes.add(
-          parameters[i].getAllowedClasses() == null || parameters[i].getAllowedClasses().size() != 1
-              ? Types.ANY
-              : TypeChecker.fromJava(parameters[i].getAllowedClasses().get(0)));
+
+      if (parameters[i].getAllowedClasses() == null
+          || parameters[i].getAllowedClasses().isEmpty()) {
+        // Use parameter's actual type
+        parameterTypes.add(TypeChecker.fromJava(method.getParameterTypes()[i]));
+      } else if (parameters[i].getAllowedClasses().size() == 1) {
+        // Use annotation
+        parameterTypes.add(TypeChecker.fromJava(parameters[i].getAllowedClasses().get(0)));
+      } else {
+        // TODO(ilist@): handle union types once we have them
+        parameterTypes.add(Types.ANY);
+      }
+
       if (parameters[i].getDefaultValue() == null) {
         mandatoryParameters.add(parameters[i].getName());
       }
     }
     // TODO(ilist@): handle allowReturnNones once we have Optional type
-    StarlarkType returnType = TypeChecker.fromJava(getMethod().getReturnType());
+    StarlarkType returnType =
+        getMethod().getReturnType() == Object.class
+            ? Types.ANY
+            : TypeChecker.fromJava(getMethod().getReturnType());
 
     return Types.callable(
         parameterNames.build(),

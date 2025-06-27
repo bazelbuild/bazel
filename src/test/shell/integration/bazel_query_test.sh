@@ -1271,6 +1271,85 @@ EOF
   expect_log "\"//foo:c.sh\"$"
 }
 
+function test_query_factored_graph_with_cycles_output() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+sh_binary(
+    name = "a1",
+    srcs = ["a.sh"],
+    deps = [
+        ":b1",
+        ":b2",
+    ],
+)
+
+sh_binary(
+    name = "a2",
+    srcs = ["a.sh"],
+    deps = [
+        ":b1",
+        ":b2",
+    ],
+)
+
+sh_binary(
+    name = "b1",
+    srcs = ["b.sh"],
+    deps = [
+        ":c",
+    ],
+)
+
+sh_binary(
+    name = "b2",
+    srcs = ["b.sh"],
+    deps = [
+        ":c",
+    ],
+)
+
+sh_binary(
+    name = "c",
+    srcs = ["c.sh"],
+    deps = [
+        ":d",
+    ],
+)
+
+sh_binary(
+    name = "d",
+    srcs = ["d.sh"],
+    deps = [
+        ":a1",
+        ":a2",
+    ],
+)
+EOF
+  bazel query --output=graph \
+      --graph:factored \
+      --notool_deps \
+      "allpaths(//foo:d, //foo:c)" > "$TEST_log" \
+      || fail "Expected success"
+
+  # Expected factored graph.
+  #   (a1,a2) <-
+  #      |     |
+  #   (b1,b2)  |
+  #      |     |
+  #     (c)    |
+  #      |     |
+  #     (d) ----
+  expect_log "\"//foo:a[12]\\\\n//foo:a[12]\"$"
+  expect_log "\"//foo:a[12]\\\\n//foo:a[12]\" -> \"//foo:b[12]\\\n//foo:b[12]\"$"
+  expect_log "\"//foo:b[12]\\\\n//foo:b[12]\"$"
+  expect_log "\"//foo:b[12]\\\\n//foo:b[12]\" -> \"//foo:c\"$"
+  expect_log "\"//foo:c\"$"
+  expect_log "\"//foo:c\" -> \"//foo:d\"$"
+  expect_log "\"//foo:d\"$"
+  expect_log "\"//foo:d\" -> \"//foo:a[12]\\\n//foo:a[12]\"$"
+}
+
 function test_query_non_factored_graph_output() {
   mkdir -p foo
   cat > foo/BUILD <<'EOF'
@@ -1416,6 +1495,22 @@ EOF
   for x in "${items[@]}"; do
     grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:with_select"
   done
+}
+
+function test_unicode_query() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+filegroup(name = "äöüÄÖÜß🌱")
+EOF
+
+  bazel query --output=label //foo:äöüÄÖÜß🌱 >& $TEST_log || fail "Expected success"
+  expect_log "//foo:äöüÄÖÜß🌱"
+
+  echo "//foo:äöüÄÖÜß🌱" > my_query || fail "Could not write my_query"
+  # Check that the unicode characters are preserved in the output.
+  bazel query --output=proto --query_file=my_query >& $TEST_log || fail "Expected success"
+  expect_log "//foo:äöüÄÖÜß🌱"
 }
 
 run_suite "${PRODUCT_NAME} query tests"

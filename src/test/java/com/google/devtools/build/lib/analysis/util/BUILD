@@ -27,7 +27,7 @@ java_library(
 java_library(
     name = "util_internal",
     srcs = glob(["*.java"]),
-    data = ["//src/main/protobuf/project:project_proto_scl"],
+    data = ["//src/main/protobuf/project:project_proto_scl_filegroup"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
@@ -90,7 +90,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
         "//src/main/java/com/google/devtools/build/lib/packages",

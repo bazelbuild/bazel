@@ -280,11 +280,10 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     return packageFactory.newPackageBuilder(
         PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
         RootedPath.toRootedPath(root, testBuildfilePath),
-        "TESTING",
         Optional.empty(),
         Optional.empty(),
         StarlarkSemantics.DEFAULT,
-        /* repositoryMapping= */ RepositoryMapping.ALWAYS_FALLBACK,
+        /* repositoryMapping= */ RepositoryMapping.EMPTY,
         /* mainRepositoryMapping= */ null,
         /* cpuBoundSemaphore= */ null,
         /* generatorMap= */ null,

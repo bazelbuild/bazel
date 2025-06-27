@@ -16,15 +16,10 @@ package com.google.devtools.build.lib.bazel.repository;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.XattrProvider;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.EvalException;
@@ -34,49 +29,12 @@ import net.starlark.java.eval.StarlarkThread;
 /**
  * Event indicating that a repository rule was executed, together with the return value of the rule.
  */
-public class RepositoryResolvedEvent implements ResolvedEvent {
-  /**
-   * The entry for WORSPACE.resolved corresponding to that rule invocation.
-   *
-   * <p>It will always be a dict with three entries
-   *
-   * <ul>
-   *   <li>the original rule class (as String, e.g., "@bazel_tools//:git.bzl%git_repository")
-   *   <li>the original attributes (as dict, e.g., mapping "name" to "build_bazel" and "remote" to
-   *       "https://github.com/bazelbuild/bazel.git"), and
-   *   <li>a "repositories" entry; this is a list, often a single entry, of fully resolved
-   *       repositories the rule call expanded to (in the above example, the attributes entry would
-   *       have an additional "commit" and "shallow-since" entry).
-   * </ul>
-   */
-  private Object resolvedInformation;
-  /**
-   * The builders for the resolved information.
-   *
-   * <p>As the resolved information contains a value, the hash of the output directory, that is
-   * expensive to compute, we delay computing it till its first use. In this way, we avoid the
-   * expensive operation if it is not needed, e.g., if no resolved file is generated.
-   */
-  private ImmutableMap.Builder<String, Object> resolvedInformationBuilder = ImmutableMap.builder();
+public class RepositoryResolvedEvent {
 
-  private ImmutableMap.Builder<String, Object> repositoryBuilder = ImmutableMap.builder();
-
-  private final Path outputDirectory;
-
-  private final String name;
   private final boolean informationReturned;
   private final String message;
 
-  public RepositoryResolvedEvent(
-      Rule rule, StructImpl attrs, Path outputDirectory, Map<?, ?> result) {
-    this.outputDirectory = outputDirectory;
-
-    String originalClass =
-        rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel() + "%" + rule.getRuleClass();
-    resolvedInformationBuilder.put(ResolvedFileValue.ORIGINAL_RULE_CLASS, originalClass);
-    resolvedInformationBuilder.put(
-        ResolvedFileValue.DEFINITION_INFORMATION, getRuleDefinitionInformation(rule));
-
+  public RepositoryResolvedEvent(Rule rule, StructImpl attrs, Map<?, ?> result) {
     ImmutableMap.Builder<String, Object> origAttrBuilder = ImmutableMap.builder();
     ImmutableMap.Builder<String, Object> defaults = ImmutableMap.builder();
 
@@ -99,19 +57,14 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
       }
     }
     ImmutableMap<String, Object> origAttr = origAttrBuilder.buildOrThrow();
-    resolvedInformationBuilder.put(ResolvedFileValue.ORIGINAL_ATTRIBUTES, origAttr);
-
-    repositoryBuilder.put(ResolvedFileValue.RULE_CLASS, originalClass);
 
     if (result.isEmpty()) {
       // Rule claims to be already reproducible, so wants to be called as is.
-      repositoryBuilder.put(ResolvedFileValue.ATTRIBUTES, origAttr);
       this.informationReturned = false;
       this.message = "Repository rule '" + rule.getName() + "' finished.";
     } else {
       // Rule claims that the returned (probably changed) arguments are a reproducible
       // version of itself.
-      repositoryBuilder.put(ResolvedFileValue.ATTRIBUTES, result);
       Pair<Map<String, Object>, List<String>> diff =
           compare(origAttr, defaults.buildOrThrow(), result);
       if (diff.getFirst().isEmpty() && diff.getSecond().isEmpty()) {
@@ -145,49 +98,6 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
         }
       }
     }
-
-    this.name = rule.getName();
-  }
-
-  /**
-   * Ensure that the {@code resolvedInformation} and the {@code directoryDigest} fields are
-   * initialized properly. Does nothing, if the values are computed already.
-   */
-  private synchronized void finalizeResolvedInformation(XattrProvider xattrProvider) {
-    if (resolvedInformation != null) {
-      return;
-    }
-    String digest = "[unavailable]";
-    try {
-      digest = outputDirectory.getDirectoryDigest(xattrProvider);
-      repositoryBuilder.put(ResolvedFileValue.OUTPUT_TREE_HASH, digest);
-    } catch (IOException e) {
-      // Digest not available, but we still have to report that a repository rule
-      // was invoked. So we can do nothing, but ignore the event.
-    }
-    if (repositoryBuilder != null) {
-      resolvedInformationBuilder.put(
-          ResolvedFileValue.REPOSITORIES,
-          ImmutableList.<Object>of(repositoryBuilder.buildOrThrow()));
-    }
-    this.resolvedInformation = resolvedInformationBuilder.buildOrThrow();
-    this.resolvedInformationBuilder = null;
-    this.repositoryBuilder = null;
-  }
-
-  /**
-   * Returns the entry for the given rule invocation in a format suitable for WORKSPACE.resolved.
-   */
-  @Override
-  public Object getResolvedInformation(XattrProvider xattrProvider) {
-    finalizeResolvedInformation(xattrProvider);
-    return resolvedInformation;
-  }
-
-  /** Return the name of the rule that produced the resolvedInformation */
-  @Override
-  public String getName() {
-    return name;
   }
 
   /**

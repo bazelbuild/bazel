@@ -2714,7 +2714,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         execPath -> execPath.subFragment(0, 1).getRelative(execPath.subFragment(2));
 
     assertThat(result).isInstanceOf(Args.class);
-    CommandLine args = ((Args) result).build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    CommandLine args = ((Args) result).build(() -> RepositoryMapping.EMPTY);
     String out = TestConstants.PRODUCT_NAME + "-out";
     assertThat(args.arguments(null, stripConfig))
         .containsExactly(

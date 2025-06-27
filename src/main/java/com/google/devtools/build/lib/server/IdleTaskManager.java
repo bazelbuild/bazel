@@ -126,19 +126,7 @@ public final class IdleTaskManager {
     var unused = executor.shutdownNow();
 
     // Wait for all tasks to complete, so they cannot interfere with a subsequent command.
-    boolean interrupted = false;
-    while (true) {
-      try {
-        executor.awaitTermination(Long.MAX_VALUE, SECONDS);
-        break;
-      } catch (InterruptedException e) {
-        // It's unsafe to leak tasks - keep trying and restore the interrupt bit later.
-        interrupted = true;
-      }
-    }
-    if (interrupted) {
-      Thread.currentThread().interrupt();
-    }
+    Uninterruptibles.awaitTerminationUninterruptibly(executor);
 
     ImmutableList.Builder<IdleTask.Result> results =
         ImmutableList.builderWithExpectedSize(idleTasks.size());

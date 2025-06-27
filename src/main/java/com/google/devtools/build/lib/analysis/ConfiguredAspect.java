@@ -200,6 +200,9 @@ public interface ConfiguredAspect extends ProviderCollection {
         }
       }
 
+      if (actions.isEmpty() && providerMap.getProviderCount() == 0) {
+        return BasicConfiguredAspect.EMPTY;
+      }
       return new BasicConfiguredAspect(actions, providerMap);
     }
 
@@ -222,6 +225,10 @@ public interface ConfiguredAspect extends ProviderCollection {
 
   /** Basic implementation of {@link ConfiguredAspect}. */
   static class BasicConfiguredAspect implements ConfiguredAspect {
+
+    private static final BasicConfiguredAspect EMPTY =
+        new BasicConfiguredAspect(ImmutableList.of(), TransitiveInfoProviderMapImpl.empty());
+
     private final ImmutableList<ActionAnalysisMetadata> actions;
 
     private final TransitiveInfoProviderMap providers;

@@ -20,20 +20,10 @@ java_library(
     name = "PackageTestsUtil",
     srcs = [
         "BuildTypeTestHelper.java",
-        "WorkspaceFactoryTestHelper.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
     ],
 )
 
@@ -44,7 +34,6 @@ java_test(
         include = ["*.java"],
         exclude = [
             "BazelDocumentationTest.java",
-            "WorkspaceFactoryTestHelper.java",
         ],
     ),
     shard_count = 20,
@@ -53,7 +42,6 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
     deps = [
-        ":PackageTestsUtil",
         ":testutil",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib:runtime",
@@ -84,7 +72,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tests_for_target_pattern_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",

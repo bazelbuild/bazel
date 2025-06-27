@@ -24,7 +24,12 @@
 #include <sys/stat.h>
 #include <time.h>
 
+#include <algorithm>
+#include <cinttypes>
+#include <cstdint>
 #include <cstring>
+#include <memory>
+#include <string>
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -46,11 +51,6 @@
 #include "src/tools/singlejar/zip_headers.h"
 
 #include <zlib.h>
-
-#define TODO(cond, msg)                                              \
-  if (!(cond)) {                                                     \
-    diag_errx(2, "%s:%d: TODO(asmundak): " msg, __FILE__, __LINE__); \
-  }
 
 OutputJar::OutputJar()
     : options_(nullptr),
@@ -381,7 +381,12 @@ bool OutputJar::AddJar(int jar_path_index) {
       continue;
     }
 
+    // Logic to determine if the entry should be included.
+    // An entry can be included by --include_prefixes, or excluded by
+    // --exclude_zip_entries. The latter shall have priority over the former.
     bool include_entry = true;
+    bool exclude_entry = false;
+    // Check if explicitly included
     if (!options_->include_prefixes.empty()) {
       for (auto &prefix : options_->include_prefixes) {
         if ((include_entry =
@@ -391,6 +396,13 @@ bool OutputJar::AddJar(int jar_path_index) {
         }
       }
     }
+    // Check if explicitly excluded
+    if (!options_->exclude_zip_entries.empty()) {
+      exclude_entry = options_->exclude_zip_entries.find(
+                          std::string(file_name, file_name_length)) !=
+                      options_->exclude_zip_entries.end();
+    }
+    include_entry &= !exclude_entry;
     if (!include_entry) {
       continue;
     }
@@ -640,15 +652,25 @@ void OutputJar::WriteEntry(void *buffer) {
     diag_err(1, "%s:%d: write", __FILE__, __LINE__);
   }
   // Data written, allocate CDH space and populate CDH.
-  // Space needed for the CDH varies depending on whether output position field
-  // fits into 32 bits (we do not handle compressed/uncompressed entry sizes
-  // exceeding 32 bits at the moment).
-  uint16_t zip64_size = ziph::zfield_needs_ext64(output_position)
-                            ? Zip64ExtraField::space_needed(1)
-                            : 0;
+  // If a zip64 extra field is required, always write all 3 supported
+  // fields: uncompressed size, compressed size, and offset of local header
+  // record. The zip format allows only writing the subset of those fields
+  // that don't fit in 32 bits, but we write all of them to simplify the case
+  // work. The go standard library takes a similar approach.
+  uint16_t zip64_size =
+      (ziph::zfield_needs_ext64(entry->uncompressed_file_size32()) ||
+       ziph::zfield_needs_ext64(entry->compressed_file_size32()) ||
+       ziph::zfield_needs_ext64(output_position))
+          ? Zip64ExtraField::space_needed(3)
+          : 0;
+  const Zip64ExtraField *lh_zip64_ef = entry->zip64_extra_field();
+  uint16_t lh_zip64_size =
+      lh_zip64_ef == nullptr
+          ? 0
+          : Zip64ExtraField::space_needed(lh_zip64_ef->attr_count());
   CDH *cdh = reinterpret_cast<CDH *>(
       ReserveCdh(sizeof(CDH) + entry->file_name_length() +
-                 entry->extra_fields_length() + zip64_size));
+                 entry->extra_fields_length() + zip64_size - lh_zip64_size));
   cdh->signature();
   // Note: do not set the version to Unix 3.0 spec, otherwise
   // unzip will think that 'external_attributes' field contains access mode
@@ -659,24 +681,48 @@ void OutputJar::WriteEntry(void *buffer) {
   cdh->last_mod_file_time(entry->last_mod_file_time());
   cdh->last_mod_file_date(entry->last_mod_file_date());
   cdh->crc32(entry->crc32());
-  TODO(entry->compressed_file_size32() != 0xFFFFFFFF, "Handle Zip64");
-  cdh->compressed_file_size32(entry->compressed_file_size32());
-  TODO(entry->uncompressed_file_size32() != 0xFFFFFFFF, "Handle Zip64");
-  cdh->uncompressed_file_size32(entry->uncompressed_file_size32());
   cdh->file_name(entry->file_name(), entry->file_name_length());
-  cdh->extra_fields(entry->extra_fields(), entry->extra_fields_length());
+
+  // Copy any existing extra fields from the local header to provide consistent
+  // information in the central directory, except for Zip64 where we create a
+  // new Zip64 extra field from scratch.
+  //
+  // See APPNOTE 4.5 for background on extra fieldss.
+  auto lh_ef_begin =
+      reinterpret_cast<const ExtraField *>(entry->extra_fields());
+  auto lh_ef_end = reinterpret_cast<const ExtraField *>(
+      ziph::byte_ptr(lh_ef_begin) + entry->extra_fields_length());
+  ExtraField *cdh_extra_fields = reinterpret_cast<ExtraField *>(
+      const_cast<uint8_t *>(cdh->extra_fields()));
+  uint16_t out_ef_length = 0;
+  for (const ExtraField *ef = lh_ef_begin; ef < lh_ef_end; ef = ef->next()) {
+    if (!ef->is_zip64()) {
+      memcpy(cdh_extra_fields, ef, ef->size());
+      cdh_extra_fields = reinterpret_cast<ExtraField *>(
+          reinterpret_cast<uint8_t *>(cdh_extra_fields) + ef->size());
+      out_ef_length += ef->size();
+    }
+  }
+  cdh->extra_fields(cdh->extra_fields(), out_ef_length);
+
   if (zip64_size > 0) {
     Zip64ExtraField *zip64_ef = reinterpret_cast<Zip64ExtraField *>(
         cdh->extra_fields() + cdh->extra_fields_length());
     zip64_ef->signature();
-    zip64_ef->attr_count(1);
-    zip64_ef->attr64(0, output_position);
+    zip64_ef->attr_count(3);
+    zip64_ef->attr64(0, entry->uncompressed_file_size());
+    zip64_ef->attr64(1, entry->compressed_file_size());
+    zip64_ef->attr64(2, output_position);
+    cdh->uncompressed_file_size32(0xFFFFFFFF);
+    cdh->compressed_file_size32(0xFFFFFFFF);
     cdh->local_header_offset32(0xFFFFFFFF);
     // Field address argument points to the already existing field,
     // so the call just updates the length.
     cdh->extra_fields(cdh->extra_fields(),
                       cdh->extra_fields_length() + zip64_size);
   } else {
+    cdh->uncompressed_file_size32(entry->uncompressed_file_size32());
+    cdh->compressed_file_size32(entry->compressed_file_size32());
     cdh->local_header_offset32(output_position);
   }
   cdh->comment_length(0);

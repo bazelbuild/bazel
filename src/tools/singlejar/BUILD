@@ -384,6 +384,20 @@ sh_test(
     deps = ["//src/test/shell:bashunit"],
 )
 
+sh_test(
+    name = "zip64_huge_entry_test",
+    srcs = ["zip64_huge_entry_test.sh"],
+    args = ["$(JAVABASE)"],
+    data = [
+        ":singlejar",
+        "//src/test/shell:bashunit",
+        "@bazel_tools//tools/bash/runfiles",
+        "@rules_java//toolchains:current_java_runtime",
+    ],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
+    deps = ["//src/test/shell:bashunit"],
+)
+
 cc_library(
     name = "combiners",
     srcs = [

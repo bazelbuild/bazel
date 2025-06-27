@@ -60,7 +60,7 @@ public final class CommandUsingProcessWrapperTest {
   public void testCommand_echo() throws Exception {
     ImmutableList<String> commandArguments = ImmutableList.of("echo", "worker bees can leave");
 
-    Command command = new Command(commandArguments.toArray(new String[0]));
+    Command command = new Command(commandArguments.toArray(new String[0]), System.getenv());
     CommandResult commandResult = command.execute();
 
     assertThat(commandResult.terminationStatus().success()).isTrue();
@@ -73,7 +73,7 @@ public final class CommandUsingProcessWrapperTest {
 
     List<String> fullCommandLine = getProcessWrapper().commandLineBuilder(commandArguments).build();
 
-    Command command = new Command(fullCommandLine.toArray(new String[0]));
+    Command command = new Command(fullCommandLine.toArray(new String[0]), System.getenv());
     CommandResult commandResult = command.execute();
 
     assertThat(commandResult.terminationStatus().success()).isTrue();

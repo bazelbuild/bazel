@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -22,7 +21,6 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -57,7 +55,7 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
       Sequence<?> metadataFiles, // Sequence<Artifact>
       Object reportedToActualSourcesObject,
       StarlarkThread thread)
-      throws EvalException, TypeException {
+      throws EvalException {
     List<String> extensionsList =
         extensions == Starlark.NONE ? null : Sequence.cast(extensions, String.class, "extensions");
     NestedSet<Tuple> reportedToActualSources =
@@ -105,36 +103,6 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         reportedToActualSources);
   }
 
-  /**
-   * Returns a {@link InstrumentedFilesInfo} for the rule defined by the given rule context and
-   * various named parameters that define the "instrumentation specification" of the rule. For
-   * example, the instrumented sources are determined given the values of the attributes named in
-   * {@code sourceAttributes} given by the {@code ruleContext}.
-   *
-   * @param ruleContext the rule context
-   * @param sourceAttributes a list of attribute names which contain source files for the rule
-   * @param dependencyAttributes a list of attribute names which contain dependencies that might
-   *     propagate instances of {@link InstrumentedFilesInfo}
-   * @param extensions file extensions used to filter files from source_attributes. If null, all
-   *     files on the source attributes will be treated as instrumented. Otherwise, only files with
-   *     extensions listed in {@code extensions} will be used
-   */
-  public static InstrumentedFilesInfo createInstrumentedFilesInfo(
-      RuleContext ruleContext,
-      List<String> sourceAttributes,
-      List<String> dependencyAttributes,
-      @Nullable List<String> extensions) {
-    return createInstrumentedFilesInfo(
-        ruleContext,
-        sourceAttributes,
-        dependencyAttributes,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        ImmutableMap.of(),
-        extensions,
-        null,
-        NestedSetBuilder.emptySet(Order.STABLE_ORDER));
-  }
-
   private static InstrumentedFilesInfo createInstrumentedFilesInfo(
       RuleContext ruleContext,
       List<String> sourceAttributes,
@@ -161,12 +129,8 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
     return InstrumentedFilesCollector.collect(
         ruleContext,
         instrumentationSpec,
-        InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
-        /* rootFiles= */ ImmutableList.of(),
         /* coverageSupportFiles= */ supportFiles,
         /* coverageEnvironment= */ environment,
-        /* withBaselineCoverage= */ InstrumentedFilesCollector.shouldIncludeLocalSources(
-            ruleContext.getConfiguration(), ruleContext.getLabel(), ruleContext.isTestTarget()),
         /* reportedToActualSources= */ reportedToActualSources,
         /* additionalMetadata= */ metadataFiles);
   }

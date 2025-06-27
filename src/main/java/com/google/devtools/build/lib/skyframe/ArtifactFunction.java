@@ -73,6 +73,7 @@ public final class ArtifactFunction implements SkyFunction {
   private final Supplier<Boolean> mkdirForTreeArtifacts;
   private final MetadataConsumerForMetrics sourceArtifactsSeen;
   private final XattrProvider xattrProvider;
+  private final SkyframeActionExecutor actionExecutor;
   private final Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier;
 
   /** A {@link SkyValue} representing a missing input file. */
@@ -116,10 +117,12 @@ public final class ArtifactFunction implements SkyFunction {
       Supplier<Boolean> mkdirForTreeArtifacts,
       MetadataConsumerForMetrics sourceArtifactsSeen,
       XattrProvider xattrProvider,
+      SkyframeActionExecutor actionExecutor,
       Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier) {
     this.mkdirForTreeArtifacts = mkdirForTreeArtifacts;
     this.sourceArtifactsSeen = sourceArtifactsSeen;
     this.xattrProvider = xattrProvider;
+    this.actionExecutor = actionExecutor;
     this.cachingDependenciesSupplier = cachingDependenciesSupplier;
   }
 
@@ -135,9 +138,12 @@ public final class ArtifactFunction implements SkyFunction {
       return createSourceValue(artifact, env);
     }
 
+    Artifact.DerivedArtifact derivedArtifact = (DerivedArtifact) artifact;
+
     RemoteAnalysisCachingDependenciesProvider remoteCachingDependencies =
         cachingDependenciesSupplier.get();
-    if (remoteCachingDependencies.isRemoteFetchEnabled()) {
+    if (remoteCachingDependencies.isRemoteFetchEnabled()
+        && !actionExecutor.shouldSkipRemoteFetch(derivedArtifact.getGeneratingActionKey())) {
       switch (fetchRemoteSkyValue(artifact, env, remoteCachingDependencies, State::new)) {
         case SkyValueRetriever.Restart unused:
           return null;
@@ -147,8 +153,6 @@ public final class ArtifactFunction implements SkyFunction {
           break;
       }
     }
-
-    Artifact.DerivedArtifact derivedArtifact = (DerivedArtifact) artifact;
 
     ArtifactDependencies artifactDependencies =
         ArtifactDependencies.discoverDependencies(

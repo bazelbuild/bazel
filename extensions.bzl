@@ -17,9 +17,8 @@
 """
 
 load("@rules_graalvm//graalvm:repositories.bzl", "graalvm_repository")
-load("//:distdir.bzl", "distdir_tar", "repo_cache_tar")
+load("//:distdir.bzl", "repo_cache_tar")
 load("//:repositories.bzl", "DIST_ARCHIVE_REPOS", "embedded_jdk_repositories")
-load("//:workspace_deps.bzl", "WORKSPACE_REPOS")
 load("//src/tools/bzlmod:utils.bzl", "parse_bazel_module_repos")
 load("//tools/distributions/debian:deps.bzl", "debian_deps")
 
@@ -40,7 +39,6 @@ def _bazel_build_deps(ctx):
     )
     BAZEL_TOOLS_DEPS_REPOS = parse_bazel_module_repos(ctx, ctx.path(Label("//src/test/tools/bzlmod:MODULE.bazel.lock")))
     repo_cache_tar(name = "bazel_tools_repo_cache", repos = BAZEL_TOOLS_DEPS_REPOS, lockfile = "//src/test/tools/bzlmod:MODULE.bazel.lock")
-    distdir_tar(name = "workspace_repo_cache", dist_deps = WORKSPACE_REPOS)
     graalvm_repository(
         name = "graalvm_ce",
         distribution = "ce",

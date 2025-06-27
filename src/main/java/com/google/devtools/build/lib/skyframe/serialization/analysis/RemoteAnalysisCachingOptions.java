@@ -115,7 +115,7 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
 
   @Option(
       name = "experimental_analysis_cache_key_distinguisher_for_testing",
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "An opaque string used as part of the cache key. Should only be used for testing.")

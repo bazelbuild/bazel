@@ -375,37 +375,6 @@ public final class TargetRecorder {
     this.targetMap = ((SnapshottableBiMap<String, Target>) targetMap).getUnderlyingBiMap();
   }
 
-  /**
-   * Replaces a target in the {@link Package} under construction with a new target with the same
-   * name and belonging to the same package.
-   *
-   * <p>There must already be an existing target by the same name.
-   *
-   * <p>Requires that the constructor was called with {@code enableNameConflictChecking} set to
-   * true.
-   *
-   * <p>A hack needed for {@link WorkspaceFactoryHelper}.
-   */
-  public void replaceTarget(Target newTarget) {
-    Preconditions.checkState(
-        isNameConflictCheckingEnabled(), "Expected name conflict checking to be enabled");
-
-    Preconditions.checkArgument(
-        targetMap.containsKey(newTarget.getName()),
-        "No existing target with name '%s' in the targets map",
-        newTarget.getName());
-    Target oldTarget = putTargetInternal(newTarget);
-    if (newTarget instanceof Rule) {
-      List<Label> ruleLabelsForOldTarget = ruleLabels.remove(oldTarget);
-      if (ruleLabelsForOldTarget != null) {
-        // TODO(brandjon): Can the new target have different labels than the old? If so, we
-        // probably need newTarget.getLabels() here instead. Moot if we can delete this along with
-        // WORKSPACE logic.
-        ruleLabels.put((Rule) newTarget, ruleLabelsForOldTarget);
-      }
-    }
-  }
-
   // TODO(bazel-team): This method allows target deletion via the returned view, which is used in
   // PackageFunction#handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions.
   // Let's disallow that and make removal go through a dedicated method.

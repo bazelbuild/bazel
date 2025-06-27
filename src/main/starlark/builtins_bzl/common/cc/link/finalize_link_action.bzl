@@ -106,7 +106,7 @@ def finalize_link_action(
         cc_toolchain._cpp_configuration,
     )
 
-    must_keep_debug = any([lib.must_keep_debug() for lib in libraries_to_link])
+    must_keep_debug = any([lib._must_keep_debug for lib in libraries_to_link])
 
     toolchain_libraries_solib_dir = ""
     if feature_configuration.is_enabled("static_link_cpp_runtimes"):
@@ -155,6 +155,10 @@ def finalize_link_action(
         expanded_linker_artifacts,
         libraries_to_link_values,
     )
+
+    # Interning is necessary because the values are repeated so often.
+    # Without it, this causes a very large regression.
+    libraries_to_link_values = cc_internal.intern_seq(libraries_to_link_values)
 
     if lto_map:
         fail("Still have LTO objects left: %s" % lto_map)

@@ -327,6 +327,7 @@ EOF
   assert_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
 
   assert_not_contains "//$pkg:pylib .*CppConfiguration" output
+
   assert_contains "//$pkg:pylib .*PythonConfiguration" output
 
   assert_contains "//$pkg:mylib.cc (null) \[\]" output
@@ -1271,7 +1272,7 @@ exports_files(srcs = ["foo"])
 EOF
 
   bazel cquery "//$pkg:foo" --output=starlark \
-    --starlark:expr="'path=' + target.files.to_list()[0].path" \
+    --starlark:expr="'path=' + providers(target)['DefaultInfo'].files.to_list()[0].path" \
     > output 2>"$TEST_log" || fail "Expected failure"
 
   assert_contains "^path=$pkg/foo$" output

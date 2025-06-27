@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
@@ -106,6 +107,7 @@ public class ResourceJarActionBuilder {
             .add("--normalize")
             .add("--dont_change_compression")
             .add("--exclude_build_data")
+            .add("--no_strip_module_info") // bazelbuild/rules_java/issues/293
             .addExecPath("--output", outputJar);
     if (!resourceJars.isEmpty()) {
       command.addExecPaths("--sources", resourceJars);
@@ -113,6 +115,16 @@ public class ResourceJarActionBuilder {
     addResources(command, semantics);
     if (!classpathResources.isEmpty()) {
       command.addExecPaths("--classpath_resources", classpathResources);
+    }
+
+    ImmutableMap<String, String> executionInfo = EXECUTION_INFO;
+    if (ruleContext.isAllowTagsPropagation()) {
+      ImmutableMap.Builder<String, String> executionInfoBuilder = ImmutableMap.builder();
+      executionInfoBuilder.putAll(EXECUTION_INFO);
+      executionInfoBuilder.putAll(
+          TargetUtils.getExecutionInfo(
+              ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
+      executionInfo = executionInfoBuilder.build();
     }
 
     ruleContext.registerAction(
@@ -128,7 +140,7 @@ public class ResourceJarActionBuilder {
             .addCommandLine(command.build(), PARAM_FILE_INFO)
             .setProgressMessage("Building Java resource jar")
             .setMnemonic(MNEMONIC)
-            .setExecutionInfo(EXECUTION_INFO)
+            .setExecutionInfo(executionInfo)
             .setExecGroup(execGroup)
             .build(ruleContext));
   }

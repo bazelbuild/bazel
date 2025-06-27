@@ -77,11 +77,11 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
     this.language = language;
   }
 
-  private static final String CPP_TOOLCHAIN_TYPE =
-      Label.parseCanonicalUnchecked("@bazel_tools//tools/cpp:toolchain_type").toString();
+  private static final Label CPP_TOOLCHAIN_TYPE =
+      Label.parseCanonicalUnchecked("@bazel_tools//tools/cpp:toolchain_type");
 
   @Override
-  public String getCppToolchainType() {
+  public Label getCppToolchainType() {
     return CPP_TOOLCHAIN_TYPE;
   }
 

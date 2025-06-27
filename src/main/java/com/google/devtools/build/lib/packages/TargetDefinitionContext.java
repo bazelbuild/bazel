@@ -381,6 +381,14 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   }
 
   /**
+   * Returns the map from BUILD file locations to "generator_name" values; intended only for use by
+   * skyframe.PackageFunction.
+   */
+  public ImmutableMap<Location, String> getGeneratorMap() {
+    return generatorMap;
+  }
+
+  /**
    * Returns the value to use for {@code test_suite}s' {@code $implicit_tests} attribute, as-is,
    * when the {@code test_suite} doesn't specify an explicit, non-empty {@code tests} value. The
    * returned list is mutated by the package-building process - it may be observed to be empty or
@@ -629,6 +637,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
         pkg.getMetadata(),
         pkg.getDeclarations(),
         parent,
+        parent != null ? parent.getGeneratorName() : generatorMap.get(location),
         location,
         compactParentCallStack,
         macroClass,
@@ -928,7 +937,6 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     pkg.containsErrors |= containsErrors();
     pkg.failureDetail = getFailureDetail();
     pkg.targets = ImmutableSortedMap.copyOf(recorder.getTargetMap());
-    pkg.macros = ImmutableSortedMap.copyOf(recorder.getMacroMap());
 
     packageoidInitializationHook();
 

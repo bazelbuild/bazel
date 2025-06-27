@@ -506,7 +506,7 @@ class RunfilesTest(test_base.TestBase):
   def testWrappedJavaBinary(self):
     self.writeWrapperRule()
     self.ScratchFile(
-        "MODULE.bazel", ['bazel_dep(name = "rules_java", version = "8.11.0")']
+        "MODULE.bazel", ['bazel_dep(name = "rules_java", version = "8.12.0")']
     )
     self.ScratchFile(
         "BUILD",

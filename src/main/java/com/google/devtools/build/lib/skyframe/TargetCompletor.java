@@ -74,9 +74,7 @@ final class TargetCompletor
   public Location getLocationIdentifier(
       TargetCompletionKey key, ConfiguredTargetValue value, Environment env)
       throws InterruptedException {
-    return ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(
-            value.getConfiguredTarget(), env)
-        .getLocation();
+    return ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(value, env).getLocation();
   }
 
   @Override
@@ -94,8 +92,7 @@ final class TargetCompletor
       Environment env)
       throws InterruptedException {
     return TargetCompleteEvent.createFailed(
-        ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(
-            value.getConfiguredTarget(), env),
+        ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(value, env),
         ctx,
         rootCauses,
         outputs,
@@ -113,7 +110,7 @@ final class TargetCompletor
       throws InterruptedException {
     ConfiguredTarget target = value.getConfiguredTarget();
     ConfiguredTargetAndData configuredTargetAndData =
-        ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(target, env);
+        ConfiguredTargetAndData.fromExistingConfiguredTargetInSkyframe(value, env);
     if (skyKey.willTest()) {
       return TargetCompleteEvent.successfulBuildSchedulingTest(
           configuredTargetAndData,

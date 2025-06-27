@@ -28,7 +28,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
@@ -37,7 +37,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/repository:repository_events",
         "//src/main/java/com/google/devtools/build/lib/repository:request_repository_information_event",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_file_helper",
@@ -64,5 +63,6 @@ java_library(
         "//third_party:guava",
         "//third_party:java-diff-utils",
         "//third_party:jsr305",
+        "//third_party/chicory",
     ],
 )

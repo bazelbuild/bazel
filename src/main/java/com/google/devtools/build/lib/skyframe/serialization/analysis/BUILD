@@ -15,11 +15,13 @@ java_library(
     name = "event_listener",
     srcs = ["RemoteAnalysisCachingEventListener.java"],
     deps = [
+        ":remote_analysis_cache_client",
         ":remote_analysis_caching_state",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -28,13 +30,12 @@ java_library(
     srcs = ["RemoteAnalysisCachingDependenciesProvider.java"],
     deps = [
         ":options",
+        ":remote_analysis_cache_client",
         ":remote_analysis_caching_state",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
-        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -115,6 +116,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "@com_google_protobuf//:protobuf_java",
+        "@zstd-jni",
     ],
 )
 
@@ -140,6 +142,7 @@ java_library(
     ],
     deps = [
         ":file_dependency_key_support",
+        ":magic_bytes",
         ":value_or_future_map",
         ":versioned_changes",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
@@ -154,6 +157,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "@com_google_protobuf//:protobuf_java",
+        "@zstd-jni",
     ],
 )
 
@@ -223,16 +227,30 @@ java_library(
 )
 
 java_library(
+    name = "magic_bytes",
+    srcs = ["MagicBytes.java"],
+    deps = ["//third_party:guava"],
+)
+
+java_library(
+    name = "remote_analysis_cache_client",
+    srcs = ["RemoteAnalysisCacheClient.java"],
+    deps = [
+        "//third_party:guava",
+        "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
     name = "remote_analysis_caching_services_supplier",
     srcs = ["RemoteAnalysisCachingServicesSupplier.java"],
     deps = [
         ":client_id",
         ":options",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        ":remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@com_google_protobuf//:protobuf_java",
     ],
 )
 
@@ -250,8 +268,8 @@ java_library(
     name = "analysis_cache_invalidator",
     srcs = ["AnalysisCacheInvalidator.java"],
     deps = [
+        ":remote_analysis_cache_client",
         ":remote_analysis_caching_state",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",

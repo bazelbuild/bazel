@@ -17,8 +17,9 @@
 #include <string>
 
 #include "src/main/cpp/option_processor.h"
-#include "src/main/cpp/workspace_layout.h"
+#include "src/main/cpp/startup_interceptor.h"
 #include "src/main/cpp/util/logging.h"
+#include "src/main/cpp/workspace_layout.h"
 
 namespace blaze {
 
@@ -27,8 +28,9 @@ namespace blaze {
 void PrintVersionInfo(const std::string& self_path,
                       const std::string& product_name);
 
-int Main(int argc, const char *const *argv, WorkspaceLayout* workspace_layout,
-         OptionProcessor* option_processor, uint64_t start_time);
+int Main(int argc, const char* const* argv, WorkspaceLayout* workspace_layout,
+         OptionProcessor* option_processor, StartupInterceptor* interceptor,
+         uint64_t start_time);
 
 }  // namespace blaze
 

@@ -16,9 +16,7 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.HashSet;
@@ -101,7 +99,11 @@ public class CycleInfo {
       }
       return new CycleInfo(cycle.cycle, index);
     }
-    return new CycleInfo(Iterables.concat(ImmutableList.of(value), cycle.pathToCycle),
+    return new CycleInfo(
+        ImmutableList.<SkyKey>builderWithExpectedSize(cycle.pathToCycle.size() + 1)
+            .add(value)
+            .addAll(cycle.pathToCycle)
+            .build(),
         cycle.cycle);
   }
 
@@ -113,21 +115,14 @@ public class CycleInfo {
    */
   static Iterable<CycleInfo> prepareCycles(final SkyKey value, Iterable<CycleInfo> cycles) {
     final Set<ImmutableList<SkyKey>> alreadyDoneCycles = new HashSet<>();
-    return Iterables.filter(
-        Iterables.transform(
-            cycles,
-            new Function<CycleInfo, CycleInfo>() {
-              @Override
-              @Nullable
-              public CycleInfo apply(CycleInfo input) {
-                CycleInfo normalized = normalizeCycle(value, input);
-                if (normalized != null && alreadyDoneCycles.add(normalized.cycle)) {
-                  return normalized;
-                }
-                return null;
-              }
-            }),
-        Predicates.notNull());
+    ImmutableList.Builder<CycleInfo> result = ImmutableList.builder();
+    for (CycleInfo cycle : cycles) {
+      CycleInfo normalized = normalizeCycle(value, cycle);
+      if (normalized != null && alreadyDoneCycles.add(normalized.cycle)) {
+        result.add(normalized);
+      }
+    }
+    return result.build();
   }
 
   @Override

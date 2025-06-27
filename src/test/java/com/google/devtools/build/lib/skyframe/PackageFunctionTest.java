@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.GlobsValue.GlobRequest;
@@ -99,7 +98,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
@@ -191,10 +189,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
       throws InterruptedException {
     SkyKey skyKey = getSkyKey(pkg);
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
-    skyframeExecutor.injectExtraPrecomputedValues(
-        ImmutableList.of(
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     EvaluationResult<PackageoidValue> result =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, skyKey, /* keepGoing= */ false, reporter);
@@ -213,13 +207,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
     return value;
   }
 
-  private static PackagePieceIdentifier.ForBuildFile getPackagePieceId(String pkg) {
-    PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(pkg);
-    return new PackagePieceIdentifier.ForBuildFile(pkgId, Label.createUnvalidated(pkgId, "BUILD"));
-  }
-
   private SkyKey getSkyKey(String pkg) {
-    return computePackagePiece ? getPackagePieceId(pkg) : PackageIdentifier.createInMainRepo(pkg);
+    PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(pkg);
+    return computePackagePiece ? new PackagePieceIdentifier.ForBuildFile(pkgId) : pkgId;
   }
 
   @CanIgnoreReturnValue

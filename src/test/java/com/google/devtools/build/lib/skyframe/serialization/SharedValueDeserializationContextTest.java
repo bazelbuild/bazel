@@ -17,9 +17,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.createRandomLeafArray;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
+import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
@@ -299,6 +302,49 @@ public final class SharedValueDeserializationContextTest {
     var thrown =
         (MissingSharedValueBytesException)
             assertThrows(ExecutionException.class, result::get).getCause();
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains(
+            "missing shared value bytes for a [Ljava.lang.Object; instance belonging to a"
+                + " com.google.devtools.build.lib.skyframe.serialization.NotNestedSet instance");
+  }
+
+  @Test
+  public void getSharedValue_missingBytesFromCache_notifiesLookupCollector() throws Exception {
+    GetRecordingStore store = new GetRecordingStore();
+    FingerprintValueService fingerprintValueService =
+        FingerprintValueService.createForTesting(store);
+    ObjectCodecs codecs = createObjectCodecs();
+
+    // This subject results in exactly one shared value, storing the leaf array.
+    var subject = new NotNestedSet(new Object[] {createRandomLeafArray(rng, Random::nextInt)});
+
+    SerializationResult<ByteString> serialized =
+        codecs.serializeMemoizedAndBlocking(
+            fingerprintValueService, subject, /* profileCollector= */ null);
+    ListenableFuture<Void> writeStatus = serialized.getFutureToBlockWritesOn();
+    if (writeStatus != null) {
+      // If the write is asynchronous, writing should complete without throwing any exceptions.
+      assertThat(writeStatus.get()).isNull();
+    }
+
+    @SuppressWarnings("unchecked")
+    var result =
+        (ListenableFuture<SkyframeLookupContinuation>)
+            SharedValueDeserializationContext.deserializeWithSkyframe(
+                codecs.getCodecRegistry(),
+                ImmutableClassToInstanceMap.of(),
+                fingerprintValueService,
+                serialized.getObject().newCodedInput());
+
+    // Completes the request for shared value bytes with empty bytes, indicating missing data.
+    store.takeFirstRequest().completeWithEmptyBytes();
+
+    // The following get call hangs if the missing bytes are not propagated.
+    var thrown =
+        (MissingSharedValueBytesException)
+            assertThrows(ExecutionException.class, () -> result.get(WAIT_TIMEOUT_SECONDS, SECONDS))
+                .getCause();
     assertThat(thrown)
         .hasMessageThat()
         .contains(

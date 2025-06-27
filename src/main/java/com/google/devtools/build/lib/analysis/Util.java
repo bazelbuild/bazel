@@ -71,13 +71,13 @@ public abstract class Util {
 
   // ---------- Implicit dependency extractor
 
-  /*
+  /**
    * Given a RuleContext, find all the implicit attribute deps aka deps that weren't explicitly set
    * in the build file but are attached behind the scenes to some attribute. This means this
-   * function does *not* cover deps attached other ways e.g. toolchain-related implicit deps
-   * (see {@link PostAnalysisQueryEnvironment#targetifyValues} for more info on further implicit
-   * deps filtering).
-   * note: nodes that are depended on both implicitly and explicitly are considered explicit.
+   * function does *not* cover deps attached other ways e.g. toolchain-related implicit deps (see
+   * {@link PostAnalysisQueryEnvironment#targetifyValues} for more info on further implicit deps
+   * filtering). note: nodes that are depended on both implicitly and explicitly are considered
+   * explicit.
    */
   public static ImmutableSet<ConfiguredTargetKey> findImplicitDeps(RuleContext ruleContext) {
     Set<ConfiguredTargetKey> maybeImplicitDeps = CompactHashSet.create();

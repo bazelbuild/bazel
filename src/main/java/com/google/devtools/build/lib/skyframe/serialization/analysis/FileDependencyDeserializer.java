@@ -26,6 +26,7 @@ import static com.google.protobuf.ExtensionRegistry.getEmptyRegistry;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.util.concurrent.AsyncFunction;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.versioning.LongVersionGetter;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.InvalidProtocolBufferException;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
@@ -528,7 +530,15 @@ final class FileDependencyDeserializer {
     @Override
     public ListenableFuture<NestedDependencies> apply(byte[] bytes) {
       try {
-        var codedIn = CodedInputStream.newInstance(bytes);
+        boolean usesZstdCompression = MagicBytes.hasMagicBytes(bytes);
+        CodedInputStream codedIn;
+        if (usesZstdCompression) {
+          ByteArrayInputStream byteArrayInputStream =
+              new ByteArrayInputStream(bytes, 2, bytes.length - 2);
+          codedIn = CodedInputStream.newInstance(new ZstdInputStream(byteArrayInputStream));
+        } else {
+          codedIn = CodedInputStream.newInstance(bytes);
+        }
         int nestedCount = codedIn.readInt32();
         int fileCount = codedIn.readInt32();
         int listingCount = codedIn.readInt32();
@@ -595,7 +605,8 @@ final class FileDependencyDeserializer {
         countdown.notifyInitializationDone();
         return countdown;
       } catch (IOException e) {
-        return immediateFailedFuture(e);
+        return immediateFailedFuture(
+            new SerializationException("Error deserializing nested node", e));
       }
     }
   }

@@ -108,16 +108,16 @@ public interface JavaConfigurationApi extends StarlarkValue {
   ImmutableList<Label> getPlugins();
 
   @StarlarkMethod(
-      name = "disallow_java_import_empty_jars",
-      doc = "Returns true if empty java_import jars are not allowed.",
-      useStarlarkThread = true)
-  boolean getDisallowJavaImportEmptyJarsInStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
       name = "use_ijars",
       doc = "Returns true iff Java compilation should use ijars.",
       useStarlarkThread = true)
   boolean getUseIjarsInStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "use_header_compilation_direct_deps",
+      doc = "Returns true if Java header compilation should use separate outputs for direct deps.",
+      useStarlarkThread = true)
+  boolean getUseHeaderCompilationDirectDepsInStarlark(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "disallow_java_import_exports",

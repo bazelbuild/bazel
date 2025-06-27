@@ -5,16 +5,22 @@ package(
     default_visibility = ["//src:__subpackages__"],
 )
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
+)
+
 java_test(
     name = "AnalysisCacheInvalidatorTest",
     srcs = ["AnalysisCacheInvalidatorTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:analysis_cache_invalidator",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:client_id",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_state",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -31,6 +37,7 @@ java_library(
     testonly = True,
     srcs = ["SkycacheIntegrationTestBase.java"],
     deps = [
+        ":SkycacheIntegrationTestHelpers",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
@@ -53,6 +60,19 @@ java_library(
         "//third_party:truth",
         "//third_party/pprof:profile_java_proto",
         "@com_google_protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "SkycacheIntegrationTestHelpers",
+    testonly = True,
+    srcs = ["SkycacheIntegrationTestHelpers.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 

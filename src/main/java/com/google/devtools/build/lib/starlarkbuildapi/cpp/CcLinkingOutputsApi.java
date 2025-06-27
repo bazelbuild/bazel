@@ -40,7 +40,7 @@ public interface CcLinkingOutputsApi<
       doc = "<code>LibraryToLink</code> for including these outputs in further linking.",
       documented = true)
   @Nullable
-  LibraryToLinkApi<FileT, LtoBackendArtifactsT> getLibraryToLink();
+  LibraryToLinkApi getLibraryToLink();
 
   @StarlarkMethod(
       name = "executable",

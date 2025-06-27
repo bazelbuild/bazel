@@ -33,7 +33,7 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
   /** Returns true if a package location is considered to be experimental. */
   boolean isPackageUnderExperimental(PackageIdentifier packageIdentifier);
 
-  /** The default runfiles prefix (may be overwritten by the WORKSPACE file). */
+  /** The runfiles prefix. */
   String getRunfilesPrefix();
 
   /**
@@ -65,21 +65,6 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
    * .bzl environment (with and without builtins injection).
    */
   BazelStarlarkEnvironment getBazelStarlarkEnvironment();
-
-  /**
-   * Returns the default content that should be added at the beginning of the WORKSPACE file.
-   *
-   * <p>Used to provide external dependencies for built-in rules. Rules defined here can be
-   * overwritten in the WORKSPACE file in the actual workspace.
-   */
-  String getDefaultWorkspacePrefix();
-
-  /**
-   * Returns the default content that should be added at the end of the WORKSPACE file.
-   *
-   * <p>Used to load Starlark repository in the bazel_tools repository.
-   */
-  String getDefaultWorkspaceSuffix();
 
   /** Retrieves an aspect from the aspect factory map using the key provided */
   NativeAspectClass getNativeAspectClass(String key);

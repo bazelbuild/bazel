@@ -633,6 +633,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           String message = "command interrupted while computing main repo mapping";
+          logger.atInfo().withCause(e).log("%s", message);
           reporter.handle(Event.error(message));
           earlyExitCode = InterruptedFailureDetails.detailedExitCode(message);
         } catch (RepositoryMappingResolutionException e) {

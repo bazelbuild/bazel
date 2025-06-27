@@ -303,7 +303,7 @@ public sealed class UiEventHandlerTest {
       NullAction action2 = actionWithProgressMessage("Executing action 2", "action2.out");
       uiEventHandler.loadingComplete(
           new LoadingPhaseCompleteEvent(
-              ImmutableSet.of(), ImmutableSet.of(), RepositoryMapping.ALWAYS_FALLBACK));
+              ImmutableSet.of(), ImmutableSet.of(), RepositoryMapping.EMPTY));
       uiEventHandler.analysisComplete(mock(AnalysisPhaseCompleteEvent.class));
       output.flushed.clear();
 

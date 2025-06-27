@@ -91,6 +91,10 @@ public class CcToolchainFeatures implements StarlarkValue {
     ExpansionException(String message) {
       super(message);
     }
+
+    ExpansionException(String message, @Nullable Throwable cause) {
+      super(message, cause);
+    }
   }
 
   /** Thrown when multiple features provide the same string symbol. */

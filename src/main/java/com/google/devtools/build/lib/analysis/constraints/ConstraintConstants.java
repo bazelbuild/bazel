@@ -29,6 +29,10 @@ public final class ConstraintConstants {
       ConstraintSettingInfo.create(
           Label.parseCanonicalUnchecked("@platforms//os:os"));
 
+  public static final ConstraintSettingInfo CPU_CONSTRAINT_SETTING =
+      ConstraintSettingInfo.create(
+          Label.parseCanonicalUnchecked("@platforms//cpu:cpu"));
+
   // Standard mapping between OS and the corresponding platform constraints.
   public static final ImmutableBiMap<OS, ConstraintValueInfo> OS_TO_CONSTRAINTS =
       ImmutableBiMap.<OS, ConstraintValueInfo>builder()

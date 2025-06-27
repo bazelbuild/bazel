@@ -215,7 +215,7 @@ slightly between different versions of clang.
     def _impl(ctx):
         tool_paths = [ # NEW
             tool_path(
-                name = "gcc",
+                name = "gcc",  # Compiler is referenced by the name "gcc" for historic reasons.
                 path = "/usr/bin/clang",
             ),
             tool_path(
@@ -343,7 +343,7 @@ slightly between different versions of clang.
     def _impl(ctx):
         tool_paths = [
             tool_path(
-                name = "gcc",
+                name = "gcc",  # Compiler is referenced by the name "gcc" for historic reasons.
                 path = "/usr/bin/clang",
             ),
             tool_path(

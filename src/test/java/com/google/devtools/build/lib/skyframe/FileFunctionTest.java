@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.FileValue.DifferentRealPathFileValu
 import com.google.devtools.build.lib.actions.FileValue.SymlinkFileValueWithStoredChain;
 import com.google.devtools.build.lib.actions.FileValue.SymlinkFileValueWithoutStoredChain;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
@@ -51,20 +50,14 @@ import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -163,9 +156,6 @@ public class FileFunctionTest {
     ExternalFilesHelper externalFilesHelper =
         ExternalFilesHelper.createForTesting(pkgLocatorRef, externalFileAction, directories);
     differencer = new SequencedRecordingDifferencer();
-    ConfiguredRuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
-    ImmutableMap<String, RepositoryFunction> repositoryHandlers =
-        ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -189,21 +179,7 @@ public class FileFunctionTest {
                     new PackageLookupFunction(
                         new AtomicReference<>(ImmutableSet.of()),
                         CrossRepositoryLabelViolationStrategy.ERROR,
-                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
-                .put(
-                    WorkspaceFileValue.WORKSPACE_FILE,
-                    new WorkspaceFileFunction(
-                        ruleClassProvider,
-                        TestPackageFactoryBuilderFactory.getInstance()
-                            .builder(directories)
-                            .build(ruleClassProvider, fs),
-                        directories,
-                        /* bzlLoadFunctionForInlining= */ null))
-                .put(
-                    SkyFunctions.EXTERNAL_PACKAGE,
-                    new ExternalPackageFunction(
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
                 .put(
                     SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
                     new LocalRepositoryLookupFunction(
@@ -211,19 +187,17 @@ public class FileFunctionTest {
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
                     new RepositoryDelegatorFunction(
-                        repositoryHandlers,
                         null,
                         new AtomicBoolean(true),
                         ImmutableMap::of,
                         directories,
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
                         new RepoContentsCache()))
                 .put(
                     SkyFunctions.REPOSITORY_MAPPING,
                     new SkyFunction() {
                       @Override
                       public SkyValue compute(SkyKey skyKey, Environment env) {
-                        return RepositoryMappingValue.VALUE_FOR_ROOT_MODULE_WITHOUT_REPOS;
+                        return RepositoryMappingValue.VALUE_FOR_EMPTY_ROOT_MODULE;
                       }
                     })
                 .put(
@@ -243,8 +217,6 @@ public class FileFunctionTest {
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
     RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
-    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
-        differencer, Optional.empty());
     return evaluator;
   }
 

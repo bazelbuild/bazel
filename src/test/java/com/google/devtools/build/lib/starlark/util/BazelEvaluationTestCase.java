@@ -192,7 +192,7 @@ public final class BazelEvaluationTestCase {
     // Return the module's client data. (This one uses dummy values for tests.)
     return BazelModuleContext.create(
         BazelModuleKey.createFakeModuleKeyForTesting(label),
-        RepositoryMapping.ALWAYS_FALLBACK,
+        RepositoryMapping.EMPTY,
         "test/label.bzl",
         /* loads= */ ImmutableList.of(),
         /* bzlTransitiveDigest= */ new byte[0]);

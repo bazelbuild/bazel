@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+
 from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry

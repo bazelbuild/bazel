@@ -952,24 +952,18 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testAttrWithWrongProvidersList() throws Exception {
     checkAttributeError(
-        "element in 'providers' is of unexpected type. Either all elements should be providers,"
-            + " or all elements should be lists of providers,"
-            + " but got list with an element of type int.",
+        "Error in label_list: at index 1 of providers, got element of type int, want Provider",
         "a = provider()",
         "c = provider()",
         "attr.label_list(allow_files = True,  providers = [[a, 1], [c]])");
 
     checkAttributeError(
-        "element in 'providers' is of unexpected type. Either all elements should be providers,"
-            + " or all elements should be lists of providers,"
-            + " but got an element of type string.",
+        "Error in label_list: at index 1 of providers, got element of type string, want sequence",
         "b = provider()",
         "attr.label_list(allow_files = True,  providers = [['a', b], 'c'])");
 
     checkAttributeError(
-        "element in 'providers' is of unexpected type. Either all elements should be providers,"
-            + " or all elements should be lists of providers,"
-            + " but got an element of type string.",
+        "Error in label_list: at index 1 of providers, got element of type Provider, want sequence",
         "a = provider()",
         "b = provider()",
         "c = provider()",
@@ -2914,8 +2908,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "my_aspect = aspect(_impl, provides = [y, 1])");
     MoreAsserts.assertContainsEvent(
         ev.getEventCollector(),
-        " Illegal argument: element in 'provides' is of unexpected type."
-            + " Should be list of providers, but got item of type int. ");
+        "Error in aspect: at index 1 of provides, got element of type int, want Provider");
   }
 
   @Test

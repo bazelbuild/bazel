@@ -1,5 +1,4 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
-load("//:workspace_deps.bzl", "gen_workspace_stanza")
 
 java_library(
     name = "deps",
@@ -14,9 +13,6 @@ java_library(
     name = "framework",
     testonly = 1,
     srcs = glob(["*.java"]),
-    resources = [
-        ":blackbox.WORKSPACE",
-    ],
     visibility = ["//src/test/java/com/google/devtools/build/lib/blackbox:__subpackages__"],
     deps = [
         ":deps",
@@ -37,15 +33,4 @@ filegroup(
     testonly = 0,
     srcs = glob(["**"]),
     visibility = ["//src/test/java/com/google/devtools/build/lib/blackbox:__pkg__"],
-)
-
-gen_workspace_stanza(
-    name = "blackbox_workspace",
-    out = "blackbox.WORKSPACE",
-    preamble = "load('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')",
-    repos = [
-        "rules_cc",
-        "rules_python",
-    ],
-    visibility = ["//visibility:private"],
 )

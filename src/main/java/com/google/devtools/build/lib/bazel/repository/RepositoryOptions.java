@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -26,6 +27,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.time.Duration;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 
@@ -63,6 +65,32 @@ public class RepositoryOptions extends OptionsBase {
           repo contents cache as well, unless '--repo_contents_cache=<some_path>' is also set.
           """)
   public PathFragment repoContentsCache;
+
+  @Option(
+      name = "repo_contents_cache_gc_max_age",
+      defaultValue = "14d",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = DurationConverter.class,
+      help =
+          """
+          Specifies the amount of time an entry in the repo contents cache can stay unused before \
+          it's garbage collected. If set to zero, garbage collection is disabled.
+          """)
+  public Duration repoContentsCacheGcMaxAge;
+
+  @Option(
+      name = "repo_contents_cache_gc_idle_delay",
+      defaultValue = "5m",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = DurationConverter.class,
+      help =
+          """
+          Specifies the amount of time the server must remain idle before garbage collection happens
+          to the repo contents cache.
+          """)
+  public Duration repoContentsCacheGcIdleDelay;
 
   @Option(
       name = "registry",
@@ -113,17 +141,6 @@ public class RepositoryOptions extends OptionsBase {
               + " fetching. Note that network access is not completely disabled; ctx.execute could"
               + " still run an arbitrary executable that accesses the Internet.")
   public boolean disableDownload;
-
-  @Option(
-      name = "incompatible_disable_native_repo_rules",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "If false, native repo rules can be used in WORKSPACE; otherwise, Starlark repo rules "
-              + "must be used instead. Native repo rules include local_repository, "
-              + "new_local_repository, local_config_platform, and android_sdk_repository.")
-  public boolean disableNativeRepoRules;
 
   @Option(
       name = "experimental_repository_downloader_retries",
@@ -211,14 +228,6 @@ public class RepositoryOptions extends OptionsBase {
               + " that are slower than the rule author expected, without changing the"
               + " source code")
   public double experimentalScaleTimeouts;
-
-  @Option(
-      name = "experimental_resolved_file_instead_of_workspace",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS},
-      help = "If non-empty read the specified resolved file instead of the WORKSPACE file")
-  public String experimentalResolvedFileInsteadOfWorkspace;
 
   @Option(
       name = "downloader_config",

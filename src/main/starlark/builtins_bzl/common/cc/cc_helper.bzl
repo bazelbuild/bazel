@@ -1105,7 +1105,7 @@ def _local_defines(ctx, additional_make_variable_substitutions):
 def _linker_scripts(ctx):
     result = []
     for dep in ctx.attr.deps:
-        for f in dep.files.to_list():
+        for f in dep[DefaultInfo].files.to_list():
             if f.extension in cpp_file_types.LINKER_SCRIPT:
                 result.append(f)
     return result

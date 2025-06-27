@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.time.Duration;
 import java.util.Iterator;
 import java.util.List;
@@ -422,7 +423,8 @@ public final class Converters {
     @Override
     public RegexPatternOption convert(String input) throws OptionsParsingException {
       try {
-        return RegexPatternOption.create(Pattern.compile(input, Pattern.DOTALL));
+        return RegexPatternOption.create(
+            Pattern.compile(StringEncoding.internalToUnicode(input), Pattern.DOTALL));
       } catch (PatternSyntaxException e) {
         throw new OptionsParsingException("Not a valid regular expression: " + e.getMessage());
       }

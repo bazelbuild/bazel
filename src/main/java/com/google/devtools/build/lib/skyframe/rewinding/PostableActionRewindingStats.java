@@ -25,6 +25,8 @@ public record PostableActionRewindingStats(
     int lostInputsCount,
     int lostOutputsCount,
     int rewoundActionCount,
+    int sameActionLostInputsCount,
+    int sameTopLevelKeyLostOutputsCount,
     ImmutableList<ActionRewindEvent> actionRewindEvents)
     implements ExtendedEventHandler.Postable {
 

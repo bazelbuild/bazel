@@ -49,11 +49,12 @@ java_library(
     ],
     deps = [
         ":current_rule_tracker",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:caffeine",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/allocation_instrumenter",

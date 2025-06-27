@@ -42,6 +42,7 @@ add_to_bazelrc "build --package_path=%workspace%"
 
 function set_up() {
   add_rules_java MODULE.bazel
+  add_platforms MODULE.bazel
 }
 
 #### HELPER FUNCTIONS ##################################################
@@ -149,9 +150,15 @@ EOF
 load("@rules_java//java:java_library.bzl", "java_library")
 package(default_visibility=['//visibility:public'])
 java_library(name = 'hello_library',
-             srcs = ['HelloLibrary.java']);
+             srcs = ['HelloLibrary.java', 'module-info.java'],
+             resources = ['hello.properties'],
+             );
 EOF
-
+  touch $pkg/java/hello_library/hello.properties
+  cat > $pkg/java/hello_library/module-info.java <<EOF
+module hello {
+}
+EOF
   cat >$pkg/java/hello_library/HelloLibrary.java <<EOF
 package hello_library;
 public class HelloLibrary {
@@ -888,6 +895,19 @@ EOF
 
   cat "${PRODUCT_NAME}-bin/${package}/aspect_out" | grep "0.params .*1.params" \
       || fail "aspect Args do not contain both params files"
+}
+
+# https://github.com/bazelbuild/rules_java/issues/293
+function test_class_jar_retains_module_info() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir "$pkg" || fail "mkdir $pkg"
+  write_hello_library_files "$pkg"
+
+  bazel build -s //$pkg/java/main:main || fail "build failed"
+  unzip -l ${PRODUCT_NAME}-bin/$pkg/java/hello_library/libhello_library.jar \
+    > $TEST_log
+  expect_log "/hello.properties" "missing resources file"
+  expect_log " module-info.class" "missing module-info file"
 }
 
 run_suite "Java integration tests"

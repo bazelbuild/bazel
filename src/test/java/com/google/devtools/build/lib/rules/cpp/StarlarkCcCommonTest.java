@@ -7794,8 +7794,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     ImmutableList<String> calls =
         ImmutableList.of(
-            "library_to_link.shared_non_lto_backends()",
-            "library_to_link.pic_shared_non_lto_backends()",
             "lto_backend_artifacts_info.lto_backend_artifacts.object_file()");
     scratch.overwriteFile(
         "a/BUILD",
@@ -7873,7 +7871,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "cc_common.create_library_to_link(actions=ctx.actions,"
                 + "feature_configuration=feature_configuration, cc_toolchain=toolchain,"
                 + " must_keep_debug=False)",
-            "library_to_link.must_keep_debug()",
             "cc_common.create_library_to_link(actions=ctx.actions,"
                 + "feature_configuration=feature_configuration, cc_toolchain=toolchain,"
                 + " lto_compilation_context=None)");

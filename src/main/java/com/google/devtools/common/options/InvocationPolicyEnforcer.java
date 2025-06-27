@@ -450,6 +450,9 @@ public final class InvocationPolicyEnforcer {
         setValueExpansion.setBehavior(
             subflag.allowsMultiple() ? Behavior.APPEND : Behavior.ALLOW_OVERRIDES);
         break;
+      case FINAL_VALUE_THROW_ON_OVERRIDE:
+        setValueExpansion.setBehavior(Behavior.FINAL_VALUE_THROW_ON_OVERRIDE);
+        break;
     }
 
     // Commands from the original policy, flag name of the expansion
@@ -587,6 +590,17 @@ public final class InvocationPolicyEnforcer {
         parser.clearValue(flagPolicy.description.getOptionDefinition());
         break;
       case APPEND:
+        break;
+      case FINAL_VALUE_THROW_ON_OVERRIDE:
+        if (valueDescription != null) {
+          throw new OptionsParsingException(
+              String.format(
+                  "User set a value for %s which is not permitted by the invocation policy. This"
+                      + " flag value will always be overridden to %s. %s",
+                  optionDefinition,
+                  flagPolicy.policy.getSetValue().getFlagValueList(),
+                  flagPolicy.policy.getCustomErrorMessage()));
+        }
         break;
     }
 

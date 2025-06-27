@@ -52,6 +52,8 @@
 #include <utility>
 #include <vector>
 
+#include "src/main/cpp/startup_interceptor.h"
+
 #if !defined(_WIN32)
 #include <sys/stat.h>
 #include <unistd.h>
@@ -666,8 +668,8 @@ static void EnsureServerDir(const blaze_util::Path &server_dir) {
 }
 
 // Do a chdir into the workspace, and die if it fails.
-static const void GoToWorkspace(const WorkspaceLayout &workspace_layout,
-                                const string &workspace) {
+static void GoToWorkspace(const WorkspaceLayout &workspace_layout,
+                          const string &workspace) {
   if (workspace_layout.InWorkspace(workspace) &&
       !blaze_util::ChangeDirectory(workspace)) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
@@ -676,7 +678,7 @@ static const void GoToWorkspace(const WorkspaceLayout &workspace_layout,
   }
 }
 
-static const bool IsServerMode(const string &command) {
+static bool IsServerMode(const string &command) {
   return "exec-server" == command;
 }
 
@@ -911,7 +913,10 @@ static void StartServerAndConnect(
     const blaze_util::Path &server_dir, const WorkspaceLayout &workspace_layout,
     const string &workspace, const OptionProcessor &option_processor,
     const StartupOptions &startup_options, LoggingInfo *logging_info,
-    BlazeServer *server, const string &build_label) {
+    BlazeServer *server, const string &build_label,
+    StartupInterceptor *interceptor) {
+  if (interceptor != nullptr) interceptor->MaybeReroute(&startup_options);
+
   // Delete the old command_port file if it already exists. Otherwise we might
   // run into the race condition that we read the old command_port file before
   // the new server has written the new file and we try to connect to the old
@@ -1170,12 +1175,14 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     const StartupOptions &startup_options, LoggingInfo *logging_info,
     const std::optional<DurationMillis> extract_data_duration,
     const std::optional<DurationMillis> command_wait_duration,
-    BlazeServer *server, const string &build_label) {
+    BlazeServer *server, StartupInterceptor *interceptor,
+    const string &build_label) {
   while (true) {
     if (!server->Connected()) {
       StartServerAndConnect(server_exe, server_exe_args, server_dir,
                             workspace_layout, workspace, option_processor,
-                            startup_options, logging_info, server, build_label);
+                            startup_options, logging_info, server, build_label,
+                            interceptor);
     }
 
     // Check for the case when the workspace directory deleted and then gets
@@ -1486,7 +1493,8 @@ static void RunLauncher(const string &self_path,
                         const StartupOptions &startup_options,
                         const OptionProcessor &option_processor,
                         const WorkspaceLayout &workspace_layout,
-                        const string &workspace, LoggingInfo *logging_info) {
+                        const string &workspace, LoggingInfo *logging_info,
+                        StartupInterceptor *interceptor) {
   blaze_server = new BlazeServer(startup_options);
 
   const std::optional<DurationMillis> command_wait_duration =
@@ -1559,15 +1567,16 @@ static void RunLauncher(const string &self_path,
   } else {
     string build_label;
     ExtractBuildLabel(self_path, &build_label);
-    RunClientServerMode(server_exe, server_exe_args, server_dir,
-                        workspace_layout, workspace, option_processor,
-                        startup_options, logging_info, extract_data_duration,
-                        command_wait_duration, blaze_server, build_label);
+    RunClientServerMode(
+        server_exe, server_exe_args, server_dir, workspace_layout, workspace,
+        option_processor, startup_options, logging_info, extract_data_duration,
+        command_wait_duration, blaze_server, interceptor, build_label);
   }
 }
 
 int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
-         OptionProcessor *option_processor, uint64_t start_time) {
+         OptionProcessor *option_processor, StartupInterceptor *interceptor,
+         uint64_t start_time) {
   blaze_util::InitializeStdOutErrForUtf8();
 
   // Logging must be set first to assure no log statements are missed.
@@ -1659,7 +1668,8 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   PrepareDirectories(startup_options);
 
   RunLauncher(self_path, archive_contents, install_md5, *startup_options,
-              *option_processor, *workspace_layout, workspace, &logging_info);
+              *option_processor, *workspace_layout, workspace, &logging_info,
+              interceptor);
   return 0;
 }
 

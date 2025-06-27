@@ -950,7 +950,7 @@ final class Lexer {
     return c == '0' || c == '1';
   }
 
-  /*
+  /**
    * Returns a string containing the part of the source buffer beginning at offset {@code start} and
    * ending immediately before offset {@code end} (so the length of the resulting string is {@code
    * end - start}).

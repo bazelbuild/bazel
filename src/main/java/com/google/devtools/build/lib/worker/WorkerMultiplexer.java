@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
@@ -176,7 +177,8 @@ public class WorkerMultiplexer {
       Path workDir,
       Set<PathFragment> workerFiles,
       SandboxInputs inputFiles,
-      TreeDeleter treeDeleter)
+      TreeDeleter treeDeleter,
+      ImmutableMap<String, String> clientEnv)
       throws IOException, InterruptedException {
     // TODO: Make blaze clean remove the workdir.
     if (this.process == null) {
@@ -200,7 +202,7 @@ public class WorkerMultiplexer {
           treeDeleter);
       SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict= */ false);
       WorkerExecRoot.createInputs(inputsToCreate, inputFiles.limitedCopy(workerFiles), workDir);
-      createProcess(workDir);
+      createProcess(workDir, clientEnv);
     }
   }
 
@@ -208,7 +210,8 @@ public class WorkerMultiplexer {
    * Creates a worker process corresponding to this {@code WorkerMultiplexer}, if it doesn't already
    * exist. Also starts up the subthreads handling reading and writing requests and responses.
    */
-  public synchronized void createProcess(Path workDir) throws IOException {
+  public synchronized void createProcess(Path workDir, ImmutableMap<String, String> clientEnv)
+      throws IOException {
     if (this.process == null) {
       if (this.status.isKilled()) {
         throw new IOException("Multiplexer destroyed before created process");
@@ -233,8 +236,8 @@ public class WorkerMultiplexer {
       }
       SubprocessBuilder processBuilder =
           subprocessFactory != null
-              ? new SubprocessBuilder(subprocessFactory)
-              : new SubprocessBuilder();
+              ? new SubprocessBuilder(clientEnv, subprocessFactory)
+              : new SubprocessBuilder(clientEnv);
       processBuilder.setArgv(args);
       processBuilder.setWorkingDirectory(workDir.getPathFile());
       processBuilder.setStderr(logFile.getPathFile());

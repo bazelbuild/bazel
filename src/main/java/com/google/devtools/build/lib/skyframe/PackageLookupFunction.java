@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -22,7 +21,6 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileName;
@@ -30,9 +28,7 @@ import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.ErrorDeterminingRepositoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.RepositoryFetchException;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
@@ -55,7 +51,6 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkSemantics;
 
 /** SkyFunction for {@link PackageLookupValue}s. */
 public class PackageLookupFunction implements SkyFunction {
@@ -70,17 +65,14 @@ public class PackageLookupFunction implements SkyFunction {
   private final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
   private final CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
   private final ImmutableList<BuildFileName> buildFilesByPriority;
-  private final ExternalPackageHelper externalPackageHelper;
 
   public PackageLookupFunction(
       AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
-      ImmutableList<BuildFileName> buildFilesByPriority,
-      ExternalPackageHelper externalPackageHelper) {
+      ImmutableList<BuildFileName> buildFilesByPriority) {
     this.deletedPackages = deletedPackages;
     this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
     this.buildFilesByPriority = buildFilesByPriority;
-    this.externalPackageHelper = externalPackageHelper;
   }
 
   private static class State implements SkyKeyComputeState {
@@ -93,7 +85,6 @@ public class PackageLookupFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws PackageLookupFunctionException, InterruptedException {
     PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
-    StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
 
     PackageIdentifier packageKey = (PackageIdentifier) skyKey.argument();
 
@@ -102,23 +93,6 @@ public class PackageLookupFunction implements SkyFunction {
     if (packageNameErrorMsg != null) {
       return PackageLookupValue.invalidPackageName(
           "Invalid package name '" + packageKey + "': " + packageNameErrorMsg);
-    }
-
-    RepositoryName repoName = packageKey.getRepository();
-    if (!repoName.isVisible()) {
-      String workspaceDeprecationMsg =
-          externalPackageHelper.getWorkspaceDeprecationErrorMessage(
-              env,
-              semantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE),
-              repoName.isOwnerRepoMainRepo());
-      if (env.valuesMissing()) {
-        return null;
-      }
-      return new NoRepositoryPackageLookupValue(
-          repoName,
-          String.format(
-              "No repository visible as '@%s' from %s%s",
-              repoName.getName(), repoName.getOwnerRepoDisplayString(), workspaceDeprecationMsg));
     }
 
     if (deletedPackages.get().contains(packageKey)) {
@@ -130,10 +104,7 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     if (packageKey.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
-      return semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE)
-              || !semantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)
-          ? PackageLookupValue.NO_BUILD_FILE_VALUE
-          : computeWorkspacePackageLookupValue(env);
+      return PackageLookupValue.NO_BUILD_FILE_VALUE;
     }
 
     // Check .bazelignore file under main repository.
@@ -352,32 +323,6 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     return PackageLookupValue.NO_BUILD_FILE_VALUE;
-  }
-
-  @Nullable
-  private PackageLookupValue computeWorkspacePackageLookupValue(Environment env)
-      throws InterruptedException {
-    RootedPath workspaceFile = externalPackageHelper.findWorkspaceFile(env);
-    if (env.valuesMissing()) {
-      return null;
-    }
-
-    if (workspaceFile == null) {
-      return PackageLookupValue.NO_BUILD_FILE_VALUE;
-    } else {
-      BuildFileName filename = null;
-      for (BuildFileName candidate : BuildFileName.values()) {
-        if (workspaceFile.getRootRelativePath().equals(candidate.getFilenameFragment())) {
-          filename = candidate;
-          break;
-        }
-      }
-
-      // Otherwise ExternalPackageUtil.findWorkspaceFile() returned something whose name is not in
-      // BuildFileName
-      Verify.verify(filename != null);
-      return PackageLookupValue.success(workspaceFile.getRoot(), filename);
-    }
   }
 
   /**

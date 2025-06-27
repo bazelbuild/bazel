@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -104,6 +105,9 @@ public abstract sealed class FileConfiguredTarget extends AbstractConfiguredTarg
     tryAddProviderForQuery(dict, VisibilityProvider.class, this);
     tryAddProviderForQuery(dict, FileProvider.class, createFileProvider());
     tryAddProviderForQuery(dict, FilesToRunProvider.class, createFilesToRunProvider());
+    // DefaultInfo is not stored as a provider, but Starlark targets still observe it on
+    // dependencies.
+    tryAddProviderForQuery(dict, DefaultInfo.PROVIDER.getKey(), DefaultInfo.build(this));
     return dict.buildImmutable();
   }
 }

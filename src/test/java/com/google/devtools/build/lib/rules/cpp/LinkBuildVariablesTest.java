@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import java.io.IOException;
@@ -101,11 +100,9 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         librariesToLink
             .iterator()
             .next()
-            .getFieldValue(
-                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                LibraryToLinkValue.NAME_FIELD_NAME);
+            .getFieldValue(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), "name");
     assertThat(nameValue).isNotNull();
-    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME, PathMapper.NOOP);
+    String name = nameValue.getStringValue("name", PathMapper.NOOP);
     assertThat(name).matches(".*a\\..*o");
   }
 
@@ -146,11 +143,9 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         librariestoLink
             .iterator()
             .next()
-            .getFieldValue(
-                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                LibraryToLinkValue.NAME_FIELD_NAME);
+            .getFieldValue(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), "name");
     assertThat(nameValue).isNotNull();
-    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME, PathMapper.NOOP);
+    String name = nameValue.getStringValue("name", PathMapper.NOOP);
     assertThat(name).isEqualTo("bar");
   }
 
@@ -174,11 +169,9 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         librariestoLink
             .iterator()
             .next()
-            .getFieldValue(
-                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                LibraryToLinkValue.NAME_FIELD_NAME);
+            .getFieldValue(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), "name");
     assertThat(nameValue).isNotNull();
-    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME, PathMapper.NOOP);
+    String name = nameValue.getStringValue("name", PathMapper.NOOP);
     assertThat(name).isEqualTo("libbar.so.1a.2");
   }
 
@@ -202,11 +195,9 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         librariestoLink
             .iterator()
             .next()
-            .getFieldValue(
-                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                LibraryToLinkValue.NAME_FIELD_NAME);
+            .getFieldValue(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), "name");
     assertThat(nameValue).isNotNull();
-    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME, PathMapper.NOOP);
+    String name = nameValue.getStringValue("name", PathMapper.NOOP);
     assertThat(name).isEqualTo("_libbar.so");
   }
 
@@ -639,8 +630,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         librariesToLinkIterator
             .next()
             .getFieldValue(
-                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                LibraryToLinkValue.IS_WHOLE_ARCHIVE_FIELD_NAME);
+                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), "is_whole_archive");
     assertThat(aWholeArchiveValue).isNotNull();
     assertThat(aWholeArchiveValue.isTruthy()).isFalse();
 
@@ -649,8 +639,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         librariesToLinkIterator
             .next()
             .getFieldValue(
-                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
-                LibraryToLinkValue.IS_WHOLE_ARCHIVE_FIELD_NAME);
+                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), "is_whole_archive");
     assertThat(bWholeArchiveValue).isNotNull();
     assertThat(bWholeArchiveValue.isTruthy()).isTrue();
   }

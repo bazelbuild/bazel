@@ -68,8 +68,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
     /* The rest of platforms is initialized in {@link MockPlatformSupport}. */
     config.create("platforms_workspace/MODULE.bazel", "module(name = 'platforms')");
     config.create(
-        "local_config_platform_workspace/MODULE.bazel", "module(name = 'local_config_platform')");
-    config.create(
         "build_bazel_apple_support/MODULE.bazel", "module(name = 'build_bazel_apple_support')");
     config.create(
         "third_party/bazel_rules/rules_shell/MODULE.bazel", "module(name = 'rules_shell')");
@@ -79,11 +77,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
         ".bazelignore",
         "embedded_tools",
         "platforms_workspace",
-        "local_config_platform_workspace",
         "rules_java_workspace",
         "rules_python_workspace",
         "third_party/protobuf",
         "proto_bazel_features_workspace",
+        "bazel_features_workspace",
         "build_bazel_apple_support",
         "local_config_xcode_workspace",
         "third_party/bazel_rules/rules_cc",
@@ -674,6 +672,17 @@ launcher_flag_alias(
             packages = ["public"],
         )
         """);
+    config.create("bazel_features_workspace/MODULE.bazel", "module(name = 'bazel_features')");
+    config.create("bazel_features_workspace/BUILD");
+    config.create(
+        "bazel_features_workspace/features.bzl",
+        """
+        bazel_features = struct(
+          rules = struct(
+            _has_launcher_maker_toolchain = False,
+          ),
+        )
+        """);
     MockProtoSupport.setupWorkspace(config);
     MockPlatformSupport.setup(config);
     ccSupport().setup(config);
@@ -815,7 +824,6 @@ launcher_flag_alias(
         ImmutableMap.<String, String>builder()
             .put("bazel_tools", "embedded_tools")
             .put("platforms", "platforms_workspace")
-            .put("local_config_platform", "local_config_platform_workspace")
             .put("rules_java", "rules_java_workspace")
             .put("rules_python", "rules_python_workspace")
             .put("rules_python_internal", "rules_python_internal_workspace")
@@ -824,6 +832,7 @@ launcher_flag_alias(
                 "com_google_protobuf",
                 "third_party/protobuf") // for WORKSPACE compatibility use com_google_protobuf
             .put("proto_bazel_features", "proto_bazel_features_workspace")
+            .put("bazel_features", "bazel_features_workspace")
             .put("build_bazel_apple_support", "build_bazel_apple_support")
             .put("local_config_xcode", "local_config_xcode_workspace")
             .put("rules_cc", "third_party/bazel_rules/rules_cc")
