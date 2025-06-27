@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.repository;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.repository.ExternalPackageException;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
@@ -37,12 +35,10 @@ import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -85,8 +81,6 @@ import net.starlark.java.eval.Starlark;
  */
 public abstract class RepositoryFunction {
 
-  protected Map<String, String> clientEnvironment;
-
   /**
    * Exception thrown when something goes wrong accessing a remote repository.
    *
@@ -100,7 +94,6 @@ public abstract class RepositoryFunction {
       super(cause, transience);
     }
 
-    /** For errors in WORKSPACE file rules (e.g., malformed paths or URLs). */
     public RepositoryFunctionException(EvalException cause, Transience transience) {
       super(cause, transience);
     }
@@ -108,10 +101,6 @@ public abstract class RepositoryFunction {
     public RepositoryFunctionException(
         AlreadyReportedRepositoryAccessException cause, Transience transience) {
       super(cause, transience);
-    }
-
-    public RepositoryFunctionException(ExternalPackageException e) {
-      super(e.getCause(), e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
     }
   }
 
@@ -129,28 +118,6 @@ public abstract class RepositoryFunction {
               || e instanceof ExternalPackageException,
           e);
     }
-  }
-
-  public static void setupRepoRoot(Path repoRoot) throws RepositoryFunctionException {
-    try {
-      repoRoot.deleteTree();
-      Preconditions.checkNotNull(repoRoot.getParentDirectory()).createDirectoryAndParents();
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
-  }
-
-  public static boolean isWorkspaceRepo(Rule rule) {
-    // All workspace repos are under //external, while bzlmod repo rules are not
-    return rule.getPackageMetadata().packageIdentifier().equals(EXTERNAL_PACKAGE_IDENTIFIER);
-  }
-
-  protected void setupRepoRootBeforeFetching(Path repoRoot) throws RepositoryFunctionException {
-    setupRepoRoot(repoRoot);
-  }
-
-  public void reportSkyframeRestart(Environment env, RepositoryName repoName) {
-    env.getListener().post(RepositoryFetchProgress.ongoing(repoName, "Restarting."));
   }
 
   /**
@@ -189,9 +156,7 @@ public abstract class RepositoryFunction {
    *
    * @param recordedInputValues Any recorded inputs (and their values) encountered during the fetch
    *     of the repo. Changes to these inputs will result in the repo being refetched in the future.
-   *     The {@link #isAnyRecordedInputOutdated} method is responsible for checking the value added
-   *     to that map when checking the content of a marker file. Not an ImmutableMap, because
-   *     regrettably the values can be null sometimes.
+   *     Not an ImmutableMap, because regrettably the values can be null sometimes.
    * @param reproducible Whether the fetched repo contents are reproducible, hence cacheable.
    */
   public record FetchResult(
@@ -202,22 +167,7 @@ public abstract class RepositoryFunction {
    * particularly because of Skyframe restarts very late into RepositoryDelegatorFunction. In that
    * case, this method can be used to report that fact.
    */
-  public boolean wasJustFetched(Environment env) {
-    return false;
-  }
-
-  /**
-   * Verify the data provided by the marker file to check if a refetch is needed. Returns an empty
-   * Optional if the data is up to date and no refetch is needed and an Optional with a
-   * human-readable reason if the data is obsolete and a refetch is needed.
-   */
-  public Optional<String> isAnyRecordedInputOutdated(
-      BlazeDirectories directories,
-      Map<RepoRecordedInput, String> recordedInputValues,
-      Environment env)
-      throws InterruptedException {
-    return RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputValues);
-  }
+  public abstract boolean wasJustFetched(Environment env);
 
   public static RootedPath getRootedPathFromLabel(Label label, Environment env)
       throws InterruptedException, EvalException {
@@ -275,135 +225,10 @@ public abstract class RepositoryFunction {
    */
   protected abstract boolean isLocal(Rule rule);
 
-  /** Wheather the rule declares it inspects the local environment for configure purpose. */
-  protected boolean isConfigure(Rule rule) {
-    return false;
-  }
-
-  protected static void writeFile(Path repositoryDirectory, String filename, String contents)
-      throws RepositoryFunctionException {
-    Path filePath = repositoryDirectory.getRelative(filename);
-    try {
-      // The repository could have an existing file that's either a regular file (for remote
-      // repositories) or a symlink (for local repositories). Either way, we want to remove it and
-      // write our own.
-      if (filePath.exists(Symlinks.NOFOLLOW)) {
-        filePath.delete();
-      }
-      FileSystemUtils.writeContentAsLatin1(filePath, contents);
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
-  }
-
-  protected static String getPathAttr(Rule rule) throws RepositoryFunctionException {
-    WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
-    try {
-      return mapper.get("path", Type.STRING);
-    } catch (EvalException e) {
-      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
-    }
-  }
-
-  @VisibleForTesting
-  protected static PathFragment getTargetPath(String userDefinedPath, Path workspace) {
-    PathFragment pathFragment = PathFragment.create(userDefinedPath);
-    return workspace.getRelative(pathFragment).asFragment();
-  }
-
-  /**
-   * Given a targetDirectory /some/path/to/y that contains files z, w, and v, create the following
-   * directory structure:
-   *
-   * <pre>
-   * .external-repository/
-   *   x/
-   *     WORKSPACE
-   *     BUILD -> &lt;build_root&gt;/x.BUILD
-   *     z -> /some/path/to/y/z
-   *     w -> /some/path/to/y/w
-   *     v -> /some/path/to/y/v
-   * </pre>
-   */
-  public static boolean symlinkLocalRepositoryContents(
-      Path repositoryDirectory, Path targetDirectory, String userDefinedPath)
-      throws RepositoryFunctionException {
-    try {
-      repositoryDirectory.createDirectoryAndParents();
-      for (Path target : targetDirectory.getDirectoryEntries()) {
-        Path symlinkPath = repositoryDirectory.getRelative(target.getBaseName());
-        createSymbolicLink(symlinkPath, target);
-      }
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(
-          new IOException(
-              String.format(
-                  "The repository's path is \"%s\" (absolute: \"%s\") "
-                      + "but a symlink could not be created for it, because: %s",
-                  userDefinedPath, targetDirectory, e.getMessage())),
-          Transience.TRANSIENT);
-    }
-
-    return true;
-  }
-
-  static void createSymbolicLink(Path from, Path to) throws RepositoryFunctionException {
-    try {
-      // Remove not-symlinks that are already there.
-      if (from.exists()) {
-        from.delete();
-      }
-      FileSystemUtils.ensureSymbolicLink(from, to);
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(
-          new IOException(
-              String.format(
-                  "Error creating symbolic link from %s to %s: %s", from, to, e.getMessage())),
-          Transience.TRANSIENT);
-    }
-  }
+  /** Whether the rule declares it inspects the local environment for configure purpose. */
+  protected abstract boolean isConfigure(Rule rule);
 
   protected static Path getExternalRepositoryDirectory(BlazeDirectories directories) {
     return directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
   }
-
-  /**
-   * For files that are under $OUTPUT_BASE/external, add a dependency on the corresponding rule so
-   * that if the WORKSPACE file changes, the File/DirectoryStateValue will be re-evaluated.
-   *
-   * <p>Note that: - We don't add a dependency on the parent directory at the package root boundary,
-   * so the only transitive dependencies from files inside the package roots to external files are
-   * through symlinks. So the upwards transitive closure of external files is small. - The only way
-   * other than external repositories for external source files to get into the skyframe graph in
-   * the first place is through symlinks outside the package roots, which we neither want to
-   * encourage nor optimize for since it is not common. So the set of external files is small.
-   */
-  public static void addExternalFilesDependencies(
-      RootedPath rootedPath, BlazeDirectories directories, Environment env)
-      throws InterruptedException {
-    Path externalRepoDir = getExternalRepositoryDirectory(directories);
-    PathFragment repositoryPath = rootedPath.asPath().relativeTo(externalRepoDir);
-    if (repositoryPath.isEmpty()) {
-      // We are the top of the repository path (<outputBase>/external), not in an actual external
-      // repository path.
-      return;
-    }
-    RepositoryName repositoryName;
-    try {
-      repositoryName = RepositoryName.create(repositoryPath.getSegment(0));
-    } catch (LabelSyntaxException ignored) {
-      // The directory of a repository with an invalid name can never exist, so we don't need to
-      // add a dependency on it.
-      return;
-    }
-    env.getValue(RepositoryDirectoryValue.key(repositoryName));
-  }
-
-  /** Sets up a mapping of environment variables to use. */
-  public void setClientEnvironment(Map<String, String> clientEnvironment) {
-    this.clientEnvironment = clientEnvironment;
-  }
-
-  /** Returns the RuleDefinition class for this type of repository. */
-  public abstract Class<? extends RuleDefinition> getRuleDefinition();
 }

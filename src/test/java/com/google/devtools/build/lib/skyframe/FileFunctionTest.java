@@ -189,7 +189,6 @@ public class FileFunctionTest {
                     new RepositoryDelegatorFunction(
                         null,
                         new AtomicBoolean(true),
-                        ImmutableMap::of,
                         directories,
                         new RepoContentsCache()))
                 .put(

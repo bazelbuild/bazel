@@ -125,7 +125,6 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
         new RepositoryDelegatorFunction(
             null,
             new AtomicBoolean(true),
-            ImmutableMap::of,
             directories,
             new RepoContentsCache()));
     skyFunctions.put(

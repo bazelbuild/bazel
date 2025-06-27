@@ -126,9 +126,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             TestConstants.PRODUCT_NAME);
     RepositoryDelegatorFunction delegatorFunction =
         new RepositoryDelegatorFunction(
-            new StarlarkRepositoryFunction(),
+            new StarlarkRepositoryFunction(ImmutableMap::of),
             /* isFetch= */ new AtomicBoolean(true),
-            /* clientEnvironmentSupplier= */ ImmutableMap::of,
             directories,
             new RepoContentsCache());
     AtomicReference<PathPackageLocator> pkgLocator =

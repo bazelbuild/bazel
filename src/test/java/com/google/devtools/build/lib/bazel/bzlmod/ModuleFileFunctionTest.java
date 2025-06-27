@@ -162,7 +162,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     new RepositoryDelegatorFunction(
                         null,
                         new AtomicBoolean(true),
-                        ImmutableMap::of,
                         directories,
                         new RepoContentsCache()))
                 .put(

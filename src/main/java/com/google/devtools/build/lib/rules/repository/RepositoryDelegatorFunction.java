@@ -60,7 +60,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -95,18 +94,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   // command is a fetch. Remote repository lookups are only allowed during fetches.
   private final AtomicBoolean isFetch;
   private final BlazeDirectories directories;
-  private final Supplier<Map<String, String>> clientEnvironmentSupplier;
   private final RepoContentsCache repoContentsCache;
 
   public RepositoryDelegatorFunction(
       @Nullable RepositoryFunction starlarkHandler,
       AtomicBoolean isFetch,
-      Supplier<Map<String, String>> clientEnvironmentSupplier,
       BlazeDirectories directories,
       RepoContentsCache repoContentsCache) {
     this.starlarkHandler = starlarkHandler;
     this.isFetch = isFetch;
-    this.clientEnvironmentSupplier = clientEnvironmentSupplier;
     this.directories = directories;
     this.repoContentsCache = repoContentsCache;
   }
@@ -160,7 +156,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         return new RepositoryDirectoryValue.Failure(
             String.format("'%s' is not a repository rule", repositoryName));
       }
-      handler.setClientEnvironment(clientEnvironmentSupplier.get());
 
       DigestWriter digestWriter =
           new DigestWriter(directories, repositoryName, rule, starlarkSemantics);
@@ -175,7 +170,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         if (!excludeRepoByDefault && !vendorFile.ignoredRepos().contains(repositoryName)) {
           RepositoryDirectoryValue repositoryDirectoryValue =
               tryGettingValueUsingVendoredRepo(
-                  env, rule, repoRoot, repositoryName, handler, digestWriter, vendorFile);
+                  env, rule, repoRoot, repositoryName, digestWriter, vendorFile);
           if (env.valuesMissing()) {
             return null;
           }
@@ -194,7 +189,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
       if (shouldUseCachedRepos(env, handler, rule)) {
         // Make sure marker file is up-to-date; correctly describes the current repository state
-        var repoState = digestWriter.areRepositoryAndMarkerFileConsistent(handler, env);
+        var repoState = digestWriter.areRepositoryAndMarkerFileConsistent(env);
         if (repoState == null) {
           return null;
         }
@@ -209,7 +204,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
               repoContentsCache.getCandidateRepos(predeclaredInputHash)) {
             repoState =
                 digestWriter.areRepositoryAndMarkerFileConsistent(
-                    handler, env, candidate.recordedInputsFile());
+                    env, candidate.recordedInputsFile());
             if (repoState == null) {
               return null;
             }
@@ -303,7 +298,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       Rule rule,
       Path repoRoot,
       RepositoryName repositoryName,
-      RepositoryFunction handler,
       DigestWriter digestWriter,
       VendorFileValue vendorFile)
       throws RepositoryFunctionException, InterruptedException {
@@ -324,7 +318,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       }
 
       DigestWriter.RepoDirectoryState vendoredRepoState =
-          digestWriter.areRepositoryAndMarkerFileConsistent(handler, env, vendorMarker);
+          digestWriter.areRepositoryAndMarkerFileConsistent(env, vendorMarker);
       if (vendoredRepoState == null) {
         return null;
       }
@@ -423,18 +417,13 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   private boolean isRepoExcludedFromVendoringByDefault(RepositoryFunction handler, Rule rule) {
-    return handler.isLocal(rule)
-        || handler.isConfigure(rule)
-        || RepositoryFunction.isWorkspaceRepo(rule);
+    return handler.isLocal(rule) || handler.isConfigure(rule);
   }
 
   @Nullable
   private RepositoryFunction.FetchResult fetchRepository(
       SkyKey skyKey, Path repoRoot, Environment env, RepositoryFunction handler, Rule rule)
       throws InterruptedException, RepositoryFunctionException {
-
-    handler.setupRepoRootBeforeFetching(repoRoot);
-
     RepositoryName repoName = (RepositoryName) skyKey.argument();
     env.getListener().post(RepositoryFetchProgress.ongoing(repoName, "starting"));
 
@@ -461,7 +450,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
 
     if (env.valuesMissing()) {
-      handler.reportSkyframeRestart(env, repoName);
       return null;
     }
     env.getListener().post(RepositoryFetchProgress.finished(repoName));
@@ -637,10 +625,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       record OutOfDate(String reason) implements RepoDirectoryState {}
     }
 
-    RepoDirectoryState areRepositoryAndMarkerFileConsistent(
-        RepositoryFunction handler, Environment env)
+    RepoDirectoryState areRepositoryAndMarkerFileConsistent(Environment env)
         throws InterruptedException, RepositoryFunctionException {
-      return areRepositoryAndMarkerFileConsistent(handler, env, markerPath);
+      return areRepositoryAndMarkerFileConsistent(env, markerPath);
     }
 
     /**
@@ -654,8 +641,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
      * and the state of the file system would be inconsistent.
      */
     @Nullable
-    RepoDirectoryState areRepositoryAndMarkerFileConsistent(
-        RepositoryFunction handler, Environment env, Path markerPath)
+    RepoDirectoryState areRepositoryAndMarkerFileConsistent(Environment env, Path markerPath)
         throws RepositoryFunctionException, InterruptedException {
       if (!markerPath.exists()) {
         return new RepoDirectoryState.OutOfDate("repo hasn't been fetched yet");
@@ -666,7 +652,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         Map<RepoRecordedInput, String> recordedInputValues =
             readMarkerFile(content, Preconditions.checkNotNull(ruleKey));
         Optional<String> outdatedReason =
-            handler.isAnyRecordedInputOutdated(directories, recordedInputValues, env);
+            RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputValues);
         if (env.valuesMissing()) {
           return null;
         }

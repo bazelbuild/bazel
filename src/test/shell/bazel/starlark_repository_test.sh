@@ -1902,7 +1902,7 @@ EOF
   expect_log "Failed to download repository @.*: download is disabled"
 }
 
-function test_no_restarts_fetching_with_worker_thread() {
+function test_no_restarts() {
   setup_starlark_repository
 
   echo foo > file1
@@ -1918,21 +1918,7 @@ def _impl(rctx):
 repo = repository_rule(implementation=_impl, local=True)
 EOF
 
-  # no worker thread, restarts twice
-  bazel build @foo//:bar --experimental_worker_for_repo_fetching=off >& $TEST_log \
-    || fail "Expected build to succeed"
-  expect_log_n "hello world!" 3
-
-  # platform worker thread, never restarts
-  bazel shutdown
-  bazel build @foo//:bar --experimental_worker_for_repo_fetching=platform >& $TEST_log \
-    || fail "Expected build to succeed"
-  expect_log_n "hello world!" 1
-
-  # virtual worker thread, never restarts
-  bazel shutdown
-  bazel build @foo//:bar --experimental_worker_for_repo_fetching=virtual >& $TEST_log \
-    || fail "Expected build to succeed"
+  bazel build @foo//:bar >& $TEST_log || fail "Expected build to succeed"
   expect_log_n "hello world!" 1
 }
 

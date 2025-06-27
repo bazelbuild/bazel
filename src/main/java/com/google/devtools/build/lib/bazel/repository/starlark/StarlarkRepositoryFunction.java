@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoRuleId;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
@@ -61,6 +61,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -74,13 +75,15 @@ import net.starlark.java.eval.SymbolGenerator;
 /** A repository function to delegate work done by Starlark remote repositories. */
 public final class StarlarkRepositoryFunction extends RepositoryFunction {
   private double timeoutScaling = 1.0;
-  private boolean useWorkers;
+  private final Supplier<Map<String, String>> clientEnvironmentSupplier;
   @Nullable private DownloadManager downloadManager;
   @Nullable private ProcessWrapper processWrapper = null;
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor;
   @Nullable private SyscallCache syscallCache;
 
-  public StarlarkRepositoryFunction() {}
+  public StarlarkRepositoryFunction(Supplier<Map<String, String>> clientEnvironmentSupplier) {
+    this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+  }
 
   public void setTimeoutScaling(double timeoutScaling) {
     this.timeoutScaling = timeoutScaling;
@@ -98,25 +101,12 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     this.syscallCache = checkNotNull(syscallCache);
   }
 
-  public void setUseWorkers(boolean useWorkers) {
-    this.useWorkers = useWorkers;
-  }
-
-  @Override
-  protected void setupRepoRootBeforeFetching(Path repoRoot) throws RepositoryFunctionException {
-    // DON'T delete the repo root here if we're using a worker thread, since when this SkyFunction
-    // restarts, fetching is still happening inside the worker thread.
-    if (!useWorkers) {
-      setupRepoRoot(repoRoot);
-    }
-  }
-
-  @Override
-  public void reportSkyframeRestart(Environment env, RepositoryName repoName) {
-    // DON'T report a "restarting." event if we're using a worker thread, since the actual fetch
-    // function run by the worker thread never restarts.
-    if (!useWorkers) {
-      super.reportSkyframeRestart(env, repoName);
+  private static void setupRepoRoot(Path repoRoot) throws RepositoryFunctionException {
+    try {
+      repoRoot.deleteTree();
+      Preconditions.checkNotNull(repoRoot.getParentDirectory()).createDirectoryAndParents();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
   }
 
@@ -129,33 +119,20 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     return env.getState(State::new).result != null;
   }
 
-  private record FetchArgs(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env, SkyKey key) {
-    FetchArgs toWorkerArgs(Environment env) {
-      return new FetchArgs(rule, outputDirectory, directories, env, key);
-    }
-  }
-
   @Nullable
   @Override
   public FetchResult fetch(
       Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env, SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
-    var state = env.getState(State::new);
-    if (state.result != null) {
-      // Escape early if we've already finished fetching once. This can happen if
-      // RepositoryDelegatorFunction triggers a Skyframe restart _after_
-      // StarlarkRepositoryFunction#fetch is finished.
-      return state.result;
-    }
-    var args = new FetchArgs(rule, outputDirectory, directories, env, key);
-    if (!useWorkers) {
-      state.result = fetchInternal(args);
-      return state.result;
-    }
     // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
     while (true) {
-      state = env.getState(State::new);
+      var state = env.getState(State::new);
+      if (state.result != null) {
+        // Escape early if we've already finished fetching once. This can happen if
+        // RepositoryDelegatorFunction triggers a Skyframe restart _after_
+        // StarlarkRepositoryFunction#fetch is finished.
+        return state.result;
+      }
       try {
         state.result =
             state.startOrContinueWork(
@@ -163,7 +140,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
                 "starlark-repository-" + rule.getName(),
                 (workerEnv) -> {
                   setupRepoRoot(outputDirectory);
-                  return fetchInternal(args.toWorkerArgs(workerEnv));
+                  return fetchInternal(rule, outputDirectory, directories, workerEnv, key);
                 });
         return state.result;
       } catch (ExecutionException e) {
@@ -183,12 +160,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
                     "fetch interrupted due to memory pressure; restarting."));
       }
     }
-  }
-
-  @Nullable
-  private FetchResult fetchInternal(FetchArgs args)
-      throws RepositoryFunctionException, InterruptedException {
-    return fetchInternal(args.rule, args.outputDirectory, args.directories, args.env, args.key);
   }
 
   @Nullable
@@ -246,7 +217,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
                 outputDirectory,
                 ignoredSubdirectories.asIgnoredSubdirectories(),
                 env,
-                ImmutableMap.copyOf(clientEnvironment),
+                ImmutableMap.copyOf(clientEnvironmentSupplier.get()),
                 downloadManager,
                 timeoutScaling,
                 processWrapper,
@@ -259,14 +230,9 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
               mu, starlarkSemantics, /* contextDescription= */ "", SymbolGenerator.create(key));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       var repoMappingRecorder = new Label.RepoMappingRecorder();
-      // For repos defined in Bzlmod, record any used repo mappings in the marker file.
-      // Repos defined in WORKSPACE are impossible to verify given the chunked loading (we'd have to
-      // record which chunk the repo mapping was used in, and ain't nobody got time for that).
-      if (!isWorkspaceRepo(rule)) {
-        repoMappingRecorder.mergeEntries(
-            rule.getRuleClassObject().getRuleDefinitionEnvironmentRepoMappingEntries());
-        thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
-      }
+      repoMappingRecorder.mergeEntries(
+          rule.getRuleClassObject().getRuleDefinitionEnvironmentRepoMappingEntries());
+      thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
 
       // We sort of want a starlark thread context here, but no extra info is needed. So we just
       // use an anonymous class.
@@ -396,12 +362,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
    */
   public static boolean isConfigureRule(Rule rule) {
     return rule.getRuleClassObject().isStarlark() && ((Boolean) rule.getAttr("$configure"));
-  }
-
-  @Nullable
-  @Override
-  public Class<? extends RuleDefinition> getRuleDefinition() {
-    return null; // unused so safe to return null
   }
 
   public void setRepositoryRemoteExecutor(RepositoryRemoteExecutor repositoryRemoteExecutor) {

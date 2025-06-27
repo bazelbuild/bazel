@@ -369,14 +369,6 @@ class BazelFetchTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@hello//:bar'])
     self.assertNotIn('name is ', ''.join(stderr))
 
-  def testForceFetchWithRepoCacheNoRepoWorkers(self):
-    self.ScratchFile(
-        '.bazelrc',
-        ['common --experimental_worker_for_repo_fetching=off'],
-        mode='a',
-    )
-    self.testForceFetchWithRepoCache()
-
   def testFetchTarget(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
