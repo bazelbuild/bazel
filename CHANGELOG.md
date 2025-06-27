@@ -1,3 +1,41 @@
+## Release 9.0.0-pre.20250616.2 (2025-06-27)
+
+```
+Baseline: 066a162fb3a53c7a4e1355580de635182ae92216
+
+Cherry picks:
+
+   + 387ed020deff607abcebe9b82ba8ea61da5a5e9d:
+     Attempt to fix Bazel CI failure on Ubuntu
+```
+
+Important changes:
+
+  - Added the `load_wasm` and `execute_wasm` methods to
+    `repository_ctx` and `module_ctx` that allow repo rules and
+    module extensions to run a WebAssembly binary. These methods are
+    only available if `--experimental_repository_ctx_execute_wasm` is
+    set.
+  - Singlejar can exclude certain entries
+
+This release contains contributions from many people at Google, as well as Carmen Chui, David Sanderson, dependabot[bot], Fabian Meumertzheim, Jaden Peterson, John Millikin, Jordan Mele, Keith Smiley, Son Luong Ngoc.
+
+## Release 8.3.0 (2025-06-23)
+
+```
+
+Release Notes:
+
+```
+
+## Release 9.0.0-pre.20250610.2 (2025-06-18)
+
+```
+Baseline: 35c36c42455ecd273ea6ced35342d88978c598f2
+```
+
+This release contains contributions from many people at Google, as well as .
+
 ## Release 9.0.0-pre.20250608.1 (2025-06-12)
 
 ```
