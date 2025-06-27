@@ -64,7 +64,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "incompatible_filegroup_runfiles_for_data",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
