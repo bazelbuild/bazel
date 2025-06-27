@@ -1586,6 +1586,60 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void selectDirectlyOnConstraintsAmbiguousMatchWithFlag() throws Exception {
+    reporter.removeHandler(failFastHandler); // Expect errors.
+    // If both a direct constraint_value and flag value match, that should be an "ambiguous match"
+    // error even though the types of settings (constraint_value vs. flag) are different.
+    scratch.file(
+        "conditions/BUILD",
+        """
+        constraint_setting(name = 'fruit')
+        constraint_value(name = 'apple', constraint_setting = 'fruit')
+        platform(
+            name = 'apple_platform',
+            constraint_values = [':apple'],
+        )
+        config_setting(
+            name = 'flag_matcher',
+            values = {
+                "foo": "bar",
+            },
+        )
+        """);
+    scratch.file(
+        "check/defs.bzl",
+        """
+        def _impl(ctx):
+          pass
+        simple_rule = rule(
+          implementation = _impl,
+          attrs = {'srcs': attr.label_list(allow_files = True)}
+        )
+        """);
+    scratch.file(
+        "check/BUILD",
+        """
+        load('//check:defs.bzl', 'simple_rule')
+        filegroup(name = 'adep', srcs = ['afile'])
+        filegroup(name = 'bdep', srcs = ['bfile'])
+        simple_rule(name = 'hello',
+            srcs = select({
+                '//conditions:apple': [':adep'],
+                '//conditions:flag_matcher': [':bdep'],
+            }))
+        """);
+    useConfiguration("--platforms=//conditions:apple_platform", "--foo=bar");
+    assertThat(getConfiguredTarget("//check:hello")).isNull();
+    assertContainsEvent(
+"""
+Illegal ambiguous match on configurable attribute "srcs" in //check:hello:
+//conditions:apple
+//conditions:flag_matcher
+Multiple matches are not allowed unless one is unambiguously more specialized or they resolve to the same value.\
+""");
+  }
+
+  @Test
   public void nonToolchainResolvingTargetsCantSelectDirectlyOnConstraints() throws Exception {
     // Tests select()ing directly on a constraint_value (with no intermediate config_setting).
     scratch.file(

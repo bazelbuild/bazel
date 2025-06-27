@@ -79,7 +79,7 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
         label,
         ImmutableMultimap.of(),
         ImmutableMap.of(),
-        ImmutableSet.of(),
+        ImmutableSet.of(label),
         computeMatchResult(platformValue));
   }
 
