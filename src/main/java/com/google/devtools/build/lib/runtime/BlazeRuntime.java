@@ -725,7 +725,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     this.env = null;
 
     // Remove any filters that the command might have added to the reporter.
-    env.getReporter().setOutputFilter(OutputFilter.OUTPUT_EVERYTHING);
 
     DetailedExitCode moduleExitCode = null;
 

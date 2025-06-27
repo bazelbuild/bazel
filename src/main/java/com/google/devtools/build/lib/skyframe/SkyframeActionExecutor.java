@@ -88,6 +88,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventContext;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -1268,7 +1269,8 @@ public final class SkyframeActionExecutor {
       FileOutErr outErrBuffer = actionExecutionContext.getFileOutErr();
       if (outErrBuffer.hasRecordedOutput()) {
         if (action.showsOutputUnconditionally()
-            || reporter.showOutput(Label.print(action.getOwner().getLabel()))) {
+            || reporter.showOutput(
+            Event.of(EventKind.INFO, null, "").withTag(Label.print(action.getOwner().getLabel())))) {
           dumpRecordedOutErr(reporter, action, outErrBuffer);
           outputAlreadyDumped = true;
         }
@@ -1496,7 +1498,7 @@ public final class SkyframeActionExecutor {
     // so that we do not print it again in upper levels.
     // Note that we need to report it here since we want immediate feedback of the errors
     // and in some cases the upper-level printing mechanism only prints one of the errors.
-    return printError(e.getMessage(), e.getAction(), outErrBuffer)
+    return printError(e.getMessage(), action, outErrBuffer)
         ? new AlreadyReportedActionExecutionException(e)
         : e;
   }
@@ -1741,6 +1743,20 @@ public final class SkyframeActionExecutor {
     return label != null ? event.withTag(label.toString()) : event;
   }
 
+  private static EventContext getContextForAction(Action action) {
+    ActionOwner owner = action.getOwner();
+    if (owner == null) {
+      return EventContext.builder().build();
+    }
+    EventContext.Builder builder = EventContext.builder();
+    if (owner.getLabel() != null) {
+      builder.setTargetLabel(owner.getLabel().toString());
+      builder.setPackage(owner.getLabel().getPackageIdentifier().toString());
+    }
+    
+    return builder.build();
+  }
+
   /**
    * Convenience function for creating an ActionExecutionException reporting that the action failed
    * due to the exception cause, if there is an additional explanatory message that clarifies the
@@ -1805,8 +1821,11 @@ public final class SkyframeActionExecutor {
   private boolean printError(
       String message, ActionAnalysisMetadata action, @Nullable FileOutErr actionOutput) {
     message = action.describe() + " failed: " + message;
-    return dumpRecordedOutErr(
-        reporter, Event.error(action.getOwner().getLocation(), message), actionOutput);
+    Event errorEvent = Event.error(action.getOwner().getLocation(), message);
+    if (action instanceof Action) {
+      errorEvent = errorEvent.withProperty(EventContext.class, getContextForAction((Action) action));
+    }
+    return dumpRecordedOutErr(reporter, errorEvent, actionOutput);
   }
 
   /**
@@ -1818,6 +1837,7 @@ public final class SkyframeActionExecutor {
   private void dumpRecordedOutErr(
       EventHandler eventHandler, Action action, FileOutErr outErrBuffer) {
     Event event = Event.info("From " + action.describe() + ":");
+    event = event.withProperty(EventContext.class, getContextForAction(action));
     dumpRecordedOutErr(eventHandler, event, outErrBuffer);
   }
 

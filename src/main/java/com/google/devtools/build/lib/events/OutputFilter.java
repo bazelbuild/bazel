@@ -21,13 +21,13 @@ import java.util.regex.Pattern;
 public interface OutputFilter {
 
   /** An output filter that matches everything. */
-  OutputFilter OUTPUT_EVERYTHING = tag -> true;
+  OutputFilter OUTPUT_EVERYTHING = event -> true;
 
   /** An output filter that matches nothing. */
-  OutputFilter OUTPUT_NOTHING = tag -> false;
+  OutputFilter OUTPUT_NOTHING = event -> false;
 
-  /** Returns true iff the given tag matches the output filter. */
-  boolean showOutput(String tag);
+  /** Returns true iff the given event should be shown. */
+  boolean showOutput(Event event);
 
   /** An output filter using regular expression matching. */
   final class RegexOutputFilter implements OutputFilter {
@@ -48,8 +48,11 @@ public interface OutputFilter {
     }
 
     @Override
-    public boolean showOutput(String tag) {
-      return pattern.matcher(StringEncoding.internalToUnicode(tag)).find();
+    public boolean showOutput(Event event) {
+      if (event.getTag() == null) {
+        return false;
+      }
+      return pattern.matcher(StringEncoding.internalToUnicode(event.getTag())).find();
     }
 
     @Override

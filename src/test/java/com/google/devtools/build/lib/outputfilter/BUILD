@@ -25,6 +25,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/outputfilter",
+        "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

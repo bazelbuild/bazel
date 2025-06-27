@@ -23,10 +23,12 @@ import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.List;
 import java.util.regex.Pattern;
 
 /**
@@ -52,6 +54,15 @@ public final class OutputFilteringModule extends BlazeModule {
                 + "'packages' and 'subpackages' values //java/foo and //javatests/foo are treated "
                 + "as one package)'.")
     public AutoOutputFilter autoOutputFilter;
+
+    @Option(
+        name = "output_suppression",
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Specifies a suppression rule for build output.")
+    public List<String> outputSuppressions;
   }
 
   private CommandEnvironment env;
@@ -70,6 +81,28 @@ public final class OutputFilteringModule extends BlazeModule {
 
   @Override
   public void afterCommand() {
+    if (env != null) {
+      // TODO: remove debug logging
+      // env.getReporter().handle(Event.info("afterCommand() called"));
+      // env.getReporter()
+      //     .handle(
+      //         Event.info(
+      //             "Final output filter is "
+      //                 + env.getReporter().getOutputFilter().getClass().getName()));
+      if (env.getReporter().getOutputFilter() instanceof OutputSuppressionFilter) {
+        OutputSuppressionFilter filter =
+            (OutputSuppressionFilter) env.getReporter().getOutputFilter();
+        filter.verifyCounts(env.getReporter());
+        int totalSuppressed = filter.getTotalSuppressedCount();
+        env.getReporter()
+            .handle(
+                Event.info(
+                    String.format(
+                        "Suppressed %d messages via --output_suppression; pass"
+                            + " --no_output_suppression to display.",
+                        totalSuppressed)));
+      }
+    }
     this.env = null;
     this.autoOutputFilter = null;
   }
@@ -77,27 +110,69 @@ public final class OutputFilteringModule extends BlazeModule {
   @Subscribe
   @SuppressWarnings("unused")
   public void buildStarting(BuildStartingEvent event) {
+    Options options = env.getOptions().getOptions(Options.class);
     BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
-    Pattern outputFilter =
-        (requestOptions != null) && (requestOptions.outputFilter != null)
-            ? requestOptions.outputFilter.regexPattern()
-            : null;
-    if (outputFilter != null) {
-      // Coarse-grained initialization of the output filter. This only has an
-      // effect if the --output_filter option is given. The auto output filter is
-      // only initialized later, when we know all targets. For now this is good
-      // enough, as the target parsing only loads packages that are mentioned on
-      // the command line (which are included by all auto output filters).
-      env.getReporter().setOutputFilter(RegexOutputFilter.forPattern(outputFilter));
+
+    boolean suppressionsActive =
+        options.outputSuppressions != null && !options.outputSuppressions.isEmpty();
+    boolean outputFilterActive =
+        requestOptions != null && requestOptions.outputFilter != null;
+    boolean autoFilterActive =
+        options.autoOutputFilter != null && options.autoOutputFilter != AutoOutputFilter.NONE;
+
+    if (suppressionsActive) {
+      // TODO: remove debug logging
+      // env.getReporter().handle(Event.info("Installing OutputSuppressionFilter"));
+      // env.getReporter()
+      //     .handle(
+      //         Event.info(
+      //             String.format(
+      //                 "Activating %d output suppression rules.", options.outputSuppressions.size())));
+      env.getReporter()
+          .setOutputFilter(new OutputSuppressionFilter(options.outputSuppressions));
+      this.autoOutputFilter = null;
+
+      if (outputFilterActive) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "Both --output_suppression and --output_filter are specified. "
+                        + "--output_suppression takes precedence."));
+      }
+      if (autoFilterActive) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "Both --output_suppression and --auto_output_filter are specified. "
+                        + "--output_suppression takes precedence."));
+      }
+      return;
+    }
+
+    if (outputFilterActive) {
+      // TODO: remove debug logging
+      // env.getReporter().handle(Event.info("Installing RegexOutputFilter"));
+      env.getReporter()
+          .setOutputFilter(RegexOutputFilter.forPattern(requestOptions.outputFilter.regexPattern()));
     } else {
+      // TODO: remove debug logging
+      // env.getReporter().handle(Event.info("Using auto output filter"));
       this.autoOutputFilter = env.getOptions().getOptions(Options.class).autoOutputFilter;
     }
+
   }
 
   @Subscribe
   @SuppressWarnings("unused")
   public void targetParsingComplete(TargetParsingCompleteEvent event) {
     if (autoOutputFilter != null) {
+      // TODO: remove debug logging
+      // env.getReporter()
+      //     .handle(
+      //         Event.info(
+      //             "Installing auto output filter "
+      //                 + autoOutputFilter.getClass().getName()
+      //                 + " in targetParsingComplete"));
       env.getReporter().setOutputFilter(autoOutputFilter.getFilter(event.getLabels()));
     }
   }
