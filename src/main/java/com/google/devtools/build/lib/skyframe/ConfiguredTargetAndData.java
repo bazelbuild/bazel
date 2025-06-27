@@ -337,6 +337,12 @@ public class ConfiguredTargetAndData {
         (Rule) target, configuredTarget.getConfigConditions(), configuration);
   }
 
+  @Override
+  public String toString() {
+    return "ConfiguredTargetAndData(target=%s, configuration=%s)"
+        .formatted(configuredTarget.getLabel(), configuration);
+  }
+
   private static final class SplitDependencyComparator
       implements Comparator<ConfiguredTargetAndData> {
     @Override
