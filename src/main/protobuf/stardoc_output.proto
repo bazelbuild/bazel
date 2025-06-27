@@ -168,6 +168,10 @@ message AttributeInfo {
 
   // If true, the attribute is defined in Bazel's native code, not in Starlark.
   bool natively_defined = 8;
+
+  // If non-empty, the string representations of the allowed values for this
+  // attribute.
+  repeated string allowed_values = 9;
 }
 
 // Representation of a set of providers.
