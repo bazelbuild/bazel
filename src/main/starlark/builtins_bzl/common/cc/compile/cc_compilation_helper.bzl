@@ -471,9 +471,9 @@ def _init_cc_compilation_context(
                        _enabled(feature_configuration, "compile_all_modules")
 
             if _enabled(feature_configuration, "only_doth_headers_in_module_maps"):
-                public_headers_for_module_map_action = [header for header in public_headers.module_map_headers if (header.is_directory or header.extension == "h")]
+                public_headers_for_module_map_action = [header for header in public_headers.module_map_headers + textual_headers.module_map_headers if (header.is_directory or header.extension == "h")]
             else:
-                public_headers_for_module_map_action = public_headers.module_map_headers
+                public_headers_for_module_map_action = public_headers.module_map_headers + textual_headers.module_map_headers
 
             private_headers_for_module_map_action = private_headers_artifacts
             if _enabled(feature_configuration, "exclude_private_headers_in_module_maps"):
