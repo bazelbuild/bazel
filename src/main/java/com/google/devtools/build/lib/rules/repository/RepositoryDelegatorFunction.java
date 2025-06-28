@@ -95,18 +95,18 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   // command is a fetch. Remote repository lookups are only allowed during fetches.
   private final AtomicBoolean isFetch;
   private final BlazeDirectories directories;
-  private final Supplier<Map<String, String>> clientEnvironmentSupplier;
+  private final Supplier<Map<String, String>> repoEnvironmentSupplier;
   private final RepoContentsCache repoContentsCache;
 
   public RepositoryDelegatorFunction(
       @Nullable RepositoryFunction starlarkHandler,
       AtomicBoolean isFetch,
-      Supplier<Map<String, String>> clientEnvironmentSupplier,
+      Supplier<Map<String, String>> repoEnvironmentSupplier,
       BlazeDirectories directories,
       RepoContentsCache repoContentsCache) {
     this.starlarkHandler = starlarkHandler;
     this.isFetch = isFetch;
-    this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+    this.repoEnvironmentSupplier = repoEnvironmentSupplier;
     this.directories = directories;
     this.repoContentsCache = repoContentsCache;
   }
@@ -160,7 +160,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         return new RepositoryDirectoryValue.Failure(
             String.format("'%s' is not a repository rule", repositoryName));
       }
-      handler.setClientEnvironment(clientEnvironmentSupplier.get());
+      // TODO Handle environ deps not in repo env supplier (non-default env vars)
+      handler.setRepoEnvironment(repoEnvironmentSupplier.get());
 
       DigestWriter digestWriter =
           new DigestWriter(directories, repositoryName, rule, starlarkSemantics);

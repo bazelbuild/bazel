@@ -598,6 +598,22 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean repoEnvIgnoresActionEnv;
 
   @Option(
+      name = "strict_repo_env",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          """
+          If true, repository rules and module extensions will only inherit <code>PATH</code>, \
+          <code>PATHEXT</code> (Windows) and environment variables explicitly specified by \
+          <code>--repo_env</code>.
+          <br>
+          Note that unless <code>--incompatible_repo_env_ignores_action_env</code> is true,
+          <code>--action_env=NAME=VALUE</code> will also be included.
+          """)
+    public boolean useStrictRepoEnv;
+
+  @Option(
       name = "heuristically_drop_nodes",
       oldName = "experimental_heuristically_drop_nodes",
       oldNameWarning = false,
