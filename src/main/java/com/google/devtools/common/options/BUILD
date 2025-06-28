@@ -57,5 +57,6 @@ java_library(
         "//third_party:caffeine",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//src/main/java/com/google/devtools/build/lib/util:markdown",
     ],
 )

@@ -185,6 +185,7 @@ maven.install(
         "org.apache.tomcat:tomcat-annotations-api:8.0.5",
         "org.apache.velocity:velocity:1.7",
         "org.checkerframework:checker-qual:3.42.0",
+        "org.commonmark:commonmark:0.25.0",
         "org.openjdk.jmh:jmh-core:1.37",
         "org.openjdk.jmh:jmh-generator-annprocess:1.37",
         "org.ow2.asm:asm:9.7.1",
