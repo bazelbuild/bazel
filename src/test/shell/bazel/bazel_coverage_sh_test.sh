@@ -23,7 +23,6 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 source "${CURRENT_DIR}/coverage_helpers.sh" \
   || { echo "coverage_helpers.sh not found!" >&2; exit 1; }
 
-
 function set_up_sh_test_coverage() {
   add_rules_shell "MODULE.bazel"
   add_rules_java "MODULE.bazel"
