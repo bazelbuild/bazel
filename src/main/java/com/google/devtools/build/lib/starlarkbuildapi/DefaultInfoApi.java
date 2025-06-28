@@ -32,14 +32,15 @@ import net.starlark.java.eval.StarlarkThread;
 @StarlarkBuiltin(
     name = "DefaultInfo",
     category = DocCategory.PROVIDER,
-    doc =
-        "A provider that gives general information about a target's direct and transitive files."
-            + " Every rule type has this provider, even if it is not returned explicitly by the"
-            + " rule's implementation function. Each <code>DefaultInfo</code> instance has the"
-            + " following fields: <ul><li><code>files</code><li><code>files_to_run</code>"
-            + "<li><code>data_runfiles</code><li><code>default_runfiles</code></ul>See the <a"
-            + " href='https://bazel.build/extending/rules'>rules</a> page for extensive guides on"
-            + " how to use this provider.")
+    doc = """
+A provider that gives general information about a target's direct and transitive files. Every \
+rule type has this provider, even if it is not returned explicitly by the rule's implementation \
+function.
+<p>
+See the <a href="https://bazel.build/extending/rules">rules</a> page for extensive guides on how \
+to use this provider.
+</p>
+    """)
 public interface DefaultInfoApi extends StructApi {
 
   static final String DEPRECATED_RUNFILES_PARAMETER_WARNING =
@@ -99,7 +100,7 @@ public interface DefaultInfoApi extends StructApi {
 
     @StarlarkMethod(
         name = "DefaultInfo",
-        doc = "<p>The <code>DefaultInfo</code> constructor.",
+        doc = "The <code>DefaultInfo</code> constructor.",
         parameters = {
           @Param(
               name = "files",
@@ -124,9 +125,11 @@ public interface DefaultInfoApi extends StructApi {
               named = true,
               positional = false,
               defaultValue = "None",
-              doc =
-                  "runfiles descriptor describing the files that this target needs when run "
-                      + "(via the <code>run</code> command or as a tool dependency)."),
+              doc = """
+<a href="../builtins/runfiles.html"><code>runfiles</code></a> descriptor describing the files \
+that this target needs when run (e.g. via the <code>run</code> command or as a tool dependency \
+for an action).
+              """),
           @Param(
               name = "data_runfiles",
               allowedTypes = {
