@@ -109,7 +109,7 @@ genrule(
 )
 EOF
   touch input.txt
-  bazel build --spawn_strategy=worker,local --allowed_strategies_by_exec_platform=@platforms//host:host=sandboxed //:foo 2> $TEST_log || true
+  bazel build --spawn_strategy=remote --allowed_strategies_by_exec_platform=@platforms//host:host=worker,local //:foo 2> $TEST_log || true
   assert_contains "Your .* --allowed_strategies_by_exec_platform flags are probably too strict" "$TEST_log"
 }
 
