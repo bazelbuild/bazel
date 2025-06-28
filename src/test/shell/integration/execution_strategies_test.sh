@@ -97,9 +97,15 @@ function test_allowed_strategies_by_exec_platform() {
   assert_contains '"@@platforms//host:host" = \[StandaloneSpawnStrategy\]' "$SERVER_LOG"
 }
 
+# Tests that canonical labels can be used to target execution platform strategy filters.
+function test_allowed_strategies_by_exec_platform_canonicalized() {
+  SERVER_LOG=$(bazel info server_log)
+  bazel build --spawn_strategy=worker,local --allowed_strategies_by_exec_platform=@@platforms//host:host=local || fail
+  assert_contains '"@@platforms//host:host" = \[StandaloneSpawnStrategy\]' "$SERVER_LOG"
+}
+
 # Tests that expected message is printed when no spawn strategy can be resolved.
 function test_allowed_strategies_by_exec_platform_exhausted() {
-  SERVER_LOG=$(bazel info server_log)
   cat >BUILD <<'EOF'
 genrule(
   name = "foo",
