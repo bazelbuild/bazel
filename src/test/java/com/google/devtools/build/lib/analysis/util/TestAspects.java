@@ -302,7 +302,8 @@ public class TestAspects {
         RepositoryName toolsRepository)
         throws ActionConflictException, InterruptedException {
       Artifact artifact = ruleContext.getBinArtifact("file_provider_aspect_file");
-      ruleContext.registerAction(FileWriteAction.create(ruleContext, artifact, "empty", false));
+      ruleContext.registerAction(
+          FileWriteAction.create(ruleContext, artifact, "empty", false, /* mnemonic= */ null));
       return new ConfiguredAspect.Builder(ruleContext)
           .addProvider(FileProvider.of(NestedSetBuilder.create(Order.STABLE_ORDER, artifact)))
           .build();

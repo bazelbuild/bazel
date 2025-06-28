@@ -67,7 +67,8 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     public ConfiguredTarget create(RuleContext context)
         throws ActionConflictException, InterruptedException {
       Artifact executable = context.getBinArtifact(context.getLabel().getName());
-      context.registerAction(FileWriteAction.create(context, executable, "#!/bin/true", true));
+      context.registerAction(
+          FileWriteAction.create(context, executable, "#!/bin/true", true, /* mnemonic= */ null));
       Runfiles runfiles =
           new Runfiles.Builder(context.getWorkspaceName()).addArtifact(executable).build();
       return new RuleConfiguredTargetBuilder(context)
