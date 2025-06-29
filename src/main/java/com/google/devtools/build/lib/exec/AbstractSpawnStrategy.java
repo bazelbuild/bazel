@@ -193,7 +193,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         spawnLogContext.logSpawn(
             spawn,
             actionExecutionContext.getInputMetadataProvider(),
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ false),
+            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ false, true),
             actionExecutionContext.getActionFileSystem() != null
                 ? actionExecutionContext.getActionFileSystem()
                 : actionExecutionContext.getExecRoot().getFileSystem(),
@@ -281,7 +281,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                 .getActionInputPrefetcher()
                 .prefetchFiles(
                     spawn.getResourceOwner(),
-                    getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
+                    getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true, true)
                         .values(),
                     getInputMetadataProvider(),
                     Priority.MEDIUM,
@@ -349,7 +349,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
 
     @Override
     public SortedMap<PathFragment, ActionInput> getInputMapping(
-        PathFragment baseDirectory, boolean willAccessRepeatedly) {
+        PathFragment baseDirectory, boolean willAccessRepeatedly, boolean expandRunfilesTrees) {
       // Return previously computed copy if present.
       if (lazyInputMapping != null && inputMappingBaseDirectory.equals(baseDirectory)) {
         return lazyInputMapping;
