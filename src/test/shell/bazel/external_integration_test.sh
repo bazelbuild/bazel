@@ -2562,13 +2562,12 @@ function test_overwrite_existing_workspace_build() {
   do
     rm -rf ext ext.tar
     mkdir ext
-    sh -c "${bad_file}" -- ext/WORKSPACE
     sh -c "${bad_file}" -- ext/BUILD.bazel
     echo hello world > ext/data
     tar cvf ext.tar ext
 
     for BUILD_FILE in \
-      'build_file_content = '\''exports_files(["data", "WORKSPACE"])'\' \
+      'build_file_content = '\''exports_files(["data"])'\' \
       'build_file = "@//:external_build_file"'
     do
       rm -rf main
@@ -2591,7 +2590,7 @@ EOF
       echo
 
       cat > external_build_file <<'EOF'
-exports_files(["data", "WORKSPACE"])
+exports_files(["data"])
 EOF
 
       cat > BUILD <<'EOF'
@@ -2601,21 +2600,11 @@ genrule(
   srcs = ["@ext//:data"],
   outs = ["it.txt"],
 )
-
-genrule(
-  name = "ws",
-  cmd = "cp $< $@",
-  srcs = ["@ext//:WORKSPACE"],
-  outs = ["ws.txt"],
-)
 EOF
 
       bazel build //:it || fail "Expected success"
       grep 'world' `bazel info bazel-genfiles`/it.txt \
           || fail "Wrong content of data file"
-      bazel build //:ws || fail "Expected success"
-      grep 'BAD' `bazel info bazel-genfiles`/ws.txt \
-          && fail "WORKSPACE file not overwritten" || :
 
       cd ..
     done
