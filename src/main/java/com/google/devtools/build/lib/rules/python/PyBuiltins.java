@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -146,6 +147,7 @@ public abstract class PyBuiltins implements StarlarkValue {
   public String getLabelRepoRunfilesPath(Label label) {
     return label.getPackageIdentifier().getRunfilesPath().getPathString();
   }
+
   // TODO(bazel-team): Remove this once rules are switched to using execpath semanatics for the
   // $(location) function. See https://github.com/bazelbuild/bazel/issues/15294
   @StarlarkMethod(
@@ -232,7 +234,12 @@ public abstract class PyBuiltins implements StarlarkValue {
                 runfiles.getArtifacts(),
                 runfiles.getSymlinks(),
                 runfiles.getRootSymlinks(),
-                ruleContext.getWorkspaceName()));
+                ruleContext.getWorkspaceName(),
+                ruleContext
+                    .getConfiguration()
+                    .getOptions()
+                    .get(CoreOptions.class)
+                    .compactRepoMapping));
   }
 
   @StarlarkMethod(
