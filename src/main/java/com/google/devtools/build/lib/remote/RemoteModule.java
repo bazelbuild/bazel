@@ -640,27 +640,15 @@ public final class RemoteModule extends BlazeModule {
         }
       }
 
-      RemoteExecutionClient remoteExecutor;
-      if (remoteOptions.remoteExecutionKeepalive) {
-        RemoteRetrier execRetrier =
-            new RemoteRetrier(
-                remoteOptions,
-                RemoteRetrier.RETRIABLE_GRPC_ERRORS, // Handle NOT_FOUND internally
-                retryScheduler,
-                circuitBreaker);
-        remoteExecutor =
-            new ExperimentalGrpcRemoteExecutor(
-                remoteOptions, execChannel.retain(), callCredentialsProvider, execRetrier);
-      } else {
-        RemoteRetrier execRetrier =
-            new RemoteRetrier(
-                remoteOptions,
-                RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
-                retryScheduler,
-                circuitBreaker);
-        remoteExecutor =
-            new GrpcRemoteExecutor(execChannel.retain(), callCredentialsProvider, execRetrier);
-      }
+      RemoteRetrier execRetrier =
+          new RemoteRetrier(
+              remoteOptions,
+              RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
+              retryScheduler,
+              circuitBreaker);
+      RemoteExecutionClient remoteExecutor =
+          new GrpcRemoteExecutor(
+              remoteOptions, execChannel.retain(), callCredentialsProvider, execRetrier);
       execChannel.release();
       RemoteExecutionCache remoteCache =
           new RemoteExecutionCache(remoteCacheClient, diskCacheClient, remoteOptions, digestUtil);
