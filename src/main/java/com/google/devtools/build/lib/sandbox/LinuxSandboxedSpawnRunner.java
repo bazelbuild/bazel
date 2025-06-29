@@ -27,14 +27,17 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -61,6 +64,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -171,6 +175,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final LocalEnvProvider localEnvProvider;
   private final Duration timeoutKillDelay;
   private final TreeDeleter treeDeleter;
+  private final RunfilesTreeUpdater runfilesTreeUpdater;
   private final Path slashTmp;
   private final ImmutableSet<Path> knownPathsToMountUnderHermeticTmp;
   private String cgroupsDir;
@@ -191,7 +196,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Path inaccessibleHelperFile,
       Path inaccessibleHelperDir,
       Duration timeoutKillDelay,
-      TreeDeleter treeDeleter) {
+      TreeDeleter treeDeleter,
+      RunfilesTreeUpdater runfilesTreeUpdater) {
     super(cmdEnv);
     SandboxOptions sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
     this.cgroupFactory =
@@ -213,6 +219,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.timeoutKillDelay = timeoutKillDelay;
     this.localEnvProvider = new PosixLocalEnvProvider(cmdEnv.getClientEnv());
     this.treeDeleter = treeDeleter;
+    this.runfilesTreeUpdater = runfilesTreeUpdater;
     this.slashTmp = cmdEnv.getRuntime().getFileSystem().getPath("/tmp");
     this.knownPathsToMountUnderHermeticTmp = collectPathsToMountUnderHermeticTmp(cmdEnv);
   }
@@ -298,10 +305,27 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(workspaceName);
     sandboxExecRoot.createDirectoryAndParents();
 
-    SandboxInputs inputs =
-        SandboxHelpers.processInputFiles(
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-            execRoot);
+    var runfilesMounts = ImmutableMap.<Path, Path>builder();
+    var runfilesTrees = new ArrayList<RunfilesTree>();
+    var inputMapping =
+        context.getInputMapping(
+            PathFragment.EMPTY_FRAGMENT,
+            /* willAccessRepeatedly= */ true,
+            /* expandRunfilesTrees= */ false);
+    var inputMappingWithoutRunfiles =
+        Maps.filterValues(
+            inputMapping,
+            input -> !(input instanceof Artifact artifact) || !artifact.isRunfilesTree());
+    inputMapping.forEach(
+        (execPath, input) -> {
+          if (input instanceof Artifact artifact && artifact.isRunfilesTree()) {
+            runfilesMounts.put(sandboxExecRoot.getRelative(execPath), artifact.getPath());
+            runfilesTrees.add(
+                context.getInputMetadataProvider().getRunfilesMetadata(artifact).getRunfilesTree());
+          }
+        });
+    SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMappingWithoutRunfiles, execRoot);
+    runfilesTreeUpdater.updateRunfiles(runfilesTrees);
 
     ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
@@ -345,7 +369,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .setWritableFilesAndDirectories(writableDirs)
             .setTmpfsDirectories(ImmutableSet.copyOf(getSandboxOptions().sandboxTmpfsPath))
             .setBindMounts(
-                prepareAndGetBindMounts(sandboxExecRoot, sandboxTmp, pathsUnderTmpToMount))
+                prepareAndGetBindMounts(
+                    sandboxExecRoot,
+                    sandboxTmp,
+                    pathsUnderTmpToMount,
+                    runfilesMounts.buildOrThrow()))
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
             .setEnablePseudoterminal(getSandboxOptions().sandboxExplicitPseudoterminal)
             .setCreateNetworkNamespace(createNetworkNamespace ? getNetworkNamespace() : NO_NETNS)
@@ -435,7 +463,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   private ImmutableMap<Path, Path> prepareAndGetBindMounts(
-      Path sandboxExecRoot, @Nullable Path sandboxTmp, ImmutableSet<Path> pathsUnderTmpToMount)
+      Path sandboxExecRoot,
+      @Nullable Path sandboxTmp,
+      ImmutableSet<Path> pathsUnderTmpToMount,
+      Map<Path, Path> runfilesMounts)
       throws UserExecException, IOException {
     final SortedMap<Path, Path> userBindMounts = new TreeMap<>();
     SandboxHelpers.mountAdditionalPaths(
@@ -444,6 +475,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .buildKeepingLast(),
         sandboxExecRoot,
         userBindMounts);
+    userBindMounts.putAll(runfilesMounts);
 
     for (Path inaccessiblePath : getInaccessiblePaths()) {
       if (!inaccessiblePath.exists()) {
@@ -511,7 +543,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private void checkForConcurrentModifications(SpawnExecutionContext context) throws IOException {
     for (ActionInput input :
         context
-            .getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
+            .getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true, true)
             .values()) {
       if (input instanceof VirtualActionInput) {
         // Virtual inputs are not existing in file system and can't be tampered with via sandbox. No

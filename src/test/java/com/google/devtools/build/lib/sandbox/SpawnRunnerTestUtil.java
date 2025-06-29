@@ -132,7 +132,7 @@ public final class SpawnRunnerTestUtil {
 
     @Override
     public SortedMap<PathFragment, ActionInput> getInputMapping(
-        PathFragment baseDirectory, boolean willAccessRepeatedly) {
+        PathFragment baseDirectory, boolean willAccessRepeatedly, boolean expandRunfilesTrees) {
       TreeMap<PathFragment, ActionInput> inputMapping = new TreeMap<>();
       for (ActionInput actionInput : spawn.getInputFiles().toList()) {
         inputMapping.put(baseDirectory.getRelative(actionInput.getExecPath()), actionInput);

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
@@ -215,7 +216,9 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
         commandEnvironment,
         sandboxBase,
         /* timeoutKillDelay= */ Duration.ofSeconds(2),
-        treeDeleter);
+        treeDeleter,
+        new RunfilesTreeUpdater(
+            commandEnvironment.getExecRoot(), commandEnvironment.getXattrProvider()));
   }
 
   private SpawnExecutionContextForTesting createSpawnExecutionContext(Spawn spawn) {

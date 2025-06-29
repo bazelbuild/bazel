@@ -341,7 +341,12 @@ public final class SandboxModule extends BlazeModule {
       SandboxFallbackSpawnRunner spawnRunner =
           withFallback(
               cmdEnv,
-              LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, timeoutKillDelay, treeDeleter));
+              LinuxSandboxedStrategy.create(
+                  cmdEnv,
+                  sandboxBase,
+                  timeoutKillDelay,
+                  treeDeleter,
+                  new RunfilesTreeUpdater(cmdEnv.getExecRoot(), cmdEnv.getXattrProvider())));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
           new LinuxSandboxedStrategy(spawnRunner, executionOptions), "sandboxed", "linux-sandbox");
@@ -429,7 +434,7 @@ public final class SandboxModule extends BlazeModule {
         LocalEnvProvider.forCurrentOs(env.getClientEnv()),
         env.getBlazeWorkspace().getBinTools(),
         ProcessWrapper.fromCommandEnvironment(env),
-        RunfilesTreeUpdater.forCommandEnvironment(env));
+        new RunfilesTreeUpdater(env.getExecRoot(), env.getXattrProvider()));
   }
 
   /**

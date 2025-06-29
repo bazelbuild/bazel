@@ -250,7 +250,7 @@ public interface SpawnRunner {
      * is not the same as the execroot.
      */
     SortedMap<PathFragment, ActionInput> getInputMapping(
-        PathFragment baseDirectory, boolean willAccessRepeatedly);
+        PathFragment baseDirectory, boolean willAccessRepeatedly, boolean expandRunfilesTrees);
 
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus progress);
