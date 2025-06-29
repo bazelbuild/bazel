@@ -193,7 +193,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         spawnLogContext.logSpawn(
             spawn,
             actionExecutionContext.getInputMetadataProvider(),
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ false, true),
+            context.getInputMapping(
+                PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ false, true),
             actionExecutionContext.getActionFileSystem() != null
                 ? actionExecutionContext.getActionFileSystem()
                 : actionExecutionContext.getExecRoot().getFileSystem(),
@@ -281,7 +282,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                 .getActionInputPrefetcher()
                 .prefetchFiles(
                     spawn.getResourceOwner(),
-                    getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true, true)
+                    getInputMapping(
+                            PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true, true)
                         .values(),
                     getInputMetadataProvider(),
                     Priority.MEDIUM,
@@ -360,7 +362,10 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
           Profiler.instance().profile("AbstractSpawnStrategy.getInputMapping")) {
         inputMapping =
             spawnInputExpander.getInputMapping(
-                spawn, actionExecutionContext.getInputMetadataProvider(), baseDirectory);
+                spawn,
+                actionExecutionContext.getInputMetadataProvider(),
+                baseDirectory,
+                expandRunfilesTrees);
       }
 
       // Don't cache the input mapping if it is unlikely that it is used again.

@@ -310,7 +310,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     var inputMapping =
         context.getInputMapping(
             PathFragment.EMPTY_FRAGMENT,
-            /* willAccessRepeatedly= */ true,
+            /* willAccessRepeatedly= */ false,
             /* expandRunfilesTrees= */ false);
     var inputMappingWithoutRunfiles =
         Maps.filterValues(
@@ -319,7 +319,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     inputMapping.forEach(
         (execPath, input) -> {
           if (input instanceof Artifact artifact && artifact.isRunfilesTree()) {
-            runfilesMounts.put(sandboxExecRoot.getRelative(execPath), artifact.getPath());
+            // runfilesMounts.put(sandboxExecRoot.getRelative(execPath), artifact.getPath());
             runfilesTrees.add(
                 context.getInputMetadataProvider().getRunfilesMetadata(artifact).getRunfilesTree());
           }
