@@ -111,7 +111,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     try (SilentCloseable c = Profiler.instance().profile("LinuxSandboxedSpawnRunner.isSupported")) {
       cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
     } catch (CommandException e) {
-      return false;
+      throw new AssertionError(e);
     }
 
     return true;
