@@ -283,7 +283,8 @@ public class RemoteSpawnRunnerTest {
             execRoot.asFragment(),
             artifactRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
             new ActionInputMap(0),
-            actionInputFetcher);
+            actionInputFetcher,
+            OutputPermissions.READONLY);
 
     return new FakeSpawnExecutionContext(
         spawn, fakeFileCache, execRoot, outErr, actionContextRegistry, actionFileSystem);
@@ -1178,7 +1179,8 @@ public class RemoteSpawnRunnerTest {
             /* captureCorruptedOutputsDir= */ null,
             remoteOutputChecker,
             mock(OutputService.class),
-            Sets.newConcurrentHashSet());
+            Sets.newConcurrentHashSet(),
+            OutputPermissions.READONLY);
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(
             execRoot,
@@ -1715,7 +1717,8 @@ public class RemoteSpawnRunnerTest {
                 /* captureCorruptedOutputsDir= */ null,
                 remoteOutputChecker,
                 mock(OutputService.class),
-                Sets.newConcurrentHashSet()));
+                Sets.newConcurrentHashSet(),
+                OutputPermissions.READONLY));
 
     return new RemoteSpawnRunner(
         execRoot,
