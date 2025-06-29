@@ -226,12 +226,14 @@ class BazelRegistry:
     zip_obj = zipfile.ZipFile(str(zip_path), 'w')
     for foldername, _, filenames in os.walk(str(src_dir)):
       for filename in filenames:
-        if filename == 'MODULE.bazel':
-          # Skip MODULE.bazel, it will be taken from the registry.
-          continue
         filepath = os.path.join(foldername, filename)
-        zip_obj.write(filepath,
-                      str(pathlib.Path(filepath).relative_to(src_dir)))
+        arcname = str(pathlib.Path(filepath).relative_to(src_dir))
+        if filename == 'MODULE.bazel':
+          # Verify that MODULE.bazel doesn't have to be included in the archive
+          # by writing an effectively empty one.
+          zip_obj.writestr(arcname, '# FAKE\nmodule(name = "%s", version = "%s")\n' % (name, version))
+        else:
+          zip_obj.write(filepath, arcname)
     zip_obj.close()
     return zip_path
 
