@@ -226,6 +226,9 @@ class BazelRegistry:
     zip_obj = zipfile.ZipFile(str(zip_path), 'w')
     for foldername, _, filenames in os.walk(str(src_dir)):
       for filename in filenames:
+        if filename == 'MODULE.bazel':
+          # Skip MODULE.bazel, it will be taken from the registry.
+          continue
         filepath = os.path.join(foldername, filename)
         zip_obj.write(filepath,
                       str(pathlib.Path(filepath).relative_to(src_dir)))
