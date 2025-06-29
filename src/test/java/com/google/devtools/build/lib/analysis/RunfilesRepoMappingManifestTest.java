@@ -22,8 +22,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -44,6 +47,14 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
     // external repositories are enabled.
     return SkyframeExecutorRepositoryHelpersHolder.create(
         new RepositoryDirectoryDirtinessChecker());
+  }
+
+  @Override
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
+    return builder.build();
   }
 
   /**
@@ -217,9 +228,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
     invalidatePackages();
 
     assertThat(getRepoMappingManifestForTarget("//:tooled"))
-        .containsExactly(
-            "bare_rule+,bare_rule,bare_rule+",
-            "tooled_rule+,bare_rule,bare_rule+")
+        .containsExactly("bare_rule+,bare_rule,bare_rule+", "tooled_rule+,bare_rule,bare_rule+")
         .inOrder();
   }
 
