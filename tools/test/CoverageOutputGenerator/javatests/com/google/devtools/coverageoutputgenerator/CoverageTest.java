@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -117,7 +118,8 @@ public class CoverageTest {
     SourceFileCoverage validSource2 = new SourceFileCoverage("/valid/package/file4.c");
     coverage.add(validSource2);
     Collection<SourceFileCoverage> filteredSources =
-        Coverage.filterOutMatchingSources(coverage, ImmutableList.of("/filterOut/package/.+"))
+        Coverage.filterOutMatchingSources(
+                coverage, ImmutableList.of(Pattern.compile("/filterOut/package/.+")))
             .getAllSourceFiles();
 
     assertThat(filteredSources).containsExactly(validSource1, validSource2);
@@ -130,7 +132,8 @@ public class CoverageTest {
     coverage.add(new SourceFileCoverage("/filterOut/package/file1.c"));
     coverage.add(new SourceFileCoverage("/filterOut/package/file2.c"));
     Collection<SourceFileCoverage> filteredSources =
-        Coverage.filterOutMatchingSources(coverage, ImmutableList.of("/filterOut/package/.+"))
+        Coverage.filterOutMatchingSources(
+                coverage, ImmutableList.of(Pattern.compile("/filterOut/package/.+")))
             .getAllSourceFiles();
 
     assertThat(filteredSources).isEmpty();
@@ -145,7 +148,8 @@ public class CoverageTest {
     SourceFileCoverage validSource2 = new SourceFileCoverage("/valid/package/file4.c");
     coverage.add(validSource2);
     Collection<SourceFileCoverage> filteredSources =
-        Coverage.filterOutMatchingSources(coverage, ImmutableList.of("/something/else/.+"))
+        Coverage.filterOutMatchingSources(
+                coverage, ImmutableList.of(Pattern.compile("/something/else/.+")))
             .getAllSourceFiles();
 
     assertThat(filteredSources).containsExactly(validSource1, validSource2);
@@ -164,7 +168,9 @@ public class CoverageTest {
     coverage.add(validSource2);
     Collection<SourceFileCoverage> filteredSources =
         Coverage.filterOutMatchingSources(
-                coverage, ImmutableList.of("/filterOut/package/.+", ".+external.+"))
+                coverage,
+                ImmutableList.of(
+                    Pattern.compile("/filterOut/package/.+"), Pattern.compile(".+external.+")))
             .getAllSourceFiles();
 
     assertThat(filteredSources).containsExactly(validSource1, validSource2);

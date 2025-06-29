@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.regex.Pattern;
 
 class Coverage {
   private final TreeMap<String, SourceFileCoverage> sourceFiles;
@@ -31,13 +32,7 @@ class Coverage {
   }
 
   void add(SourceFileCoverage input) {
-    String sourceFilename = input.sourceFileName();
-    if (sourceFiles.containsKey(sourceFilename)) {
-      SourceFileCoverage old = sourceFiles.get(sourceFilename);
-      sourceFiles.put(sourceFilename, SourceFileCoverage.merge(old, input));
-    } else {
-      sourceFiles.put(sourceFilename, input);
-    }
+    sourceFiles.merge(input.sourceFileName(), input, SourceFileCoverage::merge);
   }
 
   static Coverage merge(Coverage... coverages) {
@@ -104,13 +99,14 @@ class Coverage {
       return;
     }
     for (SourceFileCoverage source : this.getAllSourceFiles()) {
-      if (reportedToOriginalSources.containsKey(source.sourceFileName())) {
-        source.changeSourcefileName(reportedToOriginalSources.get(source.sourceFileName()));
+      String originalSourceFileName = reportedToOriginalSources.get(source.sourceFileName());
+      if (originalSourceFileName != null) {
+        source.changeSourcefileName(originalSourceFileName);
       }
     }
   }
 
-  static Coverage filterOutMatchingSources(Coverage coverage, List<String> regexes)
+  static Coverage filterOutMatchingSources(Coverage coverage, List<Pattern> regexes)
       throws IllegalArgumentException {
     if (coverage == null || regexes == null) {
       throw new IllegalArgumentException("Coverage and regex should not be null.");
@@ -120,20 +116,12 @@ class Coverage {
     }
     Coverage filteredCoverage = new Coverage();
     for (SourceFileCoverage source : coverage.getAllSourceFiles()) {
-      if (!matchesAnyRegex(source.sourceFileName(), regexes)) {
+      String input = source.sourceFileName();
+      if (regexes.stream().noneMatch(regex -> regex.matcher(input).matches())) {
         filteredCoverage.add(source);
       }
     }
     return filteredCoverage;
-  }
-
-  private static boolean matchesAnyRegex(String input, List<String> regexes) {
-    for (String regex : regexes) {
-      if (input.matches(regex)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   boolean isEmpty() {
