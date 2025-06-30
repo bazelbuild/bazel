@@ -275,6 +275,19 @@ def compile(
         feature_configuration = feature_configuration,
         variables_extension = variables_extension,
     )
+    auxiliary_fdo_inputs = cc_internal.get_auxiliary_fdo_inputs(
+        cc_toolchain = cc_toolchain,
+        fdo_context = fdo_context,
+        feature_configuration = feature_configuration,
+    )
+    fdo_build_variables = cc_internal.setup_fdo_build_variables(
+        cc_toolchain = cc_toolchain,
+        fdo_context = fdo_context,
+        auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+        feature_configuration = feature_configuration,
+        fdo_instrument = cpp_configuration.fdo_instrument(),
+        cs_fdo_instrument = cpp_configuration.cs_fdo_instrument(),
+    )
 
     cc_outputs_builder = cc_internal.create_cc_compilation_outputs_builder()
     cc_common_internal.create_cc_compile_actions(
@@ -303,6 +316,8 @@ def compile(
         language = language,
         result = cc_outputs_builder,
         common_compile_build_variables = common_compile_build_variables,
+        auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+        fdo_build_variables = fdo_build_variables,
     )
     cc_outputs = cc_outputs_builder.build()
 

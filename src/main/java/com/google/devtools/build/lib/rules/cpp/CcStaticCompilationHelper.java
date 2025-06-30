@@ -100,7 +100,9 @@ public final class CcStaticCompilationHelper {
       CppSemantics semantics,
       List<Artifact> separateModuleHeaders,
       CcCompilationOutputs.Builder result,
-      CcToolchainVariables commonCompileBuildVariables)
+      CcToolchainVariables commonCompileBuildVariables,
+      NestedSet<Artifact> auxiliaryFdoInputs,
+      ImmutableMap<String, String> fdoBuildVariables)
       throws RuleErrorException, EvalException, InterruptedException {
     Preconditions.checkNotNull(ccCompilationContext);
 
@@ -109,18 +111,6 @@ public final class CcStaticCompilationHelper {
         && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
       ruleErrorConsumer.ruleError(CcCommon.PIC_CONFIGURATION_ERROR);
     }
-
-    NestedSet<Artifact> auxiliaryFdoInputs =
-        getAuxiliaryFdoInputs(ccToolchain, fdoContext, featureConfiguration);
-
-    ImmutableMap<String, String> fdoBuildVariables =
-        setupFdoBuildVariables(
-            ccToolchain,
-            fdoContext,
-            auxiliaryFdoInputs,
-            featureConfiguration,
-            cppConfiguration.getFdoInstrument(),
-            cppConfiguration.getCSFdoInstrument());
 
     if (shouldProvideHeaderModules(featureConfiguration, privateHeaders, publicHeaders)) {
       CppModuleMap cppModuleMap = ccCompilationContext.getCppModuleMap();
@@ -650,7 +640,7 @@ public final class CcStaticCompilationHelper {
    * Configures a compile action builder by setting up command line options and auxiliary inputs
    * according to the FDO configuration. This method does nothing If FDO is disabled.
    */
-  private static ImmutableMap<String, String> setupFdoBuildVariables(
+  static ImmutableMap<String, String> setupFdoBuildVariables(
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
       NestedSet<Artifact> auxiliaryFdoInputs,
@@ -744,7 +734,7 @@ public final class CcStaticCompilationHelper {
   }
 
   /** Returns the auxiliary files that need to be added to the {@link CppCompileAction}. */
-  private static NestedSet<Artifact> getAuxiliaryFdoInputs(
+  static NestedSet<Artifact> getAuxiliaryFdoInputs(
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration)

@@ -390,4 +390,14 @@ public class CppHelper {
   static Dict<?, ?> asDict(Object o) {
     return o == Starlark.UNBOUND ? Dict.empty() : (Dict<?, ?>) o;
   }
+
+  static String stringFromNoneable(Object obj, @Nullable String defaultValue) throws EvalException {
+    if (obj == Starlark.UNBOUND || Starlark.isNullOrNone(obj)) {
+      return defaultValue;
+    }
+    if (obj instanceof String stringObj) {
+      return stringObj;
+    }
+    throw new EvalException("Expected string or None, got " + obj);
+  }
 }

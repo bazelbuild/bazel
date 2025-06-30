@@ -2297,6 +2297,8 @@ public abstract class CcModule
             positional = false,
             named = true,
             documented = false),
+        @Param(name = "auxiliary_fdo_inputs", positional = false, named = true, documented = false),
+        @Param(name = "fdo_build_variables", positional = false, named = true, documented = false),
       })
   public void createCcCompileActionsForStarlark(
       StarlarkRuleContext actionConstructionContext,
@@ -2324,8 +2326,10 @@ public abstract class CcModule
       Object languageObject,
       CcCompilationOutputs.Builder result,
       CcToolchainVariables commonCompileBuildVariables,
+      Depset auxiliaryFdoInputs,
+      Dict<?, ?> fdoBuildVariables,
       StarlarkThread thread)
-      throws RuleErrorException, EvalException, InterruptedException {
+      throws RuleErrorException, EvalException, TypeException, InterruptedException {
 
     isCalledFromStarlarkCcCommon(thread);
     checkPrivateStarlarkificationAllowlist(thread);
@@ -2368,6 +2372,9 @@ public abstract class CcModule
         semantics,
         Sequence.cast(separateModuleHeaders, Artifact.class, "create_cc_compile_actions"),
         result,
-        commonCompileBuildVariables);
+        commonCompileBuildVariables,
+        auxiliaryFdoInputs.getSet(Artifact.class),
+        ImmutableMap.copyOf(
+            Dict.cast(fdoBuildVariables, String.class, String.class, "fdo_build_variables")));
   }
 }
