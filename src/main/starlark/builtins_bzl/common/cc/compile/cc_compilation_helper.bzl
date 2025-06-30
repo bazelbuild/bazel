@@ -255,6 +255,12 @@ def _module_map_struct_to_module_map_content(parameters, tree_expander):
         add_header(path = header.path, visibility = "", can_compile = True)
         added_paths.add(header.path)
 
+    for header in expanded(parameters.textual_headers):
+        if header.path in added_paths:
+            continue
+        add_header(path = header.path, visibility = "", can_compile = False)
+        added_paths.add(header.path)
+
     for header in expanded(parameters.private_headers):
         if header.path in added_paths:
             continue
@@ -309,6 +315,7 @@ def _create_module_map_action(
         module_map,
         private_headers,
         public_headers,
+        textual_headers,
         dependency_module_maps,
         additional_exported_headers,
         separate_module_headers,
@@ -328,6 +335,7 @@ def _create_module_map_action(
     data_struct = _ModuleMapInfo(
         module_map = module_map,
         public_headers = public_headers,
+        textual_headers = textual_headers,
         private_headers = private_headers,
         dependency_module_maps = dependency_module_maps,
         additional_exported_headers = additional_exported_headers,
@@ -345,6 +353,7 @@ def _create_module_map_action(
     # simple null function.
     tree_artifacts = [h for h in private_headers if h.is_directory]
     tree_artifacts += [h for h in public_headers if h.is_directory]
+    tree_artifacts += [h for h in textual_headers if h.is_directory]
     content.add_all(tree_artifacts, map_each = lambda x: None, allow_closure = True)
 
     actions.write(module_map.file, content = content, is_executable = True, mnemonic = "CppModuleMap")
@@ -512,8 +521,10 @@ def _init_cc_compilation_context(
 
             if _enabled(feature_configuration, "only_doth_headers_in_module_maps"):
                 public_headers_for_module_map_action = [header for header in public_headers.module_map_headers if (header.is_directory or header.extension == "h")]
+                textual_headers_for_module_map_action = [header for header in textual_headers.module_map_headers if (header.is_directory or header.extension == "h")]
             else:
                 public_headers_for_module_map_action = public_headers.module_map_headers
+                textual_headers_for_module_map_action = textual_headers.module_map_headers
 
             private_headers_for_module_map_action = private_headers_artifacts
             if _enabled(feature_configuration, "exclude_private_headers_in_module_maps"):
@@ -523,6 +534,7 @@ def _init_cc_compilation_context(
                 actions = actions,
                 module_map = module_map,
                 public_headers = public_headers_for_module_map_action,
+                textual_headers = textual_headers_for_module_map_action,
                 separate_module_headers = separate_public_headers.module_map_headers,
                 dependency_module_maps = dependency_module_maps,
                 private_headers = private_headers_for_module_map_action,
