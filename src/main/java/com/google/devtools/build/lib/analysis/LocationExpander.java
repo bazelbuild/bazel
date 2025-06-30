@@ -541,7 +541,7 @@ public final class LocationExpander {
           isQuoted = !isQuoted;
         } else if (c == ' ' && !isQuoted) {
           throw new IllegalStateException(
-              "$(dirname ...) used with a path containing unescaped spaces, which is not supported: "
+              "$(dirname ...) used with a path containing unquoted spaces, which is not supported: "
                   + arg);
         }
       }

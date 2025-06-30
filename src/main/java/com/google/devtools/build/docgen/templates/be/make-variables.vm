@@ -391,6 +391,14 @@ instead.
   and <code>//somepkg:foo</code> are all fine.
 </p>
 
+<p>
+  The predefined variable <code>dirname</code> takes a path parameter that
+  may also be supplied by another variable (e.g.
+  <code>$(dirname $(execpath //foo:bar))</code>) and substitutes the parent
+  directory of that path. It operates on paths separated by forward slashes
+  on all platforms and fails if the path contains backslashes.
+</p>
+
 <h2 id="custom_variables">Custom variables</h2>
 
 <p>

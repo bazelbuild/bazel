@@ -344,6 +344,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
     assertThat(expander.expand("$(dirname /a/b/c)")).isEqualTo("/a/b");
     assertThat(expander.expand("$(dirname 'a/dir with space/c')")).isEqualTo("'a/dir with space'");
     assertThat(expander.expand("foo $(dirname a/b/c) bar")).isEqualTo("foo a/b bar");
+    assertThat(expander.expand("$(dirname ...)")).isEqualTo(".");
 
     assertThat(expander.expand("$(dirname $(dirname a/b/c))")).isEqualTo("a");
     assertThat(expander.expand("$(dirname $(dirname $(dirname a1/b2/c3/d4/e5)))"))
@@ -378,7 +379,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
                 AssertionError.class, () -> expander.expand("$(dirname $(rootpaths :files))")))
         .hasMessageThat()
         .endsWith(
-            "$(dirname ...) used with a path containing unescaped spaces, which is not supported:"
+            "$(dirname ...) used with a path containing unquoted spaces, which is not supported:"
                 + " 'other_files/sub dir with spaces/file with spaces' other_files/subdir/file");
   }
 }
