@@ -11,8 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+// NOLINTBEGIN(build/include)
+// That the following two includes don't have a directory is the point of this
+// test.
 #include "lib.h"
 #include "not_nested.h"
+// NOLINTEND(build/include)
 
 int main() {
   if (foo() != 42) {
