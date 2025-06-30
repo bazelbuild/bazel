@@ -384,6 +384,7 @@ bazel_fragments["JavaOptions"] = fragment(
         "//command_line_option:enforce_proguard_file_extension",
         "//command_line_option:proguard_top",
         "//command_line_option:host_javacopt",
+        "//command_line_option:host_jvmopt",
         "//command_line_option:host_java_launcher",
         "//command_line_option:tool_java_runtime_version",
         "//command_line_option:tool_java_language_version",
@@ -396,9 +397,6 @@ bazel_fragments["JavaOptions"] = fragment(
         "//command_line_option:experimental_java_test_auto_create_deploy_jar",
         "//command_line_option:experimental_limit_android_lint_to_android_constrained_java",
         "//command_line_option:experimental_run_android_lint_on_java_rules",
-    ],
-    inputs = [
-        "//command_line_option:host_jvmopt",
     ],
     outputs = [
         "//command_line_option:jvmopt",
