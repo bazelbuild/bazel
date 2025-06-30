@@ -2301,8 +2301,9 @@ public abstract class CcModule
             documented = false,
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "unbound"),
+        @Param(name = "result", positional = false, named = true, documented = false),
       })
-  public CcCompilationOutputs createCcCompileActionsForStarlark(
+  public void createCcCompileActionsForStarlark(
       StarlarkRuleContext actionConstructionContext,
       Sequence<?> additionalCompilationInputs,
       Sequence<?> additionalIncludeScanningRoots,
@@ -2327,6 +2328,7 @@ public abstract class CcModule
       Sequence<?> separateModuleHeaders,
       Object variablesExtension,
       Object languageObject,
+      CcCompilationOutputs.Builder result,
       StarlarkThread thread)
       throws RuleErrorException, EvalException, InterruptedException {
 
@@ -2347,7 +2349,7 @@ public abstract class CcModule
         asDict(variablesExtension).isEmpty()
             ? ImmutableList.of()
             : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
-    return CcStaticCompilationHelper.createCcCompileActions(
+    CcStaticCompilationHelper.createCcCompileActions(
         actionConstructionContext.getRuleContext(),
         Sequence.cast(additionalCompilationInputs, Artifact.class, "create_cc_compile_actions"),
         Sequence.cast(additionalIncludeScanningRoots, Artifact.class, "create_cc_compile_actions"),
@@ -2374,6 +2376,7 @@ public abstract class CcModule
         errorReporter,
         semantics,
         Sequence.cast(separateModuleHeaders, Artifact.class, "create_cc_compile_actions"),
-        variablesExtensionsList);
+        variablesExtensionsList,
+        result);
   }
 }

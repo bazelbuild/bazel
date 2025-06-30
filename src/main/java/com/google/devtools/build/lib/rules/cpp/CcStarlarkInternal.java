@@ -645,6 +645,14 @@ public class CcStarlarkInternal implements StarlarkValue {
     return artifact.isTreeArtifact();
   }
 
+  @StarlarkMethod(
+      name = "create_cc_compilation_outputs_builder",
+      documented = false,
+      parameters = {})
+  public CcCompilationOutputs.Builder createCcCompilationOutputsBuilder() {
+    return CcCompilationOutputs.builder();
+  }
+
   // TODO(b/420530680): remove after removing uses of depsets of LibraryToLink-s
   @StarlarkMethod(
       name = "freeze",

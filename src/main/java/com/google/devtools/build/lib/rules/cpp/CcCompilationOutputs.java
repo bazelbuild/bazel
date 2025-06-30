@@ -25,10 +25,12 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationOutputsAp
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /** A structured representation of the compilation outputs of a C++ rule. */
 public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
@@ -241,7 +243,7 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   }
 
   /** Builder for CcCompilationOutputs. */
-  public static final class Builder {
+  public static final class Builder implements StarlarkValue {
     private final Set<Artifact> objectFiles = new LinkedHashSet<>();
     private final Set<Artifact> picObjectFiles = new LinkedHashSet<>();
     private final LtoCompilationContext.Builder ltoCompilationContext =
@@ -258,6 +260,10 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       // private to avoid class initialization deadlock between this class and its outer class
     }
 
+    @StarlarkMethod(
+        name = "build",
+        documented = false,
+        parameters = {})
     public CcCompilationOutputs build() {
       return new CcCompilationOutputs(
           ImmutableList.copyOf(objectFiles),

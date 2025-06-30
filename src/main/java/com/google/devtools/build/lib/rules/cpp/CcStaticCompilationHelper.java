@@ -73,7 +73,7 @@ public final class CcStaticCompilationHelper {
    * <p>This is the main entry point for the class, exported as create_cc_compile_actions() to
    * Starlark.
    */
-  static CcCompilationOutputs createCcCompileActions(
+  static void createCcCompileActions(
       ActionConstructionContext actionConstructionContext,
       List<Artifact> additionalCompilationInputs,
       List<Artifact> additionalIncludeScanningRoots,
@@ -99,9 +99,9 @@ public final class CcStaticCompilationHelper {
       RuleErrorConsumer ruleErrorConsumer,
       CppSemantics semantics,
       List<Artifact> separateModuleHeaders,
-      List<VariablesExtension> variablesExtensions)
+      List<VariablesExtension> variablesExtensions,
+      CcCompilationOutputs.Builder result)
       throws RuleErrorException, EvalException, InterruptedException {
-    CcCompilationOutputs.Builder result = CcCompilationOutputs.builder();
     Preconditions.checkNotNull(ccCompilationContext);
 
     if (generatePicAction
@@ -452,8 +452,6 @@ public final class CcStaticCompilationHelper {
           result,
           builder);
     }
-
-    return result.build();
   }
 
   // Misc. helper methods for createCcCompileActions():
@@ -861,7 +859,7 @@ public final class CcStaticCompilationHelper {
       Label label,
       CcToolchainVariables commonToolchainVariables,
       ImmutableMap<String, String> fdoBuildVariables,
-      RuleErrorConsumer ruleErrorConsumer,
+      RuleErrorConsumer unusedRuleErrorConsumer,
       CppSemantics semantics,
       CppSource source,
       String outputName,

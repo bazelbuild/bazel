@@ -267,7 +267,8 @@ def compile(
     if feature_configuration.is_enabled("header_modules") and not public_compilation_context.module_map:
         fail("All cc rules must support module maps.")
 
-    cc_outputs = cc_common_internal.create_cc_compile_actions(
+    cc_outputs_builder = cc_internal.create_cc_compilation_outputs_builder()
+    cc_common_internal.create_cc_compile_actions(
         action_construction_context = ctx,
         additional_compilation_inputs = additional_inputs,
         additional_include_scanning_roots = additional_include_scanning_roots,
@@ -292,7 +293,9 @@ def compile(
         separate_module_headers = separate_module_headers,
         variables_extension = variables_extension,
         language = language,
+        result = cc_outputs_builder,
     )
+    cc_outputs = cc_outputs_builder.build()
 
     if cpp_configuration.process_headers_in_dependencies():
         compilation_context = cc_internal.create_cc_compilation_context_with_extra_header_tokens(
