@@ -189,7 +189,6 @@ public class FileFunctionTest {
                     new RepositoryDelegatorFunction(
                         null,
                         new AtomicBoolean(true),
-                        ImmutableMap::of,
                         directories,
                         new RepoContentsCache()))
                 .put(
@@ -1688,12 +1687,8 @@ public class FileFunctionTest {
 
     SkyValue newValue = result.get(key);
     assertWithMessage(
-            String.format(
-                "Changing the contents of %s %s should%s change the value for file %s.",
-                isFile ? "file" : "directory",
-                changedPathString,
-                changes ? "" : " not",
-                pathString))
+            "Changing the contents of %s %s should%s change the value for file %s.",
+            isFile ? "file" : "directory", changedPathString, changes ? "" : " not", pathString)
         .that(changes != newValue.equals(oldValue))
         .isTrue();
 

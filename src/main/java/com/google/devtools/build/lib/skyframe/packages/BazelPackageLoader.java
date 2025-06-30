@@ -160,7 +160,8 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                 SkyFunctions.REGISTRY,
                 new RegistryFunction(registryFactory, directories.getWorkspace())));
       }
-      StarlarkRepositoryFunction starlarkRepositoryFunction = new StarlarkRepositoryFunction();
+      StarlarkRepositoryFunction starlarkRepositoryFunction =
+          new StarlarkRepositoryFunction(ImmutableMap::of);
       starlarkRepositoryFunction.setDownloadManager(downloadManager);
 
       RepoSpecFunction repoSpecFunction = new RepoSpecFunction();
@@ -187,7 +188,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                   new RepositoryDelegatorFunction(
                       starlarkRepositoryFunction,
                       isFetch,
-                      ImmutableMap::of,
                       directories,
                       repositoryCache.getRepoContentsCache()))
               .put(

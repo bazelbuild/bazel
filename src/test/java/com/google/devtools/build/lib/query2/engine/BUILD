@@ -16,6 +16,9 @@ java_test(
     name = "AllTests",
     size = "medium",
     srcs = glob(["*.java"]),
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 10,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",

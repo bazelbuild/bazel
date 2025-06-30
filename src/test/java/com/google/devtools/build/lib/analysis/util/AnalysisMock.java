@@ -184,9 +184,8 @@ public abstract class AnalysisMock extends LoadingMock {
         .put(
             SkyFunctions.REPOSITORY_DIRECTORY,
             new RepositoryDelegatorFunction(
-                new StarlarkRepositoryFunction(),
+                new StarlarkRepositoryFunction(ImmutableMap::of),
                 new AtomicBoolean(true),
-                ImmutableMap::of,
                 directories,
                 new RepoContentsCache()))
         .put(

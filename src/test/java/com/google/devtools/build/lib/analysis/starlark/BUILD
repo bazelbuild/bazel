@@ -112,6 +112,9 @@ java_test(
 java_test(
     name = "StarlarkRuleTransitionProviderTest",
     srcs = ["StarlarkRuleTransitionProviderTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",

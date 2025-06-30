@@ -31,6 +31,9 @@ java_test(
     name = "ActionGraphQueryTest",
     size = "medium",
     srcs = ["ActionGraphQueryTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 2,
     deps = [
         ":action_graph_query_helper",
