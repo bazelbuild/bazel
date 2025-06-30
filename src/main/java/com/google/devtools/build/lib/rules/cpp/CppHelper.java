@@ -38,7 +38,9 @@ import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Helper class for functionality shared by cpp related rules.
@@ -383,5 +385,9 @@ public class CppHelper {
       FeatureConfiguration featureConfiguration) {
     return CcToolchainProvider.supportsInterfaceSharedLibraries(featureConfiguration)
         && cppConfiguration.getUseInterfaceSharedLibraries();
+  }
+
+  static Dict<?, ?> asDict(Object o) {
+    return o == Starlark.UNBOUND ? Dict.empty() : (Dict<?, ?>) o;
   }
 }
