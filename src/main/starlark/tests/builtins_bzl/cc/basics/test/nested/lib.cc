@@ -11,6 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "src/main/starlark/tests/builtins_bzl/cc/basics/test/nested/lib.h"
+
+// NOLINTBEGIN(build/include)
+// That the following two includes don't have a directory is the point of this
+// test.
+#include "lib.h"
+// NOLINTEND(build/include)
 
 int foo() { return 42; }
