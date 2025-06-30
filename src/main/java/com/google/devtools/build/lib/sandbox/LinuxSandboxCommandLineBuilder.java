@@ -56,6 +56,7 @@ public class LinuxSandboxCommandLineBuilder {
   private String sandboxDebugPath = null;
   private boolean sigintSendsSigterm = false;
   private Set<java.nio.file.Path> cgroupsDirs = ImmutableSet.of();
+  private boolean wrapInBusybox;
 
   private LinuxSandboxCommandLineBuilder(Path linuxSandboxPath) {
     this.linuxSandboxPath = linuxSandboxPath;
@@ -229,6 +230,12 @@ public class LinuxSandboxCommandLineBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
+  public LinuxSandboxCommandLineBuilder setWrapInBusybox(boolean wrapInBusybox) {
+    this.wrapInBusybox = wrapInBusybox;
+    return this;
+  }
+
   /** Builds the command line to invoke a specific command using the {@code linux-sandbox} tool. */
   public ImmutableList<String> buildForCommand(List<String> commandArguments) {
     Preconditions.checkState(
@@ -237,6 +244,13 @@ public class LinuxSandboxCommandLineBuilder {
 
     ImmutableList.Builder<String> commandLineBuilder = ImmutableList.builder();
 
+    if (wrapInBusybox) {
+      // Use the technique demonstrated in https://seclists.org/oss-sec/2025/q1/253 to get
+      // linux-sandbox to run even on Ubuntu 24.04 and later, where unprivileged user
+      // namespaces are no loner supported for non-allowlisted commands. busybox is
+      // one of them and preinstalled.
+      commandLineBuilder.add("busybox", "sh", "-c", "\"$@\"", "--");
+    }
     commandLineBuilder.add(linuxSandboxPath.getPathString());
     if (workingDirectory != null) {
       commandLineBuilder.add("-W", workingDirectory.getPathString());
