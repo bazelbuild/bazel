@@ -552,4 +552,101 @@ function test_inspect_attribute_list_via_output() {
   expect_log 'From rule flag: values = \["granite", "marble", "sandstone"\]'
 }
 
+function create_rule_transition_with_failure() {
+  local pkg="${1}"
+
+  # create transition definition
+  mkdir -p "${pkg}"
+  cat > "${pkg}/def.bzl" <<EOF
+example_package = "${pkg}"
+
+def _transition_impl(settings, attr):
+    my_map = {'x': 1, 'y': 2}
+    # since my_map does not have a key for the input flag, the transition
+    # will fail.
+    res = my_map[settings["//%s:transition_input_flag" % example_package]]
+    return {
+      "//%s:transition_output_flag" % example_package: False,
+    }
+
+example_transition = transition(
+    implementation = _transition_impl,
+    inputs = ["//%s:transition_input_flag" % example_package],
+    outputs = [
+      "//%s:transition_output_flag" % example_package,
+    ],
+)
+
+def _rule_impl(ctx):
+    pass
+
+transition_attached = rule(
+    implementation = _rule_impl,
+    cfg = example_transition,
+)
+
+no_transition_rule = rule(
+    implementation = _rule_impl,
+    attrs = {
+        "deps": attr.label_list(),
+    },
+)
+
+EOF
+
+  # create top level target depending on a rule with transition attached
+  cat > "${pkg}/BUILD" <<EOF
+load(
+    "//${pkg}:def.bzl",
+    "transition_attached", "no_transition_rule",
+)
+load("//settings:flag.bzl", "bool_flag")
+
+bool_flag(
+    name = "transition_input_flag",
+    build_setting_default = True,
+)
+
+bool_flag(
+    name = "transition_output_flag",
+    build_setting_default = False,
+)
+
+transition_attached(
+    name = "dep_with_transition",
+)
+
+no_transition_rule(
+    name = "top_level",
+    deps = [":dep_with_transition"],
+)
+EOF
+}
+
+function test_rule_transition_failure_doesnot_crash_bazel_with_keep_going() {
+  local -r pkg="${FUNCNAME[0]}"
+  create_rule_transition_with_failure "${pkg}"
+
+  bazel build --keep_going "//${pkg}:top_level" &> $TEST_log && fail "Build did NOT complete successfully"
+  # The build should fail with the transition failure.
+  expect_log "Error: key True not found in dictionary"
+  expect_log "${pkg}/BUILD:17:20: Errors encountered while applying Starlark transition"
+
+  # Bazel should not crash.
+  expect_not_log "IllegalStateException"
+}
+
+function test_rule_transition_failure_doesnot_crash_bazel_with_nokeep_going() {
+  local -r pkg="${FUNCNAME[0]}"
+  create_rule_transition_with_failure "${pkg}"
+
+  bazel build --nokeep_going "//${pkg}:top_level" &> $TEST_log && fail "Build did NOT complete successfully"
+  # The build should fail with the transition failure.
+  expect_log "Error: key True not found in dictionary"
+  expect_log "${pkg}/BUILD:17:20: Errors encountered while applying Starlark transition"
+
+  # Bazel should not crash.
+  expect_not_log "IllegalStateException"
+}
+
 run_suite "rule transition tests"

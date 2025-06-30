@@ -187,12 +187,7 @@ final class PrerequisitesProducer
     }
     // `configuration.kind()` was `NULL_TRANSITION_KEYS`. This is only used when the target is in
     // the same package as the parent and not configurable so this should never happen.
-    if (configuration.kind() == NULL_TRANSITION_KEYS) {
-      throw new IllegalStateException(error);
-    }
-    // We expect to return silently with --keep_going because of repeated access to a previously
-    // failed evaluations due to invalid select(). This way instead of seeing a crash, users would
-    // see a proper reported error.
+    throw new IllegalStateException(error);
   }
 
   @Override

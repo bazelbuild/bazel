@@ -289,6 +289,10 @@ public final class TargetAndConfigurationProducer
   }
 
   public StateMachine computeTargetAndConfigurationOrDelegatedValue(Tasks tasks) {
+    if (idempotencyState == null) {
+      return DONE; // An error was encountered.
+    }
+
     if (idempotencyState == IdempotencyState.IDENTITY) {
       tasks.lookUp(
           configurationKey,
