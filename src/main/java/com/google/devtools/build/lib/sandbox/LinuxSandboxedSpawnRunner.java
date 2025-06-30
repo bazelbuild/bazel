@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroup;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroupFactory;
+import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OS;
@@ -109,8 +111,20 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Command cmd =
         new Command(linuxSandboxArgv.toArray(new String[0]), env, cwd, cmdEnv.getClientEnv());
     try (SilentCloseable c = Profiler.instance().profile("LinuxSandboxedSpawnRunner.isSupported")) {
-      cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
+      cmd.execute();
     } catch (CommandException e) {
+      if (e instanceof BadExitStatusException badExitStatusException) {
+        var stderr = new String(badExitStatusException.getResult().getStderr());
+        if (stderr.lines().anyMatch(line -> line.endsWith(": \"mount\": Permission denied"))) {
+          cmdEnv
+              .getReporter()
+              .handle(
+                  Event.warn(
+                      "linux-sandbox failed to run as it lacks permission to use an unprivileged user namespace."
+                          + " See https://ubuntu.com/blog/ubuntu-23-10-restricted-unprivileged-user-namespaces and"
+                          + " https://github.com/bazelbuild/bazel/issues/24081 for details."));
+        }
+      }
       return false;
     }
 
