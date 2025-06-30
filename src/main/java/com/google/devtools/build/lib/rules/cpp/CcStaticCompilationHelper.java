@@ -99,8 +99,8 @@ public final class CcStaticCompilationHelper {
       RuleErrorConsumer ruleErrorConsumer,
       CppSemantics semantics,
       List<Artifact> separateModuleHeaders,
-      List<VariablesExtension> variablesExtensions,
-      CcCompilationOutputs.Builder result)
+      CcCompilationOutputs.Builder result,
+      CcToolchainVariables commonCompileBuildVariables)
       throws RuleErrorException, EvalException, InterruptedException {
     Preconditions.checkNotNull(ccCompilationContext);
 
@@ -109,15 +109,6 @@ public final class CcStaticCompilationHelper {
         && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
       ruleErrorConsumer.ruleError(CcCommon.PIC_CONFIGURATION_ERROR);
     }
-
-    CcToolchainVariables commonToolchainVariables =
-        setupCommonCompileBuildVariables(
-            ccCompilationContext,
-            ccToolchain,
-            cppConfiguration,
-            fdoContext,
-            featureConfiguration,
-            variablesExtensions);
 
     NestedSet<Artifact> auxiliaryFdoInputs =
         getAuxiliaryFdoInputs(ccToolchain, fdoContext, featureConfiguration);
@@ -152,7 +143,7 @@ public final class CcStaticCompilationHelper {
               generateNoPicAction,
               generatePicAction,
               label,
-              commonToolchainVariables,
+              commonCompileBuildVariables,
               fdoBuildVariables,
               ruleErrorConsumer,
               semantics,
@@ -182,7 +173,7 @@ public final class CcStaticCompilationHelper {
                 generateNoPicAction,
                 generatePicAction,
                 label,
-                commonToolchainVariables,
+                commonCompileBuildVariables,
                 fdoBuildVariables,
                 ruleErrorConsumer,
                 semantics,
@@ -209,7 +200,7 @@ public final class CcStaticCompilationHelper {
               featureConfiguration,
               isCodeCoverageEnabled,
               label,
-              commonToolchainVariables,
+              commonCompileBuildVariables,
               fdoBuildVariables,
               ruleErrorConsumer,
               semantics,
@@ -281,7 +272,7 @@ public final class CcStaticCompilationHelper {
             generateNoPicAction,
             generatePicAction,
             label,
-            commonToolchainVariables,
+            commonCompileBuildVariables,
             fdoBuildVariables,
             ruleErrorConsumer,
             semantics,
@@ -322,7 +313,7 @@ public final class CcStaticCompilationHelper {
                     auxiliaryFdoInputs,
                     featureConfiguration,
                     label,
-                    commonToolchainVariables,
+                    commonCompileBuildVariables,
                     fdoBuildVariables,
                     ruleErrorConsumer,
                     semantics,
@@ -353,7 +344,7 @@ public final class CcStaticCompilationHelper {
                       auxiliaryFdoInputs,
                       featureConfiguration,
                       label,
-                      commonToolchainVariables,
+                      commonCompileBuildVariables,
                       fdoBuildVariables,
                       ruleErrorConsumer,
                       semantics,
@@ -382,7 +373,7 @@ public final class CcStaticCompilationHelper {
                       auxiliaryFdoInputs,
                       featureConfiguration,
                       label,
-                      commonToolchainVariables,
+                      commonCompileBuildVariables,
                       fdoBuildVariables,
                       ruleErrorConsumer,
                       semantics,
@@ -443,7 +434,7 @@ public final class CcStaticCompilationHelper {
           featureConfiguration,
           generatePicAction,
           label,
-          commonToolchainVariables,
+          commonCompileBuildVariables,
           fdoBuildVariables,
           ruleErrorConsumer,
           semantics,
@@ -551,7 +542,7 @@ public final class CcStaticCompilationHelper {
 
   // Methods setting up compile build variables:
 
-  private static CcToolchainVariables setupCommonCompileBuildVariables(
+  static CcToolchainVariables setupCommonCompileBuildVariables(
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
       CppConfiguration cppConfiguration,

@@ -267,6 +267,15 @@ def compile(
     if feature_configuration.is_enabled("header_modules") and not public_compilation_context.module_map:
         fail("All cc rules must support module maps.")
 
+    common_compile_build_variables = cc_internal.setup_common_compile_build_variables(
+        cc_compilation_context = cc_compilation_context,
+        cc_toolchain = cc_toolchain,
+        cpp_configuration = cpp_configuration,
+        fdo_context = fdo_context,
+        feature_configuration = feature_configuration,
+        variables_extension = variables_extension,
+    )
+
     cc_outputs_builder = cc_internal.create_cc_compilation_outputs_builder()
     cc_common_internal.create_cc_compile_actions(
         action_construction_context = ctx,
@@ -291,9 +300,9 @@ def compile(
         public_headers = public_hdrs_artifacts,
         purpose = purpose if purpose else "",
         separate_module_headers = separate_module_headers,
-        variables_extension = variables_extension,
         language = language,
         result = cc_outputs_builder,
+        common_compile_build_variables = common_compile_build_variables,
     )
     cc_outputs = cc_outputs_builder.build()
 

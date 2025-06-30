@@ -2285,13 +2285,6 @@ public abstract class CcModule
             doc = "The separate module headers.",
             defaultValue = "[]"),
         @Param(
-            name = "variables_extension",
-            positional = false,
-            named = true,
-            documented = false,
-            allowedTypes = {@ParamType(type = Dict.class)},
-            defaultValue = "unbound"),
-        @Param(
             name = "language",
             positional = false,
             named = true,
@@ -2299,6 +2292,11 @@ public abstract class CcModule
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "unbound"),
         @Param(name = "result", positional = false, named = true, documented = false),
+        @Param(
+            name = "common_compile_build_variables",
+            positional = false,
+            named = true,
+            documented = false),
       })
   public void createCcCompileActionsForStarlark(
       StarlarkRuleContext actionConstructionContext,
@@ -2323,9 +2321,9 @@ public abstract class CcModule
       Sequence<?> publicHeaders,
       String purpose,
       Sequence<?> separateModuleHeaders,
-      Object variablesExtension,
       Object languageObject,
       CcCompilationOutputs.Builder result,
+      CcToolchainVariables commonCompileBuildVariables,
       StarlarkThread thread)
       throws RuleErrorException, EvalException, InterruptedException {
 
@@ -2342,10 +2340,6 @@ public abstract class CcModule
     String languageString = convertFromNoneable(languageObject, Language.CPP.getRepresentation());
     Language language = parseLanguage(languageString);
     CppSemantics semantics = getSemantics(language);
-    List<VariablesExtension> variablesExtensionsList =
-        asDict(variablesExtension).isEmpty()
-            ? ImmutableList.of()
-            : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
     CcStaticCompilationHelper.createCcCompileActions(
         actionConstructionContext.getRuleContext(),
         Sequence.cast(additionalCompilationInputs, Artifact.class, "create_cc_compile_actions"),
@@ -2373,7 +2367,7 @@ public abstract class CcModule
         errorReporter,
         semantics,
         Sequence.cast(separateModuleHeaders, Artifact.class, "create_cc_compile_actions"),
-        variablesExtensionsList,
-        result);
+        result,
+        commonCompileBuildVariables);
   }
 }

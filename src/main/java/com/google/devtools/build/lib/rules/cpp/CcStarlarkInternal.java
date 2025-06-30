@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.rules.cpp.CppHelper.asDict;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.base.Strings;
@@ -40,11 +41,14 @@ import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.MapVariables;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -52,6 +56,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
@@ -651,6 +656,46 @@ public class CcStarlarkInternal implements StarlarkValue {
       parameters = {})
   public CcCompilationOutputs.Builder createCcCompilationOutputsBuilder() {
     return CcCompilationOutputs.builder();
+  }
+
+  @StarlarkMethod(
+      name = "setup_common_compile_build_variables",
+      documented = false,
+      parameters = {
+        @Param(
+            name = "cc_compilation_context",
+            documented = false,
+            positional = false,
+            named = true),
+        @Param(name = "cc_toolchain", documented = false, positional = false, named = true),
+        @Param(name = "cpp_configuration", documented = false, positional = false, named = true),
+        @Param(name = "fdo_context", documented = false, positional = false, named = true),
+        @Param(
+            name = "feature_configuration",
+            documented = false,
+            positional = false,
+            named = true),
+        @Param(name = "variables_extension", documented = false, positional = false, named = true),
+      })
+  public CcToolchainVariables setupCommonCompileBuildVariables(
+      CcCompilationContext ccCompilationContext,
+      StarlarkInfo ccToolchain,
+      CppConfiguration cppConfiguration,
+      StructImpl fdoContextStruct,
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      Object variablesExtension)
+      throws RuleErrorException, EvalException {
+    List<VariablesExtension> variablesExtensionsList =
+        asDict(variablesExtension).isEmpty()
+            ? ImmutableList.of()
+            : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
+    return CcStaticCompilationHelper.setupCommonCompileBuildVariables(
+        ccCompilationContext,
+        CcToolchainProvider.create(ccToolchain),
+        cppConfiguration,
+        new FdoContext(fdoContextStruct),
+        featureConfigurationForStarlark.getFeatureConfiguration(),
+        variablesExtensionsList);
   }
 
   // TODO(b/420530680): remove after removing uses of depsets of LibraryToLink-s
