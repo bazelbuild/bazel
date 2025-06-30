@@ -555,6 +555,7 @@ public final class LocationExpander {
   private static final CharMatcher forwardSlashMatcher = CharMatcher.is('/');
 
   private static String dirname(String arg) {
+    arg = ShellEscaper.unescapeString(arg);
     if (arg.isEmpty()) {
       throw new IllegalStateException(
           "$(dirname ...) used with an empty string, which is not a valid path");
@@ -571,7 +572,8 @@ public final class LocationExpander {
       }
       return ".";
     }
-    return forwardSlashMatcher.trimTrailingFrom(arg.substring(0, lastSlash));
+    return ShellEscaper.escapeString(
+        forwardSlashMatcher.trimTrailingFrom(arg.substring(0, lastSlash)));
   }
 
   private static interface ErrorReporter {
