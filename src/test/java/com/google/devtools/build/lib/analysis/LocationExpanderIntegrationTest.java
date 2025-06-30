@@ -316,10 +316,19 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         )
 
         filegroup(
+            name = "files",
+            srcs = [
+                ":file1",
+                ":file2",
+            ],
+        )
+
+        filegroup(
             name = "lib",
             srcs = [
                 ":file1",
                 ":file2",
+                ":files",
             ],
         )
         """);
@@ -333,13 +342,13 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
     assertThat(expander.expand("$(dirname C:/a/b/c)")).isEqualTo("C:/a/b");
     assertThat(expander.expand("$(dirname /a/)")).isEqualTo("/a");
     assertThat(expander.expand("$(dirname /a/b/c)")).isEqualTo("/a/b");
+    assertThat(expander.expand("$(dirname 'a/dir with space/c')")).isEqualTo("'a/dir with space'");
     assertThat(expander.expand("foo $(dirname a/b/c) bar")).isEqualTo("foo a/b bar");
 
     assertThat(expander.expand("$(dirname $(dirname a/b/c))")).isEqualTo("a");
     assertThat(expander.expand("$(dirname $(dirname $(dirname a1/b2/c3/d4/e5)))"))
         .isEqualTo("a1/b2");
     assertThat(expander.expand("$(dirname   $(dirname a/b/c  )  )")).isEqualTo("a");
-    assertThat(expander.expand("$(dirname   $(dirnam a/b/c  )  )")).isEqualTo("'$(dirnam a/b'");
 
     assertThat(expander.expand("$(dirname $(rootpath :file1))"))
         .isEqualTo("other_files/subdir");
@@ -364,5 +373,12 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
         .hasMessageThat()
         .endsWith(
             "$(dirname ...) used with a path containing backslashes, which is not supported: a\\b\\c");
+    assertThat(
+            assertThrows(
+                AssertionError.class, () -> expander.expand("$(dirname $(rootpaths :files))")))
+        .hasMessageThat()
+        .endsWith(
+            "$(dirname ...) used with a path containing unescaped spaces, which is not supported:"
+                + " 'other_files/sub dir with spaces/file with spaces' other_files/subdir/file");
   }
 }

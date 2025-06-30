@@ -206,24 +206,23 @@ public final class LocationExpander {
       // Find the matching closing parenthesis, supporting nested $()
       int argStart = fnameEnd + 1;
       int depth = 1;
-      int i = argStart;
-      while (i < value.length() && depth > 0) {
-        if (value.startsWith("$(", i)) {
+      int argEnd;
+      for (argEnd = argStart; argEnd < value.length(); argEnd++) {
+        if (value.startsWith("$(", argEnd)) {
           depth++;
-          i += 2;
-        } else if (value.charAt(i) == ')') {
+          argEnd += 1; // Skip the additional character
+        } else if (value.charAt(argEnd) == ')') {
           depth--;
-          if (depth == 0) break;
-          i++;
-        } else {
-          i++;
+          if (depth == 0) {
+            break;
+          }
         }
       }
       if (depth != 0) {
         reporter.report(String.format("unterminated $(%s) expression", fname));
         return value;
       }
-      String functionValue = value.substring(argStart, i).trim();
+      String functionValue = value.substring(argStart, argEnd).trim();
       // Recursively expand the argument
       String expandedArg = expand(functionValue, reporter);
       try {
@@ -234,7 +233,7 @@ public final class LocationExpander {
         reporter.report(ise.getMessage());
         return value;
       }
-      restart = i + 1;
+      restart = argEnd + 1;
     }
 
     return result.toString();
@@ -531,12 +530,32 @@ public final class LocationExpander {
   private static final CharMatcher forwardSlashMatcher = CharMatcher.is('/');
 
   private static String dirname(String arg) {
+    if (arg.indexOf(' ') != -1) {
+      // Disallow unescaped spaces in dirname arguments so that we can add support for
+      // $(dirname $(execpaths ...)) in the future for well-defined cases, e.g., if all expanded
+      // paths have the same parent directory.
+      boolean isQuoted = false;
+      for (int i = 0; i < arg.length(); i++) {
+        char c = arg.charAt(i);
+        if (c == '\'') {
+          isQuoted = !isQuoted;
+        } else if (c == ' ' && !isQuoted) {
+          throw new IllegalStateException(
+              "$(dirname ...) used with a path containing unescaped spaces, which is not supported: "
+                  + arg);
+        }
+      }
+    }
     arg = ShellEscaper.unescapeString(arg);
     if (arg.isEmpty()) {
       throw new IllegalStateException(
           "$(dirname ...) used with an empty string, which is not a valid path");
     }
     if (arg.indexOf('\\') != -1) {
+      // dirname is meant to be combined with other location functions, which exclusively produce
+      // forward slash separated paths. If we allowed backslashes, which are very uncommon in
+      // forward slash separated paths, this would result in potentially confusing behavior in
+      // Windows-focused projects (e.g. `$(dirname C:\foo\bar)` would produce `.`).
       throw new IllegalStateException(
           "$(dirname ...) used with a path containing backslashes, which is not supported: " + arg);
     }
