@@ -1,10 +1,33 @@
-## Release 8.3.1 (2025-06-30)
+## Release 9.0.0-pre.20250620.1 (2025-07-01)
 
 ```
+Baseline: 3f42ff95d59921ed0bb96258e191bfee58fed554
 
-Release Notes:
+Cherry picks:
 
+   + 387ed020deff607abcebe9b82ba8ea61da5a5e9d:
+     Attempt to fix Bazel CI failure on Ubuntu
 ```
+
+Incompatible changes:
+
+  - `--combined_report` now defaults to `lcov` (was: `none`).
+
+New features:
+
+  - `repository_ctx.download_and_extract` now supports the `.whl`
+    file extension for Python wheel files, treating them as ZIP
+    archives under PEP 427.
+
+Important changes:
+
+  - Rules can now register their own baseline coverage files in LCOV
+    format via the new `baseline_coverage_files` parameter of
+    `ctx.instrumented_files_info`. If the target matches the
+    instrumentation filter, Bazel will merge the data into the
+    combined coverage report generated with `--combined_report`.
+
+This release contains contributions from many people at Google, as well as Alberto Cavalcante, David Sanderson, Fabian Meumertzheim, Keith Smiley, Siva Mahadevan, Stephan Pleines.
 
 ## Release 9.0.0-pre.20250616.2 (2025-06-27)
 
