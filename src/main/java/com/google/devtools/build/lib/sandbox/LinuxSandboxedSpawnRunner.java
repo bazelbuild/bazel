@@ -475,6 +475,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .buildKeepingLast(),
         sandboxExecRoot,
         userBindMounts);
+
+    for (var path : runfilesMounts.keySet()) {
+      path.createDirectoryAndParents();
+    }
     userBindMounts.putAll(runfilesMounts);
 
     for (Path inaccessiblePath : getInaccessiblePaths()) {

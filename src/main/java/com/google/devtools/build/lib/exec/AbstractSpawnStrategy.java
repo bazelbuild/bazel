@@ -353,7 +353,9 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     public SortedMap<PathFragment, ActionInput> getInputMapping(
         PathFragment baseDirectory, boolean willAccessRepeatedly, boolean expandRunfilesTrees) {
       // Return previously computed copy if present.
-      if (lazyInputMapping != null && inputMappingBaseDirectory.equals(baseDirectory)) {
+      if (willAccessRepeatedly
+          && lazyInputMapping != null
+          && inputMappingBaseDirectory.equals(baseDirectory)) {
         return lazyInputMapping;
       }
 
