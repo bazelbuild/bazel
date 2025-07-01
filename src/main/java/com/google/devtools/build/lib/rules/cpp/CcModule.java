@@ -2182,7 +2182,7 @@ public abstract class CcModule
   }
 
   @StarlarkMethod(
-      name = "create_cc_compile_actions",
+      name = "create_cc_compile_actions_native_part",
       doc = "Create the C++ compile actions, and the corresponding compilation related providers.",
       useStarlarkThread = true,
       parameters = {
@@ -2323,7 +2323,7 @@ public abstract class CcModule
       Sequence<?> publicHeaders,
       String purpose,
       Sequence<?> separateModuleHeaders,
-      Object languageObject,
+      Object languageUnchecked,
       CcCompilationOutputs.Builder result,
       CcToolchainVariables commonCompileBuildVariables,
       Depset auxiliaryFdoInputs,
@@ -2341,9 +2341,7 @@ public abstract class CcModule
         TargetUtils.getExecutionInfo(
             actionConstructionContext.getRuleContext().getRule(),
             actionConstructionContext.getRuleContext().isAllowTagsPropagation());
-    String languageString = convertFromNoneable(languageObject, Language.CPP.getRepresentation());
-    Language language = parseLanguage(languageString);
-    CppSemantics semantics = getSemantics(language);
+    CppSemantics semantics = getCppSemanticsFromUncheckedLanguage(languageUnchecked);
     CcStaticCompilationHelper.createCcCompileActions(
         actionConstructionContext.getRuleContext(),
         Sequence.cast(additionalCompilationInputs, Artifact.class, "create_cc_compile_actions"),
@@ -2376,5 +2374,33 @@ public abstract class CcModule
         auxiliaryFdoInputs.getSet(Artifact.class),
         ImmutableMap.copyOf(
             Dict.cast(fdoBuildVariables, String.class, String.class, "fdo_build_variables")));
+  }
+
+  @StarlarkMethod(
+      name = "get_cpp_semantics",
+      doc = "Gets a CppSemantics object from a language string, for creating Cpp actions.",
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "language",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "unbound"),
+      })
+  public CppSemantics getCppSemanticsFromStarlark(Object languageUnchecked, StarlarkThread thread)
+      throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
+    checkPrivateStarlarkificationAllowlist(thread);
+    return getCppSemanticsFromUncheckedLanguage(languageUnchecked);
+  }
+
+  private CppSemantics getCppSemanticsFromUncheckedLanguage(Object languageUnchecked)
+      throws EvalException {
+    String languageString =
+        convertFromNoneable(languageUnchecked, Language.CPP.getRepresentation());
+    Language language = parseLanguage(languageString);
+    return getSemantics(language);
   }
 }

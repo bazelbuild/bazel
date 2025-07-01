@@ -38,4 +38,7 @@ public interface CppModuleMapApi<FileT extends FileApi> extends StarlarkValue {
 
   @StarlarkMethod(name = "file", documented = false, useStarlarkThread = true)
   FileT getArtifactForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "create_separate_module_map", documented = false, useStarlarkThread = true)
+  CppModuleMapApi<FileT> createSeparateModuleMap(StarlarkThread thread) throws EvalException;
 }

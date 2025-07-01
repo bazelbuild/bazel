@@ -112,95 +112,6 @@ public final class CcStaticCompilationHelper {
       ruleErrorConsumer.ruleError(CcCommon.PIC_CONFIGURATION_ERROR);
     }
 
-    if (shouldProvideHeaderModules(featureConfiguration, privateHeaders, publicHeaders)) {
-      CppModuleMap cppModuleMap = ccCompilationContext.getCppModuleMap();
-      Label moduleMapLabel = Label.parseCanonicalUnchecked(cppModuleMap.getName());
-      ImmutableList<Artifact> modules =
-          createModuleAction(
-              actionConstructionContext,
-              ccCompilationContext,
-              ccToolchain,
-              configuration,
-              conlyopts,
-              copts,
-              coptsFilter,
-              cppConfiguration,
-              cxxopts,
-              executionInfo,
-              fdoContext,
-              auxiliaryFdoInputs,
-              featureConfiguration,
-              generateNoPicAction,
-              generatePicAction,
-              label,
-              commonCompileBuildVariables,
-              fdoBuildVariables,
-              ruleErrorConsumer,
-              semantics,
-              result,
-              cppModuleMap);
-      ImmutableList<Artifact> separateModules = ImmutableList.of();
-      if (!separateModuleHeaders.isEmpty()) {
-        CppModuleMap separateMap =
-            new CppModuleMap(
-                cppModuleMap.getArtifact(),
-                cppModuleMap.getName() + CppModuleMap.SEPARATE_MODULE_SUFFIX);
-        separateModules =
-            createModuleAction(
-                actionConstructionContext,
-                ccCompilationContext,
-                ccToolchain,
-                configuration,
-                conlyopts,
-                copts,
-                coptsFilter,
-                cppConfiguration,
-                cxxopts,
-                executionInfo,
-                fdoContext,
-                auxiliaryFdoInputs,
-                featureConfiguration,
-                generateNoPicAction,
-                generatePicAction,
-                label,
-                commonCompileBuildVariables,
-                fdoBuildVariables,
-                ruleErrorConsumer,
-                semantics,
-                result,
-                separateMap);
-      }
-      if (featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULE_CODEGEN)) {
-        for (Artifact module : Iterables.concat(modules, separateModules)) {
-          // TODO(djasper): Investigate whether we need to use a label separate from that of the
-          // module map. It is used for per-file-copts.
-          createModuleCodegenAction(
-              actionConstructionContext,
-              ccCompilationContext,
-              ccToolchain,
-              configuration,
-              conlyopts,
-              copts,
-              coptsFilter,
-              cppConfiguration,
-              cxxopts,
-              executionInfo,
-              fdoContext,
-              auxiliaryFdoInputs,
-              featureConfiguration,
-              isCodeCoverageEnabled,
-              label,
-              commonCompileBuildVariables,
-              fdoBuildVariables,
-              ruleErrorConsumer,
-              semantics,
-              result,
-              moduleMapLabel,
-              module);
-        }
-      }
-    }
-
     String outputNamePrefixDir = null;
     // purpose is only used by objc rules; if set it ends with either "_non_objc_arc" or
     // "_objc_arc", and it is used to override configuration.getMnemonic() to prefix the output
@@ -436,17 +347,6 @@ public final class CcStaticCompilationHelper {
   }
 
   // Misc. helper methods for createCcCompileActions():
-
-  /**
-   * @return whether we want to provide header modules for the current target.
-   */
-  private static boolean shouldProvideHeaderModules(
-      FeatureConfiguration featureConfiguration,
-      List<Artifact> privateHeaders,
-      List<Artifact> publicHeaders) {
-    return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
-        && (!publicHeaders.isEmpty() || !privateHeaders.isEmpty());
-  }
 
   /**
    * Calculate the output names for object file paths from a set of source files.
@@ -945,7 +845,7 @@ public final class CcStaticCompilationHelper {
     return outputFiles;
   }
 
-  private static void createModuleCodegenAction(
+  static void createModuleCodegenAction(
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
@@ -1122,7 +1022,7 @@ public final class CcStaticCompilationHelper {
     result.addHeaderTokenFile(tokenFile);
   }
 
-  private static ImmutableList<Artifact> createModuleAction(
+  static ImmutableList<Artifact> createModuleAction(
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,

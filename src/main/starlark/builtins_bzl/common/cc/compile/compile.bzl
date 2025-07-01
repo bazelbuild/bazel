@@ -290,7 +290,36 @@ def compile(
     )
 
     cc_outputs_builder = cc_internal.create_cc_compilation_outputs_builder()
-    cc_common_internal.create_cc_compile_actions(
+    _create_cc_compile_actions_starlark_part(
+        action_construction_context = ctx,
+        additional_compilation_inputs = additional_inputs,
+        additional_include_scanning_roots = additional_include_scanning_roots,
+        cc_compilation_context = cc_compilation_context,
+        cc_toolchain = cc_toolchain,
+        compilation_unit_sources = compilation_unit_sources,
+        configuration = ctx.configuration,
+        conlyopts = conly_flags,
+        copts = user_compile_flags,
+        copts_filter = copts_filter_object,
+        cpp_configuration = cpp_configuration,
+        cxxopts = cxx_flags,
+        fdo_context = fdo_context,
+        feature_configuration = feature_configuration,
+        generate_no_pic_action = generate_no_pic_action,
+        generate_pic_action = generate_pic_action,
+        is_code_coverage_enabled = code_coverage_enabled,
+        label = label,
+        private_headers = private_hdrs_artifacts,
+        public_headers = public_hdrs_artifacts,
+        purpose = purpose if purpose else "",
+        separate_module_headers = separate_module_headers,
+        language = language,
+        result = cc_outputs_builder,
+        common_compile_build_variables = common_compile_build_variables,
+        auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+        fdo_build_variables = fdo_build_variables,
+    )
+    cc_common_internal.create_cc_compile_actions_native_part(
         action_construction_context = ctx,
         additional_compilation_inputs = additional_inputs,
         additional_include_scanning_roots = additional_include_scanning_roots,
@@ -405,4 +434,125 @@ def _to_file_label_tuple_list(list_of_files_or_tuples, label):
         return [(h, label) for h in list_of_files_or_tuples]
     fail("Should be either tuple or File: " + type(list_of_files_or_tuples[0]))
 
+def _should_provide_header_modules(
+        feature_configuration,
+        private_headers,
+        public_headers):
+    """Returns whether we want to provide header modules for the current target."""
+    return (
+        feature_configuration.is_enabled("header_modules") and
+        (private_headers or public_headers)
+    )
+
 # LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/cpp/CcModule.java:compile)
+
+def _create_cc_compile_actions_starlark_part(
+        *,
+        action_construction_context,
+        additional_compilation_inputs,
+        additional_include_scanning_roots,
+        cc_compilation_context,
+        cc_toolchain,
+        compilation_unit_sources,
+        configuration,
+        conlyopts,
+        copts,
+        copts_filter,
+        cpp_configuration,
+        cxxopts,
+        fdo_context,
+        feature_configuration,
+        generate_no_pic_action,
+        generate_pic_action,
+        is_code_coverage_enabled,
+        label,
+        private_headers,
+        public_headers,
+        purpose,
+        separate_module_headers,
+        language,
+        result,
+        common_compile_build_variables,
+        auxiliary_fdo_inputs,
+        fdo_build_variables):
+    """Constructs the C++ compiler actions. Growing Starlark port of CcCommon.createCcCompileActions."""
+    if generate_pic_action and not feature_configuration.is_enabled("pic") and not feature_configuration.is_enabled("supports_pic"):
+        fail("PIC compilation is requested but the toolchain does not support it " +
+             "(feature named 'supports_pic' is not enabled)")
+
+    cpp_semantics = cc_common_internal.get_cpp_semantics(language = language)
+
+    if _should_provide_header_modules(feature_configuration, private_headers, public_headers):
+        cpp_module_map = cc_compilation_context.module_map()
+        module_map_label = Label(cpp_module_map.name())
+        modules = cc_internal.create_module_action(
+            action_construction_context = action_construction_context,
+            cc_compilation_context = cc_compilation_context,
+            cc_toolchain = cc_toolchain,
+            configuration = configuration,
+            conlyopts = conlyopts,
+            copts = copts,
+            copts_filter = copts_filter,
+            cpp_configuration = cpp_configuration,
+            cxxopts = cxxopts,
+            fdo_context = fdo_context,
+            auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+            feature_configuration = feature_configuration,
+            generate_no_pic_action = generate_no_pic_action,
+            generate_pic_action = generate_pic_action,
+            label = label,
+            common_toolchain_variables = common_compile_build_variables,
+            fdo_build_variables = fdo_build_variables,
+            cpp_semantics = cpp_semantics,
+            outputs = result,
+            cpp_module_map = cpp_module_map,
+        )
+        if separate_module_headers:
+            separate_cpp_module_map = cpp_module_map.create_separate_module_map()
+            separate_modules = cc_internal.create_module_action(
+                action_construction_context = action_construction_context,
+                cc_compilation_context = cc_compilation_context,
+                cc_toolchain = cc_toolchain,
+                configuration = configuration,
+                conlyopts = conlyopts,
+                copts = copts,
+                copts_filter = copts_filter,
+                cpp_configuration = cpp_configuration,
+                cxxopts = cxxopts,
+                fdo_context = fdo_context,
+                auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+                feature_configuration = feature_configuration,
+                generate_no_pic_action = generate_no_pic_action,
+                generate_pic_action = generate_pic_action,
+                label = label,
+                common_toolchain_variables = common_compile_build_variables,
+                fdo_build_variables = fdo_build_variables,
+                cpp_semantics = cpp_semantics,
+                outputs = result,
+                cpp_module_map = separate_cpp_module_map,
+            )
+            modules = modules + separate_modules
+        if feature_configuration.is_enabled("header_module_codegen"):
+            for module in modules:
+                cc_internal.create_module_codegen_action(
+                    action_construction_context = action_construction_context,
+                    cc_compilation_context = cc_compilation_context,
+                    cc_toolchain = cc_toolchain,
+                    configuration = configuration,
+                    conlyopts = conlyopts,
+                    copts = copts,
+                    copts_filter = copts_filter,
+                    cpp_configuration = cpp_configuration,
+                    cxxopts = cxxopts,
+                    fdo_context = fdo_context,
+                    auxiliary_fdo_inputs = auxiliary_fdo_inputs,
+                    feature_configuration = feature_configuration,
+                    is_code_coverage_enabled = is_code_coverage_enabled,
+                    label = label,
+                    common_toolchain_variables = common_compile_build_variables,
+                    fdo_build_variables = fdo_build_variables,
+                    cpp_semantics = cpp_semantics,
+                    outputs = result,
+                    source_label = module_map_label,
+                    module = module,
+                )
