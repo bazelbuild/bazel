@@ -58,6 +58,9 @@ Any valid SemVer version is a valid Bazel module version. Additionally, two
 SemVer versions `a` and `b` compare `a < b` if and only if the same holds when
 they're compared as Bazel module versions.
 
+Finally, to learn more about module versioning, [see the `MODULE.bazel`
+FAQ](faq#module-versioning-best-practices).
+
 ## Version selection {:#version-selection}
 
 Consider the diamond dependency problem, a staple in the versioned dependency
@@ -96,14 +99,19 @@ backwards incompatible versions of a module as a separate module. In terms of
 SemVer, that means `A 1.x` and `A 2.x` are considered distinct modules, and can
 coexist in the resolved dependency graph. This is, in turn, made possible by
 encoding the major version in the package path in Go, so there aren't any
-compile-time or linking-time conflicts.
+compile-time or linking-time conflicts. Bazel, however, cannot provide such
+guarantees because it follows [a relaxed version of SemVer](#version-format).
 
-Bazel, however, cannot provide such guarantees, so it needs the "major version"
-number in order to detect backwards incompatible versions. This number is called
-the *compatibility level*, and is specified by each module version in its
-`module()` directive. With this information, Bazel can throw an error when it
-detects that versions of the same module with different compatibility levels
-exist in the resolved dependency graph.
+Thus, Bazel needs the equivalent of the SemVer major version number to detect
+backwards incompatible ("breaking") versions. This number is called the
+*compatibility level*, and is specified by each module version in its
+[`module()`](/rule/lib/globals/module#module) directive. With this information,
+Bazel can throw an error if it detects that versions of the _same module_ with
+_different compatibility levels_ exist in the resolved dependency graph.
+
+Finally, incrementing the compatibility level can be disruptive to the users.
+To learn more about when and how to increment it, [check the `MODULE.bazel`
+FAQ](faq#incrementing-compatibility-level).
 
 ## Overrides
 
@@ -172,6 +180,11 @@ Bazel supports the following non-registry overrides:
 *   [`archive_override`](/rules/lib/globals/module#archive_override)
 *   [`git_override`](/rules/lib/globals/module#git_override)
 *   [`local_path_override`](/rules/lib/globals/module#local_path_override)
+
+Note that setting a version value in the source archive `MODULE.bazel` can have
+downsides when the module is being overridden with a non-registry override. To
+learn more about this [see the `MODULE.bazel`
+FAQ](faq#module-versioning-best-practices).
 
 ## Define repos that don't represent Bazel modules {:#use_repo_rule}
 
