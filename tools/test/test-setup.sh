@@ -307,7 +307,7 @@ set +m
 # signal (https://www.gnu.org/software/bash/manual/bash.html#Signals).
 while kill -0 $childPid 2>/dev/null; do
   if [[ "$targetExited" == "1" ]]; then
-    source "${targetExitCodeFile}"
+    . "${targetExitCodeFile}"
     break
   fi
   wait $childPid
