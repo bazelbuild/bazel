@@ -95,3 +95,82 @@ test:ci-windows --test_env=JAVA_HOME
 test:ci-windows --test_env=TEST_INSTALL_BASE=C:/b/bazeltest_install_base
 test:ci-windows --test_env=REPOSITORY_CACHE=C:/b/bazeltest_repo_cache
 test:ci-windows --test_tag_filters=-no_windows,-slow
+
+
+
+# # Suppress known, non-actionable warnings from external dependencies.
+# # See https://our-issue-tracker/XYZ for details.
+# 
+# # This warning appears twice, and we want to be notified if that changes.
+# build --output_suppression="count:2 package://external/rules_jvm_external The maven repository 'maven' is used in two different bazel modules"
+# 
+# # Suppress all other known warnings from external packages.
+# build --output_suppression="package://external/.* depends on deprecated target"
+# build --output_suppression="package://external/rules_jvm_external Found duplicate artifact versions"
+# build --output_suppression="package://external/protobuf The py_proto_library macro is deprecated"
+# build --output_suppression="package://external/protobuf.* AccessController in java.security has been deprecated"
+# build --output_suppression="package://external/zstd-jni finalize() in Object has been deprecated"
+# build --output_suppression="package://external/protobuf.* deprecated item is not annotated with @Deprecated"
+
+
+# NEW-----------
+# # Suppress known, non-actionable warnings from external dependencies.
+# # See https://our-issue-tracker/XYZ for details.
+# 
+# # This warning appears twice, and we want to be notified if that changes.
+# build --output_suppression="count:2 package:@@rules_jvm_external The maven repository 'maven' is used in two different bazel modules"
+# 
+# # Suppress all other known warnings from external packages.
+# build --output_suppression="package:@@.* depends on deprecated target"
+# build --output_suppression="package:@@rules_jvm_external Found duplicate artifact versions"
+# build --output_suppression="package:@@protobuf The py_proto_library macro is deprecated"
+# build --output_suppression="package:@@protobuf.* AccessController in java.security has been deprecated"
+# build --output_suppression="package:@@zstd-jni finalize() in Object has been deprecated"
+# build --output_suppression="package:@@protobuf.* deprecated item is not annotated with @Deprecated"
+
+# NEW 2-----------
+#
+# # Suppress known, non-actionable warnings from external dependencies.
+# build --output_suppression="path:.*/external/rules_jvm_external/.* The maven repository 'maven' is used in two different bazel modules"
+# 
+# # Suppress all other known warnings from external packages.
+# build --output_suppression="path:.*/external/.* depends on deprecated target"
+# build --output_suppression="path:.*/external/rules_jvm_external/.* Found duplicate artifact versions"
+# build --output_suppression="path:.*/external/protobuf/.* The py_proto_library macro is deprecated"
+# build --output_suppression="path:.*/external/protobuf/.* AccessController in java.security has been deprecated"
+# build --output_suppression="path:.*/external/zstd-jni/.* finalize() in Object has been deprecated"
+# build --output_suppression="path:.*/external/protobuf/.* deprecated item is not annotated with @Deprecated"
+#
+# NEW 3 --------------------------
+
+# # Suppress known, non-actionable warnings.
+# 
+# # Suppress select() deprecation warnings from the main repo.
+# build --output_suppression="path:.*/src/conditions/BUILD.*select.. on cpu is deprecated"
+# 
+# # Suppress warnings from external dependencies.
+# build --output_suppression="path:.*/external/rules_jvm_external/.* The maven repository 'maven' is used in two different bazel modules"
+# build --output_suppression="path:.*/external/.* depends on deprecated target"
+# build --output_suppression="path:.*/external/rules_jvm_external/.* Found duplicate artifact versions"
+# # Note the escaped '+' in the path to match the 'protobuf+' directory literally.
+# build --output_suppression="path:.*/external/protobuf\+/.* The py_proto_library macro is deprecated"
+# build --output_suppression="path:.*/external/protobuf/.* AccessController in java.security has been deprecated"
+# build --output_suppression="path:.*/external/zstd-jni/.* finalize() in Object has been deprecated"
+# build --output_suppression="path:.*/external/protobuf/.* deprecated item is not annotated with @Deprecated"
+
+
+# NEW 4 --------------------------
+
+# Suppress known, non-actionable warnings with surgical precision.
+
+# Suppress select() deprecation warnings only in src/conditions/BUILD.
+build --output_suppression="path:.*/src/conditions/BUILD select.. on cpu is deprecated"
+
+# Suppress 'depends on deprecated target' for specific, known cases.
+build --output_suppression="path:.*/external/\\+async_profiler_repos\\+async_profiler_macos/BUILD.bazel .*depends on deprecated target"
+build --output_suppression="path:.*/external/c-ares\\+/BUILD.bazel .*depends on deprecated target"
+build --output_suppression="path:.*/src/test/java/com/google/devtools/build/lib/testutil/BUILD .*depends on deprecated target"
+
+# Suppress py_proto_library deprecation from the protobuf+ repository.
+# The '+' in the path is escaped to ensure it's treated as a literal character.
+build --output_suppression="path:.*/external/protobuf\\+/protobuf.bzl The py_proto_library macro is deprecated"

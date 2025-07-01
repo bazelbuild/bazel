@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.outputfilter;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.OutputFilter;
 import java.util.regex.Pattern;
 import org.junit.Test;
@@ -26,33 +28,37 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class OutputFilterTest {
 
+  private Event event(String tag) {
+    return Event.of(EventKind.WARNING, null, "message").withTag(tag);
+  }
+
   @Test
   public void testOutputEverythingAlwaysTrue() {
-    assertThat(OutputFilter.OUTPUT_EVERYTHING.showOutput("some tag")).isTrue();
-    assertThat(OutputFilter.OUTPUT_EVERYTHING.showOutput("literally anything")).isTrue();
-    assertThat(OutputFilter.OUTPUT_EVERYTHING.showOutput("even empty")).isTrue();
-    assertThat(OutputFilter.OUTPUT_EVERYTHING.showOutput("")).isTrue();
+    assertThat(OutputFilter.OUTPUT_EVERYTHING.showOutput(event("some tag"))).isTrue();
+    assertThat(OutputFilter.OUTPUT_EVERYTHING.showOutput(event("literally anything"))).isTrue();
+    assertThat(OutputFilter.OUTPUT_EVERYTHING.showOutput(event("even empty"))).isTrue();
+    assertThat(OutputFilter.OUTPUT_EVERYTHING.showOutput(event(""))).isTrue();
   }
 
   @Test
   public void testOutputNothingAlwaysTrue() {
-    assertThat(OutputFilter.OUTPUT_NOTHING.showOutput("some tag")).isFalse();
-    assertThat(OutputFilter.OUTPUT_NOTHING.showOutput("literally anything")).isFalse();
-    assertThat(OutputFilter.OUTPUT_NOTHING.showOutput("even empty")).isFalse();
-    assertThat(OutputFilter.OUTPUT_NOTHING.showOutput("")).isFalse();
+    assertThat(OutputFilter.OUTPUT_NOTHING.showOutput(event("some tag"))).isFalse();
+    assertThat(OutputFilter.OUTPUT_NOTHING.showOutput(event("literally anything"))).isFalse();
+    assertThat(OutputFilter.OUTPUT_NOTHING.showOutput(event("even empty"))).isFalse();
+    assertThat(OutputFilter.OUTPUT_NOTHING.showOutput(event(""))).isFalse();
   }
 
   @Test
   public void testRegexpFilterShowOutputMatchTagReturnsTrue() {
     OutputFilter underTest =
         OutputFilter.RegexOutputFilter.forPattern(Pattern.compile("^//some/target"));
-    assertThat(underTest.showOutput("//some/target")).isTrue();
+    assertThat(underTest.showOutput(event("//some/target"))).isTrue();
   }
 
   @Test
   public void testRegexpFilterShowOutputNonMatchTagReturnsFalse() {
     OutputFilter underTest =
         OutputFilter.RegexOutputFilter.forPattern(Pattern.compile("^//some/target"));
-    assertThat(underTest.showOutput("//not/some/target")).isFalse();
+    assertThat(underTest.showOutput(event("//not/some/target"))).isFalse();
   }
 }
