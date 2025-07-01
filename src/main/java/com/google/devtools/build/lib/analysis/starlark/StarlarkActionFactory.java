@@ -349,7 +349,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               NestedSetBuilder.wrap(Order.STABLE_ORDER, args.getDirectoryArtifacts()),
               (Artifact) output,
               args.build(getMainRepoMappingSupplier()),
-              args.getParameterFileType());
+              args.getParameterFileType(),
+              isExecutable);
     } else {
       throw new AssertionError("Unexpected type: " + content.getClass().getSimpleName());
     }

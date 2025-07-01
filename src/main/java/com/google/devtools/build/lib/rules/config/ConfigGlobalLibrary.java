@@ -153,7 +153,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
                 singularErrorDescriptor,
                 label,
                 label.getRepository().getName(),
-                label.getRepository().getOwnerRepoDisplayString());
+                label.getRepository().getContextRepoDisplayString());
           }
         } catch (LabelSyntaxException e) {
           throw Starlark.errorf(
@@ -190,7 +190,6 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     }
 
     if (optionName.equals("incompatible_enable_cc_toolchain_resolution")
-        || optionName.equals("incompatible_enable_cgo_toolchain_resolution")
         || optionName.equals("incompatible_enable_apple_toolchain_resolution")) {
       // This is specifically allowed.
       return true;

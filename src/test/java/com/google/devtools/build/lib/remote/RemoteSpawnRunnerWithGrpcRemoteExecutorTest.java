@@ -770,8 +770,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
   @Test
   public void remotelyExecuteRetries() throws Exception {
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
-        .thenReturn(true);
+    PathFragment execPath = ArgumentMatchers.<PathFragment>any();
+    when(remoteOutputChecker.shouldDownloadOutput(execPath, any())).thenReturn(true);
 
     serviceRegistry.addService(
         new ActionCacheImplBase() {
@@ -927,8 +927,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
   @Test
   public void remotelyExecuteRetriesWaitResult() throws Exception {
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
-        .thenReturn(true);
+    PathFragment execPath = ArgumentMatchers.<PathFragment>any();
+    when(remoteOutputChecker.shouldDownloadOutput(execPath, any())).thenReturn(true);
 
     // This test's flow is similar to the previous, except the result
     // will eventually be returned by the waitExecute function.

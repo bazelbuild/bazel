@@ -258,10 +258,12 @@ public class ExecutionTransitionFactory
           options.underlying().get(CoreOptions.class).affectedByStarlarkTransition;
       coreOptions.executionInfoModifier =
           options.underlying().get(CoreOptions.class).executionInfoModifier;
-      coreOptions.overrideNamePlatformInOutputDirEntries =
-          options.underlying().get(CoreOptions.class).overrideNamePlatformInOutputDirEntries;
+      coreOptions.overridePlatformCpuName =
+          options.underlying().get(CoreOptions.class).overridePlatformCpuName;
       coreOptions.disabledSelectOptions =
           options.underlying().get(CoreOptions.class).disabledSelectOptions;
+      coreOptions.incompatibleTargetCpuFromPlatform =
+          options.underlying().get(CoreOptions.class).incompatibleTargetCpuFromPlatform;
       return result;
     }
   }

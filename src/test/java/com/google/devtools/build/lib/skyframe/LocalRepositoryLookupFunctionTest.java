@@ -25,10 +25,7 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -50,7 +47,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -91,8 +87,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
         new PackageLookupFunction(
             new AtomicReference<>(),
             CrossRepositoryLabelViolationStrategy.ERROR,
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     skyFunctions.put(
         FileStateKey.FILE_STATE,
         new FileStateFunction(
@@ -104,19 +99,6 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(
         SkyFunctions.DIRECTORY_LISTING_STATE,
         new DirectoryListingStateFunction(externalFilesHelper, SyscallCache.NO_CACHE));
-    RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
-    skyFunctions.put(
-        WorkspaceFileValue.WORKSPACE_FILE,
-        new WorkspaceFileFunction(
-            ruleClassProvider,
-            analysisMock
-                .getPackageFactoryBuilderForTesting(directories)
-                .build(ruleClassProvider, fileSystem),
-            directories,
-            /*bzlLoadFunctionForInlining=*/ null));
-    skyFunctions.put(
-        SkyFunctions.EXTERNAL_PACKAGE,
-        new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
         SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
         new LocalRepositoryLookupFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
@@ -127,7 +109,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
         new SkyFunction() {
           @Override
           public SkyValue compute(SkyKey skyKey, Environment env) {
-            return RepositoryMappingValue.VALUE_FOR_ROOT_MODULE_WITHOUT_REPOS;
+            return RepositoryMappingValue.VALUE_FOR_EMPTY_ROOT_MODULE;
           }
         });
     skyFunctions.put(
@@ -143,8 +125,6 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
-    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
-        differencer, Optional.empty());
   }
 
   private static SkyKey createKey(RootedPath directory) {

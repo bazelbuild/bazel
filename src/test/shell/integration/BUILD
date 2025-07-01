@@ -1,7 +1,6 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_shell//shell:sh_library.bzl", "sh_library")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
-load("//:workspace_deps.bzl", "gen_workspace_stanza")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -36,14 +35,6 @@ sh_library(
         "//src:bazel-bin_nojdk",
         "//src/test/shell:bin/bazel_nojdk",
         "//src/test/shell/bazel:test-deps-wo-bazel",
-    ],
-)
-
-gen_workspace_stanza(
-    name = "protobuf_stanza",
-    out = "protobuf_stanza.txt",
-    repos = [
-        "rules_python",
     ],
 )
 
@@ -376,7 +367,6 @@ sh_test(
     name = "modify_execution_info_test",
     srcs = ["modify_execution_info_test.sh"],
     data = [
-        ":protobuf_stanza.txt",
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
         "@zlib",

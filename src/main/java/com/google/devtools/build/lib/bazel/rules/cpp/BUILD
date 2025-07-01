@@ -1,5 +1,4 @@
 load("@rules_java//java:defs.bzl", "java_library")
-load("//:workspace_deps.bzl", "gen_workspace_stanza")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -20,7 +19,6 @@ java_library(
         ["*.java"],
         exclude = ["BazelCppSemantics.java"],
     ),
-    resources = [":cc_configure.WORKSPACE"],
     deps = [
         ":bazel_cpp_semantics",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -50,20 +48,4 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
     ],
-)
-
-gen_workspace_stanza(
-    name = "workspace_with_rules_cc",
-    out = "cc_configure.WORKSPACE",
-    postamble = """
-        load("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_configure")
-        cc_configure()
-    """,
-    preamble = """
-        load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-        load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-    """,
-    repos = ["rules_cc"],
-    use_maybe = 1,
-    visibility = ["//:__pkg__"],
 )

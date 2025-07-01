@@ -29,6 +29,12 @@ public final class TypeChecker {
     } else if (Objects.equals(type2, Types.ANY)) {
       type2 = type1;
     }
+
+    // TODO(ilist@): test this code path ("object" is not exposed to Starlark methods)
+    if (type2.equals(Types.OBJECT)) {
+      return true;
+    }
+
     // TODO(ilist@): this just works for primitive types
     return Objects.equals(type1, type2);
   }
@@ -68,6 +74,8 @@ public final class TypeChecker {
       t = Types.INT;
     } else if (cls == double.class || cls == Double.class || cls == StarlarkFloat.class) {
       t = Types.FLOAT;
+    } else if (cls == Object.class || cls == StarlarkValue.class) {
+      return Types.OBJECT;
     } else {
       // TODO(ilist@): handle more complex types
       return Types.ANY;

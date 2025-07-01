@@ -228,13 +228,11 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   protected BuildConfigurationValue createRaw(
       BuildOptions buildOptions,
       String mnemonic,
-      String workspaceName,
       boolean siblingRepositoryLayout)
       throws Exception {
     return BuildConfigurationValue.createForTesting(
         buildOptions,
         mnemonic,
-        workspaceName,
         siblingRepositoryLayout,
         skyframeExecutor.getBlazeDirectoriesForTesting(),
         skyframeExecutor.getRuleClassProviderForTesting(),

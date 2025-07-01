@@ -290,7 +290,7 @@ def read_netrc(ctx, filename):
     contents = ctx.read(filename, watch = "no")
     return parse_netrc(contents, filename)
 
-def parse_netrc(contents, filename = None):
+def parse_netrc(contents, filename = "a .netrc file"):
     """Utility function to parse at least a basic .netrc file.
 
     Args:
@@ -373,10 +373,7 @@ def parse_netrc(contents, filename = None):
                     currentmachinename = ""
                     currentmachine = {}
                 else:
-                    if filename == None:
-                        filename = "a .netrc file"
-                    fail("Unexpected token '%s' while reading %s" %
-                         (token, filename))
+                    fail("Unexpected token '%s' while reading %s" % (token, filename))
     if not currentmachinename == None:
         netrc[currentmachinename] = currentmachine
     return netrc
@@ -426,12 +423,22 @@ def use_netrc(netrc, urls, patterns):
                 auth_dict["password"] = authforhost["password"]
 
             auth[url] = auth_dict
-        elif "login" in authforhost and "password" in authforhost:
-            auth[url] = {
-                "type": "basic",
-                "login": authforhost["login"],
-                "password": authforhost["password"],
-            }
+        elif "password" in authforhost:
+            if "login" in authforhost:
+                auth[url] = {
+                    "type": "basic",
+                    "login": authforhost["login"],
+                    "password": authforhost["password"],
+                }
+            else:
+                auth[url] = {
+                    "type": "pattern",
+                    "pattern": "Bearer <password>",
+                    "password": authforhost["password"],
+                }
+        else:
+            # buildifier: disable=print
+            print("WARNING: Found machine in .netrc for URL %s, but no password." % url)
 
     return auth
 

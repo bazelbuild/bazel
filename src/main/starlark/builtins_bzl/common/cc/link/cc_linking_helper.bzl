@@ -23,6 +23,7 @@ load(
     _use_pic_for_dynamic_libs = "use_pic_for_dynamic_libs",
 )
 load(":common/cc/link/cpp_link_action.bzl", "link_action")
+load(":common/cc/link/create_library_to_link.bzl", "make_library_to_link")
 load(":common/cc/link/lto_indexing_action.bzl", "create_lto_artifacts_and_lto_indexing_action")
 load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE", "USE_ARCHIVER", "is_dynamic_library")
 load(":common/paths.bzl", "paths")
@@ -233,15 +234,14 @@ def create_cc_link_actions(
 
     library_to_link = None
     if dynamic_library | static_library:
-        library_to_link = cc_internal.create_library_to_link(
-            struct(
-                **(dynamic_library | static_library |
-                   dict(
-                       disable_whole_archive =
-                           feature_configuration.is_enabled("disable_whole_archive_for_static_lib"),
-                       alwayslink = alwayslink,
-                   ))
-            ),
+        library_to_link = make_library_to_link(
+            **(dynamic_library | static_library |
+               dict(
+                   _disable_whole_archive =
+                       feature_configuration.is_enabled("disable_whole_archive_for_static_lib"),
+                   alwayslink = alwayslink,
+                   _contains_objects = True,
+               ))
         )
 
     return struct(
@@ -308,22 +308,18 @@ def _create_dynamic_link_actions(
     mnemonic = "ObjcLink" if dynamic_link_type == LINK_TARGET_TYPE.OBJC_EXECUTABLE else None
 
     if linking_mode == LINKING_MODE.DYNAMIC:
-        toolchain_libraries = [cc_internal.create_library_to_link(
-            struct(
-                library_identifier = lib.path,
-                dynamic_library = lib,
-                disable_whole_archive = True,
-            ),
+        toolchain_libraries = [make_library_to_link(
+            _library_identifier = lib.path,
+            dynamic_library = lib,
+            _disable_whole_archive = True,
         ) for lib in cc_toolchain.dynamic_runtime_lib(feature_configuration = feature_configuration).to_list()]
     else:
-        toolchain_libraries = [cc_internal.create_library_to_link(
-            struct(
-                library_identifier = lib.path,
-                static_library = lib,
-                # Adding toolchain libraries without whole archive no-matter-what. People don't want to
-                # include whole libstdc++ in their binary ever.
-                disable_whole_archive = True,
-            ),
+        toolchain_libraries = [make_library_to_link(
+            _library_identifier = lib.path,
+            static_library = lib,
+            # Adding toolchain libraries without whole archive no-matter-what. People don't want to
+            # include whole libstdc++ in their binary ever.
+            _disable_whole_archive = True,
         ) for lib in cc_toolchain.static_runtime_lib(feature_configuration = feature_configuration).to_list()]
 
     libraries_to_link, linkstamps, linkopts, non_code_inputs = \
@@ -443,11 +439,18 @@ def _maybe_do_lto_indexing(*, link_type, linking_mode, compilation_outputs, libr
                          not feature_configuration.is_enabled("supports_dynamic_linker")
     prefer_pic_libs = is_dynamic_library(link_type)
 
-    static_libraries_to_link = cc_internal.get_static_libraries(libraries_to_link, prefer_static_libs)
+    static_libraries_to_link = []
+    for lib in libraries_to_link:
+        if prefer_static_libs:
+            if lib.static_library != None or lib.pic_static_library != None:
+                static_libraries_to_link.append(lib)
+        elif lib.interface_library == None and lib.dynamic_library == None:
+            static_libraries_to_link.append(lib)
+
     if not has_lto_bitcode_inputs:
         for lib in static_libraries_to_link:
             pic = (prefer_pic_libs and lib.pic_static_library != None) or lib.static_library == None
-            context = lib.pic_lto_compilation_context() if pic else lib.lto_compilation_context()
+            context = lib._pic_lto_compilation_context if pic else lib._lto_compilation_context
             if context and context.lto_bitcode_inputs():
                 has_lto_bitcode_inputs = True
                 break
@@ -483,7 +486,7 @@ def _construct_dynamic_library_to_link(
         cc_toolchain):
     library_to_link = {}
     if dynamic_library:
-        library_to_link = dict(library_identifier = dynamic_library.library_identifier)
+        library_to_link = dict(_library_identifier = dynamic_library.library_identifier)
         if neverlink or feature_configuration.is_enabled("copy_dynamic_libraries_to_binary"):
             if interface_library:
                 library_to_link["interface_library"] = interface_library.file
@@ -510,7 +513,7 @@ def _construct_dynamic_library_to_link(
                     False,
                 )
                 library_to_link["interface_library"] = library_link_artifact
-                library_to_link["resolve_symlink_interface_library"] = interface_library.file
+                library_to_link["resolved_symlink_interface_library"] = interface_library.file
     return library_to_link
 
 # TODO(b/338618120): There's a second get_linked_artifact in cc_helper. Simplify this one and converge the two.
@@ -653,19 +656,19 @@ def _create_action_for_static_library(
 
     if not use_pic:
         return dict(
-            library_identifier = library_identifier,
+            _library_identifier = library_identifier,
             static_library = output_library.file,
-            object_files = output_library.object_files,
-            lto_compilation_context = output_library.lto_compilation_context,
-            shared_non_lto_backends = output_library.shared_non_lto_backends,
+            objects = output_library.object_files,
+            _lto_compilation_context = output_library.lto_compilation_context,
+            _shared_non_lto_backends = output_library.shared_non_lto_backends,
             alwayslink = output_library.artifact_category == artifact_category.ALWAYSLINK_STATIC_LIBRARY,
         )
     else:
         return dict(
-            library_identifier = library_identifier,
+            _library_identifier = library_identifier,
             pic_static_library = output_library.file,
-            pic_object_files = output_library.object_files,
-            pic_lto_compilation_context = output_library.lto_compilation_context,
-            pic_shared_non_lto_backends = output_library.shared_non_lto_backends,
+            pic_objects = output_library.object_files,
+            _pic_lto_compilation_context = output_library.lto_compilation_context,
+            _pic_shared_non_lto_backends = output_library.shared_non_lto_backends,
             alwayslink = output_library.artifact_category == artifact_category.ALWAYSLINK_STATIC_LIBRARY,
         )

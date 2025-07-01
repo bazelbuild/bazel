@@ -14,4 +14,7 @@ filegroup(
 java_library(
     name = "regex_util",
     srcs = ["RegexUtil.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
+    ],
 )

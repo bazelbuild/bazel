@@ -197,27 +197,6 @@ public abstract class RepositoryFunction {
   public record FetchResult(
       Map<? extends RepoRecordedInput, String> recordedInputValues, Reproducibility reproducible) {}
 
-  protected static void ensureNativeRepoRuleEnabled(Rule rule, Environment env, String replacement)
-      throws RepositoryFunctionException, InterruptedException {
-    if (!isWorkspaceRepo(rule)) {
-      // If this native repo rule is used in a Bzlmod context, always allow it. This is because
-      // we're still using the native repo rule `local_config_platform` for the builtin module with
-      // the same name. We should just get rid of that.
-      return;
-    }
-    if (!RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES.get(env)) {
-      return;
-    }
-    throw new RepositoryFunctionException(
-        Starlark.errorf(
-            "Native repo rule %s is disabled since the flag "
-                + "--incompatible_disable_native_repo_rules is set. Native repo rules are "
-                + "deprecated; please migrate to their Starlark counterparts. For %s, please use "
-                + "%s.",
-            rule.getRuleClass(), rule.getRuleClass(), replacement),
-        Transience.PERSISTENT);
-  }
-
   /**
    * Verify the data provided by the marker file to check if a refetch is needed. Returns an empty
    * Optional if the data is up to date and no refetch is needed and an Optional with a

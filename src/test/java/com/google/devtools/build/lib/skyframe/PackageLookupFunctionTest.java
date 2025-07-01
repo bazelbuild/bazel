@@ -34,12 +34,8 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
@@ -111,8 +107,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         new PackageLookupFunction(
             deletedPackages,
             crossRepositoryLabelViolationStrategy(),
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
     skyFunctions.put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build());
     skyFunctions.put(
         FileStateKey.FILE_STATE,
@@ -131,41 +126,25 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
             ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace()));
     skyFunctions.put(SkyFunctions.IGNORED_SUBDIRECTORIES, IgnoredSubdirectoriesFunction.INSTANCE);
     skyFunctions.put(
-        WorkspaceFileValue.WORKSPACE_FILE,
-        new WorkspaceFileFunction(
-            ruleClassProvider,
-            analysisMock
-                .getPackageFactoryBuilderForTesting(directories)
-                .build(ruleClassProvider, fileSystem),
-            directories,
-            /*bzlLoadFunctionForInlining=*/ null));
-    skyFunctions.put(
-        SkyFunctions.EXTERNAL_PACKAGE,
-        new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
-    skyFunctions.put(
         SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
         new LocalRepositoryLookupFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
         FileSymlinkCycleUniquenessFunction.NAME, new FileSymlinkCycleUniquenessFunction());
 
-    ImmutableMap<String, RepositoryFunction> repositoryHandlers =
-        ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
     skyFunctions.put(
         SkyFunctions.REPOSITORY_DIRECTORY,
         new RepositoryDelegatorFunction(
-            repositoryHandlers,
             null,
             new AtomicBoolean(true),
             ImmutableMap::of,
             directories,
-            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
             new RepoContentsCache()));
     skyFunctions.put(
         SkyFunctions.REPOSITORY_MAPPING,
         new SkyFunction() {
           @Override
           public SkyValue compute(SkyKey skyKey, Environment env) {
-            return RepositoryMappingValue.VALUE_FOR_ROOT_MODULE_WITHOUT_REPOS;
+            return RepositoryMappingValue.VALUE_FOR_EMPTY_ROOT_MODULE;
           }
         });
     skyFunctions.put(
@@ -185,11 +164,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
-    RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES.set(differencer, false);
     RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
-
-    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
-        differencer, Optional.empty());
   }
 
   protected PackageLookupValue lookupPackage(String packageName) throws InterruptedException {

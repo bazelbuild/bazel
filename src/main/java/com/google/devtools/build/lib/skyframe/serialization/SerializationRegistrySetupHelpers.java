@@ -127,7 +127,7 @@ public final class SerializationRegistrySetupHelpers {
         .addReferenceConstants(
             ImmutableSortedMap.copyOf(starlarkEnv.getUninjectedBuildBzlNativeBindings()).values())
         .addReferenceConstants(
-            ImmutableSortedMap.copyOf(starlarkEnv.getWorkspaceBzlNativeBindings()).values());
+            ImmutableSortedMap.copyOf(starlarkEnv.getUninjectedModuleBzlNativeBindings()).values());
 
     return builder;
   }

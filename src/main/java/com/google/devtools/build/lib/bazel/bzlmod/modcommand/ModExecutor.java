@@ -531,8 +531,7 @@ public class ModExecutor {
   }
 
   private boolean isBuiltin(ModuleKey key) {
-    return key.equals(new ModuleKey("bazel_tools", Version.EMPTY))
-        || key.equals(new ModuleKey("local_config_platform", Version.EMPTY));
+    return key.equals(new ModuleKey("bazel_tools", Version.EMPTY));
   }
 
   /** A node representing a module that forms the result graph. */

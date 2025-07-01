@@ -174,7 +174,9 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
                                 "skyframe-evaluator-memoizing",
                                 evaluationContext.getParallelism(),
                                 ParallelEvaluatorErrorClassifier.instance())),
-                new SimpleCycleDetector(),
+                evaluationContext.detectCycles()
+                    ? new SimpleCycleDetector()
+                    : new ShortCircuitingCycleDetector(evaluationContext.getParallelism()),
                 evaluationContext.getUnnecessaryTemporaryStateDropperReceiver(),
                 getKeepGoingPredicate(evaluationContext));
         result = evaluator.eval(roots);

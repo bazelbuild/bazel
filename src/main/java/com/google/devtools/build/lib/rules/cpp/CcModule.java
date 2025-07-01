@@ -120,15 +120,13 @@ public abstract class CcModule
         LtoBackendArtifacts,
         CcLinkingContext.LinkerInput,
         CcLinkingContext,
-        LibraryToLink,
         CcToolchainVariables,
         ConstraintValueInfo,
         StarlarkRuleContext,
         CcToolchainConfigInfo,
         CcCompilationOutputs,
         CcDebugInfoContext,
-        CppModuleMap,
-        CcLinkingOutputs> {
+        CppModuleMap> {
 
   // TODO(bazel-team): This only makes sense for the parameter in cc_common.compile()
   //  additional_include_scanning_roots which is technical debt and should go away.
@@ -733,7 +731,7 @@ public abstract class CcModule
     return CcLinkingContext.LinkerInput.builder()
         .setOwner(owner)
         .addLibraries(
-            Depset.noneableCast(librariesToLinkObject, LibraryToLink.class, "libraries").toList())
+            Depset.noneableCast(librariesToLinkObject, StarlarkInfo.class, "libraries").toList())
         .addUserLinkFlags(optionsBuilder.build())
         .addLinkstamps(convertToNestedSet(linkstampsObject, Linkstamp.class, "linkstamps").toList())
         .addNonCodeInputs(
@@ -789,7 +787,7 @@ public abstract class CcModule
         throw Starlark.errorf("linker_inputs cannot be None");
       }
       @SuppressWarnings("unchecked")
-      Sequence<LibraryToLink> librariesToLink = nullIfNone(librariesToLinkObject, Sequence.class);
+      Sequence<StarlarkInfo> librariesToLink = nullIfNone(librariesToLinkObject, Sequence.class);
       @SuppressWarnings("unchecked")
       Sequence<String> userLinkFlags = nullIfNone(userLinkFlagsObject, Sequence.class);
 
@@ -1754,6 +1752,19 @@ public abstract class CcModule
             stripIncludePrefix,
             additionalIncludeScanningRoots,
             1); // stackDepth = 1 is the caller of native cc_common.compile().
+    // Ensure that the CC toolchain type is present, regardless of what was passed as
+    // starlarkCcToolchainProvider.
+    if (starlarkActionFactoryApi.getRuleContext().useAutoExecGroups()
+        && !starlarkActionFactoryApi
+            .getRuleContext()
+            .getToolchainContexts()
+            .hasToolchainContext(getSemantics().getCppToolchainType().toString())) {
+      throw Starlark.errorf(
+          "cc_common.compile requires the CC toolchain type (%s), but rule %s does not"
+              + " declare it",
+          getSemantics().getCppToolchainType(),
+          starlarkActionFactoryApi.getRuleContext().getRule().getRuleClass());
+    }
 
     List<Artifact> includeScanningRoots =
         getAdditionalIncludeScanningRoots(additionalIncludeScanningRoots, thread);

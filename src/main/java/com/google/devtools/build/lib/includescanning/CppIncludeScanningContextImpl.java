@@ -113,7 +113,8 @@ public final class CppIncludeScanningContextImpl implements CppIncludeScanningCo
           includes,
           action,
           actionExecutionContext,
-          action.getGrepIncludes());
+          action.getGrepIncludes(),
+          action.getExecutionPlatform());
       if (actionExecutionContext.getEnvironmentForDiscoveringInputs().valuesMissing()) {
         return null;
       }

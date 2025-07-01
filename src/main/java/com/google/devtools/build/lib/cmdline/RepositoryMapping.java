@@ -18,36 +18,30 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
 
 /**
- * Stores the mapping from apparent repo name to canonical repo name, from the viewpoint of an
- * "owner repo".
- *
- * <p>For repositories from the WORKSPACE file, if the requested repo doesn't exist in the mapping,
- * we fallback to the requested name. For repositories from Bzlmod, we return null to let the caller
- * decide what to do.
+ * Stores the mapping from apparent repo name to canonical repo name, from the viewpoint of a
+ * context repo.
  *
  * <p>This class must not implement {@link net.starlark.java.eval.StarlarkValue} since instances of
  * this class are used as markers by {@link
  * com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine}.
  */
 public class RepositoryMapping {
-  /* A repo mapping that always falls back to using the apparent name as the canonical name. */
-  public static final RepositoryMapping ALWAYS_FALLBACK = createAllowingFallback(ImmutableMap.of());
+  /* An empty repo mapping with the main repo as the context repo. */
+  public static final RepositoryMapping EMPTY =
+      create(ImmutableMap.of("", RepositoryName.MAIN), RepositoryName.MAIN);
 
   private final ImmutableMap<String, RepositoryName> entries;
-  @Nullable private final RepositoryName ownerRepo;
+  private final RepositoryName contextRepo;
 
-  private RepositoryMapping(
-      Map<String, RepositoryName> entries, @Nullable RepositoryName ownerRepo) {
+  private RepositoryMapping(Map<String, RepositoryName> entries, RepositoryName contextRepo) {
     this.entries = ImmutableMap.copyOf(entries);
-    this.ownerRepo = ownerRepo;
+    this.contextRepo = contextRepo;
   }
 
   /** Returns all the entries in this repo mapping. */
@@ -56,46 +50,35 @@ public class RepositoryMapping {
   }
 
   /**
-   * The owner repo of this repository mapping. It is for providing useful debug information when
-   * repository mapping fails due to enforcing strict dependency, therefore it's only recorded when
-   * we don't fall back to the requested repo name.
+   * The context repo of this repository mapping. It is for providing useful debug information when
+   * repository mapping fails due to enforcing strict dependency.
    */
-  @Nullable
-  public final RepositoryName ownerRepo() {
-    return ownerRepo;
+  public final RepositoryName contextRepo() {
+    return contextRepo;
   }
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof RepositoryMapping)) {
-      return false;
-    }
-    RepositoryMapping that = (RepositoryMapping) o;
-    return Objects.equal(entries, that.entries) && Objects.equal(ownerRepo, that.ownerRepo);
+    return this == o
+        || (o instanceof RepositoryMapping that
+            && Objects.equal(entries, that.entries)
+            && Objects.equal(contextRepo, that.contextRepo));
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(entries, ownerRepo);
+    return Objects.hashCode(entries, contextRepo);
   }
 
   @Override
   public String toString() {
-    return String.format("RepositoryMapping{entries=%s, ownerRepo=%s}", entries, ownerRepo);
+    return String.format("RepositoryMapping{entries=%s, contextRepo=%s}", entries, contextRepo);
   }
 
   public static RepositoryMapping create(
-      ImmutableMap<String, RepositoryName> entries, RepositoryName ownerRepo) {
+      ImmutableMap<String, RepositoryName> entries, RepositoryName contextRepo) {
     return new RepositoryMapping(
-        Preconditions.checkNotNull(entries), Preconditions.checkNotNull(ownerRepo));
-  }
-
-  public static RepositoryMapping createAllowingFallback(
-      ImmutableMap<String, RepositoryName> entries) {
-    return new RepositoryMapping(Preconditions.checkNotNull(entries), null);
+        Preconditions.checkNotNull(entries), Preconditions.checkNotNull(contextRepo));
   }
 
   /**
@@ -110,7 +93,7 @@ public class RepositoryMapping {
             .putAll(additionalMappings)
             .putAll(entries())
             .buildKeepingLast(),
-        ownerRepo());
+        contextRepo());
   }
 
   /**
@@ -132,21 +115,8 @@ public class RepositoryMapping {
     if (canonicalRepoName != null) {
       return canonicalRepoName;
     }
-    // If the owner repo is not present, that means we should fall back to the requested repo name.
-    if (ownerRepo() == null) {
-      return RepositoryName.createUnvalidated(preMappingName);
-    } else {
-      return RepositoryName.createUnvalidated(preMappingName)
-          .toNonVisible(ownerRepo(), SpellChecker.didYouMean(preMappingName, entries().keySet()));
-    }
-  }
-
-  /**
-   * Whether the repo with this mapping is subject to strict deps; when strict deps is off, unknown
-   * apparent names are silently treated as canonical names.
-   */
-  public boolean usesStrictDeps() {
-    return ownerRepo() != null;
+    return RepositoryName.createUnvalidated(preMappingName)
+        .toNonVisible(contextRepo(), SpellChecker.didYouMean(preMappingName, entries().keySet()));
   }
 
   /**
@@ -157,26 +127,6 @@ public class RepositoryMapping {
         .filter(e -> e.getValue().equals(postMappingName))
         .map(Entry::getKey)
         .findFirst();
-  }
-
-  /**
-   * Creates a new {@link RepositoryMapping} instance that is the equivalent of composing this
-   * {@link RepositoryMapping} with another one. That is, {@code a.composeWith(b).get(name) ===
-   * b.get(a.get(name))} (treating {@code b} as allowing fallback).
-   *
-   * <p>Since we're treating the result of {@code a.get(name)} as an apparent repo name instead of a
-   * canonical repo name, this only really makes sense when {@code a} does not use strict deps (i.e.
-   * allows fallback).
-   */
-  public RepositoryMapping composeWith(RepositoryMapping other) {
-    Preconditions.checkArgument(
-        !usesStrictDeps(), "only an allow-fallback mapping can be composed with other mappings");
-    HashMap<String, RepositoryName> entries = new HashMap<>(other.entries());
-    for (Map.Entry<String, RepositoryName> entry : entries().entrySet()) {
-      RepositoryName mappedName = other.get(entry.getValue().getName());
-      entries.put(entry.getKey(), mappedName.isVisible() ? mappedName : entry.getValue());
-    }
-    return new RepositoryMapping(entries, null);
   }
 
   /**
@@ -191,7 +141,7 @@ public class RepositoryMapping {
       inverse.putIfAbsent(entry.getValue(), entry.getKey());
     }
     var inverseCopy = ImmutableMap.copyOf(inverse);
-    return new RepositoryMapping(entries, ownerRepo) {
+    return new RepositoryMapping(entries, contextRepo) {
       @Override
       public Optional<String> getInverse(RepositoryName postMappingName) {
         return Optional.ofNullable(inverseCopy.get(postMappingName));

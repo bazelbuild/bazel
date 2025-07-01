@@ -21,4 +21,5 @@ cc_binary(
     name = "notifier",
     srcs = ["notifier.c"],
     tags = ["requires-darwin"],
+    target_compatible_with = ["@platforms//os:macos"],
 )

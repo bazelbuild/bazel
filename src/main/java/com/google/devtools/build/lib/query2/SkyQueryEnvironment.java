@@ -1058,7 +1058,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return new TransitiveLoadFilesHelperForTargets() {
       @Override
       public Target getLoadFileTarget(Target originalTarget, Label bzlLabel) {
-        return new FakeLoadTarget(bzlLabel, originalTarget.getPackageoid());
+        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
+        return new FakeLoadTarget(bzlLabel, originalTarget.getPackage());
       }
 
       @Override
@@ -1083,11 +1084,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
                           .build())
                   .build());
         }
+        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
         return new FakeLoadTarget(
             Label.createUnvalidated(
                 packageIdentifier,
                 packageLookupValue.getBuildFileName().getFilenameFragment().getBaseName()),
-            originalTarget.getPackageoid());
+            originalTarget.getPackage());
       }
     };
   }

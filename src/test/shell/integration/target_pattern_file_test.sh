@@ -98,4 +98,15 @@ function test_target_pattern_file_and_cli_pattern() {
   expect_log "ERROR: Command-line target pattern and --target_pattern_file cannot both be specified"
 }
 
+function test_target_pattern_file_unicode() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+filegroup(name = "äöüÄÖÜß🌱")
+EOF
+
+  echo "//foo:äöüÄÖÜß🌱" > my_targets || fail "Could not write my_query"
+  bazel build --target_pattern_file=my_targets >& $TEST_log || fail "Expected success"
+  expect_log "//foo:äöüÄÖÜß🌱"
+}
+
 run_suite "Tests for using target_pattern_file"

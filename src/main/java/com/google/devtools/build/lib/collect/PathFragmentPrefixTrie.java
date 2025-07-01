@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.collect;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
@@ -89,37 +88,36 @@ public final class PathFragmentPrefixTrie {
     root = new InterimSegment();
   }
 
-  public static PathFragmentPrefixTrie of(Collection<String> paths) {
+  public static PathFragmentPrefixTrie of(Collection<String> paths)
+      throws PathFragmentPrefixTrieException {
     PathFragmentPrefixTrie trie = new PathFragmentPrefixTrie();
-    paths.forEach(
-        p -> {
-          if (p.startsWith("-")) {
-            // Exclusion
-            trie.put(PathFragment.create(p.substring(1)), false);
-          } else {
-            // Inclusion
-            trie.put(PathFragment.create(p), true);
-          }
-        });
+    for (String p : paths) {
+      if (p.startsWith("-")) {
+        // Exclusion
+        trie.put(PathFragment.create(p.substring(1)), false);
+      } else {
+        // Inclusion
+        trie.put(PathFragment.create(p), true);
+      }
+    }
     return trie;
   }
 
   public static ImmutableMap<String, PathFragmentPrefixTrie> transformValues(
-      Map<String, Collection<String>> map) {
-    return ImmutableMap.copyOf(Maps.transformValues(map, PathFragmentPrefixTrie::of));
+      Map<String, Collection<String>> map) throws PathFragmentPrefixTrieException {
+    ImmutableMap.Builder<String, PathFragmentPrefixTrie> builder = ImmutableMap.builder();
+    for (Map.Entry<String, Collection<String>> entry : map.entrySet()) {
+      builder.put(entry.getKey(), PathFragmentPrefixTrie.of(entry.getValue()));
+    }
+    return builder.buildOrThrow();
   }
 
   /** Puts the explicit inclusion or exclusion state for a {@link PathFragment} into the trie. */
-  public synchronized void put(PathFragment pathFragment, boolean included) {
+  public synchronized void put(PathFragment pathFragment, boolean included)
+      throws PathFragmentPrefixTrieException {
     Preconditions.checkArgument(
         !pathFragment.equals(PathFragment.EMPTY_FRAGMENT),
         "path fragment cannot be the empty fragment.");
-
-    if (included) {
-      includedPaths.add(pathFragment);
-    } else {
-      excludedPaths.add(pathFragment);
-    }
 
     Segment current = root;
 
@@ -142,14 +140,18 @@ public final class PathFragmentPrefixTrie {
                     ? new IncludedSegment(segment.getSegmentMap())
                     : new ExcludedSegment(segment.getSegmentMap());
             case null -> included ? new IncludedSegment() : new ExcludedSegment();
-            case ExcludedSegment unused ->
-                throw new IllegalArgumentException(
-                    pathFragment + " has already been explicitly marked as excluded.");
-            case IncludedSegment unused ->
-                throw new IllegalArgumentException(
-                    pathFragment + " has already been explicitly marked as included.");
+            case ExcludedSegment segment ->
+                throw new PathFragmentAlreadyAddedException(pathFragment, false, toString());
+            case IncludedSegment segment ->
+                throw new PathFragmentAlreadyAddedException(pathFragment, true, toString());
           };
       current.getSegmentMap().put(nextSegment.intern(), newChild);
+    }
+
+    if (included) {
+      includedPaths.add(pathFragment);
+    } else {
+      excludedPaths.add(pathFragment);
     }
   }
 
@@ -190,5 +192,25 @@ public final class PathFragmentPrefixTrie {
         + ", excluded: "
         + excludedPaths.stream().sorted().toList()
         + "]";
+  }
+
+  /** Exception thrown by {@link PathFragmentPrefixTrie} methods. */
+  public static sealed class PathFragmentPrefixTrieException extends Exception
+      permits PathFragmentAlreadyAddedException {
+    PathFragmentPrefixTrieException(String message) {
+      super(message);
+    }
+  }
+
+  /** Exception thrown when a path fragment is added that has already been explicitly added. */
+  public static final class PathFragmentAlreadyAddedException
+      extends PathFragmentPrefixTrieException {
+    PathFragmentAlreadyAddedException(
+        PathFragment pathFragment, boolean included, String trieString) {
+      super(
+          String.format(
+              "%s has already been explicitly marked as %s. Current state: %s",
+              pathFragment, included ? "included" : "excluded", trieString));
+    }
   }
 }

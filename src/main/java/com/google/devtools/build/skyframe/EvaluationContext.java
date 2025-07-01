@@ -36,6 +36,8 @@ public class EvaluationContext {
   private final boolean mergingSkyframeAnalysisExecutionPhases;
   private final UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver;
 
+  private final boolean detectCycles;
+
   protected EvaluationContext(
       int parallelism,
       @Nullable QuiescingExecutor executor,
@@ -43,7 +45,8 @@ public class EvaluationContext {
       ExtendedEventHandler eventHandler,
       boolean isExecutionPhase,
       boolean mergingSkyframeAnalysisExecutionPhases,
-      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
+      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver,
+      boolean detectCycles) {
     this.parallelism = parallelism;
     this.executor = executor;
     this.keepGoing = keepGoing;
@@ -51,6 +54,7 @@ public class EvaluationContext {
     this.isExecutionPhase = isExecutionPhase;
     this.mergingSkyframeAnalysisExecutionPhases = mergingSkyframeAnalysisExecutionPhases;
     this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
+    this.detectCycles = detectCycles;
   }
 
   public int getParallelism() {
@@ -113,6 +117,10 @@ public class EvaluationContext {
     return unnecessaryTemporaryStateDropperReceiver;
   }
 
+  public boolean detectCycles() {
+    return detectCycles;
+  }
+
   public Builder builder() {
     return newBuilder().copyFrom(this);
   }
@@ -132,6 +140,8 @@ public class EvaluationContext {
     protected UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver =
         UnnecessaryTemporaryStateDropperReceiver.NULL;
 
+    protected boolean detectCycles = true;
+
     protected Builder() {}
 
     @CanIgnoreReturnValue
@@ -145,6 +155,7 @@ public class EvaluationContext {
           evaluationContext.mergingSkyframeAnalysisExecutionPhases;
       this.unnecessaryTemporaryStateDropperReceiver =
           evaluationContext.unnecessaryTemporaryStateDropperReceiver;
+      this.detectCycles = evaluationContext.detectCycles;
       return this;
     }
 
@@ -192,6 +203,12 @@ public class EvaluationContext {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setDetectCycles(boolean detectCycles) {
+      this.detectCycles = detectCycles;
+      return this;
+    }
+
     public EvaluationContext build() {
       return new EvaluationContext(
           parallelism,
@@ -200,7 +217,8 @@ public class EvaluationContext {
           eventHandler,
           isExecutionPhase,
           mergingSkyframeAnalysisExecutionPhases,
-          unnecessaryTemporaryStateDropperReceiver);
+          unnecessaryTemporaryStateDropperReceiver,
+          detectCycles);
     }
   }
 }

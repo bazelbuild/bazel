@@ -517,8 +517,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(
                 RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty())));
   }
 

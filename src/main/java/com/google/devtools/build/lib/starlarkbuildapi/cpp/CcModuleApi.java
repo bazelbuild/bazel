@@ -51,17 +51,15 @@ public interface CcModuleApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT, CppModuleMapT>,
         LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
-        LinkerInputT extends LinkerInputApi<LibraryToLinkT, LtoBackendArtifactsT, FileT>,
+        LinkerInputT extends LinkerInputApi<LtoBackendArtifactsT, FileT>,
         LinkingContextT extends CcLinkingContextApi<?>,
-        LibraryToLinkT extends LibraryToLinkApi<FileT, LtoBackendArtifactsT>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
         DebugInfoT extends CcDebugInfoContextApi,
-        CppModuleMapT extends CppModuleMapApi<FileT>,
-        LinkingOutputsT extends CcLinkingOutputsApi<FileT, LtoBackendArtifactsT>>
+        CppModuleMapT extends CppModuleMapApi<FileT>>
     extends StarlarkValue {
 
   @StarlarkMethod(
@@ -639,7 +637,7 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
       })
-  default LinkingOutputsT link(
+  default CcLinkingOutputsApi<FileT, LtoBackendArtifactsT> link(
       StarlarkActionFactoryT starlarkActionFactoryApi,
       String name,
       FeatureConfigurationT starlarkFeatureConfiguration,
@@ -1385,7 +1383,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound"),
       })
-  default LibraryToLinkT createLibraryLinkerInput(
+  default LibraryToLinkApi createLibraryLinkerInput(
       Object actions,
       Object featureConfiguration,
       Object ccToolchainProvider,

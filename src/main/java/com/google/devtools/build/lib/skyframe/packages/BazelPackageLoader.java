@@ -107,8 +107,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               RepositoryMappingFunction.REPOSITORY_OVERRIDES,
               Suppliers.ofInstance(ImmutableMap.of())),
           PrecomputedValue.injected(
-              RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-          PrecomputedValue.injected(
               RepositoryDelegatorFunction.FORCE_FETCH,
               RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
           PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
@@ -120,7 +118,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
           PrecomputedValue.injected(
               ModuleFileFunction.REGISTRIES, BazelRepositoryModule.DEFAULT_REGISTRIES),
           PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
-          PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
           PrecomputedValue.injected(
               BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
               RepositoryOptions.CheckDirectDepsMode.OFF),
@@ -188,16 +185,15 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               .put(
                   SkyFunctions.REPOSITORY_DIRECTORY,
                   new RepositoryDelegatorFunction(
-                      BazelRepositoryModule.repositoryRules(),
                       starlarkRepositoryFunction,
                       isFetch,
                       ImmutableMap::of,
                       directories,
-                      EXTERNAL_PACKAGE_HELPER,
                       repositoryCache.getRepoContentsCache()))
               .put(
                   SkyFunctions.BAZEL_LOCK_FILE,
-                  new BazelLockFileFunction(directories.getWorkspace()))
+                  new BazelLockFileFunction(
+                      directories.getWorkspace(), directories.getOutputBase()))
               .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
               .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
               .put(SkyFunctions.REPO_SPEC, repoSpecFunction)

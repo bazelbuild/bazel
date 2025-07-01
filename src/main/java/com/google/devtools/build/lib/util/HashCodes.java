@@ -129,4 +129,36 @@ public final class HashCodes {
                                     * (h3
                                         + MULTIPLIER * (h2 + (MULTIPLIER * (h1 + MULTIPLIER)))))));
   }
+
+  public static int hashObjects(
+      @Nullable Object o1,
+      @Nullable Object o2,
+      @Nullable Object o3,
+      @Nullable Object o4,
+      @Nullable Object o5,
+      @Nullable Object o6,
+      @Nullable Object o7,
+      @Nullable Object o8) {
+    int h1 = hashObject(o1);
+    int h2 = hashObject(o2);
+    int h3 = hashObject(o3);
+    int h4 = hashObject(o4);
+    int h5 = hashObject(o5);
+    int h6 = hashObject(o6);
+    int h7 = hashObject(o7);
+    int h8 = hashObject(o8);
+    return h8
+        + MULTIPLIER
+            * (h7
+                + MULTIPLIER
+                    * (h6
+                        + MULTIPLIER
+                            * (h5
+                                + MULTIPLIER
+                                    * (h4
+                                        + MULTIPLIER
+                                            * (h3
+                                                + MULTIPLIER
+                                                    * (h2 + (MULTIPLIER * (h1 + MULTIPLIER))))))));
+  }
 }

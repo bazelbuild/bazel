@@ -65,6 +65,10 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
   /** A simple rule that calls JavaInfo constructor using identical attribute as java_library. */
   @Before
   public void constructJavaInfo() throws Exception {
+    // TODO: b/417791104 - enable once Bazel 8.3.0 is released
+    // useConfiguration("--experimental_java_header_compilation_direct_deps");
+    // "tjar": "lib%s-tjar.jar",
+    // header_compilation_jar = OUTS["tjar"],
     if (!getAnalysisMock().isThisBazel()) {
       setBuildLanguageOptions("--experimental_google_legacy_api");
     }

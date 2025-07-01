@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelToStringEntryConverter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -39,6 +40,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeSet;
 
 /**
@@ -59,6 +61,17 @@ import java.util.TreeSet;
  * string.
  */
 public class CoreOptions extends FragmentOptions implements Cloneable {
+
+  @Option(
+      name = "incompatible_filegroup_runfiles_for_data",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, runfiles of targets listed in the srcs attribute are available to targets"
+              + " that consume the filegroup as a data dependency.")
+  public boolean filegroupRunfilesForData;
 
   @Option(
       name = "scl_config",
@@ -169,7 +182,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean usePlatformsInOutputDirLegacyHeuristic;
 
   @Option(
-      name = "experimental_override_name_platform_in_output_dir",
+      name = "experimental_override_platform_cpu_name",
+      oldName = "experimental_override_name_platform_in_output_dir",
+      oldNameWarning = false,
       converter = LabelToStringEntryConverter.class,
       defaultValue = "null",
       allowMultiple = true,
@@ -178,9 +193,22 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "Each entry should be of the form label=value where label refers to a platform and values"
-              + " is the desired shortname to use in the output path. Only used when"
-              + " --experimental_platform_in_output_dir is true. Has highest naming priority.")
-  public List<Map.Entry<Label, String>> overrideNamePlatformInOutputDirEntries;
+              + " is the desired shortname to override the platform's CPU name in $(TARGET_CPU)"
+              + " make variable and output path. Only used when"
+              + " --experimental_platform_in_output_dir or --incompatible_target_cpu_from_platform"
+              + " is true. Has highest naming priority.")
+  public List<Map.Entry<Label, String>> overridePlatformCpuName;
+
+  @Option(
+      name = "incompatible_target_cpu_from_platform",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If specified, the value of the cpu constraint (@platforms//cpu:cpu) of"
+              + " the target platform is used to set the $(TARGET_CPU) make variable.")
+  public boolean incompatibleTargetCpuFromPlatform;
 
   @Option(
       name = "define",
@@ -444,12 +472,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
-          "Specifies the set of environment variables available to actions with target"
-              + " configuration. Variables can be either specified by name, in which case the"
-              + " value will be taken from the invocation environment, or by the name=value pair"
-              + " which sets the value independent of the invocation environment. This option can"
-              + " be used multiple times; for options given for the same variable, the latest"
-              + " wins, options for different variables accumulate.")
+          """
+          Specifies the set of environment variables available to actions with target \
+          configuration. Variables can be either specified by <code>name</code>, in which case
+          the value will be taken from the invocation environment, or by the \
+          <code>name=value</code> pair which sets the value independent of the invocation \
+          environment. This option can be used multiple times; for options given for the same \
+          variable, the latest wins, options for different variables accumulate.
+          <br>
+          Note that unless <code>--incompatible_repo_env_ignores_action_env</code> is true, all <code>name=value</code> \
+          pairs will be available to repository rules.
+          """)
   public List<Map.Entry<String, String>> actionEnvironment;
 
   @Option(
@@ -961,6 +994,14 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.EXECUTION},
       help = "If true, use the target platform for running tests rather than the test exec group.")
   public boolean useTargetPlatformForTests;
+
+  public Optional<String> getPlatformCpuNameOverride(Label platform) {
+    // As highest priority, use the last entry that matches in name override option.
+    return Streams.findLast(
+        overridePlatformCpuName.stream()
+            .filter(e -> e.getKey().equals(platform))
+            .map(Map.Entry::getValue));
+  }
 
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {

@@ -197,12 +197,6 @@ public final class AdvertisedProviderSet {
     }
 
     @CanIgnoreReturnValue
-    public Builder addStarlark(String providerName) {
-      starlarkProviders.add(StarlarkProviderIdentifier.forLegacy(providerName));
-      return this;
-    }
-
-    @CanIgnoreReturnValue
     public Builder addStarlark(StarlarkProviderIdentifier id) {
       starlarkProviders.add(id);
       return this;

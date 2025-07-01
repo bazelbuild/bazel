@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -106,7 +105,7 @@ public class BzlLoadValue implements SkyValue {
 
   /** SkyKey for a Starlark load. */
   public abstract static sealed class Key implements BazelModuleKey
-      permits KeyForLocalEval, KeyForBzlmod, KeyForWorkspace {
+      permits KeyForLocalEval, KeyForBzlmod {
     // Closed, for class-based equals()/hashCode().
     private Key() {}
 
@@ -260,82 +259,15 @@ public class BzlLoadValue implements SkyValue {
   }
 
   /**
-   * A key for loading a .bzl during WORKSPACE evaluation.
-   *
-   * <p>This needs to track "chunking" information, i.e. a sequence number indicating which segment
-   * of the WORKSPACE file we are in the process of evaluating. This helps determine the appropriate
-   * repository remapping value to use.
-   */
-  // TODO(brandjon): Question: It looks like the chunk number doesn't play any role in deciding
-  // whether or not a repo is available for load()ing. Are we tracking incremental dependencies
-  // correctly? For instance, if a repository declaration moves from one workspace chunk to another,
-  // are we reevaluating whether its loads are still valid? AI: fix if broken, improve this comment
-  // if not broken.
-  @Immutable
-  @VisibleForSerialization
-  static final class KeyForWorkspace extends Key {
-    private final Label label;
-    private final int workspaceChunk;
-    private final RootedPath workspacePath;
-
-    private KeyForWorkspace(Label label, int workspaceChunk, RootedPath workspacePath) {
-      this.label = checkNotNull(label);
-      this.workspaceChunk = workspaceChunk;
-      this.workspacePath = checkNotNull(workspacePath);
-    }
-
-    @Override
-    public Label getLabel() {
-      return label;
-    }
-
-    int getWorkspaceChunk() {
-      return workspaceChunk;
-    }
-
-    RootedPath getWorkspacePath() {
-      return workspacePath;
-    }
-
-    @Override
-    Key getKeyForLoad(Label loadLabel) {
-      return keyForWorkspace(loadLabel, workspaceChunk, workspacePath);
-    }
-
-    @Override
-    BzlCompileValue.Key getCompileKey(Root root) {
-      return BzlCompileValue.key(root, label);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (!super.equals(obj)) {
-        return false;
-      }
-      KeyForWorkspace other = (KeyForWorkspace) obj;
-      return workspaceChunk == other.workspaceChunk && workspacePath.equals(other.workspacePath);
-    }
-
-    @Override
-    public int hashCode() {
-      int result = super.hashCode();
-      result = 31 * result + Integer.hashCode(workspaceChunk);
-      result = 31 * result + workspacePath.hashCode();
-      return result;
-    }
-  }
-
-  /**
    * A key for loading a .bzl during {@code @_builtins} evaluation.
    *
    * <p>This kind of key is only requested by {@link StarlarkBuiltinsFunction} and its transitively
    * loaded {@link BzlLoadFunction} calls.
    *
-   * <p>The label must have {@link StarlarkBuiltinsValue#BUILTINS_REPO} as its repository component.
-   * (It is valid for other key types to use that repo name, but since it is not a real repository
-   * and cannot be fetched, any attempt to resolve such a key would fail.)
+   * <p>The label must have {@link RepositoryName#BUILTINS} as its repository component. (It is
+   * valid for other key types to use that repo name, but since it is not a real repository and
+   * cannot be fetched, any attempt to resolve such a key would fail.)
    */
-  // TODO(#11437): Prevent users from trying to declare a repo named "@_builtins".
   @Immutable
   @VisibleForSerialization
   static final class KeyForBuiltins extends KeyForLocalEval {
@@ -408,21 +340,9 @@ public class BzlLoadValue implements SkyValue {
     }
   }
 
-  /** Constructs a key for loading a regular (non-workspace) .bzl file, from the .bzl's label. */
+  /** Constructs a key for loading a regular .bzl file from BUILD files. */
   public static Key keyForBuild(Label label) {
     return keyInterner.intern(new KeyForBuild(label, /* isBuildPrelude= */ false));
-  }
-
-  /**
-   * Constructs a key for loading a .bzl file from the context of evaluating the WORKSPACE file.
-   *
-   * @param label the label of the bzl file being loaded
-   * @param workspaceChunk the workspace chunk that the load statement originated from. If the bzl
-   *     file is loaded more than once, this is the chunk that it was first loaded from
-   * @param workspacePath the path of the workspace file for the project
-   */
-  static Key keyForWorkspace(Label label, int workspaceChunk, RootedPath workspacePath) {
-    return keyInterner.intern(new KeyForWorkspace(label, workspaceChunk, workspacePath));
   }
 
   /** Constructs a key for loading a .bzl file within the {@code @_builtins} pseudo-repository. */

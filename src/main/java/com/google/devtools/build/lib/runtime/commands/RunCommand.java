@@ -661,9 +661,22 @@ public class RunCommand implements BlazeCommand {
               ImmutableSet.copyOf(environmentProvider.getInheritedEnvironment()));
     }
     TreeMap<String, String> runEnvironment = makeMutableRunEnvironment(env);
-    actionEnvironment.resolve(runEnvironment, env.getClientEnv());
-    for (var entry : extraRunEnvironment) {
-      runEnvironment.put(entry.getKey(), entry.getValue());
+    ImmutableMap<String, String> clientEnv = env.getClientEnv();
+    actionEnvironment.resolve(runEnvironment, clientEnv);
+    for (Map.Entry<String, String> entry : extraRunEnvironment) {
+      String key = entry.getKey();
+      String value = entry.getValue();
+      if (value == null) {
+        // If a value is missing, inherit from client environment if present, otherwise leave unset.
+        // In the latter case, explicitly remove since the same key might be given multiple times.
+        if (clientEnv.containsKey(key)) {
+          runEnvironment.put(key, clientEnv.get(key));
+        } else {
+          runEnvironment.remove(key);
+        }
+      } else {
+        runEnvironment.put(key, value);
+      }
     }
 
     ImmutableList<String> argsFromBinary;

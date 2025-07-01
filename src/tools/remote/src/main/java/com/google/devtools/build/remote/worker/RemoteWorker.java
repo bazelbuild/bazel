@@ -403,7 +403,8 @@ public final class RemoteWorker {
                 .buildForCommand(ImmutableList.of("true"))
                 .toArray(new String[0]),
             ImmutableMap.of(),
-            sandboxPath.getParentDirectory().getPathFile());
+            sandboxPath.getParentDirectory().getPathFile(),
+            System.getenv());
     try {
       cmdResult = cmd.execute();
     } catch (CommandException e) {

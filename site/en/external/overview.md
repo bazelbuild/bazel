@@ -154,7 +154,7 @@ repository, and sometimes even used as a synonym of "repository".
 
 ### Canonical repository name {:#canonical-repo-name}
 
-The canonical name a repository is addressable by. Within the context of a
+The name by which a repository is always addressable. Within the context of a
 workspace, each repository has a single canonical name. A target inside a repo
 whose canonical name is `canonical_name` can be addressed by the label
 `@@canonical_name//package:target` (note the double `@`).
@@ -163,9 +163,9 @@ The main repository always has the empty string as the canonical name.
 
 ### Apparent repository name {:#apparent-repo-name}
 
-The name a repository is addressable by in the context of a certain other repo.
-This can be thought of as a repo's "nickname": The repo with the canonical name
-`michael` might have the apparent name `mike` in the context of the repo
+The name by which a repository is addressable in the context of a certain other
+repo. This can be thought of as a repo's "nickname": The repo with the canonical
+name `michael` might have the apparent name `mike` in the context of the repo
 `alice`, but might have the apparent name `mickey` in the context of the repo
 `bob`. In this case, a target inside `michael` can be addressed by the label
 `@mike//package:target` in the context of `alice` (note the single `@`).

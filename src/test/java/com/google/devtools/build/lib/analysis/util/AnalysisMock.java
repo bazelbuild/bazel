@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
@@ -185,12 +184,10 @@ public abstract class AnalysisMock extends LoadingMock {
         .put(
             SkyFunctions.REPOSITORY_DIRECTORY,
             new RepositoryDelegatorFunction(
-                ImmutableMap.of(),
                 new StarlarkRepositoryFunction(),
                 new AtomicBoolean(true),
                 ImmutableMap::of,
                 directories,
-                BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
                 new RepoContentsCache()))
         .put(
             SkyFunctions.MODULE_FILE,
@@ -199,7 +196,9 @@ public abstract class AnalysisMock extends LoadingMock {
                 directories.getWorkspace(),
                 getBuiltinModules(directories)))
         .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
-        .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(directories.getWorkspace()))
+        .put(
+            SkyFunctions.BAZEL_LOCK_FILE,
+            new BazelLockFileFunction(directories.getWorkspace(), directories.getOutputBase()))
         .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
         .put(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
         .put(
@@ -228,12 +227,9 @@ public abstract class AnalysisMock extends LoadingMock {
         PrecomputedValue.injected(
             RepositoryMappingFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(
-            RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-        PrecomputedValue.injected(
             RepositoryDelegatorFunction.FORCE_FETCH,
             RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
         PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
-        PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, ImmutableSet.of()),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),

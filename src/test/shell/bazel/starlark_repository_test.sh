@@ -1512,6 +1512,12 @@ password passbar🌱
 # following lines mix tabs and spaces
 machine	  oauthlife.com
 	password	TOKEN
+
+# Password-only auth credentials, will not be passed into `patterns` like oauthlife.com.
+machine baz.example.org password ABCDEFG
+
+# Test for warning mechanism.
+machine qux.example.org
 EOF
   # Read a given .netrc file and combine it with a list of URL,
   # and write the obtained authentication dictionary to disk; this
@@ -1552,6 +1558,8 @@ authrepo(
     "https://bar.example.org/file3.tar",
     "https://evil.com/bar.example.org/file4.tar",
     "https://oauthlife.com/fizz/buzz/file5.tar",
+    "https://baz.example.org/file6.tar",
+    "http://qux.example.org/file7.tar",
   ],
 )
 EOF
@@ -1579,6 +1587,11 @@ expected = {
       "pattern" : "Bearer <password>",
       "password" : "TOKEN",
     },
+    "https://baz.example.org/file6.tar": {
+      "type" : "pattern",
+      "pattern" : "Bearer <password>",
+      "password" : "ABCDEFG",
+    },
 }
 EOF
   cat > verify.bzl <<'EOF'
@@ -1605,6 +1618,7 @@ EOF
   grep 'OK' `bazel info bazel-bin`/check_expected.txt \
        || fail "Authentication merged incorrectly"
   expect_log "authrepo is being evaluated"
+  expect_log "WARNING: Found machine in \.netrc for URL .*qux\.example\.org.*, but no password\."
 
   echo "modified" > .netrc
   bazel build //:check_expected &> $TEST_log || fail "Expected success"
@@ -2961,6 +2975,58 @@ EOF
     @repo//... &> $TEST_log || fail "expected Bazel to succeed"
 }
 
+function test_execute_environment_repo_env_ignores_action_env_off() {
+  cat >> $(setup_module_dot_bazel)  <<'EOF'
+my_repo = use_repo_rule("//:repo.bzl", "my_repo")
+my_repo(name="repo")
+EOF
+  touch BUILD
+  cat > repo.bzl <<'EOF'
+def _impl(ctx):
+  st = ctx.execute(
+    ["env"],
+  )
+  if st.return_code:
+    fail("Command did not succeed")
+  vars = {line.partition("=")[0]: line.partition("=")[-1] for line in st.stdout.strip().split("\n")}
+  if vars.get("ACTION_ENV_PRESENT") != "value1":
+    fail("ACTION_ENV_PRESENT has wrong value: " + vars.get("ACTION_ENV_PRESENT"))
+  ctx.file("BUILD", "exports_files(['data.txt'])")
+my_repo = repository_rule(_impl)
+EOF
+
+  bazel build \
+    --noincompatible_repo_env_ignores_action_env \
+    --action_env=ACTION_ENV_PRESENT=value1 \
+    @repo//... &> $TEST_log || fail "expected Bazel to succeed"
+}
+
+function test_execute_environment_repo_env_ignores_action_env_on() {
+  cat >> $(setup_module_dot_bazel)  <<'EOF'
+my_repo = use_repo_rule("//:repo.bzl", "my_repo")
+my_repo(name="repo")
+EOF
+  touch BUILD
+  cat > repo.bzl <<'EOF'
+def _impl(ctx):
+  st = ctx.execute(
+    ["env"],
+  )
+  if st.return_code:
+    fail("Command did not succeed")
+  vars = {line.partition("=")[0]: line.partition("=")[-1] for line in st.stdout.strip().split("\n")}
+  if "ACTION_ENV_REMOVED" in vars:
+    fail("ACTION_ENV_REMOVED should not be in the environment")
+  ctx.file("BUILD", "exports_files(['data.txt'])")
+my_repo = repository_rule(_impl)
+EOF
+
+  bazel build \
+    --incompatible_repo_env_ignores_action_env \
+    --action_env=ACTION_ENV_REMOVED=value1 \
+    @repo//... &> $TEST_log || fail "expected Bazel to succeed"
+}
+
 function test_dependency_on_repo_with_invalid_name() {
   cat >> $(setup_module_dot_bazel) <<'EOF'
 my_repo = use_repo_rule("//:repo.bzl", "my_repo")
@@ -2977,6 +3043,43 @@ EOF
   bazel build @repo//... &> $TEST_log && fail "expected Bazel to fail"
   expect_not_log "Unrecoverable error"
   expect_log "attempted to watch path under external repository directory: invalid repository name '@invalid_name@'"
+}
+
+function test_load_and_execute_wasm() {
+  setup_starlark_repository
+
+  declare -r exec_wasm="$(rlocation "io_bazel/src/test/shell/bazel/testdata/exec_wasm.wasm")"
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  wasm_file = "$exec_wasm"
+  wasm_module = repository_ctx.load_wasm("$exec_wasm")
+
+  result_ok = repository_ctx.execute_wasm(wasm_module, "run_ok", input="")
+  print('result_ok.output: %r' % (result_ok.output,))
+  print('result_ok.return_code: %r' % (result_ok.return_code,))
+  print('result_ok.error_message: %r' % (result_ok.error_message,))
+
+  result_err = repository_ctx.execute_wasm(wasm_module, "run_err", input="")
+  print('result_err.output: %r' % (result_err.output,))
+  print('result_err.return_code: %r' % (result_err.return_code,))
+  print('result_err.error_message: %r' % (result_err.error_message,))
+
+  # Symlink so a repository is created
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
+
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  bazel build --experimental_repository_ctx_execute_wasm @foo//:bar >& $TEST_log \
+    || fail "Expected build to succeed"
+
+  expect_log 'result_ok.output: "ok"'
+  expect_log 'result_ok.return_code: 0'
+  expect_log 'result_ok.error_message: ""'
+
+  expect_log 'result_err.output: "err"'
+  expect_log 'result_err.return_code: 1'
+  expect_log 'result_err.error_message: ""'
 }
 
 run_suite "local repository tests"

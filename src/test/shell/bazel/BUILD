@@ -1,7 +1,6 @@
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_shell//shell:sh_library.bzl", "sh_library")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
-load("//:workspace_deps.bzl", "gen_workspace_stanza")
 load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 
 package(default_visibility = ["//visibility:private"])
@@ -17,19 +16,10 @@ filegroup(
     visibility = ["//src/test/shell:__pkg__"],
 )
 
-gen_workspace_stanza(
-    name = "rules_license_stanza",
-    out = "rules_license_stanza.txt",
-    repos = [
-        "rules_license",
-    ],
-)
-
 sh_library(
     name = "test-deps",
     testonly = 1,
     srcs = [
-        ":rules_license_stanza.txt",
         ":test-deps-wo-bazel",
         "//src:bazel",
         "//src/test/shell:bin/bazel",
@@ -66,6 +56,9 @@ sh_library(
         "//tools:srcs",
         "@bazel_skylib//:test_deps",
         "@rules_java//toolchains:current_java_runtime",
+    ],
+    data = [
+        "//src/test/shell/bazel/testdata:exec_wasm",
     ],
     visibility = [
         "//src/test/shell:__subpackages__",
@@ -233,18 +226,14 @@ sh_test(
     srcs = ["bazel_java17_test.sh"],
     args = [
         # java_tools zip to test
-        "$(rlocationpath //src:java_tools_java8.zip)",
-        "$(rlocationpath //src:java_tools_prebuilt_java8.zip)",
+        "$(rlocationpath //src:java_tools.zip)",
+        "$(rlocationpath //src:java_tools_prebuilt.zip)",
     ],
     data = [
         ":gen_rules_java_repo_name",
         ":test-deps",
-        # Use java_tools compiled at Java language 8 instead (aligned with the
-        # default compilation level of java_tools). For the purpose
-        # of this test, we need java_tools to be running with runtime >11 to
-        # test the failure modes of incompatible system classpaths.
-        "//src:java_tools_prebuilt_java8.zip",
-        "//src:java_tools_java8.zip",
+        "//src:java_tools.zip",
+        "//src:java_tools_prebuilt.zip",
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["local"],
@@ -294,8 +283,8 @@ JAVA_VERSIONS_COVERAGE = ("11", "17", "21")
         srcs = ["bazel_java_test.sh"],
         args = [
             # java_tools zips to test
-            "$(rlocationpath %s)" % ("//src:java_tools_zip" if java_version == "21" else "//src:java_tools_java8.zip"),
-            "$(rlocationpath %s)" % ("//src:java_tools_prebuilt_zip" if java_version == "21" else "//src:java_tools_prebuilt_java8.zip"),
+            "$(rlocationpath //src:java_tools_zip)",
+            "$(rlocationpath //src:java_tools_prebuilt_zip)",
             # --java_language_version value
             java_version,
             # --java_runtime_version value
@@ -304,8 +293,8 @@ JAVA_VERSIONS_COVERAGE = ("11", "17", "21")
         data = [
             ":gen_rules_java_repo_name",
             ":test-deps",
-            "//src:java_tools_zip" if java_version == "21" else "//src:java_tools_java8.zip",
-            "//src:java_tools_prebuilt_zip" if java_version == "21" else "//src:java_tools_prebuilt_java8.zip",
+            "//src:java_tools_prebuilt_zip",
+            "//src:java_tools_zip",
             "@bazel_tools//tools/bash/runfiles",
         ],
         exec_compatible_with = ["//:highcpu_machine"],
@@ -560,8 +549,8 @@ sh_test(
         srcs = ["bazel_coverage_java_test.sh"],
         args = [
             # java_tools zips to test
-            "$(rlocationpath %s)" % ("//src:java_tools_zip" if java_version == "21" else "//src:java_tools_java8.zip"),
-            "$(rlocationpath %s)" % ("//src:java_tools_prebuilt_zip" if java_version == "21" else "//src:java_tools_prebuilt_java8.zip"),
+            "$(rlocationpath //src:java_tools_zip)",
+            "$(rlocationpath //src:java_tools_prebuilt_zip)",
             # WORKSPACE file of the coverage output generator repo to test
             "$(rlocationpath //tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace)",
             # --java_runtime_version value
@@ -570,10 +559,10 @@ sh_test(
         data = [
             ":gen_rules_java_repo_name",
             ":test-deps",
-            "//src:java_tools_prebuilt_zip" if java_version == "21" else "//src:java_tools_prebuilt_java8.zip",
-            "//src:java_tools_zip" if java_version == "21" else "//src:java_tools_java8.zip",
+            "//src:java_tools_prebuilt_zip",
+            "//src:java_tools_zip",
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace",
-            "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo%s" % ("" if java_version == "21" else "_java8"),
+            "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
         ],
         tags = ["no_windows"],
     )
@@ -628,7 +617,7 @@ sh_test(
     data = [
         ":test-deps",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace",
-        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo_java8",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
     ],
     tags = [
         "no_windows",
@@ -783,6 +772,7 @@ sh_test(
     data = [
         ":test-deps",
         "//src/test/shell/bazel/testdata:zstd_test_archive.tar.zst",
+        "@local_jdk//:jdk",  # for remote_helpers setup_localjdk_javabase
     ],
     shard_count = 15,
     tags = [
@@ -1243,6 +1233,7 @@ sh_test(
     srcs = ["srcs_test.sh"],
     data = [
         ":srcs_list",
+        "@bazel_tools//tools/bash/runfiles",
         "@local_bazel_source_list//:sources",
     ],
     tags = ["no_windows"],
@@ -1385,20 +1376,6 @@ sh_test(
     data = [":test-deps"],
     tags = ["no_windows"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
-)
-
-sh_test(
-    name = "verify_workspace",
-    srcs = ["verify_workspace.sh"],
-    data = [
-        ":test-deps",
-        "//:workspace-deps-bzl",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-    tags = [
-        "no_windows",
-        "requires-network",
-    ],
 )
 
 sh_test(

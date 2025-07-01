@@ -14,9 +14,8 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
-import com.google.protobuf.ByteString;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import javax.annotation.Nullable;
 
 /**
@@ -38,7 +37,8 @@ public interface RemoteAnalysisCachingServicesSupplier {
    *
    * <p>This method updates the services and parameters when the relevant flags change.
    */
-  default void configure(RemoteAnalysisCachingOptions cachingOptions, @Nullable ClientId clientId) {
+  default void configure(RemoteAnalysisCachingOptions cachingOptions, @Nullable ClientId clientId)
+      throws AbruptExitException {
     // Does nothing by default.
   }
 
@@ -56,7 +56,7 @@ public interface RemoteAnalysisCachingServicesSupplier {
    * <p>This may entail I/O so it is wrapped in a future.
    */
   @Nullable // null if frontier-style invalidation is used instead of the cache service
-  default ListenableFuture<RequestBatcher<ByteString, ByteString>> getAnalysisCacheClient() {
+  default ListenableFuture<RemoteAnalysisCacheClient> getAnalysisCacheClient() {
     return null;
   }
 }

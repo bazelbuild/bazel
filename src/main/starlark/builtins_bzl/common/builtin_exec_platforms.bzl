@@ -273,6 +273,7 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:experimental_inprocess_symlink_creation",
         "//command_line_option:experimental_throttle_action_cache_check",
         "//command_line_option:experimental_use_platforms_in_output_dir_legacy_heuristic",
+        "//command_line_option:incompatible_filegroup_runfiles_for_data",
     ],
     inputs = ["//command_line_option:features"],
     outputs = [
@@ -372,6 +373,7 @@ bazel_fragments["JavaOptions"] = fragment(
         "//command_line_option:one_version_enforcement_on_java_tests",
         "//command_line_option:experimental_allow_runtime_deps_on_neverlink",
         "//command_line_option:experimental_add_test_support_to_compile_time_deps",
+        "//command_line_option:experimental_java_header_compilation_direct_deps",
         "//command_line_option:jplPropagateCcLinkParamsStore",
         "//command_line_option:java_runtime_version",
         "//command_line_option:java_language_version",
@@ -387,7 +389,6 @@ bazel_fragments["JavaOptions"] = fragment(
         "//command_line_option:experimental_turbine_annotation_processing",
         "//command_line_option:incompatible_multi_release_deploy_jars",
         "//command_line_option:incompatible_disallow_java_import_exports",
-        "//command_line_option:incompatible_disallow_java_import_empty_jars",
         "//command_line_option:experimental_disallow_legacy_java_toolchain_flags",
         "//command_line_option:experimental_enable_jspecify",
         "//command_line_option:experimental_java_header_input_pruning",

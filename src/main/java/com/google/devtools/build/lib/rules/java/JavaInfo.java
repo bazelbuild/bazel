@@ -59,7 +59,6 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
 /** A Starlark declared provider that encapsulates all providers that are needed by Java rules. */
@@ -135,8 +134,9 @@ public sealed class JavaInfo extends NativeInfo
   private final JavaModuleFlagsProvider providerModuleFlags;
   private final JavaPluginInfo providerJavaPlugin;
 
-  /*
+  /**
    * Contains the .jar files to be put on the runtime classpath by the configured target.
+   *
    * <p>Unlike {@link JavaCompilationArgs#getRuntimeJars()}, it does not contain transitive runtime
    * jars, only those produced by the configured target itself.
    *
@@ -372,16 +372,21 @@ public sealed class JavaInfo extends NativeInfo
             JavaSourceJarsProvider.class, JavaSourceJarsProvider::transitiveSourceJars));
   }
 
-  /** Returns the transitive set of CC native libraries required by the target. */
+  /**
+   * Returns the transitive set of CC native libraries required by the target.
+   *
+   * @deprecated Only use in tests
+   */
+  @Deprecated
   public NestedSet<LibraryToLink> getTransitiveNativeLibraries() {
     return getProviderAsNestedSet(
         JavaCcInfoProvider.class,
-        x -> x.ccInfo().getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
+        x -> x.ccInfo().getCcNativeLibraryInfo().getTransitiveCcNativeLibrariesForTests());
   }
 
   @Override
   public Depset /*<LibraryToLink>*/ getTransitiveNativeLibrariesForStarlark() {
-    return Depset.of(LibraryToLink.class, getTransitiveNativeLibraries());
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -436,7 +441,11 @@ public sealed class JavaInfo extends NativeInfo
 
   @Override
   public Depset headerCompilationDirectDeps() {
-    return Depset.of(Artifact.class, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    NestedSet<Artifact> headerCompilationDirectDeps =
+        getProviderAsNestedSet(
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider::directHeaderCompilationJars);
+    return Depset.of(Artifact.class, headerCompilationDirectDeps);
   }
 
   /**
@@ -451,9 +460,8 @@ public sealed class JavaInfo extends NativeInfo
    * @param <P> type of Provider
    * @param <S> type of returned NestedSet items
    */
-  private <P extends JavaInfoInternalProvider, S extends StarlarkValue>
-      NestedSet<S> getProviderAsNestedSet(
-          Class<P> providerClass, Function<P, NestedSet<S>> mapper) {
+  private <P extends JavaInfoInternalProvider, S> NestedSet<S> getProviderAsNestedSet(
+      Class<P> providerClass, Function<P, NestedSet<S>> mapper) {
 
     P provider = getProvider(providerClass);
     if (provider == null) {

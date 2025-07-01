@@ -29,8 +29,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/objc:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform:srcs",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/proto:srcs",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/python:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/stubs:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test:srcs",

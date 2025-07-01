@@ -9,6 +9,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
+        "//third_party/chicory:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/googleapis:srcs",
         "//third_party/grpc:srcs",
@@ -20,6 +21,7 @@ filegroup(
         "//third_party/java/jcommander:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/pprof:srcs",
+        "//third_party/proguard:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
         "//third_party/py/concurrent:srcs",

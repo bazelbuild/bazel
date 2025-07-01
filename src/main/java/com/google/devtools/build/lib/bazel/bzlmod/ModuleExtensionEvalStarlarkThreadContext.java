@@ -144,7 +144,7 @@ public final class ModuleExtensionEvalStarlarkThreadContext extends StarlarkThre
             apparentName -> RepositoryName.createUnvalidated(repoPrefix + apparentName)));
     entries.putAll(repoOverrides);
     RepositoryMapping fullRepoMapping =
-        RepositoryMapping.create(entries.buildKeepingLast(), baseRepoMapping.ownerRepo());
+        RepositoryMapping.create(entries.buildKeepingLast(), baseRepoMapping.contextRepo());
     // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/ModuleExtensionRepoMappingEntriesFunction.java)
 
     ImmutableMap.Builder<String, RepoSpec> repoSpecs = ImmutableMap.builder();

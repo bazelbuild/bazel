@@ -64,7 +64,7 @@ class Path {
 #else
   // Returns a platform-native, absolute, normalized path.
   // Use this to pass paths to filesystem API functions.
-  const std::string AsNativePath() const { return path_; }
+  std::string AsNativePath() const { return path_; }
 #endif
 
  private:

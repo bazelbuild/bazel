@@ -633,6 +633,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           String message = "command interrupted while computing main repo mapping";
+          logger.atInfo().withCause(e).log("%s", message);
           reporter.handle(Event.error(message));
           earlyExitCode = InterruptedFailureDetails.detailedExitCode(message);
         } catch (RepositoryMappingResolutionException e) {
@@ -701,9 +702,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               options.getExplicitStarlarkOptions(
                   CommandLineEvent.OriginalCommandLineEvent::commandLinePriority),
               startupOptionsTaggedWithBazelRc);
-      // If flagsets are applied, a CanonicalCommandLineEvent is also emitted by
-      // BuildTool.buildTargets(). This is a duplicate event, and consumers are expected to
-      // handle it correctly, by accepting the last event.
       CommandLineEvent canonicalCommandLineEvent =
           new CommandLineEvent.CanonicalCommandLineEvent(
               runtime,
@@ -713,7 +711,14 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
               options.getExplicitStarlarkOptions(
                   CommandLineEvent.OriginalCommandLineEvent::commandLinePriority),
               options.getStarlarkOptions(),
-              options.asListOfCanonicalOptions());
+              options.asListOfCanonicalOptions(),
+              // If this is a command that analyzes with BuildTool, PROJECT.scl might set extra
+              // canonical flags. In that case give BuildTool a chance to post a final updated
+              // CanonicalCommandLineEvent. Then this one is dropped. But if that event doesn't post
+              // for any reason, including a build error or crash, post this one so the build still
+              // registers a canonical command line. That guarantees BuildEventStream always posts
+              // exactly one CanonicalCommandLineEvent message for all builds.
+              /* replaceable= */ commandAnnotation.buildPhase().analyzes());
       OriginalUnstructuredCommandLineEvent unstructuredServerCommandLineEvent;
       if (commandName.equals("run") && !includeResidueInRunBepEvent) {
         unstructuredServerCommandLineEvent =

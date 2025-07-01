@@ -13,7 +13,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//visibility:private"],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_test(
@@ -38,7 +38,7 @@ java_binary(
 )
 
 # Start fuzzing via
-#   bazel run //src/test/java/com/google/devtools/build/lib/util:RegexUtilFuzzTest_run
+#   bazel run //src/test/java/com/google/devtools/build/lib/util/regex:RegexUtilFuzzTest_run
 java_fuzz_test(
     name = "RegexUtilFuzzTest",
     srcs = ["RegexUtilFuzzTest.java"],
@@ -53,6 +53,7 @@ java_fuzz_test(
         "notap",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/util/regex:regex_util",
         "//third_party:jmh",
     ],

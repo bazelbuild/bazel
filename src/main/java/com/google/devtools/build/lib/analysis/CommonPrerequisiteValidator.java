@@ -404,8 +404,10 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       maybeAddImplicitDepBullet(state, bullets);
       addConsumingLocationBullet(state, bullets);
       // TODO: https://github.com/bazelbuild/bazel/issues/25933 - Add bullet point for explaining
-      // the dependency's declared visibility with and without package group expansion, and with the
-      // conditional caveat that we don't care that the dependency is an alias.
+      // the dependency's declared visibility with and without package group expansion. This can be
+      // pretty spammy. To show this info without package group expansion, we'd also need a way of
+      // accessing the attribute info from TargetData.
+      maybeAddAliasDisclaimerBullet(state, bullets);
       maybeAddSamePackageDisclaimerBullet(state, bullets);
       // TODO: https://github.com/bazelbuild/bazel/issues/25933 - Add bullet point for explaining
       // that the dependency could've been exported to make it visible to the consumer. This applies
@@ -501,6 +503,16 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
               state.delegatedThrough.size() > 1 ? " transitively" : "",
               outermostDelegated.getLabel(),
               consumingLocation));
+    }
+  }
+
+  private void maybeAddAliasDisclaimerBullet(VisibilityCheckState state, List<String> bullets) {
+    if (AliasProvider.isAlias(state.prerequisite.getConfiguredTarget())) {
+      bullets.add(
+          """
+          The dependency is an alias target. Note that it is the visibility of the alias we care \
+          about, not the visibility of the underlying target it refers to.\
+          """);
     }
   }
 

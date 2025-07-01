@@ -18,7 +18,13 @@
 #include "src/tools/singlejar/options.h"
 #include "src/tools/singlejar/output_jar.h"
 
+#ifdef _WIN32
+#include "src/main/cpp/util/strings.h"
+int wmain(int argc, wchar_t *wargv[]) {
+  char **argv = blaze_util::WArgsToCArgs(argc, wargv);
+#else
 int main(int argc, char *argv[]) {
+#endif
   Options options;
   options.ParseCommandLine(argc - 1, argv + 1);
   OutputJar output_jar;

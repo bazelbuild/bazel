@@ -560,31 +560,6 @@ public class BaseRuleClasses {
     }
   }
 
-  /** A base rule for all binary rules. */
-  public static final class BinaryBaseRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(attr("args", STRING_LIST))
-          .add(attr("env", STRING_DICT))
-          .add(attr("output_licenses", STRING_LIST))
-          .add(
-              attr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, BOOLEAN)
-                  .value(true)
-                  .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$binary_base_rule")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(MakeVariableExpandingRule.class)
-          .build();
-    }
-  }
-
   /**
    * An empty rule that exists for the sole purpose to completely remove a native rule while it's
    * still defined as a Starlark rule in builtins.

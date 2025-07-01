@@ -70,7 +70,6 @@ import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1648,24 +1647,25 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
 
-    Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
+    ImmutableList<StarlarkInfo> librariesToLink =
+        info.getValue("libraries_to_link", Depset.class).toList(StarlarkInfo.class);
     assertThat(
-            librariesToLink.toList(LibraryToLink.class).stream()
+            librariesToLink.stream()
+                .map(LibraryToLink::wrap)
                 .filter(x -> x.getStaticLibrary() != null)
-                .map(x -> x.getStaticLibrary().getFilename())
-                .collect(ImmutableList.toImmutableList()))
+                .map(x -> x.getStaticLibrary().getFilename()))
         .containsExactly("a.a", "b.rlib", "c.a", "d.a");
     assertThat(
-            librariesToLink.toList(LibraryToLink.class).stream()
+            librariesToLink.stream()
+                .map(LibraryToLink::wrap)
                 .filter(x -> x.getPicStaticLibrary() != null)
-                .map(x -> x.getPicStaticLibrary().getFilename())
-                .collect(ImmutableList.toImmutableList()))
+                .map(x -> x.getPicStaticLibrary().getFilename()))
         .containsExactly("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a");
     assertThat(
-            librariesToLink.toList(LibraryToLink.class).stream()
+            librariesToLink.stream()
+                .map(LibraryToLink::wrap)
                 .filter(x -> x.getDynamicLibrary() != null)
-                .map(x -> x.getDynamicLibrary().getFilename())
-                .collect(ImmutableList.toImmutableList()))
+                .map(x -> x.getDynamicLibrary().getFilename()))
         .containsExactly("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so");
   }
 
@@ -1700,7 +1700,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
     ImmutableList.Builder<String> dynamicLibSolibRelativePathsBuilder = ImmutableList.builder();
     ImmutableList.Builder<String> interfaceLibSolibRelativePathsBuilder = ImmutableList.builder();
-    for (LibraryToLink libraryToLink : librariesToLink.toList(LibraryToLink.class)) {
+    for (StarlarkInfo libraryToLinkStr : librariesToLink.toList(StarlarkInfo.class)) {
+      LibraryToLink libraryToLink = LibraryToLink.wrap(libraryToLinkStr);
       if (libraryToLink.getDynamicLibrary() != null) {
         dynamicLibSolibRelativePathsBuilder.add(
             getSolibRelativePath(libraryToLink.getDynamicLibrary(), toolchain));
@@ -1744,7 +1745,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
     String solibDir = toolchain.getSolibDirectory();
     assertThat(
-            librariesToLink.toList(LibraryToLink.class).stream()
+            librariesToLink.toList(StarlarkInfo.class).stream()
+                .map(LibraryToLink::wrap)
                 .filter(x -> x.getDynamicLibrary() != null)
                 .map(
                     x ->
@@ -1754,7 +1756,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                             .toString()))
         .containsExactly("custom/libcustom.so");
     assertThat(
-            librariesToLink.toList(LibraryToLink.class).stream()
+            librariesToLink.toList(StarlarkInfo.class).stream()
+                .map(LibraryToLink::wrap)
                 .filter(x -> x.getInterfaceLibrary() != null)
                 .map(
                     x ->
@@ -1784,7 +1787,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
     Depset librariesToLink = info.getValue("libraries_to_link", Depset.class);
     ImmutableList<String> dynamicLibraryParentDirectories =
-        librariesToLink.toList(LibraryToLink.class).stream()
+        librariesToLink.toList(StarlarkInfo.class).stream()
+            .map(LibraryToLink::wrap)
             .filter(x -> x.getDynamicLibrary() != null)
             .map(
                 x -> x.getDynamicLibrary().getRootRelativePath().getParentDirectory().getBaseName())
@@ -1820,31 +1824,31 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     .map(Linkstamp::getArtifact)
                     .collect(ImmutableList.toImmutableList())))
         .containsExactly("src a/linkstamp.cc");
-    Collection<LibraryToLink> librariesToLink =
-        info.getValue("libraries_to_link", Depset.class).toList(LibraryToLink.class);
+    ImmutableList<StarlarkInfo> librariesToLink =
+        info.getValue("libraries_to_link", Depset.class).toList(StarlarkInfo.class);
     assertThat(
             librariesToLink.stream()
+                .map(LibraryToLink::wrap)
                 .filter(x -> x.getStaticLibrary() != null)
-                .map(x -> x.getStaticLibrary().getFilename())
-                .collect(ImmutableList.toImmutableList()))
+                .map(x -> x.getStaticLibrary().getFilename()))
         .containsExactlyElementsIn(staticLibraryList);
     assertThat(
             librariesToLink.stream()
+                .map(LibraryToLink::wrap)
                 .filter(x -> x.getPicStaticLibrary() != null)
-                .map(x -> x.getPicStaticLibrary().getFilename())
-                .collect(ImmutableList.toImmutableList()))
+                .map(x -> x.getPicStaticLibrary().getFilename()))
         .containsExactlyElementsIn(picStaticLibraryList);
     assertThat(
             librariesToLink.stream()
+                .map(LibraryToLink::wrap)
                 .filter(x -> x.getDynamicLibrary() != null)
-                .map(x -> x.getDynamicLibrary().getFilename())
-                .collect(ImmutableList.toImmutableList()))
+                .map(x -> x.getDynamicLibrary().getFilename()))
         .containsExactlyElementsIn(dynamicLibraryList);
     assertThat(
             librariesToLink.stream()
+                .map(LibraryToLink::wrap)
                 .filter(x -> x.getInterfaceLibrary() != null)
-                .map(x -> x.getInterfaceLibrary().getFilename())
-                .collect(ImmutableList.toImmutableList()))
+                .map(x -> x.getInterfaceLibrary().getFilename()))
         .containsExactly("a.ifso");
     Artifact staticLibrary = info.getValue("static_library", Artifact.class);
     assertThat(staticLibrary.getFilename()).isEqualTo("a.a");
@@ -5995,10 +5999,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
     @SuppressWarnings("unchecked")
-    Sequence<LibraryToLink> libraries =
-        (Sequence<LibraryToLink>) getMyInfoFromTarget(target).getValue("libraries");
+    Sequence<StarlarkInfo> libraries =
+        (Sequence<StarlarkInfo>) getMyInfoFromTarget(target).getValue("libraries");
     assertThat(
             libraries.stream()
+                .map(LibraryToLink::wrap)
                 .map(x -> x.getResolvedSymlinkDynamicLibrary().getFilename())
                 .collect(ImmutableList.toImmutableList()))
         .contains("libstarlark_lib.so");
@@ -6279,7 +6284,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     setupTestTransitiveLink(scratch, "output_type = 'dynamic_library'");
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
     assertThat(target).isNotNull();
-    LibraryToLink library = (LibraryToLink) getMyInfoFromTarget(target).getValue("library");
+    LibraryToLink library =
+        LibraryToLink.wrap((StarlarkInfo) getMyInfoFromTarget(target).getValue("library"));
     assertThat(library).isNotNull();
     Object executable = getMyInfoFromTarget(target).getValue("executable");
     assertThat(Starlark.isNullOrNone(executable)).isTrue();
@@ -6305,7 +6311,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
     assertThat(target).isNotNull();
 
-    LibraryToLink library = (LibraryToLink) getMyInfoFromTarget(target).getValue("library");
+    LibraryToLink library =
+        LibraryToLink.wrap((StarlarkInfo) getMyInfoFromTarget(target).getValue("library"));
     Artifact dynamicLibrary = library.getResolvedSymlinkDynamicLibrary();
     if (dynamicLibrary == null) {
       dynamicLibrary = library.getDynamicLibrary();
@@ -6338,7 +6345,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     setupTestTransitiveLink(scratch, "output_type = 'dynamic_library'");
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
     assertThat(target).isNotNull();
-    LibraryToLink library = (LibraryToLink) getMyInfoFromTarget(target).getValue("library");
+    LibraryToLink library =
+        LibraryToLink.wrap((StarlarkInfo) getMyInfoFromTarget(target).getValue("library"));
     assertThat(library).isNotNull();
     assertThat(library.getDynamicLibrary()).isNotNull();
     assertThat(library.getInterfaceLibrary()).isNotNull();
@@ -6362,7 +6370,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "emit_interface_shared_library = True");
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
     assertThat(target).isNotNull();
-    LibraryToLink library = (LibraryToLink) getMyInfoFromTarget(target).getValue("library");
+    LibraryToLink library =
+        LibraryToLink.wrap((StarlarkInfo) getMyInfoFromTarget(target).getValue("library"));
     assertThat(library).isNotNull();
     assertThat(library.getDynamicLibrary()).isNotNull();
     assertThat(library.getInterfaceLibrary()).isNotNull();
@@ -7794,8 +7803,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     ImmutableList<String> calls =
         ImmutableList.of(
-            "library_to_link.shared_non_lto_backends()",
-            "library_to_link.pic_shared_non_lto_backends()",
             "lto_backend_artifacts_info.lto_backend_artifacts.object_file()");
     scratch.overwriteFile(
         "a/BUILD",
@@ -7873,7 +7880,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "cc_common.create_library_to_link(actions=ctx.actions,"
                 + "feature_configuration=feature_configuration, cc_toolchain=toolchain,"
                 + " must_keep_debug=False)",
-            "library_to_link.must_keep_debug()",
             "cc_common.create_library_to_link(actions=ctx.actions,"
                 + "feature_configuration=feature_configuration, cc_toolchain=toolchain,"
                 + " lto_compilation_context=None)");

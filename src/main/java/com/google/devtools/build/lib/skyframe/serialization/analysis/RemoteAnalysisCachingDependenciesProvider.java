@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.RequestBatcher;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -23,7 +22,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Fr
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.protobuf.ByteString;
 
 /**
  * An interface providing the functionalities used for analysis caching serialization and
@@ -59,7 +57,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
   /** Returns the {@link FingerprintValueService} implementation. */
   FingerprintValueService getFingerprintValueService() throws InterruptedException;
 
-  RequestBatcher<ByteString, ByteString> getAnalysisCacheClient();
+  RemoteAnalysisCacheClient getAnalysisCacheClient();
 
   void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);
 
@@ -113,7 +111,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
-    public RequestBatcher<ByteString, ByteString> getAnalysisCacheClient() {
+    public RemoteAnalysisCacheClient getAnalysisCacheClient() {
       throw new UnsupportedOperationException();
     }
 

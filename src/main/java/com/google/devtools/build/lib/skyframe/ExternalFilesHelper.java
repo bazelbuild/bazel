@@ -48,11 +48,11 @@ public class ExternalFilesHelper {
   // These variables are set to true from multiple threads, but only read in the main thread.
   // So volatility or an AtomicBoolean is not needed.
   private boolean anyOutputFilesSeen = false;
-  private boolean tooManyNonOutputExternalFilesSeen = false;
+  private boolean tooManyExternalOtherFilesSeen = false;
   private boolean anyFilesInExternalReposSeen = false;
 
-  // This is a set of external files that are not in external repositories.
-  private Set<RootedPath> nonOutputExternalFilesSeen = Sets.newConcurrentHashSet();
+  // This is the set of EXTERNAL_OTHER files.
+  private Set<RootedPath> externalOtherFilesSeen = Sets.newConcurrentHashSet();
 
   private ExternalFilesHelper(
       AtomicReference<PathPackageLocator> pkgLocator,
@@ -103,8 +103,8 @@ public class ExternalFilesHelper {
     DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
 
     /**
-     * For paths of type {@link FileType#EXTERNAL} or {@link FileType#OUTPUT}, assume the path does
-     * not exist and will never exist.
+     * For paths of type {@link FileType#EXTERNAL_OTHER} or {@link FileType#OUTPUT}, assume the path
+     * does not exist and will never exist.
      */
     ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS,
   }
@@ -120,12 +120,6 @@ public class ExternalFilesHelper {
 
     /** A path inside the package roots. */
     INTERNAL,
-
-    /**
-     * A non {@link #EXTERNAL_REPO} path outside the package roots about which we may make no other
-     * assumptions.
-     */
-    EXTERNAL,
 
     /**
      * A path in Bazel's output tree that's a proper output of an action (*not* a source file in an
@@ -153,6 +147,14 @@ public class ExternalFilesHelper {
      * RepositoryDirectoryValue is computed.
      */
     EXTERNAL_REPO,
+
+    /**
+     * None of the above. We encounter these paths when outputs, source files or external repos
+     * symlink to files outside aforementioned Bazel-managed directories. For example, C compilation
+     * by the host compiler may depend on /usr/bin/gcc. Bazel makes a best-effort attempt to detect
+     * changes in such files.
+     */
+    EXTERNAL_OTHER,
   }
 
   /**
@@ -164,19 +166,19 @@ public class ExternalFilesHelper {
 
   static class ExternalFilesKnowledge {
     final boolean anyOutputFilesSeen;
-    final Set<RootedPath> nonOutputExternalFilesSeen;
+    final Set<RootedPath> externalOtherFilesSeen;
     final boolean anyFilesInExternalReposSeen;
-    final boolean tooManyNonOutputExternalFilesSeen;
+    final boolean tooManyExternalOtherFilesSeen;
 
     private ExternalFilesKnowledge(
         boolean anyOutputFilesSeen,
-        Set<RootedPath> nonOutputExternalFilesSeen,
+        Set<RootedPath> externalOtherFilesSeen,
         boolean anyFilesInExternalReposSeen,
-        boolean tooManyNonOutputExternalFilesSeen) {
+        boolean tooManyExternalOtherFilesSeen) {
       this.anyOutputFilesSeen = anyOutputFilesSeen;
-      this.nonOutputExternalFilesSeen = nonOutputExternalFilesSeen;
+      this.externalOtherFilesSeen = externalOtherFilesSeen;
       this.anyFilesInExternalReposSeen = anyFilesInExternalReposSeen;
-      this.tooManyNonOutputExternalFilesSeen = tooManyNonOutputExternalFilesSeen;
+      this.tooManyExternalOtherFilesSeen = tooManyExternalOtherFilesSeen;
     }
   }
 
@@ -184,17 +186,17 @@ public class ExternalFilesHelper {
   ExternalFilesKnowledge getExternalFilesKnowledge() {
     return new ExternalFilesKnowledge(
         anyOutputFilesSeen,
-        nonOutputExternalFilesSeen,
+        externalOtherFilesSeen,
         anyFilesInExternalReposSeen,
-        tooManyNonOutputExternalFilesSeen);
+        tooManyExternalOtherFilesSeen);
   }
 
   @ThreadCompatible
   void setExternalFilesKnowledge(ExternalFilesKnowledge externalFilesKnowledge) {
     anyOutputFilesSeen = externalFilesKnowledge.anyOutputFilesSeen;
-    nonOutputExternalFilesSeen = externalFilesKnowledge.nonOutputExternalFilesSeen;
+    externalOtherFilesSeen = externalFilesKnowledge.externalOtherFilesSeen;
     anyFilesInExternalReposSeen = externalFilesKnowledge.anyFilesInExternalReposSeen;
-    tooManyNonOutputExternalFilesSeen = externalFilesKnowledge.tooManyNonOutputExternalFilesSeen;
+    tooManyExternalOtherFilesSeen = externalFilesKnowledge.tooManyExternalOtherFilesSeen;
   }
 
   ExternalFilesHelper cloneWithFreshExternalFilesKnowledge() {
@@ -208,11 +210,11 @@ public class ExternalFilesHelper {
 
   private Pair<FileType, RepositoryName> getFileTypeAndRepository(RootedPath rootedPath) {
     FileType fileType = detectFileType(rootedPath);
-    if (FileType.EXTERNAL == fileType) {
-      if (nonOutputExternalFilesSeen.size() >= MAX_EXTERNAL_FILES_TO_TRACK) {
-        tooManyNonOutputExternalFilesSeen = true;
+    if (fileType == FileType.EXTERNAL_OTHER) {
+      if (externalOtherFilesSeen.size() >= MAX_EXTERNAL_FILES_TO_TRACK) {
+        tooManyExternalOtherFilesSeen = true;
       } else {
-        nonOutputExternalFilesSeen.add(rootedPath);
+        externalOtherFilesSeen.add(rootedPath);
       }
     }
     if (FileType.EXTERNAL_REPO == fileType) {
@@ -239,7 +241,7 @@ public class ExternalFilesHelper {
     // The outputBase may be null if we're not actually running a build.
     Path outputBase = packageLocator.getOutputBase();
     if (outputBase == null) {
-      return FileType.EXTERNAL;
+      return FileType.EXTERNAL_OTHER;
     }
     if (rootedPath.asPath().startsWith(outputBase)) {
       Path externalRepoDir = outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
@@ -249,7 +251,7 @@ public class ExternalFilesHelper {
         return FileType.OUTPUT;
       }
     }
-    return FileType.EXTERNAL;
+    return FileType.EXTERNAL_OTHER;
   }
 
   /**
@@ -269,7 +271,7 @@ public class ExternalFilesHelper {
       case BUNDLED:
       case INTERNAL:
         break;
-      case EXTERNAL:
+      case EXTERNAL_OTHER:
         if (numExternalFilesLogged.incrementAndGet() < maxNumExternalFilesToLog) {
           logger.atInfo().log("Encountered an external path %s", rootedPath);
         }

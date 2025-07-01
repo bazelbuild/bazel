@@ -126,7 +126,7 @@ public class TestSummaryPrinter {
         verboseSummary,
         showAllTestCases,
         false,
-        RepositoryMapping.ALWAYS_FALLBACK);
+        RepositoryMapping.EMPTY);
   }
 
   /**

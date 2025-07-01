@@ -34,6 +34,7 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "bazel_skylib",
     "blake3",
     "c-ares",
+    "chicory",
     "com_github_grpc_grpc",
     "com_google_protobuf",
     "googleapis",
@@ -51,6 +52,7 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "rules_proto",
     "rules_python",
     "rules_shell",
+    "with_cfg.bzl",
     "zlib",
     "zstd-jni",
 ]] + [(get_canonical_repo_name("com_github_grpc_grpc") + "+grpc_repo_deps_ext+" + suffix) for suffix in [

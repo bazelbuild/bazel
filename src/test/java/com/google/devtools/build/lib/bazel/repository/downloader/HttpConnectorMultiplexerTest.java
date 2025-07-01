@@ -71,8 +71,7 @@ public class HttpConnectorMultiplexerTest {
   private static final Optional<Checksum> DUMMY_CHECKSUM =
       makeChecksum("abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd");
 
-  @Rule
-  public final Timeout globalTimeout = new Timeout(10000);
+  @Rule public final Timeout globalTimeout = Timeout.seconds(10);
 
   private final HttpStream stream = new HttpStream(new ByteArrayInputStream(TEST_DATA), TEST_URL);
   private final HttpConnector connector = mock(HttpConnector.class);

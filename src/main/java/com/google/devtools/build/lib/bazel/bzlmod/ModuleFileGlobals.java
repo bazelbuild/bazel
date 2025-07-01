@@ -513,12 +513,18 @@ public class ModuleFileGlobals {
               rawExtensionBzlFile,
               Label.PackageContext.of(
                   PackageIdentifier.create(ownRepoName, PathFragment.EMPTY_FRAGMENT),
-                  RepositoryMapping.createAllowingFallback(repoMapping)));
+                  RepositoryMapping.create(repoMapping, ownRepoName)));
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("invalid label \"%s\": %s", rawExtensionBzlFile, e.getMessage());
     }
+    String apparentRepoName = label.getRepository().getName();
+    Label fabricatedLabel =
+        Label.createUnvalidated(
+            PackageIdentifier.create(
+                RepositoryName.createUnvalidated(apparentRepoName), label.getPackageFragment()),
+            label.getName());
     // Skip over the leading "@" of the unambiguous form.
-    return label.getUnambiguousCanonicalForm().substring(1);
+    return fabricatedLabel.getUnambiguousCanonicalForm().substring(1);
   }
 
   private Label convertAndValidatePatchLabel(InterimModule.Builder module, String rawLabel)

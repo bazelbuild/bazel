@@ -112,7 +112,6 @@ def _cc_library_impl(ctx):
     if ctx.file.linkstamp != None:
         linkstamps = []
         linkstamps.append(cc_internal.create_linkstamp(
-            actions = ctx.actions,
             linkstamp = ctx.file.linkstamp,
             compilation_context = compilation_context,
         ))
@@ -510,7 +509,7 @@ def _check_no_repeated_srcs(ctx):
     seen = {}
     for target in ctx.attr.srcs:
         if DefaultInfo in target:
-            for file in target.files.to_list():
+            for file in target[DefaultInfo].files.to_list():
                 extension = "." + file.extension
                 if extension not in cc_helper.extensions.CC_HEADER:
                     if extension in cc_helper.extensions.CC_AND_OBJC:

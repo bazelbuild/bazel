@@ -361,9 +361,9 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
 
     @Override
     public void onSuccess(byte[] bytes) {
-      if (bytes.length == 0) {
+      if (bytes == null) {
         // This error should be tolerated by falling back on computation.
-        getOperation.setException(
+        onFailure(
             new MissingSharedValueBytesException(
                 String.format(
                     "missing shared value bytes for a %s instance belonging to a %s instance",
@@ -375,10 +375,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
       try {
         deferred = codec.deserializeDeferred(innerContext, CodedInputStream.newInstance(bytes));
       } catch (SerializationException | IOException | RuntimeException | Error e) {
-        if (skyframeLookupCollector != null) {
-          skyframeLookupCollector.notifyFetchException(e);
-        }
-        getOperation.setException(e);
+        onFailure(e);
         return;
       }
       if (skyframeLookupCollector != null) {

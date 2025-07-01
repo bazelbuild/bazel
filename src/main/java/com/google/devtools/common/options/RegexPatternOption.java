@@ -36,7 +36,13 @@ public abstract class RegexPatternOption {
         RegexUtil.asOptimizedMatchingPredicate(regexPattern));
   }
 
-  /** The original regex pattern. */
+  /**
+   * The original regex pattern.
+   *
+   * <p>Note: Strings passed to the {@link Pattern} and {@link java.util.regex.Matcher} API have to
+   * be converted to "Unicode" form first (see {@link
+   * com.google.devtools.build.lib.util.StringEncoding#internalToUnicode}.
+   */
   public abstract Pattern regexPattern();
 
   /**

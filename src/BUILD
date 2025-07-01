@@ -1,13 +1,10 @@
 # Packaging
 
-load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-load("//src:build_defs.bzl", "transition_java_language_8_archive")
-load("//src:release_archive.bzl", "release_archive")
+load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 
@@ -309,6 +306,7 @@ genrule(
     srcs = ["package-bazel.sh"],
     outs = ["package-bazel-on-host-platform.sh"],
     cmd = select({
+        "//src/conditions:freebsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
         "//src/conditions:openbsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
         "//conditions:default": "cp $(SRCS) $@",
     }),
@@ -390,6 +388,7 @@ filegroup(
         "//src/main/protobuf:srcs",
         "//src/main/res:srcs",
         "//src/main/starlark/builtins_bzl:srcs",
+        "//src/main/starlark/docgen:srcs",
         "//src/main/tools:srcs",
         "//src/test/cpp:srcs",
         "//src/test/gen:srcs",
@@ -407,6 +406,8 @@ filegroup(
         "//src/test/testdata/test_tls_certificate",
         "//src/test/tools:srcs",
         "//src/test/tools/bzlmod:srcs",
+        "//src/test/tools/test_repos:srcs",
+        "//src/tools/android:srcs",
         "//src/tools/bzlmod:srcs",
         "//src/tools/diskcache:srcs",
         "//src/tools/execlog:srcs",
@@ -512,19 +513,33 @@ genrule(
 )
 
 # Following targets build java_tools.zip - platform independent part of java_tools
-JAVA_TOOLS_DEPLOY_JARS = [
-    "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
-    "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
-    "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
-    "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_binary_deploy.jar",
-    "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker_deploy.jar",
-    "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage_jarjar_deploy.jar",
-    "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
-]
+minimum_java_runtime_filegroup(
+    name = "minimum_java_runtime_tools",
+    srcs = [
+        "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage_jarjar_deploy.jar",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+minimum_java_compilation_runtime_filegroup(
+    name = "minimum_java_compilation_runtime_tools",
+    srcs = [
+        "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
+        "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_binary_deploy.jar",
+        "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker_deploy.jar",
+    ],
+    visibility = ["//visibility:private"],
+)
 
 release_archive(
     name = "jars_java_tools_zip",
-    srcs = JAVA_TOOLS_DEPLOY_JARS,
+    srcs = [
+        ":minimum_java_compilation_runtime_tools",
+        ":minimum_java_runtime_tools",
+    ],
     package_dir = "java_tools",
     visibility = ["//visibility:private"],
 )
@@ -543,12 +558,6 @@ release_archive(
         "//third_party/java/jacoco:jacoco_jars_zip",
         "//third_party/java/proguard:proguard_zip",
     ],
-)
-
-transition_java_language_8_archive(
-    name = "java_tools_java8.zip",
-    archive_zip = ":java_tools.zip",
-    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 release_archive(
@@ -571,12 +580,6 @@ release_archive(
         "//src/tools/singlejar:singlejar_deploy_zip",
         "//third_party/ijar:ijar_deploy_zip",
     ],
-)
-
-transition_java_language_8_archive(
-    name = "java_tools_prebuilt_java8.zip",
-    archive_zip = ":java_tools_prebuilt.zip",
-    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 # Following targets used by the java_tools_binaries Buildkite pipeline to upload
@@ -627,46 +630,9 @@ sh_binary(
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
-JDK_VERSIONS = [
-    "11",
-    "17",
-    "21",
-]
-
-filegroup(
+alias(
     name = "test_repos",
-    srcs = [
-        requirement("bazel-runfiles"),  # Fetching the hermetic Python toolchain.
-        "@bazel_skylib//:WORKSPACE",
-        "@com_google_protobuf//:LICENSE",
-        "@remote_coverage_tools//:all_lcov_merger_lib",
-        "@remote_java_tools//:GenClass",
-        "@remote_java_tools_darwin_arm64//:java_tools/src/tools/singlejar/singlejar_local",
-        "@remote_java_tools_darwin_x86_64//:java_tools/src/tools/singlejar/singlejar_local",
-        "@remote_java_tools_linux//:java_tools/src/tools/singlejar/singlejar_local",
-        "@remote_java_tools_windows//:java_tools/src/tools/singlejar/singlejar_local.exe",
-        "@rules_cc//:LICENSE",
-        "@rules_java//:WORKSPACE",
-        "@rules_license//:WORKSPACE",
-        "@rules_pkg//:WORKSPACE",
-        "@rules_python//:WORKSPACE",
-        "@rules_shell//shell:rules_bzl",
-        "@rules_testing//:LICENSE",
-    ] + select({
-        "//src/conditions:linux_x86_64": ["@remotejdk%s_linux//:WORKSPACE" % v for v in JDK_VERSIONS],
-        "//src/conditions:darwin_x86_64": ["@remotejdk%s_macos//:WORKSPACE" % v for v in JDK_VERSIONS],
-        "//src/conditions:darwin_arm64": ["@remotejdk%s_macos_aarch64//:WORKSPACE" % v for v in JDK_VERSIONS],
-        "//src/conditions:windows_x86_64": ["@remotejdk%s_win//:WORKSPACE" % v for v in JDK_VERSIONS],
-        "//conditions:default": [],
-    }) + [
-        "@bazel_tools_repo_cache//:files",
-        "@workspace_repo_cache//:files",
-    ],
-)
-
-bzl_library(
-    name = "build_defs_bzl",
-    srcs = ["build_defs.bzl"],
+    actual = "//src/test/tools/test_repos",
 )
 
 java_binary(

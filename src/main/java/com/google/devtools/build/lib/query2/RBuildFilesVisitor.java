@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.ParallelVisitorUtils.ParallelQueryVisitor;
@@ -38,8 +39,8 @@ import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.DirectoryListingStateValue;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.WorkspaceNameValue;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -284,7 +285,7 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
   private static void checkWorkspaceFile(Set<SkyKey> result, PathFragment file) {
     // The WORKSPACE file is a transitive dependency of every package. Unfortunately, there is
     // no specific SkyValue that we can use to figure out under which package path entries it
-    // lives so we add a dependency on the WorkspaceNameValue key.
+    // lives so we add a dependency on the main repo mapping key.
     if (WorkspaceFileHelper.matchWorkspaceFileName(file)) {
       // TODO(mschaller): this should not be checked at runtime. These are constants!
       Preconditions.checkState(
@@ -292,7 +293,7 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
               .getParentDirectory()
               .equals(PathFragment.EMPTY_FRAGMENT),
           LabelConstants.WORKSPACE_FILE_NAME);
-      result.add(WorkspaceNameValue.key());
+      result.add(RepositoryMappingValue.key(RepositoryName.MAIN));
     }
   }
 

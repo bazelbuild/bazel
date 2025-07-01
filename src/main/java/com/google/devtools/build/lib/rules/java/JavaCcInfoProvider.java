@@ -21,10 +21,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Collection;
@@ -61,10 +61,10 @@ public record JavaCcInfoProvider(CcInfo ccInfo) implements JavaInfoInternalProvi
   static JavaCcInfoProvider fromStarlarkJavaInfo(StructImpl javaInfo) throws EvalException {
     CcInfo ccInfo = javaInfo.getValue("cc_link_params_info", CcInfo.class);
     if (ccInfo == null) {
-      NestedSet<LibraryToLink> transitiveCcNativeLibraries =
+      NestedSet<StarlarkInfo> transitiveCcNativeLibraries =
           Depset.cast(
               javaInfo.getValue("transitive_native_libraries"),
-              LibraryToLink.class,
+              StarlarkInfo.class,
               "transitive_native_libraries");
       if (transitiveCcNativeLibraries.isEmpty()) {
         return null;

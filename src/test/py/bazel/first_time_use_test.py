@@ -46,9 +46,7 @@ class FirstTimeUseTest(test_base.TestBase):
 
   def testNoBashRequiredForSimpleBazelRun(self):
     """Regression test for https://github.com/bazelbuild/bazel/issues/8229."""
-    self.ScratchFile(
-        'MODULE.bazel', ["bazel_dep(name = 'rules_python', version = '0.40.0')"]
-    )
+    self.AddBazelDep('rules_python')
     self.ScratchFile(
         'foo/BUILD',
         [

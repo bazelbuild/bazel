@@ -271,8 +271,9 @@ public class RuleFactory {
     }
 
     String generatorName =
-        targetDefinitionContext.getGeneratorNameByLocation(
-            macro != null ? macro.getBuildFileLocation() : callstack.get(0).location);
+        macro != null
+            ? macro.getGeneratorName()
+            : targetDefinitionContext.getGeneratorNameByLocation(callstack.get(0).location);
     if (generatorName == null) {
       // Fall back on target name (meh).
       generatorName = (String) args.getAttributeValue("name");
@@ -320,7 +321,7 @@ public class RuleFactory {
                   Package.AbstractBuilder.fromOrFailAllowBuildOnly(
                       thread, String.format("%s rule", ruleClass.getName()), "instantiated");
               case WORKSPACE ->
-                  Package.Builder.fromOrFailAllowWorkspaceOrModuleExtension(
+                  Package.Builder.fromOrFailAllowModuleExtension(
                       thread, "a repository rule", "instantiated");
               default ->
                   TargetDefinitionContext.fromOrFailDisallowWorkspace(

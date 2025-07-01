@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.repository.RequestRepositoryInformationEvent;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -68,12 +67,6 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
 
   private static final Predicate<SkyKey> IS_PACKAGE =
       SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE);
-
-  private static final Predicate<SkyKey> IS_EXTERNAL_PACKAGE =
-      SkyFunctions.isSkyFunction(SkyFunctions.EXTERNAL_PACKAGE);
-
-  private static final Predicate<SkyKey> IS_WORKSPACE_FILE =
-      SkyFunctions.isSkyFunction(WorkspaceFileValue.WORKSPACE_FILE);
 
   private static final Predicate<SkyKey> IS_MODULE_RESOLUTION =
       SkyFunctions.isSkyFunction(SkyFunctions.BAZEL_MODULE_RESOLUTION);
@@ -128,8 +121,6 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
                 IS_REPO_MAPPING,
                 IS_MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                 IS_PACKAGE,
-                IS_EXTERNAL_PACKAGE,
-                IS_WORKSPACE_FILE,
                 IS_MODULE_RESOLUTION,
                 IS_DEP_GRAPH,
                 IS_MODULE_FILE))
@@ -146,7 +137,6 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
                   IS_EXTENSION_IMPL,
                   IS_BZL_LOAD,
                   IS_REPO_MAPPING,
-                  IS_WORKSPACE_FILE,
                   IS_MODULE_RESOLUTION,
                   IS_DEP_GRAPH,
                   IS_MODULE_FILE));
@@ -158,12 +148,7 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
             } else if (input.argument() instanceof ModuleExtensionId id) {
               return "module extension " + id;
             } else if (input.argument() instanceof RepositoryMappingValue.Key key) {
-              if (key == RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS) {
-                return "repository mapping of @@ without WORKSPACE repos";
-              }
               return String.format("repository mapping of %s", key.repoName());
-            } else if (input.argument() instanceof WorkspaceFileValue.WorkspaceFileKey) {
-              return "WORKSPACE file";
             } else if (input.argument() == BazelModuleResolutionValue.KEY) {
               return "module resolution";
             } else if (input.argument() == BazelDepGraphValue.KEY) {

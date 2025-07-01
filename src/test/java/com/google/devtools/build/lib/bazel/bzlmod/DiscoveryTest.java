@@ -35,10 +35,7 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
@@ -157,8 +154,6 @@ public class DiscoveryTest extends FoundationTestCase {
             directories);
     ConfiguredRuleClassProvider ruleClassProvider = AnalysisMock.get().createRuleClassProvider();
 
-    ImmutableMap<String, RepositoryFunction> repositoryHandlers =
-        ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -171,7 +166,9 @@ public class DiscoveryTest extends FoundationTestCase {
                         SyscallCache.NO_CACHE,
                         externalFilesHelper))
                 .put(DiscoveryValue.FUNCTION_NAME, new DiscoveryFunction())
-                .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
+                .put(
+                    SkyFunctions.BAZEL_LOCK_FILE,
+                    new BazelLockFileFunction(rootDirectory, directories.getOutputBase()))
                 .put(
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(
@@ -182,12 +179,10 @@ public class DiscoveryTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
                     new RepositoryDelegatorFunction(
-                        repositoryHandlers,
                         null,
                         new AtomicBoolean(true),
                         ImmutableMap::of,
                         directories,
-                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER,
                         new RepoContentsCache()))
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
@@ -213,8 +208,6 @@ public class DiscoveryTest extends FoundationTestCase {
     RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
 
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
-    RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
-        differencer, Optional.empty());
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.INJECTED_REPOSITORIES.set(differencer, ImmutableMap.of());
@@ -692,9 +685,10 @@ public class DiscoveryTest extends FoundationTestCase {
             "bazel_tools",
             new NonRegistryOverride(
                 LocalPathRepoSpecs.create(rootDirectory.getRelative("tools").getPathString())),
-            "local_config_platform",
+            "other_tools",
             new NonRegistryOverride(
-                LocalPathRepoSpecs.create(rootDirectory.getRelative("localplat").getPathString())));
+                LocalPathRepoSpecs.create(
+                    rootDirectory.getRelative("other_tools").getPathString())));
     setUpWithBuiltinModules(builtinModules);
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
@@ -704,8 +698,8 @@ public class DiscoveryTest extends FoundationTestCase {
         "module(name='bazel_tools',version='1.0')",
         "bazel_dep(name='foo',version='1.0')");
     scratch.file(
-        rootDirectory.getRelative("localplat/MODULE.bazel").getPathString(),
-        "module(name='local_config_platform')");
+        rootDirectory.getRelative("other_tools/MODULE.bazel").getPathString(),
+        "module(name='other_tools')");
     FakeRegistry registry =
         registryFactory
             .newFakeRegistry("/foo")
@@ -723,26 +717,26 @@ public class DiscoveryTest extends FoundationTestCase {
         .containsExactly(
             InterimModuleBuilder.create("", "")
                 .addDep("bazel_tools", createModuleKey("bazel_tools", ""))
-                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
+                .addDep("other_tools", createModuleKey("other_tools", ""))
                 .addDep("foo", createModuleKey("foo", "2.0"))
                 .buildEntry(),
             InterimModuleBuilder.create("bazel_tools", "1.0")
                 .setKey(createModuleKey("bazel_tools", ""))
-                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
+                .addDep("other_tools", createModuleKey("other_tools", ""))
                 .addDep("foo", createModuleKey("foo", "1.0"))
                 .buildEntry(),
-            InterimModuleBuilder.create("local_config_platform", "")
-                .setKey(createModuleKey("local_config_platform", ""))
+            InterimModuleBuilder.create("other_tools", "")
+                .setKey(createModuleKey("other_tools", ""))
                 .addDep("bazel_tools", createModuleKey("bazel_tools", ""))
                 .buildEntry(),
             InterimModuleBuilder.create("foo", "1.0")
                 .addDep("bazel_tools", createModuleKey("bazel_tools", ""))
-                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
+                .addDep("other_tools", createModuleKey("other_tools", ""))
                 .setRegistry(registry)
                 .buildEntry(),
             InterimModuleBuilder.create("foo", "2.0")
                 .addDep("bazel_tools", createModuleKey("bazel_tools", ""))
-                .addDep("local_config_platform", createModuleKey("local_config_platform", ""))
+                .addDep("other_tools", createModuleKey("other_tools", ""))
                 .setRegistry(registry)
                 .buildEntry());
 

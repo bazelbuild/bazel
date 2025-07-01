@@ -23,12 +23,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bugreport.BugReport;
-import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.skyframe.NodeEntry.LifecycleState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
-import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -44,7 +41,6 @@ import javax.annotation.Nullable;
  */
 public class SimpleCycleDetector implements CycleDetector {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-  private static final Duration MIN_LOGGING = Duration.ofMillis(10);
 
   @Override
   public void checkForCycles(
@@ -52,28 +48,25 @@ public class SimpleCycleDetector implements CycleDetector {
       EvaluationResult.Builder<?> result,
       ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException {
-    try (AutoProfiler p =
-        GoogleAutoProfilerUtils.logged("Checking for Skyframe cycles", MIN_LOGGING)) {
-      for (SkyKey root : badRoots) {
-        ErrorInfo errorInfo = checkForCycles(root, evaluatorContext);
-        if (errorInfo == null) {
-          // This node just wasn't finished when evaluation aborted -- there were no cycles below
-          // it.
-          checkState(
-              !evaluatorContext.keepGoing(root),
-              "Missing error info with keep going (root=%s, badRoots=%s)",
-              root,
-              badRoots);
-          continue;
-        }
+    for (SkyKey root : badRoots) {
+      ErrorInfo errorInfo = checkForCycles(root, evaluatorContext);
+      if (errorInfo == null) {
+        // This node just wasn't finished when evaluation aborted -- there were no cycles below
+        // it.
         checkState(
-            !errorInfo.getCycleInfo().isEmpty(),
-            "%s was not evaluated, but was not part of a cycle",
-            root);
-        result.addError(root, errorInfo);
-        if (!evaluatorContext.keepGoing(root)) {
-          return;
-        }
+            !evaluatorContext.keepGoing(root),
+            "Missing error info with keep going (root=%s, badRoots=%s)",
+            root,
+            badRoots);
+        continue;
+      }
+      checkState(
+          !errorInfo.getCycleInfo().isEmpty(),
+          "%s was not evaluated, but was not part of a cycle",
+          root);
+      result.addError(root, errorInfo);
+      if (!evaluatorContext.keepGoing(root)) {
+        return;
       }
     }
   }
@@ -178,7 +171,7 @@ public class SimpleCycleDetector implements CycleDetector {
               "Previously requested deps not done: " + undoneDeps.getDepKeys(), undoneDeps);
         }
         env.setError(entry, ErrorInfo.fromChildErrors(key, errorDeps));
-        Set<SkyKey> reverseDeps = env.commitAndGetParents(entry);
+        Set<SkyKey> reverseDeps = env.commitAndGetParents(entry, /* expectDoneDeps= */ true);
         evaluatorContext.signalParentsOnAbort(key, reverseDeps, entry.getVersion());
       } else {
         entry = evaluatorContext.getGraph().get(null, Reason.CYCLE_CHECKING, key);
@@ -259,7 +252,7 @@ public class SimpleCycleDetector implements CycleDetector {
           // Add in this cycle.
           allErrors.add(ErrorInfo.fromCycle(cycleInfo));
           env.setError(entry, ErrorInfo.fromChildErrors(key, allErrors));
-          Set<SkyKey> reverseDeps = env.commitAndGetParents(entry);
+          Set<SkyKey> reverseDeps = env.commitAndGetParents(entry, /* expectDoneDeps= */ true);
           evaluatorContext.signalParentsOnAbort(key, reverseDeps, entry.getVersion());
           continue;
         } else {

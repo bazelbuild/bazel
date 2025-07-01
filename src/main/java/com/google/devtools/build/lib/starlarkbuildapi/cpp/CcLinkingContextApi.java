@@ -50,6 +50,7 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValu
       disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
       structField = true,
       useStarlarkSemantics = true)
+  @Deprecated
   Object getStarlarkLibrariesToLink(StarlarkSemantics semantics);
 
   @StarlarkMethod(

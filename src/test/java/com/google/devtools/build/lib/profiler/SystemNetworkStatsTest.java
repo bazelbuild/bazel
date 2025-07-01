@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import static com.google.devtools.build.lib.profiler.SystemNetworkStats.getNetIfAddrs;
 import static com.google.devtools.build.lib.profiler.SystemNetworkStats.getNetIoCounters;
 
 import java.io.IOException;
@@ -29,11 +28,5 @@ public class SystemNetworkStatsTest {
   @Test
   public void getNetIoCounters_doesNotCrash() throws IOException {
     getNetIoCounters();
-  }
-
-  @SuppressWarnings("CheckReturnValue")
-  @Test
-  public void getNetIfAddrs_doesNotCrash() throws IOException {
-    getNetIfAddrs();
   }
 }

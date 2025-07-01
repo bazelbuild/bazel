@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * A Skyframe value representing a package piece.
@@ -45,14 +47,23 @@ public interface PackagePieceValue extends PackageoidValue {
    * A Skyframe value representing a package piece obtained by evaluating a BUILD file without
    * expanding any symbolic macros.
    *
+   * <p>Inlines Starlark semantics and the main repository mapping to avoid extra dependency edges
+   * in the package's package pieces for macros.
+   *
    * <p>The corresponding {@link com.google.devtools.build.skyframe.SkyKey} is {@link
    * com.google.devtools.build.lib.packages.PackagePieceIdentifier.ForBuildFile}.
    */
   @AutoCodec
-  @Immutable
-  @ThreadSafe
-  public static final class ForBuildFile implements PackagePieceValue {
-    private final PackagePiece.ForBuildFile forBuildFile;
+  public record ForBuildFile(
+      PackagePiece.ForBuildFile forBuildFile,
+      StarlarkSemantics starlarkSemantics,
+      RepositoryMapping mainRepositoryMapping)
+      implements PackagePieceValue {
+    public ForBuildFile {
+      checkNotNull(forBuildFile);
+      checkNotNull(starlarkSemantics);
+      checkNotNull(mainRepositoryMapping);
+    }
 
     @Override
     public PackagePiece.ForBuildFile getPackagePiece() {
@@ -65,18 +76,14 @@ public interface PackagePieceValue extends PackageoidValue {
           "<PackagePieceValue.ForBuildFile name=%s>",
           forBuildFile.getIdentifier().getCanonicalFormName());
     }
-
-    ForBuildFile(PackagePiece.ForBuildFile forBuildFile) {
-      this.forBuildFile = forBuildFile;
-    }
   }
 
   /** A Skyframe value representing a package piece obtained by evaluating one symbolic macro. */
   @AutoCodec
-  @Immutable
-  @ThreadSafe
-  public static final class ForMacro implements PackagePieceValue {
-    private final PackagePiece.ForMacro forMacro;
+  public record ForMacro(PackagePiece.ForMacro forMacro) implements PackagePieceValue {
+    public ForMacro {
+      checkNotNull(forMacro);
+    }
 
     @Override
     public PackagePiece.ForMacro getPackagePiece() {
@@ -87,12 +94,9 @@ public interface PackagePieceValue extends PackageoidValue {
     public String toString() {
       return String.format(
           "<PackagePieceValue.ForMacro name=%s defined_by=%s>",
-          forMacro.getIdentifier().getCanonicalFormName(),
-          forMacro.getIdentifier().getCanonicalFormDefinedBy());
+          forMacro.getIdentifier().getCanonicalFormName(), forMacro.getCanonicalFormDefinedBy());
     }
 
-    ForMacro(PackagePiece.ForMacro forMacro) {
-      this.forMacro = forMacro;
-    }
+
   }
 }
