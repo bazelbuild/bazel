@@ -888,7 +888,7 @@
     },
     "@@rules_apple+//apple:apple.bzl%provisioning_profile_repository_extension": {
       "general": {
-        "bzlTransitiveDigest": "DX3Y0ZbdbpB4oBbrSn6XegbF+WumJkjpopz2CzwYcHQ=",
+        "bzlTransitiveDigest": "eFz1koWdXXXXBN8G/ZNOxCdzIaYmqtH2b5TYf8w/ZC8=",
         "usagesDigest": "pS5nskWKqJmyQrAbunwjEcDsK6cHF7JOAXgEofCmj7k=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -1452,7 +1452,7 @@
     },
     "@@rules_python+//python/extensions:pip.bzl%pip": {
       "general": {
-        "bzlTransitiveDigest": "Vmao7MwjQrr6OCZw9K9swySvdUjSD42G5Y3RSUaY5BA=",
+        "bzlTransitiveDigest": "oU/ptjST/FyIjlpSYxTn1LYDa5/4ghPTrosWiuHNd2s=",
         "usagesDigest": "OOotqwb+WmFks5jLq/7UU2jJ6J3AjjzH5Md6pl9c1JY=",
         "recordedFileInputs": {
           "@@//requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0",
