@@ -188,10 +188,9 @@ function gcov_coverage() {
 function main() {
   init_gcov
 
-  # If llvm code coverage is used, we output the raw code coverage report in
-  # the $COVERAGE_OUTPUT_FILE. This report will not be converted to any other
-  # format by LcovMerger.
-  # TODO(#5881): Convert profdata reports to lcov.
+  # If llvm code coverage is used, we either use the llvm-cov tool to generate
+  # an lcov report or just merge the files into a profdata file, depending on
+  # the --experimental_generate_llvm_lcov flag.
   if uses_llvm; then
     if [[ "${GENERATE_LLVM_LCOV}" == "1" ]]; then
         BAZEL_CC_COVERAGE_TOOL="LLVM_LCOV"
