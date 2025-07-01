@@ -75,18 +75,11 @@ public class GitRepoSpecBuilder {
   }
 
   @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setPatches(List<Label> patches) {
-    return setAttr("patches", patches);
-  }
-
-  @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setPatchArgs(List<String> patchArgs) {
-    return setAttr("patch_args", patchArgs);
-  }
-
-  @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setPatchCmds(List<String> patchCmds) {
-    return setAttr("patch_cmds", patchCmds);
+  public GitRepoSpecBuilder setRemoteModuleFile(
+      ArchiveRepoSpecBuilder.RemoteFile remoteModuleFile) {
+    attrBuilder.put("remote_module_file_urls", remoteModuleFile.urls());
+    attrBuilder.put("remote_module_file_integrity", remoteModuleFile.integrity());
+    return this;
   }
 
   public RepoSpec build() {
