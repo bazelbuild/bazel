@@ -81,7 +81,10 @@ public class FakeRegistry implements Registry {
 
   @Override
   public RepoSpec getRepoSpec(
-      ModuleKey key, ExtendedEventHandler eventHandler, DownloadManager downloadManager) {
+      ModuleKey key,
+      ImmutableMap<String, Optional<Checksum>> moduleFileHashes,
+      ExtendedEventHandler eventHandler,
+      DownloadManager downloadManager) {
     RepoSpec repoSpec =
         RepoSpec.builder()
             .setRuleClassName("local_repository")

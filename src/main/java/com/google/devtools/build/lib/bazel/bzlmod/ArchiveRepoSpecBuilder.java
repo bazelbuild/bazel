@@ -96,6 +96,13 @@ public class ArchiveRepoSpecBuilder {
   }
 
   @CanIgnoreReturnValue
+  public ArchiveRepoSpecBuilder setRemoteModuleFile(RemoteFile remoteModuleFile) {
+    attrBuilder.put("remote_module_file_urls", remoteModuleFile.urls());
+    attrBuilder.put("remote_module_file_integrity", remoteModuleFile.integrity());
+    return this;
+  }
+
+  @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setRemotePatchStrip(int remotePatchStrip) {
     attrBuilder.put("remote_patch_strip", StarlarkInt.of(remotePatchStrip));
     return this;

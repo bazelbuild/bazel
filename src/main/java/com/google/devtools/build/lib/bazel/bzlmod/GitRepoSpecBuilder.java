@@ -86,6 +86,14 @@ public class GitRepoSpecBuilder {
     return setAttr("patch_cmds", patchCmds);
   }
 
+  @CanIgnoreReturnValue
+  public GitRepoSpecBuilder setRemoteModuleFile(
+      ArchiveRepoSpecBuilder.RemoteFile remoteModuleFile) {
+    attrBuilder.put("remote_module_file_urls", remoteModuleFile.urls());
+    attrBuilder.put("remote_module_file_integrity", remoteModuleFile.integrity());
+    return this;
+  }
+
   public RepoSpec build() {
     return RepoSpec.builder()
         .setBzlFile(GIT_REPO_PATH)

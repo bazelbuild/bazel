@@ -34,8 +34,8 @@ public record RegistryFileDownloadEvent(String uri, Optional<Checksum> checksum)
   static ImmutableMap<String, Optional<Checksum>> collectToMap(Collection<Postable> postables) {
     ImmutableMap.Builder<String, Optional<Checksum>> builder = ImmutableMap.builder();
     for (Postable postable : postables) {
-      if (postable instanceof RegistryFileDownloadEvent event) {
-        builder.put(event.uri(), event.checksum());
+      if (postable instanceof RegistryFileDownloadEvent(String uri, Optional<Checksum> checksum)) {
+        builder.put(uri, checksum);
       }
     }
     return builder.buildKeepingLast();
