@@ -11,6 +11,8 @@ Cherry picks:
      Release 9.0.0-pre.20250620.1 (2025-07-01)
    + 861f25e307aec74b2d6dc38e91182da9f8852d53:
      Release 9.0.0-pre.20250620.1 (2025-07-01)
+   + 013dedf6387ce4047b51153692e47ccc37f4f15c:
+     Release 9.0.0-pre.20250620.1 (2025-07-01)
 ```
 
 This release contains contributions from many people at Google, as well as .
