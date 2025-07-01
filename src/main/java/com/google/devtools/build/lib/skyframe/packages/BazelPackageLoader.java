@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
@@ -107,14 +108,13 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               RepositoryMappingFunction.REPOSITORY_OVERRIDES,
               Suppliers.ofInstance(ImmutableMap.of())),
           PrecomputedValue.injected(
-              RepositoryDelegatorFunction.FORCE_FETCH,
-              RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
+              RepositoryDirectoryValue.FORCE_FETCH, RepositoryDirectoryValue.FORCE_FETCH_DISABLED),
           PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
           PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
           PrecomputedValue.injected(
-              RepositoryDelegatorFunction.FORCE_FETCH_CONFIGURE,
-              RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
-          PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
+              RepositoryDirectoryValue.FORCE_FETCH_CONFIGURE,
+              RepositoryDirectoryValue.FORCE_FETCH_DISABLED),
+          PrecomputedValue.injected(RepositoryDirectoryValue.VENDOR_DIRECTORY, Optional.empty()),
           PrecomputedValue.injected(
               ModuleFileFunction.REGISTRIES, BazelRepositoryModule.DEFAULT_REGISTRIES),
           PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),

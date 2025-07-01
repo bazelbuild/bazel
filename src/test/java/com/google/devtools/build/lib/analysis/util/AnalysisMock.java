@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -226,9 +227,8 @@ public abstract class AnalysisMock extends LoadingMock {
         PrecomputedValue.injected(
             RepositoryMappingFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(
-            RepositoryDelegatorFunction.FORCE_FETCH,
-            RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
-        PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
+            RepositoryDirectoryValue.FORCE_FETCH, RepositoryDirectoryValue.FORCE_FETCH_DISABLED),
+        PrecomputedValue.injected(RepositoryDirectoryValue.VENDOR_DIRECTORY, Optional.empty()),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, ImmutableSet.of()),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),

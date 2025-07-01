@@ -233,10 +233,10 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     overrideDirectory = scratch.dir("/foo");
     scratch.file("/foo/REPO.bazel");
     RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
-    RepositoryDelegatorFunction.IS_VENDOR_COMMAND.set(differencer, false);
-    RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
-    RepositoryDelegatorFunction.FORCE_FETCH.set(
-        differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
+    RepositoryDirectoryValue.IS_VENDOR_COMMAND.set(differencer, false);
+    RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());
+    RepositoryDirectoryValue.FORCE_FETCH.set(
+        differencer, RepositoryDirectoryValue.FORCE_FETCH_DISABLED);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, semantics);

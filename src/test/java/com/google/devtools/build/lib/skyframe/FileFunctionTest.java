@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFu
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
@@ -212,9 +213,9 @@ public class FileFunctionTest {
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator);
     RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
-    RepositoryDelegatorFunction.FORCE_FETCH.set(
-        differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
-    RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
+    RepositoryDirectoryValue.FORCE_FETCH.set(
+        differencer, RepositoryDirectoryValue.FORCE_FETCH_DISABLED);
+    RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     return evaluator;
   }

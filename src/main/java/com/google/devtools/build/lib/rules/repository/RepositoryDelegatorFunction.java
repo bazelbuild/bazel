@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reposit
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reproducibility;
 import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -70,19 +69,6 @@ import net.starlark.java.eval.StarlarkSemantics;
  * this function.
  */
 public final class RepositoryDelegatorFunction implements SkyFunction {
-  public static final String FORCE_FETCH_DISABLED = "";
-
-  public static final Precomputed<String> FORCE_FETCH =
-      new Precomputed<>("dependency_for_force_fetching_repository");
-
-  public static final Precomputed<String> FORCE_FETCH_CONFIGURE =
-      new Precomputed<>("dependency_for_force_fetching_configure_repositories");
-
-  public static final Precomputed<Boolean> IS_VENDOR_COMMAND =
-      new Precomputed<>("is_vendor_command");
-
-  public static final Precomputed<Optional<Path>> VENDOR_DIRECTORY =
-      new Precomputed<>("vendor_directory");
 
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
@@ -161,7 +147,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           new DigestWriter(directories, repositoryName, rule, starlarkSemantics);
 
       boolean excludeRepoFromVendoring = true;
-      if (VENDOR_DIRECTORY.get(env).isPresent()) { // If vendor mode is on
+      if (RepositoryDirectoryValue.VENDOR_DIRECTORY.get(env).isPresent()) { // If vendor mode is on
         VendorFileValue vendorFile = (VendorFileValue) env.getValue(VendorFileValue.KEY);
         if (env.valuesMissing()) {
           return null;
@@ -301,7 +287,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       DigestWriter digestWriter,
       VendorFileValue vendorFile)
       throws RepositoryFunctionException, InterruptedException {
-    Path vendorPath = VENDOR_DIRECTORY.get(env).get();
+    Path vendorPath = RepositoryDirectoryValue.VENDOR_DIRECTORY.get(env).get();
     Path vendorRepoPath = vendorPath.getRelative(repositoryName.getName());
     if (vendorRepoPath.exists()) {
       Path vendorMarker = vendorPath.getChild(repositoryName.getMarkerFileName());
@@ -325,7 +311,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       // If our repo is up-to-date, or this is an offline build (--nofetch), then the vendored repo
       // is used.
       if (vendoredRepoState instanceof DigestWriter.RepoDirectoryState.UpToDate
-          || (!IS_VENDOR_COMMAND.get(env).booleanValue() && !isFetch.get())) {
+          || (!RepositoryDirectoryValue.IS_VENDOR_COMMAND.get(env).booleanValue()
+              && !isFetch.get())) {
         if (vendoredRepoState instanceof DigestWriter.RepoDirectoryState.OutOfDate(String reason)) {
           env.getListener()
               .handle(
@@ -338,7 +325,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                           rule.getName(), reason)));
         }
         return setupOverride(vendorRepoPath.asFragment(), env, repoRoot, repositoryName);
-      } else if (!IS_VENDOR_COMMAND.get(env).booleanValue()) { // build command & fetch enabled
+      } else if (!RepositoryDirectoryValue.IS_VENDOR_COMMAND
+          .get(env)
+          .booleanValue()) { // build command & fetch enabled
         // We will continue fetching but warn the user that we are not using the vendored repo
         env.getListener()
             .handle(
@@ -395,9 +384,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       return true;
     }
 
-    boolean forceFetchEnabled = !FORCE_FETCH.get(env).isEmpty();
+    boolean forceFetchEnabled = !RepositoryDirectoryValue.FORCE_FETCH.get(env).isEmpty();
     boolean forceFetchConfigureEnabled =
-        handler.isConfigure(rule) && !FORCE_FETCH_CONFIGURE.get(env).isEmpty();
+        handler.isConfigure(rule)
+            && !RepositoryDirectoryValue.FORCE_FETCH_CONFIGURE.get(env).isEmpty();
 
     /* If fetching is enabled & this is a local repo: do NOT use cache!
      * Local repository are generally fast and do not rely on non-local data, making caching them

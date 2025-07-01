@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
@@ -202,9 +203,9 @@ public class DiscoveryTest extends FoundationTestCase {
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
-    RepositoryDelegatorFunction.FORCE_FETCH.set(
-        differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
-    RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
+    RepositoryDirectoryValue.FORCE_FETCH.set(
+        differencer, RepositoryDirectoryValue.FORCE_FETCH_DISABLED);
+    RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());
 
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());

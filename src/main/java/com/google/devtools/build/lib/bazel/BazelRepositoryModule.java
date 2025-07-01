@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -636,11 +637,10 @@ public class BazelRepositoryModule extends BlazeModule {
         // That key will be reinjected by the sync command with a universally unique identifier.
         // Nevertheless, we need to provide a default value for other commands.
         PrecomputedValue.injected(
-            RepositoryDelegatorFunction.FORCE_FETCH,
-            RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
+            RepositoryDirectoryValue.FORCE_FETCH, RepositoryDirectoryValue.FORCE_FETCH_DISABLED),
         PrecomputedValue.injected(
-            RepositoryDelegatorFunction.FORCE_FETCH_CONFIGURE,
-            RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
+            RepositoryDirectoryValue.FORCE_FETCH_CONFIGURE,
+            RepositoryDirectoryValue.FORCE_FETCH_DISABLED),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, registries),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, ignoreDevDeps.get()),
         PrecomputedValue.injected(
@@ -648,8 +648,8 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, bazelCompatibilityMode),
         PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, bazelLockfileMode),
-        PrecomputedValue.injected(RepositoryDelegatorFunction.IS_VENDOR_COMMAND, false),
-        PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, vendorDirectory),
+        PrecomputedValue.injected(RepositoryDirectoryValue.IS_VENDOR_COMMAND, false),
+        PrecomputedValue.injected(RepositoryDirectoryValue.VENDOR_DIRECTORY, vendorDirectory),
         PrecomputedValue.injected(
             YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, allowedYankedVersions),
         PrecomputedValue.injected(RegistryFunction.LAST_INVALIDATION, lastRegistryInvalidation));

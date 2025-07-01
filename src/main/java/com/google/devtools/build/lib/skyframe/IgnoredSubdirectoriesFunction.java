@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction.VENDOR_DIRECTORY;
+import static com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.VENDOR_DIRECTORY;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;

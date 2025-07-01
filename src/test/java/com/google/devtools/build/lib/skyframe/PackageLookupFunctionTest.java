@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
@@ -161,9 +162,9 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
-    RepositoryDelegatorFunction.FORCE_FETCH.set(
-        differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
-    RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
+    RepositoryDirectoryValue.FORCE_FETCH.set(
+        differencer, RepositoryDirectoryValue.FORCE_FETCH_DISABLED);
+    RepositoryDirectoryValue.VENDOR_DIRECTORY.set(differencer, Optional.empty());
   }
 
   protected PackageLookupValue lookupPackage(String packageName) throws InterruptedException {

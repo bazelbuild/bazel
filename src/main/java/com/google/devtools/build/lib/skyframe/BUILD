@@ -337,7 +337,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/repository:external_package_helper",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:genquery_package_providers",
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:actiongraph_v2",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
@@ -865,7 +864,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -2614,7 +2612,7 @@ java_library(
 java_library(
     name = "skyframe_executor_repository_helpers_holder",
     srcs = ["SkyframeExecutorRepositoryHelpersHolder.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function"],
+    deps = ["//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_dirtiness_checker"],
 )
 
 java_library(

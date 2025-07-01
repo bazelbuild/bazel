@@ -257,7 +257,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:client_environment_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:client_environment_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",

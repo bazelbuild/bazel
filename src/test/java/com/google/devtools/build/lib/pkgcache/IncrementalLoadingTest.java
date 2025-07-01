@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
@@ -525,7 +525,7 @@ public class IncrementalLoadingTest {
       skyframeExecutor.injectExtraPrecomputedValues(
           ImmutableList.of(
               PrecomputedValue.injected(
-                  RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
+                  RepositoryDirectoryValue.VENDOR_DIRECTORY, Optional.empty()),
               PrecomputedValue.injected(
                   RepositoryMappingFunction.REPOSITORY_OVERRIDES, ImmutableMap.of())));
       BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
