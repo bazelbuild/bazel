@@ -339,7 +339,7 @@ public class IndexRegistry implements Registry {
   @Override
   public RepoSpec getRepoSpec(
       ModuleKey key,
-      ImmutableMap<String, Optional<Checksum>> moduleFileRegistryHashes,
+      ImmutableMap<String, Optional<Checksum>> moduleFileHashes,
       ExtendedEventHandler eventHandler,
       DownloadManager downloadManager)
       throws IOException, InterruptedException {
@@ -357,7 +357,7 @@ public class IndexRegistry implements Registry {
         ArchiveSourceJson typedSourceJson =
             parseJson(jsonString.get(), jsonUrl, ArchiveSourceJson.class);
         var moduleFileUrl = constructModuleFileUrl(key);
-        var moduleFileChecksum = moduleFileRegistryHashes.get(moduleFileUrl).get();
+        var moduleFileChecksum = moduleFileHashes.get(moduleFileUrl).get();
         return createArchiveRepoSpec(
             typedSourceJson,
             moduleFileUrl,
@@ -375,7 +375,7 @@ public class IndexRegistry implements Registry {
         GitRepoSourceJson typedSourceJson =
             parseJson(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
         var moduleFileUrl = constructModuleFileUrl(key);
-        var moduleFileChecksum = moduleFileRegistryHashes.get(moduleFileUrl).get();
+        var moduleFileChecksum = moduleFileHashes.get(moduleFileUrl).get();
         return createGitRepoSpec(typedSourceJson, moduleFileUrl, moduleFileChecksum);
       }
       default ->

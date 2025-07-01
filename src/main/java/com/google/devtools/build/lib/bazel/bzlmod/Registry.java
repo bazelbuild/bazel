@@ -52,7 +52,7 @@ public interface Registry extends NotComparableSkyValue {
    */
   RepoSpec getRepoSpec(
       ModuleKey key,
-      ImmutableMap<String, Optional<Checksum>> moduleFileRegistryHashes,
+      ImmutableMap<String, Optional<Checksum>> moduleFileHashes,
       ExtendedEventHandler eventHandler,
       DownloadManager downloadManager)
       throws IOException, InterruptedException;

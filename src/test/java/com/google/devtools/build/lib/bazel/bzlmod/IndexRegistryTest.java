@@ -311,12 +311,14 @@ public class IndexRegistryTest extends FoundationTestCase {
   public void testGetGitRepoSpec() throws Exception {
     server.serve(
         "/bazel_registry.json",
-        "{",
-        "  \"mirrors\": [",
-        "    \"https://mirror.bazel.build/\",",
-        "    \"file:///home/bazel/mymirror/\"",
-        "  ]",
-        "}");
+        """
+        {
+          "mirrors": [
+            "https://mirror.bazel.build/",
+            "file:///home/bazel/mymirror/"
+          ]
+        }
+        """);
     server.serve(
         "/modules/foo/1.0/source.json",
         """
