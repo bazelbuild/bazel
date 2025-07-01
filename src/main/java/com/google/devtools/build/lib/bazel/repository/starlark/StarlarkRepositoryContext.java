@@ -22,7 +22,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
-import com.google.devtools.build.lib.bazel.repository.PatchUtil;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
+import com.google.devtools.build.lib.bazel.repository.decompressor.PatchUtil;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -34,11 +35,8 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
-import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reproducibility;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
@@ -90,7 +88,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
    * Create a new context (repository_ctx) object for a Starlark repository rule ({@code rule}
    * argument).
    */
-  StarlarkRepositoryContext(
+  public StarlarkRepositoryContext(
       Rule rule,
       PathPackageLocator packageLocator,
       Path outputDirectory,
@@ -371,7 +369,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   }
 
   @Override
-  protected boolean isRemotable() {
+  public boolean isRemotable() {
     Object remotable = rule.getAttr("$remotable");
     if (remotable != null) {
       return (Boolean) remotable;
@@ -646,7 +644,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       throw Starlark.errorf(
           "attrs_for_reproducibility can only be specified if reproducible is False");
     }
-    return new RepoMetadata(reproducible ? Reproducibility.YES : Reproducibility.NO, attrs);
+    return new RepoMetadata(
+        reproducible ? RepoMetadata.Reproducibility.YES : RepoMetadata.Reproducibility.NO, attrs);
   }
 
   @Override

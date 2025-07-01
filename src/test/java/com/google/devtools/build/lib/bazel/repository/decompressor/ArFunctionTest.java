@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.repository;
+package com.google.devtools.build.lib.bazel.repository.decompressor;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -41,7 +41,7 @@ public class ArFunctionTest {
    */
   private static final String ARCHIVE_NAME = "test_files.ar";
   private static final String PATH_TO_TEST_ARCHIVE =
-      "/com/google/devtools/build/lib/bazel/repository/";
+      "/com/google/devtools/build/lib/bazel/repository/decompressor/";
   private static final String FIRST_FILE_NAME = "archived_first.txt";
   private static final String SECOND_FILE_NAME = "archived_second.md";
 

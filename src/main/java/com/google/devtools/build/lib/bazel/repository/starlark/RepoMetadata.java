@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reproducibility;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.StarlarkValue;
@@ -32,4 +31,10 @@ public record RepoMetadata(Reproducibility reproducible, Dict<?, ?> attrsForRepr
     implements StarlarkValue {
   public static final RepoMetadata NONREPRODUCIBLE =
       new RepoMetadata(Reproducibility.NO, Dict.empty());
+
+  /** Whether the fetched contents of a repo are reproducible, hence cacheable. */
+  public enum Reproducibility {
+    YES,
+    NO
+  }
 }

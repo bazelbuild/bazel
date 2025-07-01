@@ -29,10 +29,12 @@ import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
-import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
-import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
+import com.google.devtools.build.lib.bazel.repository.RepositoryUtils;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorDescriptor;
+import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
@@ -49,12 +51,9 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.Dirents;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
@@ -281,7 +280,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     // getEnvVarValues doesn't return null since the Skyframe dependencies have already been
     // established by getenv calls.
     return RepoRecordedInput.EnvVar.wrap(
-        ImmutableSortedMap.copyOf(RepositoryFunction.getEnvVarValues(env, accumulatedEnvKeys)));
+        ImmutableSortedMap.copyOf(RepositoryUtils.getEnvVarValues(env, accumulatedEnvKeys)));
   }
 
   protected void checkInOutputDirectory(String operation, StarlarkPath path)
@@ -1737,7 +1736,7 @@ the same path on case-insensitive filesystems.
   }
 
   /** Whether this context supports remote execution. */
-  protected abstract boolean isRemotable();
+  public abstract boolean isRemotable();
 
   private boolean canExecuteRemote() {
     boolean featureEnabled =
@@ -2264,7 +2263,10 @@ func(
 
   // Resolve the label given by value into a file path.
   protected StarlarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
-    RootedPath rootedPath = RepositoryFunction.getRootedPathFromLabel(label, env);
+    RootedPath rootedPath = RepositoryUtils.getRootedPathFromLabel(label, env);
+    if (rootedPath == null) {
+      throw new NeedsSkyframeRestartException();
+    }
     StarlarkPath starlarkPath = new StarlarkPath(this, rootedPath.asPath());
     try {
       maybeWatch(

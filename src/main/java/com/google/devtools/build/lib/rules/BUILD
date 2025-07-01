@@ -37,8 +37,6 @@ java_library(
         ":filegroup/filegroup",
         ":label_build_settings",
         ":repository/repository_directory_value",
-        ":repository/workspace_attribute_mapper",
-        ":repository/workspace_file_helper",
         ":toolchain_type",
     ],
 )
@@ -224,45 +222,6 @@ java_library(
 )
 
 java_library(
-    name = "repository/repository_function",
-    srcs = [
-        "repository/NeedsSkyframeRestartException.java",
-        "repository/RepositoryDelegatorFunction.java",
-        "repository/RepositoryFunction.java",
-    ],
-    deps = [
-        ":repository/repo_recorded_input",
-        ":repository/repository_directory_value",
-        ":repository/workspace_file_helper",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:repo_rule_value",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/repository:external_package_exception",
-        "//src/main/java/com/google/devtools/build/lib/repository:repository_events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:action_environment_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:already_reported_exception",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_function",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/net/starlark/java/eval",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "repository/workspace_attribute_mapper",
     srcs = ["repository/WorkspaceAttributeMapper.java"],
     deps = [
@@ -270,16 +229,6 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "repository/workspace_file_helper",
-    srcs = ["repository/WorkspaceFileHelper.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
     ],
 )
 

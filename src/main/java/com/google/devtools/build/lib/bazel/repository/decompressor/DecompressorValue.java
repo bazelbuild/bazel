@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.repository;
+package com.google.devtools.build.lib.bazel.repository.decompressor;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.Optional;
@@ -121,6 +122,7 @@ public class DecompressorValue implements SkyValue {
     }
   }
 
+  @CanIgnoreReturnValue
   public static Path decompress(DecompressorDescriptor descriptor)
       throws RepositoryFunctionException, InterruptedException {
     try {

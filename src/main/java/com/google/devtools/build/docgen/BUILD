@@ -50,9 +50,6 @@ java_binary(
     name = "docgen_bin",
     srcs = ["BuildEncyclopediaGenerator.java"],
     main_class = "com.google.devtools.build.docgen.BuildEncyclopediaGenerator",
-    runtime_deps = [
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules",
-    ],
     deps = [
         ":docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -64,7 +61,6 @@ java_binary(
     name = "skydoc_bin",
     srcs = ["StarlarkDocumentationGenerator.java"],
     main_class = "com.google.devtools.build.docgen.StarlarkDocumentationGenerator",
-    runtime_deps = ["//src/main/java/com/google/devtools/build/lib/bazel/repository"],
     deps = [":docgen_javalib"],
 )
 
@@ -72,10 +68,6 @@ java_binary(
     name = "api_exporter",
     srcs = ["ApiExporter.java"],
     main_class = "com.google.devtools.build.docgen.ApiExporter",
-    runtime_deps = [
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository",
-        "//src/main/java/net/starlark/java/syntax",
-    ],
     deps = [
         ":docgen_javalib",
         "//src/main/java/com/google/devtools/common/options",

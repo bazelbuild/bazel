@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
-import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.DirectoryListingStateValue;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
@@ -168,14 +167,14 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
       WalkableGraph graph, Iterable<PathFragment> fileKeys)
       throws QueryException, InterruptedException {
     visitAndWaitForCompletion(
-        getSkyKeysForFileFragments(graph, fileKeys, /*includeAncestorKeys=*/ false));
+        getSkyKeysForFileFragments(graph, fileKeys, /* includeAncestorKeys= */ false));
   }
 
   public void visitFileAndDirectoryKeysAndWaitForCompletion(
       WalkableGraph graph, Iterable<PathFragment> fileKeys)
       throws QueryException, InterruptedException {
     visitAndWaitForCompletion(
-        getSkyKeysForFileFragments(graph, fileKeys, /*includeAncestorKeys=*/ true));
+        getSkyKeysForFileFragments(graph, fileKeys, /* includeAncestorKeys= */ true));
   }
 
   /**
@@ -286,7 +285,8 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
     // The WORKSPACE file is a transitive dependency of every package. Unfortunately, there is
     // no specific SkyValue that we can use to figure out under which package path entries it
     // lives so we add a dependency on the main repo mapping key.
-    if (WorkspaceFileHelper.matchWorkspaceFileName(file)) {
+    if (file.equals(LabelConstants.WORKSPACE_FILE_NAME)
+        || file.equals(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME)) {
       // TODO(mschaller): this should not be checked at runtime. These are constants!
       Preconditions.checkState(
           LabelConstants.WORKSPACE_FILE_NAME

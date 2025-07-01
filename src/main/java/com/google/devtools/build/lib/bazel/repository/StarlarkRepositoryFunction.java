@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.repository.starlark;
+package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -25,8 +25,13 @@ import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoRuleId;
-import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
+import com.google.devtools.build.lib.bazel.repository.RepositoryDelegatorFunction.FetchResult;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.bazel.repository.starlark.NeedsSkyframeRestartException;
+import com.google.devtools.build.lib.bazel.repository.starlark.RepoMetadata;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryContext;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryDefinitionLocationEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -39,10 +44,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
-import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue;
@@ -73,7 +75,7 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
 
 /** A repository function to delegate work done by Starlark remote repositories. */
-public final class StarlarkRepositoryFunction extends RepositoryFunction {
+public final class StarlarkRepositoryFunction {
   private double timeoutScaling = 1.0;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
   @Nullable private DownloadManager downloadManager;
@@ -114,13 +116,16 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     @Nullable FetchResult result;
   }
 
-  @Override
+  /**
+   * We sometimes get to the point before fetching a repo when we have <em>just</em> fetched it,
+   * particularly because of Skyframe restarts very late into RepositoryDelegatorFunction. In that
+   * case, this method can be used to report that fact.
+   */
   public boolean wasJustFetched(Environment env) {
     return env.getState(State::new).result != null;
   }
 
   @Nullable
-  @Override
   public FetchResult fetch(
       Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env, SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
@@ -171,7 +176,8 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     env.getListener().post(new StarlarkRepositoryDefinitionLocationEvent(rule.getName(), defInfo));
 
     StarlarkCallable function = rule.getRuleClassObject().getConfiguredTargetFunction();
-    ImmutableMap<String, Optional<String>> envVarValues = getEnvVarValues(env, getEnviron(rule));
+    ImmutableMap<String, Optional<String>> envVarValues =
+        RepositoryUtils.getEnvVarValues(env, getEnviron(rule));
     if (envVarValues == null) {
       return null;
     }
@@ -260,7 +266,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
 
       repoMetadata =
           switch (result) {
-            case Dict<?, ?> dict -> new RepoMetadata(Reproducibility.NO, dict);
+            case Dict<?, ?> dict -> new RepoMetadata(RepoMetadata.Reproducibility.NO, dict);
             case RepoMetadata rm -> rm;
             default -> RepoMetadata.NONREPRODUCIBLE;
           };
@@ -318,7 +324,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     }
 
     // Make sure the fetched repo has a boundary file.
-    if (!WorkspaceFileHelper.isValidRepoRoot(outputDirectory)) {
+    if (!RepositoryUtils.isValidRepoRoot(outputDirectory)) {
       if (outputDirectory.isSymbolicLink()) {
         // The created repo is actually just a symlink to somewhere else (think local_repository).
         // In this case, we shouldn't try to create the repo boundary file ourselves, but report an
@@ -342,26 +348,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
   @SuppressWarnings("unchecked")
   private static ImmutableSet<String> getEnviron(Rule rule) {
     return ImmutableSet.copyOf((Iterable<String>) rule.getAttr("$environ"));
-  }
-
-  @Override
-  protected boolean isLocal(Rule rule) {
-    return (Boolean) rule.getAttr("$local");
-  }
-
-  @Override
-  protected boolean isConfigure(Rule rule) {
-    return (Boolean) rule.getAttr("$configure");
-  }
-
-  /**
-   * Static method to determine if for a starlark repository rule {@code isConfigure} holds true. It
-   * also checks that the rule is indeed a Starlark rule so that this class is the appropriate
-   * handler for the given rule. As, however, only Starklark rules can be configure rules, this
-   * method can also be used as a universal check.
-   */
-  public static boolean isConfigureRule(Rule rule) {
-    return rule.getRuleClassObject().isStarlark() && ((Boolean) rule.getAttr("$configure"));
   }
 
   public void setRepositoryRemoteExecutor(RepositoryRemoteExecutor repositoryRemoteExecutor) {

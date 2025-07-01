@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.repository;
+package com.google.devtools.build.lib.bazel.repository.decompressor;
 
-import static com.google.devtools.build.lib.bazel.repository.StripPrefixedPath.maybeDeprefixSymlink;
+import static com.google.devtools.build.lib.bazel.repository.decompressor.StripPrefixedPath.maybeDeprefixSymlink;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.auto.service.AutoService;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
+import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;

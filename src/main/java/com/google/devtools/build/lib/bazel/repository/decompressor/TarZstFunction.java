@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2022 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,25 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.repository;
+package com.google.devtools.build.lib.bazel.repository.decompressor;
 
-import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
+import com.github.luben.zstd.ZstdInputStreamNoFinalizer;
+import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue.Decompressor;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
 
-/**
- * Creates a repository by unarchiving a .tar.bz2 file.
- */
-public class TarBz2Function extends CompressedTarFunction {
-  public static final Decompressor INSTANCE = new TarBz2Function();
+/** Creates a repository by unarchiving a zstandard-compressed .tar file. */
+final class TarZstFunction extends CompressedTarFunction {
+  static final Decompressor INSTANCE = new TarZstFunction();
 
-  private TarBz2Function() {}
+  private TarZstFunction() {}
 
   @Override
   protected InputStream getDecompressorStream(BufferedInputStream compressedInputStream)
       throws IOException {
-    return new BZip2CompressorInputStream(compressedInputStream, true);
+    return new ZstdInputStreamNoFinalizer(compressedInputStream);
   }
 }

@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package com.google.devtools.build.lib.rules.repository;
+package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.devtools.build.lib.skyframe.RepositoryMappingFunction.REPOSITORY_OVERRIDES;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -26,8 +26,11 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.VendorFileValue;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache.CandidateRepo;
+import com.google.devtools.build.lib.bazel.repository.starlark.RepoMetadata;
+import com.google.devtools.build.lib.bazel.repository.starlark.RepoMetadata.Reproducibility;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
@@ -37,10 +40,10 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.NeverUpToDateRepoRecordedInput;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reproducibility;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
 import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -62,20 +65,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
-/**
- * A {@link SkyFunction} that implements delegation to the correct repository fetcher.
- *
- * <p>Each repository in the WORKSPACE file is represented by a {@link SkyValue} that is computed by
- * this function.
- */
+/** A {@link SkyFunction} that fetches the given repository. */
 public final class RepositoryDelegatorFunction implements SkyFunction {
 
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
   private static final int MARKER_FILE_VERSION = 7;
 
-  // Delegate function to handle Starlark remote repositories
-  private final RepositoryFunction starlarkHandler;
+  private final StarlarkRepositoryFunction handler;
   // This is a reference to isFetch in BazelRepositoryModule, which tracks whether the current
   // command is a fetch. Remote repository lookups are only allowed during fetches.
   private final AtomicBoolean isFetch;
@@ -83,11 +80,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   private final RepoContentsCache repoContentsCache;
 
   public RepositoryDelegatorFunction(
-      @Nullable RepositoryFunction starlarkHandler,
+      @Nullable StarlarkRepositoryFunction handler,
       AtomicBoolean isFetch,
       BlazeDirectories directories,
       RepoContentsCache repoContentsCache) {
-    this.starlarkHandler = starlarkHandler;
+    this.handler = handler;
     this.isFetch = isFetch;
     this.directories = directories;
     this.repoContentsCache = repoContentsCache;
@@ -104,7 +101,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
     if (!repositoryName.isVisible()) {
-      return new RepositoryDirectoryValue.Failure(
+      return new Failure(
           String.format(
               "No repository visible as '@%s' from %s",
               repositoryName.getName(), repositoryName.getContextRepoDisplayString()));
@@ -113,7 +110,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.REPOSITORY_FETCH, repositoryName.toString())) {
       Path repoRoot =
-          RepositoryFunction.getExternalRepositoryDirectory(directories)
+          RepositoryUtils.getExternalRepositoryDirectory(directories)
               .getRelative(repositoryName.getName());
       Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
       if (Preconditions.checkNotNull(overrides).containsKey(repositoryName)) {
@@ -132,15 +129,12 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         return null;
       }
       if (rule == null) {
-        return new RepositoryDirectoryValue.Failure(
-            String.format("Repository '%s' is not defined", repositoryName));
+        return new Failure(String.format("Repository '%s' is not defined", repositoryName));
       }
 
-      RepositoryFunction handler = starlarkHandler;
       if (handler == null) {
         // If we refer to a non repository rule then the repository does not exist.
-        return new RepositoryDirectoryValue.Failure(
-            String.format("'%s' is not a repository rule", repositoryName));
+        return new Failure(String.format("'%s' is not a repository rule", repositoryName));
       }
 
       DigestWriter digestWriter =
@@ -152,7 +146,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         if (env.valuesMissing()) {
           return null;
         }
-        boolean excludeRepoByDefault = isRepoExcludedFromVendoringByDefault(handler, rule);
+        boolean excludeRepoByDefault = isRepoExcludedFromVendoringByDefault(rule);
         if (!excludeRepoByDefault && !vendorFile.ignoredRepos().contains(repositoryName)) {
           RepositoryDirectoryValue repositoryDirectoryValue =
               tryGettingValueUsingVendoredRepo(
@@ -173,7 +167,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       String predeclaredInputHash =
           DigestWriter.computePredeclaredInputHash(rule, starlarkSemantics);
 
-      if (shouldUseCachedRepos(env, handler, rule)) {
+      if (shouldUseCachedRepos(env, rule)) {
         // Make sure marker file is up-to-date; correctly describes the current repository state
         var repoState = digestWriter.areRepositoryAndMarkerFileConsistent(env);
         if (repoState == null) {
@@ -216,15 +210,14 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         // repository as valid even though it is in an inconsistent state. Clear the marker file and
         // only recreate it after fetching is done to prevent this scenario.
         DigestWriter.clearMarkerFile(directories, repositoryName);
-        RepositoryFunction.FetchResult result =
-            fetchRepository(skyKey, repoRoot, env, handler, rule);
+        FetchResult result = fetchRepository(skyKey, repoRoot, env, rule);
         if (result == null) {
           return null;
         }
         digestWriter.writeMarkerFile(result.recordedInputValues());
         if (repoContentsCache.isEnabled()
-            && result.reproducible() == Reproducibility.YES
-            && !handler.isLocal(rule)) {
+            && result.reproducible() == RepoMetadata.Reproducibility.YES
+            && !RepositoryUtils.isLocal(rule)) {
           // This repo is eligible for the repo contents cache.
           Path cachedRepoDir;
           try {
@@ -374,8 +367,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   /* Determines whether we should use the cached repositories */
-  private boolean shouldUseCachedRepos(Environment env, RepositoryFunction handler, Rule rule)
-      throws InterruptedException {
+  private boolean shouldUseCachedRepos(Environment env, Rule rule) throws InterruptedException {
     if (handler.wasJustFetched(env)) {
       // If this SkyFunction has finished fetching once, then we should always use the cached
       // result. This means that we _very_ recently (as in, in the same command invocation) fetched
@@ -386,13 +378,13 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     boolean forceFetchEnabled = !RepositoryDirectoryValue.FORCE_FETCH.get(env).isEmpty();
     boolean forceFetchConfigureEnabled =
-        handler.isConfigure(rule)
+        RepositoryUtils.isConfigure(rule)
             && !RepositoryDirectoryValue.FORCE_FETCH_CONFIGURE.get(env).isEmpty();
 
     /* If fetching is enabled & this is a local repo: do NOT use cache!
      * Local repository are generally fast and do not rely on non-local data, making caching them
      * across server instances impractical. */
-    if (isFetch.get() && handler.isLocal(rule)) {
+    if (isFetch.get() && RepositoryUtils.isLocal(rule)) {
       return false;
     }
 
@@ -406,18 +398,28 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return true;
   }
 
-  private boolean isRepoExcludedFromVendoringByDefault(RepositoryFunction handler, Rule rule) {
-    return handler.isLocal(rule) || handler.isConfigure(rule);
+  private boolean isRepoExcludedFromVendoringByDefault(Rule rule) {
+    return RepositoryUtils.isLocal(rule) || RepositoryUtils.isConfigure(rule);
   }
 
+  /**
+   * The result of the {@link StarlarkRepositoryFunction#fetch} method.
+   *
+   * @param recordedInputValues Any recorded inputs (and their values) encountered during the fetch
+   *     of the repo. Changes to these inputs will result in the repo being refetched in the future.
+   *     Not an ImmutableMap, because regrettably the values can be null sometimes.
+   * @param reproducible Whether the fetched repo contents are reproducible, hence cacheable.
+   */
+  public record FetchResult(
+      Map<? extends RepoRecordedInput, String> recordedInputValues, Reproducibility reproducible) {}
+
   @Nullable
-  private RepositoryFunction.FetchResult fetchRepository(
-      SkyKey skyKey, Path repoRoot, Environment env, RepositoryFunction handler, Rule rule)
+  private FetchResult fetchRepository(SkyKey skyKey, Path repoRoot, Environment env, Rule rule)
       throws InterruptedException, RepositoryFunctionException {
     RepositoryName repoName = (RepositoryName) skyKey.argument();
     env.getListener().post(RepositoryFetchProgress.ongoing(repoName, "starting"));
 
-    RepositoryFunction.FetchResult result;
+    FetchResult result;
     try {
       result = handler.fetch(rule, repoRoot, directories, env, skyKey);
     } catch (RepositoryFunctionException e) {
@@ -528,7 +530,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     // Check that the directory contains a repo boundary file.
     // Note that we need to do this here since we're not creating a repo boundary file ourselves,
     // but entrusting the entire contents of the repo root to this target directory.
-    if (!WorkspaceFileHelper.isValidRepoRoot(destination)) {
+    if (!RepositoryUtils.isValidRepoRoot(destination)) {
       throw new RepositoryFunctionException(
           new IOException("No MODULE.bazel, REPO.bazel, or WORKSPACE file found in " + destination),
           Transience.TRANSIENT);
@@ -706,7 +708,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
 
     private static Path getMarkerPath(BlazeDirectories directories, RepositoryName repo) {
-      return RepositoryFunction.getExternalRepositoryDirectory(directories)
+      return RepositoryUtils.getExternalRepositoryDirectory(directories)
           .getChild(repo.getMarkerFileName());
     }
 

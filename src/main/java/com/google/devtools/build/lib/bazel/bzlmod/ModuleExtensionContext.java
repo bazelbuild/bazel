@@ -87,7 +87,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   }
 
   @Override
-  protected boolean isRemotable() {
+  public boolean isRemotable() {
     // Maybe we can some day support remote execution, but not today.
     return false;
   }

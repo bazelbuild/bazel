@@ -12,20 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.repository;
+package com.google.devtools.build.lib.bazel.repository.decompressor;
 
-import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
+import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue.Decompressor;
 import java.io.BufferedInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 
-/** Creates a repository by unarchiving a plain .tar file. */
-public class TarFunction extends CompressedTarFunction {
-  public static final Decompressor INSTANCE = new TarFunction();
+/**
+ * Creates a repository by unarchiving a .tar.gz file.
+ */
+public class TarGzFunction extends CompressedTarFunction {
+  public static final Decompressor INSTANCE = new TarGzFunction();
 
-  private TarFunction() {}
+  private TarGzFunction() {}
 
   @Override
-  protected InputStream getDecompressorStream(BufferedInputStream compressedInputStream) {
-    return compressedInputStream;
+  protected InputStream getDecompressorStream(BufferedInputStream compressedInputStream)
+      throws IOException {
+    return new GzipCompressorInputStream(compressedInputStream, true);
   }
 }

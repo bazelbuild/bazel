@@ -20,7 +20,7 @@ import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryUtils;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -81,7 +81,7 @@ public class BazelFetchAllFunction implements SkyFunction {
         if (repoRuleValue == null) {
           return null;
         }
-        if (StarlarkRepositoryFunction.isConfigureRule(repoRuleValue.getRule())) {
+        if (RepositoryUtils.isConfigure(repoRuleValue.getRule())) {
           reposToFetch.add((RepositoryName) repoRuleKey.argument());
         }
       }

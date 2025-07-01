@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.repository;
+package com.google.devtools.build.lib.bazel.repository.decompressor;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -50,7 +50,7 @@ public class TestArchiveDescriptor {
   private static final String RELATIVE_SYMBOLIC_LINK_FILE_NAME = "relativeSymbolicLinkFile";
   private static final String ABSOLUTE_SYMBOLIC_LINK_FILE_NAME = "absoluteSymbolicLinkFile";
   private static final String PATH_TO_TEST_ARCHIVE =
-      "/com/google/devtools/build/lib/bazel/repository/";
+      "/com/google/devtools/build/lib/bazel/repository/decompressor/";
 
   static final String ROOT_FOLDER_NAME = "root_folder";
   static final String INNER_FOLDER_NAME = "another_folder";

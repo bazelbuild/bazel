@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.blackbox.tests.workspace;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
-import com.google.devtools.build.lib.bazel.repository.TarFunction;
+import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorDescriptor;
+import com.google.devtools.build.lib.bazel.repository.decompressor.TarFunction;
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;

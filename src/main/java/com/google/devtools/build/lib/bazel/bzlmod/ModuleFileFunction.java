@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.NonRootModuleF
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleThreadContext.ModuleExtensionUsageBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.Registry.NotFoundException;
-import com.google.devtools.build.lib.bazel.repository.PatchUtil;
+import com.google.devtools.build.lib.bazel.repository.decompressor.PatchUtil;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum.MissingChecksumException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.Label;
