@@ -280,6 +280,7 @@ public final class SymlinkTreeHelper {
       for (Map.Entry<String, Directory<T>> entry : directories.entrySet()) {
         entry.getValue().syncTreeRecursively(at.getChild(entry.getKey()), targetPathFn);
       }
+      at.chmod(0555);
     }
   }
 }
