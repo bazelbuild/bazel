@@ -327,33 +327,15 @@ def _create_linker_input(
 
 def _create_linking_context(
         *,
-        linker_inputs = None,
-        libraries_to_link = _UNBOUND,
-        user_link_flags = _UNBOUND,
-        additional_inputs = _UNBOUND,
-        extra_link_time_library = _UNBOUND,
-        owner = _UNBOUND):
+        linker_inputs,
+        extra_link_time_library = _UNBOUND):
     if extra_link_time_library != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    if extra_link_time_library == _UNBOUND:
+    else:  # extra_link_time_library == _UNBOUND:
         extra_link_time_library = None
-
-    # Usage of libraries_to_link, user_link_flags and additional_inputs are restricted by a flag.
-    # Since we cannot do it here, we let the native code to do it.
-    kwargs = {
-        "linker_inputs": linker_inputs,
-        "extra_link_time_library": extra_link_time_library,
-    }
-    if libraries_to_link != _UNBOUND:
-        kwargs["libraries_to_link"] = libraries_to_link
-    if user_link_flags != _UNBOUND:
-        kwargs["user_link_flags"] = user_link_flags
-    if additional_inputs != _UNBOUND:
-        kwargs["additional_inputs"] = additional_inputs
-    if owner != _UNBOUND:
-        kwargs["owner"] = owner
     return cc_common_internal.create_linking_context(
-        **kwargs
+        linker_inputs = linker_inputs,
+        extra_link_time_library = extra_link_time_library,
     )
 
 def _merge_cc_infos(*, direct_cc_infos = [], cc_infos = []):

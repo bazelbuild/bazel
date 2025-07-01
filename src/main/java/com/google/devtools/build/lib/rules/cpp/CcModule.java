@@ -759,77 +759,19 @@ public abstract class CcModule
 
   @Override
   public CcLinkingContext createCcLinkingInfo(
-      Object linkerInputs,
-      Object librariesToLinkObject,
-      Object userLinkFlagsObject,
-      Object nonCodeInputsObject,
-      Object extraLinkTimeLibraryObject,
-      Object ownerObject,
-      StarlarkThread thread)
+      Depset linkerInputs, Object extraLinkTimeLibraryObject, StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
-    if (Starlark.isNullOrNone(linkerInputs)) {
-      if (thread
-          .getSemantics()
-          .getBool(BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API)) {
-        throw Starlark.errorf("linker_inputs cannot be None");
-      }
-      @SuppressWarnings("unchecked")
-      Sequence<StarlarkInfo> librariesToLink = nullIfNone(librariesToLinkObject, Sequence.class);
-      @SuppressWarnings("unchecked")
-      Sequence<String> userLinkFlags = nullIfNone(userLinkFlagsObject, Sequence.class);
-
-      if (librariesToLink != null || userLinkFlags != null) {
-        CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
-        // TODO(b/135146460): Old API, no support for shared library, linker input won't have
-        //  labels.
-        if (librariesToLink != null) {
-          ccLinkingContextBuilder.addLibraries(librariesToLink.getImmutableList());
-        }
-        if (userLinkFlags != null) {
-          ccLinkingContextBuilder.addUserLinkFlags(
-              ImmutableList.of(CcLinkingContext.LinkOptions.of(userLinkFlags.getImmutableList())));
-        }
-        @SuppressWarnings("unchecked")
-        Sequence<String> nonCodeInputs = nullIfNone(nonCodeInputsObject, Sequence.class);
-        if (nonCodeInputs != null) {
-          ccLinkingContextBuilder.addNonCodeInputs(
-              Sequence.cast(nonCodeInputs, Artifact.class, "additional_inputs"));
-        }
-        return ccLinkingContextBuilder.build();
-      }
-
-      throw Starlark.errorf("Must pass libraries_to_link, user_link_flags or both.");
-    } else {
-      CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
-      ccLinkingContextBuilder.addTransitiveLinkerInputs(
-          Depset.noneableCast(linkerInputs, CcLinkingContext.LinkerInput.class, "linker_inputs"));
-      StarlarkInfo extraLinkTimeLibrary =
-          convertFromNoneable(extraLinkTimeLibraryObject, /* defaultValue= */ null);
-      if (extraLinkTimeLibrary != null) {
-        ccLinkingContextBuilder.setExtraLinkTimeLibraries(
-            ExtraLinkTimeLibraries.of(extraLinkTimeLibrary));
-      }
-      Label owner = convertFromNoneable(ownerObject, /* defaultValue= */ null);
-      if (owner != null) {
-        ccLinkingContextBuilder.setOwner(owner);
-      }
-
-      @SuppressWarnings("unchecked")
-      Sequence<LibraryToLink> librariesToLink = nullIfNone(librariesToLinkObject, Sequence.class);
-      @SuppressWarnings("unchecked")
-      Sequence<String> userLinkFlags = nullIfNone(userLinkFlagsObject, Sequence.class);
-      @SuppressWarnings("unchecked")
-      Sequence<String> nonCodeInputs = nullIfNone(nonCodeInputsObject, Sequence.class);
-
-      if (librariesToLink != null || userLinkFlags != null || nonCodeInputs != null) {
-        throw Starlark.errorf(
-            "If you pass linker_inputs you are using the new API. "
-                + "Just pass linker_inputs. Do not mix old and new API parameters.");
-      }
-
-      return ccLinkingContextBuilder.build();
+    CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
+    ccLinkingContextBuilder.addTransitiveLinkerInputs(
+        Depset.noneableCast(linkerInputs, CcLinkingContext.LinkerInput.class, "linker_inputs"));
+    StarlarkInfo extraLinkTimeLibrary =
+        convertFromNoneable(extraLinkTimeLibraryObject, /* defaultValue= */ null);
+    if (extraLinkTimeLibrary != null) {
+      ccLinkingContextBuilder.setExtraLinkTimeLibraries(
+          ExtraLinkTimeLibraries.of(extraLinkTimeLibrary));
     }
+    return ccLinkingContextBuilder.build();
   }
 
   // TODO(b/65151735): Remove when cc_flags is entirely from features.

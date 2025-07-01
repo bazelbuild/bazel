@@ -397,7 +397,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    )",
         "    return cc_common.create_linking_context(",
         "        linker_inputs = depset([linker_input]),",
-        "        owner = owner,",
         "    )",
         "",
         "def _link_multi_arch_binary(",

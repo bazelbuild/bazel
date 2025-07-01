@@ -338,18 +338,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalCcSharedLibrary;
 
   @Option(
-      name = "incompatible_require_linker_input_cc_api",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, rule create_linking_context will require linker_inputs instead of "
-              + "libraries_to_link. The old getters of linking_context will also be disabled and "
-              + "just linker_inputs will be available.")
-  public boolean incompatibleRequireLinkerInputCcApi;
-
-  @Option(
       name = "experimental_repo_remote_exec",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -559,17 +547,6 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " the behavior of repr() is unchanged. See"
               + " https://github.com/bazelbuild/bazel/issues/15916 for more information.")
   public boolean incompatibleUnambiguousLabelStringification;
-
-  @Option(
-      name = "incompatible_depset_for_libraries_to_link_getter",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "When true, Bazel no longer returns a list from linking_context.libraries_to_link but "
-              + "returns a depset instead.")
-  public boolean incompatibleDepsetForLibrariesToLinkGetter;
 
   @Option(
       name = "incompatible_java_info_merge_runtime_module_flags",
@@ -881,10 +858,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_UNAMBIGUOUS_LABEL_STRINGIFICATION,
                 incompatibleUnambiguousLabelStringification)
-            .setBool(
-                INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER,
-                incompatibleDepsetForLibrariesToLinkGetter)
-            .setBool(INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API, incompatibleRequireLinkerInputCcApi)
             .set(MAX_COMPUTATION_STEPS, maxComputationSteps)
             .set(NESTED_SET_DEPTH_LIMIT, nestedSetDepthLimit)
             .setBool(
@@ -967,8 +940,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_sibling_repository_layout";
   public static final String INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS =
       "+incompatible_always_check_depset_elements";
-  public static final String INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER =
-      "+incompatible_depset_for_libraries_to_link_getter";
   public static final String INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS =
       "-incompatible_disable_target_provider_fields";
   // Note that INCOMPATIBLE_DISALLOW_EMPTY_GLOB differs in Google and in OSS Bazel.
@@ -986,8 +957,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_no_implicit_file_export";
   public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
       "-incompatible_no_rule_outputs_param";
-  public static final String INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API =
-      "+incompatible_require_linker_input_cc_api";
   public static final String INCOMPATIBLE_RUN_SHELL_COMMAND_STRING =
       "+incompatible_run_shell_command_string";
   public static final String INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC =

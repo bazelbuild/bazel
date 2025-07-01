@@ -497,6 +497,22 @@ public final class BazelRulesModule extends BlazeModule {
    */
   public static final class AllCommandGraveyardOptions extends OptionsBase {
     @Option(
+        name = "incompatible_require_linker_input_cc_api",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean incompatibleRequireLinkerInputCcApi;
+
+    @Option(
+        name = "incompatible_depset_for_libraries_to_link_getter",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean incompatibleDepsetForLibrariesToLinkGetter;
+
+    @Option(
         name = "legacy_external_runfiles",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,

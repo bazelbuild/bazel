@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
@@ -1489,32 +1488,7 @@ public interface CcModuleApi<
             doc = "Depset of <code>LinkerInput</code>.",
             positional = false,
             named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
-        @Param(
-            name = "libraries_to_link",
-            doc = "List of <code>LibraryToLink</code>.",
-            positional = false,
-            named = true,
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
-        @Param(
-            name = "user_link_flags",
-            doc = "List of user link flags passed as strings.",
-            positional = false,
-            named = true,
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
-        @Param(
-            name = "additional_inputs",
-            doc = "For additional inputs to the linking action, e.g.: linking scripts.",
-            positional = false,
-            named = true,
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
+            allowedTypes = {@ParamType(type = Depset.class)}),
         @Param(
             name = "extra_link_time_library",
             documented = false,
@@ -1525,22 +1499,9 @@ public interface CcModuleApi<
               @ParamType(type = StarlarkInfo.class),
               @ParamType(type = NoneType.class)
             }),
-        @Param(
-            name = "owner",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "unbound",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Label.class)})
       })
   LinkingContextT createCcLinkingInfo(
-      Object linkerInputs,
-      Object librariesToLinkObject,
-      Object userLinkFlagsObject,
-      Object nonCodeInputs, // <FileT> expected
-      Object extraLinkTimeLibraryObject,
-      Object ownerObject,
-      StarlarkThread thread)
+      Depset linkerInputs, Object extraLinkTimeLibraryObject, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(

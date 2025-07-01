@@ -1630,45 +1630,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ImmutableList.of("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so"));
   }
 
-  /** TODO(#8118): This test can go away once flag is flipped. */
-  @Test
-  public void testIncompatibleDepsetForLibrariesToLinkGetter() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder()
-                .withFeatures(
-                    CppRuleClasses.PIC,
-                    CppRuleClasses.SUPPORTS_PIC,
-                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
-    this.setBuildLanguageOptions("--incompatible_depset_for_libraries_to_link_getter");
-    setUpCcLinkingContextTest();
-    ConfiguredTarget a = getConfiguredTarget("//a:a");
-    StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
-
-    ImmutableList<StarlarkInfo> librariesToLink =
-        info.getValue("libraries_to_link", Depset.class).toList(StarlarkInfo.class);
-    assertThat(
-            librariesToLink.stream()
-                .map(LibraryToLink::wrap)
-                .filter(x -> x.getStaticLibrary() != null)
-                .map(x -> x.getStaticLibrary().getFilename()))
-        .containsExactly("a.a", "b.rlib", "c.a", "d.a");
-    assertThat(
-            librariesToLink.stream()
-                .map(LibraryToLink::wrap)
-                .filter(x -> x.getPicStaticLibrary() != null)
-                .map(x -> x.getPicStaticLibrary().getFilename()))
-        .containsExactly("a.pic.a", "libdep2.a", "b.rlib", "c.pic.a", "e.pic.a", "libdep1.a");
-    assertThat(
-            librariesToLink.stream()
-                .map(LibraryToLink::wrap)
-                .filter(x -> x.getDynamicLibrary() != null)
-                .map(x -> x.getDynamicLibrary().getFilename()))
-        .containsExactly("a.so", "liba_Slibdep2.so", "b.so", "e.so", "liba_Slibdep1.so");
-  }
-
   private static String getSolibRelativePath(Artifact library, CcToolchainProvider toolchain)
       throws EvalException {
     return library.getRootRelativePath().relativeTo(toolchain.getSolibDirectory()).toString();
@@ -1804,7 +1765,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       List<String> dynamicLibraryList)
       throws Exception {
     useConfiguration("--features=-supports_interface_shared_libraries");
-    this.setBuildLanguageOptions("--incompatible_depset_for_libraries_to_link_getter");
     setUpCcLinkingContextTest();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
 
@@ -7039,51 +6999,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     Iterable<Artifact> barDirectTextualHeaders =
         getArtifactsFromMyInfo(barTarget, "direct_textual_headers");
     assertThat(baseArtifactNames(barDirectTextualHeaders)).containsExactly("bar.def");
-  }
-
-  /** Fixes #10580 */
-  @Test
-  public void testMixedLinkerInputsWithOwnerAndWithout() throws Exception {
-    setBuildLanguageOptions("--noincompatible_require_linker_input_cc_api");
-    setUpCcLinkingContextTest();
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":rule.bzl", "crule")
-
-        crule(name = "a")
-        """);
-    scratch.file(
-        "foo/rule.bzl",
-        """
-        load("//myinfo:myinfo.bzl", "MyInfo")
-
-        def _impl(ctx):
-            linker_input = cc_common.create_linker_input(
-                owner = ctx.label,
-                user_link_flags = ["-l"],
-            )
-            linking_context = cc_common.create_linking_context(
-                linker_inputs = depset([linker_input]),
-            )
-            linking_context = cc_common.create_linking_context(
-                libraries_to_link = [],
-            )
-            cc_info = CcInfo(linking_context = linking_context)
-            if cc_info.linking_context.linker_inputs.to_list()[0] == linker_input:
-                pass
-            return [cc_info]
-
-        crule = rule(
-            _impl,
-            attrs = {
-            },
-            fragments = ["cpp"],
-        )
-        """);
-
-    assertThat(getConfiguredTarget("//foo:a")).isNotNull();
-    assertNoEvents();
   }
 
   @Test

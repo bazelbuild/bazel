@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkstampApi;
@@ -446,18 +445,6 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     return libraries.build();
   }
 
-  /**
-   * @deprecated Don't use. The function will be removed.
-   */
-  @Deprecated
-  NestedSet<StarlarkInfo> getLibrariesFromLinkerInputs() {
-    NestedSetBuilder<StarlarkInfo> libraries = NestedSetBuilder.linkOrder();
-    for (LinkerInput linkerInput : linkerInputs.toList()) {
-      libraries.addAll(linkerInput.libraries);
-    }
-    return libraries.build();
-  }
-
   public NestedSet<LinkerInput> getLinkerInputs() {
     return linkerInputs;
   }
@@ -467,27 +454,10 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     return Depset.of(LinkerInput.class, linkerInputs);
   }
 
-  @Override
-  public Sequence<String> getStarlarkUserLinkFlags() {
-    return StarlarkList.immutableCopyOf(getFlattenedUserLinkFlags());
-  }
-
-  @Override
+  /**
+   * @deprecated Only use in tests. Inline, using LinkerInputs.
+   */
   @Deprecated
-  public Object getStarlarkLibrariesToLink(StarlarkSemantics semantics) {
-    // TODO(plf): Flag can be removed already.
-    if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER)) {
-      return Depset.of(StarlarkInfo.class, getLibrariesFromLinkerInputs());
-    } else {
-      return StarlarkList.immutableCopyOf(getLibrariesFromLinkerInputs().toList());
-    }
-  }
-
-  @Override
-  public Depset getStarlarkNonCodeInputs() {
-    return Depset.of(Artifact.class, getNonCodeInputs());
-  }
-
   public NestedSet<LinkOptions> getUserLinkFlags() {
     NestedSetBuilder<LinkOptions> userLinkFlags = NestedSetBuilder.linkOrder();
     for (LinkerInput linkerInput : linkerInputs.toList()) {
@@ -496,6 +466,10 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     return userLinkFlags.build();
   }
 
+  /**
+   * @deprecated Only use in tests. Inline, using LinkerInputs.
+   */
+  @Deprecated
   public ImmutableList<String> getFlattenedUserLinkFlags() {
     return getUserLinkFlags().toList().stream()
         .map(LinkOptions::get)
@@ -517,6 +491,10 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     return Depset.of(Linkstamp.class, getLinkstamps());
   }
 
+  /**
+   * @deprecated Only use in tests. Inline, using LinkerInputs.
+   */
+  @Deprecated
   public NestedSet<Artifact> getNonCodeInputs() {
     NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.linkOrder();
     for (LinkerInput linkerInput : linkerInputs.toList()) {
@@ -543,44 +521,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   /** Builder for {@link CcLinkingContext}. */
   public static class Builder {
-    boolean hasDirectLinkerInput;
-    LinkerInput.Builder linkerInputBuilder = LinkerInput.builder();
     private final NestedSetBuilder<LinkerInput> linkerInputs = NestedSetBuilder.linkOrder();
     private ExtraLinkTimeLibraries extraLinkTimeLibraries = null;
-
-    @CanIgnoreReturnValue
-    public Builder setOwner(Label owner) {
-      linkerInputBuilder.setOwner(owner);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addLibraries(List<StarlarkInfo> libraries) {
-      hasDirectLinkerInput = true;
-      linkerInputBuilder.addLibraries(libraries);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addUserLinkFlags(List<LinkOptions> userLinkFlags) {
-      hasDirectLinkerInput = true;
-      linkerInputBuilder.addUserLinkFlags(userLinkFlags);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addLinkstamps(List<Linkstamp> linkstamps) {
-      hasDirectLinkerInput = true;
-      linkerInputBuilder.addLinkstamps(linkstamps);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addNonCodeInputs(List<Artifact> nonCodeInputs) {
-      hasDirectLinkerInput = true;
-      linkerInputBuilder.addNonCodeInputs(nonCodeInputs);
-      return this;
-    }
 
     @CanIgnoreReturnValue
     public Builder addTransitiveLinkerInputs(NestedSet<LinkerInput> linkerInputs) {
@@ -596,9 +538,6 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     public CcLinkingContext build() {
-      if (hasDirectLinkerInput) {
-        linkerInputs.add(linkerInputBuilder.build());
-      }
       return new CcLinkingContext(linkerInputs.build(), extraLinkTimeLibraries);
     }
   }
