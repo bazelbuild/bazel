@@ -9,6 +9,8 @@ Cherry picks:
      Attempt to fix Bazel CI failure on Ubuntu
    + fefcfa1b1dd4dfd17b12c29b0cc62272da590ea1:
      Release 9.0.0-pre.20250620.1 (2025-07-01)
+   + 861f25e307aec74b2d6dc38e91182da9f8852d53:
+     Release 9.0.0-pre.20250620.1 (2025-07-01)
 ```
 
 This release contains contributions from many people at Google, as well as .
