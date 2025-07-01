@@ -808,7 +808,7 @@ public abstract class CcModule
           convertFromNoneable(extraLinkTimeLibraryObject, /* defaultValue= */ null);
       if (extraLinkTimeLibrary != null) {
         ccLinkingContextBuilder.setExtraLinkTimeLibraries(
-            ExtraLinkTimeLibraries.builder().add(extraLinkTimeLibrary).build());
+            ExtraLinkTimeLibraries.of(extraLinkTimeLibrary));
       }
       Label owner = convertFromNoneable(ownerObject, /* defaultValue= */ null);
       if (owner != null) {

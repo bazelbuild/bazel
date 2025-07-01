@@ -373,14 +373,16 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       return EMPTY;
     }
     Builder mergedCcLinkingContext = CcLinkingContext.builder();
-    ExtraLinkTimeLibraries.Builder mergedExtraLinkTimeLibraries = ExtraLinkTimeLibraries.builder();
+    ImmutableList.Builder<ExtraLinkTimeLibraries> extraLinkTimeLibrariesBuilder =
+        ImmutableList.builder();
     for (CcLinkingContext ccLinkingContext : ccLinkingContexts) {
       mergedCcLinkingContext.addTransitiveLinkerInputs(ccLinkingContext.getLinkerInputs());
       if (ccLinkingContext.getExtraLinkTimeLibraries() != null) {
-        mergedExtraLinkTimeLibraries.addTransitive(ccLinkingContext.getExtraLinkTimeLibraries());
+        extraLinkTimeLibrariesBuilder.add(ccLinkingContext.getExtraLinkTimeLibraries());
       }
     }
-    mergedCcLinkingContext.setExtraLinkTimeLibraries(mergedExtraLinkTimeLibraries.build());
+    mergedCcLinkingContext.setExtraLinkTimeLibraries(
+        ExtraLinkTimeLibraries.merge(extraLinkTimeLibrariesBuilder.build()));
     return mergedCcLinkingContext.build();
   }
 

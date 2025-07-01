@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -24,10 +23,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.rules.cpp.StarlarkDefinedLinkTimeLibrary.BuildLibraryOutput;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
@@ -59,6 +56,11 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
     this.extraLibraries = extraLibraries;
   }
 
+  /** Creates an instance from a single library. */
+  public static ExtraLinkTimeLibraries of(StarlarkInfo library) {
+    return new ExtraLinkTimeLibraries(ImmutableList.of(library));
+  }
+
   /** Return the set of extra libraries. */
   public Collection<StarlarkInfo> getExtraLibraries() {
     return extraLibraries;
@@ -72,48 +74,24 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
     return StarlarkList.immutableCopyOf(getExtraLibraries());
   }
 
-  public static final Builder builder() {
-    return new Builder();
-  }
-
-  /** Builder for {@link ExtraLinkTimeLibraries}. */
-  public static final class Builder {
-    private final Map<Object, ImmutableList.Builder<StarlarkInfo>> libraries =
-        new LinkedHashMap<>();
-
-    private Builder() {
-      // Nothing to do.
-    }
-
-    /** Build a {@link ExtraLinkTimeLibraries} object. */
-    public ExtraLinkTimeLibraries build() {
-      if (libraries.isEmpty()) {
-        return EMPTY;
+  /** Merges a collection of {@link ExtraLinkTimeLibraries}. */
+  public static ExtraLinkTimeLibraries merge(
+      Iterable<ExtraLinkTimeLibraries> extraLinkTimeLibrariesCollection) {
+    Map<Object, ImmutableList.Builder<StarlarkInfo>> libraries = new LinkedHashMap<>();
+    for (ExtraLinkTimeLibraries extraLinkTimeLibraries : extraLinkTimeLibrariesCollection) {
+      for (StarlarkInfo extraLinkTimeLibrary : extraLinkTimeLibraries.getExtraLibraries()) {
+        Object key = extraLinkTimeLibrary.getValue("_key");
+        libraries.computeIfAbsent(key, k -> ImmutableList.builder()).add(extraLinkTimeLibrary);
       }
-      List<StarlarkInfo> extraLibraries = Lists.newArrayList();
-      for (ImmutableList.Builder<StarlarkInfo> builder : libraries.values()) {
-        extraLibraries.add(StarlarkDefinedLinkTimeLibrary.merge(builder.build()));
-      }
-      return new ExtraLinkTimeLibraries(extraLibraries);
     }
-
-    /** Add a transitive dependency. */
-    @CanIgnoreReturnValue
-    public final Builder addTransitive(ExtraLinkTimeLibraries dep) {
-      for (StarlarkInfo depLibrary : dep.getExtraLibraries()) {
-        add(depLibrary);
-      }
-      return this;
+    if (libraries.isEmpty()) {
+      return EMPTY;
     }
-
-    /** Add a single library to build. */
-    @CanIgnoreReturnValue
-    public Builder add(StarlarkInfo depLibrary) {
-      Object key = depLibrary.getValue("_key");
-      libraries.computeIfAbsent(key, k -> ImmutableList.builder());
-      libraries.get(key).add(depLibrary);
-      return this;
+    ImmutableList.Builder<StarlarkInfo> extraLibraries = ImmutableList.builder();
+    for (ImmutableList.Builder<StarlarkInfo> builder : libraries.values()) {
+      extraLibraries.add(StarlarkDefinedLinkTimeLibrary.merge(builder.build()));
     }
+    return new ExtraLinkTimeLibraries(extraLibraries.build());
   }
 
   private BuildLibraryOutput buildLibraries(
