@@ -112,17 +112,7 @@ public final class CcStaticCompilationHelper {
       ruleErrorConsumer.ruleError(CcCommon.PIC_CONFIGURATION_ERROR);
     }
 
-    String outputNamePrefixDir = null;
-    // purpose is only used by objc rules; if set it ends with either "_non_objc_arc" or
-    // "_objc_arc", and it is used to override configuration.getMnemonic() to prefix the output
-    // dir with "non_arc" or "arc".
-    String mnemonic = configuration.getMnemonic();
-    if (purpose != null) {
-      mnemonic = purpose;
-    }
-    if (mnemonic.endsWith("_objc_arc")) {
-      outputNamePrefixDir = mnemonic.endsWith("_non_objc_arc") ? "non_arc" : "arc";
-    }
+    String outputNamePrefixDir = computeOutputNamePrefixDir(configuration, purpose);
     ImmutableMap<Artifact, String> outputNameMap =
         calculateOutputNameMapByType(compilationUnitSources, outputNamePrefixDir);
 
@@ -344,6 +334,22 @@ public final class CcStaticCompilationHelper {
           result,
           builder);
     }
+  }
+
+  private static String computeOutputNamePrefixDir(
+      BuildConfigurationValue configuration, String purpose) {
+    String outputNamePrefixDir = null;
+    // purpose is only used by objc rules; if set it ends with either "_non_objc_arc" or
+    // "_objc_arc", and it is used to override configuration.getMnemonic() to prefix the output
+    // dir with "non_arc" or "arc".
+    String mnemonic = configuration.getMnemonic();
+    if (purpose != null) {
+      mnemonic = purpose;
+    }
+    if (mnemonic.endsWith("_objc_arc")) {
+      outputNamePrefixDir = mnemonic.endsWith("_non_objc_arc") ? "non_arc" : "arc";
+    }
+    return outputNamePrefixDir;
   }
 
   // Misc. helper methods for createCcCompileActions():
