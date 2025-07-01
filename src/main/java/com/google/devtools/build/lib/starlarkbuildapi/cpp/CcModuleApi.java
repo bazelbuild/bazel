@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
@@ -1521,7 +1522,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound",
             allowedTypes = {
-              @ParamType(type = ExtraLinkTimeLibraryApi.class),
+              @ParamType(type = StarlarkInfo.class),
               @ParamType(type = NoneType.class)
             }),
         @Param(

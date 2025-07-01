@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Utilities related to C++ support."""
 
 load(
@@ -22,6 +21,7 @@ load(
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/compile/compile.bzl", "compile")
+load(":common/cc/link/create_extra_link_time_library.bzl", "create_extra_link_time_library")
 load(":common/cc/link/create_library_to_link.bzl", "create_library_to_link")
 load(":common/cc/link/create_linking_context_from_compilation_outputs.bzl", "create_linking_context_from_compilation_outputs")
 load(":common/cc/link/link.bzl", "link")
@@ -627,7 +627,7 @@ def _get_tool_requirement_for_action(*, feature_configuration, action_name):
 
 def _create_extra_link_time_library(*, build_library_func, **kwargs):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return cc_common_internal.create_extra_link_time_library(build_library_func = build_library_func, **kwargs)
+    return create_extra_link_time_library(build_library_func = build_library_func, **kwargs)
 
 def _register_linkstamp_compile_action(
         *,

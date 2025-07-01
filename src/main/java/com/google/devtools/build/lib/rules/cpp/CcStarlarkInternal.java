@@ -73,6 +73,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -957,5 +958,15 @@ public class CcStarlarkInternal implements StarlarkValue {
       case Iterable<?> iterable -> StarlarkList.immutableCopyOf(iterable);
       case Object val -> val;
     };
+  }
+
+  @StarlarkMethod(
+      name = "check_toplevel",
+      documented = false,
+      parameters = {@Param(name = "fn")})
+  public void checkToplevel(StarlarkFunction fn) throws EvalException {
+    if (fn.getModule().getGlobal(fn.getName()) != fn) {
+      throw Starlark.errorf("Passed function must be top-level functions.");
+    }
   }
 }

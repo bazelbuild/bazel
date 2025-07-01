@@ -94,7 +94,6 @@ import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
-import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Structure;
@@ -805,7 +804,7 @@ public abstract class CcModule
       CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
       ccLinkingContextBuilder.addTransitiveLinkerInputs(
           Depset.noneableCast(linkerInputs, CcLinkingContext.LinkerInput.class, "linker_inputs"));
-      StarlarkDefinedLinkTimeLibrary extraLinkTimeLibrary =
+      StarlarkInfo extraLinkTimeLibrary =
           convertFromNoneable(extraLinkTimeLibraryObject, /* defaultValue= */ null);
       if (extraLinkTimeLibrary != null) {
         ccLinkingContextBuilder.setExtraLinkTimeLibraries(
@@ -2164,21 +2163,10 @@ public abstract class CcModule
       },
       extraKeywords = @Param(name = "data"),
       useStarlarkThread = true)
-  public StarlarkDefinedLinkTimeLibrary createExtraLinkTimeLibrary(
+  public Object createExtraLinkTimeLibrary(
       StarlarkCallable buildLibraryFunc, Dict<String, Object> dataSetsMap, StarlarkThread thread)
       throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    checkPrivateStarlarkificationAllowlist(thread);
-    boolean nonGlobalFunc = false;
-    if (buildLibraryFunc instanceof StarlarkFunction fn) {
-      if (fn.getModule().getGlobal(fn.getName()) != fn) {
-        nonGlobalFunc = true;
-      }
-    }
-    if (nonGlobalFunc) {
-      throw Starlark.errorf("Passed function must be top-level functions.");
-    }
-    return new StarlarkDefinedLinkTimeLibrary(buildLibraryFunc, ImmutableMap.copyOf(dataSetsMap));
+    throw new UnsupportedOperationException();
   }
 
   @StarlarkMethod(
