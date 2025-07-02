@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.actions.FileValue.SymlinkFileValueWithoutSt
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
-import com.google.devtools.build.lib.bazel.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -187,8 +187,8 @@ public class FileFunctionTest {
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
-                    new RepositoryDelegatorFunction(
-                        null,
+                    new RepositoryFetchFunction(
+                        ImmutableMap::of,
                         new AtomicBoolean(true),
                         directories,
                         new RepoContentsCache()))
@@ -781,8 +781,9 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testAbsoluteSymlinksReferredByInternalFilesToFilesOutsideRootWhenExternalAssumedNonExistentAndImmutable()
-      throws Exception {
+  public void
+      testAbsoluteSymlinksReferredByInternalFilesToFilesOutsideRootWhenExternalAssumedNonExistentAndImmutable()
+          throws Exception {
     file("/outsideroot/src/foo/bar");
     symlink("/root/src", "/outsideroot/src");
 
@@ -1067,22 +1068,22 @@ public class FileFunctionTest {
 
   @Test
   public void testSymlinkCycle_ancestorCycle_startInCycle() throws Exception {
-    runTestSymlinkCycle(/*ancestorCycle=*/ true, /*startInCycle=*/ true);
+    runTestSymlinkCycle(/* ancestorCycle= */ true, /* startInCycle= */ true);
   }
 
   @Test
   public void testSymlinkCycle_ancestorCycle_startOutOfCycle() throws Exception {
-    runTestSymlinkCycle(/*ancestorCycle=*/ true, /*startInCycle=*/ false);
+    runTestSymlinkCycle(/* ancestorCycle= */ true, /* startInCycle= */ false);
   }
 
   @Test
   public void testSymlinkCycle_regularCycle_startInCycle() throws Exception {
-    runTestSymlinkCycle(/*ancestorCycle=*/ false, /*startInCycle=*/ true);
+    runTestSymlinkCycle(/* ancestorCycle= */ false, /* startInCycle= */ true);
   }
 
   @Test
   public void testSymlinkCycle_regularCycle_startOutOfCycle() throws Exception {
-    runTestSymlinkCycle(/*ancestorCycle=*/ false, /*startInCycle=*/ false);
+    runTestSymlinkCycle(/* ancestorCycle= */ false, /* startInCycle= */ false);
   }
 
   @Test
@@ -1220,24 +1221,25 @@ public class FileFunctionTest {
   @Test
   public void testInfiniteSymlinkExpansion_absoluteSymlinkToDescendant() throws Exception {
     runTestSimpleInfiniteSymlinkExpansion(
-        /* symlinkToAncestor= */ false, /*absoluteSymlink=*/ true);
+        /* symlinkToAncestor= */ false, /* absoluteSymlink= */ true);
   }
 
   @Test
   public void testInfiniteSymlinkExpansion_relativeSymlinkToDescendant() throws Exception {
     runTestSimpleInfiniteSymlinkExpansion(
-        /* symlinkToAncestor= */ false, /*absoluteSymlink=*/ false);
+        /* symlinkToAncestor= */ false, /* absoluteSymlink= */ false);
   }
 
   @Test
   public void testInfiniteSymlinkExpansion_absoluteSymlinkToAncestor() throws Exception {
-    runTestSimpleInfiniteSymlinkExpansion(/* symlinkToAncestor= */ true, /*absoluteSymlink=*/ true);
+    runTestSimpleInfiniteSymlinkExpansion(
+        /* symlinkToAncestor= */ true, /* absoluteSymlink= */ true);
   }
 
   @Test
   public void testInfiniteSymlinkExpansion_relativeSymlinkToAncestor() throws Exception {
     runTestSimpleInfiniteSymlinkExpansion(
-        /* symlinkToAncestor= */ true, /*absoluteSymlink=*/ false);
+        /* symlinkToAncestor= */ true, /* absoluteSymlink= */ false);
   }
 
   @Test
@@ -1320,13 +1322,10 @@ public class FileFunctionTest {
             .build();
     EvaluationResult<FileValue> result =
         evaluator.evaluate(ImmutableList.of(fooKey), evaluationContext);
-    ErrorInfoSubject errorInfoSubject = assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(fooKey);
+    ErrorInfoSubject errorInfoSubject =
+        assertThatEvaluationResult(result).hasErrorEntryForKeyThat(fooKey);
     errorInfoSubject.isTransient();
-    errorInfoSubject
-        .hasExceptionThat()
-        .hasMessageThat()
-        .isEqualTo("bork");
+    errorInfoSubject.hasExceptionThat().hasMessageThat().isEqualTo("bork");
     fs.stubbedStatErrors.remove(foo.asFragment());
     differencer.inject(
         fileStateSkyKey("foo"),
@@ -1557,18 +1556,18 @@ public class FileFunctionTest {
    * Changes the contents of the FileValue for the given file in some way e.g.
    *
    * <ul>
-   * <li> If it's a regular file, the contents will be changed.
-   * <li> If it's a non-existent file, it will be created.
-   *     <ul>
-   *     and then returns the file(s) changed paired with a callback to undo the change. Not meant
-   *     to be called directly by tests.
+   *   <li>If it's a regular file, the contents will be changed.
+   *   <li>If it's a non-existent file, it will be created.
+   *       <ul>
+   *         and then returns the file(s) changed paired with a callback to undo the change. Not
+   *         meant to be called directly by tests.
    */
   private Pair<ImmutableList<String>, Runnable> changeFile(String fileStringToChange)
       throws Exception {
     Path fileToChange = path(fileStringToChange);
     if (fileToChange.exists()) {
       final byte[] oldContents = FileSystemUtils.readContent(fileToChange);
-      try (OutputStream outputStream = fileToChange.getOutputStream(/*append=*/ true)) {
+      try (OutputStream outputStream = fileToChange.getOutputStream(/* append= */ true)) {
         outputStream.write(new byte[] {(byte) 42}, 0, 1);
       }
       return Pair.of(
@@ -1585,11 +1584,11 @@ public class FileFunctionTest {
    * Changes the contents of the FileValue for the given directory in some way e.g.
    *
    * <ul>
-   * <li> If it exists, the directory will be deleted.
-   * <li> If it doesn't exist, the directory will be created.
-   *     <ul>
-   *     and then returns the file(s) changed paired with a callback to undo the change. Not meant
-   *     to be called directly by tests.
+   *   <li>If it exists, the directory will be deleted.
+   *   <li>If it doesn't exist, the directory will be created.
+   *       <ul>
+   *         and then returns the file(s) changed paired with a callback to undo the change. Not
+   *         meant to be called directly by tests.
    */
   private Pair<ImmutableList<String>, Runnable> changeDirectory(String directoryStringToChange)
       throws Exception {

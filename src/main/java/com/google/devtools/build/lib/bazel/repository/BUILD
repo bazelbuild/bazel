@@ -50,8 +50,8 @@ java_library(
 java_library(
     name = "repository_fetch_function",
     srcs = [
-        "RepositoryDelegatorFunction.java",
-        "StarlarkRepositoryFunction.java",
+        "DigestWriter.java",
+        "RepositoryFetchFunction.java",
     ],
     deps = [
         ":exception",

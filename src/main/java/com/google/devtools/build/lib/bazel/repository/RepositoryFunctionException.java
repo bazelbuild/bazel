@@ -26,7 +26,7 @@ import net.starlark.java.eval.EvalException;
  * Exception thrown when something goes wrong accessing a remote repository.
  *
  * <p>This exception should be used by child classes to limit the types of exceptions {@link
- * RepositoryDelegatorFunction} has to know how to catch.
+ * RepositoryFetchFunction} has to know how to catch.
  */
 public class RepositoryFunctionException extends SkyFunctionException {
 
@@ -46,7 +46,7 @@ public class RepositoryFunctionException extends SkyFunctionException {
 
   /**
    * Encapsulates the exceptions that arise when accessing a repository. Error reporting should ONLY
-   * be handled in {@link RepositoryDelegatorFunction#fetchRepository}.
+   * be handled in {@link RepositoryFetchFunction}.
    */
   public static class AlreadyReportedRepositoryAccessException extends AlreadyReportedException {
     public AlreadyReportedRepositoryAccessException(Exception e) {

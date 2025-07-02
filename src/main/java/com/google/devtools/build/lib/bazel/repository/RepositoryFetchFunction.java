@@ -15,79 +15,142 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.skyframe.RepositoryMappingFunction.REPOSITORY_OVERRIDES;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Splitter;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
+import com.google.devtools.build.lib.bazel.bzlmod.RepoRuleId;
 import com.google.devtools.build.lib.bazel.bzlmod.VendorFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache.CandidateRepo;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.bazel.repository.starlark.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.bazel.repository.starlark.RepoMetadata;
 import com.google.devtools.build.lib.bazel.repository.starlark.RepoMetadata.Reproducibility;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryContext;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryDefinitionLocationEvent;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleFormatter;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.repository.RepositoryFailedEvent;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
-import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.NeverUpToDateRepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
+import com.google.devtools.build.lib.runtime.ProcessWrapper;
+import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
+import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.WorkerSkyKeyComputeState;
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 
 /** A {@link SkyFunction} that fetches the given repository. */
-public final class RepositoryDelegatorFunction implements SkyFunction {
+public final class RepositoryFetchFunction implements SkyFunction {
 
-  // The marker file version is inject in the rule key digest so the rule key is always different
-  // when we decide to update the format.
-  private static final int MARKER_FILE_VERSION = 7;
-
-  private final StarlarkRepositoryFunction handler;
   // This is a reference to isFetch in BazelRepositoryModule, which tracks whether the current
   // command is a fetch. Remote repository lookups are only allowed during fetches.
   private final AtomicBoolean isFetch;
   private final BlazeDirectories directories;
   private final RepoContentsCache repoContentsCache;
+  private final Supplier<Map<String, String>> clientEnvironmentSupplier;
 
-  public RepositoryDelegatorFunction(
-      @Nullable StarlarkRepositoryFunction handler,
+  private double timeoutScaling = 1.0;
+  @Nullable private DownloadManager downloadManager;
+  @Nullable private ProcessWrapper processWrapper = null;
+  @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor;
+  @Nullable private SyscallCache syscallCache;
+
+  public RepositoryFetchFunction(
+      Supplier<Map<String, String>> clientEnvironmentSupplier,
       AtomicBoolean isFetch,
       BlazeDirectories directories,
       RepoContentsCache repoContentsCache) {
-    this.handler = handler;
+    this.clientEnvironmentSupplier = clientEnvironmentSupplier;
     this.isFetch = isFetch;
     this.directories = directories;
     this.repoContentsCache = repoContentsCache;
+  }
+
+  public void setTimeoutScaling(double timeoutScaling) {
+    this.timeoutScaling = timeoutScaling;
+  }
+
+  public void setDownloadManager(DownloadManager downloadManager) {
+    this.downloadManager = downloadManager;
+  }
+
+  public void setProcessWrapper(@Nullable ProcessWrapper processWrapper) {
+    this.processWrapper = processWrapper;
+  }
+
+  public void setSyscallCache(SyscallCache syscallCache) {
+    this.syscallCache = checkNotNull(syscallCache);
+  }
+
+  public void setRepositoryRemoteExecutor(RepositoryRemoteExecutor repositoryRemoteExecutor) {
+    this.repositoryRemoteExecutor = repositoryRemoteExecutor;
+  }
+
+  /**
+   * The result of the {@link #fetch} method.
+   *
+   * @param recordedInputValues Any recorded inputs (and their values) encountered during the fetch
+   *     of the repo. Changes to these inputs will result in the repo being refetched in the future.
+   *     Not an ImmutableMap, because regrettably the values can be null sometimes.
+   * @param reproducible Whether the fetched repo contents are reproducible, hence cacheable.
+   */
+  private record FetchResult(
+      Map<? extends RepoRecordedInput, String> recordedInputValues, Reproducibility reproducible) {}
+
+  private static class State extends WorkerSkyKeyComputeState<FetchResult> {
+    @Nullable FetchResult result;
   }
 
   @Nullable
@@ -124,18 +187,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
             repositoryName);
       }
 
-      Rule rule = getRepositoryRule(env, repositoryName);
-      if (env.valuesMissing()) {
+      BzlmodRepoRuleValue repoRuleValue =
+          (BzlmodRepoRuleValue) env.getValue(BzlmodRepoRuleValue.key(repositoryName));
+      if (repoRuleValue == null) {
         return null;
       }
-      if (rule == null) {
+      if (repoRuleValue == BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE) {
         return new Failure(String.format("Repository '%s' is not defined", repositoryName));
       }
-
-      if (handler == null) {
-        // If we refer to a non repository rule then the repository does not exist.
-        return new Failure(String.format("'%s' is not a repository rule", repositoryName));
-      }
+      Rule rule = repoRuleValue.getRule();
 
       DigestWriter digestWriter =
           new DigestWriter(directories, repositoryName, rule, starlarkSemantics);
@@ -210,7 +270,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         // repository as valid even though it is in an inconsistent state. Clear the marker file and
         // only recreate it after fetching is done to prevent this scenario.
         DigestWriter.clearMarkerFile(directories, repositoryName);
-        FetchResult result = fetchRepository(skyKey, repoRoot, env, rule);
+        FetchResult result = fetchAndHandleEvents(rule, repoRoot, env, skyKey);
         if (result == null) {
           return null;
         }
@@ -352,23 +412,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return null;
   }
 
-  @Nullable
-  private Rule getRepositoryRule(Environment env, RepositoryName repositoryName)
-      throws InterruptedException {
-    SkyKey key = BzlmodRepoRuleValue.key(repositoryName);
-    BzlmodRepoRuleValue value = (BzlmodRepoRuleValue) env.getValue(key);
-    if (env.valuesMissing()) {
-      return null;
-    }
-    if (value != BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE) {
-      return value.getRule();
-    }
-    return null;
-  }
-
   /* Determines whether we should use the cached repositories */
   private boolean shouldUseCachedRepos(Environment env, Rule rule) throws InterruptedException {
-    if (handler.wasJustFetched(env)) {
+    if (env.getState(State::new).result != null) {
       // If this SkyFunction has finished fetching once, then we should always use the cached
       // result. This means that we _very_ recently (as in, in the same command invocation) fetched
       // this repo (possibly with --force or --configure), and are only here again due to a Skyframe
@@ -402,26 +448,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return RepositoryUtils.isLocal(rule) || RepositoryUtils.isConfigure(rule);
   }
 
-  /**
-   * The result of the {@link StarlarkRepositoryFunction#fetch} method.
-   *
-   * @param recordedInputValues Any recorded inputs (and their values) encountered during the fetch
-   *     of the repo. Changes to these inputs will result in the repo being refetched in the future.
-   *     Not an ImmutableMap, because regrettably the values can be null sometimes.
-   * @param reproducible Whether the fetched repo contents are reproducible, hence cacheable.
-   */
-  public record FetchResult(
-      Map<? extends RepoRecordedInput, String> recordedInputValues, Reproducibility reproducible) {}
-
   @Nullable
-  private FetchResult fetchRepository(SkyKey skyKey, Path repoRoot, Environment env, Rule rule)
+  private FetchResult fetchAndHandleEvents(Rule rule, Path repoRoot, Environment env, SkyKey skyKey)
       throws InterruptedException, RepositoryFunctionException {
     RepositoryName repoName = (RepositoryName) skyKey.argument();
     env.getListener().post(RepositoryFetchProgress.ongoing(repoName, "starting"));
 
     FetchResult result;
     try {
-      result = handler.fetch(rule, repoRoot, directories, env, skyKey);
+      result = fetch(rule, repoRoot, env, skyKey);
     } catch (RepositoryFunctionException e) {
       // Upon an exceptional exit, the fetching of that repository is over as well.
       env.getListener().post(RepositoryFetchProgress.finished(repoName));
@@ -446,6 +481,235 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
     env.getListener().post(RepositoryFetchProgress.finished(repoName));
     return Preconditions.checkNotNull(result);
+  }
+
+  private static void setupRepoRoot(Path repoRoot) throws RepositoryFunctionException {
+    try {
+      repoRoot.deleteTree();
+      Preconditions.checkNotNull(repoRoot.getParentDirectory()).createDirectoryAndParents();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  @Nullable
+  private FetchResult fetch(Rule rule, Path outputDirectory, Environment env, SkyKey key)
+      throws RepositoryFunctionException, InterruptedException {
+    // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
+    while (true) {
+      var state = env.getState(State::new);
+      if (state.result != null) {
+        // Escape early if we've already finished fetching once. This can happen if
+        // a Skyframe restart is triggered _after_ fetch() is finished.
+        return state.result;
+      }
+      try {
+        state.result =
+            state.startOrContinueWork(
+                env,
+                "starlark-repository-" + rule.getName(),
+                (workerEnv) -> {
+                  setupRepoRoot(outputDirectory);
+                  return fetchInternal(rule, outputDirectory, workerEnv, key);
+                });
+        return state.result;
+      } catch (ExecutionException e) {
+        Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
+        Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+        Throwables.throwIfUnchecked(e.getCause());
+        throw new IllegalStateException(
+            "unexpected exception type: " + e.getCause().getClass(), e.getCause());
+      } catch (CancellationException e) {
+        // This can only happen if the state object was invalidated due to memory pressure, in
+        // which case we can simply reattempt the fetch. Show a message and continue into the next
+        // `while` iteration.
+        env.getListener()
+            .post(
+                RepositoryFetchProgress.ongoing(
+                    RepositoryName.createUnvalidated(rule.getName()),
+                    "fetch interrupted due to memory pressure; restarting."));
+      }
+    }
+  }
+
+  @Nullable
+  private FetchResult fetchInternal(Rule rule, Path outputDirectory, Environment env, SkyKey key)
+      throws RepositoryFunctionException, InterruptedException {
+
+    String defInfo = RepositoryResolvedEvent.getRuleDefinitionInformation(rule);
+    env.getListener().post(new StarlarkRepositoryDefinitionLocationEvent(rule.getName(), defInfo));
+
+    StarlarkCallable function = rule.getRuleClassObject().getConfiguredTargetFunction();
+    ImmutableMap<String, Optional<String>> envVarValues =
+        RepositoryUtils.getEnvVarValues(env, getEnviron(rule));
+    if (envVarValues == null) {
+      return null;
+    }
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    RepoRuleId repoRuleId =
+        new RepoRuleId(
+            rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel(), rule.getRuleClass());
+    @Nullable RepositoryMapping mainRepoMapping;
+    if (NonRegistryOverride.BOOTSTRAP_REPO_RULES.contains(repoRuleId)) {
+      // Avoid a cycle.
+      mainRepoMapping = null;
+    } else {
+      var mainRepoMappingValue =
+          (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+      if (mainRepoMappingValue == null) {
+        return null;
+      }
+      mainRepoMapping = mainRepoMappingValue.repositoryMapping();
+    }
+
+    IgnoredSubdirectoriesValue ignoredSubdirectories =
+        (IgnoredSubdirectoriesValue) env.getValue(IgnoredSubdirectoriesValue.key());
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    Map<RepoRecordedInput, String> recordedInputValues = new LinkedHashMap<>();
+    RepoMetadata repoMetadata;
+    try (Mutability mu = Mutability.create("Starlark repository");
+        StarlarkRepositoryContext starlarkRepositoryContext =
+            new StarlarkRepositoryContext(
+                rule,
+                packageLocator,
+                outputDirectory,
+                ignoredSubdirectories.asIgnoredSubdirectories(),
+                env,
+                ImmutableMap.copyOf(clientEnvironmentSupplier.get()),
+                downloadManager,
+                timeoutScaling,
+                processWrapper,
+                starlarkSemantics,
+                repositoryRemoteExecutor,
+                syscallCache,
+                directories)) {
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mu, starlarkSemantics, /* contextDescription= */ "", SymbolGenerator.create(key));
+      thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
+      var repoMappingRecorder = new Label.RepoMappingRecorder();
+      repoMappingRecorder.mergeEntries(
+          rule.getRuleClassObject().getRuleDefinitionEnvironmentRepoMappingEntries());
+      thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
+
+      // We sort of want a starlark thread context here, but no extra info is needed. So we just
+      // use an anonymous class.
+      new StarlarkThreadContext(() -> mainRepoMapping) {}.storeInThread(thread);
+      if (starlarkRepositoryContext.isRemotable()) {
+        // If a rule is declared remotable then invalidate it if remote execution gets
+        // enabled or disabled.
+        PrecomputedValue.REMOTE_EXECUTION_ENABLED.get(env);
+      }
+
+      // This rule is mainly executed for its side effect. Nevertheless, the return value is
+      // of importance, as it provides information on how the call has to be modified to be a
+      // reproducible rule.
+      //
+      // Also we do a lot of stuff in there, maybe blocking operations and we should certainly make
+      // it possible to return null and not block but it doesn't seem to be easy with Starlark
+      // structure as it is.
+      Object result;
+      try (SilentCloseable c =
+          Profiler.instance()
+              .profile(ProfilerTask.STARLARK_REPOSITORY_FN, () -> rule.getLabel().toString())) {
+        result = Starlark.positionalOnlyCall(thread, function, starlarkRepositoryContext);
+        starlarkRepositoryContext.markSuccessful();
+      }
+
+      repoMetadata =
+          switch (result) {
+            case Dict<?, ?> dict -> new RepoMetadata(RepoMetadata.Reproducibility.NO, dict);
+            case RepoMetadata rm -> rm;
+            default -> RepoMetadata.NONREPRODUCIBLE;
+          };
+      RepositoryResolvedEvent resolved =
+          new RepositoryResolvedEvent(
+              rule, starlarkRepositoryContext.getAttr(), repoMetadata.attrsForReproducibility());
+      if (resolved.isNewInformationReturned()) {
+        env.getListener().handle(Event.debug(resolved.getMessage()));
+        env.getListener().handle(Event.debug(defInfo));
+      }
+
+      // Modify marker data to include the files/dirents/env vars used by the rule's implementation
+      // function.
+      recordedInputValues.putAll(
+          Maps.transformValues(RepoRecordedInput.EnvVar.wrap(envVarValues), v -> v.orElse(null)));
+      recordedInputValues.putAll(starlarkRepositoryContext.getRecordedFileInputs());
+      recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirentsInputs());
+      recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirTreeInputs());
+      recordedInputValues.putAll(
+          Maps.transformValues(
+              starlarkRepositoryContext.getRecordedEnvVarInputs(), v -> v.orElse(null)));
+
+      for (Table.Cell<RepositoryName, String, RepositoryName> repoMappings :
+          repoMappingRecorder.recordedEntries().cellSet()) {
+        recordedInputValues.put(
+            new RepoRecordedInput.RecordedRepoMapping(
+                repoMappings.getRowKey(), repoMappings.getColumnKey()),
+            repoMappings.getValue().getName());
+      }
+    } catch (NeedsSkyframeRestartException e) {
+      return null;
+    } catch (EvalException e) {
+      env.getListener()
+          .handle(
+              Event.error(
+                  e.getInnermostLocation(),
+                  "An error occurred during the fetch of repository '"
+                      + rule.getName()
+                      + "':\n   "
+                      + e.getMessageWithStack()));
+      env.getListener()
+          .handle(Event.info(RepositoryResolvedEvent.getRuleDefinitionInformation(rule)));
+
+      throw new RepositoryFunctionException(
+          new AlreadyReportedRepositoryAccessException(e), Transience.TRANSIENT);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+
+    if (!outputDirectory.isDirectory()) {
+      throw new RepositoryFunctionException(
+          new IOException(rule + " must create a directory"), Transience.TRANSIENT);
+    }
+
+    // Make sure the fetched repo has a boundary file.
+    if (!RepositoryUtils.isValidRepoRoot(outputDirectory)) {
+      if (outputDirectory.isSymbolicLink()) {
+        // The created repo is actually just a symlink to somewhere else (think local_repository).
+        // In this case, we shouldn't try to create the repo boundary file ourselves, but report an
+        // error instead.
+        throw new RepositoryFunctionException(
+            new IOException(
+                "No MODULE.bazel, REPO.bazel, or WORKSPACE file found in " + outputDirectory),
+            Transience.TRANSIENT);
+      }
+      // Otherwise, we can just create an empty REPO.bazel file.
+      try {
+        FileSystemUtils.createEmptyFile(outputDirectory.getRelative(LabelConstants.REPO_FILE_NAME));
+      } catch (IOException e) {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
+    }
+
+    return new FetchResult(recordedInputValues, repoMetadata.reproducible());
+  }
+
+  @SuppressWarnings("unchecked")
+  private static ImmutableSet<String> getEnviron(Rule rule) {
+    return ImmutableSet.copyOf((Iterable<String>) rule.getAttr("$environ"));
   }
 
   @Nullable
@@ -537,188 +801,5 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
     return new RepositoryDirectoryValue.Success(
         source, /* isFetchingDelayed= */ false, /* excludeFromVendoring= */ true);
-  }
-
-  // Escape a value for the marker file
-  @VisibleForTesting
-  static String escape(String str) {
-    return str == null ? "\\0" : str.replace("\\", "\\\\").replace("\n", "\\n").replace(" ", "\\s");
-  }
-
-  // Unescape a value from the marker file
-  @Nullable
-  @VisibleForTesting
-  static String unescape(String str) {
-    if (str.equals("\\0")) {
-      return null; // \0 == null string
-    }
-    StringBuilder result = new StringBuilder();
-    boolean escaped = false;
-    for (int i = 0; i < str.length(); i++) {
-      char c = str.charAt(i);
-      if (escaped) {
-        if (c == 'n') { // n means new line
-          result.append("\n");
-        } else if (c == 's') { // s means space
-          result.append(" ");
-        } else { // Any other escaped characters are just un-escaped
-          result.append(c);
-        }
-        escaped = false;
-      } else if (c == '\\') {
-        escaped = true;
-      } else {
-        result.append(c);
-      }
-    }
-    return result.toString();
-  }
-
-  private static class DigestWriter {
-    // Input value map to force repo invalidation upon an invalid marker file.
-    private static final ImmutableMap<RepoRecordedInput, String> PARSE_FAILURE =
-        ImmutableMap.of(NeverUpToDateRepoRecordedInput.PARSE_FAILURE, "");
-
-    private final BlazeDirectories directories;
-    private final Path markerPath;
-    private final String ruleKey;
-
-    DigestWriter(
-        BlazeDirectories directories,
-        RepositoryName repositoryName,
-        Rule rule,
-        StarlarkSemantics starlarkSemantics) {
-      this.directories = directories;
-      ruleKey = computePredeclaredInputHash(rule, starlarkSemantics);
-      markerPath = getMarkerPath(directories, repositoryName);
-    }
-
-    void writeMarkerFile(Map<? extends RepoRecordedInput, String> recordedInputValues)
-        throws RepositoryFunctionException {
-      StringBuilder builder = new StringBuilder();
-      builder.append(ruleKey).append("\n");
-      for (Map.Entry<RepoRecordedInput, String> recordedInput :
-          new TreeMap<RepoRecordedInput, String>(recordedInputValues).entrySet()) {
-        String key = recordedInput.getKey().toString();
-        String value = recordedInput.getValue();
-        builder.append(escape(key)).append(" ").append(escape(value)).append("\n");
-      }
-      String content = builder.toString();
-      try {
-        FileSystemUtils.writeContent(markerPath, UTF_8, content);
-      } catch (IOException e) {
-        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-      }
-    }
-
-    private sealed interface RepoDirectoryState {
-      record UpToDate() implements RepoDirectoryState {}
-
-      record OutOfDate(String reason) implements RepoDirectoryState {}
-    }
-
-    RepoDirectoryState areRepositoryAndMarkerFileConsistent(Environment env)
-        throws InterruptedException, RepositoryFunctionException {
-      return areRepositoryAndMarkerFileConsistent(env, markerPath);
-    }
-
-    /**
-     * Checks if the state of the repository in the file system is consistent with the rule in the
-     * WORKSPACE file.
-     *
-     * <p>Returns null if a Skyframe status is needed.
-     *
-     * <p>We check the repository root for existence here, but we can't depend on the FileValue,
-     * because it's possible that we eventually create that directory in which case the FileValue
-     * and the state of the file system would be inconsistent.
-     */
-    @Nullable
-    RepoDirectoryState areRepositoryAndMarkerFileConsistent(Environment env, Path markerPath)
-        throws RepositoryFunctionException, InterruptedException {
-      if (!markerPath.exists()) {
-        return new RepoDirectoryState.OutOfDate("repo hasn't been fetched yet");
-      }
-
-      try {
-        String content = FileSystemUtils.readContent(markerPath, UTF_8);
-        Map<RepoRecordedInput, String> recordedInputValues =
-            readMarkerFile(content, Preconditions.checkNotNull(ruleKey));
-        Optional<String> outdatedReason =
-            RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputValues);
-        if (env.valuesMissing()) {
-          return null;
-        }
-        if (outdatedReason.isPresent()) {
-          return new RepoDirectoryState.OutOfDate(outdatedReason.get());
-        }
-        return new RepoDirectoryState.UpToDate();
-      } catch (IOException e) {
-        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-      }
-    }
-
-    private static Map<RepoRecordedInput, String> readMarkerFile(
-        String content, String expectedRuleKey) {
-      Iterable<String> lines = Splitter.on('\n').split(content);
-
-      @Nullable Map<RepoRecordedInput, String> recordedInputValues = null;
-      boolean firstLineVerified = false;
-      for (String line : lines) {
-        if (line.isEmpty()) {
-          continue;
-        }
-        if (!firstLineVerified) {
-          if (!line.equals(expectedRuleKey)) {
-            // Break early, need to reload anyway. This also detects marker file version changes
-            // so that unknown formats are not parsed.
-            return ImmutableMap.of(
-                new NeverUpToDateRepoRecordedInput(
-                    "Bazel version, flags, repo rule definition or attributes changed"),
-                "");
-          }
-          firstLineVerified = true;
-          recordedInputValues = new TreeMap<>();
-        } else {
-          int sChar = line.indexOf(' ');
-          if (sChar > 0) {
-            RepoRecordedInput input = RepoRecordedInput.parse(unescape(line.substring(0, sChar)));
-            if (!input.equals(NeverUpToDateRepoRecordedInput.PARSE_FAILURE)) {
-              recordedInputValues.put(input, unescape(line.substring(sChar + 1)));
-              continue;
-            }
-          }
-          // On parse failure, just forget everything else and mark the whole input out of date.
-          return PARSE_FAILURE;
-        }
-      }
-      if (!firstLineVerified) {
-        return PARSE_FAILURE;
-      }
-      return Preconditions.checkNotNull(recordedInputValues);
-    }
-
-    static String computePredeclaredInputHash(Rule rule, StarlarkSemantics starlarkSemantics) {
-      return new Fingerprint()
-          .addBytes(RuleFormatter.serializeRule(rule).build().toByteArray())
-          .addInt(MARKER_FILE_VERSION)
-          // TODO: Using the hashCode() method for StarlarkSemantics here is suboptimal as
-          //   it doesn't include any default values.
-          .addInt(starlarkSemantics.hashCode())
-          .hexDigestAndReset();
-    }
-
-    private static Path getMarkerPath(BlazeDirectories directories, RepositoryName repo) {
-      return RepositoryUtils.getExternalRepositoryDirectory(directories)
-          .getChild(repo.getMarkerFileName());
-    }
-
-    static void clearMarkerFile(BlazeDirectories directories, RepositoryName repo)
-        throws RepositoryFunctionException {
-      try {
-        getMarkerPath(directories, repo).delete();
-      } catch (IOException e) {
-        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-      }
-    }
   }
 }

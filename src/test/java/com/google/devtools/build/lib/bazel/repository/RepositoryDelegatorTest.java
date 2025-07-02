@@ -103,7 +103,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link RepositoryDelegatorFunction} */
+/** Tests for {@link RepositoryFetchFunction} */
 @RunWith(JUnit4.class)
 public class RepositoryDelegatorTest extends FoundationTestCase {
   private Path overrideDirectory;
@@ -125,9 +125,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             rootPath,
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
-    RepositoryDelegatorFunction delegatorFunction =
-        new RepositoryDelegatorFunction(
-            new StarlarkRepositoryFunction(ImmutableMap::of),
+    RepositoryFetchFunction delegatorFunction =
+        new RepositoryFetchFunction(
+            ImmutableMap::of,
             /* isFetch= */ new AtomicBoolean(true),
             directories,
             new RepoContentsCache());

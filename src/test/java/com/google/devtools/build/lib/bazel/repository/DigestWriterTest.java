@@ -33,11 +33,11 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
 @RunWith(JUnit4.class)
-public class RepositoryFunctionTest extends BuildViewTestCase {
+public class DigestWriterTest extends BuildViewTestCase {
 
   private static void assertMarkerFileEscaping(String testCase) {
-    String escaped = RepositoryDelegatorFunction.escape(testCase);
-    assertThat(RepositoryDelegatorFunction.unescape(escaped)).isEqualTo(testCase);
+    String escaped = DigestWriter.escape(testCase);
+    assertThat(DigestWriter.unescape(escaped)).isEqualTo(testCase);
   }
 
   @Test

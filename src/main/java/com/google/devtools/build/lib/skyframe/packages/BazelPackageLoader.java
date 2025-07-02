@@ -28,9 +28,8 @@ import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
-import com.google.devtools.build.lib.bazel.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
-import com.google.devtools.build.lib.bazel.repository.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
@@ -160,9 +159,10 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                 SkyFunctions.REGISTRY,
                 new RegistryFunction(registryFactory, directories.getWorkspace())));
       }
-      StarlarkRepositoryFunction starlarkRepositoryFunction =
-          new StarlarkRepositoryFunction(ImmutableMap::of);
-      starlarkRepositoryFunction.setDownloadManager(downloadManager);
+      RepositoryFetchFunction repositoryFetchFunction =
+          new RepositoryFetchFunction(
+              ImmutableMap::of, isFetch, directories, repositoryCache.getRepoContentsCache());
+      repositoryFetchFunction.setDownloadManager(downloadManager);
 
       RepoSpecFunction repoSpecFunction = new RepoSpecFunction();
       repoSpecFunction.setDownloadManager(downloadManager);
@@ -183,13 +183,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
               .put(
                   SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
                   new LocalRepositoryLookupFunction(EXTERNAL_PACKAGE_HELPER))
-              .put(
-                  SkyFunctions.REPOSITORY_DIRECTORY,
-                  new RepositoryDelegatorFunction(
-                      starlarkRepositoryFunction,
-                      isFetch,
-                      directories,
-                      repositoryCache.getRepoContentsCache()))
+              .put(SkyFunctions.REPOSITORY_DIRECTORY, repositoryFetchFunction)
               .put(
                   SkyFunctions.BAZEL_LOCK_FILE,
                   new BazelLockFileFunction(

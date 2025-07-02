@@ -59,13 +59,12 @@ import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
 import com.google.devtools.build.lib.bazel.commands.ModCommand;
 import com.google.devtools.build.lib.bazel.commands.VendorCommand;
-import com.google.devtools.build.lib.bazel.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
-import com.google.devtools.build.lib.bazel.repository.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter;
@@ -146,6 +145,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
   private Optional<Path> vendorDirectory = Optional.empty();
   private List<String> allowedYankedVersions = ImmutableList.of();
+  private RepositoryFetchFunction repositoryFetchFunction;
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
   private ModuleFileFunction moduleFileFunction;
   private RepoSpecFunction repoSpecFunction;
@@ -154,8 +154,6 @@ public class BazelRepositoryModule extends BlazeModule {
   private final VendorCommand vendorCommand = new VendorCommand(clientEnvironmentSupplier);
   private final RegistryFactoryImpl registryFactory =
       new RegistryFactoryImpl(clientEnvironmentSupplier);
-  private final StarlarkRepositoryFunction starlarkRepositoryFunction =
-      new StarlarkRepositoryFunction(clientEnvironmentSupplier);
 
   @Nullable private CredentialModule credentialModule;
 
@@ -210,10 +208,9 @@ public class BazelRepositoryModule extends BlazeModule {
               new RepositoryDirectoryDirtinessChecker()));
     }
 
-    // Create the repository function everything flows through.
-    RepositoryDelegatorFunction repositoryDelegatorFunction =
-        new RepositoryDelegatorFunction(
-            starlarkRepositoryFunction,
+    repositoryFetchFunction =
+        new RepositoryFetchFunction(
+            clientEnvironmentSupplier,
             isFetch,
             directories,
             repositoryCache.getRepoContentsCache());
@@ -233,7 +230,7 @@ public class BazelRepositoryModule extends BlazeModule {
     yankedVersionsFunction = new YankedVersionsFunction();
 
     builder
-        .addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, repositoryDelegatorFunction)
+        .addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, repositoryFetchFunction)
         .addSkyFunction(SkyFunctions.MODULE_FILE, moduleFileFunction)
         .addSkyFunction(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
         .addSkyFunction(
@@ -274,7 +271,7 @@ public class BazelRepositoryModule extends BlazeModule {
             repositoryCache.getDownloadCache(),
             env.getDownloaderDelegate(),
             env.getHttpDownloader());
-    this.starlarkRepositoryFunction.setDownloadManager(downloadManager);
+    this.repositoryFetchFunction.setDownloadManager(downloadManager);
     this.moduleFileFunction.setDownloadManager(downloadManager);
     this.repoSpecFunction.setDownloadManager(downloadManager);
     this.yankedVersionsFunction.setDownloadManager(downloadManager);
@@ -285,8 +282,8 @@ public class BazelRepositoryModule extends BlazeModule {
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
 
     ProcessWrapper processWrapper = ProcessWrapper.fromCommandEnvironment(env);
-    starlarkRepositoryFunction.setProcessWrapper(processWrapper);
-    starlarkRepositoryFunction.setSyscallCache(env.getSyscallCache());
+    repositoryFetchFunction.setProcessWrapper(processWrapper);
+    repositoryFetchFunction.setSyscallCache(env.getSyscallCache());
     singleExtensionEvalFunction.setProcessWrapper(processWrapper);
     singleExtensionEvalFunction.setDownloadManager(downloadManager);
 
@@ -299,7 +296,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
       repositoryCache.getDownloadCache().setHardlink(repoOptions.useHardlinks);
       if (repoOptions.experimentalScaleTimeouts > 0.0) {
-        starlarkRepositoryFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
+        repositoryFetchFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
         singleExtensionEvalFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
       } else {
         env.getReporter()
@@ -307,7 +304,7 @@ public class BazelRepositoryModule extends BlazeModule {
                 Event.warn(
                     "Ignoring request to scale timeouts for repositories by a non-positive"
                         + " factor"));
-        starlarkRepositoryFunction.setTimeoutScaling(1.0);
+        repositoryFetchFunction.setTimeoutScaling(1.0);
         singleExtensionEvalFunction.setTimeoutScaling(1.0);
       }
       if (repoOptions.repositoryCache != null) {
@@ -553,7 +550,7 @@ public class BazelRepositoryModule extends BlazeModule {
       if (remoteExecutorFactory != null) {
         remoteExecutor = remoteExecutorFactory.create();
       }
-      starlarkRepositoryFunction.setRepositoryRemoteExecutor(remoteExecutor);
+      repositoryFetchFunction.setRepositoryRemoteExecutor(remoteExecutor);
       singleExtensionEvalFunction.setRepositoryRemoteExecutor(remoteExecutor);
 
       clock = env.getClock();
