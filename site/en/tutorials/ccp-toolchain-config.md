@@ -26,7 +26,7 @@ In this tutorial you learn how to:
 
 This tutorial assumes you are on Linux and have successfully built C++
 applications and installed the appropriate tooling and libraries. The tutorial
-uses `clang version 16`, which you can install on your system.
+uses `clang version 19`, which you can install on your system.
 
 ### Set up the build environment {: #setup-build-environment }
 
@@ -292,7 +292,7 @@ slightly between different versions of clang.
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,
         cxx_builtin_include_directories = [ # NEW
-            "/usr/lib/llvm-16/lib/clang/16/include",
+            "/usr/lib/llvm-19/lib/clang/19/include",
             "/usr/include",
         ],
         toolchain_identifier = "local",
@@ -399,7 +399,7 @@ slightly between different versions of clang.
             ctx = ctx,
             features = features, # NEW
             cxx_builtin_include_directories = [
-                "/usr/lib/llvm-9/lib/clang/9.0.1/include",
+                "/usr/lib/llvm-19/lib/clang/19/include",
                 "/usr/include",
             ],
             toolchain_identifier = "local",
