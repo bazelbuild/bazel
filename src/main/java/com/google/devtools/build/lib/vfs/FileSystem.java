@@ -248,7 +248,7 @@ public abstract class FileSystem {
    * @throws IOException if the hierarchy cannot be removed successfully
    */
   protected void deleteTreesBelow(PathFragment dir) throws IOException {
-    if (isDirectory(dir, /*followSymlinks=*/ false)) {
+    if (isDirectory(dir, /* followSymlinks= */ false)) {
       Collection<String> entries;
       try {
         entries = getDirectoryEntries(dir);
@@ -391,7 +391,9 @@ public abstract class FileSystem {
       } else if (name.equals("..")) {
         PathFragment parent = dir.getParentDirectory();
         // root's parent is root, when canonicalizing, so this is a no-op.
-        if (parent != null) { dir = parent; }
+        if (parent != null) {
+          dir = parent;
+        }
       } else {
         dir = appendSegment(dir, name, maxLinks);
       }
@@ -776,7 +778,7 @@ public abstract class FileSystem {
     throw new UnsupportedOperationException(
         "getIoFile() not supported for " + getClass().getName());
   }
-  
+
   /**
    * Returns a {@link java.nio.file.Path} object for the given path. This method is only supported
    * by file system implementations that are backed by the local file system.

@@ -142,7 +142,9 @@ public class RunfilesTreeUpdater {
 
     if (tree.getSymlinksMode() == RunfileSymlinksMode.CREATE) {
       helper.createRunfilesSymlinks(tree.getMapping());
+      outputManifest.getParentDirectory().setWritable(true);
       outputManifest.createSymbolicLink(inputManifest);
+      outputManifest.getParentDirectory().setWritable(false);
     } else {
       helper.clearRunfilesDirectory();
     }

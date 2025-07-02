@@ -118,6 +118,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       FailureDetail failureDetail =
           SandboxHelpers.createFailureDetail(
               "I/O exception during sandboxed execution", Code.EXECUTION_IO_EXCEPTION);
+      e.printStackTrace();
       throw new UserExecException(e, failureDetail);
     }
   }

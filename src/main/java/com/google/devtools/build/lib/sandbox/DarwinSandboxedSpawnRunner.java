@@ -58,12 +58,10 @@ import javax.annotation.Nullable;
 final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   /** Path to the {@code getconf} system tool to use. */
-  @VisibleForTesting
-  static String getconfBinary = "/usr/bin/getconf";
+  @VisibleForTesting static String getconfBinary = "/usr/bin/getconf";
 
   /** Path to the {@code sandbox-exec} system tool to use. */
-  @VisibleForTesting
-  static String sandboxExecBinary = "/usr/bin/sandbox-exec";
+  @VisibleForTesting static String sandboxExecBinary = "/usr/bin/sandbox-exec";
 
   // Since checking if sandbox is supported is expensive, we remember what we've checked.
   private static Boolean isSupported = null;
@@ -126,11 +124,15 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool and the MacOS
    * {@code sandbox-exec} binary.
    *
-   * @param cmdEnv              the command environment to use
-   * @param sandboxBase         path to the sandbox base directory
+   * @param cmdEnv the command environment to use
+   * @param sandboxBase path to the sandbox base directory
    * @param runfilesTreeUpdater
    */
-  DarwinSandboxedSpawnRunner(CommandEnvironment cmdEnv, Path sandboxBase, TreeDeleter treeDeleter, RunfilesTreeUpdater runfilesTreeUpdater)
+  DarwinSandboxedSpawnRunner(
+      CommandEnvironment cmdEnv,
+      Path sandboxBase,
+      TreeDeleter treeDeleter,
+      RunfilesTreeUpdater runfilesTreeUpdater)
       throws IOException, InterruptedException {
     super(cmdEnv);
     this.execRoot = cmdEnv.getExecRoot();
@@ -246,7 +248,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMappingWithoutRunfiles, execRoot);
     runfilesTreeUpdater.updateRunfiles(runfilesTrees);
     for (var entry : runfilesMounts.build().entrySet()) {
-      entry.getKey().createHardLink(entry.getValue());
+      entry.getKey().getParentDirectory().createDirectoryAndParents();
+      entry.getKey().createSymbolicLink(entry.getValue());
     }
     SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
