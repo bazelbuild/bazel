@@ -594,7 +594,16 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         return false;
       }
       FileStatus stat = path.statIfFound(Symlinks.FOLLOW);
-      return stat == null || !stat.isFile() || !proxy.equals(FileContentsProxy.create(stat));
+      if (stat == null || !stat.isFile()) {
+        // The file no longer exists or changed type, so it certainly has changed.
+        return true;
+      }
+      if (proxy.equals(FileContentsProxy.create(stat))) {
+        // If the proxy matches, the file certainly hasn't changed.
+        return false;
+      }
+      byte[] newDigest = DigestUtils.getDigestWithManualFallback(path, SyscallCache.NO_CACHE, stat);
+      return !Arrays.equals(digest, newDigest);
     }
 
     @Override
