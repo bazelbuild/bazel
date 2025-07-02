@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.bazel.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.Charset.UTF8;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.LOADS;
@@ -40,7 +39,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModTidyValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
-import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.RootModuleFileFixup;
@@ -53,6 +51,8 @@ import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ModSubco
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ModSubcommandConverter;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg.ModuleArgConverter;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinition;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -474,12 +474,11 @@ public final class ModCommand implements BlazeCommand {
       }
     }
 
-    ImmutableMap<String, BzlmodRepoRuleValue> targetRepoRuleValues = null;
+    ImmutableMap<String, RepoDefinition> targetRepoDefinitions = null;
     try {
-      // If subcommand is a SHOW, also request the BzlmodRepoRuleValues from Skyframe.
       if (subcommand == ModSubcommand.SHOW_REPO) {
         ImmutableSet<SkyKey> skyKeys =
-            argsAsRepos.values().stream().map(BzlmodRepoRuleValue::key).collect(toImmutableSet());
+            argsAsRepos.values().stream().map(RepoDefinitionValue::key).collect(toImmutableSet());
         EvaluationResult<SkyValue> result =
             env.getSkyframeExecutor().prepareAndGet(skyKeys, evaluationContext);
         if (result.hasError()) {
@@ -490,22 +489,19 @@ public final class ModCommand implements BlazeCommand {
           }
           return reportAndCreateFailureResult(env, message, Code.INVALID_ARGUMENTS);
         }
-        targetRepoRuleValues =
-            argsAsRepos.entrySet().stream()
-                .collect(
-                    toImmutableMap(
-                        Entry::getKey,
-                        e ->
-                            (BzlmodRepoRuleValue)
-                                result.get(BzlmodRepoRuleValue.key(e.getValue()))));
-        for (Map.Entry<String, BzlmodRepoRuleValue> entry : targetRepoRuleValues.entrySet()) {
-          if (entry.getValue() == BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE) {
+        var resultBuilder =
+            ImmutableMap.<String, RepoDefinition>builderWithExpectedSize(argsAsRepos.size());
+        for (Map.Entry<String, RepositoryName> e : argsAsRepos.entrySet()) {
+          SkyValue value = result.get(RepoDefinitionValue.key(e.getValue()));
+          if (value == RepoDefinitionValue.NOT_FOUND) {
             return reportAndCreateFailureResult(
                 env,
-                String.format("In repo argument %s: no such repo", entry.getKey()),
+                String.format("In repo argument %s: no such repo", e.getKey()),
                 Code.INVALID_ARGUMENTS);
           }
+          resultBuilder.put(e.getKey(), ((RepoDefinitionValue.Found) value).repoDefinition());
         }
+        targetRepoDefinitions = resultBuilder.buildOrThrow();
       }
     } catch (InterruptedException e) {
       String errorMessage = "mod command interrupted: " + e.getMessage();
@@ -543,7 +539,7 @@ public final class ModCommand implements BlazeCommand {
         case DEPS -> modExecutor.graph(argsAsModules);
         case PATH -> modExecutor.path(fromKeys, argsAsModules);
         case ALL_PATHS, EXPLAIN -> modExecutor.allPaths(fromKeys, argsAsModules);
-        case SHOW_REPO -> modExecutor.showRepo(targetRepoRuleValues);
+        case SHOW_REPO -> modExecutor.showRepo(targetRepoDefinitions);
         case SHOW_EXTENSION -> modExecutor.showExtension(argsAsExtensions, usageKeys);
         default -> throw new IllegalStateException("Unexpected subcommand: " + subcommand);
       }

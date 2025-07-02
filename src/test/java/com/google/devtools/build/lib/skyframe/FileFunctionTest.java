@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.actions.FileValue.SymlinkFileValueWithStore
 import com.google.devtools.build.lib.actions.FileValue.SymlinkFileValueWithoutStoredChain;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -201,11 +201,11 @@ public class FileFunctionTest {
                       }
                     })
                 .put(
-                    BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
+                    RepoDefinitionValue.REPO_DEFINITION,
                     new SkyFunction() {
                       @Override
                       public SkyValue compute(SkyKey skyKey, Environment env) {
-                        return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
+                        return RepoDefinitionValue.NOT_FOUND;
                       }
                     })
                 .build(),

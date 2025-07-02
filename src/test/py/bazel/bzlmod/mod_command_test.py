@@ -455,98 +455,79 @@ class ModCommandTest(test_base.TestBase):
     self.assertRegex(stdout.pop(4), r'^  urls = \[".*"\],$')
     self.assertRegex(stdout.pop(4), r'^  integrity = ".*",$')
     self.assertRegex(
-        stdout.pop(7),
+        stdout.pop(8),
         r'^  remote_module_file_urls = \[".*/modules/bar/2.0/MODULE.bazel"\],$',
     )
-    self.assertRegex(stdout.pop(7), r'^  remote_module_file_integrity = ".*",$')
-    self.assertRegex(stdout.pop(19), r'^  path = ".*",$')
-    # lines after '# Rule local_repository defined at (most recent call last):'
-    stdout.pop(23)
-    # lines after '# Rule data_repo defined at (most recent call last):'
-    stdout.pop(34)
-    stdout.pop(45)
-    self.assertRegex(stdout.pop(50), r'^  urls = \[".*"\],$')
-    self.assertRegex(stdout.pop(50), r'^  integrity = ".*",$')
-    self.assertRegex(stdout.pop(53), r'^  remote_module_file_urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(8), r'^  remote_module_file_integrity = ".*",$')
+    self.assertRegex(stdout.pop(15), r'^  path = ".*",$')
+    self.assertRegex(stdout.pop(35), r'^  urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(35), r'^  integrity = ".*",$')
+    self.assertRegex(stdout.pop(39), r'^  remote_module_file_urls = \[".*"\],$')
     self.assertRegex(
-        stdout.pop(53), r'^  remote_module_file_integrity = ".*",$'
+        stdout.pop(39), r'^  remote_module_file_integrity = ".*",$'
     )
-    # lines after '# Rule http_archive defined at (most recent call last):'
-    stdout.pop(13)
-    stdout.pop(58)
     self.assertListEqual(
         stdout,
         [
             '## @bar_from_foo2:',
-            '# <builtin>',
+            (
+                'load("@@bazel_tools//tools/build_defs/repo:http.bzl",'
+                ' "http_archive")'
+            ),
             'http_archive(',
             '  name = "bar+",',
             # pop(4) -- urls=[...]
             # pop(4) -- integrity=...
             '  strip_prefix = "",',
+            '  remote_patches = {},',
             '  remote_file_urls = {},',
             '  remote_file_integrity = {},',
-            '  remote_patches = {},',
+            # pop(8) -- remote_module_file_urls
+            # pop(8) -- remote_module_file_integrity
             '  remote_patch_strip = 0,',
             ')',
-            '# Rule bar+ instantiated at (most recent call last):',
-            '#   <builtin> in <toplevel>',
-            '# Rule http_archive defined at (most recent call last):',
-            # pop(13)
             '',
             '## ext@1.0:',
-            '# <builtin>',
+            (
+                'load("@@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
             'local_repository(',
             '  name = "ext+",',
-            # pop(19) -- path=...
+            # pop(15) -- path=...
             ')',
-            '# Rule ext+ instantiated at (most recent call last):',
-            '#   <builtin> in <toplevel>',
-            '# Rule local_repository defined at (most recent call last):',
-            # pop(23)
             '',
             '## @my_repo3:',
-            '# <builtin>',
+            'load("@@ext+//:ext.bzl", "data_repo")',
             'data_repo(',
             '  name = "ext++ext+repo3",',
-            '  _original_name = "repo3",',
             '  data = "requested repo",',
             ')',
-            '# Rule ext++ext+repo3 instantiated at (most recent call last):',
-            '#   <builtin> in <toplevel>',
-            '# Rule data_repo defined at (most recent call last):',
-            # pop(34)
             '',
             '## @my_repo4:',
-            '# <builtin>',
+            'load("@@ext+//:ext.bzl", "data_repo")',
             'data_repo(',
             '  name = "ext++ext+repo4",',
-            '  _original_name = "repo4",',
             '  data = "requested repo",',
             ')',
-            '# Rule ext++ext+repo4 instantiated at (most recent call last):',
-            '#   <builtin> in <toplevel>',
-            '# Rule data_repo defined at (most recent call last):',
-            # pop(45)
             '',
             '## bar@2.0:',
-            '# <builtin>',
+            (
+                'load("@@bazel_tools//tools/build_defs/repo:http.bzl",'
+                ' "http_archive")'
+            ),
             'http_archive(',
             '  name = "bar+",',
-            # pop(50) -- urls=[...]
-            # pop(50) -- integrity=...
+            # pop(35) -- urls=[...]
+            # pop(35) -- integrity=...
             '  strip_prefix = "",',
+            '  remote_patches = {},',
             '  remote_file_urls = {},',
             '  remote_file_integrity = {},',
-            # pop(53) -- remote_module_file_urls=[...]
-            # pop(53) -- remote_module_file_integrity=...
-            '  remote_patches = {},',
+            # pop(39) -- remote_module_file_urls=[...]
+            # pop(39) -- remote_module_file_integrity=...
             '  remote_patch_strip = 0,',
             ')',
-            '# Rule bar+ instantiated at (most recent call last):',
-            '#   <builtin> in <toplevel>',
-            '# Rule http_archive defined at (most recent call last):',
-            # pop(58)
             '',
         ],
         'wrong output in the show query for module and extension-generated'

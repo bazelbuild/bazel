@@ -98,8 +98,8 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       printed.add(rule.getLabel());
     }
 
-    /** Outputs a given rule in BUILD-style syntax. Made visible for Modquery command. */
-    public void outputRule(Rule rule, AttributeReader attrReader, Writer writer)
+    /** Outputs a given rule in BUILD-style syntax. */
+    private void outputRule(Rule rule, AttributeReader attrReader, Writer writer)
         throws IOException {
       // TODO(b/151151653): display the filenames in root-relative form.
       // This is an incompatible change, but Blaze users (and their editors)

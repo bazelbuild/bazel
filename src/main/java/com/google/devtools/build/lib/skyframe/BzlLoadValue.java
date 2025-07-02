@@ -387,14 +387,17 @@ public class BzlLoadValue implements SkyValue {
 
       switch (obj) {
         case KeyForBuild forBuild -> {
-          codedOut.writeBoolNoTag(false);
+          codedOut.writeInt32NoTag(0);
           codedOut.writeBoolNoTag(forBuild.isBuildPrelude());
         }
         case KeyForBuiltins forBuiltins -> {
-          codedOut.writeBoolNoTag(true);
+          codedOut.writeInt32NoTag(1);
         }
-        default -> {
-          throw new UnsupportedOperationException("Key not expected for codec: " + obj);
+        case KeyForBzlmodBootstrap keyForBzlmodBootstrap -> {
+          codedOut.writeInt32NoTag(2);
+        }
+        case KeyForBzlmod keyForBzlmod -> {
+          codedOut.writeInt32NoTag(3);
         }
       }
     }
@@ -403,11 +406,16 @@ public class BzlLoadValue implements SkyValue {
     public Key deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       Label label = context.deserializeLeaf(codedIn, labelCodec());
-      if (codedIn.readBool()) {
-        return keyForBuiltins(label);
-      } else {
-        return codedIn.readBool() ? keyForBuildPrelude(label) : keyForBuild(label);
-      }
+      int discriminant = codedIn.readInt32();
+      return switch (discriminant) {
+        case 0 -> codedIn.readBool() ? keyForBuildPrelude(label) : keyForBuild(label);
+        case 1 -> keyForBuiltins(label);
+        case 2 -> keyForBzlmodBootstrap(label);
+        case 3 -> keyForBzlmod(label);
+        default -> {
+          throw new SerializationException("unexpected discriminant: " + discriminant);
+        }
+      };
     }
   }
 }

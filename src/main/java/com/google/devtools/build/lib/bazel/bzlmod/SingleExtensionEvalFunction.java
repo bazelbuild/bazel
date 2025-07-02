@@ -114,9 +114,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     RunnableExtension extension;
     try {
       if (extensionId.isInnate()) {
-        extension =
-            InnateRunnableExtension.load(
-                extensionId, usagesValue, starlarkSemantics, env, directories);
+        extension = InnateRunnableExtension.load(extensionId, usagesValue, starlarkSemantics, env);
       } else {
         extension =
             RegularRunnableExtension.load(

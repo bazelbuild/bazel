@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
@@ -95,21 +94,6 @@ public class RepositoryUtils {
       }
     }
     return repoEnv.buildKeepingLast();
-  }
-
-  /**
-   * Whether fetching is done using local operations only.
-   *
-   * <p>If this is false, Bazel may decide not to re-fetch the repository, for example when the
-   * {@code --nofetch} command line option is used.
-   */
-  public static boolean isLocal(Rule rule) {
-    return (Boolean) rule.getAttr("$local");
-  }
-
-  /** Whether the rule declares it inspects the local environment for configure purpose. */
-  public static boolean isConfigure(Rule rule) {
-    return (Boolean) rule.getAttr("$configure");
   }
 
   protected static Path getExternalRepositoryDirectory(BlazeDirectories directories) {

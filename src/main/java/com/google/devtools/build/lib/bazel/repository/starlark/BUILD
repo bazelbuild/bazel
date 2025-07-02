@@ -24,6 +24,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace-rule-event",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:exception",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repo_definition",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:utils",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/decompressor",
@@ -38,7 +39,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/repository:repository_events",
         "//src/main/java/com/google/devtools/build/lib/repository:request_repository_information_event",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/workspace_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_environment_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_tree_digest_value",
@@ -59,5 +59,6 @@ java_library(
         "//third_party:java-diff-utils",
         "//third_party:jsr305",
         "//third_party/chicory",
+        "@com_google_protobuf//:protobuf_java",
     ],
 )
