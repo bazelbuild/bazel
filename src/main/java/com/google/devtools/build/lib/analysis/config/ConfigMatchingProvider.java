@@ -173,7 +173,6 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
    * @param label the build label corresponding to this matcher
    * @param settingsMap the condition settings that trigger this matcher
    * @param flagSettingsMap the label-keyed settings that trigger this matcher
-   * @param constraintValueSettings the {@code constraint_value}s this matcher matches
    * @param result whether the current associated configuration matches, doesn't match, or is
    *     irresolvable due to specified issue
    */
