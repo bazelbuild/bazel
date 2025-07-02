@@ -873,24 +873,13 @@ public final class CcStaticCompilationHelper {
       CppSemantics semantics,
       CcCompilationOutputs.Builder result,
       Label sourceLabel,
-      Artifact module)
-      throws RuleErrorException, EvalException, InterruptedException {
+      Artifact module,
+      CppCompileActionBuilder builder)
+      throws RuleErrorException, EvalException {
     String outputName = module.getRootRelativePath().getBaseName();
 
     // TODO(djasper): Make this less hacky after refactoring how the PIC/noPIC actions are created.
     boolean pic = module.getFilename().contains(".pic.");
-
-    CppCompileActionBuilder builder =
-        createCppCompileActionBuilder(
-            actionConstructionContext,
-            ccCompilationContext,
-            ccToolchain,
-            configuration,
-            coptsFilter,
-            executionInfo,
-            featureConfiguration,
-            semantics,
-            module);
     builder.setPicMode(pic);
     builder.setOutputs(
         actionConstructionContext,
@@ -1050,21 +1039,10 @@ public final class CcStaticCompilationHelper {
       RuleErrorConsumer ruleErrorConsumer,
       CppSemantics semantics,
       CcCompilationOutputs.Builder result,
-      CppModuleMap cppModuleMap)
+      CppModuleMap cppModuleMap,
+      CppCompileActionBuilder builder)
       throws RuleErrorException, EvalException, InterruptedException {
     Artifact moduleMapArtifact = cppModuleMap.getArtifact();
-    CppCompileActionBuilder builder =
-        createCppCompileActionBuilder(
-            actionConstructionContext,
-            ccCompilationContext,
-            ccToolchain,
-            configuration,
-            coptsFilter,
-            executionInfo,
-            featureConfiguration,
-            semantics,
-            moduleMapArtifact);
-
     Label sourceLabel = Label.parseCanonicalUnchecked(cppModuleMap.getName());
 
     // A header module compile action is just like a normal compile action, but:

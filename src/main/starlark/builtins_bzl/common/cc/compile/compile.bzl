@@ -485,6 +485,16 @@ def _create_cc_compile_actions_starlark_part(
     if _should_provide_header_modules(feature_configuration, private_headers, public_headers):
         cpp_module_map = cc_compilation_context.module_map()
         module_map_label = Label(cpp_module_map.name())
+        cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder(
+            action_construction_context = action_construction_context,
+            cc_toolchain = cc_toolchain,
+            cc_compilation_context = cc_compilation_context,
+            configuration = configuration,
+            copts_filter = copts_filter,
+            feature_configuration = feature_configuration,
+            semantics = cpp_semantics,
+            source_artifact = cpp_module_map.file(),
+        )
         modules = cc_internal.create_module_action(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
@@ -506,9 +516,20 @@ def _create_cc_compile_actions_starlark_part(
             cpp_semantics = cpp_semantics,
             outputs = result,
             cpp_module_map = cpp_module_map,
+            cpp_compile_action_builder = cpp_compile_action_builder,
         )
         if separate_module_headers:
             separate_cpp_module_map = cpp_module_map.create_separate_module_map()
+            cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder(
+                action_construction_context = action_construction_context,
+                cc_toolchain = cc_toolchain,
+                cc_compilation_context = cc_compilation_context,
+                configuration = configuration,
+                copts_filter = copts_filter,
+                feature_configuration = feature_configuration,
+                semantics = cpp_semantics,
+                source_artifact = separate_cpp_module_map.file(),
+            )
             separate_modules = cc_internal.create_module_action(
                 action_construction_context = action_construction_context,
                 cc_compilation_context = cc_compilation_context,
@@ -530,10 +551,21 @@ def _create_cc_compile_actions_starlark_part(
                 cpp_semantics = cpp_semantics,
                 outputs = result,
                 cpp_module_map = separate_cpp_module_map,
+                cpp_compile_action_builder = cpp_compile_action_builder,
             )
             modules = modules + separate_modules
         if feature_configuration.is_enabled("header_module_codegen"):
             for module in modules:
+                cpp_compile_action_builder = cc_internal.create_cpp_compile_action_builder(
+                    action_construction_context = action_construction_context,
+                    cc_toolchain = cc_toolchain,
+                    cc_compilation_context = cc_compilation_context,
+                    configuration = configuration,
+                    copts_filter = copts_filter,
+                    feature_configuration = feature_configuration,
+                    semantics = cpp_semantics,
+                    source_artifact = module,
+                )
                 cc_internal.create_module_codegen_action(
                     action_construction_context = action_construction_context,
                     cc_compilation_context = cc_compilation_context,
@@ -555,4 +587,5 @@ def _create_cc_compile_actions_starlark_part(
                     outputs = result,
                     source_label = module_map_label,
                     module = module,
+                    cpp_compile_action_builder = cpp_compile_action_builder,
                 )

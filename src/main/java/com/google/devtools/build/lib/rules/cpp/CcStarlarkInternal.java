@@ -764,6 +764,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "cpp_semantics", positional = false, named = true), // CppSemantics
         @Param(name = "outputs", positional = false, named = true), // CcCompilationOutputs.Builder
         @Param(name = "cpp_module_map", positional = false, named = true),
+        @Param(name = "cpp_compile_action_builder", positional = false, named = true),
       })
   public StarlarkList<Artifact> createModuleActionForStarlark(
       StarlarkRuleContext starlarkRuleContext,
@@ -785,7 +786,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       Dict<?, ?> fdoBuildVariables, // String, String
       CppSemantics cppSemantics,
       CcCompilationOutputs.Builder outputsBuilder,
-      CppModuleMap cppModuleMap)
+      CppModuleMap cppModuleMap,
+      CppCompileActionBuilder builder)
       throws EvalException, RuleErrorException, InterruptedException {
     ImmutableList<Artifact> moduleArtifacts =
         CcStaticCompilationHelper.createModuleAction(
@@ -813,7 +815,8 @@ public class CcStarlarkInternal implements StarlarkValue {
             starlarkRuleContext.getRuleContext().getRuleErrorConsumer(),
             cppSemantics,
             outputsBuilder,
-            cppModuleMap);
+            cppModuleMap,
+            builder);
     return StarlarkList.immutableCopyOf(moduleArtifacts);
   }
 
@@ -848,6 +851,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "outputs", positional = false, named = true), // CcCompilationOutputs.Builder
         @Param(name = "source_label", positional = false, named = true),
         @Param(name = "module", positional = false, named = true),
+        @Param(name = "cpp_compile_action_builder", positional = false, named = true),
       })
   public void createModuleCodegenActionForStarlark(
       StarlarkRuleContext starlarkRuleContext,
@@ -869,7 +873,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       CppSemantics cppSemantics,
       CcCompilationOutputs.Builder outputs,
       Label sourceLabel,
-      Artifact module)
+      Artifact module,
+      CppCompileActionBuilder builder)
       throws EvalException, RuleErrorException, InterruptedException {
     CcStaticCompilationHelper.createModuleCodegenAction(
         starlarkRuleContext.getRuleContext(),
@@ -896,7 +901,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         cppSemantics,
         outputs,
         sourceLabel,
-        module);
+        module,
+        builder);
   }
 
   @StarlarkMethod(
