@@ -187,9 +187,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         spawnLogContext.logSpawn(
             spawn,
             actionExecutionContext.getInputMetadataProvider(),
-            () ->
-                context.getInputMapping(
-                    PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ false),
+            () -> context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
             actionExecutionContext.getActionFileSystem() != null
                 ? actionExecutionContext.getActionFileSystem()
                 : actionExecutionContext.getExecRoot().getFileSystem(),
@@ -226,12 +224,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     private final ActionExecutionContext actionExecutionContext;
     @Nullable private final SandboxedSpawnStrategy.StopConcurrentSpawns stopConcurrentSpawns;
     private final Duration timeout;
-
     private final int id = execCount.incrementAndGet();
-    // Memoize the input mapping so that prefetchInputs can reuse it instead of recomputing it.
-    // TODO(ulfjack): Guard against client modification of this map.
-    private SortedMap<PathFragment, ActionInput> lazyInputMapping;
-    private PathFragment inputMappingBaseDirectory;
 
     @Nullable private Digest digest;
 
@@ -277,8 +270,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                 .getActionInputPrefetcher()
                 .prefetchFiles(
                     spawn.getResourceOwner(),
-                    getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
-                        .values(),
+                    lazilyExpandInputs(),
                     getInputMetadataProvider(),
                     Priority.MEDIUM,
                     Reason.INPUTS),
@@ -339,29 +331,18 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(
-        PathFragment baseDirectory, boolean willAccessRepeatedly) {
-      // Return previously computed copy if present.
-      if (lazyInputMapping != null && inputMappingBaseDirectory.equals(baseDirectory)) {
-        return lazyInputMapping;
-      }
-
-      SortedMap<PathFragment, ActionInput> inputMapping;
+    public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory) {
       try (SilentCloseable c =
           Profiler.instance().profile("AbstractSpawnStrategy.getInputMapping")) {
-        inputMapping =
-            spawnInputExpander.getInputMapping(
-                spawn, actionExecutionContext.getInputMetadataProvider(), baseDirectory);
+        return spawnInputExpander.getInputMapping(
+            spawn, actionExecutionContext.getInputMetadataProvider(), baseDirectory);
       }
+    }
 
-      // Don't cache the input mapping if it is unlikely that it is used again.
-      // This reduces memory usage in the case where remote caching/execution is
-      // used, and the expected cache hit rate is high.
-      if (willAccessRepeatedly) {
-        inputMappingBaseDirectory = baseDirectory;
-        lazyInputMapping = inputMapping;
-      }
-      return inputMapping;
+    @Override
+    public Iterable<ActionInput> lazilyExpandInputs() {
+      return spawnInputExpander.lazilyExpandInputs(
+          spawn, actionExecutionContext.getInputMetadataProvider());
     }
 
     @Override

@@ -18,10 +18,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.PathMapper;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -35,15 +33,6 @@ public interface RemotePathResolver {
    * input root.
    */
   PathFragment getWorkingDirectory();
-
-  /**
-   * Returns a {@link SortedMap} which maps from input paths for remote action to {@link
-   * ActionInput}.
-   */
-  default SortedMap<PathFragment, ActionInput> getInputMapping(
-      SpawnExecutionContext context, boolean willAccessRepeatedly) {
-    return context.getInputMapping(getWorkingDirectory(), willAccessRepeatedly);
-  }
 
   /** Resolves the output path relative to input root for the given {@link Path}. */
   String localPathToOutputPath(Path path);
@@ -179,12 +168,6 @@ public interface RemotePathResolver {
       @Override
       public PathFragment getWorkingDirectory() {
         return base.getWorkingDirectory();
-      }
-
-      @Override
-      public SortedMap<PathFragment, ActionInput> getInputMapping(
-          SpawnExecutionContext context, boolean willAccessRepeatedly) {
-        return base.getInputMapping(context, willAccessRepeatedly);
       }
 
       @Override
