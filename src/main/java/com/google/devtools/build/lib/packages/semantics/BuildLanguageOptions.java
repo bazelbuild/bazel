@@ -940,8 +940,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_sibling_repository_layout";
   public static final String INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS =
       "+incompatible_always_check_depset_elements";
-  public static final String INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS =
-      "-incompatible_disable_target_provider_fields";
+
   // Note that INCOMPATIBLE_DISALLOW_EMPTY_GLOB differs in Google and in OSS Bazel.
   public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "+incompatible_disallow_empty_glob";
   public static final String INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX =
