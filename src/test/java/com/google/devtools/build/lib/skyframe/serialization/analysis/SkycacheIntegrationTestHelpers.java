@@ -35,6 +35,8 @@ interface SkycacheIntegrationTestHelpers {
   @CanIgnoreReturnValue
   Path write(String relativePath, String... lines) throws IOException;
 
+  void writeProjectSclDefinition(String dest, boolean alsoWriteBuildFile) throws IOException;
+
   @CanIgnoreReturnValue
   BuildResult buildTarget(String... targets) throws Exception;
 
@@ -69,11 +71,15 @@ interface SkycacheIntegrationTestHelpers {
   }
 
   default void writeProjectSclWithActiveDirs(String path, String... activeDirs) throws IOException {
+    writeProjectSclDefinition("test/project_proto.scl", /* alsoWriteBuildFile= */ true);
     String activeDirsString = stream(activeDirs).map(s -> "\"" + s + "\"").collect(joining(", "));
     write(
         path + "/PROJECT.scl",
-        String.format(
-            "project = { \"active_directories\": { \"default\": [%s] } }", activeDirsString));
+"""
+load("//test:project_proto.scl", "project_pb2")
+project = project_pb2.Project.create(project_directories = [%s])
+"""
+            .formatted(activeDirsString));
   }
 
   default void writeProjectSclWithActiveDirs(String path) throws IOException {

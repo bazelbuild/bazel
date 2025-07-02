@@ -464,28 +464,20 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
   private static String getBuildEventFileFlag(
       BuildEventFileType buildEventFileType, String filePath) {
-    switch (buildEventFileType) {
-      case TEXT:
-        return "--build_event_text_file=" + filePath;
-      case JSON:
-        return "--build_event_json_file=" + filePath;
-      case BINARY:
-        return "--build_event_binary_file=" + filePath;
-    }
-    throw new IllegalStateException();
+    return switch (buildEventFileType) {
+      case TEXT -> "--build_event_text_file=" + filePath;
+      case JSON -> "--build_event_json_file=" + filePath;
+      case BINARY -> "--build_event_binary_file=" + filePath;
+    };
   }
 
   private static String getBuildEventFileUploadModeFlag(
       BuildEventFileType buildEventFileType, String mode) {
-    switch (buildEventFileType) {
-      case TEXT:
-        return "--build_event_text_file_upload_mode=" + mode;
-      case JSON:
-        return "--build_event_json_file_upload_mode=" + mode;
-      case BINARY:
-        return "--build_event_binary_file_upload_mode=" + mode;
-    }
-    throw new IllegalStateException();
+    return switch (buildEventFileType) {
+      case TEXT -> "--build_event_text_file_upload_mode=" + mode;
+      case JSON -> "--build_event_json_file_upload_mode=" + mode;
+      case BINARY -> "--build_event_binary_file_upload_mode=" + mode;
+    };
   }
 
   @Test
@@ -851,14 +843,25 @@ string_flag(
   build_setting_default = "default_value",
 )
 """);
+    writeProjectSclDefinition("test/project_proto.scl", /* alsoWriteBuildFile= */ true);
     write(
         "hello/PROJECT.scl",
 """
-project = {
-  "configs" : { "default_config": ["--define=foo=bar", "--bad_flag=bar", "--//flag:my_flag=my_value"]},
-  "default_config" : "default_config",
-  "enforcement_policy" : "warn"
-    }
+load(
+  "//test:project_proto.scl",
+  "buildable_unit_pb2",
+  "project_pb2",
+)
+project = project_pb2.Project.create(
+  enforcement_policy = "warn",
+  buildable_units = [
+      buildable_unit_pb2.BuildableUnit.create(
+          name = "default_config",
+          flags = ["--define=foo=bar", "--bad_flag=bar", "--//flag:my_flag=my_value"],
+          is_default = True,
+      )
+  ],
+)
 """);
     File buildEventBinaryFile = tmpFolder.newFile();
     addOptions(

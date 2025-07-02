@@ -676,6 +676,7 @@ sh_test(
     srcs = ["flagset_test.sh"],
     data = [
         ":test-deps",
+        "//src/main/protobuf/project:project_proto_scl_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 3,
@@ -1012,6 +1013,7 @@ sh_test(
     srcs = ["flags_scoping_integration_tests.sh"],
     data = [
         ":test-deps",
+        "//src/main/protobuf/project:project_proto_scl_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )

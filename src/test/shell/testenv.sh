@@ -905,3 +905,12 @@ function override_java_tools() {
     add_to_bazelrc "build --override_repository=${JAVA_TOOLS_REPO_PREFIX}remote_java_tools_darwin_arm64=${JAVA_TOOLS_PREBUILT_DIR}"
   fi
 }
+
+# Copies the PROJECT.scl schema definition into a test directory so test
+# PROJECT.scl files can load it.
+function write_project_scl_definition() {
+  local TEST_DIR=third_party/bazel/src/main/protobuf/project
+  mkdir -p ${TEST_DIR}
+  cp "$(rlocation "io_bazel/src/main/protobuf/project/project_proto.scl")" "${TEST_DIR}"
+  touch "${TEST_DIR}/BUILD"
+}

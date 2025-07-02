@@ -70,8 +70,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
-        "//third_party:junit4",
+        "//third_party:error_prone_annotations",
         "//third_party:truth",
     ],
 )
