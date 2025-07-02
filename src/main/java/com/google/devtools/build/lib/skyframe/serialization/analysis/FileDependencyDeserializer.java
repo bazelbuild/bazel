@@ -49,6 +49,7 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
@@ -543,79 +544,84 @@ final class FileDependencyDeserializer {
 
       try {
         boolean usesZstdCompression = MagicBytes.hasMagicBytes(bytes);
-        CodedInputStream codedIn;
+        InputStream inputStream;
         if (usesZstdCompression) {
           ByteArrayInputStream byteArrayInputStream =
               new ByteArrayInputStream(bytes, 2, bytes.length - 2);
-          codedIn = CodedInputStream.newInstance(new ZstdInputStream(byteArrayInputStream));
+          inputStream = new ZstdInputStream(byteArrayInputStream);
         } else {
-          codedIn = CodedInputStream.newInstance(bytes);
+          inputStream = new ByteArrayInputStream(bytes);
         }
-        int nestedCount = codedIn.readInt32();
-        int fileCount = codedIn.readInt32();
-        int listingCount = codedIn.readInt32();
-        int sourceCount = codedIn.readInt32();
+        try (inputStream) {
+          CodedInputStream codedIn = CodedInputStream.newInstance(inputStream);
+          int nestedCount = codedIn.readInt32();
+          int fileCount = codedIn.readInt32();
+          int listingCount = codedIn.readInt32();
+          int sourceCount = codedIn.readInt32();
 
-        var elements = new FileSystemDependencies[nestedCount + fileCount + listingCount];
-        var sources =
-            sourceCount > 0 ? new FileDependencies[sourceCount] : NestedDependencies.EMPTY_SOURCES;
-        var countdown = new PendingElementCountdown(elements, sources);
+          var elements = new FileSystemDependencies[nestedCount + fileCount + listingCount];
+          var sources =
+              sourceCount > 0
+                  ? new FileDependencies[sourceCount]
+                  : NestedDependencies.EMPTY_SOURCES;
+          var countdown = new PendingElementCountdown(elements, sources);
 
-        for (int i = 0; i < nestedCount; i++) {
-          var key = PackedFingerprint.readFrom(codedIn);
-          switch (getNestedDependencies(key)) {
-            case NestedDependencies dependencies:
-              elements[i] = dependencies;
-              break;
-            case FutureNestedDependencies future:
-              countdown.registerPendingElement();
-              Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
-              break;
+          for (int i = 0; i < nestedCount; i++) {
+            var key = PackedFingerprint.readFrom(codedIn);
+            switch (getNestedDependencies(key)) {
+              case NestedDependencies dependencies:
+                elements[i] = dependencies;
+                break;
+              case FutureNestedDependencies future:
+                countdown.registerPendingElement();
+                Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
+                break;
+            }
           }
-        }
 
-        int nestedAndFileCount = nestedCount + fileCount;
-        for (int i = nestedCount; i < nestedAndFileCount; i++) {
-          String key = codedIn.readString();
-          switch (getFileDependencies(key)) {
-            case FileDependencies dependencies:
-              elements[i] = dependencies;
-              break;
-            case FutureFileDependencies future:
-              countdown.registerPendingElement();
-              Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
-              break;
+          int nestedAndFileCount = nestedCount + fileCount;
+          for (int i = nestedCount; i < nestedAndFileCount; i++) {
+            String key = codedIn.readString();
+            switch (getFileDependencies(key)) {
+              case FileDependencies dependencies:
+                elements[i] = dependencies;
+                break;
+              case FutureFileDependencies future:
+                countdown.registerPendingElement();
+                Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
+                break;
+            }
           }
-        }
 
-        int total = nestedAndFileCount + listingCount;
-        for (int i = nestedAndFileCount; i < total; i++) {
-          String key = codedIn.readString();
-          switch (getListingDependencies(key)) {
-            case ListingDependencies dependencies:
-              elements[i] = dependencies;
-              break;
-            case FutureListingDependencies future:
-              countdown.registerPendingElement();
-              Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
-              break;
+          int total = nestedAndFileCount + listingCount;
+          for (int i = nestedAndFileCount; i < total; i++) {
+            String key = codedIn.readString();
+            switch (getListingDependencies(key)) {
+              case ListingDependencies dependencies:
+                elements[i] = dependencies;
+                break;
+              case FutureListingDependencies future:
+                countdown.registerPendingElement();
+                Futures.addCallback(future, new WaitingForElement(i, countdown), directExecutor());
+                break;
+            }
           }
-        }
 
-        for (int i = 0; i < sourceCount; i++) {
-          String key = codedIn.readString();
-          switch (getFileDependencies(key)) {
-            case FileDependencies dependencies:
-              sources[i] = dependencies;
-              break;
-            case FutureFileDependencies future:
-              countdown.registerPendingElement();
-              Futures.addCallback(future, new WaitingForSource(i, countdown), directExecutor());
-              break;
+          for (int i = 0; i < sourceCount; i++) {
+            String key = codedIn.readString();
+            switch (getFileDependencies(key)) {
+              case FileDependencies dependencies:
+                sources[i] = dependencies;
+                break;
+              case FutureFileDependencies future:
+                countdown.registerPendingElement();
+                Futures.addCallback(future, new WaitingForSource(i, countdown), directExecutor());
+                break;
+            }
           }
+          countdown.notifyInitializationDone();
+          return countdown;
         }
-        countdown.notifyInitializationDone();
-        return countdown;
       } catch (IOException e) {
         return immediateFailedFuture(
             new SerializationException("Error deserializing nested node", e));
@@ -690,7 +696,7 @@ final class FileDependencyDeserializer {
     }
   }
 
-  private static class WaitingForSource implements FutureCallback<FileDependencies> {
+  private static final class WaitingForSource implements FutureCallback<FileDependencies> {
     private final int index;
     private final PendingElementCountdown countdown;
 
