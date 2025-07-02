@@ -101,10 +101,11 @@ public final class AggregatedSpawnMetrics {
             .maxNonDurations(existing)
             .maxNonDurations(other);
 
-    EnumMap<SpawnMetrics.ExecKind, SpawnMetrics> map = new EnumMap<>(SpawnMetrics.ExecKind.class);
-    map.putAll(metricsMap);
-    map.put(other.execKind(), builder.build());
-    return new AggregatedSpawnMetrics(Maps.immutableEnumMap(map));
+    return new AggregatedSpawnMetrics(
+        ImmutableMap.<SpawnMetrics.ExecKind, SpawnMetrics>builder()
+            .putAll(metricsMap)
+            .put(other.execKind(), builder.build())
+            .buildKeepingLast());
   }
 
   /**
