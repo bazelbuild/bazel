@@ -602,6 +602,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         // If the proxy matches, the file certainly hasn't changed.
         return false;
       }
+      // The proxy may change without the file actually being modified, for example
+      // when a hardlink to the file is created or deleted.
       byte[] newDigest = DigestUtils.getDigestWithManualFallback(path, SyscallCache.NO_CACHE, stat);
       return !Arrays.equals(digest, newDigest);
     }
