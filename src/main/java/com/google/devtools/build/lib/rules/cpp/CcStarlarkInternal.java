@@ -947,6 +947,100 @@ public class CcStarlarkInternal implements StarlarkValue {
         variablesExtensionsList);
   }
 
+  /**
+   * Returns a {@code CppCompileActionBuilder} with the common fields for a C++ compile action being
+   * initialized.
+   */
+  @StarlarkMethod(
+      name = "create_cpp_compile_action_builder",
+      documented = false,
+      parameters = {
+        @Param(name = "action_construction_context", positional = false, named = true),
+        @Param(name = "cc_compilation_context", positional = false, named = true),
+        @Param(name = "cc_toolchain", positional = false, named = true),
+        @Param(name = "configuration", positional = false, named = true),
+        @Param(name = "copts_filter", positional = false, named = true),
+        @Param(name = "feature_configuration", positional = false, named = true),
+        @Param(name = "semantics", positional = false, named = true),
+        @Param(name = "source_artifact", positional = false, named = true),
+      })
+  public CppCompileActionBuilder createCppCompileActionBuilder(
+      StarlarkRuleContext actionConstructionContext,
+      CcCompilationContext ccCompilationContext,
+      StarlarkInfo ccToolchain,
+      BuildConfigurationValue configuration,
+      CoptsFilter coptsFilter,
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      CppSemantics semantics,
+      Artifact sourceArtifact) {
+    return new CppCompileActionBuilder(
+            actionConstructionContext.getRuleContext(),
+            CcToolchainProvider.create(ccToolchain),
+            configuration,
+            semantics)
+        .setSourceFile(sourceArtifact)
+        .setCcCompilationContext(ccCompilationContext)
+        .setCoptsFilter(coptsFilter)
+        .setFeatureConfiguration(featureConfigurationForStarlark.getFeatureConfiguration())
+        .addExecutionInfo(
+            TargetUtils.getExecutionInfo(
+                actionConstructionContext.getRuleContext().getRule(),
+                actionConstructionContext.getRuleContext().isAllowTagsPropagation()));
+  }
+
+  /**
+   * Returns a {@code CppCompileActionBuilder} with the common fields for a C++ compile action being
+   * initialized, plus the mandatoryInputs and additionalIncludeScanningRoots fields
+   */
+  @StarlarkMethod(
+      name = "create_cpp_compile_action_builder_with_inputs",
+      documented = false,
+      parameters = {
+        @Param(name = "action_construction_context", positional = false, named = true),
+        @Param(name = "cc_compilation_context", positional = false, named = true),
+        @Param(name = "cc_toolchain", positional = false, named = true),
+        @Param(name = "configuration", positional = false, named = true),
+        @Param(name = "copts_filter", positional = false, named = true),
+        @Param(name = "feature_configuration", positional = false, named = true),
+        @Param(name = "semantics", positional = false, named = true),
+        @Param(name = "source_artifact", positional = false, named = true),
+        @Param(name = "additional_compilation_inputs", positional = false, named = true),
+        @Param(name = "additional_include_scanning_roots", positional = false, named = true),
+      })
+  public CppCompileActionBuilder createCppCompileActionBuilderWithInputs(
+      StarlarkRuleContext actionConstructionContext,
+      CcCompilationContext ccCompilationContext,
+      StarlarkInfo ccToolchain,
+      BuildConfigurationValue configuration,
+      CoptsFilter coptsFilter,
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      CppSemantics semantics,
+      Artifact sourceArtifact,
+      Sequence<?> additionalCompilationInputs,
+      Sequence<?> additionalIncludeScanningRoots)
+      throws EvalException {
+    CppCompileActionBuilder builder =
+        createCppCompileActionBuilder(
+            actionConstructionContext,
+            ccCompilationContext,
+            ccToolchain,
+            configuration,
+            coptsFilter,
+            featureConfigurationForStarlark,
+            semantics,
+            sourceArtifact);
+    builder
+        .addMandatoryInputs(
+            Sequence.cast(
+                additionalCompilationInputs, Artifact.class, "additional_compilation_inputs"))
+        .addAdditionalIncludeScanningRoots(
+            Sequence.cast(
+                additionalIncludeScanningRoots,
+                Artifact.class,
+                "additional_include_scanning_roots"));
+    return builder;
+  }
+
   // TODO(b/420530680): remove after removing uses of depsets of LibraryToLink-s
   @StarlarkMethod(
       name = "freeze",
