@@ -355,7 +355,7 @@ public final class SandboxModule extends BlazeModule {
     // This is the preferred sandboxing strategy on macOS.
     if (darwinSandboxSupported) {
       SandboxFallbackSpawnRunner spawnRunner =
-          withFallback(cmdEnv, new DarwinSandboxedSpawnRunner(cmdEnv, sandboxBase, treeDeleter));
+          withFallback(cmdEnv, new DarwinSandboxedSpawnRunner(cmdEnv, sandboxBase, treeDeleter, new RunfilesTreeUpdater(cmdEnv.getExecRoot(), cmdEnv.getXattrProvider())));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
           new DarwinSandboxedStrategy(spawnRunner, executionOptions),

@@ -165,7 +165,7 @@ public final class SpawnInputExpander {
       InputMetadataProvider inputMetadataProvider,
       PathMapper pathMapper,
       PathFragment baseDirectory,
-      boolean expandRunfilesTrees) {
+      boolean expandAllRunfilesTrees) {
     // Actions that accept TreeArtifacts as inputs generally expect the directory corresponding
     // to the artifact to be created, even if it is empty. We explicitly keep empty TreeArtifacts
     // here to signal consumers that they should create the directory.
@@ -185,9 +185,8 @@ public final class SpawnInputExpander {
             input,
             baseDirectory);
       } else if (isRunfilesTreeArtifact(input)) {
-        if (expandRunfilesTrees) {
-          RunfilesTree runfilesTree =
-              inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
+        var runfilesTree = inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
+        if (expandAllRunfilesTrees || !runfilesTree.isMappingCached()) {
           addSingleRunfilesTreeToInputs(
               runfilesTree, inputMap, inputMetadataProvider, pathMapper, baseDirectory);
         } else {
