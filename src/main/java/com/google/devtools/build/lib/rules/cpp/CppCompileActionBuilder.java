@@ -55,7 +55,7 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   private Artifact outputFile;
   private Artifact modmapFile;
   private Artifact modmapInputFile;
-  private NestedSet<Artifact.DerivedArtifact> moduleFiles;
+  private NestedSet<Artifact> moduleFiles;
   private Artifact dwoFile;
   private Artifact ltoIndexingFile;
   private Artifact dotdFile;
@@ -640,23 +640,24 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     return this;
   }
 
-    @CanIgnoreReturnValue
-    public CppCompileActionBuilder setModmapFile(Artifact modmapFile) {
-        this.modmapFile = modmapFile;
-        return this;
-    }
+  @CanIgnoreReturnValue
+  public CppCompileActionBuilder setModmapFile(Artifact modmapFile) {
+    this.modmapFile = modmapFile;
+    return this;
+  }
 
-    @CanIgnoreReturnValue
-    public CppCompileActionBuilder setModmapInputFile(Artifact modmapInputFile) {
-        this.modmapInputFile = modmapInputFile;
-        return this;
-    }
+  @CanIgnoreReturnValue
+  public CppCompileActionBuilder setModmapInputFile(Artifact modmapInputFile) {
+    this.modmapInputFile = modmapInputFile;
+    return this;
+  }
 
-    @CanIgnoreReturnValue
-    public CppCompileActionBuilder setModuleFiles(NestedSet<Artifact.DerivedArtifact> moduleFiles) {
-        this.moduleFiles = moduleFiles;
-        return this;
-    }
+  @CanIgnoreReturnValue
+  public CppCompileActionBuilder setModuleFiles(NestedSet<Artifact> moduleFiles) {
+    this.moduleFiles = moduleFiles;
+    return this;
+  }
+
   ImmutableList<PathFragment> getBuiltinIncludeDirectories() throws EvalException {
     return ccToolchain.getBuiltInIncludeDirectories();
   }

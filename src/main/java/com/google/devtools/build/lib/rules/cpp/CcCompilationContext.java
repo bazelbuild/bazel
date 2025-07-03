@@ -78,8 +78,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   private final NestedSet<Artifact> transitiveModules;
   private final NestedSet<Artifact> transitivePicModules;
 
-  private final NestedSet<Artifact.DerivedArtifact> moduleFiles;
-  private final NestedSet<Artifact.DerivedArtifact> picModuleFiles;
+  private final NestedSet<Artifact> moduleFiles;
+  private final NestedSet<Artifact> picModuleFiles;
   private final NestedSet<Artifact> modulesInfoFiles;
   private final NestedSet<Artifact> picModulesInfoFiles;
 
@@ -115,8 +115,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       HeaderInfo headerInfo,
       NestedSet<Artifact> transitiveModules,
       NestedSet<Artifact> transitivePicModules,
-      NestedSet<Artifact.DerivedArtifact> moduleFiles,
-      NestedSet<Artifact.DerivedArtifact> picModuleFiles,
+      NestedSet<Artifact> moduleFiles,
+      NestedSet<Artifact> picModuleFiles,
       NestedSet<Artifact> modulesInfoFiles,
       NestedSet<Artifact> picModulesInfoFiles,
       ImmutableList<Artifact> directModuleMaps,
@@ -554,8 +554,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return usePic ? transitivePicModules : transitiveModules;
   }
 
-  public NestedSet<Artifact.DerivedArtifact> getModuleFiles(boolean usePic) {
-    return usePic ? picModuleFiles: moduleFiles;
+  public NestedSet<Artifact> getModuleFiles(boolean usePic) {
+    return usePic ? picModuleFiles : moduleFiles;
   }
 
   public NestedSet<Artifact> getModulesInfoFiles(boolean usePic) {
@@ -641,22 +641,21 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   public static CcCompilationContext createWithCpp20Modules(
       CcCompilationContext ccCompilationContext,
-      NestedSet<Artifact.DerivedArtifact> moduleFiles,
-      NestedSet<Artifact.DerivedArtifact> picModuleFiles,
+      NestedSet<DerivedArtifact> moduleFiles,
+      NestedSet<DerivedArtifact> picModuleFiles,
       ImmutableList<Artifact> modulesInfoFiles,
       ImmutableList<Artifact> picModulesInfoFiles) {
-    var moduleFilesBuilder = NestedSetBuilder
-        .fromNestedSet(ccCompilationContext.moduleFiles)
-        .addTransitive(moduleFiles);
-    var picModuleFilesBuilder = NestedSetBuilder
-        .fromNestedSet(ccCompilationContext.picModuleFiles)
-        .addTransitive(picModuleFiles);
-    var modulesInfoFilesBuilder = NestedSetBuilder
-        .fromNestedSet(ccCompilationContext.modulesInfoFiles)
-        .addAll(modulesInfoFiles);
-    var picModulesInfoFilesBuilder = NestedSetBuilder
-        .fromNestedSet(ccCompilationContext.picModulesInfoFiles)
-        .addAll(picModulesInfoFiles);
+    var moduleFilesBuilder =
+        NestedSetBuilder.fromNestedSet(ccCompilationContext.moduleFiles).addTransitive(moduleFiles);
+    var picModuleFilesBuilder =
+        NestedSetBuilder.fromNestedSet(ccCompilationContext.picModuleFiles)
+            .addTransitive(picModuleFiles);
+    var modulesInfoFilesBuilder =
+        NestedSetBuilder.fromNestedSet(ccCompilationContext.modulesInfoFiles)
+            .addAll(modulesInfoFiles);
+    var picModulesInfoFilesBuilder =
+        NestedSetBuilder.fromNestedSet(ccCompilationContext.picModulesInfoFiles)
+            .addAll(picModulesInfoFiles);
     return new CcCompilationContext(
         ccCompilationContext.commandLineCcCompilationContext,
         ccCompilationContext.compilationPrerequisites,
@@ -800,8 +799,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         TransitiveSetHelper<String> allDefines,
         NestedSetBuilder<Artifact> transitiveModules,
         NestedSetBuilder<Artifact> transitivePicModules,
-        NestedSetBuilder<Artifact.DerivedArtifact> moduleFiles,
-        NestedSetBuilder<Artifact.DerivedArtifact> picModuleFiles,
+        NestedSetBuilder<Artifact> moduleFiles,
+        NestedSetBuilder<Artifact> picModuleFiles,
         NestedSetBuilder<Artifact> modulesInfoFiles,
         NestedSetBuilder<Artifact> picModulesInfoFiles,
         Set<Artifact> directModuleMaps) {
@@ -886,8 +885,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         TransitiveSetHelper<String> allDefines,
         NestedSetBuilder<Artifact> transitiveModules,
         NestedSetBuilder<Artifact> transitivePicModules,
-        NestedSetBuilder<Artifact.DerivedArtifact> moduleFiles,
-        NestedSetBuilder<Artifact.DerivedArtifact> picModuleFiles,
+        NestedSetBuilder<Artifact> moduleFiles,
+        NestedSetBuilder<Artifact> picModuleFiles,
         NestedSetBuilder<Artifact> modulesInfoFiles,
         NestedSetBuilder<Artifact> picModulesInfoFiles,
         Set<Artifact> directModuleMaps,
@@ -1131,8 +1130,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       TransitiveSetHelper<String> allDefines = new TransitiveSetHelper<>();
       NestedSetBuilder<Artifact> transitiveModules = NestedSetBuilder.stableOrder();
       NestedSetBuilder<Artifact> transitivePicModules = NestedSetBuilder.stableOrder();
-      NestedSetBuilder<Artifact.DerivedArtifact> moduleFiles = NestedSetBuilder.stableOrder();
-      NestedSetBuilder<Artifact.DerivedArtifact> picModuleFiles = NestedSetBuilder.stableOrder();
+      NestedSetBuilder<Artifact> moduleFiles = NestedSetBuilder.stableOrder();
+      NestedSetBuilder<Artifact> picModuleFiles = NestedSetBuilder.stableOrder();
       NestedSetBuilder<Artifact> modulesInfoFiles = NestedSetBuilder.stableOrder();
       NestedSetBuilder<Artifact> picModulesInfoFiles = NestedSetBuilder.stableOrder();
       Set<Artifact> directModuleMaps = new LinkedHashSet<>();

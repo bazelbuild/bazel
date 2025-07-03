@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,16 +22,13 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.CommandLines;
-import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.actions.PathMappers;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
@@ -40,6 +36,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
@@ -61,8 +58,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.Objects;
+import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -987,11 +984,12 @@ public final class CcCompilationHelper {
         featureConfiguration.isEnabled(CppRuleClasses.CPP_MODULES),
         "to use C++20 Modules, the feature CPP_MODULES must be enabled");
     Preconditions.checkNotNull(ccCompilationContext);
-    CcCompilationOutputs.Builder result = CcCompilationOutputs.builder();
-    // merge module interfaces and ordinary sources
-    Map<Artifact, CppSource> sourcesMap = new LinkedHashMap<>();
-    sourcesMap.putAll(compilationUnitSources);
-    sourcesMap.putAll(moduleInterfaceSources);
+    var result = CcCompilationOutputs.builder();
+    var sourcesMap =
+        ImmutableMap.<Artifact, CppSource>builder()
+            .putAll(compilationUnitSources)
+            .putAll(moduleInterfaceSources)
+            .buildOrThrow();
     ImmutableMap<Artifact, String> outputNameMap =
         calculateOutputNameMapByType(sourcesMap, /* prefixDir= */ null);
     if (generateNoPicAction) {
@@ -1008,12 +1006,17 @@ public final class CcCompilationHelper {
       boolean usePic,
       ImmutableMap<Artifact, String> outputNameMap)
       throws RuleErrorException, EvalException, InterruptedException {
-
-    ImmutableMap.Builder<Artifact, Artifact.DerivedArtifact> moduleFileMapBuilder =
-        new ImmutableMap.Builder<>();
-    ImmutableMap.Builder<Artifact, Artifact> ddiFileMapBuilder = new ImmutableMap.Builder<>();
-    NestedSetBuilder<Artifact> ddiFileSetBuilder = NestedSetBuilder.stableOrder();
-    ImmutableList.Builder<CommandLine> commandLineBuilder = new ImmutableList.Builder<>();
+    // .ddi files and module files are in 1-to-1 correspondence and must maintain the same order
+    // (hence the use of compile order for directModuleFilesBuilder, which specifies the order for
+    // direct children). Making directModuleFiles a NestedSet allows it to be reused for
+    // allModuleFilesBuilder below.
+    var directModuleFilesBuilder = NestedSetBuilder.<Artifact>newBuilder(Order.COMPILE_ORDER);
+    var sourceToModuleFileMapBuilder =
+        ImmutableMap.<Artifact, DerivedArtifact>builderWithExpectedSize(
+            moduleInterfaceSources.size());
+    var sourceToDdiFileMapBuilder =
+        ImmutableMap.<Artifact, DerivedArtifact>builderWithExpectedSize(
+            moduleInterfaceSources.size());
 
     // declare <target-name>.CXXModules.json
     // all modules information is put here
@@ -1041,13 +1044,14 @@ public final class CcCompilationHelper {
         outputCategory = ArtifactCategory.CPP_MODULE_IFC;
       }
       var moduleFile =
-          CppHelper.getCompileModuleOutputArtifact(
+          CppHelper.getCompileOutputArtifact(
               actionConstructionContext,
               label,
               CppHelper.getArtifactNameForCategory(
                   ccToolchain, outputCategory, getOutputNameBaseWith(outputName, usePic)),
               configuration);
-      moduleFileMapBuilder.put(sourceArtifact, moduleFile);
+      directModuleFilesBuilder.add(moduleFile);
+      sourceToModuleFileMapBuilder.put(sourceArtifact, moduleFile);
       // dependencies information are put in .ddi file
       // the format is https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p1689r5.html
       var ddiOutputName =
@@ -1055,29 +1059,24 @@ public final class CcCompilationHelper {
               ccToolchain,
               ArtifactCategory.CPP_MODULES_DDI,
               getOutputNameBaseWith(outputName, usePic));
-      Artifact ddiFile =
+      DerivedArtifact ddiFile =
           CppHelper.getCompileOutputArtifact(
               actionConstructionContext, label, ddiOutputName, configuration);
-      commandLineBuilder.add(
-          CommandLine.of(
-              ImmutableList.of("-d", ddiFile.getExecPathString(), moduleFile.getExecPathString())));
       createScanDepsAction(source.getLabel(), sourceArtifact, usePic, ddiFile, ddiOutputName);
-      ddiFileSetBuilder.add(ddiFile);
-      ddiFileMapBuilder.put(sourceArtifact, ddiFile);
+      sourceToDdiFileMapBuilder.put(sourceArtifact, ddiFile);
     }
-    createAggDdiAction(
-        ddiFileSetBuilder.build(),
-        commandLineBuilder.build(),
+    var directModuleFiles = directModuleFilesBuilder.build();
+    var sourceToDdiFileMap = sourceToDdiFileMapBuilder.buildOrThrow();
+    createAggregateDdiAction(
+        ImmutableList.copyOf(sourceToDdiFileMap.values()),
+        directModuleFiles,
         ccCompilationContext.getModulesInfoFiles(usePic),
         modulesInfoFile);
-    ImmutableMap<Artifact, Artifact.DerivedArtifact> moduleFileMap = moduleFileMapBuilder.build();
-    ImmutableMap<Artifact, Artifact> ddiFileMap = ddiFileMapBuilder.build();
+    var sourceToModuleFileMap = sourceToModuleFileMapBuilder.buildOrThrow();
     var allModuleFilesBuilder =
-        NestedSetBuilder.<Artifact.DerivedArtifact>stableOrder().addAll(moduleFileMap.values());
-    var depModuleFiles = ccCompilationContext.getModuleFiles(usePic);
-    if (depModuleFiles != null) {
-      allModuleFilesBuilder.addTransitive(depModuleFiles);
-    }
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(directModuleFiles)
+            .addTransitive(ccCompilationContext.getModuleFiles(usePic));
     var allModuleFiles = allModuleFilesBuilder.build();
     for (CppSource source : moduleInterfaceSources.values()) {
       Artifact sourceArtifact = source.getSource();
@@ -1096,7 +1095,7 @@ public final class CcCompilationHelper {
               && CppFileTypes.LTO_SOURCE.matches(sourceArtifact.getFilename());
 
       String outputName = outputNameMap.get(sourceArtifact);
-      Artifact.DerivedArtifact moduleFile = moduleFileMap.get(sourceArtifact);
+      DerivedArtifact moduleFile = sourceToModuleFileMap.get(sourceArtifact);
       Preconditions.checkNotNull(moduleFile);
       builder.setAdditionalOutputs(ImmutableList.of(moduleFile));
       builder.setModuleFiles(allModuleFiles);
@@ -1127,9 +1126,11 @@ public final class CcCompilationHelper {
                   ArtifactCategory.CPP_MODULES_MODMAP_INPUT,
                   getOutputNameBaseWith(outputName, usePic)),
               configuration);
-      var ddiFile = ddiFileMap.get(sourceArtifact);
-      Preconditions.checkNotNull(ddiFile);
-      createGenModmapAction(ddiFile, modulesInfoFile, modmapFile, modmapInputFile);
+      createGenModmapAction(
+          Preconditions.checkNotNull(sourceToDdiFileMap.get(sourceArtifact)),
+          modulesInfoFile,
+          modmapFile,
+          modmapInputFile);
       builder.setModmapFile(modmapFile);
       builder.setModmapInputFile(modmapInputFile);
 
@@ -1141,15 +1142,12 @@ public final class CcCompilationHelper {
           source.getType() == CppSource.Type.CLIF_INPUT_PROTO
               ? ArtifactCategory.CLIF_OUTPUT_PROTO
               : ArtifactCategory.OBJECT_FILE;
-      ImmutableMap<String, String> additionalBuildVariables =
-          ImmutableMap.<String, String>builder()
-              .put(
-                  CompileBuildVariables.CPP_MODULE_OUTPUT_FILE.getVariableName(),
-                  moduleFile.getExecPathString())
-              .put(
-                  CompileBuildVariables.CPP_MODULE_MODMAP_FILE.getVariableName(),
-                  modmapFile.getExecPathString())
-              .build();
+      var additionalBuildVariables =
+          ImmutableMap.of(
+              CompileBuildVariables.CPP_MODULE_OUTPUT_FILE.getVariableName(),
+              moduleFile.getExecPathString(),
+              CompileBuildVariables.CPP_MODULE_MODMAP_FILE.getVariableName(),
+              modmapFile.getExecPathString());
       createSourceActionHelper(
           sourceLabel,
           outputName,
@@ -1227,12 +1225,10 @@ public final class CcCompilationHelper {
           source.getType() == CppSource.Type.CLIF_INPUT_PROTO
               ? ArtifactCategory.CLIF_OUTPUT_PROTO
               : ArtifactCategory.OBJECT_FILE;
-      ImmutableMap<String, String> additionalBuildVariables =
-          ImmutableMap.<String, String>builder()
-              .put(
-                  CompileBuildVariables.CPP_MODULE_MODMAP_FILE.getVariableName(),
-                  modmapFile.getExecPathString())
-              .build();
+      var additionalBuildVariables =
+          ImmutableMap.of(
+              CompileBuildVariables.CPP_MODULE_MODMAP_FILE.getVariableName(),
+              modmapFile.getExecPathString());
       createSourceActionHelper(
           sourceLabel,
           outputName,
@@ -1788,10 +1784,10 @@ public final class CcCompilationHelper {
       Artifact ddiFile,
       String outputName)
       throws RuleErrorException, EvalException, InterruptedException {
-    var scanDepsBuilder = initializeCompileAction(sourceArtifact);
-    scanDepsBuilder.setActionName(CppActionNames.CPP_MODULE_DEPS_SCANNING);
+    var builder = initializeCompileAction(sourceArtifact);
+    builder.setActionName(CppActionNames.CPP_MODULE_DEPS_SCANNING);
     Artifact dotdFile;
-    if (scanDepsBuilder.dotdFilesEnabled() && scanDepsBuilder.useDotdFile(sourceArtifact)) {
+    if (builder.dotdFilesEnabled() && builder.useDotdFile(sourceArtifact)) {
       String dotdFileName =
           CppHelper.getArtifactNameForCategory(
               ccToolchain, ArtifactCategory.INCLUDED_FILE_LIST, outputName);
@@ -1801,24 +1797,24 @@ public final class CcCompilationHelper {
     } else {
       dotdFile = null;
     }
-    scanDepsBuilder.setOutputs(ddiFile, dotdFile, null);
+    builder.setOutputs(ddiFile, dotdFile, null);
     var variables =
         setupCompileBuildVariables(
-            scanDepsBuilder,
+            builder,
             sourceLabel,
             usePic,
             /* needsFdoBuildVariables= */ false,
             cppModuleMap,
             /* enableCoverage= */ false,
-            null,
-            false,
-            null,
-            null,
+            /* gcnoFile= */ null,
+            /* isUsingFission= */ false,
+            /* dwoFile= */ null,
+            /* ltoIndexingFile= */ null,
             /* additionalBuildVariables= */ ImmutableMap.of());
 
-    scanDepsBuilder.setVariables(variables);
-    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, scanDepsBuilder);
-    var scanDepsAction = scanDepsBuilder.buildOrThrowRuleError(ruleErrorConsumer);
+    builder.setVariables(variables);
+    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
+    var scanDepsAction = builder.buildOrThrowRuleError(ruleErrorConsumer);
     actionConstructionContext.registerAction(scanDepsAction);
   }
 
@@ -1826,70 +1822,61 @@ public final class CcCompilationHelper {
       Artifact ddiFile, Artifact modulesInfoFile, Artifact modmapFile, Artifact modmapInputFile)
       throws EvalException {
     var genModmapTool = ccToolchain.getGenerateModmap();
-    Preconditions.checkNotNull(genModmapTool, "the tool 'generate-modmap' cannot be null");
+    if (genModmapTool == null) {
+      throw new EvalException("the 'generate_modmap' tool is not defined in the C++ toolchain");
+    }
+    var commandLine =
+        CustomCommandLine.builder()
+            .addExecPath(ddiFile)
+            .addExecPath(modulesInfoFile)
+            .addExecPath(modmapFile)
+            .addDynamicString(ccToolchain.getCompiler())
+            .build();
     var genModmapAction =
-        new SpawnAction(
-            actionConstructionContext.getActionOwner(),
-            NestedSetBuilder.<Artifact>stableOrder().add(genModmapTool).build(),
-            NestedSetBuilder.<Artifact>stableOrder()
-                .add(genModmapTool)
-                .add(ddiFile)
-                .add(modulesInfoFile)
-                .build(),
-            ImmutableList.of(modmapFile, modmapInputFile),
-            AbstractAction.DEFAULT_RESOURCE_SET,
-            CommandLines.builder()
-                .addSingleArgument(genModmapTool.getExecPathString())
-                .addSingleArgument(ddiFile.getExecPathString())
-                .addSingleArgument(modulesInfoFile.getExecPathString())
-                .addSingleArgument(modmapFile.getExecPathString())
-                .addSingleArgument(ccToolchain.getCompiler())
-                .build(),
-            ActionEnvironment.EMPTY,
-            ImmutableMap.of(),
-            "Generating modmap with " + ddiFile.getFilename(),
-            "GenModmap",
-            PathMappers.getOutputPathsMode(configuration));
+        new SpawnAction.Builder()
+            .setExecutable(genModmapTool)
+            .addCommandLine(commandLine)
+            .addInput(ddiFile)
+            .addInput(modulesInfoFile)
+            .addOutput(modmapFile)
+            .addOutput(modmapInputFile)
+            .useDefaultShellEnvironment(ImmutableMap.of())
+            .setMnemonic("CppGenModmap")
+            .setProgressMessage("Generating C++20 modules modmap %{output}")
+            .build(actionConstructionContext);
     actionConstructionContext.registerAction(genModmapAction);
   }
 
-  private void createAggDdiAction(
-      NestedSet<Artifact> ddiFiles,
-      ImmutableList<CommandLine> commandLines,
-      NestedSet<Artifact> modulesInfoFiles,
+  private void createAggregateDdiAction(
+      ImmutableList<Artifact> ddiFiles,
+      NestedSet<Artifact> directModuleFiles,
+      NestedSet<Artifact> transitiveModulesInfoFiles,
       Artifact modulesInfoFile)
       throws EvalException {
-    var aggDdiTool = ccToolchain.getAggregateDdi();
-    Preconditions.checkNotNull(aggDdiTool, "the tool 'aggregate-ddi' cannot be null");
-    CommandLines.Builder builder = CommandLines.builder();
-    builder.addSingleArgument(aggDdiTool.getExecPathString());
-    for (CommandLine commandLine : commandLines) {
-      builder.addCommandLine(commandLine);
+    var aggregateDdiTool = ccToolchain.getAggregateDdi();
+    if (aggregateDdiTool == null) {
+      throw new EvalException("the 'aggregate_ddi' tool is not defined in the C++ toolchain");
     }
-    for (Artifact depModulesInfoFile : modulesInfoFiles.toList()) {
-      builder.addCommandLine(
-          CommandLine.of(ImmutableList.of("-m", depModulesInfoFile.getExecPathString())));
-    }
-    builder.addCommandLine(
-        CommandLine.of(ImmutableList.of("-o", modulesInfoFile.getExecPathString())));
-    var aggDdiAction =
-        new SpawnAction(
-            actionConstructionContext.getActionOwner(),
-            NestedSetBuilder.<Artifact>stableOrder().add(aggDdiTool).build(),
-            NestedSetBuilder.<Artifact>stableOrder()
-                .add(aggDdiTool)
-                .addTransitive(ddiFiles)
-                .addTransitive(modulesInfoFiles)
-                .build(),
-            ImmutableList.of(modulesInfoFile),
-            AbstractAction.DEFAULT_RESOURCE_SET,
-            builder.build(),
-            ActionEnvironment.EMPTY,
-            ImmutableMap.of(),
-            "Generating Cpp20ModulesInfo " + modulesInfoFile.getFilename(),
-            "AggDdi",
-            PathMappers.getOutputPathsMode(configuration));
-    actionConstructionContext.registerAction(aggDdiAction);
+    var commandLine =
+        CustomCommandLine.builder()
+            .addExecPaths(CustomCommandLine.VectorArg.addBefore("-d").each(ddiFiles))
+            .addExecPaths(CustomCommandLine.VectorArg.addBefore("-f").each(directModuleFiles))
+            .addExecPaths(
+                CustomCommandLine.VectorArg.addBefore("-m").each(transitiveModulesInfoFiles))
+            .addExecPath("-o", modulesInfoFile)
+            .build();
+    var aggregateDdiAction =
+        new SpawnAction.Builder()
+            .setExecutable(aggregateDdiTool)
+            .addCommandLine(commandLine)
+            .addInputs(ddiFiles)
+            .addTransitiveInputs(transitiveModulesInfoFiles)
+            .addOutput(modulesInfoFile)
+            .useDefaultShellEnvironment(ImmutableMap.of())
+            .setMnemonic("CppAggregateDdi")
+            .setProgressMessage("Generating C++20 modules info %{output}")
+            .build(actionConstructionContext);
+    actionConstructionContext.registerAction(aggregateDdiAction);
   }
 
   private ImmutableList<Artifact> createModuleAction(

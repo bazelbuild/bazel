@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -49,12 +50,12 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   /**
    * All C++ Modules files (e.g. .pcm files for clang) built by the target.
    */
-  private final NestedSet<Artifact.DerivedArtifact> cpp20ModuleFiles;
+  private final NestedSet<DerivedArtifact> cpp20ModuleFiles;
 
   /**
    * All C++ Modules files (e.g. .pic.pcm files for clang) built by the target.
    */
-  private final NestedSet<Artifact.DerivedArtifact> picCpp20ModuleFiles;
+  private final NestedSet<DerivedArtifact> picCpp20ModuleFiles;
 
   /**
    * All .CXXModules.json files used by the target.
@@ -103,8 +104,8 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   private CcCompilationOutputs(
       ImmutableList<Artifact> objectFiles,
       ImmutableList<Artifact> picObjectFiles,
-      NestedSet<Artifact.DerivedArtifact> cpp20ModuleFiles,
-      NestedSet<Artifact.DerivedArtifact> picCpp20ModuleFiles,
+      NestedSet<DerivedArtifact> cpp20ModuleFiles,
+      NestedSet<DerivedArtifact> picCpp20ModuleFiles,
       ImmutableList<Artifact> modulesInfoFiles,
       ImmutableList<Artifact> picModulesInfoFiles,
       LtoCompilationContext ltoCompilationContext,
@@ -145,7 +146,7 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
    *
    * @param usePic whether to return .pic.pcm files
    */
-  public NestedSet<Artifact.DerivedArtifact> getPcmFiles(boolean usePic) {
+  public NestedSet<DerivedArtifact> getPcmFiles(boolean usePic) {
     return usePic ? picCpp20ModuleFiles : cpp20ModuleFiles;
   }
 
@@ -286,8 +287,8 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   public static final class Builder implements StarlarkValue {
     private final Set<Artifact> objectFiles = new LinkedHashSet<>();
     private final Set<Artifact> picObjectFiles = new LinkedHashSet<>();
-    private final NestedSetBuilder<Artifact.DerivedArtifact> cpp20ModuleFiles = NestedSetBuilder.stableOrder();
-    private final NestedSetBuilder<Artifact.DerivedArtifact> picCpp20ModuleFiles = NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<DerivedArtifact> cpp20ModuleFiles = NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<DerivedArtifact> picCpp20ModuleFiles = NestedSetBuilder.stableOrder();
     private final Set<Artifact> modulesInfoFiles = new LinkedHashSet<>();
     private final Set<Artifact> picModulesInfoFiles = new LinkedHashSet<>();
     private final LtoCompilationContext.Builder ltoCompilationContext =
@@ -358,7 +359,7 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
 
     /** Adds a C++ Modules file. */
     @CanIgnoreReturnValue
-    public Builder addCpp20ModuleFile(Artifact.DerivedArtifact artifact) {
+    public Builder addCpp20ModuleFile(DerivedArtifact artifact) {
       cpp20ModuleFiles.add(artifact);
       return this;
     }
@@ -389,7 +390,7 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
 
     /** Adds a pic C++ Modules file. */
     @CanIgnoreReturnValue
-    public Builder addPicCpp20ModuleFile(Artifact.DerivedArtifact artifact) {
+    public Builder addPicCpp20ModuleFile(DerivedArtifact artifact) {
       picCpp20ModuleFiles.add(artifact);
       return this;
     }
