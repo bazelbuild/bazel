@@ -101,7 +101,7 @@ make sure to handle the `None` case in your macro's implementation function:
 
 ```starlark
 # macro/macro.bzl
-_my_macro_implementation(name, visibility, tags, **kwargs):
+def _my_macro_impl(name, visibility, tags, **kwargs):
     # Append a tag; tags attr is an inherited non-mandatory attribute, and
     # therefore is None unless explicitly set by the caller of our macro.
     my_tags = (tags or []) + ["another_tag"]
