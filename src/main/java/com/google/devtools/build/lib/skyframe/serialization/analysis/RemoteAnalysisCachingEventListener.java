@@ -171,7 +171,7 @@ public class RemoteAnalysisCachingEventListener {
    * Returns the {@link RemoteAnalysisCachingState} for this build with information about all the
    * cache hits.
    */
-  public RemoteAnalysisCachingState getRemoteAnalysisCachingState() {
+  public RemoteAnalysisCachingState getLatestBuildState() {
     return new RemoteAnalysisCachingState(skyValueVersion.get(), ImmutableSet.copyOf(cacheHits));
   }
 }

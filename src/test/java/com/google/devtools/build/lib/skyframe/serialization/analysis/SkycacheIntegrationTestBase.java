@@ -525,7 +525,7 @@ genrule(
     var versionFromBuild =
         getCommandEnvironment()
             .getRemoteAnalysisCachingEventListener()
-            .getRemoteAnalysisCachingState()
+            .getLatestBuildState()
             .version();
 
     getSkyframeExecutor().resetEvaluator();
@@ -541,7 +541,7 @@ genrule(
     var versionFromTest =
         getCommandEnvironment()
             .getRemoteAnalysisCachingEventListener()
-            .getRemoteAnalysisCachingState()
+            .getLatestBuildState()
             .version();
 
     // Assert that the top level config checksum subcomponent is equal.

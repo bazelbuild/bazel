@@ -560,9 +560,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *
    * <p>This field will persist across build invocations.
    */
-  public void setRemoteAnalysisCachingStateForLatestBuild(
-      RemoteAnalysisCachingState remoteAnalysisCachingState) {
-    this.remoteAnalysisCachingState = remoteAnalysisCachingState;
+  public void updateRemoteAnalysisCachingState(RemoteAnalysisCachingState newState) {
+    this.remoteAnalysisCachingState =
+        new RemoteAnalysisCachingState(
+            newState.version(),
+            Sets.union(newState.deserializedKeys(), remoteAnalysisCachingState.deserializedKeys())
+                .immutableCopy());
   }
 
   /**
@@ -607,8 +610,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               String.format("Invalidation counts by SkyFunction: %s", countsByFunctionName)));
     }
 
-    // Remove the keys from the set of deserialized keys so that we don't try to upload them again.
-    remoteAnalysisCachingState = RemoteAnalysisCachingState.EMPTY;
+    // Remove the keys from the set of deserialized keys so that we don't try to
+    // download them again.
+    remoteAnalysisCachingState =
+        new RemoteAnalysisCachingState(
+            remoteAnalysisCachingState.version(),
+            Sets.difference(remoteAnalysisCachingState.deserializedKeys(), keysToInvalidate)
+                .immutableCopy());
 
     // `delete` is used instead of `invalidate` because the latter marks the nodes as `changed`,
     // which is not allowed for hermetic SkyFunctions

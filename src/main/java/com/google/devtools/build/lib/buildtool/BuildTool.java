@@ -951,8 +951,8 @@ public class BuildTool {
         reportRemoteAnalysisServiceStats(dependenciesProvider);
         reportRemoteAnalysisCachingStats();
         env.getSkyframeExecutor()
-            .setRemoteAnalysisCachingStateForLatestBuild(
-                env.getRemoteAnalysisCachingEventListener().getRemoteAnalysisCachingState());
+            .updateRemoteAnalysisCachingState(
+                env.getRemoteAnalysisCachingEventListener().getLatestBuildState());
         break;
       case OFF:
         break;
