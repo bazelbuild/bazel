@@ -465,12 +465,18 @@ public class RequestBatcher<RequestT, ResponseT> {
     }
 
     private void setResponse(ResponseT response) {
-      checkState(
-          set(response),
-          "response already set for request=%s, %s while trying to set future response %s",
-          request,
-          this,
-          response);
+      // It's possible for the future to be cancelled by an external event (e.g., an interrupt).
+      // `set` will return false if the future has already been completed or cancelled.
+      // If `set` fails, we verify that the future was cancelled. This distinguishes
+      // graceful cancellation from a bug where we try to set the response more than once.
+      if (!set(response)) {
+        checkState(
+            isCancelled(),
+            "response already set for request=%s, %s while trying to set future response %s",
+            request,
+            this,
+            response);
+      }
     }
 
     @Override

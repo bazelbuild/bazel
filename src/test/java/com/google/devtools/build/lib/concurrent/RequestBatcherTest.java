@@ -39,6 +39,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -393,6 +394,38 @@ public final class RequestBatcherTest {
         .hasCauseThat()
         .hasMessageThat()
         .contains("Future for Request[x=2] is unexpectedly not set");
+  }
+
+  @Test
+  public void cancelledRequest_doesNotCrash() throws Exception {
+    var uncaughtException = new AtomicReference<Throwable>();
+    var crashDetectingExecutor =
+        new Executor() {
+          @Override
+          public void execute(Runnable command) {
+            try {
+              command.run();
+            } catch (Throwable t) {
+              uncaughtException.set(t);
+            }
+          }
+        };
+    var multiplexer = new SettableMultiplexer();
+    var batcher =
+        RequestBatcher.<Request, Response>create(
+            crashDetectingExecutor,
+            multiplexer,
+            /* maxBatchSize= */ 255,
+            /* maxConcurrentRequests= */ 1);
+
+    ListenableFuture<Response> response = batcher.submit(new Request(1));
+    response.cancel(true);
+
+    BatchedRequestResponses requestResponses = multiplexer.queue.take();
+    requestResponses.setSimpleResponses();
+
+    assertThat(response.isCancelled()).isTrue();
+    assertThat(uncaughtException.get()).isNull();
   }
 
   private static class FakeConcurrentFifo
