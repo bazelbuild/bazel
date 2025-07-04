@@ -22,6 +22,7 @@ java_library(
         exclude = ["PathToReplaceUtils.java"],
     ),
     resources = glob(["*.txt"]) + [
+        "//scripts:completion_scripts",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/license",
     ],
     deps = [
