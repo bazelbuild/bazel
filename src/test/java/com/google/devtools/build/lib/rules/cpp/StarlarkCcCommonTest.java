@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.TruthJUnit.assume;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FILENAME_LENGTH;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
@@ -61,6 +62,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.WithFeatureSe
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringValueParser;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -3412,7 +3414,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
     EvalException e =
-        assertThrows(EvalException.class, () -> CcModule.toolFromStarlark(toolStruct));
+        assertThrows(
+            EvalException.class, () -> CcModule.toolFromStarlark(toolStruct, OS.getCurrent()));
     assertThat(e)
         .hasMessageThat()
         .contains("Expected object of type 'with_feature_set', received 'struct'");
@@ -3431,7 +3434,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
     EvalException e =
-        assertThrows(EvalException.class, () -> CcModule.toolFromStarlark(toolStruct));
+        assertThrows(
+            EvalException.class, () -> CcModule.toolFromStarlark(toolStruct, OS.getCurrent()));
     assertThat(e)
         .hasMessageThat()
         .contains("at index 0 of execution_requirements, got element of type struct, want string");
@@ -3449,7 +3453,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget t = getConfiguredTarget("//six:a");
     StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
-    Tool tool = CcModule.toolFromStarlark(toolStruct);
+    Tool tool = CcModule.toolFromStarlark(toolStruct, OS.getCurrent());
     assertThat(tool.getExecutionRequirements()).containsExactly("a", "b");
     assertThat(tool.getToolPathString(PathFragment.EMPTY_FRAGMENT)).isEqualTo("/a/b/c");
     assertThat(tool.getWithFeatureSetSets())
@@ -3481,7 +3485,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
     EvalException e =
-        assertThrows(EvalException.class, () -> CcModule.toolFromStarlark(toolStruct));
+        assertThrows(
+            EvalException.class, () -> CcModule.toolFromStarlark(toolStruct, OS.getCurrent()));
     assertThat(e).hasMessageThat().contains("The 'path' field of tool must be a nonempty string.");
   }
 
@@ -3495,7 +3500,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
     EvalException e =
-        assertThrows(EvalException.class, () -> CcModule.toolFromStarlark(toolStruct));
+        assertThrows(
+            EvalException.class, () -> CcModule.toolFromStarlark(toolStruct, OS.getCurrent()));
     assertThat(e).hasMessageThat().contains("Field 'path' is not of 'java.lang.String' type.");
   }
 
@@ -3509,7 +3515,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
     EvalException e =
-        assertThrows(EvalException.class, () -> CcModule.toolFromStarlark(toolStruct));
+        assertThrows(
+            EvalException.class, () -> CcModule.toolFromStarlark(toolStruct, OS.getCurrent()));
     assertThat(e).hasMessageThat().contains("for with_features, got struct, want sequence");
   }
 
@@ -3526,7 +3533,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
     EvalException e =
-        assertThrows(EvalException.class, () -> CcModule.toolFromStarlark(toolStruct));
+        assertThrows(
+            EvalException.class, () -> CcModule.toolFromStarlark(toolStruct, OS.getCurrent()));
     assertThat(e)
         .hasMessageThat()
         .contains("Expected object of type 'with_feature_set', received 'struct'");
@@ -3542,7 +3550,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
     EvalException e =
-        assertThrows(EvalException.class, () -> CcModule.toolFromStarlark(toolStruct));
+        assertThrows(
+            EvalException.class, () -> CcModule.toolFromStarlark(toolStruct, OS.getCurrent()));
     assertThat(e)
         .hasMessageThat()
         .contains("for execution_requirements, got string, want sequence");
@@ -3558,10 +3567,102 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
     assertThat(toolStruct).isNotNull();
     EvalException e =
-        assertThrows(EvalException.class, () -> CcModule.toolFromStarlark(toolStruct));
+        assertThrows(
+            EvalException.class, () -> CcModule.toolFromStarlark(toolStruct, OS.getCurrent()));
     assertThat(e)
         .hasMessageThat()
         .contains("at index 0 of execution_requirements, got element of type struct, want string");
+  }
+
+  @Test
+  public void testCustomTool_windowsAbsolutePath() throws Exception {
+    loadCcToolchainConfigLib();
+    createCustomToolRule(
+        "seven",
+        /* path= */ Starlark.repr(
+            "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.39.33519\\bin/HostX64/x64/cl.exe"),
+        /* withFeatures= */ "[]",
+        /* requirements= */ "[]");
+
+    ConfiguredTarget t = getConfiguredTarget("//seven:a");
+    StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    assertThat(toolStruct).isNotNull();
+    Tool tool = CcModule.toolFromStarlark(toolStruct, OS.WINDOWS);
+    assertThat(tool.getToolPathString(PathFragment.create("external/my_toolchain")))
+        .isEqualTo(
+            "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.39.33519/bin/HostX64/x64/cl.exe");
+  }
+
+  @Test
+  public void testCustomTool_windowsRelativePath() throws Exception {
+    loadCcToolchainConfigLib();
+    createCustomToolRule(
+        "seven",
+        /* path= */ Starlark.repr("bin\\HostX64\\x64/cl.exe"),
+        /* withFeatures= */ "[]",
+        /* requirements= */ "[]");
+
+    ConfiguredTarget t = getConfiguredTarget("//seven:a");
+    StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    assertThat(toolStruct).isNotNull();
+    Tool tool = CcModule.toolFromStarlark(toolStruct, OS.WINDOWS);
+    assertThat(tool.getToolPathString(PathFragment.create("external/my_toolchain")))
+        .isEqualTo("external/my_toolchain/bin/HostX64/x64/cl.exe");
+  }
+
+  @Test
+  public void testCustomTool_windowsShortPath_preservedOnNonWindowsHostOs() throws Exception {
+    assume().that(OS.getCurrent()).isNotEqualTo(OS.WINDOWS);
+
+    loadCcToolchainConfigLib();
+    createCustomToolRule(
+        "seven",
+        /* path= */ Starlark.repr(
+            "C:\\PROGRA~1\\MICROS~1\\2022\\COMMUN~1\\VC\\TOOLS\\MSVC\\14.39.33519\\BIN\\HOSTX64\\X64\\CL.EXE"),
+        /* withFeatures= */ "[]",
+        /* requirements= */ "[]");
+
+    ConfiguredTarget t = getConfiguredTarget("//seven:a");
+    StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    assertThat(toolStruct).isNotNull();
+    Tool tool = CcModule.toolFromStarlark(toolStruct, OS.WINDOWS);
+    assertThat(tool.getToolPathString(PathFragment.create("external/my_toolchain")))
+        .isEqualTo(
+            "C:/PROGRA~1/MICROS~1/2022/COMMUN~1/VC/TOOLS/MSVC/14.39.33519/BIN/HOSTX64/X64/CL.EXE");
+  }
+
+  @Test
+  public void testCustomTool_unixAbsolutePath() throws Exception {
+    loadCcToolchainConfigLib();
+    createCustomToolRule(
+        "seven",
+        /* path= */ Starlark.repr("/usr/bin/gcc"),
+        /* withFeatures= */ "[]",
+        /* requirements= */ "[]");
+
+    ConfiguredTarget t = getConfiguredTarget("//seven:a");
+    StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    assertThat(toolStruct).isNotNull();
+    Tool tool = CcModule.toolFromStarlark(toolStruct, OS.LINUX);
+    assertThat(tool.getToolPathString(PathFragment.create("external/my_toolchain")))
+        .isEqualTo("/usr/bin/gcc");
+  }
+
+  @Test
+  public void testCustomTool_unixRelativePath() throws Exception {
+    loadCcToolchainConfigLib();
+    createCustomToolRule(
+        "seven",
+        /* path= */ Starlark.repr("bin/gcc"),
+        /* withFeatures= */ "[]",
+        /* requirements= */ "[]");
+
+    ConfiguredTarget t = getConfiguredTarget("//seven:a");
+    StarlarkInfo toolStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("tool");
+    assertThat(toolStruct).isNotNull();
+    Tool tool = CcModule.toolFromStarlark(toolStruct, OS.LINUX);
+    assertThat(tool.getToolPathString(PathFragment.create("external/my_toolchain")))
+        .isEqualTo("external/my_toolchain/bin/gcc");
   }
 
   private void createCustomToolRule(
@@ -3864,7 +3965,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
-            EvalException.class, () -> CcModule.actionConfigFromStarlark(actionConfigStruct));
+            EvalException.class,
+            () -> CcModule.actionConfigFromStarlark(actionConfigStruct, OS.getCurrent()));
     assertThat(e)
         .hasMessageThat()
         .contains("Expected object of type 'tool', received 'with_feature_set'");
@@ -3886,7 +3988,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
-            EvalException.class, () -> CcModule.actionConfigFromStarlark(actionConfigStruct));
+            EvalException.class,
+            () -> CcModule.actionConfigFromStarlark(actionConfigStruct, OS.getCurrent()));
     assertThat(e).hasMessageThat().contains("Expected object of type 'flag_set', received 'tool'");
   }
 
@@ -3923,7 +4026,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
-            EvalException.class, () -> CcModule.actionConfigFromStarlark(actionConfigStruct));
+            EvalException.class,
+            () -> CcModule.actionConfigFromStarlark(actionConfigStruct, OS.getCurrent()));
     assertThat(e)
         .hasMessageThat()
         .contains("at index 0 of implies, got element of type struct, want string");
@@ -3945,7 +4049,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
-            EvalException.class, () -> CcModule.actionConfigFromStarlark(actionConfigStruct));
+            EvalException.class,
+            () -> CcModule.actionConfigFromStarlark(actionConfigStruct, OS.getCurrent()));
     assertThat(e)
         .hasMessageThat()
         .contains("at index 0 of implies, got element of type struct, want string");
@@ -3965,7 +4070,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget t = getConfiguredTarget("//eight:a");
     StarlarkInfo actionConfigStruct = (StarlarkInfo) getMyInfoFromTarget(t).getValue("config");
     assertThat(actionConfigStruct).isNotNull();
-    ActionConfig a = CcModule.actionConfigFromStarlark(actionConfigStruct);
+    ActionConfig a = CcModule.actionConfigFromStarlark(actionConfigStruct, OS.getCurrent());
     assertThat(a).isNotNull();
     assertThat(a.getActionName()).isEqualTo("actionname32._++-");
     assertThat(a.getImplies()).containsExactly("a", "b").inOrder();
@@ -3989,7 +4094,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
-            EvalException.class, () -> CcModule.actionConfigFromStarlark(actionConfigStruct));
+            EvalException.class,
+            () -> CcModule.actionConfigFromStarlark(actionConfigStruct, OS.getCurrent()));
     assertThat(e)
         .hasMessageThat()
         .contains(
@@ -4013,7 +4119,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
-            EvalException.class, () -> CcModule.actionConfigFromStarlark(actionConfigStruct));
+            EvalException.class,
+            () -> CcModule.actionConfigFromStarlark(actionConfigStruct, OS.getCurrent()));
     assertThat(e)
         .hasMessageThat()
         .contains(
@@ -4057,7 +4164,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
-            EvalException.class, () -> CcModule.actionConfigFromStarlark(actionConfigStruct));
+            EvalException.class,
+            () -> CcModule.actionConfigFromStarlark(actionConfigStruct, OS.getCurrent()));
     assertThat(e)
         .hasMessageThat()
         .contains("Field 'action_name' is not of 'java.lang.String' type.");
@@ -4079,7 +4187,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
-            EvalException.class, () -> CcModule.actionConfigFromStarlark(actionConfigStruct));
+            EvalException.class,
+            () -> CcModule.actionConfigFromStarlark(actionConfigStruct, OS.getCurrent()));
     assertThat(e).hasMessageThat().contains("Field 'enabled' is not of 'java.lang.Boolean' type.");
   }
 
@@ -4099,7 +4208,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
-            EvalException.class, () -> CcModule.actionConfigFromStarlark(actionConfigStruct));
+            EvalException.class,
+            () -> CcModule.actionConfigFromStarlark(actionConfigStruct, OS.getCurrent()));
     assertThat(e).hasMessageThat().contains("for tools, got struct, want sequence");
   }
 
@@ -4119,7 +4229,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
-            EvalException.class, () -> CcModule.actionConfigFromStarlark(actionConfigStruct));
+            EvalException.class,
+            () -> CcModule.actionConfigFromStarlark(actionConfigStruct, OS.getCurrent()));
     assertThat(e).hasMessageThat().contains("for flag_sets, got bool, want sequence");
   }
 
@@ -4139,7 +4250,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(actionConfigStruct).isNotNull();
     EvalException e =
         assertThrows(
-            EvalException.class, () -> CcModule.actionConfigFromStarlark(actionConfigStruct));
+            EvalException.class,
+            () -> CcModule.actionConfigFromStarlark(actionConfigStruct, OS.getCurrent()));
     assertThat(e).hasMessageThat().contains("for implies, got struct, want sequence");
   }
 
