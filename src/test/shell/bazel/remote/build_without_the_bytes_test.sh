@@ -683,6 +683,7 @@ EOF
   bazel coverage \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_toplevel \
+    --test_env=IGNORE_COVERAGE_COLLECTION_FAILURES=1 \
     //a:test >& $TEST_log || fail "Expected success"
 
   assert_exists bazel-testlogs/a/test/test.log
