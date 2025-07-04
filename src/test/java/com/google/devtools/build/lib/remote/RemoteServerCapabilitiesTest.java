@@ -142,7 +142,7 @@ public class RemoteServerCapabilitiesTest {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),
-            RemoteRetrier.RETRIABLE_GRPC_ERRORS,
+            RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER,
             retryService);
     ManagedChannel channel =
         InProcessChannelBuilder.forName(fakeServerName)
@@ -188,7 +188,7 @@ public class RemoteServerCapabilitiesTest {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),
-            RemoteRetrier.RETRIABLE_GRPC_ERRORS,
+            RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER,
             retryService);
     ManagedChannel channel =
         InProcessChannelBuilder.forName(fakeServerName).directExecutor().build();

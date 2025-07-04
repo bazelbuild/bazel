@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -83,24 +84,24 @@ class ExecuteRetrier extends RemoteRetrier {
       CircuitBreaker circuitBreaker) {
     super(
         () -> maxRetryAttempts > 0 ? new RetryInfoBackoff(maxRetryAttempts) : RETRIES_DISABLED,
-        ExecuteRetrier::shouldRetry,
+        ExecuteRetrier::resultClassifier,
         retryService,
         circuitBreaker);
   }
 
-  private static boolean shouldRetry(Exception e) {
+  private static Result resultClassifier(Exception e) {
     if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
-      return true;
+      return Result.TRANSIENT_FAILURE;
     }
     Status status = StatusProto.fromThrowable(e);
     if (status == null || status.getDetailsCount() == 0) {
-      return false;
+      return Result.SUCCESS;
     }
     boolean failedPrecondition = status.getCode() == Code.FAILED_PRECONDITION.value();
     for (Any detail : status.getDetailsList()) {
       if (detail.is(RetryInfo.class)) {
         // server says we can retry, regardless of other details
-        return true;
+        return Result.TRANSIENT_FAILURE;
       } else if (failedPrecondition) {
         if (detail.is(PreconditionFailure.class)) {
           try {
@@ -117,7 +118,7 @@ class ExecuteRetrier extends RemoteRetrier {
             // remains true
           } catch (InvalidProtocolBufferException protoEx) {
             // really shouldn't happen
-            return false;
+            return Result.PERMANENT_FAILURE;
           }
         } else if (!(detail.is(DebugInfo.class)
             || detail.is(Help.class)
@@ -129,6 +130,6 @@ class ExecuteRetrier extends RemoteRetrier {
         }
       }
     }
-    return failedPrecondition;
+    return failedPrecondition ? Result.TRANSIENT_FAILURE : Result.PERMANENT_FAILURE;
   }
 }
