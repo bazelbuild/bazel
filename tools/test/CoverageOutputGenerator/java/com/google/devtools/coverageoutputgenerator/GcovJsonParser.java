@@ -66,8 +66,7 @@ public class GcovJsonParser {
           currentFileCoverage.addFunctionExecution(function.name, function.execution_count);
         }
         for (GcovJsonLine line : file.lines) {
-          currentFileCoverage.addLine(
-              line.line_number, LineCoverage.create(line.line_number, line.count, null));
+          currentFileCoverage.addLine(line.line_number, line.count);
           int branchNumber = 0;
           boolean taken = Arrays.stream(line.branches).anyMatch(b -> b.count > 0);
           for (GcovJsonBranch branch : line.branches) {

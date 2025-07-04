@@ -50,8 +50,8 @@ public class LcovParserTest {
             "FNDA:3,foo",
             "FNF:2",
             "FNH:1",
-            "DA:2,3,hash",
-            "DA:4,0,hash2",
+            "DA:2,3",
+            "DA:4,0",
             "LH:1",
             "LF:2",
             "end_of_record",
@@ -74,10 +74,9 @@ public class LcovParserTest {
     assertThat(sourceFiles.get(1).sourceFileName()).isEqualTo("src2.foo");
     assertThat(sourceFiles.get(0).getLines())
         .containsExactly(
-            2, LineCoverage.create(2, 3, "hash"),
-            4, LineCoverage.create(4, 0, "hash2"));
-    assertThat(sourceFiles.get(1).getLines())
-        .containsExactly(3, LineCoverage.create(3, 1, null), 4, LineCoverage.create(4, 1, null));
+            2, 3L,
+            4, 0L);
+    assertThat(sourceFiles.get(1).getLines()).containsExactly(3, 1L, 4, 1L);
     assertThat(sourceFiles.get(0).getLineNumbers()).containsExactly("bar", 4, "foo", 2);
     assertThat(sourceFiles.get(1).getLineNumbers()).containsExactly("foo", 3);
     assertThat(sourceFiles.get(0).getFunctionsExecution()).containsExactly("bar", 0L, "foo", 3L);
@@ -108,9 +107,7 @@ public class LcovParserTest {
     Map<String, Long> functions = sourceFile.getFunctionsExecution();
     assertThat(functions).containsEntry("file1-func1", 1000000000000L);
 
-    Map<Integer, LineCoverage> lines = sourceFile.getLines();
-    assertThat(lines.get(4).executionCount()).isEqualTo(1000000000000L);
-    assertThat(lines.get(5).executionCount()).isEqualTo(1000000000000L);
+    assertThat(sourceFile.getLines()).containsExactly(4, 1000000000000L, 5, 1000000000000L);
   }
 
   @Test
@@ -202,5 +199,16 @@ public class LcovParserTest {
     SourceFileCoverage sourceFile = sourceFiles.get(0);
 
     assertThat(sourceFile.getAllLineNumbers()).containsExactly(Map.entry("func", 2));
+  }
+
+  @Test
+  public void testParseLineWithHash() throws IOException {
+    ImmutableList<String> traceFile =
+        ImmutableList.of("SF:src.foo", "DA:1,1,hash", "end_of_record");
+
+    List<SourceFileCoverage> sourceFiles =
+        LcovParser.parse(new ByteArrayInputStream(Joiner.on("\n").join(traceFile).getBytes(UTF_8)));
+
+    assertThat(sourceFiles.get(0).getLines()).containsExactly(1, 1L);
   }
 }

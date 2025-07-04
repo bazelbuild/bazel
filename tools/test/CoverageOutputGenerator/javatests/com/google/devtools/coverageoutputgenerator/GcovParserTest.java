@@ -148,22 +148,10 @@ public class GcovParserTest {
     assertThat(sourceFileCoverage.nrBranchesFound()).isEqualTo(16);
     assertThat(sourceFileCoverage.nrBranchesHit()).isEqualTo(8);
 
-    assertThat(sourceFileCoverage.getAllLineExecution())
+    assertThat(sourceFileCoverage.getLines())
         .containsExactly(
-            LineCoverage.create(7, 1, null),
-            LineCoverage.create(8, 2, null),
-            LineCoverage.create(18, 1, null),
-            LineCoverage.create(21, 1, null),
-            LineCoverage.create(23, 1, null),
-            LineCoverage.create(24, 1, null),
-            LineCoverage.create(25, 1, null),
-            LineCoverage.create(27, 11, null),
-            LineCoverage.create(28, 10, null),
-            LineCoverage.create(30, 1, null),
-            LineCoverage.create(32, 1, null),
-            LineCoverage.create(33, 0, null),
-            LineCoverage.create(35, 1, null),
-            LineCoverage.create(36, 1, null));
+            7, 1L, 8, 2L, 18, 1L, 21, 1L, 23, 1L, 24, 1L, 25, 1L, 27, 11L, 28, 10L, 30, 1L, 32, 1L,
+            33, 0L, 35, 1L, 36, 1L);
 
     assertThat(sourceFileCoverage.getAllBranches())
         .containsExactly(

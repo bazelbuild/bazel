@@ -36,12 +36,12 @@ public class LcovPrinterTest {
     sourceFileCoverage1.addLineNumber("bar", 4);
     sourceFileCoverage1.addFunctionExecution("foo", 3L);
     sourceFileCoverage1.addFunctionExecution("bar", 0L);
-    sourceFileCoverage1.addLine(2, LineCoverage.create(2, 3, "hash"));
-    sourceFileCoverage1.addLine(4, LineCoverage.create(4, 0, "hash2"));
+    sourceFileCoverage1.addLine(2, 3);
+    sourceFileCoverage1.addLine(4, 0);
     sourceFileCoverage2.addLineNumber("foo", 3);
     sourceFileCoverage2.addFunctionExecution("foo", 1L);
-    sourceFileCoverage2.addLine(3, LineCoverage.create(3, 1, null));
-    sourceFileCoverage2.addLine(4, LineCoverage.create(4, 1, null));
+    sourceFileCoverage2.addLine(3, 1);
+    sourceFileCoverage2.addLine(4, 1);
     coverage.add(sourceFileCoverage1);
     coverage.add(sourceFileCoverage2);
 
@@ -59,8 +59,8 @@ public class LcovPrinterTest {
             "FNDA:3,foo",
             "FNF:2",
             "FNH:1",
-            "DA:2,3,hash",
-            "DA:4,0,hash2",
+            "DA:2,3",
+            "DA:4,0",
             "LH:1",
             "LF:2",
             "end_of_record",
@@ -84,8 +84,8 @@ public class LcovPrinterTest {
     sourceFileCoverage1.addLineNumber("bar", 4);
     sourceFileCoverage1.addFunctionExecution("foo", 3L);
     sourceFileCoverage1.addFunctionExecution("bar", 0L);
-    sourceFileCoverage1.addLine(2, LineCoverage.create(2, 3, "hash"));
-    sourceFileCoverage1.addLine(4, LineCoverage.create(4, 0, "hash2"));
+    sourceFileCoverage1.addLine(2, 3);
+    sourceFileCoverage1.addLine(4, 0);
     coverage.add(sourceFileCoverage1);
 
     ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
@@ -102,8 +102,8 @@ public class LcovPrinterTest {
             "FNDA:3,foo",
             "FNF:2",
             "FNH:1",
-            "DA:2,3,hash",
-            "DA:4,0,hash2",
+            "DA:2,3",
+            "DA:4,0",
             "LH:1",
             "LF:2",
             "end_of_record");

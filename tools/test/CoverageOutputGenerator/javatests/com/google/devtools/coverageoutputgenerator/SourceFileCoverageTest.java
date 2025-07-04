@@ -28,9 +28,9 @@ public class SourceFileCoverageTest {
   public void testCopyConstructor() {
     SourceFileCoverage sourceFile = new SourceFileCoverage("src.foo");
     sourceFile.addLineNumber("foo", 3);
-    sourceFile.addLine(3, LineCoverage.create(3, 2, "1"));
-    sourceFile.addLine(4, LineCoverage.create(4, 1, "2"));
-    sourceFile.addLine(5, LineCoverage.create(5, 0, "3"));
+    sourceFile.addLine(3, 2);
+    sourceFile.addLine(4, 1);
+    sourceFile.addLine(5, 0);
     sourceFile.addBranch(3, BranchCoverage.create(3, 0, 2));
     sourceFile.addBranch(3, BranchCoverage.create(3, 1, 1));
     sourceFile.addBranch(5, BranchCoverage.create(5, 0, 0));
@@ -80,20 +80,20 @@ public class SourceFileCoverageTest {
   public void testMergeLineNumberToLineExecution() {
     SourceFileCoverage sourceFile1 = new SourceFileCoverage("src.foo");
     SourceFileCoverage sourceFile2 = new SourceFileCoverage("src.foo");
-    sourceFile1.addLine(4, LineCoverage.create(4, 3, "1"));
-    sourceFile1.addLine(5, LineCoverage.create(5, 4, "2"));
-    sourceFile1.addLine(10, LineCoverage.create(10, 0, "3"));
-    sourceFile2.addLine(4, LineCoverage.create(4, 5, "1"));
-    sourceFile2.addLine(5, LineCoverage.create(5, 0, "2"));
-    sourceFile2.addLine(10, LineCoverage.create(10, 3, "3"));
+    sourceFile1.addLine(4, 3);
+    sourceFile1.addLine(5, 4);
+    sourceFile1.addLine(10, 0);
+    sourceFile2.addLine(4, 5);
+    sourceFile2.addLine(5, 0);
+    sourceFile2.addLine(10, 3);
 
     SourceFileCoverage merged = SourceFileCoverage.merge(sourceFile1, sourceFile2);
 
     assertThat(merged.getLines())
         .containsExactly(
-            4, LineCoverage.create(4, 8, "1"),
-            5, LineCoverage.create(5, 4, "2"),
-            10, LineCoverage.create(10, 3, "3"));
+            4, 8L,
+            5, 4L,
+            10, 3L);
   }
 
   @Test
@@ -174,17 +174,17 @@ public class SourceFileCoverageTest {
     SourceFileCoverage sourceFile2 = new SourceFileCoverage("source");
     sourceFile1.addNewBrdaBranch(1, "0", "0", true, 1);
     sourceFile1.addNewBrdaBranch(1, "0", "1", true, 1);
-    sourceFile1.addLine(1, LineCoverage.create(1, 2, ""));
-    sourceFile1.addLine(2, LineCoverage.create(2, 1, ""));
-    sourceFile1.addLine(3, LineCoverage.create(3, 1, ""));
+    sourceFile1.addLine(1, 2);
+    sourceFile1.addLine(2, 1);
+    sourceFile1.addLine(3, 1);
 
     sourceFile2.addNewBrdaBranch(30, "0", "0", true, 3);
     sourceFile2.addNewBrdaBranch(30, "0", "1", true, 0);
     sourceFile2.addNewBrdaBranch(30, "0", "2", true, 1);
-    sourceFile2.addLine(30, LineCoverage.create(30, 4, ""));
-    sourceFile2.addLine(31, LineCoverage.create(31, 3, ""));
-    sourceFile2.addLine(32, LineCoverage.create(32, 0, ""));
-    sourceFile2.addLine(33, LineCoverage.create(33, 1, ""));
+    sourceFile2.addLine(30, 4);
+    sourceFile2.addLine(31, 3);
+    sourceFile2.addLine(32, 0);
+    sourceFile2.addLine(33, 1);
 
     SourceFileCoverage merged = SourceFileCoverage.merge(sourceFile1, sourceFile2);
     assertThat(merged.getAllBranches())
@@ -194,16 +194,8 @@ public class SourceFileCoverageTest {
             BranchCoverage.createWithBlockAndBranch(30, "0", "0", true, 3),
             BranchCoverage.createWithBlockAndBranch(30, "0", "1", true, 0),
             BranchCoverage.createWithBlockAndBranch(30, "0", "2", true, 1));
-
-    assertThat(merged.getAllLineExecution())
-        .containsExactly(
-            LineCoverage.create(1, 2, ""),
-            LineCoverage.create(2, 1, ""),
-            LineCoverage.create(3, 1, ""),
-            LineCoverage.create(30, 4, ""),
-            LineCoverage.create(31, 3, ""),
-            LineCoverage.create(32, 0, ""),
-            LineCoverage.create(33, 1, ""));
+    assertThat(merged.getLines())
+        .containsExactly(1, 2L, 2, 1L, 3, 1L, 30, 4L, 31, 3L, 32, 0L, 33, 1L);
   }
 
   @Test

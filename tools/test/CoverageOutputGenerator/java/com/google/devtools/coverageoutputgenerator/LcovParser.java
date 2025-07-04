@@ -357,12 +357,8 @@ class LcovParser {
     try {
       int lineNumber = Integer.parseInt(lineData[0]);
       long executionCount = Long.parseLong(lineData[1]);
-      String checkSum = null;
-      if (lineData.length == 3) {
-        checkSum = lineData[2];
-      }
-      LineCoverage lineCoverage = LineCoverage.create(lineNumber, executionCount, checkSum);
-      currentSourceFileCoverage.addLine(lineNumber, lineCoverage);
+      // Ignore the optional checksum
+      currentSourceFileCoverage.addLine(lineNumber, executionCount);
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "Tracefile contains an invalid number on DA line " + line);
       return false;

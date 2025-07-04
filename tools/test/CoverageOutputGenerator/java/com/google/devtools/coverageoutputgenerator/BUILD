@@ -68,20 +68,10 @@ java_library(
 )
 
 java_library(
-    name = "LineCoverage",
-    srcs = ["LineCoverage.java"],
-    deps = [
-        "//third_party:auto_value",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "SourceFileCoverage",
     srcs = ["SourceFileCoverage.java"],
     deps = [
         ":BranchCoverage",
-        ":LineCoverage",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -95,7 +85,6 @@ java_library(
         ":BranchCoverage",
         ":Constants",
         ":Coverage",
-        ":LineCoverage",
         ":SourceFileCoverage",
         "//third_party:guava",
     ],
@@ -116,7 +105,6 @@ java_library(
     deps = [
         ":BranchCoverage",
         ":Constants",
-        ":LineCoverage",
         ":SourceFileCoverage",
         "//third_party:guava",
     ],
@@ -131,7 +119,6 @@ java_library(
     deps = [
         ":BranchCoverage",
         ":Constants",
-        ":LineCoverage",
         ":SourceFileCoverage",
         "//third_party:gson",
     ],
@@ -146,7 +133,6 @@ java_library(
     deps = [
         ":BranchCoverage",
         ":Constants",
-        ":LineCoverage",
         ":SourceFileCoverage",
     ],
 )

@@ -173,15 +173,11 @@ class LcovPrinter {
 
   // DA:<line number>,<execution count>[,<checksum>]
   private void printDALines(SourceFileCoverage sourceFile) throws IOException {
-    for (LineCoverage lineExecution : sourceFile.getAllLineExecution()) {
+    for (Entry<Integer, Long> entry : sourceFile.getAllLines()) {
       bufferedWriter.write(Constants.DA_MARKER);
-      bufferedWriter.write(Integer.toString(lineExecution.lineNumber()));
+      bufferedWriter.write(Integer.toString(entry.getKey()));
       bufferedWriter.write(Constants.DELIMITER);
-      bufferedWriter.write(Long.toString(lineExecution.executionCount()));
-      if (lineExecution.checksum() != null) {
-        bufferedWriter.write(Constants.DELIMITER);
-        bufferedWriter.write(lineExecution.checksum());
-      }
+      bufferedWriter.write(Long.toString(entry.getValue()));
       bufferedWriter.newLine();
     }
   }

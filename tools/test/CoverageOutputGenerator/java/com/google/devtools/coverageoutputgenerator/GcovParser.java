@@ -175,7 +175,7 @@ public class GcovParser {
       // Ignore has_unexecuted_block since it's not used.
       int lineNr = Integer.parseInt(items[0]);
       long execCount = Long.parseLong(items[1]);
-      currentSourceFileCoverage.addLine(lineNr, LineCoverage.create(lineNr, execCount, null));
+      currentSourceFileCoverage.addLine(lineNr, execCount);
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "gcov info contains invalid line " + line);
       return false;

@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -29,10 +30,10 @@ import java.util.stream.Stream;
 class SourceFileCoverage {
 
   private String sourceFileName;
-  private final TreeMap<String, Integer> lineNumbers; // function name to line numbers
-  private final TreeMap<String, Long> functionsExecution; // function name to execution count
+  private final SortedMap<String, Integer> lineNumbers; // function name to line numbers
+  private final SortedMap<String, Long> functionsExecution; // function name to execution count
   private final ListMultimap<Integer, BranchCoverage> branches; // line number to branches
-  private final TreeMap<Integer, LineCoverage> lines; // line number to line execution
+  private final SortedMap<Integer, Long> lines; // line number to line execution
 
   SourceFileCoverage(String sourcefile) {
     this.sourceFileName = sourcefile;
@@ -62,8 +63,8 @@ class SourceFileCoverage {
 
   /** Returns the merged functions found in the two given {@code SourceFileCoverage}s. */
   @VisibleForTesting
-  static TreeMap<String, Integer> mergeLineNumbers(SourceFileCoverage s1, SourceFileCoverage s2) {
-    TreeMap<String, Integer> merged = new TreeMap<>();
+  static SortedMap<String, Integer> mergeLineNumbers(SourceFileCoverage s1, SourceFileCoverage s2) {
+    SortedMap<String, Integer> merged = new TreeMap<>();
     merged.putAll(s1.lineNumbers);
     merged.putAll(s2.lineNumbers);
     return merged;
@@ -71,7 +72,7 @@ class SourceFileCoverage {
 
   /** Returns the merged execution count found in the two given {@code SourceFileCoverage}s. */
   @VisibleForTesting
-  static TreeMap<String, Long> mergeFunctionsExecution(
+  static SortedMap<String, Long> mergeFunctionsExecution(
       SourceFileCoverage s1, SourceFileCoverage s2) {
     return Stream.of(s1.functionsExecution, s2.functionsExecution)
         .map(Map::entrySet)
@@ -86,20 +87,23 @@ class SourceFileCoverage {
 
   /** Returns the merged line execution found in the two given {@code SourceFileCoverage}s. */
   @VisibleForTesting
-  static TreeMap<Integer, LineCoverage> mergeLines(SourceFileCoverage s1, SourceFileCoverage s2) {
-    return Stream.of(s1.lines, s2.lines)
-        .map(Map::entrySet)
-        .flatMap(Collection::stream)
-        .collect(
-            Collectors.toMap(
-                Map.Entry::getKey, Map.Entry::getValue, LineCoverage::merge, TreeMap::new));
+  static SortedMap<Integer, Long> mergeLines(SourceFileCoverage s1, SourceFileCoverage s2) {
+    SortedMap<Integer, Long> merged = new TreeMap<>();
+    merged.putAll(s1.lines);
+    for (Entry<Integer, Long> entry : s2.lines.entrySet()) {
+      Long value = entry.getValue();
+      Long old = merged.get(entry.getKey());
+      if (old != null) {
+        value = old + value;
+      }
+      merged.put(entry.getKey(), value);
+    }
+    return merged;
   }
 
   private static int getNumberOfExecutedLines(SourceFileCoverage sourceFileCoverage) {
     return (int)
-        sourceFileCoverage.lines.entrySet().stream()
-            .filter(line -> line.getValue().executionCount() > 0)
-            .count();
+        sourceFileCoverage.lines.entrySet().stream().filter(line -> line.getValue() > 0).count();
   }
 
   /**
@@ -119,7 +123,8 @@ class SourceFileCoverage {
     merged.addAllFunctionsExecution(mergeFunctionsExecution(source1, source2));
     merged.addAllBranches(source1.branches);
     merged.addAllBranches(source2.branches);
-    merged.addAllLines(mergeLines(source1, source2));
+    merged.addAllLines(source1.lines);
+    merged.addAllLines(source2.lines);
     return merged;
   }
 
@@ -152,12 +157,8 @@ class SourceFileCoverage {
     return this.lines.size();
   }
 
-  Collection<LineCoverage> getAllLineExecution() {
-    return lines.values();
-  }
-
   @VisibleForTesting
-  TreeMap<String, Integer> getLineNumbers() {
+  SortedMap<String, Integer> getLineNumbers() {
     return lineNumbers;
   }
 
@@ -166,7 +167,7 @@ class SourceFileCoverage {
   }
 
   @VisibleForTesting
-  TreeMap<String, Long> getFunctionsExecution() {
+  SortedMap<String, Long> getFunctionsExecution() {
     return functionsExecution;
   }
 
@@ -179,15 +180,19 @@ class SourceFileCoverage {
   }
 
   @VisibleForTesting
-  Map<Integer, LineCoverage> getLines() {
+  Map<Integer, Long> getLines() {
     return lines;
+  }
+
+  Set<Entry<Integer, Long>> getAllLines() {
+    return lines.entrySet();
   }
 
   void addLineNumber(String functionName, Integer lineNumber) {
     this.lineNumbers.put(functionName, lineNumber);
   }
 
-  void addAllLineNumbers(TreeMap<String, Integer> lineNumber) {
+  void addAllLineNumbers(SortedMap<String, Integer> lineNumber) {
     this.lineNumbers.putAll(lineNumber);
   }
 
@@ -195,7 +200,7 @@ class SourceFileCoverage {
     this.functionsExecution.put(functionName, executionCount);
   }
 
-  void addAllFunctionsExecution(TreeMap<String, Long> functionsExecution) {
+  void addAllFunctionsExecution(SortedMap<String, Long> functionsExecution) {
     this.functionsExecution.putAll(functionsExecution);
   }
 
@@ -239,15 +244,21 @@ class SourceFileCoverage {
     }
   }
 
-  void addLine(Integer lineNumber, LineCoverage line) {
-    if (this.lines.get(lineNumber) != null) {
-      this.lines.put(lineNumber, LineCoverage.merge(line, this.lines.get(lineNumber)));
-      return;
-    }
-    this.lines.put(lineNumber, line);
+  void addLine(int lineNumber, long executionCount) {
+    addLine(Integer.valueOf(lineNumber), Long.valueOf(executionCount));
   }
 
-  void addAllLines(TreeMap<Integer, LineCoverage> lines) {
-    this.lines.putAll(lines);
+  void addLine(Integer lineNumber, Long executionCount) {
+    Long old = lines.get(lineNumber);
+    if (old != null) {
+      executionCount = executionCount + old;
+    }
+    lines.put(lineNumber, executionCount);
+  }
+
+  void addAllLines(SortedMap<Integer, Long> lines) {
+    for (Entry<Integer, Long> entry : lines.entrySet()) {
+      addLine(entry.getKey(), entry.getValue());
+    }
   }
 }
