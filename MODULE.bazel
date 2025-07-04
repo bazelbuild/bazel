@@ -24,7 +24,7 @@ bazel_dep(name = "stardoc", version = "0.7.2", repo_name = "io_bazel_skydoc")
 bazel_dep(name = "zstd-jni", version = "1.5.6-9")
 bazel_dep(name = "blake3", version = "1.5.1.bcr.1")
 bazel_dep(name = "zlib", version = "1.3.1.bcr.5")
-bazel_dep(name = "rules_java", version = "8.12.0")
+bazel_dep(name = "rules_java", version = "8.13.0")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
 bazel_dep(name = "rules_proto", version = "7.0.2")
 bazel_dep(name = "rules_jvm_external", version = "6.5")
@@ -101,14 +101,6 @@ single_version_override(
     patch_strip = 1,
     patches = ["//third_party:apple_support.patch"],
     version = "1.21.1",
-)
-
-# Remove once https://github.com/bazelbuild/rules_java/pull/303 is available in a rules_java release.
-single_version_override(
-    module_name = "rules_java",
-    patch_strip = 1,
-    patches = ["//third_party:rules_java.patch"],
-    version = "8.12.0",
 )
 
 # Remove once https://github.com/grpc/grpc-java/pull/12148 is available in a grpc-java release.
