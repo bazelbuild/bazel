@@ -356,7 +356,7 @@
   "moduleExtensions": {
     "//:repositories.bzl%async_profiler_repos": {
       "general": {
-        "bzlTransitiveDigest": "rtm1C/9Yphq5m8o9mPvKsiKlmhkZptlAG+wYvXnD7QI=",
+        "bzlTransitiveDigest": "AzNkBLaWa3ZpL8QiUs/k26yX7g6w5wF5fjJMP44LVOo=",
         "usagesDigest": "fv/Ru+up/1CLlox7G1yNn9y4JOVK1qeU6uQCAkCcMaM=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -885,83 +885,6 @@
             "pybind11_bazel+",
             "bazel_tools",
             "bazel_tools"
-          ]
-        ]
-      }
-    },
-    "@@rules_apple+//apple:apple.bzl%provisioning_profile_repository_extension": {
-      "general": {
-        "bzlTransitiveDigest": "3dx6FroNJQZ0p7RsGPlNceh1erHnNQa0BI4yTP513qg=",
-        "usagesDigest": "pS5nskWKqJmyQrAbunwjEcDsK6cHF7JOAXgEofCmj7k=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "local_provisioning_profiles": {
-            "repoRuleId": "@@rules_apple+//apple/internal:local_provisioning_profiles.bzl%provisioning_profile_repository",
-            "attributes": {}
-          }
-        },
-        "recordedRepoMappingEntries": [
-          [
-            "apple_support+",
-            "bazel_skylib",
-            "bazel_skylib+"
-          ],
-          [
-            "bazel_tools",
-            "rules_cc",
-            "rules_cc+"
-          ],
-          [
-            "rules_apple+",
-            "bazel_skylib",
-            "bazel_skylib+"
-          ],
-          [
-            "rules_apple+",
-            "bazel_tools",
-            "bazel_tools"
-          ],
-          [
-            "rules_apple+",
-            "build_bazel_apple_support",
-            "apple_support+"
-          ],
-          [
-            "rules_apple+",
-            "build_bazel_rules_swift",
-            "rules_swift+"
-          ],
-          [
-            "rules_cc+",
-            "bazel_tools",
-            "bazel_tools"
-          ],
-          [
-            "rules_cc+",
-            "rules_cc",
-            "rules_cc+"
-          ],
-          [
-            "rules_swift+",
-            "bazel_skylib",
-            "bazel_skylib+"
-          ],
-          [
-            "rules_swift+",
-            "bazel_tools",
-            "bazel_tools"
-          ],
-          [
-            "rules_swift+",
-            "build_bazel_apple_support",
-            "apple_support+"
-          ],
-          [
-            "rules_swift+",
-            "build_bazel_rules_swift",
-            "rules_swift+"
           ]
         ]
       }
