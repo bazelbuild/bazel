@@ -51,6 +51,9 @@ common:macos --host_per_file_copt=external/.*@-w
 common:windows --per_file_copt=external/.*@/w
 common:windows --host_per_file_copt=external/.*@/w
 
+# Enable Protobuf MSVC support on Windows
+build:windows --define=protobuf_allow_msvc=true
+
 # Enable Java 21 language features
 build --java_runtime_version=21
 build --java_language_version=21
