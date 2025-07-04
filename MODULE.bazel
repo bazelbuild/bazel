@@ -13,70 +13,52 @@ module(
 # Bazel module dependencies
 # =========================================
 
-bazel_dep(name = "rules_license", version = "1.0.0")
-bazel_dep(name = "bazel_skylib", version = "1.7.1")
-bazel_dep(name = "grpc", version = "1.66.0.bcr.2", repo_name = "com_github_grpc_grpc")
-bazel_dep(name = "grpc-java", version = "1.66.0")
-bazel_dep(name = "googleapis", version = "0.0.0-20240819-fe8ba054a")
-bazel_dep(name = "platforms", version = "1.0.0")
-bazel_dep(name = "rules_pkg", version = "1.0.1")
-bazel_dep(name = "stardoc", version = "0.7.2", repo_name = "io_bazel_skydoc")
-bazel_dep(name = "zstd-jni", version = "1.5.6-9")
+bazel_dep(name = "abseil-cpp", version = "20250127.1")
+bazel_dep(name = "bazel_skylib", version = "1.8.0")
 bazel_dep(name = "blake3", version = "1.5.1.bcr.1")
-bazel_dep(name = "zlib", version = "1.3.1.bcr.5")
-bazel_dep(name = "rules_java", version = "8.12.0")
-bazel_dep(name = "rules_graalvm", version = "0.11.1")
-bazel_dep(name = "rules_proto", version = "7.0.2")
-bazel_dep(name = "rules_jvm_external", version = "6.5")
-bazel_dep(name = "rules_python", version = "1.3.0")
-bazel_dep(name = "rules_testing", version = "0.6.0")
-bazel_dep(name = "googletest", version = "1.15.2", repo_name = "com_google_googletest")
-bazel_dep(name = "with_cfg.bzl", version = "0.6.0")
-bazel_dep(name = "abseil-cpp", version = "20240722.0.bcr.2")
-bazel_dep(name = "rules_shell", version = "0.3.0")
 bazel_dep(name = "chicory", version = "1.1.0")
-
-# Keep in sync with MODULE.tools so that the correct version is available during
-# bootstrap.
-bazel_dep(name = "buildozer", version = "8.2.0.bcr.1")
+bazel_dep(name = "googleapis-grpc-java", version = "1.0.0")
+bazel_dep(name = "googleapis-java", version = "1.0.0")
+bazel_dep(name = "googleapis", version = "0.0.0-20250604-de157ca3")
+bazel_dep(name = "googletest", version = "1.16.0", repo_name = "com_google_googletest")
+bazel_dep(name = "grpc-java", version = "1.71.0")
+bazel_dep(name = "grpc", version = "1.73.1", repo_name = "com_github_grpc_grpc")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "protobuf", version = "31.1", repo_name = "com_google_protobuf")
+bazel_dep(name = "rules_graalvm", version = "0.11.1")
+bazel_dep(name = "rules_java", version = "8.13.0")
+bazel_dep(name = "rules_jvm_external", version = "6.5")
+bazel_dep(name = "rules_license", version = "1.0.0")
+bazel_dep(name = "rules_pkg", version = "1.0.1")
+bazel_dep(name = "rules_proto", version = "7.0.2")
+bazel_dep(name = "rules_python", version = "1.3.0")
+bazel_dep(name = "rules_shell", version = "0.3.0")
+bazel_dep(name = "rules_testing", version = "0.6.0")
+bazel_dep(name = "stardoc", version = "0.7.2", repo_name = "io_bazel_skydoc")
+bazel_dep(name = "with_cfg.bzl", version = "0.6.0")
+bazel_dep(name = "zlib", version = "1.3.1.bcr.5")
+bazel_dep(name = "zstd-jni", version = "1.5.6-9")
 
 # Depend on apple_support first and then rules_cc so that the Xcode toolchain
 # from apple_support wins over the generic Unix toolchain from rules_cc.
-bazel_dep(name = "apple_support", version = "1.21.1")
-
-# Upgraded to fix a bug finding swiftc.exe on Windows
-bazel_dep(name = "rules_swift", version = "2.8.2")
+bazel_dep(name = "apple_support", version = "1.22.1")
 bazel_dep(name = "rules_cc", version = "0.1.2")
-
-# repo_name needs to be used, until WORKSPACE mode is to be supported in bazel_tools
-bazel_dep(name = "protobuf", version = "29.0", repo_name = "com_google_protobuf")
 
 # TODO: wyv@ - add remoteapis to the BCR
 bazel_dep(name = "remoteapis", version = "")
 
-# TODO: wyv@ - eventually this part should be unnecessary (after we fix up the googleapis module
-#   in the BCR)
-switched_rules = use_extension("@googleapis//:extensions.bzl", "switched_rules")
-switched_rules.use_languages(
-    cc = True,
-    go = True,
-    grpc = True,
-    java = True,
-    python = True,
-)
+# Indirect module dependencies. Minimal versions are specified for compatibility; repo_name=None avoids accidental usages
+bazel_dep(name = "buildozer", version = "8.2.0.bcr.1", repo_name = None)  # Keep in sync with MODULE.tools
+bazel_dep(name = "rules_swift", version = "2.8.2", repo_name = None)
+bazel_dep(name = "rules_apple", version = "4.0.1", repo_name = None)
+bazel_dep(name = "google_benchmark", version = "1.9.4", repo_name = None)
 
+# bazel_dep overrides
 single_version_override(
     module_name = "rules_jvm_external",
     patch_strip = 1,
     patches = ["//third_party:rules_jvm_external_6.5.patch"],
     version = "6.5",
-)
-
-single_version_override(
-    module_name = "grpc",
-    patch_strip = 1,
-    patches = ["//third_party:grpc_remove_provides_strings.patch"],
-    version = "1.66.0.bcr.2",
 )
 
 # TODO(pcloudy): Remove once the next version of rules_graalvm is available.
@@ -89,26 +71,18 @@ single_version_override(
     ],
 )
 
-# rules_foreign_cc is pulled in via grpc: remove this when grpc is updated.
+# 1. Expose @com_google_protobuf//java/core:lite_runtime_only
+# due to https://github.com/protocolbuffers/protobuf/commit/079be27925955348d1b3cb30ffbfa33dcec5778c
+# We need to package the lite runtime jar for Bazel's bootstrap build
+# 2. Rename protobuf's maven install back to the default "maven" namespace to avoid duplication of maven jar dependencies.
+# See https://github.com/bazel-contrib/rules_jvm_external/issues/916#issuecomment-3045506487
+# 3. Fix a protobuf upb issue while cross-compiling for windows arm64 platform.
+# See https://github.com/protocolbuffers/protobuf/commit/37c3384a4fb29de2e9dba6ddb3a50d632b12d23a
 single_version_override(
-    module_name = "rules_foreign_cc",
-    version = "0.15.0",
-)
-
-# Remove once https://github.com/bazelbuild/apple_support/pull/413 is available in an apple_support release.
-single_version_override(
-    module_name = "apple_support",
+    module_name = "protobuf",
     patch_strip = 1,
-    patches = ["//third_party:apple_support.patch"],
-    version = "1.21.1",
-)
-
-# Remove once https://github.com/bazelbuild/rules_java/pull/303 is available in a rules_java release.
-single_version_override(
-    module_name = "rules_java",
-    patch_strip = 1,
-    patches = ["//third_party:rules_java.patch"],
-    version = "8.12.0",
+    patches = ["//third_party:protobuf.patch"],
+    version = "31.1",
 )
 
 # Remove once https://github.com/grpc/grpc-java/pull/12148 is available in a grpc-java release.
@@ -116,22 +90,18 @@ single_version_override(
     module_name = "grpc-java",
     patch_strip = 1,
     patches = ["//third_party:grpc-java.patch"],
-    version = "1.66.0",
+)
+
+single_version_override(
+    module_name = "rules_java",
+    patch_strip = 1,
+    patches = ["//third_party:rules_java.patch"],
 )
 
 local_path_override(
     module_name = "remoteapis",
     path = "./third_party/remoteapis",
 )
-
-# The following Bazel modules are not direct dependencies for building Bazel,
-# but are required for visibility from DIST_ARCHIVE_REPOS in repositories.bzl
-bazel_dep(name = "rules_apple", version = "3.21.0")
-bazel_dep(name = "bazel_features", version = "1.30.0")
-bazel_dep(name = "c-ares", version = "1.15.0")
-bazel_dep(name = "rules_go", version = "0.48.0")
-bazel_dep(name = "rules_kotlin", version = "1.9.6")
-bazel_dep(name = "re2", version = "2024-07-02.bcr.1")
 
 # =========================================
 # Java dependencies
@@ -146,15 +116,15 @@ maven.install(
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
         "com.google.api-client:google-api-client:1.35.2",
         "com.google.api-client:google-api-client-gson:1.35.2",
-        "com.google.auth:google-auth-library-credentials:1.6.0",
-        "com.google.auth:google-auth-library-oauth2-http:1.6.0",
-        "com.google.auto:auto-common:1.2.1",
+        "com.google.auth:google-auth-library-credentials:1.24.1",
+        "com.google.auth:google-auth-library-oauth2-http:1.24.1",
+        "com.google.auto:auto-common:1.2.2",
         "com.google.auto.service:auto-service:1.0",
         "com.google.auto.service:auto-service-annotations:1.0.1",
         "com.google.auto.value:auto-value:1.11.0",
         "com.google.auto.value:auto-value-annotations:1.11.0",
         "com.google.code.findbugs:jsr305:3.0.2",
-        "com.google.code.gson:gson:2.10.1",
+        "com.google.code.gson:gson:2.11.0",
         "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.4",
         "com.google.errorprone:error_prone_annotation:2.39.0",
         "com.google.errorprone:error_prone_annotations:2.39.0",
@@ -163,10 +133,10 @@ maven.install(
         "com.google.flogger:flogger:0.5.1",
         "com.google.flogger:flogger-system-backend:0.5.1",
         "com.google.flogger:google-extensions:0.5.1",
-        "com.google.guava:failureaccess:1.0.1",
+        "com.google.guava:failureaccess:1.0.3",
         "com.google.guava:guava:33.4.6-jre",
-        "com.google.http-client:google-http-client:1.42.0",
-        "com.google.http-client:google-http-client-gson:1.42.0",
+        "com.google.http-client:google-http-client:1.42.2",
+        "com.google.http-client:google-http-client-gson:1.42.2",
         "com.google.turbine:turbine:0.10.0",
         "com.guardsquare:proguard-base:jar:7.5.0",
         "com.ryanharter.auto.value:auto-value-gson-extension:1.3.1",
@@ -194,12 +164,12 @@ maven.install(
         "io.netty:netty-handler-proxy:4.1.119.Final",
         "io.netty:netty-resolver:4.1.119.Final",
         "io.netty:netty-resolver-dns:4.1.119.Final",
-        "io.netty:netty-tcnative-boringssl-static:jar:linux-aarch_64:2.0.56.Final",
-        "io.netty:netty-tcnative-boringssl-static:jar:linux-x86_64:2.0.56.Final",
-        "io.netty:netty-tcnative-boringssl-static:jar:osx-aarch_64:2.0.56.Final",
-        "io.netty:netty-tcnative-boringssl-static:jar:osx-x86_64:2.0.56.Final",
-        "io.netty:netty-tcnative-boringssl-static:jar:windows-x86_64:2.0.56.Final",
-        "io.netty:netty-tcnative-classes:2.0.56.Final",
+        "io.netty:netty-tcnative-boringssl-static:jar:linux-aarch_64:2.0.70.Final",
+        "io.netty:netty-tcnative-boringssl-static:jar:linux-x86_64:2.0.70.Final",
+        "io.netty:netty-tcnative-boringssl-static:jar:osx-aarch_64:2.0.70.Final",
+        "io.netty:netty-tcnative-boringssl-static:jar:osx-x86_64:2.0.70.Final",
+        "io.netty:netty-tcnative-boringssl-static:jar:windows-x86_64:2.0.70.Final",
+        "io.netty:netty-tcnative-classes:2.0.70.Final",
         "io.netty:netty-transport:4.1.119.Final",
         "io.netty:netty-transport-classes-epoll:4.1.119.Final",
         "io.netty:netty-transport-classes-kqueue:4.1.119.Final",
@@ -220,7 +190,7 @@ maven.install(
         "org.apache.commons:commons-compress:1.26.1",
         "org.apache.tomcat:tomcat-annotations-api:8.0.5",
         "org.apache.velocity:velocity:1.7",
-        "org.checkerframework:checker-qual:3.19.0",
+        "org.checkerframework:checker-qual:3.42.0",
         "org.openjdk.jmh:jmh-core:1.37",
         "org.openjdk.jmh:jmh-generator-annprocess:1.37",
         "org.ow2.asm:asm:9.7.1",
@@ -228,10 +198,10 @@ maven.install(
         "org.ow2.asm:asm-commons:9.7.1",
         "org.ow2.asm:asm-tree:9.7.1",
         "org.ow2.asm:asm-util:9.7.1",
-        "org.pcollections:pcollections:3.1.4",
+        "org.pcollections:pcollections:4.0.1",
         "org.threeten:threeten-extra:1.5.0",
         "org.tukaani:xz:1.9",
-        "org.yaml:snakeyaml:1.28",
+        "org.yaml:snakeyaml:2.0",
         # The following jars are for testing.
         # junit is not test only due to //src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner,
         # and hamcrest is a dependency of junit.
@@ -266,7 +236,7 @@ maven.install(
         "com.google.jimfs:jimfs:1.2",
         "com.google.testing.compile:compile-testing:0.18",
         "com.google.testparameterinjector:test-parameter-injector:1.16",
-        "com.google.truth:truth:1.4.0",
+        "com.google.truth:truth:1.4.2",
         "com.google.truth.extensions:truth-java8-extension:1.4.0",
         "com.google.truth.extensions:truth-liteproto-extension:1.4.0",
         "com.google.truth.extensions:truth-proto-extension:1.4.0",
