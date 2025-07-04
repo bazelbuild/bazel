@@ -365,18 +365,8 @@ public final class CppCompileActionBuilder implements StarlarkValue {
       realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
       realMandatoryInputsBuilder.addTransitive(additionalPrunableHeaders);
     }
-    if (CppActionNames.CPP_MODULE_DEPS_SCANNING.equals(actionName)) {
-      // scan deps, do nothing
-    }
-    else if (CppCompileAction.isCpp20ModuleCompilationAction(actionName)
-            || CppFileTypes.CPP_SOURCE.matches(sourceFile.getExecPath())) {
-      // C++20 module compile and codegen
-      // or C++ source compile
-      if (featureConfiguration.isEnabled(CppRuleClasses.CPP_MODULES)) {
-        Preconditions.checkNotNull(modmapFile);
-        Preconditions.checkNotNull(modmapInputFile);
-        realMandatoryInputsBuilder.add(modmapFile).add(modmapInputFile);
-      }
+    if (modmapFile != null) {
+      realMandatoryInputsBuilder.add(modmapFile).add(Preconditions.checkNotNull(modmapInputFile));
     }
     return realMandatoryInputsBuilder.build();
   }

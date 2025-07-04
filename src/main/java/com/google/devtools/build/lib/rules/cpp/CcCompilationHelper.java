@@ -1038,11 +1038,6 @@ public final class CcCompilationHelper {
       Artifact sourceArtifact = source.getSource();
       String outputName = outputNameMap.get(sourceArtifact);
       ArtifactCategory outputCategory = ArtifactCategory.CPP_MODULE;
-      if (Objects.equals(ccToolchain.getCompiler(), "gcc")) {
-        outputCategory = ArtifactCategory.CPP_MODULE_GCM;
-      } else if (Objects.equals(ccToolchain.getCompiler(), "msvc-cl")) {
-        outputCategory = ArtifactCategory.CPP_MODULE_IFC;
-      }
       var moduleFile =
           CppHelper.getCompileOutputArtifact(
               actionConstructionContext,
@@ -1135,13 +1130,6 @@ public final class CcCompilationHelper {
       builder.setModmapInputFile(modmapInputFile);
 
       PathFragment ccRelativeName = sourceArtifact.getRootRelativePath();
-      // TODO(plf): Continue removing CLIF logic from C++. Follow up changes would include
-      // refactoring CppSource.Type and ArtifactCategory to be classes instead of enums
-      // that could be instantiated with arbitrary values.
-      ArtifactCategory outputCategory =
-          source.getType() == CppSource.Type.CLIF_INPUT_PROTO
-              ? ArtifactCategory.CLIF_OUTPUT_PROTO
-              : ArtifactCategory.OBJECT_FILE;
       var additionalBuildVariables =
           ImmutableMap.of(
               CompileBuildVariables.CPP_MODULE_OUTPUT_FILE.getVariableName(),
@@ -1154,7 +1142,7 @@ public final class CcCompilationHelper {
           result,
           sourceArtifact,
           builder,
-          outputCategory,
+          ArtifactCategory.OBJECT_FILE,
           ccCompilationContext.getCppModuleMap(),
           /* addObject= */ true,
           isCodeCoverageEnabled,
@@ -1168,7 +1156,7 @@ public final class CcCompilationHelper {
 
     for (CppSource source : compilationUnitSources.values()) {
       Artifact sourceArtifact = source.getSource();
-
+      PathFragment sourcePath = sourceArtifact.getExecPath();
       Label sourceLabel = source.getLabel();
       CppCompileActionBuilder builder = initializeCompileAction(sourceArtifact);
       builder.setPicMode(usePic);
@@ -1181,42 +1169,49 @@ public final class CcCompilationHelper {
               && CppFileTypes.LTO_SOURCE.matches(sourceArtifact.getFilename());
 
       String outputName = outputNameMap.get(sourceArtifact);
-      builder.setModuleFiles(allModuleFiles);
-
-      // all -fmodule-file=<module-name>=<path/to/bmi> flags are put in .modmap file
-      var modmapFile =
-          CppHelper.getCompileOutputArtifact(
-              actionConstructionContext,
-              label,
-              CppHelper.getArtifactNameForCategory(
-                  ccToolchain,
-                  ArtifactCategory.CPP_MODULES_MODMAP,
-                  getOutputNameBaseWith(outputName, usePic)),
-              configuration);
-      // all path/to/bmi are put in .modmap.input file,
-      // which is convenient to get all bmi in CppCompileAction
-      var modmapInputFile =
-          CppHelper.getCompileOutputArtifact(
-              actionConstructionContext,
-              label,
-              CppHelper.getArtifactNameForCategory(
-                  ccToolchain,
-                  ArtifactCategory.CPP_MODULES_MODMAP_INPUT,
-                  getOutputNameBaseWith(outputName, usePic)),
-              configuration);
-      var ddiOutputName =
-          CppHelper.getArtifactNameForCategory(
-              ccToolchain,
-              ArtifactCategory.CPP_MODULES_DDI,
-              getOutputNameBaseWith(outputName, usePic));
-      Artifact ddiFile =
-          CppHelper.getCompileOutputArtifact(
-              actionConstructionContext, label, ddiOutputName, configuration);
-      createScanDepsAction(source.getLabel(), sourceArtifact, usePic, ddiFile, ddiOutputName);
-      createGenModmapAction(ddiFile, modulesInfoFile, modmapFile, modmapInputFile);
-      builder.setModmapFile(modmapFile);
-      builder.setModmapInputFile(modmapInputFile);
-
+      ImmutableMap<String, String> additionalBuildVariables = ImmutableMap.of();
+      // Only C++ compilation unit will be compiled with C++20 Modules.
+      if (CppFileTypes.CPP_SOURCE.matches(sourcePath)) {
+        builder.setModuleFiles(allModuleFiles);
+  
+        // all -fmodule-file=<module-name>=<path/to/bmi> flags are put in .modmap file
+        var modmapFile =
+            CppHelper.getCompileOutputArtifact(
+                actionConstructionContext,
+                label,
+                CppHelper.getArtifactNameForCategory(
+                    ccToolchain,
+                    ArtifactCategory.CPP_MODULES_MODMAP,
+                    getOutputNameBaseWith(outputName, usePic)),
+                configuration);
+        // all path/to/bmi are put in .modmap.input file,
+        // which is convenient to get all bmi in CppCompileAction
+        var modmapInputFile =
+            CppHelper.getCompileOutputArtifact(
+                actionConstructionContext,
+                label,
+                CppHelper.getArtifactNameForCategory(
+                    ccToolchain,
+                    ArtifactCategory.CPP_MODULES_MODMAP_INPUT,
+                    getOutputNameBaseWith(outputName, usePic)),
+                configuration);
+        var ddiOutputName =
+            CppHelper.getArtifactNameForCategory(
+                ccToolchain,
+                ArtifactCategory.CPP_MODULES_DDI,
+                getOutputNameBaseWith(outputName, usePic));
+        Artifact ddiFile =
+            CppHelper.getCompileOutputArtifact(
+                actionConstructionContext, label, ddiOutputName, configuration);
+        createScanDepsAction(source.getLabel(), sourceArtifact, usePic, ddiFile, ddiOutputName);
+        createGenModmapAction(ddiFile, modulesInfoFile, modmapFile, modmapInputFile);
+        builder.setModmapFile(modmapFile);
+        builder.setModmapInputFile(modmapInputFile);
+        additionalBuildVariables =
+            ImmutableMap.of(
+                CompileBuildVariables.CPP_MODULE_MODMAP_FILE.getVariableName(),
+                modmapFile.getExecPathString());
+      }
       PathFragment ccRelativeName = sourceArtifact.getRootRelativePath();
       // TODO(plf): Continue removing CLIF logic from C++. Follow up changes would include
       // refactoring CppSource.Type and ArtifactCategory to be classes instead of enums
@@ -1225,10 +1220,6 @@ public final class CcCompilationHelper {
           source.getType() == CppSource.Type.CLIF_INPUT_PROTO
               ? ArtifactCategory.CLIF_OUTPUT_PROTO
               : ArtifactCategory.OBJECT_FILE;
-      var additionalBuildVariables =
-          ImmutableMap.of(
-              CompileBuildVariables.CPP_MODULE_MODMAP_FILE.getVariableName(),
-              modmapFile.getExecPathString());
       createSourceActionHelper(
           sourceLabel,
           outputName,

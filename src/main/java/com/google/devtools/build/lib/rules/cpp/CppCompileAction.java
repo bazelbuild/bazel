@@ -416,24 +416,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     outputs.addAll(additionalOutputs);
     if (dotdFile != null) {
-      if (featureConfiguration.isEnabled(CppRuleClasses.CPP_MODULES)) {
-        switch (actionName) {
-          case CppActionNames.CPP20_MODULE_CODEGEN:
-            {
-              break;
-            }
-          case CppActionNames.CPP_COMPILE:
-          case CppActionNames.CPP20_MODULE_COMPILE:
-          case CppActionNames.CPP_MODULE_DEPS_SCANNING:
-            // other source files. e.g. c
-          default:
-            {
-              outputs.add(dotdFile);
-            }
-        }
-      } else {
-        outputs.add(dotdFile);
-      }
+      outputs.add(dotdFile);
     }
     if (diagnosticsFile != null) {
       outputs.add(diagnosticsFile);
@@ -1015,12 +998,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // Linux: this prevents gcc/clang from writing the unpredictable (and often irrelevant) value
       // of getcwd() into the debug info. Not applicable to Darwin or Windows, which have no /proc.
       environment.put("PWD", "/proc/self/cwd");
-    }
-    if (Objects.equals(CppActionNames.CPP_MODULE_DEPS_SCANNING, actionName)) {
-      // export DEPS_SCANNER_OUTPUT_FILE
-      // redirect clang-scan-deps output to outputFile
-      // due to clang-scan-deps has no option like `-o` to specify the output file
-      environment.put("DEPS_SCANNER_OUTPUT_FILE", getPrimaryOutput().getExecPathString());
     }
     environment.putAll(compileCommandLine.getEnvironment(pathMapper));
     return ImmutableMap.copyOf(environment);
