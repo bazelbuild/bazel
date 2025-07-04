@@ -2,7 +2,16 @@
   Report an issue<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
 </a>
 {% dynamic if not setvar.source_file %}
-<a class="button button-with-icon" href="https://github.com/bazelbuild/bazel/tree/master/site/en{% dynamic print request.path %}.md" target="_blank">
+{% dynamic if "version" in request.path %}
+{% dynamic setvar branchpath "/release-"+request.path.split("/")[2]+"/site/en/"+"/".join(request.path.split("/")[3:]) %}
+<a class="button button-with-icon"
+href="https://github.com/bazelbuild/bazel/tree{% dynamic print setvar.branchpath %}.md"
+target="_blank">
+{% dynamic else %}
+<a class="button button-with-icon"
+href="https://github.com/bazelbuild/bazel/tree/master/site/en{% dynamic print request.path %}.md"
+target="_blank">
+{% dynamic endif %}
   View source<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
 </a>
 {% dynamic elif setvar.source_file != "NONE" %}
