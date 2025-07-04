@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
@@ -346,6 +347,36 @@ public final class CcCommon implements StarlarkValue {
       }
     }
     return coverageFeatures.build();
+  }
+
+  /**
+   * Creates a feature configuration for a given rule. Assumes strictly cc sources.
+   *
+   * @param ruleContext the context of the rule we want the feature configuration for.
+   * @param toolchain C++ toolchain provider.
+   * @return the feature configuration for the given {@code ruleContext}.
+   */
+  @VisibleForTesting
+  public static FeatureConfiguration configureFeaturesOrReportRuleError(
+      RuleContext ruleContext,
+      Language language,
+      CcToolchainProvider toolchain,
+      CppSemantics semantics) {
+    ImmutableSet<String> requestedFeatures = ruleContext.getFeatures();
+    ImmutableSet<String> unsupportedFeatures = ruleContext.getDisabledFeatures();
+    try {
+      semantics.validateLayeringCheckFeatures(
+          ruleContext, /* aspectDescriptor= */ null, toolchain, ImmutableSet.of());
+      return configureFeaturesOrThrowEvalException(
+          requestedFeatures,
+          unsupportedFeatures,
+          language,
+          toolchain,
+          toolchain.getCppConfiguration());
+    } catch (EvalException e) {
+      ruleContext.ruleError(e.getMessage());
+      return FeatureConfiguration.EMPTY;
+    }
   }
 
   public static FeatureConfiguration configureFeaturesOrThrowEvalException(
