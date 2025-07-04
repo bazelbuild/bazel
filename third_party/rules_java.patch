@@ -1,109 +1,40 @@
-commit c02b7724a5dcf85bb9c87bc06c1cd0504c0507f9
-Author: David Sanderson <32687193+dws@users.noreply.github.com>
-Date:   Wed Jun 11 17:35:01 2025 -0400
+commit a0df97cd25f9784da04f55ac037eee4ae0fa777c
+Author: Yun Peng <pcloudy@google.com>
+Date:   Fri Jul 4 17:41:27 2025 +0200
 
-    use DefaultInfo in rules_java
+    Use root test_deps target from bazel_skylib
     
-    We here address the following obstacles in rules_java to using
-    Bazel's --incompatible_disable_target_default_provider_fields flag:
-    
-        ERROR: /private/var/tmp/_bazel_dws/7fd3cd5077fbf76d9e2ae421c39ef7ed/external/rules_java+/toolchains/BUILD:359:27: in java_toolchain rule @@rules_java+//toolchains:toolchain_jdk_21:
-        Traceback (most recent call last):
-                File "/private/var/tmp/_bazel_dws/7fd3cd5077fbf76d9e2ae421c39ef7ed/external/rules_java+/java/common/rules/java_toolchain.bzl", line 100, column 45, in _java_toolchain_impl
-                        jacocorunner = ctx.attr.jacocorunner.files_to_run if ctx.attr.jacocorunner else None,
-        Error: Accessing the default provider in this manner is deprecated and will be removed soon. It may be temporarily re-enabled by setting --incompatible_disable_target_default_provider_fields=false. See https://github.com/bazelbuild/bazel/issues/20183 for details.
-        ERROR: /private/var/tmp/_bazel_dws/7fd3cd5077fbf76d9e2ae421c39ef7ed/external/rules_java+/toolchains/BUILD:359:27: Analysis of target '@@rules_java+//toolchains:toolchain_jdk_21' failed
-        ERROR: Analysis of target '//src:bazel' failed; build aborted: Analysis failed
-    
-        ERROR: /Users/dws/src/bazel-dws/third_party/BUILD:578:20: in java_import rule //third_party:netty_tcnative_checked_in:
-        Traceback (most recent call last):
-                File "/private/var/tmp/_bazel_dws/7fd3cd5077fbf76d9e2ae421c39ef7ed/external/rules_java+/java/bazel/rules/bazel_java_import.bzl", line 25, column 34, in _proxy
-                        return bazel_java_import_rule(
-                File "/private/var/tmp/_bazel_dws/7fd3cd5077fbf76d9e2ae421c39ef7ed/external/rules_java+/java/common/rules/impl/bazel_java_import_impl.bzl", line 132, column 35, in bazel_java_import_rule
-                        collected_jars = _collect_jars(ctx, jars)
-                File "/private/var/tmp/_bazel_dws/7fd3cd5077fbf76d9e2ae421c39ef7ed/external/rules_java+/java/common/rules/impl/bazel_java_import_impl.bzl", line 38, column 24, in _collect_jars
-                        for jar in info.files.to_list():
-        Error: Accessing the default provider in this manner is deprecated and will be removed soon. It may be temporarily re-enabled by setting --incompatible_disable_target_default_provider_fields=false. See https://github.com/bazelbuild/bazel/issues/20183 for details.
-        ERROR: /Users/dws/src/bazel-dws/third_party/BUILD:578:20: Analysis of target '//third_party:netty_tcnative_checked_in' failed
-        ERROR: Analysis of target '//src:bazel' failed; build aborted: Analysis failed
+    Fixing
+    ```
+    $ bazel build //src/test/java/com/google/devtools/build/lib/query2/cquery:FilesOutputFormatterCallbackTest
+    INFO: Invocation ID: a90dc4d1-9d48-4164-a9d1-7d82a393fc37
+    INFO: Options provided by the client:
+      Inherited 'common' options: --isatty=1 --terminal_columns=170
+    INFO: Reading rc options for 'build' from /Users/pcloudy/workspace/bazel/.bazelrc:
+      Inherited 'common' options: --enable_platform_specific_config --check_direct_dependencies=error --downloader_config=bazel_downloader.cfg
+    INFO: Reading rc options for 'build' from /Users/pcloudy/workspace/bazel/.bazelrc:
+      'build' options: --java_runtime_version=21 --java_language_version=21 --tool_java_language_version=21 --tool_java_runtime_version=21
+    INFO: Reading rc options for 'build' from /Users/pcloudy/.bazelrc:
+      'build' options: --verbose_failures --announce_rc --disk_cache=/tmp/bazel_disk_cache --repository_cache=/tmp/bazel_repository_cache
+    INFO: Found applicable config definition build:macos in file /Users/pcloudy/workspace/bazel/.bazelrc: --host_macos_minimum_os=10.13 --macos_minimum_os=10.13 --cxxopt=-std=c++17 --host_cxxopt=-std=c++17 --per_file_copt=external/.*@-w --host_per_file_copt=external/.*@-w
+    DEBUG: /private/var/tmp/_bazel_pcloudy/829441223e9fec5a5a2e3d1dd743fdf0/external/grpc-java+/java_grpc_library.bzl:201:14: Multiple values in 'deps' is deprecated in build_bazel_remote_execution_v2_remote_execution_java_grpc
+    ERROR: /private/var/tmp/_bazel_pcloudy/829441223e9fec5a5a2e3d1dd743fdf0/external/rules_java+/java/BUILD:78:10: in filegroup rule @@rules_java+//java:for_bazel_tests: Visibility error:
+    target '@@bazel_skylib+//lib:test_deps' is not visible from
+    target '@@rules_java+//java:for_bazel_tests'
+    Recommendation: modify the visibility declaration if you think the dependency is legitimate. For more info see https://bazel.build/concepts/visibility
+    ```
+    after upgrading bazel_skylib which contains https://github.com/bazelbuild/bazel-skylib/pull/508
 
-diff --git a/java/common/rules/impl/bazel_java_import_impl.bzl b/java/common/rules/impl/bazel_java_import_impl.bzl
-index 4465670..ce338cb 100644
---- a/java/common/rules/impl/bazel_java_import_impl.bzl
-+++ b/java/common/rules/impl/bazel_java_import_impl.bzl
-@@ -35,7 +35,7 @@ def _collect_jars(ctx, jars):
-     for info in jars:
-         if JavaInfo in info:
-             fail("'jars' attribute cannot contain labels of Java targets")
--        for jar in info.files.to_list():
-+        for jar in info[DefaultInfo].files.to_list():
-             jar_path = jar.dirname + jar.basename
-             if jars_dict.get(jar_path) != None:
-                 fail("in jars attribute of java_import rule //" + ctx.label.package + ":" + ctx.attr.name + ": " + jar.basename + " is a duplicate")
-@@ -179,7 +179,7 @@ def bazel_java_import_rule(
-     # TODO(kotlaja): Revise if collected_runtimes can be added into construct_defaultinfo directly.
-     collected_runtimes = []
-     for runtime_dep in ctx.attr.runtime_deps:
--        collected_runtimes.extend(runtime_dep.files.to_list())
-+        collected_runtimes.extend(runtime_dep[DefaultInfo].files.to_list())
- 
-     target["DefaultInfo"] = construct_defaultinfo(
-         ctx,
-diff --git a/java/common/rules/java_toolchain.bzl b/java/common/rules/java_toolchain.bzl
-index 2e4fc67..fe32fc3 100644
---- a/java/common/rules/java_toolchain.bzl
-+++ b/java/common/rules/java_toolchain.bzl
-@@ -96,13 +96,13 @@ def _java_toolchain_impl(ctx):
-     oneversion_allowlist = ctx.file.oneversion_allowlist if ctx.file.oneversion_allowlist else ctx.file.oneversion_whitelist
-     java_toolchain_info = _new_javatoolchaininfo(
-         bootclasspath = bootclasspath_info.bootclasspath,
--        ijar = ctx.attr.ijar.files_to_run if ctx.attr.ijar else None,
--        jacocorunner = ctx.attr.jacocorunner.files_to_run if ctx.attr.jacocorunner else None,
-+        ijar = ctx.attr.ijar[DefaultInfo].files_to_run if ctx.attr.ijar else None,
-+        jacocorunner = ctx.attr.jacocorunner[DefaultInfo].files_to_run if ctx.attr.jacocorunner else None,
-         java_runtime = java_runtime,
-         jvm_opt = depset(get_internal_java_common().expand_java_opts(ctx, "jvm_opts", tokenize = False, exec_paths = True)),
-         label = ctx.label,
--        proguard_allowlister = ctx.attr.proguard_allowlister.files_to_run if ctx.attr.proguard_allowlister else None,
--        single_jar = ctx.attr.singlejar.files_to_run,
-+        proguard_allowlister = ctx.attr.proguard_allowlister[DefaultInfo].files_to_run if ctx.attr.proguard_allowlister else None,
-+        single_jar = ctx.attr.singlejar[DefaultInfo].files_to_run,
-         source_version = ctx.attr.source_version,
-         target_version = ctx.attr.target_version,
-         tools = depset(ctx.files.tools),
-@@ -131,7 +131,7 @@ def _java_toolchain_impl(ctx):
-         _javac_supports_worker_multiplex_sandboxing = ctx.attr.javac_supports_worker_multiplex_sandboxing,
-         _jspecify_info = _get_jspecify_info(ctx),
-         _local_java_optimization_config = ctx.files._local_java_optimization_configuration,
--        _one_version_tool = ctx.attr.oneversion.files_to_run if ctx.attr.oneversion else None,
-+        _one_version_tool = ctx.attr.oneversion[DefaultInfo].files_to_run if ctx.attr.oneversion else None,
-         _one_version_allowlist = oneversion_allowlist,
-         _one_version_allowlist_for_tests = ctx.file.oneversion_allowlist_for_tests,
-         _package_configuration = [dep[JavaPackageConfigurationInfo] for dep in ctx.attr.package_configuration],
-@@ -171,7 +171,7 @@ def _get_javac_opts(ctx):
- def _get_android_lint_tool(ctx):
-     if not ctx.attr.android_lint_runner:
-         return None
--    files_to_run = ctx.attr.android_lint_runner.files_to_run
-+    files_to_run = ctx.attr.android_lint_runner[DefaultInfo].files_to_run
-     if not files_to_run or not files_to_run.executable:
-         fail(ctx.attr.android_lint_runner.label, "does not refer to a valid executable target")
-     return struct(
-@@ -186,7 +186,7 @@ def _get_tool_from_ctx(ctx, tool_attr, data_attr, opts_attr):
-     dep = getattr(ctx.attr, tool_attr)
-     if not dep:
-         return None
--    files_to_run = dep.files_to_run
-+    files_to_run = dep[DefaultInfo].files_to_run
-     if not files_to_run or not files_to_run.executable:
-         fail(dep.label, "does not refer to a valid executable target")
-     data = getattr(ctx.attr, data_attr)
-@@ -200,7 +200,7 @@ def _get_tool_from_executable(ctx, attr_name, data = [], jvm_opts = []):
-     dep = getattr(ctx.attr, attr_name)
-     if not dep:
-         return None
--    files_to_run = dep.files_to_run
-+    files_to_run = dep[DefaultInfo].files_to_run
-     if not files_to_run or not files_to_run.executable:
-         fail(dep.label, "does not refer to a valid executable target")
-     return struct(tool = files_to_run, data = depset(data), jvm_opts = depset(jvm_opts))
+diff --git a/java/BUILD b/java/BUILD
+index 3162148..452c765 100644
+--- a/java/BUILD
++++ b/java/BUILD
+@@ -88,7 +88,7 @@ filegroup(
+         "//java/common:for_bazel_tests",
+         "//java/private:for_bazel_tests",
+         "//java/toolchains:for_bazel_tests",
+-        "@bazel_skylib//lib:test_deps",
++        "@bazel_skylib//:test_deps",
+     ],
+     visibility = ["//visibility:public"],
+ )

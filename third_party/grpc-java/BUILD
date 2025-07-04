@@ -64,15 +64,3 @@ filegroup(
     name = "grpc_jars",
     srcs = GRPC_JARS,
 )
-
-distrib_cc_binary(
-    name = "grpc-java-plugin",
-    srcs = [
-        "compiler/src/java_plugin/cpp/java_generator.cpp",
-        "compiler/src/java_plugin/cpp/java_generator.h",
-        "compiler/src/java_plugin/cpp/java_plugin.cpp",
-    ],
-    copts = ["-w"],
-    enable_distributions = ["debian"],
-    deps = ["//third_party/protobuf:protoc_lib"],
-)
