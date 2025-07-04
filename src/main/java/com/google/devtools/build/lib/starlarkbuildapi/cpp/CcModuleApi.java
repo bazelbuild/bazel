@@ -323,13 +323,6 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
         @Param(
-            name = "code_coverage_enabled",
-            positional = false,
-            named = true,
-            documented = false,
-            allowedTypes = {@ParamType(type = Boolean.class)},
-            defaultValue = "unbound"),
-        @Param(
             name = "hdrs_checking_mode",
             positional = false,
             named = true,
@@ -419,7 +412,6 @@ public interface CcModuleApi<
       Object additionalModuleMapsNoneable,
       Object propagateModuleMapToCompileActionObject,
       Object doNotGenerateModuleMapObject,
-      Object codeCoverageEnabledObject,
       Object hdrsCheckingModeObject,
       Object variablesExtension,
       Object languageObject,

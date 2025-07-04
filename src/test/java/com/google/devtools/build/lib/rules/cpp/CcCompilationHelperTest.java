@@ -127,12 +127,4 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
     assertThat(Artifact.toRootRelativePaths(helperArtifacts.build()))
         .contains(objcSrc.getRootRelativePath().toString());
   }
-
-  @Test
-  public void testSetAllowCodeCoverage() throws Exception {
-    useConfiguration("--collect_code_coverage", "--instrumentation_filter=.");
-    ConfiguredTarget target =
-        scratchConfiguredTarget("a", "b", "cc_library(name = 'b', srcs = ['cpp.cc'])");
-    assertThat(CcCompilationHelper.isCodeCoverageEnabled(getRuleContext(target))).isTrue();
-  }
 }

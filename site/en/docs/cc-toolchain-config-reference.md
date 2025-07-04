@@ -1092,7 +1092,22 @@ conditions.
        the C++ configuration when present. See the complete list of
        features below.
      </td>
-    </tr>
+  </tr>
+  <tr>
+    <td><strong><code>coverage_enabled</code></strong>
+    </td>
+    <td>
+      Enabled when coverage collection is generally enabled.
+    </td>
+  </tr>
+  <tr>
+    <td><strong><code>coverage_instrumented</code></strong>
+    </td>
+    <td>
+      Enabled when the current target should be instrumented for
+      coverage.
+    </td>
+  </tr>
 </table>
 
 #### Legacy features patching logic {:#legacy-features-patching-logic}
