@@ -15,13 +15,14 @@
 #include "tools/cpp/modules_tools/generate-modmap/generate-modmap.h"
 
 #include <gtest/gtest.h>
+#include <sstream>
 
 TEST(ModmapTest, EmptyInput) {
   ModuleDep dep{};
   Cpp20ModulesInfo info{};
   auto modmap = process(dep, info);
 
-  std::unordered_set<ModmapItem> expected_modmap;
+  std::set<ModmapItem> expected_modmap;
   EXPECT_EQ(modmap, expected_modmap);
 }
 
@@ -39,7 +40,7 @@ TEST(ModmapTest, BasicFunctionality) {
 
   auto modmap = process(dep, info);
 
-  std::unordered_set<ModmapItem> expected_modmap = {
+  std::set<ModmapItem> expected_modmap = {
       {"module1", "/path/to/module1"}, {"module2", "/path/to/module2"}};
   EXPECT_EQ(modmap, expected_modmap);
 }
@@ -59,7 +60,7 @@ TEST(ModmapTest, BasicFunctionality2) {
 
   auto modmap = process(dep, info);
 
-  std::unordered_set<ModmapItem> expected_modmap = {
+  std::set<ModmapItem> expected_modmap = {
       {"module1", "/path/to/module1"},
       {"module2", "/path/to/module2"},
       {"module3", "/path/to/module3"}};
@@ -82,9 +83,42 @@ TEST(ModmapTest, BasicFunctionality3) {
 
   auto modmap = process(dep, info);
 
-  std::unordered_set<ModmapItem> expected_modmap = {
+  std::set<ModmapItem> expected_modmap = {
       {"module1", "/path/to/module1"},
       {"module2", "/path/to/module2"},
       {"module4", "/path/to/module4"}};
   EXPECT_EQ(modmap, expected_modmap);
+}
+
+// if use std::unordered_set, the order of iteration is not deterministic
+// therefore, use std::set for ModmapItem
+TEST(ModmapTest, DeterministicIterationOrderOfWriteModmap) {
+  std::stringstream modmap_file_stream1;
+  std::stringstream modmap_file_dot_input_stream1;
+  write_modmap(
+    modmap_file_stream1,
+    modmap_file_dot_input_stream1,
+    {
+      {"module1", "/path/to/module1"},
+      {"module2", "/path/to/module2"},
+      {"module3", "/path/to/module3"},
+    },
+    "clang",
+    std::nullopt
+  );
+  std::stringstream modmap_file_stream2;
+  std::stringstream modmap_file_dot_input_stream2;
+  write_modmap(
+    modmap_file_stream2,
+    modmap_file_dot_input_stream2,
+    {
+      {"module2", "/path/to/module2"},
+      {"module1", "/path/to/module1"},
+      {"module3", "/path/to/module3"},
+    },
+    "clang",
+    std::nullopt
+  );
+  EXPECT_EQ(modmap_file_stream1.str(), modmap_file_stream2.str());
+  EXPECT_EQ(modmap_file_dot_input_stream1.str(), modmap_file_dot_input_stream2.str());
 }
