@@ -3217,7 +3217,7 @@ EOF
   touch $repo/REPO.bazel
 
   mkdir -p $repo/lib
-  # Use a comma in the target name as that is known to be problematic whith -Wl,
+  # Use a comma in the target name as that is known to be problematic which -Wl,
   # which is commonly used to pass rpaths to the linker.
   cat > $repo/lib/BUILD <<'EOF'
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
