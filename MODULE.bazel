@@ -81,6 +81,12 @@ single_version_override(
     version = "1.71.0",
 )
 
+single_version_override(
+    module_name = "rules_java",
+    patch_strip = 1,
+    patches = ["//third_party:rules_java.patch"],
+)
+
 local_path_override(
     module_name = "remoteapis",
     path = "./third_party/remoteapis",
