@@ -37,6 +37,9 @@ import javax.annotation.Nullable;
  * Abstract Action to write to a file.
  */
 public abstract class AbstractFileWriteAction extends AbstractAction {
+  /** The default mnemonic for a file write action. */
+  public static final String MNEMONIC = "FileWrite";
+
   /**
    * Creates a new AbstractFileWriteAction instance.
    *
@@ -91,7 +94,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
 
   @Override
   public String getMnemonic() {
-    return "FileWrite";
+    return MNEMONIC;
   }
 
   @Override
