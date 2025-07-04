@@ -360,7 +360,9 @@ public class WorkerMultiplexer {
       throw new IOException(
           "Attempting to send request " + request.getRequestId() + " to dead process");
     }
-    responseChecker.put(request.getRequestId(), new Semaphore(0));
+    if (!request.getCancel()) {
+      responseChecker.put(request.getRequestId(), new Semaphore(0));
+    }
     pendingRequests.add(request);
   }
 
@@ -370,33 +372,29 @@ public class WorkerMultiplexer {
    * execution.
    */
   public WorkResponse getResponse(Integer requestId) throws InterruptedException, IOException {
-    try {
-      if (!process.isAlive()) {
-        // If the process has died, all we can do is return what may already have been returned.
-        return workerProcessResponse.get(requestId);
-      }
-
-      Semaphore waitForResponse = responseChecker.get(requestId);
-
-      if (waitForResponse == null) {
-        report("Null response semaphore for " + requestId);
-        // If there is no semaphore for this request, it probably failed to send, so we just return
-        // what we got, probably nothing.
-        return workerProcessResponse.get(requestId);
-      }
-
-      // Wait for the multiplexer to get our response and release this semaphore. If the multiplexer
-      // process dies, the semaphore gets released with no response available.
-      waitForResponse.acquire();
-
-      if (workerProcessResponse.get(requestId) == null && !process.isAlive()) {
-        throw new IOException("Worker process for " + workerKey.getMnemonic() + " has died");
-      }
+    if (!process.isAlive()) {
+      // If the process has died, all we can do is return what may already have been returned.
       return workerProcessResponse.get(requestId);
-    } finally {
-      responseChecker.remove(requestId);
-      workerProcessResponse.remove(requestId);
     }
+
+    Semaphore waitForResponse = responseChecker.get(requestId);
+
+    if (waitForResponse == null) {
+      report("Null response semaphore for " + requestId);
+      // If there is no semaphore for this request, it probably failed to send, so we just return
+      // what we got, probably nothing.
+      return workerProcessResponse.get(requestId);
+    }
+
+    waitForResponse.acquire();
+
+    responseChecker.remove(requestId);
+    WorkResponse response = workerProcessResponse.remove(requestId);
+
+    if (response == null && !process.isAlive()) {
+      throw new IOException("Worker process for " + workerKey.getMnemonic() + " has died");
+    }
+    return response;
   }
 
   /**
