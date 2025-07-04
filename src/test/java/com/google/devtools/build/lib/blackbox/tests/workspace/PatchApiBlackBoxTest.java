@@ -62,8 +62,6 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
                 "patch_cmds_win": attr.string_list(default = []),
                 "build_file": attr.label(allow_single_file = True),
                 "build_file_content": attr.string(),
-                "workspace_file": attr.label(),
-                "workspace_file_content": attr.string(),
             }
 
             def _patched_repo_implementation(ctx):

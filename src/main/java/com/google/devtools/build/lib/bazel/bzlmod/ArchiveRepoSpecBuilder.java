@@ -68,18 +68,6 @@ public class ArchiveRepoSpecBuilder {
   }
 
   @CanIgnoreReturnValue
-  public ArchiveRepoSpecBuilder setPatchCmds(ImmutableList<String> patchCmds) {
-    attrBuilder.put("patch_cmds", patchCmds);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public ArchiveRepoSpecBuilder setPatchStrip(int patchStrip) {
-    attrBuilder.put("patch_args", ImmutableList.of("-p" + patchStrip));
-    return this;
-  }
-
-  @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setRemotePatches(ImmutableMap<String, String> remotePatches) {
     attrBuilder.put("remote_patches", remotePatches);
     return this;
@@ -95,6 +83,13 @@ public class ArchiveRepoSpecBuilder {
             .collect(toImmutableMap(Entry::getKey, e -> e.getValue().integrity()));
     attrBuilder.put("remote_file_urls", remoteFiles);
     attrBuilder.put("remote_file_integrity", remoteFilesIntegrity);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public ArchiveRepoSpecBuilder setRemoteModuleFile(RemoteFile remoteModuleFile) {
+    attrBuilder.put("remote_module_file_urls", remoteModuleFile.urls());
+    attrBuilder.put("remote_module_file_integrity", remoteModuleFile.integrity());
     return this;
   }
 
