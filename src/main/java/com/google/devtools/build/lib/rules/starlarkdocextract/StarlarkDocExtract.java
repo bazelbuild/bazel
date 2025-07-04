@@ -352,7 +352,8 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
             ruleContext,
             textProtoOutput,
             textprotoBuilder.toString(),
-            /* makeExecutable= */ false));
+            /* makeExecutable= */ false,
+            /* mnemonic= */ null));
     return textProtoOutput;
   }
 }
