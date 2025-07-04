@@ -414,9 +414,7 @@ public class RemoteExecutionService {
       }
       return MerkleTree.merge(subMerkleTrees, digestUtil);
     } else {
-      SortedMap<PathFragment, ActionInput> inputMap =
-          remotePathResolver.getInputMapping(
-              context, /* willAccessRepeatedly= */ !remoteOptions.remoteDiscardMerkleTrees);
+      SortedMap<PathFragment, ActionInput> inputMap = remotePathResolver.getInputMapping(context);
       if (!outputDirMap.isEmpty()) {
         // The map returned by getInputMapping is mutable, but must not be mutated here as it is
         // shared with all other strategies.
@@ -1920,10 +1918,7 @@ public class RemoteExecutionService {
       return;
     }
 
-    // As this check runs after the action has been executed, we can reuse the input map if it
-    // has already been created with willAccessRepeatedly = true, but do not need to force its
-    // retention.
-    for (ActionInput input : action.getInputMap(/* willAccessRepeatedly= */ false).values()) {
+    for (ActionInput input : action.getSpawnExecutionContext().lazilyExpandInputs()) {
       // In lite mode, only check source artifacts in the main repository for modifications.
       // Non-source artifacts are made read-only after execution, and external repositories are
       // rarely modified, with local_repository being the notable exception.

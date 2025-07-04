@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.stream.Stream;
 
 /**
  * A helper class for spawn strategies to turn runfiles suppliers into input mappings. This class
@@ -222,6 +223,60 @@ public final class SpawnInputExpander {
         spawn.getPathMapper(),
         baseDirectory);
     return inputMap;
+  }
+
+  /**
+   * Returns an iterable over the inputs of the given spawn, expanding tree artifacts, runfiles
+   * trees, and filesets.
+   *
+   * <p>The returned iterable never contains {@code null} values, but may contain duplicates.
+   */
+  public Iterable<ActionInput> lazilyExpandInputs(
+      Spawn spawn, InputMetadataProvider inputMetadataProvider) {
+    return () ->
+        spawn.getInputFiles().toList().stream()
+            .flatMap(
+                input -> {
+                  // Fast path of the common case of a regular artifact.
+                  if (!(input instanceof SpecialArtifact artifact)) {
+                    return Stream.of(input);
+                  }
+                  if (artifact.isRunfilesTree()) {
+                    var runfilesMetadata = inputMetadataProvider.getRunfilesMetadata(input);
+                    if (runfilesMetadata == null) {
+                      return Stream.empty();
+                    }
+                    return runfilesMetadata.getRunfilesTree().getArtifacts().toList().stream()
+                        .flatMap(
+                            nestedArtifact ->
+                                nestedArtifact instanceof SpecialArtifact specialArtifact
+                                    ? expandTreeArtifactsAndFilesets(
+                                        specialArtifact, inputMetadataProvider)
+                                    : Stream.of(nestedArtifact));
+                  }
+                  return expandTreeArtifactsAndFilesets(artifact, inputMetadataProvider);
+                })
+            .iterator();
+  }
+
+  private static Stream<? extends ActionInput> expandTreeArtifactsAndFilesets(
+      Artifact artifact, InputMetadataProvider inputMetadataProvider) {
+    if (artifact.isTreeArtifact()) {
+      var treeMetadata = inputMetadataProvider.getTreeMetadata(artifact);
+      if (treeMetadata == null || treeMetadata.getChildren().isEmpty()) {
+        // Match the behavior of getInputMapping.
+        return Stream.of(artifact);
+      }
+      return treeMetadata.getChildren().stream();
+    }
+    if (artifact.isFileset()) {
+      var fileset = inputMetadataProvider.getFileset(artifact);
+      if (fileset == null) {
+        return Stream.empty();
+      }
+      return fileset.symlinks().stream().map(FilesetOutputSymlink::target);
+    }
+    return Stream.of(artifact);
   }
 
   private static PathFragment mapForRunfiles(
