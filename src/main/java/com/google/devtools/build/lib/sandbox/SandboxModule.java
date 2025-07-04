@@ -284,7 +284,9 @@ public final class SandboxModule extends BlazeModule {
         cmdEnv.getOptions().getOptions(LocalExecutionOptions.class).getLocalSigkillGraceSeconds();
 
     boolean processWrapperSupported = ProcessWrapperSandboxedSpawnRunner.isSupported(cmdEnv);
-    boolean linuxSandboxSupported = LinuxSandboxedSpawnRunner.isSupported(cmdEnv);
+    boolean linuxSandboxSupported =
+        LinuxSandboxedSpawnRunner.isSupported(cmdEnv)
+            != LinuxSandboxedSpawnRunner.SupportLevel.NOT_SUPPORTED;
     boolean darwinSandboxSupported = DarwinSandboxedSpawnRunner.isSupported(cmdEnv);
 
     ExecutionOptions executionOptions =
@@ -339,7 +341,12 @@ public final class SandboxModule extends BlazeModule {
       SandboxFallbackSpawnRunner spawnRunner =
           withFallback(
               cmdEnv,
-              LinuxSandboxedStrategy.create(cmdEnv, sandboxBase, timeoutKillDelay, treeDeleter));
+              LinuxSandboxedStrategy.create(
+                  cmdEnv,
+                  sandboxBase,
+                  timeoutKillDelay,
+                  treeDeleter,
+                  new RunfilesTreeUpdater(cmdEnv.getExecRoot(), cmdEnv.getXattrProvider())));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
           new LinuxSandboxedStrategy(spawnRunner, executionOptions), "sandboxed", "linux-sandbox");
@@ -348,7 +355,7 @@ public final class SandboxModule extends BlazeModule {
     // This is the preferred sandboxing strategy on macOS.
     if (darwinSandboxSupported) {
       SandboxFallbackSpawnRunner spawnRunner =
-          withFallback(cmdEnv, new DarwinSandboxedSpawnRunner(cmdEnv, sandboxBase, treeDeleter));
+          withFallback(cmdEnv, new DarwinSandboxedSpawnRunner(cmdEnv, sandboxBase, treeDeleter, new RunfilesTreeUpdater(cmdEnv.getExecRoot(), cmdEnv.getXattrProvider())));
       spawnRunners.add(spawnRunner);
       builder.registerStrategy(
           new DarwinSandboxedStrategy(spawnRunner, executionOptions),
@@ -427,7 +434,7 @@ public final class SandboxModule extends BlazeModule {
         LocalEnvProvider.forCurrentOs(env.getClientEnv()),
         env.getBlazeWorkspace().getBinTools(),
         ProcessWrapper.fromCommandEnvironment(env),
-        RunfilesTreeUpdater.forCommandEnvironment(env));
+        new RunfilesTreeUpdater(env.getExecRoot(), env.getXattrProvider()));
   }
 
   /**

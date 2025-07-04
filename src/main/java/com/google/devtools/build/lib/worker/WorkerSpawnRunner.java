@@ -196,7 +196,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         inputFiles =
             SandboxHelpers.processInputFiles(
                 context.getInputMapping(
-                    PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
+                    PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true, true),
                 execRoot);
       }
       SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
