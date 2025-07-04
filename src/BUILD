@@ -102,8 +102,6 @@ JAVA_TOOLS = [
                "//src/tools/launcher:srcs",
                "//third_party:gpl-srcs",
                "//third_party/def_parser:srcs",
-               "//third_party/grpc:embedded_tools_srcs",
-               "//third_party/grpc/bazel:embedded_tools_srcs",
                "//third_party/ijar:embedded_zipper_sources",
                "//third_party/ijar:zipper",
                "//third_party/py/abseil:srcs",
