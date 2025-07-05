@@ -43,6 +43,7 @@ class RunCommandLine {
   @Nullable private final String prettyRunUnderPrefix;
 
   private final ImmutableSortedMap<String, String> runEnvironment;
+  private final ImmutableSortedSet<String> environmentVariablesToClear;
   private final Path workingDir;
 
   private final boolean isTestTarget;
@@ -54,6 +55,7 @@ class RunCommandLine {
       @Nullable String runUnderPrefix,
       @Nullable String prettyRunUnderPrefix,
       ImmutableSortedMap<String, String> runEnvironment,
+      ImmutableSortedSet<String> environmentVariablesToClear,
       Path workingDir,
       boolean isTestTarget) {
     this.args = args;
@@ -62,6 +64,7 @@ class RunCommandLine {
     this.runUnderPrefix = runUnderPrefix;
     this.prettyRunUnderPrefix = prettyRunUnderPrefix;
     this.runEnvironment = runEnvironment;
+    this.environmentVariablesToClear = environmentVariablesToClear;
     this.workingDir = workingDir;
     this.isTestTarget = isTestTarget;
   }
@@ -72,6 +75,10 @@ class RunCommandLine {
 
   ImmutableSortedMap<String, String> getEnvironment() {
     return runEnvironment;
+  }
+
+  ImmutableSortedSet<String> getEnvironmentVariablesToClear() {
+    return environmentVariablesToClear;
   }
 
   boolean isTestTarget() {
@@ -127,12 +134,12 @@ class RunCommandLine {
    * Returns the script form of the command, to be used as the contents of output file in
    * --script_path mode.
    */
-  String getScriptForm(String shExecutable, ImmutableSortedSet<String> environmentVarsToUnset) {
+  String getScriptForm(String shExecutable) {
     return formatter()
         .getScriptForm(
             shExecutable,
             workingDir.getPathString(),
-            environmentVarsToUnset,
+            environmentVariablesToClear,
             runEnvironment,
             runUnderPrefix,
             ImmutableList.<String>builder().addAll(args).addAll(residue).build());
@@ -312,6 +319,7 @@ class RunCommandLine {
 
   static class Builder {
     private final ImmutableSortedMap<String, String> runEnvironment;
+    private final ImmutableSortedSet<String> environmentVariablesToClear;
     private final Path workingDir;
     private final boolean isTestTarget;
 
@@ -323,8 +331,12 @@ class RunCommandLine {
     private final ImmutableList.Builder<String> residueArgs = ImmutableList.builder();
 
     Builder(
-        ImmutableSortedMap<String, String> runEnvironment, Path workingDir, boolean isTestTarget) {
+        ImmutableSortedMap<String, String> runEnvironment,
+        ImmutableSortedSet<String> environmentVariablesToClear,
+        Path workingDir,
+        boolean isTestTarget) {
       this.runEnvironment = runEnvironment;
+      this.environmentVariablesToClear = environmentVariablesToClear;
       this.workingDir = workingDir;
       this.isTestTarget = isTestTarget;
     }
@@ -396,6 +408,7 @@ class RunCommandLine {
           runUnderPrefix,
           prettyRunUnderPrefix,
           runEnvironment,
+          environmentVariablesToClear,
           workingDir,
           isTestTarget);
     }
