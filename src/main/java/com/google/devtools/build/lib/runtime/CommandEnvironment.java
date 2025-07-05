@@ -344,6 +344,8 @@ public class CommandEnvironment {
         if (entry.getValue() == null) {
           visibleActionEnv.add(entry.getKey());
         } else if (entry.getKey() == null) {
+          // A null key is a special indicator to treat the value as the name of a variable to
+          // unset, see the docs on --action_env for details.
           visibleActionEnv.remove(entry.getValue());
           if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
             repoEnv.remove(entry.getValue());
@@ -369,6 +371,8 @@ public class CommandEnvironment {
       String name = entry.getKey();
       String value = entry.getValue();
       if (name == null) {
+        // A null key is a special indicator to treat the value as the name of a variable to
+        // unset, see the docs on --repo_env for details.
         repoEnv.remove(value);
         repoEnvFromOptions.remove(value);
         continue;

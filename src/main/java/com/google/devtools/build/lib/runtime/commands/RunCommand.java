@@ -664,6 +664,11 @@ public class RunCommand implements BlazeCommand {
               environmentProvider.getEnvironment(),
               ImmutableSet.copyOf(environmentProvider.getInheritedEnvironment()));
     }
+    // The final run environment is a combination of the environment constructed here and the
+    // unrestricted client environment. This means that there is a difference between a variable
+    // that isn't included in runEnvironment (which will have its value inherited from the
+    // client environment) and a variable that is explicitly removed (which will be unset in the
+    // run environment). We thus track the environment variables to clear separately.
     TreeMap<String, String> runEnvironment = makeMutableRunEnvironment(env);
     HashSet<String> envVariablesToClear = new HashSet<>();
     ImmutableMap<String, String> clientEnv = env.getClientEnv();
@@ -681,6 +686,8 @@ public class RunCommand implements BlazeCommand {
         }
         envVariablesToClear.remove(key);
       } else if (key == null) {
+        // A null key is a special indicator to treat the value as the name of a variable to unset,
+        // see the docs on --repo_env for details.
         runEnvironment.remove(value);
         envVariablesToClear.add(value);
       } else {
