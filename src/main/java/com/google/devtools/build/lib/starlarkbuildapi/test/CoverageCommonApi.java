@@ -120,6 +120,19 @@ public interface CoverageCommonApi<
             }),
         @Param(
             name = "baseline_coverage_files",
+            doc =
+            """
+            A sequence of files that contain baseline coverage information (i.e., information about
+            lines, functions, and branches in the code without any of them actually having been
+            executed). These files are merged into the combined coverage report.
+            <p>The following file types are supported:
+            <ul>
+              <li><code>*.dat</code>LCOV</li>
+              <li><code>*.gcov</code>GCOV</li>
+              <li><code>*.gcov.json.gz</code>GCOV JSON format</li>
+              <li>directories containing such files</li>
+            </ul>
+            """,
             positional = false,
             named = true,
             defaultValue = "None",

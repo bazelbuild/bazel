@@ -97,6 +97,11 @@ def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_config
         cc_toolchain = cc_toolchain,
         metadata_files = additional_meta_data + cc_compilation_outputs.gcno_files() + cc_compilation_outputs.pic_gcno_files(),
         virtual_to_original_headers = compilation_context.virtual_to_original_headers(),
+        baseline_coverage_files = cc_helper.generate_baseline_coverage_files(
+            ctx = ctx,
+            compilation_outputs = cc_compilation_outputs,
+            cc_toolchain = cc_toolchain,
+        ),
     )
     output_groups = cc_helper.build_output_groups_for_emitting_compile_providers(
         cc_compilation_outputs,
