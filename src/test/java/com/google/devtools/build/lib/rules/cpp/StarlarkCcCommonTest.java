@@ -5813,8 +5813,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(target).isNotNull();
     CcInfo ccInfo = target.get(CcInfo.PROVIDER);
     assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDirectPublicHdrs()))
-        .contains(
-            "bin third_party/bar/_virtual_includes/starlark_lib_suffix/prefix/starlark_lib.h");
+        .contains("bin _virtual_includes/c203db2d/prefix/starlark_lib.h");
   }
 
   @Test
@@ -5837,7 +5836,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(target).isNotNull();
     CcInfo ccInfo = target.get(CcInfo.PROVIDER);
     assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDirectPublicHdrs()))
-        .contains("bin third_party/bar/_virtual_includes/starlark_lib_suffix/starlark_lib.h");
+        .contains("bin _virtual_includes/c203db2d/starlark_lib.h");
   }
 
   @Test
@@ -5864,7 +5863,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         .containsExactly(
             getTargetConfiguration()
                 .getBinFragment(RepositoryName.MAIN)
-                .getRelative("third_party/bar/_virtual_includes/starlark_lib_suffix"));
+                .getRelative("_virtual_includes/c203db2d"));
   }
 
   @Test
@@ -5889,8 +5888,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(target).isNotNull();
     CcInfo ccInfo = target.get(CcInfo.PROVIDER);
     assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDirectPublicHdrs()))
-        .contains(
-            "bin third_party/bar/_virtual_includes/starlark_lib_suffix/prefix/starlark_lib.h");
+        .contains("bin _virtual_includes/c203db2d/prefix/starlark_lib.h");
   }
 
   @Test
@@ -5915,7 +5913,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         .containsExactly(
             getTargetConfiguration()
                 .getBinFragment(RepositoryName.MAIN)
-                .getRelative("third_party/bar/_virtual_includes/starlark_lib_suffix"));
+                .getRelative("_virtual_includes/c203db2d"));
   }
 
   @Test
