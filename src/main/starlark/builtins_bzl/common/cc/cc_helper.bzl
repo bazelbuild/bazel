@@ -882,14 +882,6 @@ def _get_copts(ctx, feature_configuration, additional_make_variable_substitution
     expanded_attribute_copts = _expand_make_variables_for_copts(ctx, tokenization, attribute_copts, additional_make_variable_substitutions)
     return expanded_attribute_copts
 
-def _has_target_constraints(ctx, constraints):
-    # Constraints is a label_list.
-    for constraint in constraints:
-        constraint_value = constraint[platform_common.ConstraintValueInfo]
-        if ctx.target_platform_has_constraint(constraint_value):
-            return True
-    return False
-
 def _is_stamping_enabled(ctx):
     if ctx.configuration.is_tool_configuration():
         return 0
@@ -1183,7 +1175,6 @@ cc_helper = struct(
     get_cc_flags_make_variable = _get_cc_flags_make_variable,
     get_copts = _get_copts,
     get_expanded_env = _get_expanded_env,
-    has_target_constraints = _has_target_constraints,
     is_non_empty_list_or_select = _is_non_empty_list_or_select,
     expand_make_variables_for_copts = _expand_make_variables_for_copts,
     build_linking_context_from_libraries = _build_linking_context_from_libraries,
