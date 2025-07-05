@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.filegroup;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
@@ -23,15 +24,14 @@ import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTa
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link Filegroup}.
- */
-@RunWith(JUnit4.class)
+/** Tests for {@link Filegroup}. */
+@RunWith(TestParameterInjector.class)
 public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
@@ -218,5 +218,88 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
         .hasMessageThat()
         .contains(
             String.format(Filegroup.ILLEGAL_OUTPUT_GROUP_ERROR, OutputGroupInfo.HIDDEN_TOP_LEVEL));
+  }
+
+  @Test
+  public void testDefaultInfo(@TestParameter boolean filegroupRunfilesForData) throws Exception {
+    scratch.file(
+        "x/defs.bzl",
+        """
+        def _default_info_impl(ctx):
+            files = depset(transitive = [t[DefaultInfo].files for t in ctx.attr.files])
+            default_runfiles = ctx.runfiles(transitive_files = depset(transitive = [t[DefaultInfo].files for t in ctx.attr.default_runfiles]))
+            data_runfiles = ctx.runfiles(transitive_files = depset(transitive = [t[DefaultInfo].files for t in ctx.attr.data_runfiles]))
+            return [
+                DefaultInfo(
+                    files = files,
+                    default_runfiles = default_runfiles,
+                    data_runfiles = data_runfiles,
+                )
+            ]
+        default_info = rule(
+            implementation = _default_info_impl,
+            attrs = {
+                "files": attr.label_list(allow_files=True),
+                "default_runfiles": attr.label_list(allow_files=True),
+                "data_runfiles": attr.label_list(allow_files=True),
+            },
+        )
+        """);
+    scratch.file(
+        "x/BUILD",
+        """
+        load(":defs.bzl", "default_info")
+
+        default_info(
+            name = "default_info_srcs",
+            files = ["srcs_files_file"],
+            default_runfiles = ["srcs_default_runfiles_file"],
+            data_runfiles = ["srcs_data_runfiles_file"],
+        )
+
+        default_info(
+            name = "default_info_data",
+            files = ["data_files"],
+            default_runfiles = ["data_default_runfiles_file"],
+            data_runfiles = ["data_data_runfiles_file"],
+        )
+
+        filegroup(
+            name = "filegroup",
+            srcs = [
+                ":default_info_srcs",
+                "srcs_file",
+            ],
+            data = [
+                ":default_info_data",
+                "data_file",
+            ],
+        )
+        """);
+
+    useConfiguration("--incompatible_filegroup_runfiles_for_data=" + filegroupRunfilesForData);
+    var filegroup = getConfiguredTarget("//x:filegroup");
+
+    assertThat(ActionsTestUtil.prettyArtifactNames(getFilesToBuild(filegroup)))
+        .containsExactly("x/srcs_file", "x/srcs_files_file");
+    assertThat(ActionsTestUtil.prettyArtifactNames(getDefaultRunfiles(filegroup).getArtifacts()))
+        .containsExactly(
+            "x/srcs_default_runfiles_file",
+            "x/data_file",
+            "x/data_files",
+            "x/data_data_runfiles_file");
+    var expectedDataRunfiles =
+        ImmutableSet.<String>builder()
+            .add(
+                "x/srcs_file",
+                "x/srcs_files_file",
+                "x/data_file",
+                "x/data_files",
+                "x/data_data_runfiles_file");
+    if (filegroupRunfilesForData) {
+      expectedDataRunfiles.add("x/srcs_data_runfiles_file");
+    }
+    assertThat(ActionsTestUtil.prettyArtifactNames(getDataRunfiles(filegroup).getArtifacts()))
+        .containsExactlyElementsIn(expectedDataRunfiles.build());
   }
 }

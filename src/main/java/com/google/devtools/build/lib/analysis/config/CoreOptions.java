@@ -63,6 +63,17 @@ import java.util.TreeSet;
 public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
+      name = "incompatible_filegroup_runfiles_for_data",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, runfiles of targets listed in the srcs attribute are available to targets"
+              + " that consume the filegroup as a data dependency.")
+  public boolean filegroupRunfilesForData;
+
+  @Option(
       name = "scl_config",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
