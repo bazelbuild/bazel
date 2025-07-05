@@ -101,6 +101,8 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
     LinkedHashMap<String, String> normalizedEntries = new LinkedHashMap<>();
     for (Map.Entry<String, String> entry : entries) {
       if (entry.getKey() == null) {
+        // A null key is a special indicator to treat the value as the name of a key to consider
+        // unset.
         normalizedEntries.remove(entry.getValue());
       } else {
         normalizedEntries.put(entry.getKey(), entry.getValue());
