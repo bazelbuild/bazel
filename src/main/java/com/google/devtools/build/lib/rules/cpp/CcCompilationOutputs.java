@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationOutputsAp
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -294,6 +295,12 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
     }
 
     /** Adds an object file. */
+    @StarlarkMethod(
+        name = "add_object_file",
+        documented = false,
+        parameters = {
+          @Param(name = "artifact", positional = true, named = false),
+        })
     @CanIgnoreReturnValue
     public Builder addObjectFile(Artifact artifact) {
       // We skip file extension checks for TreeArtifacts because they represent directory artifacts
@@ -315,6 +322,12 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
     }
 
     /** Adds a pic object file. */
+    @StarlarkMethod(
+        name = "add_pic_object_file",
+        documented = false,
+        parameters = {
+          @Param(name = "artifact", positional = true, named = false),
+        })
     @CanIgnoreReturnValue
     public Builder addPicObjectFile(Artifact artifact) {
       picObjectFiles.add(artifact);
@@ -376,6 +389,12 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
       return this;
     }
 
+    @StarlarkMethod(
+        name = "add_header_token_file",
+        documented = false,
+        parameters = {
+          @Param(name = "artifact", positional = true, named = false),
+        })
     @CanIgnoreReturnValue
     public Builder addHeaderTokenFile(Artifact artifact) {
       headerTokenFiles.add(artifact);

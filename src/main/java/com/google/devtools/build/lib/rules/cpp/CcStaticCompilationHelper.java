@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -36,17 +34,12 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
@@ -63,281 +56,7 @@ public final class CcStaticCompilationHelper {
 
   private CcStaticCompilationHelper() {}
 
-  // Main entry point
-
-  /**
-   * Constructs the C++ compiler actions. It generally creates one action for every specified source
-   * file. It takes into account coverage, and PIC, in addition to using the settings specified on
-   * the current object. This method should only be called once.
-   *
-   * <p>This is the main entry point for the class, exported as create_cc_compile_actions() to
-   * Starlark.
-   */
-  static void createCcCompileActions(
-      ActionConstructionContext actionConstructionContext,
-      List<Artifact> additionalCompilationInputs,
-      List<Artifact> additionalIncludeScanningRoots,
-      CcCompilationContext ccCompilationContext,
-      CcToolchainProvider ccToolchain,
-      Map<Artifact, CppSource> compilationUnitSources,
-      BuildConfigurationValue configuration,
-      ImmutableList<String> conlyopts,
-      ImmutableList<String> copts,
-      CoptsFilter coptsFilter,
-      CppConfiguration cppConfiguration,
-      ImmutableList<String> cxxopts,
-      ImmutableMap<String, String> executionInfo,
-      FdoContext fdoContext,
-      FeatureConfiguration featureConfiguration,
-      boolean generateNoPicAction,
-      boolean generatePicAction,
-      boolean isCodeCoverageEnabled,
-      Label label,
-      List<Artifact> privateHeaders,
-      List<Artifact> publicHeaders,
-      String purpose,
-      RuleErrorConsumer ruleErrorConsumer,
-      CppSemantics semantics,
-      List<Artifact> separateModuleHeaders,
-      CcCompilationOutputs.Builder result,
-      CcToolchainVariables commonCompileBuildVariables,
-      NestedSet<Artifact> auxiliaryFdoInputs,
-      ImmutableMap<String, String> fdoBuildVariables)
-      throws RuleErrorException, EvalException, InterruptedException {
-    Preconditions.checkNotNull(ccCompilationContext);
-
-    if (generatePicAction
-        && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
-        && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
-      ruleErrorConsumer.ruleError(CcCommon.PIC_CONFIGURATION_ERROR);
-    }
-
-    String outputNamePrefixDir = computeOutputNamePrefixDir(configuration, purpose);
-    ImmutableMap<Artifact, String> outputNameMap =
-        calculateOutputNameMapByType(compilationUnitSources, outputNamePrefixDir);
-
-    Set<String> compiledBasenames = new HashSet<>();
-    for (CppSource source : compilationUnitSources.values()) {
-      Artifact sourceArtifact = source.getSource();
-
-      // Headers compilations will be created in the loop below.
-      if (!sourceArtifact.isTreeArtifact() && source.getType() == CppSource.Type.HEADER) {
-        continue;
-      }
-
-      String outputName = outputNameMap.get(sourceArtifact);
-
-      Label sourceLabel = source.getLabel();
-      CppCompileActionBuilder builder =
-          createCppCompileActionBuilderWithInputs(
-              actionConstructionContext,
-              ccCompilationContext,
-              ccToolchain,
-              configuration,
-              coptsFilter,
-              executionInfo,
-              featureConfiguration,
-              semantics,
-              sourceArtifact,
-              additionalCompilationInputs,
-              additionalIncludeScanningRoots);
-
-      boolean bitcodeOutput =
-          featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
-              && CppFileTypes.LTO_SOURCE.matches(sourceArtifact.getFilename());
-
-      if (!sourceArtifact.isTreeArtifact()) {
-        compiledBasenames.add(Files.getNameWithoutExtension(sourceArtifact.getExecPathString()));
-        createCompileSourceActionFromBuilder(
-            actionConstructionContext,
-            ccCompilationContext,
-            ccToolchain,
-            configuration,
-            conlyopts,
-            copts,
-            cppConfiguration,
-            cxxopts,
-            fdoContext,
-            auxiliaryFdoInputs,
-            featureConfiguration,
-            generateNoPicAction,
-            generatePicAction,
-            label,
-            commonCompileBuildVariables,
-            fdoBuildVariables,
-            ruleErrorConsumer,
-            semantics,
-            sourceLabel,
-            outputName,
-            result,
-            sourceArtifact,
-            builder,
-            // TODO(plf): Continue removing CLIF logic from C++. Follow up changes would include
-            // refactoring CppSource.Type and ArtifactCategory to be classes instead of enums
-            // that could be instantiated with arbitrary values.
-            source.getType() == CppSource.Type.CLIF_INPUT_PROTO
-                ? ArtifactCategory.CLIF_OUTPUT_PROTO
-                : ArtifactCategory.OBJECT_FILE,
-            ccCompilationContext.getCppModuleMap(),
-            /* addObject= */ true,
-            isCodeCoverageEnabled,
-            // The source action does not generate dwo when it has bitcode
-            // output (since it isn't generating a native object with debug
-            // info). In that case the LtoBackendAction will generate the dwo.
-            CcToolchainProvider.shouldCreatePerObjectDebugInfo(
-                featureConfiguration, cppConfiguration),
-            bitcodeOutput);
-      } else {
-        switch (source.getType()) {
-          case HEADER:
-            Artifact headerTokenFile =
-                createCompileActionTemplate(
-                    actionConstructionContext,
-                    ccCompilationContext,
-                    ccToolchain,
-                    configuration,
-                    conlyopts,
-                    copts,
-                    cppConfiguration,
-                    cxxopts,
-                    fdoContext,
-                    auxiliaryFdoInputs,
-                    featureConfiguration,
-                    label,
-                    commonCompileBuildVariables,
-                    fdoBuildVariables,
-                    ruleErrorConsumer,
-                    semantics,
-                    source,
-                    outputName,
-                    builder,
-                    result,
-                    ImmutableList.of(
-                        ArtifactCategory.GENERATED_HEADER, ArtifactCategory.PROCESSED_HEADER),
-                    // If we generate pic actions, we prefer the header actions to use the pic mode.
-                    generatePicAction,
-                    bitcodeOutput);
-            result.addHeaderTokenFile(headerTokenFile);
-            break;
-          case SOURCE:
-            if (generateNoPicAction) {
-              Artifact objectFile =
-                  createCompileActionTemplate(
-                      actionConstructionContext,
-                      ccCompilationContext,
-                      ccToolchain,
-                      configuration,
-                      conlyopts,
-                      copts,
-                      cppConfiguration,
-                      cxxopts,
-                      fdoContext,
-                      auxiliaryFdoInputs,
-                      featureConfiguration,
-                      label,
-                      commonCompileBuildVariables,
-                      fdoBuildVariables,
-                      ruleErrorConsumer,
-                      semantics,
-                      source,
-                      outputName,
-                      builder,
-                      result,
-                      ImmutableList.of(ArtifactCategory.OBJECT_FILE),
-                      /* usePic= */ false,
-                      featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO));
-              result.addObjectFile(objectFile);
-            }
-
-            if (generatePicAction) {
-              Artifact picObjectFile =
-                  createCompileActionTemplate(
-                      actionConstructionContext,
-                      ccCompilationContext,
-                      ccToolchain,
-                      configuration,
-                      conlyopts,
-                      copts,
-                      cppConfiguration,
-                      cxxopts,
-                      fdoContext,
-                      auxiliaryFdoInputs,
-                      featureConfiguration,
-                      label,
-                      commonCompileBuildVariables,
-                      fdoBuildVariables,
-                      ruleErrorConsumer,
-                      semantics,
-                      source,
-                      outputName,
-                      builder,
-                      result,
-                      ImmutableList.of(ArtifactCategory.PIC_OBJECT_FILE),
-                      /* usePic= */ true,
-                      featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO));
-              result.addPicObjectFile(picObjectFile);
-            }
-            break;
-          default:
-            throw new IllegalStateException(
-                "Encountered invalid source types when creating CppCompileActionTemplates");
-        }
-      }
-    }
-    for (CppSource source : compilationUnitSources.values()) {
-      Artifact artifact = source.getSource();
-      if (source.getType() != CppSource.Type.HEADER || artifact.isTreeArtifact()) {
-        // These are already handled above.
-        continue;
-      }
-      if (featureConfiguration.isEnabled(CppRuleClasses.VALIDATES_LAYERING_CHECK_IN_TEXTUAL_HDRS)
-          && compiledBasenames.contains(
-              Files.getNameWithoutExtension(artifact.getExecPathString()))) {
-        continue;
-      }
-      String outputName = outputNameMap.get(artifact);
-
-      CppCompileActionBuilder builder =
-          createCppCompileActionBuilderWithInputs(
-              actionConstructionContext,
-              ccCompilationContext,
-              ccToolchain,
-              configuration,
-              coptsFilter,
-              executionInfo,
-              featureConfiguration,
-              semantics,
-              artifact,
-              additionalCompilationInputs,
-              additionalIncludeScanningRoots);
-
-      createParseHeaderAction(
-          actionConstructionContext,
-          ccCompilationContext,
-          ccToolchain,
-          configuration,
-          conlyopts,
-          copts,
-          cppConfiguration,
-          cxxopts,
-          fdoContext,
-          auxiliaryFdoInputs,
-          featureConfiguration,
-          generatePicAction,
-          label,
-          commonCompileBuildVariables,
-          fdoBuildVariables,
-          ruleErrorConsumer,
-          semantics,
-          source.getLabel(),
-          outputName,
-          result,
-          builder);
-    }
-  }
-
-  private static String computeOutputNamePrefixDir(
-      BuildConfigurationValue configuration, String purpose) {
+  static String computeOutputNamePrefixDir(BuildConfigurationValue configuration, String purpose) {
     String outputNamePrefixDir = null;
     // purpose is only used by objc rules; if set it ends with either "_non_objc_arc" or
     // "_objc_arc", and it is used to override configuration.getMnemonic() to prefix the output
@@ -350,90 +69,6 @@ public final class CcStaticCompilationHelper {
       outputNamePrefixDir = mnemonic.endsWith("_non_objc_arc") ? "non_arc" : "arc";
     }
     return outputNamePrefixDir;
-  }
-
-  // Misc. helper methods for createCcCompileActions():
-
-  /**
-   * Calculate the output names for object file paths from a set of source files.
-   *
-   * <p>The object file path is constructed in the following format:
-   *   {@code <bazel-bin>/<target_package_path>/_objs/<target_name>/<output_name>.<obj_extension>}.
-   *
-   * <p>When there's no two source files having the same basename:
-   *   {@code <output_name> = <prefixDir>/<source_file_base_name>}
-   * otherwise:
-   *   {@code <output_name> = <prefixDir>/N/<source_file_base_name>,
-   *   {@code N} = the file's order among the source files with the same basename, starts with 0
-   *
-   * <p>Examples:
-   * <ol>
-   * <li>Output names for ["lib1/foo.cc", "lib2/bar.cc"] are ["foo", "bar"]
-   * <li>Output names for ["foo.cc", "bar.cc", "foo.cpp", "lib/foo.cc"] are
-   *     ["0/foo", "bar", "1/foo", "2/foo"]
-   * </ol>
-   */
-  private static ImmutableMap<Artifact, String> calculateOutputNameMap(
-      ImmutableSet<Artifact> sourceArtifacts, String prefixDir) {
-    ImmutableMap.Builder<Artifact, String> builder = ImmutableMap.builder();
-
-    HashMap<String, Integer> count = new LinkedHashMap<>();
-    HashMap<String, Integer> number = new LinkedHashMap<>();
-    for (Artifact source : sourceArtifacts) {
-      String outputName =
-          FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
-      count.put(
-          outputName.toLowerCase(Locale.ROOT),
-          count.getOrDefault(outputName.toLowerCase(Locale.ROOT), 0) + 1);
-    }
-
-    for (Artifact source : sourceArtifacts) {
-      String outputName =
-          FileSystemUtils.removeExtension(source.getRootRelativePath()).getBaseName();
-      if (count.getOrDefault(outputName.toLowerCase(Locale.ROOT), 0) > 1) {
-        int num = number.getOrDefault(outputName.toLowerCase(Locale.ROOT), 0);
-        number.put(outputName.toLowerCase(Locale.ROOT), num + 1);
-        outputName = num + "/" + outputName;
-      }
-      // If prefixDir is set, prepend it to the outputName
-      if (prefixDir != null) {
-        outputName = prefixDir + "/" + outputName;
-      }
-      builder.put(source, outputName);
-    }
-
-    return builder.buildOrThrow();
-  }
-
-  /**
-   * Calculate outputNameMap for different source types separately. Returns a merged outputNameMap
-   * for all artifacts.
-   */
-  private static ImmutableMap<Artifact, String> calculateOutputNameMapByType(
-      Map<Artifact, CppSource> sources, String prefixDir) {
-    ImmutableMap.Builder<Artifact, String> builder = ImmutableMap.builder();
-    builder.putAll(
-        calculateOutputNameMap(
-            getSourceArtifactsByType(sources, CppSource.Type.SOURCE), prefixDir));
-    builder.putAll(
-        calculateOutputNameMap(
-            getSourceArtifactsByType(sources, CppSource.Type.HEADER), prefixDir));
-    // TODO(plf): Removing CLIF logic
-    builder.putAll(
-        calculateOutputNameMap(
-            getSourceArtifactsByType(sources, CppSource.Type.CLIF_INPUT_PROTO), prefixDir));
-    return builder.buildOrThrow();
-  }
-
-  private static ImmutableSet<Artifact> getSourceArtifactsByType(
-      Map<Artifact, CppSource> sources, CppSource.Type type) {
-    ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
-    for (CppSource source : sources.values()) {
-      if (source.getType().equals(type)) {
-        result.add(source.getSource());
-      }
-    }
-    return result.build();
   }
 
   // Methods setting up compile build variables:
@@ -670,68 +305,9 @@ public final class CcStaticCompilationHelper {
     return auxiliaryInputs.build();
   }
 
-  // Methods creating CppCompileActionBuilder:
-
-  /**
-   * Returns a {@code CppCompileActionBuilder} with the common fields for a C++ compile action being
-   * initialized.
-   */
-  private static CppCompileActionBuilder createCppCompileActionBuilder(
-      ActionConstructionContext actionConstructionContext,
-      CcCompilationContext ccCompilationContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfigurationValue configuration,
-      CoptsFilter coptsFilter,
-      ImmutableMap<String, String> executionInfo,
-      FeatureConfiguration featureConfiguration,
-      CppSemantics semantics,
-      Artifact sourceArtifact) {
-    return new CppCompileActionBuilder(
-            actionConstructionContext, ccToolchain, configuration, semantics)
-        .setSourceFile(sourceArtifact)
-        .setCcCompilationContext(ccCompilationContext)
-        .setCoptsFilter(coptsFilter)
-        .setFeatureConfiguration(featureConfiguration)
-        .addExecutionInfo(executionInfo);
-  }
-
-  /**
-   * Returns a {@code CppCompileActionBuilder} with the common fields for a C++ compile action being
-   * initialized, plus the mandatoryInputs and additionalIncludeScanningRoots fields
-   */
-  private static CppCompileActionBuilder createCppCompileActionBuilderWithInputs(
-      ActionConstructionContext actionConstructionContext,
-      CcCompilationContext ccCompilationContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfigurationValue configuration,
-      CoptsFilter coptsFilter,
-      ImmutableMap<String, String> executionInfo,
-      FeatureConfiguration featureConfiguration,
-      CppSemantics semantics,
-      Artifact sourceArtifact,
-      List<Artifact> additionalCompilationInputs,
-      List<Artifact> additionalIncludeScanningRoots) {
-    CppCompileActionBuilder builder =
-        createCppCompileActionBuilder(
-            actionConstructionContext,
-            ccCompilationContext,
-            ccToolchain,
-            configuration,
-            coptsFilter,
-            executionInfo,
-            featureConfiguration,
-            semantics,
-            sourceArtifact);
-
-    builder
-        .addMandatoryInputs(additionalCompilationInputs)
-        .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots);
-    return builder;
-  }
-
   // Methods creating actions:
 
-  private static Artifact createCompileActionTemplate(
+  static Artifact createCompileActionTemplate(
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
@@ -950,7 +526,7 @@ public final class CcStaticCompilationHelper {
     }
   }
 
-  private static void createParseHeaderAction(
+  static void createParseHeaderAction(
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
@@ -972,7 +548,7 @@ public final class CcStaticCompilationHelper {
       String outputName,
       CcCompilationOutputs.Builder result,
       CppCompileActionBuilder builder)
-      throws RuleErrorException, EvalException, InterruptedException {
+      throws RuleErrorException, EvalException {
     String outputNameBase =
         CppHelper.getArtifactNameForCategory(
             ccToolchain, ArtifactCategory.GENERATED_HEADER, outputName);
@@ -1081,7 +657,7 @@ public final class CcStaticCompilationHelper {
   }
 
   @CanIgnoreReturnValue
-  private static ImmutableList<Artifact> createCompileSourceActionFromBuilder(
+  static ImmutableList<Artifact> createCompileSourceActionFromBuilder(
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,

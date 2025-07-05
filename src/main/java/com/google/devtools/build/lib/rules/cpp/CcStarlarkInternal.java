@@ -60,7 +60,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.List;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
@@ -721,6 +721,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     return coptsFilter;
   }
 
+  // TODO(b/396122076): Test whether this can be replaced with artifact.is_directory().
   @StarlarkMethod(
       name = "is_tree_artifact",
       documented = false,
@@ -906,11 +907,329 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
+      name = "create_compile_source_action_from_builder",
+      documented = false,
+      parameters = {
+        @Param(name = "action_construction_context", positional = false, named = true),
+        @Param(name = "cc_compilation_context", positional = false, named = true),
+        @Param(name = "cc_toolchain", positional = false, named = true),
+        @Param(name = "configuration", positional = false, named = true),
+        @Param(name = "conlyopts", positional = false, named = true, defaultValue = "[]"),
+        @Param(name = "copts", positional = false, named = true, defaultValue = "[]"),
+        @Param(name = "cpp_configuration", positional = false, named = true),
+        @Param(name = "cxxopts", positional = false, named = true, defaultValue = "[]"),
+        @Param(name = "fdo_context", positional = false, named = true, defaultValue = "None"),
+        @Param(
+            name = "auxiliary_fdo_inputs",
+            positional = false,
+            named = true,
+            defaultValue = "None"),
+        @Param(
+            name = "feature_configuration",
+            positional = false,
+            named = true), // FeatureConfigurationForStarlark
+        @Param(name = "generate_no_pic_action", positional = false, named = true),
+        @Param(name = "generate_pic_action", positional = false, named = true),
+        @Param(name = "label", positional = false, named = true),
+        @Param(name = "common_compile_build_variables", positional = false, named = true),
+        @Param(name = "fdo_build_variables", positional = false, named = true, defaultValue = "{}"),
+        @Param(name = "cpp_semantics", positional = false, named = true), // CppSemantics
+        @Param(name = "source_label", positional = false, named = true),
+        @Param(name = "output_name", positional = false, named = true),
+        @Param(name = "outputs", positional = false, named = true),
+        @Param(name = "source_artifact", positional = false, named = true),
+        @Param(name = "cpp_compile_action_builder", positional = false, named = true),
+        @Param(name = "output_category", positional = false, named = true),
+        @Param(
+            name = "cpp_module_map",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = CppModuleMap.class),
+              @ParamType(type = NoneType.class)
+            },
+            defaultValue = "None"),
+        @Param(name = "add_object", positional = false, named = true),
+        @Param(name = "enable_coverage", positional = false, named = true),
+        @Param(name = "generate_dwo", positional = false, named = true),
+        @Param(name = "bitcode_output", positional = false, named = true)
+      })
+  public Sequence<?> createCompileSourceActionFromBuilder(
+      StarlarkRuleContext starlarkRuleContext,
+      CcCompilationContext ccCompilationContext,
+      StarlarkInfo ccToolchain,
+      BuildConfigurationValue configuration,
+      Sequence<?> conlyopts,
+      Sequence<?> copts,
+      CppConfiguration cppConfiguration,
+      Sequence<?> cxxopts,
+      StructImpl fdoContext,
+      Depset auxiliaryFdoInputs,
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      boolean generateNoPicAction,
+      boolean generatePicAction,
+      Label label,
+      CcToolchainVariables commonCompileBuildVariables,
+      Dict<?, ?> fdoBuildVariables,
+      CppSemantics semantics,
+      Label sourceLabel,
+      String outputName,
+      CcCompilationOutputs.Builder outputs,
+      Artifact sourceArtifact,
+      CppCompileActionBuilder builder,
+      String outputCategoryString,
+      Object cppModuleMapObject,
+      boolean addObject,
+      boolean enableCoverage,
+      boolean generateDwo,
+      boolean bitcodeOutput)
+      throws RuleErrorException, EvalException, InterruptedException {
+    ArtifactCategory outputCategory;
+    try {
+      outputCategory = ArtifactCategory.valueOf(outputCategoryString);
+    } catch (IllegalArgumentException e) {
+      throw new EvalException(
+          String.format("Invalid output category: %s", outputCategoryString), e);
+    }
+    CppModuleMap cppModuleMap = null;
+    if (cppModuleMapObject instanceof CppModuleMap cppModuleMapChecked) {
+      cppModuleMap = cppModuleMapChecked;
+    }
+
+    return Tuple.copyOf(
+        CcStaticCompilationHelper.createCompileSourceActionFromBuilder(
+            starlarkRuleContext.getRuleContext(),
+            ccCompilationContext,
+            CcToolchainProvider.create(ccToolchain),
+            configuration,
+            Sequence.cast(conlyopts, String.class, "conlyopts").getImmutableList(),
+            Sequence.cast(copts, String.class, "copts").getImmutableList(),
+            cppConfiguration,
+            Sequence.cast(cxxopts, String.class, "cxxopts").getImmutableList(),
+            new FdoContext(fdoContext),
+            Depset.cast(auxiliaryFdoInputs, Artifact.class, "auxiliary_fdo_inputs"),
+            featureConfigurationForStarlark.getFeatureConfiguration(),
+            generateNoPicAction,
+            generatePicAction,
+            label,
+            commonCompileBuildVariables,
+            ImmutableMap.copyOf(
+                Dict.cast(fdoBuildVariables, String.class, String.class, "fdo_build_variables")),
+            starlarkRuleContext.getRuleContext().getRuleErrorConsumer(),
+            semantics,
+            sourceLabel,
+            outputName,
+            outputs,
+            sourceArtifact,
+            builder,
+            outputCategory,
+            cppModuleMap,
+            addObject,
+            enableCoverage,
+            generateDwo,
+            bitcodeOutput));
+  }
+
+  @StarlarkMethod(
+      name = "create_compile_action_template",
+      documented = false,
+      parameters = {
+        @Param(name = "action_construction_context", positional = false, named = true),
+        @Param(name = "cc_compilation_context", positional = false, named = true),
+        @Param(name = "cc_toolchain", positional = false, named = true),
+        @Param(name = "configuration", positional = false, named = true),
+        @Param(name = "conlyopts", positional = false, named = true, defaultValue = "[]"),
+        @Param(name = "copts", positional = false, named = true, defaultValue = "[]"),
+        @Param(name = "cpp_configuration", positional = false, named = true),
+        @Param(name = "cxxopts", positional = false, named = true, defaultValue = "[]"),
+        @Param(name = "fdo_context", positional = false, named = true, defaultValue = "None"),
+        @Param(
+            name = "auxiliary_fdo_inputs",
+            positional = false,
+            named = true,
+            defaultValue = "None"),
+        @Param(
+            name = "feature_configuration",
+            positional = false,
+            named = true), // FeatureConfigurationForStarlark
+        @Param(name = "label", positional = false, named = true),
+        @Param(name = "common_compile_build_variables", positional = false, named = true),
+        @Param(name = "fdo_build_variables", positional = false, named = true),
+        @Param(name = "cpp_semantics", positional = false, named = true),
+        @Param(name = "source", positional = false, named = true),
+        @Param(name = "output_name", positional = false, named = true),
+        @Param(name = "cpp_compile_action_builder", positional = false, named = true),
+        @Param(name = "outputs", positional = false, named = true),
+        @Param(name = "output_categories", positional = false, named = true),
+        @Param(name = "use_pic", positional = false, named = true),
+        @Param(name = "bitcode_output", positional = false, named = true)
+      })
+  public Artifact createCompileActionTemplate(
+      StarlarkRuleContext starlarkRuleContext,
+      CcCompilationContext ccCompilationContext,
+      StarlarkInfo ccToolchain,
+      BuildConfigurationValue configuration,
+      Sequence<?> conlyopts,
+      Sequence<?> copts,
+      CppConfiguration cppConfiguration,
+      Sequence<?> cxxopts,
+      StructImpl fdoContext,
+      Depset auxiliaryFdoInputs,
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      Label label,
+      CcToolchainVariables commonCompileBuildVariables,
+      Dict<?, ?> fdoBuildVariables,
+      CppSemantics semantics,
+      CppSource source,
+      String outputName,
+      CppCompileActionBuilder builder,
+      CcCompilationOutputs.Builder outputs,
+      Sequence<?> outputCategoriesUnchecked,
+      boolean usePic,
+      boolean bitcodeOutput)
+      throws RuleErrorException, EvalException {
+    ImmutableList.Builder<ArtifactCategory> outputCategories = ImmutableList.builder();
+    for (Object outputCategoryObject : outputCategoriesUnchecked) {
+      if (outputCategoryObject instanceof String outputCategoryString) {
+        try {
+          outputCategories.add(ArtifactCategory.valueOf(outputCategoryString));
+        } catch (IllegalArgumentException e) {
+          EvalException evalException =
+              new EvalException(String.format("Invalid output category: %s", outputCategoryObject));
+          evalException.initCause(e);
+          throw evalException;
+        }
+      } else {
+        throw new EvalException(
+            String.format(
+                "Output category has invalid type. Expected string, got: %s",
+                outputCategoryObject));
+      }
+    }
+    return CcStaticCompilationHelper.createCompileActionTemplate(
+        starlarkRuleContext.getRuleContext(),
+        ccCompilationContext,
+        CcToolchainProvider.create(ccToolchain),
+        configuration,
+        Sequence.cast(conlyopts, String.class, "conlyopts").getImmutableList(),
+        Sequence.cast(copts, String.class, "copts").getImmutableList(),
+        cppConfiguration,
+        Sequence.cast(cxxopts, String.class, "cxxopts").getImmutableList(),
+        new FdoContext(fdoContext),
+        Depset.cast(auxiliaryFdoInputs, Artifact.class, "auxiliary_fdo_inputs"),
+        featureConfigurationForStarlark.getFeatureConfiguration(),
+        label,
+        commonCompileBuildVariables,
+        ImmutableMap.copyOf(
+            Dict.cast(fdoBuildVariables, String.class, String.class, "fdo_build_variables")),
+        starlarkRuleContext.getRuleContext().getRuleErrorConsumer(),
+        semantics,
+        source,
+        outputName,
+        builder,
+        outputs,
+        outputCategories.build(),
+        usePic,
+        bitcodeOutput);
+  }
+
+  @StarlarkMethod(
+      name = "create_parse_header_action",
+      documented = false,
+      parameters = {
+        @Param(name = "action_construction_context", positional = false, named = true),
+        @Param(name = "cc_compilation_context", positional = false, named = true),
+        @Param(name = "cc_toolchain", positional = false, named = true),
+        @Param(name = "configuration", positional = false, named = true),
+        @Param(name = "conlyopts", positional = false, named = true, defaultValue = "[]"),
+        @Param(name = "copts", positional = false, named = true, defaultValue = "[]"),
+        @Param(name = "cpp_configuration", positional = false, named = true),
+        @Param(name = "cxxopts", positional = false, named = true, defaultValue = "[]"),
+        @Param(name = "fdo_context", positional = false, named = true, defaultValue = "None"),
+        @Param(
+            name = "auxiliary_fdo_inputs",
+            positional = false,
+            named = true,
+            defaultValue = "None"),
+        @Param(
+            name = "feature_configuration",
+            positional = false,
+            named = true), // FeatureConfigurationForStarlark
+        @Param(name = "use_pic", positional = false, named = true),
+        @Param(name = "label", positional = false, named = true),
+        @Param(name = "common_compile_build_variables", positional = false, named = true),
+        @Param(name = "fdo_build_variables", positional = false, named = true),
+        @Param(name = "cpp_semantics", positional = false, named = true),
+        @Param(name = "source_label", positional = false, named = true),
+        @Param(name = "output_name", positional = false, named = true),
+        @Param(name = "outputs", positional = false, named = true),
+        @Param(name = "cpp_compile_action_builder", positional = false, named = true)
+      })
+  public void createParseHeaderAction(
+      StarlarkRuleContext starlarkRuleContext,
+      CcCompilationContext ccCompilationContext,
+      StarlarkInfo ccToolchain,
+      BuildConfigurationValue configuration,
+      Sequence<?> conlyopts,
+      Sequence<?> copts,
+      CppConfiguration cppConfiguration,
+      Sequence<?> cxxopts,
+      StructImpl fdoContext,
+      Depset auxiliaryFdoInputs,
+      FeatureConfigurationForStarlark featureConfigurationForStarlark,
+      boolean generatePicAction,
+      Label label,
+      CcToolchainVariables commonCompileBuildVariables,
+      Dict<?, ?> fdoBuildVariables,
+      CppSemantics semantics,
+      Label sourceLabel,
+      String outputName,
+      CcCompilationOutputs.Builder outputs,
+      CppCompileActionBuilder builder)
+      throws RuleErrorException, EvalException {
+    CcStaticCompilationHelper.createParseHeaderAction(
+        starlarkRuleContext.getRuleContext(),
+        ccCompilationContext,
+        CcToolchainProvider.create(ccToolchain),
+        configuration,
+        Sequence.cast(conlyopts, String.class, "conlyopts").getImmutableList(),
+        Sequence.cast(copts, String.class, "copts").getImmutableList(),
+        cppConfiguration,
+        Sequence.cast(cxxopts, String.class, "cxxopts").getImmutableList(),
+        new FdoContext(fdoContext),
+        Depset.cast(auxiliaryFdoInputs, Artifact.class, "auxiliary_fdo_inputs"),
+        featureConfigurationForStarlark.getFeatureConfiguration(),
+        generatePicAction,
+        label,
+        commonCompileBuildVariables,
+        ImmutableMap.copyOf(
+            Dict.cast(fdoBuildVariables, String.class, String.class, "fdo_build_variables")),
+        starlarkRuleContext.getRuleContext().getRuleErrorConsumer(),
+        semantics,
+        sourceLabel,
+        outputName,
+        outputs,
+        builder);
+  }
+
+  @StarlarkMethod(
       name = "create_cc_compilation_outputs_builder",
       documented = false,
       parameters = {})
   public CcCompilationOutputs.Builder createCcCompilationOutputsBuilder() {
     return CcCompilationOutputs.builder();
+  }
+
+  @StarlarkMethod(
+      name = "compute_output_name_prefix_dir",
+      documented = false,
+      parameters = {
+        @Param(name = "configuration", positional = false, named = true),
+        @Param(name = "purpose", positional = false, named = true),
+      })
+  public String computeOutputNamePrefixDir(BuildConfigurationValue configuration, String purpose) {
+    return Objects.requireNonNullElse(
+        CcStaticCompilationHelper.computeOutputNamePrefixDir(configuration, purpose), "");
   }
 
   @StarlarkMethod(
@@ -940,7 +1259,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       Object variablesExtension)
       throws RuleErrorException, EvalException {
-    List<VariablesExtension> variablesExtensionsList =
+    ImmutableList<VariablesExtension> variablesExtensionsList =
         asDict(variablesExtension).isEmpty()
             ? ImmutableList.of()
             : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
