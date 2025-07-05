@@ -632,8 +632,8 @@ java_library(
 )
 
 java_test(
-    name = "LocationFunctionTest",
-    srcs = ["LocationFunctionTest.java"],
+    name = "LabelLocationFunctionTest",
+    srcs = ["LabelLocationFunctionTest.java"],
     deps = [
         ":LocationFunctionBuilder",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
