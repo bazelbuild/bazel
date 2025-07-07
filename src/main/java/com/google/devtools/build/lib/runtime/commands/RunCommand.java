@@ -176,7 +176,7 @@ public class RunCommand implements BlazeCommand {
         help =
             "Specifies the set of environment variables available to the target to run."
                 + " Variables can be either specified by name, in which case the value will be"
-                + " taken from the invocation environment, by the name=value pair"
+                + " taken from the invocation environment, by the <code>name=value</code> pair"
                 + " which sets the value independent of the invocation environment, or by"
                 + " <code>=name</code>, which unsets the variable of that name. This option can"
                 + " be used multiple times; for options given for the same variable, the latest"
