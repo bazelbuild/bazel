@@ -12,6 +12,7 @@ filegroup(
         "//third_party/chicory:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/googleapis:srcs",
+        "//third_party/grpc-java:srcs",
         "//third_party/ijar:srcs",
         "//third_party/jarjar:srcs",
         "//third_party/java/jacoco:srcs",
