@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ArgChunk;
-import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLine.SimpleArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -46,13 +47,16 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
@@ -67,10 +71,9 @@ import net.starlark.java.syntax.ParserInput;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link StarlarkCustomCommandLine}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class StarlarkCustomCommandLineTest {
   private static final ArtifactExpander EMPTY_EXPANDER =
       artifact -> {
@@ -561,6 +564,7 @@ public final class StarlarkCustomCommandLineTest {
             .add(
                 vectorArg(tree)
                     .setExpandDirectories(false)
+                    .setLocation(Location.BUILTIN)
                     .setMapEach(
                         (StarlarkFunction)
                             execStarlark(
@@ -589,6 +593,65 @@ public final class StarlarkCustomCommandLineTest {
     assertThrows(
         CommandLineExpansionException.class,
         () -> commandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP));
+  }
+
+  @Test
+  public void vectorArgArguments_expandDirectoriesDisabled_manualExpansionReflectedInActionKey(
+      @TestParameter boolean useNestedSet) throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(tree, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
+    // The files won't be read so MISSING_FILE_MARKER will do
+    TreeArtifactValue treeArtifactValueBefore =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .putChild(child2, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+    TreeArtifactValue treeArtifactValueAfter =
+        TreeArtifactValue.newBuilder(tree)
+            .putChild(child1, FileArtifactValue.MISSING_FILE_MARKER)
+            .build();
+    var vectorArg =
+        useNestedSet
+            ? new VectorArg.Builder(
+                NestedSetBuilder.wrap(Order.STABLE_ORDER, ImmutableList.of(tree)), Artifact.class)
+            : new VectorArg.Builder(Tuple.of(tree));
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg
+                    .setExpandDirectories(false)
+                    .setLocation(Location.BUILTIN)
+                    .setMapEach(
+                        (StarlarkFunction)
+                            execStarlark(
+                                """
+                                def map_each(x, expander):
+                                  return [f.path for f in expander.expand(x)]
+                                map_each
+                                """)))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+
+    var expanderBefore =
+        createArtifactExpander(
+            ImmutableMap.of(tree, treeArtifactValueBefore.getChildren()), ImmutableMap.of());
+    var argumentsBefore = commandLine.arguments(expanderBefore, PathMapper.NOOP);
+    var fingerprintBefore = new Fingerprint();
+    commandLine.addToFingerprint(
+        new ActionKeyContext(), expanderBefore, CoreOptions.OutputPathsMode.OFF, fingerprintBefore);
+    assertThat(argumentsBefore).containsExactly("bin/tree/child1", "bin/tree/child2");
+
+    var expanderAfter =
+        createArtifactExpander(
+            ImmutableMap.of(tree, treeArtifactValueAfter.getChildren()), ImmutableMap.of());
+    var argumentsAfter = commandLine.arguments(expanderAfter, PathMapper.NOOP);
+    var fingerprintAfter = new Fingerprint();
+    commandLine.addToFingerprint(
+        new ActionKeyContext(), expanderAfter, CoreOptions.OutputPathsMode.OFF, fingerprintAfter);
+    assertThat(argumentsAfter).containsExactly("bin/tree/child1");
+
+    assertThat(fingerprintBefore.hexDigestAndReset())
+        .isNotEqualTo(fingerprintAfter.hexDigestAndReset());
   }
 
   private static VectorArg.Builder vectorArg(Object... elems) {

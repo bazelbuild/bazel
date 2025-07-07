@@ -508,7 +508,6 @@ public class StarlarkCustomCommandLine extends CommandLine {
                   new FilesetSymlinkFile(fileset, mappedExecPath.getRelative(name))));
     }
 
-
     private int addToFingerprint(
         List<Object> arguments,
         int argi,
@@ -550,11 +549,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
           // fingerprinting stringificationType here.
           CommandLineItemMapEachAdaptor commandLineItemMapFn =
               new CommandLineItemMapEachAdaptor(
-                  mapEach,
-                  location,
-                  starlarkSemantics,
-                  (features & EXPAND_DIRECTORIES) != 0 ? artifactExpander : null,
-                  outputPathsMode);
+                  mapEach, location, starlarkSemantics, artifactExpander, outputPathsMode);
           try {
             actionKeyContext.addNestedSetToFingerprint(commandLineItemMapFn, fingerprint, values);
           } finally {
