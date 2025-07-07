@@ -89,7 +89,6 @@ single_version_override(
     module_name = "grpc-java",
     patch_strip = 1,
     patches = ["//third_party:grpc-java.patch"],
-    version = "1.71.0",
 )
 
 single_version_override(
