@@ -600,5 +600,70 @@ class BazelExternalRepositoryTest(test_base.TestBase):
       )
       self.assertIn('FOO bar2', os.linesep.join(stderr))
 
+  def testRepoEnvInherit(self):
+      self.ScratchFile(
+          'MODULE.bazel',
+          [
+              'dump_env = use_repo_rule("//:main.bzl", "dump_env")',
+              'dump_env(',
+              '    name = "debug"',
+              ')',
+          ],
+      )
+      self.ScratchFile('BUILD')
+      self.ScratchFile('main.bzl', [
+          'def _dump_env(ctx):',
+          '    val = ctx.os.environ.get("FOO", "nothing")',
+          '    print("FOO", val)',
+          '    ctx.file("BUILD")',
+          'dump_env = repository_rule(',
+          '    implementation = _dump_env,',
+          '    local = True,',
+          ')',
+      ])
+
+      _, _, stderr = self.RunBazel(
+          args=[
+              'build', '@debug//:all',
+              '--repo_env=FOO=bar1',
+              '--repo_env==FOO',
+              '--repo_env=FOO',
+          ],
+          env_add={'FOO': 'bar2'},
+      )
+      self.assertIn('FOO bar2', os.linesep.join(stderr))
+
+  def testRepoEnvEmpty(self):
+      self.ScratchFile(
+          'MODULE.bazel',
+          [
+              'dump_env = use_repo_rule("//:main.bzl", "dump_env")',
+              'dump_env(',
+              '    name = "debug"',
+              ')',
+          ],
+      )
+      self.ScratchFile('BUILD')
+      self.ScratchFile('main.bzl', [
+          'def _dump_env(ctx):',
+          '    val = ctx.os.environ.get("FOO", "nothing")',
+          '    print("FOO", val)',
+          '    ctx.file("BUILD")',
+          'dump_env = repository_rule(',
+          '    implementation = _dump_env,',
+          '    local = True,',
+          ')',
+      ])
+
+      _, _, stderr = self.RunBazel(
+          args=[
+              'build', '@debug//:all',
+              '--repo_env=FOO=bar1',
+              '--repo_env=FOO=',
+          ],
+          env_add={'FOO': 'bar2'},
+      )
+      self.assertIn('FOO' + os.linesep, os.linesep.join(stderr))
+
 if __name__ == '__main__':
   absltest.main()
