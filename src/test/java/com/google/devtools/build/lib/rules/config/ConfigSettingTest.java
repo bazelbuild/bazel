@@ -3073,4 +3073,110 @@ public class ConfigSettingTest extends BuildViewTestCase {
                   .formatted(disabledName));
     }
   }
+
+  @Test
+  @TestParameters({
+    // Alias --nativeform to --//test:myflag, config_setting matches --nativeform on default value:
+"""
+{
+  valuesAttr: '"nativeform": "parmesan"',
+  flagValuesAttr: '',
+  config: ['--flag_alias=nativeform=//test:myflag'],
+  expectMatch: true,
+  expectedError: ''
+}\
+""",
+    // Alias --nativeform to --//test:myflag, config_setting doesn't match --nativeform because it
+    // expects a different value:
+"""
+{
+  valuesAttr: '"nativeform": "other_expected_value"',
+  flagValuesAttr: '',
+  config: ['--flag_alias=nativeform=//test:myflag'],
+  expectMatch: false,
+  expectedError: ''
+}\
+""",
+    // Alias --nativeform to --//test:doesnt_exist, config_setting on --nativeform fails because the
+    // target doesn't exist.
+"""
+{
+  valuesAttr: '"nativeform": "parmesan"',
+  flagValuesAttr: '',
+  config: ['--flag_alias=nativeform=//test:doesnt_exist'],
+  expectMatch: false,
+  expectedError: "target 'doesnt_exist' not declared"
+}\
+""",
+    // Alias --nativeform not set, config_setting on --nativeform errors.
+"""
+{
+  valuesAttr: '"nativeform": "parmesan"',
+  flagValuesAttr: '',
+  config: [],
+  expectMatch: false,
+  expectedError: "unknown option: 'nativeform'"
+}\
+""",
+    // config_setting reads both alias and actual flags and matches because their value is the same.
+"""
+{
+  valuesAttr: '"nativeform": "parmesan"',
+  flagValuesAttr: '"//test:myflag": "parmesan"',
+  config: ['--flag_alias=nativeform=//test:myflag'],
+  expectMatch: true,
+  expectedError: ""
+}\
+""",
+    // config_setting reads both alias and actual flags and errors because of mismatching values.
+"""
+{
+  valuesAttr: '"nativeform": "parmesan"',
+  flagValuesAttr: '"//test:myflag": "other_value"',
+  config: ['--flag_alias=nativeform=//test:myflag'],
+  expectMatch: false,
+  expectedError: "Conflicting flag value expectations"
+}\
+"""
+  })
+  public void flagAlias(
+      String valuesAttr,
+      String flagValuesAttr,
+      List<String> config,
+      boolean expectMatch,
+      String expectedError)
+      throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+        def _impl(ctx):
+            return []
+        string_flag = rule(implementation = _impl, build_setting = config.string(flag = True))
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_flag")
+        config_setting(
+            name = "match",
+            values = {%s},
+            flag_values = {%s}
+        )
+        string_flag(
+            name = "myflag",
+            build_setting_default = "parmesan",
+        )
+        """
+            .formatted(valuesAttr, flagValuesAttr));
+
+    reporter.removeHandler(failFastHandler);
+    useConfiguration(config.toArray(new String[0]));
+
+    if (expectedError.isEmpty()) {
+      assertThat(getConfigMatchingProviderResultAsBoolean("//test:match")).isEqualTo(expectMatch);
+    } else {
+      assertThat(getConfiguredTarget("//test:match")).isNull();
+      assertContainsEvent(expectedError);
+    }
+  }
 }
