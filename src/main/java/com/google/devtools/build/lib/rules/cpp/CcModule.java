@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal.WrappedStarlarkActionFactory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
@@ -725,7 +724,8 @@ public abstract class CcModule
         .addLibraries(
             Depset.noneableCast(librariesToLinkObject, StarlarkInfo.class, "libraries").toList())
         .addUserLinkFlags(optionsBuilder.build())
-        .addLinkstamps(convertToNestedSet(linkstampsObject, Linkstamp.class, "linkstamps").toList())
+        .addLinkstamps(
+            convertToNestedSet(linkstampsObject, StarlarkInfo.class, "linkstamps").toList())
         .addNonCodeInputs(
             Depset.noneableCast(nonCodeInputs, Artifact.class, "additional_inputs").toList())
         .build();
@@ -1557,8 +1557,13 @@ public abstract class CcModule
   public void checkPrivateApi(Object allowlistObject, StarlarkThread thread) throws EvalException {
     // This method may be called anywhere from builtins, but not outside (because it's not exposed
     // in cc_common.bzl
-    BazelModuleContext bazelModuleContext =
-        (BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread, 1).getClientData();
+    Module module = Module.ofInnermostEnclosingStarlarkFunction(thread, 1);
+    if (module == null) {
+      // The module is null when the call is coming from one of the callbacks passed to execution
+      // phase
+      return;
+    }
+    BazelModuleContext bazelModuleContext = (BazelModuleContext) module.getClientData();
     ImmutableList<BuiltinRestriction.AllowlistEntry> allowlist =
         Sequence.cast(allowlistObject, Tuple.class, "allowlist").stream()
             // TODO(bazel-team): Avoid unchecked indexing and casts on values obtained from

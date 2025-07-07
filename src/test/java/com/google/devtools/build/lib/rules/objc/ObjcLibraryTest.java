@@ -61,6 +61,12 @@ import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.util.Collection;
 import java.util.List;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -2074,9 +2080,19 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(archiveAction.getMnemonic()).isEqualTo("CppArchive");
   }
 
-  private static List<String> linkstampExecPaths(NestedSet<CcLinkingContext.Linkstamp> linkstamps) {
+  private static Artifact getLinkstampFile(StarlarkInfo linkstamp) {
+    try (Mutability mu = Mutability.create()) {
+      StarlarkFunction func = linkstamp.getValue("file", StarlarkFunction.class);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
+      return (Artifact) Starlark.positionalOnlyCall(thread, func);
+    } catch (EvalException | InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private static List<String> linkstampExecPaths(NestedSet<StarlarkInfo> linkstamps) {
     return ActionsTestUtil.execPaths(
-        ActionsTestUtil.transform(linkstamps.toList(), CcLinkingContext.Linkstamp::getArtifact));
+        ActionsTestUtil.transform(linkstamps.toList(), ObjcLibraryTest::getLinkstampFile));
   }
 
   @Test

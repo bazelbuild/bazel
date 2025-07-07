@@ -18,6 +18,7 @@ load(":common/cc/attrs.bzl", "common_attrs", "linkstatic_doc")
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/link/create_linkstamp.bzl", "create_linkstamp")
 load(":common/cc/semantics.bzl", "semantics")
 
 cc_internal = _builtins.internal.cc_internal
@@ -111,9 +112,9 @@ def _cc_library_impl(ctx):
     linking_contexts.extend(cc_helper.get_linking_contexts_from_deps(ctx.attr.implementation_deps))
     if ctx.file.linkstamp != None:
         linkstamps = []
-        linkstamps.append(cc_internal.create_linkstamp(
+        linkstamps.append(create_linkstamp(
             linkstamp = ctx.file.linkstamp,
-            compilation_context = compilation_context,
+            headers = compilation_context.headers,
         ))
         linkstamps_linker_input = cc_common.create_linker_input(
             owner = ctx.label,

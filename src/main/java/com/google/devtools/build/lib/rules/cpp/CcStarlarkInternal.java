@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.MapVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
@@ -240,17 +239,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(name = "launcher_provider", documented = false, structField = true)
   public ProviderApi getCcLauncherInfoProvider() throws EvalException {
     return CcLauncherInfo.PROVIDER;
-  }
-
-  @StarlarkMethod(
-      name = "create_linkstamp",
-      documented = false,
-      parameters = {
-        @Param(name = "linkstamp", positional = false, named = true),
-        @Param(name = "compilation_context", positional = false, named = true),
-      })
-  public Linkstamp createLinkstamp(Artifact linkstamp, CcCompilationContext ccCompilationContext) {
-    return new Linkstamp(linkstamp, ccCompilationContext.getDeclaredIncludeSrcs());
   }
 
   /**

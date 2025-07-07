@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvSet;
@@ -74,8 +73,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1759,6 +1762,16 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     }
   }
 
+  private static Artifact getLinkstampFile(StarlarkInfo linkstamp) {
+    try (Mutability mu = Mutability.create()) {
+      StarlarkFunction func = linkstamp.getValue("file", StarlarkFunction.class);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
+      return (Artifact) Starlark.positionalOnlyCall(thread, func);
+    } catch (EvalException | InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   private void doTestCcLinkingContext(
       List<String> staticLibraryList,
       List<String> picStaticLibraryList,
@@ -1780,8 +1793,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     Depset linkstamps = info.getValue("linkstamps", Depset.class);
     assertThat(
             artifactsToStrings(
-                linkstamps.toList(Linkstamp.class).stream()
-                    .map(Linkstamp::getArtifact)
+                linkstamps.toList(StarlarkInfo.class).stream()
+                    .map(StarlarkCcCommonTest::getLinkstampFile)
                     .collect(ImmutableList.toImmutableList())))
         .containsExactly("src a/linkstamp.cc");
     ImmutableList<StarlarkInfo> librariesToLink =

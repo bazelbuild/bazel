@@ -25,12 +25,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkstampApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.List;
@@ -89,63 +87,6 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   /**
-   * A linkstamp that also knows about its declared includes.
-   *
-   * <p>This object is required because linkstamp files may include other headers which will have to
-   * be provided during compilation.
-   */
-  @Immutable
-  public static final class Linkstamp implements LinkstampApi<Artifact> {
-    private final Artifact artifact;
-    private final ImmutableList<Artifact> declaredIncludeSrcs;
-
-    Linkstamp(Artifact artifact, NestedSet<Artifact> declaredIncludeSrcs) {
-      this.artifact = Preconditions.checkNotNull(artifact);
-      this.declaredIncludeSrcs = declaredIncludeSrcs.toList();
-    }
-
-    /** Returns the linkstamp artifact. */
-    public Artifact getArtifact() {
-      return artifact;
-    }
-
-    @Override
-    public Artifact getArtifactForStarlark(StarlarkThread thread) throws EvalException {
-      CcModule.checkPrivateStarlarkificationAllowlist(thread);
-      return artifact;
-    }
-
-    @Override
-    public Depset getDeclaredIncludeSrcsForStarlark(StarlarkThread thread) throws EvalException {
-      CcModule.checkPrivateStarlarkificationAllowlist(thread);
-      return Depset.of(
-          Artifact.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, declaredIncludeSrcs));
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(artifact, declaredIncludeSrcs);
-    }
-
-    @Override
-    public boolean isImmutable() {
-      return true; // immutable and Starlark-hashable
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (!(obj instanceof Linkstamp other)) {
-        return false;
-      }
-      return artifact.equals(other.artifact)
-          && declaredIncludeSrcs.equals(other.declaredIncludeSrcs);
-    }
-  }
-
-  /**
    * Wraps any input to the linker, be it libraries, linker scripts, linkstamps or linking options.
    */
   // TODO(bazel-team): choose less confusing names for this class and the package-level interface of
@@ -158,14 +99,14 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     private final ImmutableList<StarlarkInfo> libraries;
     private final ImmutableList<LinkOptions> userLinkFlags;
     private final ImmutableList<Artifact> nonCodeInputs;
-    private final ImmutableList<Linkstamp> linkstamps;
+    private final ImmutableList<StarlarkInfo> linkstamps;
 
     public LinkerInput(
         Label owner,
         ImmutableList<StarlarkInfo> libraries,
         ImmutableList<LinkOptions> userLinkFlags,
         ImmutableList<Artifact> nonCodeInputs,
-        ImmutableList<Linkstamp> linkstamps) {
+        ImmutableList<StarlarkInfo> linkstamps) {
       this.owner = owner;
       this.libraries = libraries;
       this.userLinkFlags = userLinkFlags;
@@ -227,12 +168,12 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       return StarlarkList.immutableCopyOf(getNonCodeInputs());
     }
 
-    public List<Linkstamp> getLinkstamps() {
+    public List<StarlarkInfo> getLinkstamps() {
       return linkstamps;
     }
 
     @StarlarkMethod(name = "linkstamps", documented = false, structField = true)
-    public Sequence<Linkstamp> getLinkstampsForStarlark() {
+    public Sequence<StarlarkInfo> getLinkstampsForStarlark() {
       return StarlarkList.immutableCopyOf(getLinkstamps());
     }
 
@@ -270,7 +211,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       private final ImmutableList.Builder<StarlarkInfo> libraries = ImmutableList.builder();
       private final ImmutableList.Builder<LinkOptions> userLinkFlags = ImmutableList.builder();
       private final ImmutableList.Builder<Artifact> nonCodeInputs = ImmutableList.builder();
-      private final ImmutableList.Builder<Linkstamp> linkstamps = ImmutableList.builder();
+      private final ImmutableList.Builder<StarlarkInfo> linkstamps = ImmutableList.builder();
 
       @CanIgnoreReturnValue
       public Builder addLibraries(List<StarlarkInfo> libraries) {
@@ -285,7 +226,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       }
 
       @CanIgnoreReturnValue
-      public Builder addLinkstamps(List<Linkstamp> linkstamps) {
+      public Builder addLinkstamps(List<StarlarkInfo> linkstamps) {
         this.linkstamps.addAll(linkstamps);
         return this;
       }
@@ -477,8 +418,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
         .collect(toImmutableList());
   }
 
-  public NestedSet<Linkstamp> getLinkstamps() {
-    NestedSetBuilder<Linkstamp> linkstamps = NestedSetBuilder.linkOrder();
+  public NestedSet<StarlarkInfo> getLinkstamps() {
+    NestedSetBuilder<StarlarkInfo> linkstamps = NestedSetBuilder.linkOrder();
     for (LinkerInput linkerInput : linkerInputs.toList()) {
       linkstamps.addAll(linkerInput.getLinkstamps());
     }
@@ -488,7 +429,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Override
   public Depset getLinkstampsForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Linkstamp.class, getLinkstamps());
+    return Depset.of(StarlarkInfo.class, getLinkstamps());
   }
 
   /**
