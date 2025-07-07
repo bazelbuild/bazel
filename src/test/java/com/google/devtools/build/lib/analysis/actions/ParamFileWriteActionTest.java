@@ -153,7 +153,8 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
         outputArtifact,
         commandLine,
         ParameterFileType.UNQUOTED,
-        executable);
+        executable,
+        AbstractFileWriteAction.MNEMONIC);
   }
 
   private static CommandLine createNormalCommandLine() {

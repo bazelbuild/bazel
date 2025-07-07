@@ -317,9 +317,19 @@ automatically added. All tools are implicitly added as inputs.
             name = "is_executable",
             defaultValue = "False",
             doc = "Whether the output file should be executable.",
-            named = true)
+            named = true),
+        @Param(
+            name = "mnemonic",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
       })
-  void write(FileApi output, Object content, Boolean isExecutable)
+  void write(FileApi output, Object content, Boolean isExecutable, Object mnemonicUnchecked)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
