@@ -94,9 +94,10 @@ public class TestConfiguration extends Fragment {
         effectTags = {OptionEffectTag.TEST_RUNNER},
         help =
             "Specifies additional environment variables to be injected into the test runner "
-                + "environment. Variables can be either specified by name, in which case its value "
-                + "will be read from the Bazel client environment, or by the name=value pair. "
-                + "Previously set variables can be unset via <code>=name</code>."
+                + "environment. Variables can be either specified by <code>name</code>, in which "
+                + "case its value will be read from the Bazel client environment, or by the "
+                + "<code>name=value</code> pair. "
+                + "Previously set variables can be unset via <code>=name</code>. "
                 + "This option can be used multiple times to specify several variables. "
                 + "Used only by the 'bazel test' command.")
     public List<Converters.EnvVar> testEnvironment;
