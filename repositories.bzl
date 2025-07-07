@@ -65,6 +65,7 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "rules_apple+",
     "rules_fuzzing+",
     "rules_swift+",
+    "rules_perl+",
 ]
 
 ##################################################################################
