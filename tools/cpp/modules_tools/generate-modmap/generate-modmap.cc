@@ -37,7 +37,7 @@
 // see also https://gcc.gnu.org/onlinedocs/gcc/C_002b_002b-Module-Mapper.html
 void write_modmap(std::ostream &modmap_file_stream,
                   std::ostream &modmap_file_dot_input_stream,
-                  const std::unordered_set<ModmapItem> &modmap,
+                  const std::set<ModmapItem> &modmap,
                   const std::string &compiler,
                   const std::optional<ModmapItem> &generated) {
   if (compiler == "gcc") {
@@ -64,14 +64,14 @@ void write_modmap(std::ostream &modmap_file_stream,
   }
 }
 
-std::unordered_set<ModmapItem> process(const ModuleDep &dep,
-                                       const Cpp20ModulesInfo &info) {
+std::set<ModmapItem> process(const ModuleDep &dep,
+                             const Cpp20ModulesInfo &info) {
   std::queue<std::string> q;
   for (const auto &item : dep.require_list) {
     q.push(item);
   }
   // Get all dependencies
-  std::unordered_set<std::string> s;
+  std::set<std::string> s;
   while (!q.empty()) {
     std::string name = q.front();
     q.pop();
@@ -90,7 +90,7 @@ std::unordered_set<ModmapItem> process(const ModuleDep &dep,
   }
 
   // Construct modmap
-  std::unordered_set<ModmapItem> modmap;
+  std::set<ModmapItem> modmap;
   for (const auto &name : s) {
     auto it = info.modules.find(name);
     if (it == info.modules.end()) {
