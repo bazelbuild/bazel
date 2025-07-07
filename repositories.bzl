@@ -55,8 +55,11 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "with_cfg.bzl",
     "zlib",
     "zstd-jni",
+    "googleapis-java",
+    "googleapis-grpc-java",
 ]] + [
     # In-direct bazel_deps
+    "googleapis-rules-registry+",
     "protoc-gen-validate+",
     "xds+",
     "envoy_api+",

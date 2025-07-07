@@ -319,7 +319,7 @@
   "moduleExtensions": {
     "//:repositories.bzl%async_profiler_repos": {
       "general": {
-        "bzlTransitiveDigest": "xytzttMLKnjH3XHktmJK1zWdFQQ/u1gc9CQWZpD3LJs=",
+        "bzlTransitiveDigest": "wKkL2hzyZ7bf/oiH5j5NhxPTfH9ig5B7Oo3DFVqiybA=",
         "usagesDigest": "fv/Ru+up/1CLlox7G1yNn9y4JOVK1qeU6uQCAkCcMaM=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -439,6 +439,16 @@
             "",
             "googleapis",
             "googleapis+"
+          ],
+          [
+            "",
+            "googleapis-grpc-java",
+            "googleapis-grpc-java+"
+          ],
+          [
+            "",
+            "googleapis-java",
+            "googleapis-java+"
           ],
           [
             "",
