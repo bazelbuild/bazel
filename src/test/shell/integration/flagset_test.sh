@@ -398,6 +398,46 @@ EOF
   expect_log "Mismatching default configs for a build where only some targets have projects."
 }
 
+
+function test_partial_project_cquery_paths_succeed_with_non_noop_default_config(){
+  mkdir -p test1
+  cat > test1/PROJECT.scl <<EOF
+project = {
+  "configs": {
+    "test_config": ["--define=foo=bar"],
+  },
+  "default_config" : "test_config"
+}
+EOF
+  cat > test1/BUILD <<EOF
+genrule(name='g', outs=['g.txt'], cmd='echo hi > \$@')
+EOF
+
+  mkdir -p noproject
+  cat > noproject/BUILD <<EOF
+genrule(name='h', outs=['h.txt'], cmd='echo hi > \$@')
+EOF
+
+  bazel clean --expunge
+
+  bazel cquery 'somepath(//test1:g, //noproject:h)' \
+    &> "$TEST_log" || fail "expected build to succeed"
+
+  # Confirm that we're applying the flags for the first target
+  expect_log "--define=foo=bar"
+
+  bazel cquery 'somepath(//noproject:h, //test1:g)' \
+    &> "$TEST_log" || fail "expected build to succeed"
+
+  bazel cquery 'allpaths(//test1:g, //noproject:h)' \
+    &> "$TEST_log" || fail "expected build to succeed"
+
+  bazel cquery 'allpaths(//noproject:h, //test1:g)' \
+    &> "$TEST_log" || fail "expected build to succeed"
+
+  expect_not_log "Mismatching default configs for a build where only some targets have projects."
+}
+
 function test_partial_project_builds_succeed_with_noop_default_config(){
   mkdir -p test1
   cat > test1/PROJECT.scl <<EOF

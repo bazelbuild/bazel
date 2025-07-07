@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.ReleaseReplaceableBuil
 import com.google.devtools.build.lib.buildtool.buildevent.StartingAqueryDumpAfterBuildEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.UpdateOptionsEvent;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
@@ -78,6 +79,7 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
+import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackagePathCodecDependencies;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -227,12 +229,18 @@ public class BuildTool {
    *     the request object are populated
    * @param result the build result that is the mutable result of this build
    * @param validator target validator
+   * @param optionsParser the {@link OptionsParser} that was used to parse the command line options.
+   *     Also used to parse the options applied by the project file.
+   * @param targetsForProjectResolution if not null, the targets for which to perform project file
+   *     resolution. If null (the common behavior), derive the targets from the {@code request}
+   *     instead.
    */
   public void buildTargets(
       BuildRequest request,
       BuildResult result,
       TargetValidator validator,
-      OptionsParser optionsParser)
+      OptionsParser optionsParser,
+      @Nullable List<String> targetsForProjectResolution)
       throws BuildFailedException,
           InterruptedException,
           ViewCreationFailedException,
@@ -241,6 +249,7 @@ public class BuildTool {
           AbruptExitException,
           InvalidConfigurationException,
           TestExecException,
+          LabelSyntaxException,
           ExitException,
           PostExecutionDumpException,
           RepositoryMappingResolutionException,
@@ -268,13 +277,44 @@ public class BuildTool {
       TargetPatternPhaseValue targetPatternPhaseValue;
       Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
       try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
-        targetPatternPhaseValue = evaluateTargetPatterns(env, request, validator);
+        targetPatternPhaseValue =
+            evaluateTargetPatterns(
+                env.getReporter(),
+                env.getSkyframeExecutor(),
+                env.getRelativeWorkingDirectory(),
+                request.getKeepGoing(),
+                request.getTargets(),
+                request.getLoadingOptions(),
+                request.getLoadingPhaseThreadCount(),
+                request.shouldRunTests(),
+                validator);
       }
+
       env.getEventBus().post(new ExecRootEvent(env.getExecRoot()));
+
+      TargetPatternPhaseValue targetPatternsForProjectResolution =
+          targetsForProjectResolution == null
+              ? targetPatternPhaseValue
+              : evaluateTargetPatterns(
+                  ExtendedEventHandler
+                      .NOOP, // Don't report this because it'll throw off our tracking of the
+                  // complete target set.
+                  env.getSkyframeExecutor(),
+                  env.getRelativeWorkingDirectory(),
+                  request.getKeepGoing(),
+                  targetsForProjectResolution,
+                  request.getLoadingOptions(),
+                  request.getLoadingPhaseThreadCount(),
+                  request.shouldRunTests(),
+                  validator);
 
       ProjectEvaluationResult projectEvaluationResult =
           evaluateProjectFile(
-              request, buildOptions, request.getUserOptions(), targetPatternPhaseValue, env);
+              request,
+              buildOptions,
+              request.getUserOptions(),
+              targetPatternsForProjectResolution,
+              env);
 
       if (!projectEvaluationResult.buildOptions().isEmpty()) {
         // First parse the native options from the project file.
@@ -372,23 +412,29 @@ public class BuildTool {
   }
 
   private static TargetPatternPhaseValue evaluateTargetPatterns(
-      CommandEnvironment env, final BuildRequest request, final TargetValidator validator)
+      ExtendedEventHandler reporter,
+      SkyframeExecutor skyframeExecutor,
+      PathFragment relativeWorkingDirectory,
+      boolean keepGoing,
+      List<String> targets,
+      LoadingOptions loadingOptions,
+      int loadingPhaseThreadCount,
+      boolean shouldRunTests,
+      final TargetValidator validator)
       throws LoadingFailedException, TargetParsingException, InterruptedException {
-    boolean keepGoing = request.getKeepGoing();
     TargetPatternPhaseValue result =
-        env.getSkyframeExecutor()
-            .loadTargetPatternsWithFilters(
-                env.getReporter(),
-                request.getTargets(),
-                env.getRelativeWorkingDirectory(),
-                request.getLoadingOptions(),
-                request.getLoadingPhaseThreadCount(),
-                keepGoing,
-                request.shouldRunTests());
+        skyframeExecutor.loadTargetPatternsWithFilters(
+            reporter,
+            targets,
+            relativeWorkingDirectory,
+            loadingOptions,
+            loadingPhaseThreadCount,
+            keepGoing,
+            shouldRunTests);
     if (validator != null) {
-      ImmutableSet<Target> targets =
-          result.getTargets(env.getReporter(), env.getSkyframeExecutor().getPackageManager());
-      validator.validateTargets(targets, keepGoing);
+      ImmutableSet<Target> targetLabels =
+          result.getTargets(reporter, skyframeExecutor.getPackageManager());
+      validator.validateTargets(targetLabels, keepGoing);
     }
     return result;
   }
@@ -757,7 +803,12 @@ public class BuildTool {
 
   public BuildResult processRequest(
       BuildRequest request, TargetValidator validator, OptionsParsingResult options) {
-    return processRequest(request, validator, /* postBuildCallback= */ null, options);
+    return processRequest(
+        request,
+        validator,
+        /* postBuildCallback= */ null,
+        options,
+        /* targetsForProjectResolution= */ null);
   }
 
   /**
@@ -788,7 +839,8 @@ public class BuildTool {
       BuildRequest request,
       TargetValidator validator,
       PostBuildCallback postBuildCallback,
-      OptionsParsingResult options) {
+      OptionsParsingResult options,
+      @Nullable List<String> targetsForProjectResolution) {
     BuildResult result = new BuildResult(request.getStartTime());
     maybeSetStopOnFirstFailure(request, result);
     Throwable crash = null;
@@ -798,7 +850,8 @@ public class BuildTool {
         // This OptionsParsingResult is essentially a wrapper around the OptionsParser in
         // https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/runtime/BlazeCommandDispatcher.java#L341. Casting it back to
         // an OptionsParser is safe, and necessary in order to add any options from flagsets.
-        buildTargets(request, result, validator, (OptionsParser) options);
+        buildTargets(
+            request, result, validator, (OptionsParser) options, targetsForProjectResolution);
       }
       detailedExitCode = DetailedExitCode.success();
       if (postBuildCallback != null) {

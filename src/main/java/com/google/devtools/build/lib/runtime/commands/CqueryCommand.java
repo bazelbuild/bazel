@@ -27,11 +27,14 @@ import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.query2.cquery.ConfiguredTargetQueryEnvironment;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
+import com.google.devtools.build.lib.query2.engine.AllPathsFunction;
+import com.google.devtools.build.lib.query2.engine.FunctionExpression;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
+import com.google.devtools.build.lib.query2.engine.SomePathFunction;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -53,7 +56,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 /** Handles the 'cquery' command on the Blaze command line. */
 @Command(
@@ -164,10 +166,16 @@ public final class CqueryCommand implements BlazeCommand {
     }
 
     List<String> topLevelTargets = options.getOptions(CqueryOptions.class).universeScope;
-    Set<String> targetPatternSet = new LinkedHashSet<>();
+    LinkedHashSet<String> targetPatternSet = new LinkedHashSet<>();
+    ImmutableList<String> targetsForProjectResolution = null;
     if (topLevelTargets.isEmpty()) {
       expr.collectTargetPatterns(targetPatternSet);
       topLevelTargets = new ArrayList<>(targetPatternSet);
+      if (expr instanceof FunctionExpression functionExpr
+          && (functionExpr.getFunction() instanceof SomePathFunction
+              || functionExpr.getFunction() instanceof AllPathsFunction)) {
+        targetsForProjectResolution = ImmutableList.of(targetPatternSet.getFirst());
+      }
     }
     BlazeRuntime runtime = env.getRuntime();
 
@@ -185,7 +193,12 @@ public final class CqueryCommand implements BlazeCommand {
             .build();
     DetailedExitCode detailedExitCode =
         new BuildTool(env, new CqueryProcessor(expr, mainRepoTargetParser))
-            .processRequest(request, null, options)
+            .processRequest(
+                request,
+                /* validator= */ null,
+                /* postBuildCallback= */ null,
+                options,
+                targetsForProjectResolution)
             .getDetailedExitCode();
     return BlazeCommandResult.detailedExitCode(detailedExitCode);
   }

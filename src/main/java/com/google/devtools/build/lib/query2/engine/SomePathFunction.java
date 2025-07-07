@@ -33,7 +33,7 @@ import java.util.OptionalInt;
  *
  * <pre>expr ::= SOMEPATH '(' expr ',' expr ')'</pre>
  */
-class SomePathFunction implements QueryFunction {
+public class SomePathFunction implements QueryFunction {
   SomePathFunction() {
   }
 
