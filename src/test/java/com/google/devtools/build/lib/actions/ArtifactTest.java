@@ -216,7 +216,7 @@ public final class ArtifactTest {
         new ArtifactSerializationContext() {
           @Override
           public SourceArtifact getSourceArtifact(
-              PathFragment execPath, Root root, ArtifactOwner owner) {
+              PathFragment execPath, ArtifactRoot root, ArtifactOwner owner) {
             throw new UnsupportedOperationException();
           }
 
