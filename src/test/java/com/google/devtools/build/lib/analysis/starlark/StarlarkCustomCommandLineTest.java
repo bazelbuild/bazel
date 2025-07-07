@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -631,28 +630,24 @@ public final class StarlarkCustomCommandLineTest {
                                   return [f.path for f in expander.expand(x)]
                                 map_each
                                 """)))
-            .build(/* flagPerLine= */ false, RepositoryMapping.EMPTY);
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
 
-    var inputMetadataProviderBefore = new FakeActionInputFileCache();
-    inputMetadataProviderBefore.putTreeArtifact(tree, treeArtifactValueBefore);
-    var argumentsBefore = commandLine.arguments(inputMetadataProviderBefore, PathMapper.NOOP);
+    var expanderBefore =
+        createArtifactExpander(
+            ImmutableMap.of(tree, treeArtifactValueBefore.getChildren()), ImmutableMap.of());
+    var argumentsBefore = commandLine.arguments(expanderBefore, PathMapper.NOOP);
     var fingerprintBefore = new Fingerprint();
     commandLine.addToFingerprint(
-        new ActionKeyContext(),
-        inputMetadataProviderBefore,
-        CoreOptions.OutputPathsMode.OFF,
-        fingerprintBefore);
+        new ActionKeyContext(), expanderBefore, CoreOptions.OutputPathsMode.OFF, fingerprintBefore);
     assertThat(argumentsBefore).containsExactly("bin/tree/child1", "bin/tree/child2");
 
-    var inputMetadataProviderAfter = new FakeActionInputFileCache();
-    inputMetadataProviderAfter.putTreeArtifact(tree, treeArtifactValueAfter);
-    var argumentsAfter = commandLine.arguments(inputMetadataProviderAfter, PathMapper.NOOP);
+    var expanderAfter =
+        createArtifactExpander(
+            ImmutableMap.of(tree, treeArtifactValueAfter.getChildren()), ImmutableMap.of());
+    var argumentsAfter = commandLine.arguments(expanderAfter, PathMapper.NOOP);
     var fingerprintAfter = new Fingerprint();
     commandLine.addToFingerprint(
-        new ActionKeyContext(),
-        inputMetadataProviderAfter,
-        CoreOptions.OutputPathsMode.OFF,
-        fingerprintAfter);
+        new ActionKeyContext(), expanderAfter, CoreOptions.OutputPathsMode.OFF, fingerprintAfter);
     assertThat(argumentsAfter).containsExactly("bin/tree/child1");
 
     assertThat(fingerprintBefore.hexDigestAndReset())
