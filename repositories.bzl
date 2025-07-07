@@ -63,7 +63,6 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "opencensus-cpp+",
     "bazel_features+",
     "rules_apple+",
-    "rules_foreign_cc+",
     "rules_fuzzing+",
     "rules_swift+",
 ]

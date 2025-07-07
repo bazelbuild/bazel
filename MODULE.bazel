@@ -73,6 +73,16 @@ single_version_override(
     ],
 )
 
+# Expose @com_google_protobuf//java/core:lite_runtime_only
+# due to https://github.com/protocolbuffers/protobuf/commit/079be27925955348d1b3cb30ffbfa33dcec5778c
+single_version_override(
+    module_name = "protobuf",
+    patch_strip = 1,
+    patches = [
+        "//third_party:protobuf.patch",
+    ],
+)
+
 # Remove once https://github.com/grpc/grpc-java/pull/12148 is available in a grpc-java release.
 single_version_override(
     module_name = "grpc-java",
@@ -100,6 +110,9 @@ bazel_dep(name = "c-ares", version = "1.19.1")
 bazel_dep(name = "rules_go", version = "0.50.1")
 bazel_dep(name = "rules_kotlin", version = "1.9.6")
 bazel_dep(name = "re2", version = "2024-07-02.bcr.1")
+
+# Require a min version
+bazel_dep(name = "google_benchmark", version = "1.9.4", repo_name = None)
 
 # =========================================
 # Java dependencies

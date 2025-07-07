@@ -1,0 +1,13 @@
+diff --git a/java/core/BUILD.bazel b/java/core/BUILD.bazel
+index 5591a8c057..e88767ba05 100755
+--- a/java/core/BUILD.bazel
++++ b/java/core/BUILD.bazel
+@@ -182,7 +182,7 @@ protobuf_java_export(
+ protobuf_java_library(
+     name = "lite_runtime_only",
+     srcs = LITE_SRCS,
+-    visibility = ["//java/kotlin:__pkg__"],
++    visibility = ["//visibility:public"],
+ )
+ 
+ proto_library(
