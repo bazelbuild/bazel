@@ -161,6 +161,18 @@ function test_client_env() {
   expect_log "FOO=client_foo"
 }
 
+function test_empty() {
+  export FOO=startup_foo
+  bazel clean --expunge
+  bazel help build > /dev/null || fail "${PRODUCT_NAME} help failed"
+  export FOO=client_foo
+  bazel build --action_env=FOO= pkg:showenv || \
+    fail "${PRODUCT_NAME} build showenv failed"
+
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
+  expect_log "FOO=$"
+}
+
 function test_redo_action() {
   export FOO=initial_foo
   export UNRELATED=some_value
