@@ -566,8 +566,10 @@ bind(
 This allows other targets to depend on `//external:openssl`. You can migrate
 away from this by:
 
-*   Replace all usages of `//external:openssl` with
-    `@my-ssl//src:openssl-lib`.
+*   Replace all usages of `//external:openssl` with `@my-ssl//src:openssl-lib`.
+    *   Tip: Use `bazel query --output=build --noenable_bzlmod
+        --enable_workspace [target]` command to find relevant info
+        about the target.
 
 *   Or use the [`alias`](/reference/be/general#alias) build rule
     *   Define the following target in a package (e.g. `//third_party`)
