@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.ContextGuardedValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -176,13 +177,11 @@ public class BazelRuleClassProvider {
         // Shell environment variables specified via options take precedence over the
         // ones inherited from the fragments. In the long run, these fragments will
         // be replaced by appropriate default rc files anyway.
-        for (Map.Entry<String, String> entry : options.get(CoreOptions.class).actionEnvironment) {
-          if (entry.getKey() == null) {
-            // A null key is a special indicator to treat the value as the name of a variable to unset,
-            // see the docs on --action_env for details.
-            env.remove(entry.getValue());
-          } else {
-            env.put(entry.getKey(), entry.getValue());
+        for (var envVar : options.get(CoreOptions.class).actionEnvironment) {
+          switch (envVar) {
+            case Converters.EnvVar.Set(String name, String value) -> env.put(name, value);
+            case Converters.EnvVar.Inherit(String name) -> env.put(name, null);
+            case Converters.EnvVar.Unset(String name) -> env.remove(name);
           }
         }
 

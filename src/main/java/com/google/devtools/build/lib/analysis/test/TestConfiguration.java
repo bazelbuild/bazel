@@ -87,7 +87,7 @@ public class TestConfiguration extends Fragment {
 
     @Option(
         name = "test_env",
-        converter = Converters.OptionalAssignmentConverter.class,
+        converter = Converters.EnvVarsConverter.class,
         allowMultiple = true,
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.TESTING,
@@ -99,7 +99,7 @@ public class TestConfiguration extends Fragment {
                 + "Previously set variables can be unset via <code>=name</code>."
                 + "This option can be used multiple times to specify several variables. "
                 + "Used only by the 'bazel test' command.")
-    public List<Map.Entry<String, String>> testEnvironment;
+    public List<Converters.EnvVar> testEnvironment;
 
     @Option(
         name = "test_timeout",
@@ -357,7 +357,7 @@ public class TestConfiguration extends Fragment {
     @Override
     public TestOptions getNormalized() {
       TestOptions result = (TestOptions) clone();
-      result.testEnvironment = normalizeEntries(testEnvironment);
+      result.testEnvironment = normalizeEnvVars(testEnvironment);
       return result;
     }
   }
