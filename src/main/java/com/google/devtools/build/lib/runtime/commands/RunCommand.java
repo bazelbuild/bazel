@@ -168,7 +168,7 @@ public class RunCommand implements BlazeCommand {
 
     @Option(
         name = "run_env",
-        converter = Converters.OptionalAssignmentConverter.class,
+        converter = Converters.EnvVarsConverter.class,
         allowMultiple = true,
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
@@ -183,7 +183,7 @@ public class RunCommand implements BlazeCommand {
                 + " wins, options for different variables accumulate. Note that the executed target"
                 + " will generally see the full environment of the host expect for those variables"
                 + " that have been explicitly unset.")
-    public List<Map.Entry<String, String>> runEnvironment;
+    public List<Converters.EnvVar> runEnvironment;
   }
 
   private static final String NO_TARGET_MESSAGE = "No targets found to run";
@@ -645,7 +645,7 @@ public class RunCommand implements BlazeCommand {
       BuiltTargets builtTargets,
       OptionsParsingResult options,
       ImmutableList<String> argsFromResidue,
-      List<Map.Entry<String, String>> extraRunEnvironment,
+      List<Converters.EnvVar> extraRunEnvironment,
       TestPolicy testPolicy)
       throws RunCommandException {
     if (builtTargets.targetToRun.getProvider(TestProvider.class) != null) {
@@ -673,26 +673,27 @@ public class RunCommand implements BlazeCommand {
     HashSet<String> envVariablesToClear = new HashSet<>();
     ImmutableMap<String, String> clientEnv = env.getClientEnv();
     actionEnvironment.resolve(runEnvironment, clientEnv);
-    for (Map.Entry<String, String> entry : extraRunEnvironment) {
-      String key = entry.getKey();
-      String value = entry.getValue();
-      if (value == null) {
-        // If a value is missing, inherit from client environment if present, otherwise leave unset.
-        // In the latter case, explicitly remove since the same key might be given multiple times.
-        if (clientEnv.containsKey(key)) {
-          runEnvironment.put(key, clientEnv.get(key));
-        } else {
-          runEnvironment.remove(key);
+    for (var envVar : extraRunEnvironment) {
+      switch (envVar) {
+        case Converters.EnvVar.Set(String name, String value) -> {
+          runEnvironment.put(name, value);
+          envVariablesToClear.remove(name);
         }
-        envVariablesToClear.remove(key);
-      } else if (key == null) {
-        // A null key is a special indicator to treat the value as the name of a variable to unset,
-        // see the docs on --repo_env for details.
-        runEnvironment.remove(value);
-        envVariablesToClear.add(value);
-      } else {
-        runEnvironment.put(key, value);
-        envVariablesToClear.remove(key);
+        case Converters.EnvVar.Inherit(String name) -> {
+          // If a value is missing, inherit from client environment if present, otherwise leave
+          // unset. In the latter case, explicitly remove since the same name might be given
+          // multiple times.
+          if (clientEnv.containsKey(name)) {
+            runEnvironment.put(name, clientEnv.get(name));
+          } else {
+            runEnvironment.remove(name);
+          }
+          envVariablesToClear.remove(name);
+        }
+        case Converters.EnvVar.Unset(String name) -> {
+          runEnvironment.remove(name);
+          envVariablesToClear.add(name);
+        }
       }
     }
 

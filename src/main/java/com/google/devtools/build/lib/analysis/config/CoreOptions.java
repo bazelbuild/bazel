@@ -466,7 +466,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   // environment to skyframe.
   @Option(
       name = "action_env",
-      converter = Converters.OptionalAssignmentConverter.class,
+      converter = Converters.EnvVarsConverter.class,
       allowMultiple = true,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -484,11 +484,11 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           Note that unless <code>--incompatible_repo_env_ignores_action_env</code> is true, all <code>name=value</code> \
           pairs will be available to repository rules.
           """)
-  public List<Map.Entry<String, String>> actionEnvironment;
+  public List<Converters.EnvVar> actionEnvironment;
 
   @Option(
       name = "host_action_env",
-      converter = Converters.OptionalAssignmentConverter.class,
+      converter = Converters.EnvVarsConverter.class,
       allowMultiple = true,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -501,7 +501,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " <code>=name</code>, which unsets the variable of that name. This option can"
               + " be used multiple times; for options given for the same variable, the latest"
               + " wins, options for different variables accumulate.")
-  public List<Map.Entry<String, String>> hostActionEnvironment;
+  public List<Converters.EnvVar> hostActionEnvironment;
 
   @Option(
       name = "collect_code_coverage",
@@ -1099,8 +1099,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     // Normalize features.
     result.defaultFeatures = getNormalizedFeatures(defaultFeatures);
 
-    result.actionEnvironment = normalizeEntries(actionEnvironment);
-    result.hostActionEnvironment = normalizeEntries(hostActionEnvironment);
+    result.actionEnvironment = normalizeEnvVars(actionEnvironment);
+    result.hostActionEnvironment = normalizeEnvVars(hostActionEnvironment);
     result.commandLineFlagAliases = sortEntries(normalizeEntries(commandLineFlagAliases));
 
     return result;

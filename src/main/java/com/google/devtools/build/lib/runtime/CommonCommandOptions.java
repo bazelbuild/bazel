@@ -570,7 +570,7 @@ public class CommonCommandOptions extends OptionsBase {
 
   @Option(
       name = "repo_env",
-      converter = Converters.OptionalAssignmentConverter.class,
+      converter = Converters.EnvVarsConverter.class,
       allowMultiple = true,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -582,7 +582,7 @@ public class CommonCommandOptions extends OptionsBase {
           variables can be set via command-line flags and <code>.bazelrc</code> entries. \
           The special syntax <code>=NAME</code> can be used to explicitly unset a variable.
           """)
-  public List<Map.Entry<String, String>> repositoryEnvironment;
+  public List<Converters.EnvVar> repositoryEnvironment;
 
   @Option(
       name = "incompatible_repo_env_ignores_action_env",

@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.OptionAndRawValue;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
@@ -339,50 +340,48 @@ public class CommandEnvironment {
     if (command.buildPhase().loads() || command.name().equals("info")) {
       // Compute the set of environment variables that are allowlisted on the commandline
       // for inheritance.
-      for (Map.Entry<String, String> entry :
-          options.getOptions(CoreOptions.class).actionEnvironment) {
-        if (entry.getValue() == null) {
-          visibleActionEnv.add(entry.getKey());
-        } else if (entry.getKey() == null) {
-          // A null key is a special indicator to treat the value as the name of a variable to
-          // unset, see the docs on --action_env for details.
-          visibleActionEnv.remove(entry.getValue());
-          if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
-            repoEnv.remove(entry.getValue());
+      for (var envVar : options.getOptions(CoreOptions.class).actionEnvironment) {
+        switch (envVar) {
+          case Converters.EnvVar.Set(String name, String value) -> {
+            visibleActionEnv.remove(name);
+            if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
+              repoEnv.put(name, value);
+            }
           }
-        } else {
-          visibleActionEnv.remove(entry.getKey());
-          if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
-            repoEnv.put(entry.getKey(), entry.getValue());
+          case Converters.EnvVar.Inherit(String name) -> {
+            visibleActionEnv.add(name);
+          }
+          case Converters.EnvVar.Unset(String name) -> {
+            visibleActionEnv.remove(name);
+            if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
+              repoEnv.remove(name);
+            }
           }
         }
       }
     }
     if (command.buildPhase().analyzes() || command.name().equals("info")) {
-      for (Map.Entry<String, String> entry :
-          options.getOptions(TestOptions.class).testEnvironment) {
-        if (entry.getValue() == null) {
-          visibleTestEnv.add(entry.getKey());
+      for (Converters.EnvVar envVar : options.getOptions(TestOptions.class).testEnvironment) {
+        if (envVar instanceof Converters.EnvVar.Inherit(String name)) {
+          visibleTestEnv.add(name);
         }
       }
     }
 
-    for (Map.Entry<String, String> entry : commandOptions.repositoryEnvironment) {
-      String name = entry.getKey();
-      String value = entry.getValue();
-      if (name == null) {
-        // A null key is a special indicator to treat the value as the name of a variable to
-        // unset, see the docs on --repo_env for details.
-        repoEnv.remove(value);
-        repoEnvFromOptions.remove(value);
-        continue;
-      }
-      if (value == null) {
-        value = clientEnv.get(name);
-      }
-      if (value != null) {
-        repoEnv.put(name, value);
-        repoEnvFromOptions.put(name, value);
+    for (var envVar : commandOptions.repositoryEnvironment) {
+      switch (envVar) {
+        case Converters.EnvVar.Set(String name, String value) -> {
+          repoEnv.put(name, value);
+          repoEnvFromOptions.put(name, value);
+        }
+        case Converters.EnvVar.Inherit(String name) -> {
+          repoEnv.put(name, clientEnv.get(name));
+          repoEnvFromOptions.put(name, clientEnv.get(name));
+        }
+        case Converters.EnvVar.Unset(String name) -> {
+          repoEnv.remove(name);
+          repoEnvFromOptions.remove(name);
+        }
       }
     }
     this.buildResultListener = new BuildResultListener();

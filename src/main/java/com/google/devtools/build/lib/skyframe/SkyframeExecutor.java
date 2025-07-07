@@ -288,6 +288,7 @@ import com.google.devtools.build.skyframe.Version;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.build.skyframe.state.StateMachineEvaluatorForTesting;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -2946,13 +2947,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // ImmutableMap does not support null values, so use a LinkedHashMap instead.
     LinkedHashMap<String, String> actionEnvironment = new LinkedHashMap<>();
     if (opt != null) {
-      for (Map.Entry<String, String> v : opt.actionEnvironment) {
-        if (v.getKey() == null) {
-          // A null key is a special indicator to treat the value as the name of a variable to
-          // unset, see the docs on --action_env for details.
-          actionEnvironment.remove(v.getValue());
-        } else {
-          actionEnvironment.put(v.getKey(), v.getValue());
+      for (var envVar : opt.actionEnvironment) {
+        switch (envVar) {
+          case Converters.EnvVar.Set(String name, String value) ->
+              actionEnvironment.put(name, value);
+          case Converters.EnvVar.Inherit(String name) -> actionEnvironment.put(name, null);
+          case Converters.EnvVar.Unset(String name) -> actionEnvironment.remove(name);
         }
       }
     }
