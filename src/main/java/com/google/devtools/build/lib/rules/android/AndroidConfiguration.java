@@ -546,7 +546,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           OptionEffectTag.LOSES_INCREMENTAL_STATE,
         },
         help =
-            "Selects the manifest merger to use for android_binary rules. Flag to help the"
+            "Selects the manifest merger to use for android_binary rules. Flag to help the "
                 + "transition to the Android manifest merger from the legacy merger.")
     public AndroidManifestMerger manifestMerger;
 
