@@ -78,6 +78,7 @@ single_version_override(
 # We need to package the lite runtime jar for Bazel's bootstrap build
 # 2. Rename protobuf's maven install back to the default "maven" namespace to avoid duplication of maven jar dependencies.
 # See https://github.com/bazel-contrib/rules_jvm_external/issues/916#issuecomment-3045506487
+# 3. Fix a protobuf upb issue while cross-compiling for windows arm64 platform.
 single_version_override(
     module_name = "protobuf",
     patch_strip = 1,

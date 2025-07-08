@@ -33,3 +33,16 @@ index b1e4a5440..9596607bc 100644
 
  # Temporarily pin transitive dependency for https://github.com/bazelbuild/bazel/issues/24426
  bazel_dep(name = "re2", version = "2024-07-02.bcr.1")
+diff --git a/vendor_src/protobuf+/upb/hash/common.c b/vendor_src/protobuf+/upb/hash/common.c
+index c17a004e62..ca0e488689 100644
+--- a/vendor_src/protobuf+/upb/hash/common.c
++++ b/vendor_src/protobuf+/upb/hash/common.c
+@@ -42,7 +42,8 @@ static const double MIN_DENSITY = 0.1;
+ #endif
+ #elif defined(__GNUC__)
+ #define UPB_FAST_POPCOUNT32(i) __builtin_popcount(i)
+-#elif defined(_MSC_VER)
++#elif defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
++// Only use __popcnt on x86/x64 architectures for MSVC
+ #define UPB_FAST_POPCOUNT32(i) __popcnt(i)
+ #endif
