@@ -110,7 +110,7 @@ function mock_apple_support() {
   touch "${apple_support_workspace}/xcode/BUILD"
   touch "${apple_support_workspace}/WORKSPACE"
   cat > "${apple_support_workspace}/MODULE.bazel" << EOF
-module(name = "apple_support", repo_name = "build_bazel_apple_support")
+module(name = "apple_support", repo_name = "build_bazel_apple_support", version = "1.22.1")
 EOF
   cat > "${apple_support_workspace}/xcode/xcode_version.bzl" << EOF
 def _impl(ctx):
