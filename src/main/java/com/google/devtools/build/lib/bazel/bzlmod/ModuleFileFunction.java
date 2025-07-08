@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -657,10 +658,15 @@ public class ModuleFileFunction implements SkyFunction {
           Label.createUnvalidated(
               PackageIdentifier.create(canonicalRepoName, PathFragment.EMPTY_FRAGMENT),
               LabelConstants.MODULE_DOT_BAZEL_FILE_NAME.getBaseName());
+      var mainRepoMapping =
+          (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+      if (mainRepoMapping == null) {
+        return null;
+      }
       return new GetModuleFileResult(
           ModuleFile.create(
               readModuleFile(moduleFilePath.asPath()),
-              moduleFileLabel.getUnambiguousCanonicalForm()),
+              moduleFileLabel.getDisplayForm(mainRepoMapping.repositoryMapping())),
           /* registry= */ null,
           new StoredEventHandler());
     }
