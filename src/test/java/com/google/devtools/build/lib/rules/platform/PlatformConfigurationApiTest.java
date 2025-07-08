@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
@@ -112,5 +113,41 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
     Label targetPlatform = (Label) info.getValue("target_platform");
     assertThat(targetPlatform)
         .isEqualTo(Label.parseCanonicalUnchecked("//platforms:test_platform"));
+  }
+
+  @Test
+  public void testTargetDeclaredItselfAsIncompatible() throws Exception {
+    scratch.file("platforms/BUILD", "platform(name = 'test_platform')");
+
+    scratch.file(
+        "foo/foo.bzl",
+        """
+        FooInfo = provider()
+
+        def _impl(ctx):
+            return [
+              platform_common.incompatible_target(),
+            ]
+
+        foo = rule(
+            implementation = _impl,
+            provides = [FooInfo],
+        )
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load(":foo.bzl", "foo")
+
+        foo(name = "foo")
+        
+        filegroup(name = "bar", srcs = [":foo"])
+        """);
+
+    var foo = getConfiguredTarget("//foo:foo");
+    assertThat(foo.get(IncompatiblePlatformProvider.PROVIDER)).isNotNull();
+
+    var bar = getConfiguredTarget("//foo:bar");
+    assertThat(bar.get(IncompatiblePlatformProvider.PROVIDER)).isNotNull();
   }
 }
