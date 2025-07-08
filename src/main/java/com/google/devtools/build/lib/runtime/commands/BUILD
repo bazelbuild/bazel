@@ -21,6 +21,7 @@ java_library(
         "*.java",
     ]),
     resources = glob(["*.txt"]) + [
+        "//scripts:completion_scripts",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands/license",
     ],
     deps = [

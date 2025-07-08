@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.CaseFormat;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
@@ -60,6 +62,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParser.HelpVerbosity;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -136,6 +139,15 @@ public final class HelpCommand implements BlazeCommand {
       emitGenericHelp(outErr, runtime);
       return BlazeCommandResult.success();
     }
+    if (options.getResidue().getFirst().equals("completion")) {
+      if (options.getResidue().size() > 2) {
+        String message = "The completion command takes at most one argument";
+        env.getReporter().handle(Event.error(message));
+        return createFailureResult(message, Code.MISSING_ARGUMENT);
+      }
+      String shell = options.getResidue().size() > 1 ? options.getResidue().get(1) : null;
+      return emitCompletionHelp(shell, runtime, env.getReporter());
+    }
     if (options.getResidue().size() != 1) {
       String message = "You must specify exactly one command";
       env.getReporter().handle(Event.error(message));
@@ -156,9 +168,6 @@ public final class HelpCommand implements BlazeCommand {
         return BlazeCommandResult.success();
       case "info-keys":
         emitInfoKeysHelp(env, outErr);
-        return BlazeCommandResult.success();
-      case "completion":
-        emitCompletionHelp(runtime, outErr);
         return BlazeCommandResult.success();
       case "flags-as-proto":
         emitFlagsAsProtoHelp(runtime, outErr);
@@ -205,7 +214,47 @@ public final class HelpCommand implements BlazeCommand {
             runtime.getProductName()));
   }
 
-  private static void emitCompletionHelp(BlazeRuntime runtime, OutErr outErr) {
+  private static BlazeCommandResult emitCompletionHelp(
+      @Nullable String shell, BlazeRuntime runtime, Reporter reporter) {
+    OutErr outErr = reporter.getOutErr();
+    return switch (shell) {
+      case "bash" -> {
+        outErr.printOutLn(loadCompletionScript("bazel-complete-header.bash"));
+        emitCompletionVariables(runtime, outErr);
+        outErr.printOutLn(loadCompletionScript("bazel-complete-template.bash"));
+        yield BlazeCommandResult.success();
+      }
+      case null -> {
+        // Preserved for backwards compatibility: print only the variables part of the bash
+        // completion script.
+        emitCompletionVariables(runtime, outErr);
+        yield BlazeCommandResult.success();
+      }
+      default -> {
+        String message =
+            "The completion command only supports 'bash' as an argument, got '%s'".formatted(shell);
+        reporter.handle(Event.error(message));
+        yield createFailureResult(message, Code.MISSING_ARGUMENT);
+      }
+    };
+  }
+
+  private static String loadCompletionScript(String basename) {
+    try {
+      String resourceName = "/scripts/" + basename;
+      try (var stream = HelpCommand.class.getResourceAsStream(resourceName)) {
+        if (stream == null) {
+          throw new IOException(resourceName + " not found.");
+        }
+        return new String(stream.readAllBytes(), ISO_8859_1);
+      }
+    } catch (IOException e) {
+      throw new IllegalStateException(
+          "Failed to read built-in resource %s: %s".formatted(basename, e.getMessage()), e);
+    }
+  }
+
+  private static void emitCompletionVariables(BlazeRuntime runtime, OutErr outErr) {
     Map<String, BlazeCommand> commandsByName = getSortedCommands(runtime);
 
     outErr.printOutLn("BAZEL_COMMAND_LIST=\"" + SPACE_JOINER.join(commandsByName.keySet()) + "\"");
