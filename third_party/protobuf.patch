@@ -46,3 +46,4 @@ index c17a004e62..ca0e488689 100644
 +// Only use __popcnt on x86/x64 architectures for MSVC
  #define UPB_FAST_POPCOUNT32(i) __popcnt(i)
  #endif
+
