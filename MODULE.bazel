@@ -73,15 +73,15 @@ single_version_override(
     ],
 )
 
-# Expose @com_google_protobuf//java/core:lite_runtime_only
+# 1. Expose @com_google_protobuf//java/core:lite_runtime_only
 # due to https://github.com/protocolbuffers/protobuf/commit/079be27925955348d1b3cb30ffbfa33dcec5778c
 # We need to package the lite runtime jar for Bazel's bootstrap build
+# 2. Rename protobuf's maven install back to the default "maven" namespace to avoid duplication of maven jar dependencies.
+# See https://github.com/bazel-contrib/rules_jvm_external/issues/916#issuecomment-3045506487
 single_version_override(
     module_name = "protobuf",
     patch_strip = 1,
-    patches = [
-        "//third_party:protobuf.patch",
-    ],
+    patches = ["//third_party:protobuf.patch"],
     version = "31.1",
 )
 
