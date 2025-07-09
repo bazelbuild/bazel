@@ -79,6 +79,7 @@ single_version_override(
 # 2. Rename protobuf's maven install back to the default "maven" namespace to avoid duplication of maven jar dependencies.
 # See https://github.com/bazel-contrib/rules_jvm_external/issues/916#issuecomment-3045506487
 # 3. Fix a protobuf upb issue while cross-compiling for windows arm64 platform.
+# See https://github.com/protocolbuffers/protobuf/commit/37c3384a4fb29de2e9dba6ddb3a50d632b12d23a
 single_version_override(
     module_name = "protobuf",
     patch_strip = 1,
