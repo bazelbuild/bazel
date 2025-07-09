@@ -753,6 +753,9 @@ class BazelLockfileTest(test_base.TestBase):
             'repo_rule = repository_rule(implementation=impl)',
             'def _ext_impl(ctx):',
             '    repo_rule(name="hello")',
+            '    return ctx.extension_metadata(',
+            '        facts = "Hi!",',
+            '    )',
             'ext = module_extension(implementation=_ext_impl)',
         ],
     )
@@ -762,6 +765,8 @@ class BazelLockfileTest(test_base.TestBase):
       lockfile = json.loads(f.read().strip())
       ext_keys = list(lockfile['moduleExtensions'].keys())
       self.assertIn('//:extension.bzl%ext', ext_keys)
+      facts_keys = list(lockfile['facts'].keys())
+      self.assertIn('//:extension.bzl%ext', facts_keys)
 
     self.ScratchFile('MODULE.bazel', [])
     self.RunBazel(['build', '//:all'])
@@ -769,6 +774,8 @@ class BazelLockfileTest(test_base.TestBase):
       lockfile = json.loads(f.read().strip())
       ext_keys = list(lockfile['moduleExtensions'].keys())
       self.assertNotIn('//:extension.bzl%ext', ext_keys)
+      facts_keys = list(lockfile['facts'].keys())
+      self.assertNotIn('//:extension.bzl%ext', facts_keys)
 
   def testNoAbsoluteRootModuleFilePath(self):
     self.ScratchFile(
@@ -2838,7 +2845,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertIn('Hello from this side!', stderr)
     self.assertIn('Fetching repo names...', stderr)
     self.assertIn(
-        'ERROR: The module extension \'@@//:extension.bzl%lockfile_ext\' has changed its facts: ["hello", "world", "baz"] != ["hello", "world"]',
+        'ERROR: MODULE.bazel.lock is no longer up-to-date because: The extension \'@@//:extension.bzl%lockfile_ext\' has changed its facts: ["hello", "world", "baz"] != ["hello", "world"]. Please run `bazel mod deps --lockfile_mode=update` to update your lockfile.',
         stderr)
 
   def testFactsInNonReproducibleExtension(self):

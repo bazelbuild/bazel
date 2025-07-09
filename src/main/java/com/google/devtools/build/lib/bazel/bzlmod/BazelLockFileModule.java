@@ -160,8 +160,13 @@ public class BazelLockFileModule extends BlazeModule {
                       .setModuleExtensions(notReproducibleExtensionInfos)
                       .setFacts(
                           ImmutableSortedMap.copyOf(
-                              Maps.filterValues(
-                                  combinedFacts, facts -> !facts.equals(Facts.EMPTY))))
+                              Maps.filterEntries(
+                                  combinedFacts,
+                                  entry ->
+                                      depGraphValue
+                                              .getExtensionUsagesTable()
+                                              .containsRow(entry.getKey())
+                                          && !entry.getValue().equals(Facts.EMPTY))))
                       .build();
 
               // Write the new values to the files, but only if needed. This is not just a
