@@ -1,6 +1,7 @@
 {
   "beRoot": "/reference/be",
   "beReferences": {
+    "aspects": "/extending/aspects",
     "build-ref": "/concepts/build-ref",
     "build-ref#labels": "/concepts/labels",
     "build-ref#name": "/concepts/labels#target-names",
@@ -16,6 +17,7 @@
     "make-variables": "/reference/be/make-variables",
     "platforms": "/docs/platforms",
     "protocol-buffer": "/reference/be/protocol-buffer",
+    "providers": "/extending/rules#providers",
     "query": "/reference/query",
     "test-encyclopedia": "/reference/test-encyclopedia",
     "toolchains": "/docs/toolchains",
