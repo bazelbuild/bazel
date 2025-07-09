@@ -661,6 +661,38 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         .isEqualTo("myRule/with/libslash.bar");
   }
 
+  @Test
+  public void implicitOutputs_usingUnsupportedAttributeType_failsCleanly() throws Exception {
+    RuleClass ruleClass =
+        newRuleClass(
+            "ruleClass",
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            ImplicitOutputsFunction.fromTemplates("%{truthiness}"),
+            null,
+            DUMMY_CONFIGURED_TARGET_FACTORY,
+            AdvertisedProviderSet.EMPTY,
+            null,
+            ImmutableSet.of(),
+            true,
+            attr("truthiness", BOOLEAN).build());
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    attributeValues.put("truthiness", true);
+    attributeValues.put("name", "myrule");
+
+    reporter.removeHandler(failFastHandler);
+    Rule myRule = createRule(ruleClass, "myrule", attributeValues);
+    assertThat(myRule.containsErrors()).isTrue();
+    assertContainsEvent(
+        "In rule //testpackage:myrule: For attribute 'truthiness' in outputs: Attributes of type"
+            + " boolean cannot be used in an outputs substitution template");
+  }
+
   /**
    * Helper routine that instantiates a rule class with the given computed default and supporting
    * attributes for the default to reference.

@@ -203,6 +203,7 @@ import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.After;
 import org.junit.Before;
@@ -2353,7 +2354,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected final String getImplicitOutputPath(
-      ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) {
+      ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) throws EvalException {
     Rule rule;
     try {
       rule = (Rule) skyframeExecutor.getPackageManager().getTarget(reporter, target.getLabel());
@@ -2372,7 +2373,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * the result of the {@code outputFunction}.
    */
   protected final Artifact getImplicitOutputArtifact(
-      ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) {
+      ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) throws EvalException {
     return getBinArtifact(getImplicitOutputPath(target, outputFunction), target);
   }
 
