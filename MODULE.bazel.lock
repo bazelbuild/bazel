@@ -319,7 +319,7 @@
   "moduleExtensions": {
     "//:repositories.bzl%async_profiler_repos": {
       "general": {
-        "bzlTransitiveDigest": "wKkL2hzyZ7bf/oiH5j5NhxPTfH9ig5B7Oo3DFVqiybA=",
+        "bzlTransitiveDigest": "1W6KEC+AvBE80uQBd3PB3lCPhfw5aafDcm2xVbUAxL0=",
         "usagesDigest": "fv/Ru+up/1CLlox7G1yNn9y4JOVK1qeU6uQCAkCcMaM=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -372,16 +372,6 @@
         "recordedRepoMappingEntries": [
           [
             "",
-            "abseil-cpp",
-            "abseil-cpp+"
-          ],
-          [
-            "",
-            "apple_support",
-            "apple_support+"
-          ],
-          [
-            "",
             "async_profiler",
             "+async_profiler_repos+async_profiler"
           ],
@@ -402,138 +392,8 @@
           ],
           [
             "",
-            "bazel_skylib",
-            "bazel_skylib+"
-          ],
-          [
-            "",
             "bazel_tools",
             "bazel_tools"
-          ],
-          [
-            "",
-            "blake3",
-            "blake3+"
-          ],
-          [
-            "",
-            "c-ares",
-            "c-ares+"
-          ],
-          [
-            "",
-            "chicory",
-            "chicory+"
-          ],
-          [
-            "",
-            "com_github_grpc_grpc",
-            "grpc+"
-          ],
-          [
-            "",
-            "com_google_protobuf",
-            "protobuf+"
-          ],
-          [
-            "",
-            "googleapis",
-            "googleapis+"
-          ],
-          [
-            "",
-            "googleapis-grpc-java",
-            "googleapis-grpc-java+"
-          ],
-          [
-            "",
-            "googleapis-java",
-            "googleapis-java+"
-          ],
-          [
-            "",
-            "grpc-java",
-            "grpc-java+"
-          ],
-          [
-            "",
-            "io_bazel_skydoc",
-            "stardoc+"
-          ],
-          [
-            "",
-            "platforms",
-            "platforms"
-          ],
-          [
-            "",
-            "rules_cc",
-            "rules_cc+"
-          ],
-          [
-            "",
-            "rules_go",
-            "rules_go+"
-          ],
-          [
-            "",
-            "rules_graalvm",
-            "rules_graalvm+"
-          ],
-          [
-            "",
-            "rules_java",
-            "rules_java+"
-          ],
-          [
-            "",
-            "rules_jvm_external",
-            "rules_jvm_external+"
-          ],
-          [
-            "",
-            "rules_kotlin",
-            "rules_kotlin+"
-          ],
-          [
-            "",
-            "rules_license",
-            "rules_license+"
-          ],
-          [
-            "",
-            "rules_pkg",
-            "rules_pkg+"
-          ],
-          [
-            "",
-            "rules_proto",
-            "rules_proto+"
-          ],
-          [
-            "",
-            "rules_python",
-            "rules_python+"
-          ],
-          [
-            "",
-            "rules_shell",
-            "rules_shell+"
-          ],
-          [
-            "",
-            "with_cfg.bzl",
-            "with_cfg.bzl+"
-          ],
-          [
-            "",
-            "zlib",
-            "zlib+"
-          ],
-          [
-            "",
-            "zstd-jni",
-            "zstd-jni+"
           ]
         ]
       }
