@@ -234,13 +234,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     var newFacts =
         moduleExtensionMetadata.map(ModuleExtensionMetadata::getFacts).orElse(Facts.EMPTY);
     if (lockfileMode.equals(LockfileMode.ERROR) && !newFacts.equals(lockfileFacts)) {
-      throw new SingleExtensionEvalFunctionException(
-          ExternalDepsException.withMessage(
-              Code.BAD_LOCKFILE,
-              "The module extension '%s' has changed its facts: %s != %s",
-              extensionId,
-              Starlark.repr(newFacts.value()),
-              Starlark.repr(lockfileFacts.value())));
+      String reason =
+          "The extension '%s' has changed its facts: %s != %s"
+              .formatted(
+                  extensionId,
+                  Starlark.repr(newFacts.value()),
+                  Starlark.repr(lockfileFacts.value()));
+      throw createOutdatedLockfileException(reason);
     }
 
     Optional<LockfileModuleExtensionMetadata> lockfileModuleExtensionMetadata =
@@ -373,12 +373,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     // Reproducible extensions are always locked in the hidden lockfile to provide best-effort
     // speedups, but should never result in an error if out-of-date.
     if (lockfileMode.equals(LockfileMode.ERROR) && !lockedExtension.isReproducible()) {
-      throw new SingleExtensionEvalFunctionException(
-          ExternalDepsException.withMessage(
-              Code.BAD_LOCKFILE,
-              "MODULE.bazel.lock is no longer up-to-date because: %s. "
-                  + "Please run `bazel mod deps --lockfile_mode=update` to update your lockfile.",
-              diffRecorder.getRecordedDiffMessages()));
+      throw createOutdatedLockfileException(diffRecorder.getRecordedDiffMessages());
     }
     return null;
   }
@@ -502,6 +497,15 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         lockFileInfo,
         fixup,
         facts);
+  }
+
+  private static SingleExtensionEvalFunctionException createOutdatedLockfileException(
+      String reason) {
+    return new SingleExtensionEvalFunctionException(
+        ExternalDepsException.withMessage(
+            Code.BAD_LOCKFILE,
+            "MODULE.bazel.lock is no longer up-to-date because: %s. Please run `bazel mod deps --lockfile_mode=update` to update your lockfile.",
+            reason));
   }
 
   private static final class SingleExtensionEvalFunctionException extends SkyFunctionException {
