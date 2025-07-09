@@ -210,7 +210,6 @@ cc_proto_library(
 cc_grpc_library(
     name = "command_server_cc_grpc",
     srcs = [":command_server_proto"],
-    # defines = ["GRPC_USE_PROTO_LITE=ON"],
     grpc_only = True,
     deps = [
         ":command_server_cc_proto",
