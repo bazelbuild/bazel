@@ -1,3 +1,89 @@
+## Release 9.0.0-pre.20250625.1 (2025-07-09)
+
+```
+Baseline: c3198249288246211a2e7d5e9f28c4837a37f3b0
+```
+
+Important changes:
+
+  - Added `--incompatible_compact_repo_mapping_manifest`, which
+    causes the repo mapping manifest file for runfiles to use a more
+    compat format when necessary.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Keith Smiley.
+
+## Release 9.0.0-pre.20250620.1 (2025-07-01)
+
+```
+Baseline: 3f42ff95d59921ed0bb96258e191bfee58fed554
+
+Cherry picks:
+
+   + 387ed020deff607abcebe9b82ba8ea61da5a5e9d:
+     Attempt to fix Bazel CI failure on Ubuntu
+   + fefcfa1b1dd4dfd17b12c29b0cc62272da590ea1:
+     Release 9.0.0-pre.20250620.1 (2025-07-01)
+   + 861f25e307aec74b2d6dc38e91182da9f8852d53:
+     Release 9.0.0-pre.20250620.1 (2025-07-01)
+   + 013dedf6387ce4047b51153692e47ccc37f4f15c:
+     Release 9.0.0-pre.20250620.1 (2025-07-01)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 9.0.0-pre.20250620.1 (2025-07-01)
+
+```
+Baseline: 3f42ff95d59921ed0bb96258e191bfee58fed554
+
+Cherry picks:
+
+   + 387ed020deff607abcebe9b82ba8ea61da5a5e9d:
+     Attempt to fix Bazel CI failure on Ubuntu
+```
+
+Incompatible changes:
+
+  - `--combined_report` now defaults to `lcov` (was: `none`).
+
+New features:
+
+  - `repository_ctx.download_and_extract` now supports the `.whl`
+    file extension for Python wheel files, treating them as ZIP
+    archives under PEP 427.
+
+Important changes:
+
+  - Rules can now register their own baseline coverage files in LCOV
+    format via the new `baseline_coverage_files` parameter of
+    `ctx.instrumented_files_info`. If the target matches the
+    instrumentation filter, Bazel will merge the data into the
+    combined coverage report generated with `--combined_report`.
+
+This release contains contributions from many people at Google, as well as Alberto Cavalcante, David Sanderson, Fabian Meumertzheim, Keith Smiley, Siva Mahadevan, Stephan Pleines.
+
+## Release 9.0.0-pre.20250616.2 (2025-06-27)
+
+```
+Baseline: 066a162fb3a53c7a4e1355580de635182ae92216
+
+Cherry picks:
+
+   + 387ed020deff607abcebe9b82ba8ea61da5a5e9d:
+     Attempt to fix Bazel CI failure on Ubuntu
+```
+
+Important changes:
+
+  - Added the `load_wasm` and `execute_wasm` methods to
+    `repository_ctx` and `module_ctx` that allow repo rules and
+    module extensions to run a WebAssembly binary. These methods are
+    only available if `--experimental_repository_ctx_execute_wasm` is
+    set.
+  - Singlejar can exclude certain entries
+
+This release contains contributions from many people at Google, as well as Carmen Chui, David Sanderson, dependabot[bot], Fabian Meumertzheim, Jaden Peterson, John Millikin, Jordan Mele, Keith Smiley, Son Luong Ngoc.
+
 ## Release 8.3.0 (2025-06-23)
 
 ```
