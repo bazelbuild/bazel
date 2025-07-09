@@ -2514,11 +2514,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     return getConfiguredTarget(target)
         .get(CcInfo.PROVIDER)
         .getCcLinkingContext()
-        .getUserLinkFlags()
+        .getLinkerInputs()
         .toList()
         .stream()
-        .map(CcLinkingContext.LinkOptions::get)
-        .flatMap(List::stream)
+        .flatMap(linkerInputs -> linkerInputs.getUserLinkFlags().stream())
         .collect(toImmutableList());
   }
 

@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.SourceCategory;
-import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal.WrappedStarlarkActionFactory;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.EnvEntry;
@@ -685,7 +684,7 @@ public abstract class CcModule
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     isCalledFromStarlarkCcCommon(thread);
-    ImmutableList.Builder<LinkOptions> optionsBuilder = ImmutableList.builder();
+    ImmutableList.Builder<String> optionsBuilder = ImmutableList.builder();
     if (userLinkFlagsObject instanceof Depset || userLinkFlagsObject instanceof NoneType) {
       // Depsets are allowed in user_link_flags for compatibility purposes but they do not really
       // make sense here since LinkerInput takes a list of flags. For storing user_link_flags
@@ -694,23 +693,21 @@ public abstract class CcModule
       ImmutableList<String> userLinkFlagsFlattened =
           Depset.noneableCast(userLinkFlagsObject, String.class, "user_link_flags").toList();
       if (!userLinkFlagsFlattened.isEmpty()) {
-        LinkOptions options = LinkOptions.of(userLinkFlagsFlattened);
-        optionsBuilder.add(options);
+        optionsBuilder.addAll(userLinkFlagsFlattened);
       }
     } else if (userLinkFlagsObject instanceof Sequence) {
       ImmutableList<Object> options =
           Sequence.cast(userLinkFlagsObject, Object.class, "user_link_flags[]").getImmutableList();
       if (!options.isEmpty()) {
         if (options.get(0) instanceof String) {
-          optionsBuilder.add(
-              LinkOptions.of(
-                  Sequence.cast(userLinkFlagsObject, String.class, "user_link_flags[]")
-                      .getImmutableList()));
+          optionsBuilder.addAll(
+              Sequence.cast(userLinkFlagsObject, String.class, "user_link_flags[]")
+                  .getImmutableList());
         } else if (options.get(0) instanceof Sequence) {
           for (Object optionObject : options) {
             ImmutableList<String> option =
                 Sequence.cast(optionObject, String.class, "user_link_flags[][]").getImmutableList();
-            optionsBuilder.add(LinkOptions.of(option));
+            optionsBuilder.addAll(option);
           }
         } else {
           throw Starlark.errorf(

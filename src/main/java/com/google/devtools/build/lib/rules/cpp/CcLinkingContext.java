@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
@@ -47,45 +46,6 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   public static final CcLinkingContext EMPTY =
       builder().setExtraLinkTimeLibraries(ExtraLinkTimeLibraries.EMPTY).build();
 
-  /** A list of link options contributed by a single configured target/aspect. */
-  @Immutable
-  public static final class LinkOptions {
-    private final ImmutableList<String> linkOptions;
-
-    private LinkOptions(ImmutableList<String> linkOptions) {
-      this.linkOptions = Preconditions.checkNotNull(linkOptions);
-    }
-
-    public ImmutableList<String> get() {
-      return linkOptions;
-    }
-
-    public static LinkOptions of(ImmutableList<String> linkOptions) {
-      return new LinkOptions(linkOptions);
-    }
-
-    @Override
-    public int hashCode() {
-      return linkOptions.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (!(obj instanceof LinkOptions that)) {
-        return false;
-      }
-      return this.linkOptions.equals(that.linkOptions);
-    }
-
-    @Override
-    public String toString() {
-      return '[' + Joiner.on(",").join(linkOptions) + "]";
-    }
-  }
-
   /**
    * Wraps any input to the linker, be it libraries, linker scripts, linkstamps or linking options.
    */
@@ -97,14 +57,14 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     // LinkerInputs.
     private final Label owner;
     private final ImmutableList<StarlarkInfo> libraries;
-    private final ImmutableList<LinkOptions> userLinkFlags;
+    private final ImmutableList<String> userLinkFlags;
     private final ImmutableList<Artifact> nonCodeInputs;
     private final ImmutableList<StarlarkInfo> linkstamps;
 
     public LinkerInput(
         Label owner,
         ImmutableList<StarlarkInfo> libraries,
-        ImmutableList<LinkOptions> userLinkFlags,
+        ImmutableList<String> userLinkFlags,
         ImmutableList<Artifact> nonCodeInputs,
         ImmutableList<StarlarkInfo> linkstamps) {
       this.owner = owner;
@@ -146,17 +106,13 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       return StarlarkList.immutableCopyOf(libraries);
     }
 
-    public List<LinkOptions> getUserLinkFlags() {
+    public List<String> getUserLinkFlags() {
       return userLinkFlags;
     }
 
     @Override
     public Sequence<String> getStarlarkUserLinkFlags() {
-      return StarlarkList.immutableCopyOf(
-          getUserLinkFlags().stream()
-              .map(LinkOptions::get)
-              .flatMap(Collection::stream)
-              .collect(toImmutableList()));
+      return StarlarkList.immutableCopyOf(getUserLinkFlags());
     }
 
     public List<Artifact> getNonCodeInputs() {
@@ -209,7 +165,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     public static class Builder {
       private Label owner;
       private final ImmutableList.Builder<StarlarkInfo> libraries = ImmutableList.builder();
-      private final ImmutableList.Builder<LinkOptions> userLinkFlags = ImmutableList.builder();
+      private final ImmutableList.Builder<String> userLinkFlags = ImmutableList.builder();
       private final ImmutableList.Builder<Artifact> nonCodeInputs = ImmutableList.builder();
       private final ImmutableList.Builder<StarlarkInfo> linkstamps = ImmutableList.builder();
 
@@ -220,7 +176,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       }
 
       @CanIgnoreReturnValue
-      public Builder addUserLinkFlags(List<LinkOptions> userLinkFlags) {
+      public Builder addUserLinkFlags(List<String> userLinkFlags) {
         this.userLinkFlags.addAll(userLinkFlags);
         return this;
       }
@@ -399,22 +355,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
    * @deprecated Only use in tests. Inline, using LinkerInputs.
    */
   @Deprecated
-  public NestedSet<LinkOptions> getUserLinkFlags() {
-    NestedSetBuilder<LinkOptions> userLinkFlags = NestedSetBuilder.linkOrder();
-    for (LinkerInput linkerInput : linkerInputs.toList()) {
-      userLinkFlags.addAll(linkerInput.getUserLinkFlags());
-    }
-    return userLinkFlags.build();
-  }
-
-  /**
-   * @deprecated Only use in tests. Inline, using LinkerInputs.
-   */
-  @Deprecated
   public ImmutableList<String> getFlattenedUserLinkFlags() {
-    return getUserLinkFlags().toList().stream()
-        .map(LinkOptions::get)
-        .flatMap(Collection::stream)
+    return getLinkerInputs().toList().stream()
+        .flatMap(linkerInputs -> linkerInputs.getUserLinkFlags().stream())
         .collect(toImmutableList());
   }
 

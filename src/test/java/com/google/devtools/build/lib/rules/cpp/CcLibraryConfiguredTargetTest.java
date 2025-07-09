@@ -319,7 +319,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testEmptyLinkopts() throws Exception {
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
-    assertThat(hello.get(CcInfo.PROVIDER).getCcLinkingContext().getUserLinkFlags().isEmpty())
+    assertThat(
+            hello.get(CcInfo.PROVIDER).getCcLinkingContext().getLinkerInputs().toList().stream()
+                .allMatch(linkerInput -> linkerInput.getUserLinkFlags().isEmpty()))
         .isTrue();
   }
 
