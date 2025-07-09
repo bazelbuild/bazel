@@ -456,6 +456,7 @@ public final class GsonTypeAdapterUtil {
   public static final Gson LOCKFILE_GSON =
       newGsonBuilder()
           .setPrettyPrinting()
+          .registerTypeAdapter(Facts.class, new FactsAdapter())
           .registerTypeAdapterFactory(new OptionalChecksumTypeAdapterFactory())
           .create();
 
@@ -483,7 +484,6 @@ public final class GsonTypeAdapterUtil {
             ModuleExtensionEvalFactors.class, MODULE_EXTENSION_FACTORS_TYPE_ADAPTER)
         .registerTypeAdapter(ModuleExtensionId.IsolationKey.class, ISOLATION_KEY_TYPE_ADAPTER)
         .registerTypeAdapter(AttributeValues.class, new AttributeValuesAdapter())
-        .registerTypeAdapter(Facts.class, new FactsAdapter())
         .registerTypeAdapter(byte[].class, BYTE_ARRAY_TYPE_ADAPTER)
         .registerTypeAdapter(RepoRecordedInput.File.class, REPO_RECORDED_INPUT_FILE_TYPE_ADAPTER)
         .registerTypeAdapter(
