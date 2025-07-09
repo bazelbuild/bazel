@@ -160,7 +160,6 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       new ConfigurationCache(this::getConfiguration);
   private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
 
-  private final Map<Label, Target> partialResultMap;
   private final LabelPrinter labelPrinter;
   private CqueryNode currentTarget;
 
@@ -177,7 +176,6 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
     this.outputType = outputType;
     this.skyframeExecutor = skyframeExecutor;
     this.resolver = resolver;
-    this.partialResultMap = Maps.newHashMap();
     this.labelPrinter = labelPrinter;
   }
 
@@ -260,8 +258,6 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   @Override
   public void processOutput(Iterable<CqueryNode> partialResult)
       throws InterruptedException, IOException {
-    partialResult.forEach(
-        kct -> partialResultMap.put(kct.getOriginalLabel(), accessor.getTarget(kct)));
     ConfiguredProtoOutputFormatter formatter = new ConfiguredProtoOutputFormatter();
     formatter.setOptions(options, resolver, skyframeExecutor.getDigestFunction().getHashFunction());
     for (CqueryNode keyedConfiguredTarget : partialResult) {
