@@ -45,7 +45,8 @@ class GcChurningDetector {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final Duration MIN_INVOCATION_WALL_TIME_DURATION = Duration.ofMinutes(1);
 
-  private final int thresholdPercentage;
+  private volatile int thresholdPercentage;
+  private final int thresholdPercentageIfMultipleTopLevelTargets;
   private Duration cumulativeFullGcDuration = Duration.ZERO;
   private final Clock clock;
   private final Instant start;
@@ -53,8 +54,14 @@ class GcChurningDetector {
   private final BugReporter bugReporter;
 
   @VisibleForTesting
-  GcChurningDetector(int thresholdPercentage, Clock clock, BugReporter bugReporter) {
+  GcChurningDetector(
+      int thresholdPercentage,
+      int thresholdPercentageIfMultipleTopLevelTargets,
+      Clock clock,
+      BugReporter bugReporter) {
     this.thresholdPercentage = thresholdPercentage;
+    this.thresholdPercentageIfMultipleTopLevelTargets =
+        thresholdPercentageIfMultipleTopLevelTargets;
     this.clock = clock;
     this.start = clock.now();
     this.bugReporter = bugReporter;
@@ -62,7 +69,19 @@ class GcChurningDetector {
 
   static GcChurningDetector createForCommand(MemoryPressureOptions options) {
     return new GcChurningDetector(
-        options.gcChurningThreshold, BlazeClock.instance(), BugReporter.defaultInstance());
+        options.gcChurningThreshold,
+        options.gcChurningThresholdIfMultipleTopLevelTargets.orElse(options.gcChurningThreshold),
+        BlazeClock.instance(),
+        BugReporter.defaultInstance());
+  }
+
+  void targetParsingComplete(int numTopLevelTargets) {
+    if (numTopLevelTargets > 1) {
+      thresholdPercentage = thresholdPercentageIfMultipleTopLevelTargets;
+      logger.atInfo().log(
+          "Switched to thresholdPercentage of %s because there were %s top-level targets",
+          thresholdPercentage, numTopLevelTargets);
+    }
   }
 
   // This is called from MemoryPressureListener on a single memory-pressure-listener-0 thread, so it

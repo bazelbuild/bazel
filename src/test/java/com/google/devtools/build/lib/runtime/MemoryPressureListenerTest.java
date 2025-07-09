@@ -319,4 +319,17 @@ public final class MemoryPressureListenerTest {
     verify(mockGcThrashingDetector).handle(eq(event));
     verify(mockGcChurningDetector).handle(eq(event));
   }
+
+  @Test
+  public void forwardsTargetParsingComplete() {
+    MemoryPressureListener underTest =
+        MemoryPressureListener.createFromBeans(
+            ImmutableList.of(mockUselessBean, mockBean), directExecutor());
+
+    GcChurningDetector mockGcChurningDetector = mock(GcChurningDetector.class);
+    underTest.initForInvocation(eventBus, mock(GcThrashingDetector.class), mockGcChurningDetector);
+    underTest.targetParsingComplete(42);
+
+    verify(mockGcChurningDetector).targetParsingComplete(eq(42));
+  }
 }
