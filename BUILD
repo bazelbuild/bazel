@@ -72,7 +72,6 @@ genrule(
         "MODULE.bazel",
         "//third_party/remoteapis:MODULE.bazel",
         "//third_party:BUILD",
-        "//third_party:rules_java.patch",
         "//third_party:protobuf.patch",
         "//third_party:grpc-java.patch",
         "//third_party:rules_jvm_external_6.5.patch",
