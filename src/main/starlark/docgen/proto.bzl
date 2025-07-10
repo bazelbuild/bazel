@@ -18,9 +18,9 @@
 load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 load("@com_google_protobuf//bazel/private:bazel_cc_proto_library.bzl", "cc_proto_library")  # buildifier: disable=bzl-visibility
 load("@com_google_protobuf//bazel/private:bazel_java_proto_library_rule.bzl", "java_proto_library")  # buildifier: disable=bzl-visibility
-load("@com_google_protobuf//bazel/private:bazel_proto_library_rule.bzl", "proto_library")  # buildifier: disable=bzl-visibility
 load("@com_google_protobuf//bazel/private:java_lite_proto_library.bzl", "java_lite_proto_library")  # buildifier: disable=bzl-visibility
 load("@com_google_protobuf//bazel/private:proto_lang_toolchain_rule.bzl", "proto_lang_toolchain")  # buildifier: disable=bzl-visibility
+load("@com_google_protobuf//bazel/private:proto_library_rule.bzl", "proto_library")  # buildifier: disable=bzl-visibility
 load("@com_google_protobuf//bazel/private:proto_toolchain_rule.bzl", "proto_toolchain")  # buildifier: disable=bzl-visibility
 
 binary_rules = struct()
