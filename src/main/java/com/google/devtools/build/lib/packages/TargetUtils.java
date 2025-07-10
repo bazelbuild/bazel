@@ -72,6 +72,10 @@ public final class TargetUtils {
     return name.equals("test_suite");
   }
 
+  public static boolean isExecutableRule(Target target) {
+    return target instanceof Rule && ((Rule) target).isExecutable() && !isTestRule(target);
+  }
+
   /**
    * Returns true iff {@code target} is a {@code *_test} rule; excludes {@code
    * test_suite}.
