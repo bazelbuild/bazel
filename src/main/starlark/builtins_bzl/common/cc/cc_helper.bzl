@@ -103,16 +103,6 @@ def _merge_cc_debug_contexts(compilation_outputs, dep_cc_infos):
 
     return cc_common.merge_debug_context(debug_contexts)
 
-def _is_code_coverage_enabled(ctx):
-    if ctx.coverage_instrumented():
-        return True
-    if hasattr(ctx.attr, "deps"):
-        for dep in ctx.attr.deps:
-            if CcInfo in dep:
-                if ctx.coverage_instrumented(dep):
-                    return True
-    return False
-
 def _get_dynamic_libraries_for_runtime(cc_linking_context, linking_statically):
     libraries = []
     for linker_input in cc_linking_context.linker_inputs.to_list():
@@ -1142,10 +1132,42 @@ def _check_cpp_modules(ctx, feature_configuration):
     ):
         fail("to use C++ modules, the feature cpp_modules must be enabled")
 
+def _should_instrument_for_coverage(ctx):
+    if ctx.coverage_instrumented():
+        return True
+    for attr in ["deps", "implementation_deps"]:
+        for dep in getattr(ctx.attr, attr, []):
+            if CcInfo in dep and ctx.coverage_instrumented(dep):
+                return True
+    return False
+
+_LEGACY_COVERAGE_FEATURE = "coverage"
+_COVERAGE_ENABLED_FEATURE = "coverage_enabled"
+_COVERAGE_INSTRUMENTED_FEATURE = "coverage_instrumented"
+_LLVM_COVERAGE_MAP_FORMAT_FEATURE = "llvm_coverage_map_format"
+_GCC_COVERAGE_MAP_FORMAT_FEATURE = "gcc_coverage_map_format"
+
+def _get_coverage_features(ctx, cc_config):
+    if not ctx.configuration.coverage_enabled:
+        return []
+
+    coverage_features = [
+        _LEGACY_COVERAGE_FEATURE,
+        _COVERAGE_ENABLED_FEATURE,
+    ]
+    if cc_config.use_llvm_coverage_map_format():
+        coverage_features.append(_LLVM_COVERAGE_MAP_FORMAT_FEATURE)
+    else:
+        coverage_features.append(_GCC_COVERAGE_MAP_FORMAT_FEATURE)
+
+    if _should_instrument_for_coverage(ctx):
+        coverage_features.append(_COVERAGE_INSTRUMENTED_FEATURE)
+
+    return coverage_features
+
 cc_helper = struct(
     CPP_TOOLCHAIN_TYPE = _CPP_TOOLCHAIN_TYPE,
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
-    is_code_coverage_enabled = _is_code_coverage_enabled,
     get_dynamic_libraries_for_runtime = _get_dynamic_libraries_for_runtime,
     get_dynamic_library_for_runtime_or_none = _get_dynamic_library_for_runtime_or_none,
     find_cpp_toolchain = _find_cpp_toolchain,
@@ -1210,4 +1232,5 @@ cc_helper = struct(
     tokenize = _tokenize,
     should_use_pic = _should_use_pic,
     check_cpp_modules = _check_cpp_modules,
+    get_coverage_features = _get_coverage_features,
 )

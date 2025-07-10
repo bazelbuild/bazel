@@ -130,6 +130,7 @@ def _build_feature_configuration(common_variables, for_swift_module_map, support
     enabled_features = []
     enabled_features.extend(ctx.features)
     enabled_features.extend(common_variables.extra_enabled_features)
+    enabled_features.extend(cc_helper.get_coverage_features(ctx, ctx.fragments.cpp))
 
     disabled_features = []
     disabled_features.extend(ctx.disabled_features)
@@ -212,7 +213,6 @@ def _compile(
         propagate_module_map_to_compile_action = True,
         variables_extension = extension,
         language = "objc",
-        code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx = common_variables.ctx),
         hdrs_checking_mode = "strict",
         do_not_generate_module_map = not generate_module_map or module_map.file().is_source,
         purpose = purpose,
