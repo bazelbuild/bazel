@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS_WITH_LOOPBACK;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NO_NETNS;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -26,14 +27,18 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.exec.RunfilesTreeUpdater;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
@@ -45,6 +50,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroup;
 import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroupFactory;
+import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OS;
@@ -56,7 +62,9 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -68,22 +76,33 @@ import javax.annotation.Nullable;
 
 /** Spawn runner that uses linux sandboxing APIs to execute a local subprocess. */
 final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
+  enum SupportLevel {
+    // linux-sandbox can be run directly.
+    SUPPORTED,
+    // linux-sandbox can't be run directly due to restrictions on the usage of unprivileged user
+    // namespaces, but the host has busybox installed and linux-sandbox can be run through it.
+    SUPPORTED_VIA_BUSYBOX,
+    // linux-sandbox can't be used.
+    NOT_SUPPORTED,
+  }
+
   // Since checking if sandbox is supported is expensive, we remember what we've checked.
-  private static final Map<Path, Boolean> isSupportedMap = new HashMap<>();
+  private static final Map<Path, SupportLevel> isSupportedMap = new HashMap<>();
 
   /**
    * Returns whether the linux sandbox is supported on the local machine by running a small command
    * in it.
    */
-  public static boolean isSupported(final CommandEnvironment cmdEnv) throws InterruptedException {
+  public static SupportLevel isSupported(final CommandEnvironment cmdEnv)
+      throws InterruptedException {
     if (OS.getCurrent() != OS.LINUX) {
-      return false;
+      return SupportLevel.NOT_SUPPORTED;
     }
     if (!LinuxSandboxUtil.isSupported(cmdEnv.getBlazeWorkspace())) {
-      return false;
+      return SupportLevel.NOT_SUPPORTED;
     }
     Path linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv.getBlazeWorkspace());
-    Boolean isSupported;
+    SupportLevel isSupported;
     synchronized (isSupportedMap) {
       isSupported = isSupportedMap.get(linuxSandbox);
       if (isSupported != null) {
@@ -95,11 +114,43 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return isSupported;
   }
 
-  private static boolean computeIsSupported(CommandEnvironment cmdEnv, Path linuxSandbox)
+  private static SupportLevel computeIsSupported(CommandEnvironment cmdEnv, Path linuxSandbox)
       throws InterruptedException {
+    try {
+      runBinTrue(cmdEnv, linuxSandbox, /* wrapInBusybox= */ false);
+      return SupportLevel.SUPPORTED;
+    } catch (CommandException e) {
+      if (e instanceof BadExitStatusException badExitStatusException) {
+        var stderr = new String(badExitStatusException.getResult().getStderr(), ISO_8859_1);
+        // Ubuntu 24.04 allows unprivileged user namespaces but denies any permissions that wouldn't
+        // be granted outside the namespace. The first syscall that makes use of extended
+        // permissions is a mount.
+        if (stderr.lines().anyMatch(line -> line.endsWith(": \"mount\": Permission denied"))) {
+          try {
+            runBinTrue(cmdEnv, linuxSandbox, /* wrapInBusybox= */ true);
+            return SupportLevel.SUPPORTED_VIA_BUSYBOX;
+          } catch (CommandException e2) {
+            cmdEnv
+                .getReporter()
+                .handle(
+                    Event.warn(
+                        "linux-sandbox failed to run as it lacks permission to use an unprivileged user namespace."
+                            + " See https://ubuntu.com/blog/ubuntu-23-10-restricted-unprivileged-user-namespaces and"
+                            + " https://github.com/bazelbuild/bazel/issues/24081 for details."));
+          }
+        }
+      }
+    }
+    return SupportLevel.NOT_SUPPORTED;
+  }
+
+  private static void runBinTrue(
+      CommandEnvironment cmdEnv, Path linuxSandbox, boolean wrapInBusybox)
+      throws CommandException, InterruptedException {
     LocalExecutionOptions options = cmdEnv.getOptions().getOptions(LocalExecutionOptions.class);
     ImmutableList<String> linuxSandboxArgv =
         LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandbox)
+            .setWrapInBusybox(wrapInBusybox)
             .setTimeout(options.getLocalSigkillGraceSeconds())
             .buildForCommand(ImmutableList.of("/bin/true"));
     ImmutableMap<String, String> env = ImmutableMap.of();
@@ -109,24 +160,22 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Command cmd =
         new Command(linuxSandboxArgv.toArray(new String[0]), env, cwd, cmdEnv.getClientEnv());
     try (SilentCloseable c = Profiler.instance().profile("LinuxSandboxedSpawnRunner.isSupported")) {
-      cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
-    } catch (CommandException e) {
-      return false;
+      cmd.execute();
     }
-
-    return true;
   }
 
   private final FileSystem fileSystem;
   private final Path execRoot;
   private final boolean allowNetwork;
   private final Path linuxSandbox;
+  private final boolean wrapInBusybox;
   private final Path sandboxBase;
   private final Path inaccessibleHelperFile;
   private final Path inaccessibleHelperDir;
   private final LocalEnvProvider localEnvProvider;
   private final Duration timeoutKillDelay;
   private final TreeDeleter treeDeleter;
+  private final RunfilesTreeUpdater runfilesTreeUpdater;
   private final Path slashTmp;
   private final ImmutableSet<Path> knownPathsToMountUnderHermeticTmp;
   private String cgroupsDir;
@@ -147,7 +196,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Path inaccessibleHelperFile,
       Path inaccessibleHelperDir,
       Duration timeoutKillDelay,
-      TreeDeleter treeDeleter) {
+      TreeDeleter treeDeleter,
+      RunfilesTreeUpdater runfilesTreeUpdater) {
     super(cmdEnv);
     SandboxOptions sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
     this.cgroupFactory =
@@ -162,12 +212,14 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.execRoot = cmdEnv.getExecRoot();
     this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv.getBlazeWorkspace());
+    this.wrapInBusybox = isSupportedMap.get(linuxSandbox) == SupportLevel.SUPPORTED_VIA_BUSYBOX;
     this.sandboxBase = sandboxBase;
     this.inaccessibleHelperFile = inaccessibleHelperFile;
     this.inaccessibleHelperDir = inaccessibleHelperDir;
     this.timeoutKillDelay = timeoutKillDelay;
     this.localEnvProvider = new PosixLocalEnvProvider(cmdEnv.getClientEnv());
     this.treeDeleter = treeDeleter;
+    this.runfilesTreeUpdater = runfilesTreeUpdater;
     this.slashTmp = cmdEnv.getRuntime().getFileSystem().getPath("/tmp");
     this.knownPathsToMountUnderHermeticTmp = collectPathsToMountUnderHermeticTmp(cmdEnv);
   }
@@ -253,10 +305,27 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(workspaceName);
     sandboxExecRoot.createDirectoryAndParents();
 
-    SandboxInputs inputs =
-        SandboxHelpers.processInputFiles(
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-            execRoot);
+    var runfilesMounts = ImmutableMap.<Path, Path>builder();
+    var runfilesTrees = new ArrayList<RunfilesTree>();
+    var inputMapping =
+        context.getInputMapping(
+            PathFragment.EMPTY_FRAGMENT,
+            /* willAccessRepeatedly= */ false,
+            /* expandRunfilesTrees= */ false);
+    var inputMappingWithoutRunfiles =
+        Maps.filterValues(
+            inputMapping,
+            input -> !(input instanceof Artifact artifact) || !artifact.isRunfilesTree());
+    inputMapping.forEach(
+        (execPath, input) -> {
+          if (input instanceof Artifact artifact && artifact.isRunfilesTree()) {
+            runfilesMounts.put(sandboxExecRoot.getRelative(execPath), artifact.getPath());
+            runfilesTrees.add(
+                context.getInputMetadataProvider().getRunfilesMetadata(artifact).getRunfilesTree());
+          }
+        });
+    SandboxInputs inputs = SandboxHelpers.processInputFiles(inputMappingWithoutRunfiles, execRoot);
+    runfilesTreeUpdater.updateRunfiles(runfilesTrees);
 
     ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
@@ -295,11 +364,16 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         !(allowNetwork || Spawns.requiresNetwork(spawn, sandboxOptions.defaultSandboxAllowNetwork));
     LinuxSandboxCommandLineBuilder commandLineBuilder =
         LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandbox)
+            .setWrapInBusybox(wrapInBusybox)
             .addExecutionInfo(spawn.getExecutionInfo())
             .setWritableFilesAndDirectories(writableDirs)
             .setTmpfsDirectories(ImmutableSet.copyOf(getSandboxOptions().sandboxTmpfsPath))
             .setBindMounts(
-                prepareAndGetBindMounts(sandboxExecRoot, sandboxTmp, pathsUnderTmpToMount))
+                prepareAndGetBindMounts(
+                    sandboxExecRoot,
+                    sandboxTmp,
+                    pathsUnderTmpToMount,
+                    runfilesMounts.buildOrThrow()))
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
             .setEnablePseudoterminal(getSandboxOptions().sandboxExplicitPseudoterminal)
             .setCreateNetworkNamespace(createNetworkNamespace ? getNetworkNamespace() : NO_NETNS)
@@ -389,7 +463,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   private ImmutableMap<Path, Path> prepareAndGetBindMounts(
-      Path sandboxExecRoot, @Nullable Path sandboxTmp, ImmutableSet<Path> pathsUnderTmpToMount)
+      Path sandboxExecRoot,
+      @Nullable Path sandboxTmp,
+      ImmutableSet<Path> pathsUnderTmpToMount,
+      Map<Path, Path> runfilesMounts)
       throws UserExecException, IOException {
     final SortedMap<Path, Path> userBindMounts = new TreeMap<>();
     SandboxHelpers.mountAdditionalPaths(
@@ -398,6 +475,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .buildKeepingLast(),
         sandboxExecRoot,
         userBindMounts);
+
+    for (var path : runfilesMounts.keySet()) {
+      path.createDirectoryAndParents();
+    }
+    userBindMounts.putAll(runfilesMounts);
 
     for (Path inaccessiblePath : getInaccessiblePaths()) {
       if (!inaccessiblePath.exists()) {
@@ -465,7 +547,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private void checkForConcurrentModifications(SpawnExecutionContext context) throws IOException {
     for (ActionInput input :
         context
-            .getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
+            .getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true, true)
             .values()) {
       if (input instanceof VirtualActionInput) {
         // Virtual inputs are not existing in file system and can't be tampered with via sandbox. No
