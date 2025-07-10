@@ -123,7 +123,7 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
   public void analysisTestNotReturningAnalysisTestResultInfo_cannotPropagate() throws Exception {
     scratch.file(
         "test/BUILD", //
-        "providerless_analysis_test(name = 'providerless')");
+        "providerless_analysis_lib(name = 'providerless')");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:providerless");
@@ -200,12 +200,10 @@ public final class AnalysisFailureInfoTest extends BuildViewTestCase {
             .addRuleDefinition(
                 (MockRule)
                     () ->
-                        MockRule.ancestor(
-                                BaseRuleClasses.TestBaseRule.class,
-                                BaseRuleClasses.NativeBuildRule.class)
-                            .type(RuleClassType.TEST)
+                        MockRule.ancestor(BaseRuleClasses.NativeBuildRule.class)
+                            .type(RuleClassType.NORMAL)
                             .define(
-                                "providerless_analysis_test",
+                                "providerless_analysis_lib",
                                 (ruleClassBuilder, env) -> ruleClassBuilder.setIsAnalysisTest()));
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();

@@ -111,9 +111,7 @@ public final class TestCompletionFunction implements SkyFunction {
    * <ol>
    *   <li>A failure to build the exec-configured attributes providing inputs to the {@link
    *       TestRunnerAction} such as {@code $test_runtime}, {@code $test_wrapper}, {@code
-   *       test_setup_script} and others (see {@link
-   *       com.google.devtools.build.lib.analysis.BaseRuleClasses.TestBaseRule#build} where all
-   *       Test-type rules have additional attributes added).
+   *       test_setup_script} and others.
    *   <li>The test strategy throws an {@link ExecException} prior to running the test, for example
    *       when some sort of validation fails.
    *   <li>The test action observes lost input(s) and initiates action rewinding, but the lost

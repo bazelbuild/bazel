@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType.ABSTRACT;
-import static com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType.TEST;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -472,8 +471,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       checkArgument(
           metadata.type() == ABSTRACT
               ^ metadata.factoryClass() != RuleConfiguredTargetFactory.class);
-      checkArgument(
-          (metadata.type() != TEST) || ancestors.contains(BaseRuleClasses.TestBaseRule.class));
 
       RuleClass[] ancestorClasses = new RuleClass[ancestors.size()];
       for (int i = 0; i < ancestorClasses.length; i++) {
