@@ -97,17 +97,6 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
           (List<Artifact>) linkerInput.getValue("additional_inputs", List.class);
       return additionalInputs;
     }
-
-    public static List<StarlarkInfo> getLinkstamps(StarlarkInfo linkerInput) {
-      try {
-        @SuppressWarnings("unchecked")
-        List<StarlarkInfo> linkstamps =
-            (List<StarlarkInfo>) linkerInput.getValue("linkstamps", List.class);
-        return linkstamps;
-      } catch (EvalException e) {
-        return ImmutableList.of();
-      }
-    }
   }
 
   private final NestedSet<StarlarkInfo> linkerInputs;
@@ -226,20 +215,6 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     return getLinkerInputs().toList().stream()
         .flatMap(linkerInput -> LinkerInput.getUserLinkFlags(linkerInput).stream())
         .collect(toImmutableList());
-  }
-
-  public NestedSet<StarlarkInfo> getLinkstamps() {
-    NestedSetBuilder<StarlarkInfo> linkstamps = NestedSetBuilder.linkOrder();
-    for (StarlarkInfo linkerInput : linkerInputs.toList()) {
-      linkstamps.addAll(LinkerInput.getLinkstamps(linkerInput));
-    }
-    return linkstamps.build();
-  }
-
-  @Override
-  public Depset getLinkstampsForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(StarlarkInfo.class, getLinkstamps());
   }
 
   /**

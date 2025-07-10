@@ -2081,6 +2081,17 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(archiveAction.getMnemonic()).isEqualTo("CppArchive");
   }
 
+  private static List<StarlarkInfo> getLinkstamps(StarlarkInfo linkerInput) {
+    try {
+      @SuppressWarnings("unchecked")
+      List<StarlarkInfo> linkstamps =
+          (List<StarlarkInfo>) linkerInput.getValue("linkstamps", List.class);
+      return linkstamps;
+    } catch (EvalException e) {
+      return ImmutableList.of();
+    }
+  }
+
   private static Artifact getLinkstampFile(StarlarkInfo linkstamp) {
     try (Mutability mu = Mutability.create()) {
       StarlarkFunction func = linkstamp.getValue("file", StarlarkFunction.class);
@@ -2089,11 +2100,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     } catch (EvalException | InterruptedException e) {
       throw new RuntimeException(e);
     }
-  }
-
-  private static List<String> linkstampExecPaths(NestedSet<StarlarkInfo> linkstamps) {
-    return ActionsTestUtil.execPaths(
-        ActionsTestUtil.transform(linkstamps.toList(), ObjcLibraryTest::getLinkstampFile));
   }
 
   @Test
@@ -2112,12 +2118,13 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         )
         """);
 
+    CcLinkingContext ccLinkingContext =
+        getConfiguredTarget("//x:foo").get(CcInfo.PROVIDER).getCcLinkingContext();
     assertThat(
-            linkstampExecPaths(
-                getConfiguredTarget("//x:foo")
-                    .get(CcInfo.PROVIDER)
-                    .getCcLinkingContext()
-                    .getLinkstamps()))
+            ccLinkingContext.getLinkerInputs().toList().stream()
+                .flatMap(linkerInput -> getLinkstamps(linkerInput).stream())
+                .map(ObjcLibraryTest::getLinkstampFile)
+                .map(Artifact::getExecPathString))
         .containsExactly("x/bar.cc");
   }
 

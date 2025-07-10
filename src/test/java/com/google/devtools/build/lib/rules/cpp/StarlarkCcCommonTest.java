@@ -7863,7 +7863,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         LinkstampsInfo = provider(fields = ["linkstamps"])
 
         def _impl(ctx):
-            linkstamps = ctx.attr.deps[0][CcInfo].linking_context.linkstamps().to_list()
+            linkstamps = [
+                linkstamp
+                for linker_input in ctx.attr.deps[0][CcInfo].linking_context.linker_inputs.to_list()
+                for linkstamp in linker_input.linkstamps
+            ]
             return [LinkstampsInfo(linkstamps = linkstamps)]
 
         linkstamps = rule(
@@ -7893,9 +7897,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             linkstamps_dep = "//bazel_internal/test_rules/cc:linkstamps",
         )
         """);
-    List<String> calls =
-        new ArrayList<>(
-            Arrays.asList("linkstamp.file()", "linkstamp.hdrs()", "linking_context.linkstamps()"));
+    List<String> calls = new ArrayList<>(Arrays.asList("linkstamp.file()", "linkstamp.hdrs()"));
     if (!analysisMock.isThisBazel()) {
       calls.add(
           "cc_common.register_linkstamp_compile_action(actions=ctx.actions,cc_toolchain=toolchain,"
