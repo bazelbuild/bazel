@@ -494,6 +494,51 @@ public class DiscoveryTest extends FoundationTestCase {
   }
 
   @Test
+  public void testNodep_fulfilled_withOverride() throws Exception {
+    // Regression test for https://github.com/bazelbuild/bazel/issues/26495
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1')",
+        "bazel_dep(name='bbb',version='1.0')",
+        "bazel_dep(name='ccc',version='1.0')",
+        "single_version_override(module_name='bbb',version='2.0')");
+    FakeRegistry registry =
+        registryFactory
+            .newFakeRegistry("/foo")
+            .addModule(createModuleKey("bbb", "1.0"), "module(name='bbb', version='1.0')")
+            .addModule(createModuleKey("bbb", "2.0"), "module(name='bbb', version='2.0')")
+            .addModule(
+                createModuleKey("ccc", "1.0"),
+                "module(name='ccc', version='1.0')",
+                "bazel_dep(name='bbb', version='1.0', repo_name=None)");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<DiscoveryValue> result =
+        evaluator.evaluate(ImmutableList.of(DiscoveryValue.KEY), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    DiscoveryValue discoveryValue = result.get(DiscoveryValue.KEY);
+    assertThat(discoveryValue.depGraph().entrySet())
+        .containsExactly(
+            InterimModuleBuilder.create("aaa", "0.1")
+                .setKey(ModuleKey.ROOT)
+                .addDep("bbb", createModuleKey("bbb", "2.0"))
+                .addOriginalDep("bbb", createModuleKey("bbb", "1.0"))
+                .addDep("ccc", createModuleKey("ccc", "1.0"))
+                .buildEntry(),
+            InterimModuleBuilder.create("bbb", "2.0").setRegistry(registry).buildEntry(),
+            InterimModuleBuilder.create("ccc", "1.0")
+                .addNodepDep(createModuleKey("bbb", "2.0"))
+                .setRegistry(registry)
+                .buildEntry());
+    assertThat(discoveryValue.registryFileHashes().keySet())
+        .containsExactly(
+            registry.getUrl() + "/modules/bbb/2.0/MODULE.bazel",
+            registry.getUrl() + "/modules/ccc/1.0/MODULE.bazel");
+  }
+
+  @Test
   public void testCircularDependency() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),

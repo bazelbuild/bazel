@@ -20,6 +20,7 @@ import static java.util.Objects.requireNonNull;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -116,9 +117,20 @@ public abstract class InterimModule extends ModuleBase {
    * Returns a new {@link InterimModule} with all values in {@link #getDeps} transformed using the
    * given function.
    */
-  public InterimModule withDepSpecsTransformed(UnaryOperator<DepSpec> transform) {
+  public InterimModule withDepsTransformed(UnaryOperator<DepSpec> transform) {
     return toBuilder()
         .setDeps(ImmutableMap.copyOf(Maps.transformValues(getDeps(), transform::apply)))
+        .build();
+  }
+
+  /**
+   * Returns a new {@link InterimModule} with all values in {@link #getDeps} and {@link
+   * #getNodepDeps} transformed using the given function.
+   */
+  public InterimModule withDepsAndNodepDepsTransformed(UnaryOperator<DepSpec> transform) {
+    return toBuilder()
+        .setDeps(ImmutableMap.copyOf(Maps.transformValues(getDeps(), transform::apply)))
+        .setNodepDeps(ImmutableList.copyOf(Lists.transform(getNodepDeps(), transform::apply)))
         .build();
   }
 
