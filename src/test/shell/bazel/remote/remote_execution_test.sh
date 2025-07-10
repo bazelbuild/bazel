@@ -2187,8 +2187,6 @@ EOF
 
   bazel coverage \
     --test_output=all \
-    --experimental_fetch_all_coverage_outputs \
-    --experimental_split_coverage_postprocessing \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     --instrumentation_filter=//java/factorial \
@@ -2520,8 +2518,6 @@ EOF
 
   bazel coverage \
       --test_output=all \
-      --experimental_fetch_all_coverage_outputs \
-      --experimental_split_coverage_postprocessing \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       //"$test_dir":hello-test >& $TEST_log \
@@ -2661,9 +2657,7 @@ EOF
   BAZEL_USE_LLVM_NATIVE_COVERAGE=1 BAZEL_LLVM_PROFDATA=llvm-profdata BAZEL_LLVM_COV=llvm-cov CC=clang \
     bazel coverage \
       --test_output=all \
-      --experimental_fetch_all_coverage_outputs \
       --experimental_generate_llvm_lcov \
-      --experimental_split_coverage_postprocessing \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       //"$test_dir":hello-test >& $TEST_log \
