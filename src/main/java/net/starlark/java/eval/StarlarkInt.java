@@ -393,14 +393,10 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     if (this instanceof Int32) {
       return ((Int32) this).v;
     }
-    // Use a constant exception to avoid allocation.
     // This operator is provided for fast access and case discrimination.
     // Use toInt(String) for user-visible errors.
-    throw NOT_INT32;
+    throw new IllegalArgumentException("not a signed 32-bit value");
   }
-
-  private static final IllegalArgumentException NOT_INT32 =
-      new IllegalArgumentException("not a signed 32-bit value");
 
   /** Returns the result of truncating this value into the signed 32-bit range. */
   public int truncateToInt() {
