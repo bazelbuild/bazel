@@ -17,11 +17,14 @@ import static org.mockito.Mockito.spy;
 
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Collection;
 
 /**
  * Delegate file system with the sole purpose of creating a {@link org.mockito.Mockito#spy}.
@@ -65,5 +68,31 @@ public class SpiedFileSystem extends DelegateFileSystem {
   @Override
   public void chmod(PathFragment path, int mode) throws IOException {
     super.chmod(path, mode);
+  }
+
+  @Override
+  public Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
+    return super.getDirectoryEntries(path);
+  }
+
+  @Override
+  public Collection<Dirent> readdir(PathFragment path, boolean followSymlinks) throws IOException {
+    return super.readdir(path, followSymlinks);
+  }
+
+  @Override
+  public FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
+    return super.stat(path, followSymlinks);
+  }
+
+  @Override
+  public FileStatus statIfFound(PathFragment path, boolean followSymlinks) throws IOException {
+    return super.statIfFound(path, followSymlinks);
+  }
+
+  @Override
+  public void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
+      throws IOException {
+    super.createSymbolicLink(linkPath, targetFragment);
   }
 }
