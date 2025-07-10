@@ -22,16 +22,15 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunction
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtension;
 import com.google.devtools.build.lib.bazel.bzlmod.TagClass;
-import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.RepositoryRuleFunction;
+import com.google.devtools.build.lib.bazel.repository.RepoRule;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.StarlarkRepoRule;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier.FixedListSupplier;
 import com.google.devtools.build.lib.packages.AspectPropagationEdgesSupplier.FunctionSupplier;
 import com.google.devtools.build.lib.packages.MacroClass;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeType;
@@ -205,8 +204,8 @@ public final class ModuleInfoExtractor {
           visitFunction(qualifiedName, starlarkFunction);
         } else if (value instanceof StarlarkDefinedAspect starlarkDefinedAspect) {
           visitAspect(qualifiedName, starlarkDefinedAspect);
-        } else if (value instanceof RepositoryRuleFunction repositoryRuleFunction) {
-          visitRepositoryRule(qualifiedName, repositoryRuleFunction);
+        } else if (value instanceof StarlarkRepoRule starlarkRepoRule) {
+          visitRepositoryRule(qualifiedName, starlarkRepoRule.getRepoRule());
         } else if (value instanceof ModuleExtension moduleExtension) {
           visitModuleExtension(qualifiedName, moduleExtension);
         } else if (value instanceof Structure) {
@@ -256,7 +255,7 @@ public final class ModuleInfoExtractor {
 
     protected void visitRepositoryRule(
         @SuppressWarnings("unused") String qualifiedName,
-        @SuppressWarnings("unused") RepositoryRuleFunction repositoryRuleFunction)
+        @SuppressWarnings("unused") RepoRule repoRule)
         throws ExtractionException {}
 
     private void recurseIntoStructure(
@@ -536,36 +535,25 @@ public final class ModuleInfoExtractor {
     }
 
     @Override
-    protected void visitRepositoryRule(
-        String qualifiedName, RepositoryRuleFunction repositoryRuleFunction)
-        throws ExtractionException {
+    protected void visitRepositoryRule(String qualifiedName, RepoRule repoRule) {
       RepositoryRuleInfo.Builder repositoryRuleInfoBuilder = RepositoryRuleInfo.newBuilder();
       repositoryRuleInfoBuilder.setRuleName(internalToUnicode(qualifiedName));
-      repositoryRuleFunction
-          .getDocumentation()
+      repoRule
+          .doc()
           .map(StringEncoding::internalToUnicode)
           .ifPresent(repositoryRuleInfoBuilder::setDocString);
-      RuleClass ruleClass = repositoryRuleFunction.getRuleClass();
       repositoryRuleInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
-              .setName(internalToUnicode(ruleClass.getName()))
+              .setName(internalToUnicode(repoRule.id().ruleName()))
               .setFile(
-                  internalToUnicode(
-                      context.labelRenderer().render(repositoryRuleFunction.getExtensionLabel()))));
+                  internalToUnicode(context.labelRenderer().render(repoRule.id().bzlFileLabel()))));
       AttributeInfoExtractor.addDocumentableAttributes(
           context,
           IMPLICIT_REPOSITORY_RULE_ATTRIBUTES,
-          ruleClass.getAttributeProvider().getAttributes(),
+          repoRule.attributes(),
           repositoryRuleInfoBuilder::addAttribute);
-      if (ruleClass.getAttributeProvider().hasAttr("$environ", Types.STRING_LIST)) {
-        for (String env :
-            Types.STRING_LIST.cast(
-                ruleClass
-                    .getAttributeProvider()
-                    .getAttributeByName("$environ")
-                    .getDefaultValue(null))) {
-          repositoryRuleInfoBuilder.addEnviron(internalToUnicode(env));
-        }
+      for (String env : repoRule.environ()) {
+        repositoryRuleInfoBuilder.addEnviron(internalToUnicode(env));
       }
       moduleInfoBuilder.addRepositoryRuleInfo(repositoryRuleInfoBuilder);
     }

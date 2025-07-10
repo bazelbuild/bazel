@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
@@ -22,6 +23,8 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread.CallStackEntry;
 
 /** Exception indicates that something went wrong while processing external dependencies. */
 public class ExternalDepsException extends Exception implements DetailedException {
@@ -42,6 +45,19 @@ public class ExternalDepsException extends Exception implements DetailedExceptio
   public static ExternalDepsException withMessage(
       ExternalDeps.Code code, @FormatString String format, Object... args) {
     return new ExternalDepsException(String.format(format, args), null, code);
+  }
+
+  @FormatMethod
+  public static ExternalDepsException withCallStackAndMessage(
+      ExternalDeps.Code code,
+      ImmutableList<CallStackEntry> callStack,
+      @FormatString String format,
+      Object... args) {
+    return new ExternalDepsException(
+        EvalException.formatCallStack(
+            callStack, String.format(format, args), EvalException.newSourceReader()),
+        null,
+        code);
   }
 
   @FormatMethod

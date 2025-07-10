@@ -13,26 +13,24 @@
 // limitations under the License.
 //
 
-package com.google.devtools.build.lib.bazel.bzlmod;
+package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinitionValue.Found;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link BzlmodRepoRuleFunction}. */
+/** Tests for {@link RepoDefinitionFunction}. */
 @RunWith(JUnit4.class)
-public final class BzlmodRepoRuleFunctionTest extends BuildViewTestCase {
+public final class RepoDefinitionFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testRepoSpec_bazelModule() throws Exception {
@@ -46,18 +44,20 @@ public final class BzlmodRepoRuleFunctionTest extends BuildViewTestCase {
     invalidatePackages(false);
 
     RepositoryName repo = RepositoryName.create("ccc+");
-    EvaluationResult<BzlmodRepoRuleValue> result =
+    EvaluationResult<RepoDefinitionValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            skyframeExecutor, BzlmodRepoRuleValue.key(repo), false, reporter);
+            skyframeExecutor, RepoDefinitionValue.key(repo), false, reporter);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
-    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key(repo));
-    Rule repoRule = bzlmodRepoRuleValue.getRule();
+    RepoDefinitionValue repoDefinitionValue = result.get(RepoDefinitionValue.key(repo));
+    assertThat(repoDefinitionValue).isInstanceOf(Found.class);
+    RepoDefinition repoDefinition = ((Found) repoDefinitionValue).repoDefinition();
 
-    assertThat(repoRule.getRuleClass()).isEqualTo("local_repository");
-    assertThat(repoRule.getName()).isEqualTo("ccc+");
-    assertThat(repoRule.getAttr("path", Type.STRING)).isEqualTo("/workspace/modules/ccc+2.0");
+    assertThat(repoDefinition.repoRule().id().ruleName()).isEqualTo("local_repository");
+    assertThat(repoDefinition.name()).isEqualTo("ccc+");
+    assertThat(repoDefinition.attrValues().attributes().get("path"))
+        .isEqualTo("/workspace/modules/ccc+2.0");
   }
 
   @Test
@@ -75,18 +75,19 @@ public final class BzlmodRepoRuleFunctionTest extends BuildViewTestCase {
     invalidatePackages(false);
 
     RepositoryName repo = RepositoryName.create("ccc+");
-    EvaluationResult<BzlmodRepoRuleValue> result =
+    EvaluationResult<RepoDefinitionValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            skyframeExecutor, BzlmodRepoRuleValue.key(repo), false, reporter);
+            skyframeExecutor, RepoDefinitionValue.key(repo), false, reporter);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
-    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key(repo));
-    Rule repoRule = bzlmodRepoRuleValue.getRule();
+    RepoDefinitionValue repoDefinitionValue = result.get(RepoDefinitionValue.key(repo));
+    assertThat(repoDefinitionValue).isInstanceOf(Found.class);
+    RepoDefinition repoDefinition = ((Found) repoDefinitionValue).repoDefinition();
 
-    assertThat(repoRule.getRuleClass()).isEqualTo("local_repository");
-    assertThat(repoRule.getName()).isEqualTo("ccc+");
-    assertThat(repoRule.getAttr("path", Type.STRING)).isEqualTo("/foo/bar/C");
+    assertThat(repoDefinition.repoRule().id().ruleName()).isEqualTo("local_repository");
+    assertThat(repoDefinition.name()).isEqualTo("ccc+");
+    assertThat(repoDefinition.attrValues().attributes().get("path")).isEqualTo("/foo/bar/C");
   }
 
   @Test
@@ -106,18 +107,20 @@ public final class BzlmodRepoRuleFunctionTest extends BuildViewTestCase {
     invalidatePackages(false);
 
     RepositoryName repo = RepositoryName.create("ccc+");
-    EvaluationResult<BzlmodRepoRuleValue> result =
+    EvaluationResult<RepoDefinitionValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            skyframeExecutor, BzlmodRepoRuleValue.key(repo), false, reporter);
+            skyframeExecutor, RepoDefinitionValue.key(repo), false, reporter);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
-    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key(repo));
-    Rule repoRule = bzlmodRepoRuleValue.getRule();
+    RepoDefinitionValue repoDefinitionValue = result.get(RepoDefinitionValue.key(repo));
+    assertThat(repoDefinitionValue).isInstanceOf(Found.class);
+    RepoDefinition repoDefinition = ((Found) repoDefinitionValue).repoDefinition();
 
-    assertThat(repoRule.getRuleClass()).isEqualTo("local_repository");
-    assertThat(repoRule.getName()).isEqualTo("ccc+");
-    assertThat(repoRule.getAttr("path", Type.STRING)).isEqualTo("/workspace/modules/ccc+3.0");
+    assertThat(repoDefinition.repoRule().id().ruleName()).isEqualTo("local_repository");
+    assertThat(repoDefinition.name()).isEqualTo("ccc+");
+    assertThat(repoDefinition.attrValues().attributes().get("path"))
+        .isEqualTo("/workspace/modules/ccc+3.0");
   }
 
   @Test
@@ -140,18 +143,20 @@ public final class BzlmodRepoRuleFunctionTest extends BuildViewTestCase {
     invalidatePackages(false);
 
     RepositoryName repo = RepositoryName.create("ddd+2.0");
-    EvaluationResult<BzlmodRepoRuleValue> result =
+    EvaluationResult<RepoDefinitionValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            skyframeExecutor, BzlmodRepoRuleValue.key(repo), false, reporter);
+            skyframeExecutor, RepoDefinitionValue.key(repo), false, reporter);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
-    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key(repo));
-    Rule repoRule = bzlmodRepoRuleValue.getRule();
+    RepoDefinitionValue repoDefinitionValue = result.get(RepoDefinitionValue.key(repo));
+    assertThat(repoDefinitionValue).isInstanceOf(Found.class);
+    RepoDefinition repoDefinition = ((Found) repoDefinitionValue).repoDefinition();
 
-    assertThat(repoRule.getRuleClass()).isEqualTo("local_repository");
-    assertThat(repoRule.getName()).isEqualTo("ddd+2.0");
-    assertThat(repoRule.getAttr("path", Type.STRING)).isEqualTo("/workspace/modules/ddd+2.0");
+    assertThat(repoDefinition.repoRule().id().ruleName()).isEqualTo("local_repository");
+    assertThat(repoDefinition.name()).isEqualTo("ddd+2.0");
+    assertThat(repoDefinition.attrValues().attributes().get("path"))
+        .isEqualTo("/workspace/modules/ddd+2.0");
   }
 
   @Test
@@ -160,13 +165,13 @@ public final class BzlmodRepoRuleFunctionTest extends BuildViewTestCase {
     invalidatePackages(false);
 
     RepositoryName repo = RepositoryName.create("ss");
-    EvaluationResult<BzlmodRepoRuleValue> result =
+    EvaluationResult<RepoDefinitionValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            skyframeExecutor, BzlmodRepoRuleValue.key(repo), false, reporter);
+            skyframeExecutor, RepoDefinitionValue.key(repo), false, reporter);
     if (result.hasError()) {
       fail(result.getError().toString());
     }
-    BzlmodRepoRuleValue bzlmodRepoRuleValue = result.get(BzlmodRepoRuleValue.key(repo));
-    assertThat(bzlmodRepoRuleValue).isEqualTo(BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE);
+    RepoDefinitionValue repoDefinitionValue = result.get(RepoDefinitionValue.key(repo));
+    assertThat(repoDefinitionValue).isEqualTo(RepoDefinitionValue.NOT_FOUND);
   }
 }

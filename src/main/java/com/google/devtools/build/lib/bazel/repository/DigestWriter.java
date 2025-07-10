@@ -21,9 +21,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.bazel.bzlmod.GsonTypeAdapterUtil;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleFormatter;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.NeverUpToDateRepoRecordedInput;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -50,15 +49,15 @@ class DigestWriter {
 
   private final BlazeDirectories directories;
   final Path markerPath;
-  private final String ruleKey;
+  private final String predeclaredInputHash;
 
   DigestWriter(
       BlazeDirectories directories,
       RepositoryName repositoryName,
-      Rule rule,
+      RepoDefinition repoDefinition,
       StarlarkSemantics starlarkSemantics) {
     this.directories = directories;
-    ruleKey = computePredeclaredInputHash(rule, starlarkSemantics);
+    predeclaredInputHash = computePredeclaredInputHash(repoDefinition, starlarkSemantics);
     markerPath = getMarkerPath(directories, repositoryName);
   }
 
@@ -100,7 +99,7 @@ class DigestWriter {
   void writeMarkerFile(Map<? extends RepoRecordedInput, String> recordedInputValues)
       throws RepositoryFunctionException {
     StringBuilder builder = new StringBuilder();
-    builder.append(ruleKey).append("\n");
+    builder.append(predeclaredInputHash).append("\n");
     for (Map.Entry<RepoRecordedInput, String> recordedInput :
         new TreeMap<RepoRecordedInput, String>(recordedInputValues).entrySet()) {
       String key = recordedInput.getKey().toString();
@@ -146,7 +145,7 @@ class DigestWriter {
     try {
       String content = FileSystemUtils.readContent(markerPath, UTF_8);
       Map<RepoRecordedInput, String> recordedInputValues =
-          readMarkerFile(content, Preconditions.checkNotNull(ruleKey));
+          readMarkerFile(content, Preconditions.checkNotNull(predeclaredInputHash));
       Optional<String> outdatedReason =
           RepoRecordedInput.isAnyValueOutdated(env, directories, recordedInputValues);
       if (env.valuesMissing()) {
@@ -162,7 +161,7 @@ class DigestWriter {
   }
 
   private static Map<RepoRecordedInput, String> readMarkerFile(
-      String content, String expectedRuleKey) {
+      String content, String predeclaredInputHash) {
     Iterable<String> lines = Splitter.on('\n').split(content);
 
     @Nullable Map<RepoRecordedInput, String> recordedInputValues = null;
@@ -172,7 +171,7 @@ class DigestWriter {
         continue;
       }
       if (!firstLineVerified) {
-        if (!line.equals(expectedRuleKey)) {
+        if (!line.equals(predeclaredInputHash)) {
           // Break early, need to reload anyway. This also detects marker file version changes
           // so that unknown formats are not parsed.
           return ImmutableMap.of(
@@ -201,13 +200,20 @@ class DigestWriter {
     return Preconditions.checkNotNull(recordedInputValues);
   }
 
-  static String computePredeclaredInputHash(Rule rule, StarlarkSemantics starlarkSemantics) {
+  static String computePredeclaredInputHash(
+      RepoDefinition repoDefinition, StarlarkSemantics starlarkSemantics) {
     return new Fingerprint()
-        .addBytes(RuleFormatter.serializeRule(rule).build().toByteArray())
         .addInt(MARKER_FILE_VERSION)
         // TODO: Using the hashCode() method for StarlarkSemantics here is suboptimal as
         //   it doesn't include any default values.
         .addInt(starlarkSemantics.hashCode())
+        .addString(repoDefinition.repoRule().id().bzlFileLabel().toString())
+        .addString(repoDefinition.repoRule().id().ruleName())
+        .addBytes(repoDefinition.repoRule().transitiveBzlDigest())
+        .addString(repoDefinition.name())
+        .addString(
+            GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON.toJson(
+                repoDefinition.attrValues()))
         .hexDigestAndReset();
   }
 

@@ -15,28 +15,47 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.auto.value.AutoBuilder;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import javax.annotation.Nullable;
+import java.util.Optional;
 
 /**
  * Identifies a repo rule.
  *
- * @param bzlFileLabel The label pointing to the .bzl file defining the repo rule, or null if this
- *     is a native repo rule.
+ * @param bzlFileLabel The label pointing to the .bzl file defining the repo rule.
  * @param ruleName The name of the repo rule.
  */
 @AutoCodec
-public record RepoRuleId(@Nullable Label bzlFileLabel, String ruleName) {
-  public boolean isNative() {
-    return bzlFileLabel == null;
-  }
-
+public record RepoRuleId(Label bzlFileLabel, String ruleName) {
   @Override
   public String toString() {
-    if (bzlFileLabel == null) {
-      return ruleName;
-    }
     return bzlFileLabel.getUnambiguousCanonicalForm() + "%" + ruleName;
+  }
+
+  public static Builder builder() {
+    return new AutoBuilder_RepoRuleId_Builder();
+  }
+
+  public Builder toBuilder() {
+    return new AutoBuilder_RepoRuleId_Builder(this);
+  }
+
+  /** Builder type for {@link RepoRuleId}. */
+  @AutoBuilder
+  public abstract static class Builder {
+    public abstract Builder bzlFileLabel(Label value);
+
+    public abstract Label bzlFileLabel();
+
+    public abstract Builder ruleName(String value);
+
+    abstract Optional<String> ruleName();
+
+    public boolean isRuleNameSet() {
+      return ruleName().isPresent();
+    }
+
+    public abstract RepoRuleId build();
   }
 }

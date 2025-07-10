@@ -818,56 +818,6 @@ EOF
   expect_log $what_does_the_fox_say
 }
 
-function test_fetch() {
-  serve_jar
-
-  cat > $(setup_module_dot_bazel) <<EOF
-ext = use_extension("//:ext.bzl", "ext")
-use_repo(ext, "endangered")
-EOF
-  add_rules_java "MODULE.bazel"
-
-  touch BUILD
-  cat > ext.bzl <<EOF
-load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_maven_import_external")
-
-def repo():
-  jvm_maven_import_external(
-      name = 'endangered',
-      artifact = "com.example.carnivore:carnivore:1.23",
-      server_urls = ['http://127.0.0.1:$nc_port/'],
-      artifact_sha256 = '$sha256',
-  )
-
-ext = module_extension(implementation = lambda ctx: repo())
-EOF
-
-  output_base=$(bazel info output_base)
-  external_dir=$output_base/external
-  needle=endangered
-  [[ -d $external_dir/$needle ]] \
-      && fail "$needle already exists in $external_dir" || true
-  bazel fetch //zoo:ball-pit >& $TEST_log || fail "Fetch failed"
-  [[ $(ls $external_dir | grep $needle) ]] || fail "$needle not added to $external_dir"
-
-  bazel query --output=build --nohost_deps --noimplicit_deps 'deps(//zoo:ball-pit)' >& $TEST_log \
-    || fail "bazel query failed"
-  expect_log "maven_coordinates=com.example.carnivore:carnivore:1.23"
-
-  # Rerun fetch while nc isn't serving anything to make sure the fetched result
-  # is cached.
-  bazel fetch //zoo:ball-pit >& $TEST_log || fail "Incremental fetch failed"
-
-  # Make sure fetch isn't needed after a bazel restart.
-  bazel shutdown
-  bazel build //zoo:ball-pit >& $TEST_log || fail "Fetch shouldn't be required"
-
-  # But it is required after a clean.
-  bazel clean --expunge || fail "Clean failed"
-  bazel build --fetch=false //zoo:ball-pit >& $TEST_log && fail "Expected build to fail"
-  expect_log "fetching repositories is disabled"
-}
-
 function test_prefix_stripping_tar_gz() {
   mkdir -p x/y/z
   echo "abc" > x/y/z/w

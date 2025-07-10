@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
@@ -59,7 +58,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.S
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BzlCompileFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
-import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
@@ -210,9 +208,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     SkyFunctions.BAZEL_LOCK_FILE,
                     new BazelLockFileFunction(rootDirectory, directories.getOutputBase()))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
-                .put(
-                    BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
-                    new BzlmodRepoRuleFunction(ruleClassProvider, directories))
+                .put(RepoDefinitionValue.REPO_DEFINITION, new RepoDefinitionFunction())
                 .put(
                     SkyFunctions.REGISTRY,
                     new RegistryFunction(registryFactory, directories.getWorkspace()))

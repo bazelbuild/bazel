@@ -291,10 +291,9 @@ public class BazelModuleInspectorFunctionTest {
         ImmutableMap.of(
             "bbb",
             new NonRegistryOverride(
-                new RepoSpec(
-                    ArchiveRepoSpecBuilder.HTTP_ARCHIVE,
-                    AttributeValues.create(
-                        ImmutableMap.of("urls", ImmutableList.of("file://users/user/bbb.zip"))))));
+                new ArchiveRepoSpecBuilder()
+                    .setUrls(ImmutableList.of("file://users/user/bbb.zip"))
+                    .build()));
 
     ImmutableSet<ModuleKey> usedModules =
         ImmutableSet.of(ModuleKey.ROOT, createModuleKey("bbb", ""), createModuleKey("ccc", "1.1"));

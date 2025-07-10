@@ -455,7 +455,7 @@ class BazelVendorTest(test_base.TestBase):
     # Assert repo in vendor is out-of-date, and the new one is fetched into
     # external and not a symlink
     self.assertIn(
-        "WARNING: <builtin>: Vendored repository '+ext+justRepo' is out-of-date"
+        "WARNING: Vendored repository '+ext+justRepo' is out-of-date"
         ' (Bazel version, flags, repo rule definition or attributes changed).'
         ' The up-to-date version will be fetched into the external cache and'
         ' used. To update the repo in the vendor directory, run the bazel'
@@ -543,7 +543,7 @@ class BazelVendorTest(test_base.TestBase):
         ['build', '@venRepo//:all', '--vendor_dir=vendor', '--nofetch'],
     )
     self.assertIn(
-        "WARNING: <builtin>: Vendored repository '+ext+venRepo' is out-of-date"
+        "WARNING: Vendored repository '+ext+venRepo' is out-of-date"
         ' (Bazel version, flags, repo rule definition or attributes changed)'
         " and fetching is disabled. Run build without the '--nofetch' option or"
         ' run the bazel vendor command to update it',
