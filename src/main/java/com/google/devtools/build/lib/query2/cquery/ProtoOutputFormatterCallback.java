@@ -242,7 +242,15 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   private void writeData(Message message) throws IOException {
     switch (outputType) {
-      case BINARY -> message.writeTo(outputStream);
+      case BINARY -> {
+        // Avoid a crash due to a failed precondition check in protobuf.
+        if (message.getSerializedSize() < 0) {
+          throw new IOException(
+              "--output=proto does not support results larger than 2GB, use --output=streamed_proto"
+                  + " instead.");
+        }
+        message.writeTo(outputStream);
+      }
       case DELIMITED_BINARY -> message.writeDelimitedTo(outputStream);
       case TEXT -> TextFormat.printer().print(message, printStream);
       case JSON -> {
