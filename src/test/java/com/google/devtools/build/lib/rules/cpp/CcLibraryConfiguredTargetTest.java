@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -321,7 +322,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     assertThat(
             hello.get(CcInfo.PROVIDER).getCcLinkingContext().getLinkerInputs().toList().stream()
-                .allMatch(linkerInput -> linkerInput.getUserLinkFlags().isEmpty()))
+                .allMatch(linkerInput -> LinkerInput.getUserLinkFlags(linkerInput).isEmpty()))
         .isTrue();
   }
 
@@ -1596,7 +1597,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo");
     assertThat(
             target.get(CcInfo.PROVIDER).getCcLinkingContext().getLinkerInputs().toList().stream()
-                .map(x -> x.getOwner().toString())
+                .map(x -> LinkerInput.getOwner(x).toString())
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("//foo:foo", "//foo:bar", "//foo:baz")
         .inOrder();
@@ -2381,13 +2382,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                     CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY));
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     Artifact sharedObject =
-        hello
-            .get(CcInfo.PROVIDER)
-            .getCcLinkingContext()
-            .getLinkerInputs()
-            .toList()
-            .get(0)
-            .getLibraries()
+        LinkerInput.getLibraries(
+                hello.get(CcInfo.PROVIDER).getCcLinkingContext().getLinkerInputs().toList().get(0))
             .get(0)
             .getDynamicLibrary();
     SpawnAction action = (SpawnAction) getGeneratingAction(sharedObject);
@@ -2443,7 +2439,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .getLinkerInputs()
                 .toList()
                 .stream()
-                .map(x -> x.getOwner().toString()))
+                .map(x -> LinkerInput.getOwner(x).toString()))
         .containsExactly("//foo:lib")
         .inOrder();
   }

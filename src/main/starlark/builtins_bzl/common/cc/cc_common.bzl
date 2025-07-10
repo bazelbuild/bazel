@@ -23,6 +23,7 @@ load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/compile/compile.bzl", "compile")
 load(":common/cc/link/create_extra_link_time_library.bzl", "create_extra_link_time_library")
 load(":common/cc/link/create_library_to_link.bzl", "create_library_to_link")
+load(":common/cc/link/create_linker_input.bzl", "create_linker_input")
 load(":common/cc/link/create_linking_context_from_compilation_outputs.bzl", "create_linking_context_from_compilation_outputs")
 load(":common/cc/link/link.bzl", "link")
 load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
@@ -308,21 +309,6 @@ def _create_library_to_link(
         kwargs["objects"] = objects
     return create_library_to_link(
         **kwargs
-    )
-
-def _create_linker_input(
-        *,
-        owner,
-        libraries = None,
-        user_link_flags = None,
-        additional_inputs = None,
-        linkstamps = None):
-    return cc_common_internal.create_linker_input(
-        owner = owner,
-        libraries = libraries,
-        user_link_flags = user_link_flags,
-        additional_inputs = additional_inputs,
-        linkstamps = linkstamps,
     )
 
 def _create_linking_context(
@@ -859,7 +845,7 @@ cc_common = struct(
     create_link_variables = create_link_variables,
     empty_variables = _empty_variables,
     create_library_to_link = _create_library_to_link,
-    create_linker_input = _create_linker_input,
+    create_linker_input = create_linker_input,
     create_linking_context = _create_linking_context,
     merge_cc_infos = _merge_cc_infos,
     create_compilation_context = _create_compilation_context,

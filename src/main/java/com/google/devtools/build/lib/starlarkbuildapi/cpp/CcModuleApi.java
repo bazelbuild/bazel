@@ -51,7 +51,6 @@ public interface CcModuleApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT, CppModuleMapT>,
         LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
-        LinkerInputT extends LinkerInputApi<LtoBackendArtifactsT, FileT>,
         LinkingContextT extends CcLinkingContextApi<?>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         ConstraintValueT extends ConstraintValueInfoApi,
@@ -1405,7 +1404,6 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "create_linker_input",
       doc = "Creates a <code>LinkerInput</code>.",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "owner",
@@ -1450,14 +1448,14 @@ public interface CcModuleApi<
             defaultValue = "unbound",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
       })
-  LinkerInputT createLinkerInput(
+  default LinkerInputApi<FileT> createLinkerInput(
       Label owner,
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs,
-      Object linkstamps,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      Object linkstamps) {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "check_experimental_cc_shared_library",

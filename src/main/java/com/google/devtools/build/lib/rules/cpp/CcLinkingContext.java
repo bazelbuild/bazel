@@ -15,30 +15,22 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Structure of CcLinkingContext. */
@@ -49,208 +41,82 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   /**
    * Wraps any input to the linker, be it libraries, linker scripts, linkstamps or linking options.
    */
-  // TODO(bazel-team): choose less confusing names for this class and the package-level interface of
-  // the same name.
-  @Immutable
-  public static class LinkerInput implements LinkerInputApi<LtoBackendArtifacts, Artifact> {
-    // Identifies which target created the LinkerInput. It doesn't have to be unique between
-    // LinkerInputs.
-    private final Label owner;
-    private final ImmutableList<StarlarkInfo> libraries;
-    private final ImmutableList<String> userLinkFlags;
-    private final ImmutableList<Artifact> nonCodeInputs;
-    private final ImmutableList<StarlarkInfo> linkstamps;
+  public static final class LinkerInput {
+    private LinkerInput() {}
 
-    public LinkerInput(
-        Label owner,
-        ImmutableList<StarlarkInfo> libraries,
-        ImmutableList<String> userLinkFlags,
-        ImmutableList<Artifact> nonCodeInputs,
-        ImmutableList<StarlarkInfo> linkstamps) {
-      this.owner = owner;
-      this.libraries = libraries;
-      this.userLinkFlags = userLinkFlags;
-      this.nonCodeInputs = nonCodeInputs;
-      this.linkstamps = linkstamps;
-    }
-
-    @Override
-    public boolean isImmutable() {
-      return true; // immutable and Starlark-hashable
-    }
-
-    @Override
-    public Label getStarlarkOwner() throws EvalException {
-      if (owner == null) {
-        throw Starlark.errorf(
-            "Owner is null. This means that some target upstream is of a rule type that uses the"
-                + " old API of create_linking_context");
+    /**
+     * @deprecated Use only in tests
+     */
+    @Deprecated
+    public static Label getOwner(StarlarkInfo linkerInput) {
+      try {
+        return linkerInput.getValue("owner", Label.class);
+      } catch (EvalException e) {
+        throw new VerifyException(e);
       }
-      return owner;
-    }
-
-    public Label getOwner() {
-      return owner;
     }
 
     /**
      * @deprecated Use only in tests
      */
     @Deprecated
-    public List<LibraryToLink> getLibraries() {
-      return libraries.stream().map(LibraryToLink::wrap).collect(toImmutableList());
-    }
-
-    @Override
-    public Sequence<StarlarkInfo> getStarlarkLibrariesToLink(StarlarkSemantics semantics) {
-      return StarlarkList.immutableCopyOf(libraries);
-    }
-
-    public List<String> getUserLinkFlags() {
-      return userLinkFlags;
-    }
-
-    @Override
-    public Sequence<String> getStarlarkUserLinkFlags() {
-      return StarlarkList.immutableCopyOf(getUserLinkFlags());
-    }
-
-    public List<Artifact> getNonCodeInputs() {
-      return nonCodeInputs;
-    }
-
-    @Override
-    public Sequence<Artifact> getStarlarkNonCodeInputs() {
-      return StarlarkList.immutableCopyOf(getNonCodeInputs());
-    }
-
-    public List<StarlarkInfo> getLinkstamps() {
-      return linkstamps;
-    }
-
-    @StarlarkMethod(name = "linkstamps", documented = false, structField = true)
-    public Sequence<StarlarkInfo> getLinkstampsForStarlark() {
-      return StarlarkList.immutableCopyOf(getLinkstamps());
-    }
-
-    @Override
-    public void debugPrint(Printer printer, StarlarkThread thread) {
-      printer.append("<LinkerInput(owner=");
-      if (owner == null) {
-        printer.append("[null owner, uses old create_linking_context API]");
-      } else {
-        owner.debugPrint(printer, thread);
-      }
-      printer.append(", libraries=[");
-      for (StarlarkInfo libraryToLink : libraries) {
-        libraryToLink.debugPrint(printer, thread);
-        printer.append(", ");
-      }
-      printer.append("], userLinkFlags=[");
-      printer.append(Joiner.on(", ").join(userLinkFlags));
-      printer.append("], nonCodeInputs=[");
-      for (Artifact nonCodeInput : nonCodeInputs) {
-        nonCodeInput.debugPrint(printer, thread);
-        printer.append(", ");
-      }
-      // TODO(cparsons): Add debug repesentation of linkstamps.
-      printer.append("])>");
-    }
-
-    public static Builder builder() {
-      return new Builder();
-    }
-
-    /** Builder for {@link LinkerInput} */
-    public static class Builder {
-      private Label owner;
-      private final ImmutableList.Builder<StarlarkInfo> libraries = ImmutableList.builder();
-      private final ImmutableList.Builder<String> userLinkFlags = ImmutableList.builder();
-      private final ImmutableList.Builder<Artifact> nonCodeInputs = ImmutableList.builder();
-      private final ImmutableList.Builder<StarlarkInfo> linkstamps = ImmutableList.builder();
-
-      @CanIgnoreReturnValue
-      public Builder addLibraries(List<StarlarkInfo> libraries) {
-        this.libraries.addAll(libraries);
-        return this;
-      }
-
-      @CanIgnoreReturnValue
-      public Builder addUserLinkFlags(List<String> userLinkFlags) {
-        this.userLinkFlags.addAll(userLinkFlags);
-        return this;
-      }
-
-      @CanIgnoreReturnValue
-      public Builder addLinkstamps(List<StarlarkInfo> linkstamps) {
-        this.linkstamps.addAll(linkstamps);
-        return this;
-      }
-
-      @CanIgnoreReturnValue
-      public Builder addNonCodeInputs(List<Artifact> nonCodeInputs) {
-        this.nonCodeInputs.addAll(nonCodeInputs);
-        return this;
-      }
-
-      @CanIgnoreReturnValue
-      public Builder setOwner(Label owner) {
-        this.owner = owner;
-        return this;
-      }
-
-      public LinkerInput build() {
-        return new LinkerInput(
-            owner,
-            libraries.build(),
-            userLinkFlags.build(),
-            nonCodeInputs.build(),
-            linkstamps.build());
+    public static ImmutableList<LibraryToLink> getLibraries(StarlarkInfo linkerInput) {
+      try {
+        @SuppressWarnings("unchecked")
+        ImmutableList<LibraryToLink> libraries =
+            ((List<StarlarkInfo>) linkerInput.getValue("libraries", List.class))
+                .stream().map(LibraryToLink::wrap).collect(toImmutableList());
+        return libraries;
+      } catch (EvalException e) {
+        throw new VerifyException(e);
       }
     }
 
-    @Override
-    public boolean equals(Object otherObject) {
-      if (!(otherObject instanceof LinkerInput other)) {
-        return false;
+    /**
+     * @deprecated Use only in tests
+     */
+    @Deprecated
+    public static List<String> getUserLinkFlags(StarlarkInfo linkerInput) {
+      try {
+        @SuppressWarnings("unchecked")
+        List<String> userLinkFlags =
+            (List<String>) linkerInput.getValue("user_link_flags", List.class);
+        return userLinkFlags;
+      } catch (EvalException e) {
+        throw new VerifyException(e);
       }
-      if (this == other) {
-        return true;
-      }
-      return Objects.equal(this.owner, other.owner)
-          && this.libraries.equals(other.libraries)
-          && this.userLinkFlags.equals(other.userLinkFlags)
-          && this.linkstamps.equals(other.linkstamps)
-          && this.nonCodeInputs.equals(other.nonCodeInputs);
     }
 
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(
-          libraries.hashCode(),
-          userLinkFlags.hashCode(),
-          linkstamps.hashCode(),
-          nonCodeInputs.hashCode());
+    /**
+     * @deprecated Use only in tests
+     */
+    @Deprecated
+    public static List<Artifact> getNonCodeInputs(StarlarkInfo linkerInput) throws EvalException {
+      @SuppressWarnings("unchecked")
+      List<Artifact> additionalInputs =
+          (List<Artifact>) linkerInput.getValue("additional_inputs", List.class);
+      return additionalInputs;
     }
 
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("userLinkFlags", userLinkFlags)
-          .add("linkstamps", linkstamps)
-          .add("libraries", libraries)
-          .add("nonCodeInputs", nonCodeInputs)
-          .toString();
+    public static List<StarlarkInfo> getLinkstamps(StarlarkInfo linkerInput) {
+      try {
+        @SuppressWarnings("unchecked")
+        List<StarlarkInfo> linkstamps =
+            (List<StarlarkInfo>) linkerInput.getValue("linkstamps", List.class);
+        return linkstamps;
+      } catch (EvalException e) {
+        return ImmutableList.of();
+      }
     }
   }
 
-  private final NestedSet<LinkerInput> linkerInputs;
+  private final NestedSet<StarlarkInfo> linkerInputs;
   @Nullable private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
 
   @Override
   public void debugPrint(Printer printer, StarlarkThread thread) {
     printer.append("<CcLinkingContext([");
-    for (LinkerInput linkerInput : linkerInputs.toList()) {
+    for (StarlarkInfo linkerInput : linkerInputs.toList()) {
       linkerInput.debugPrint(printer, thread);
       printer.append(", ");
     }
@@ -258,7 +124,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   public CcLinkingContext(
-      NestedSet<LinkerInput> linkerInputs,
+      NestedSet<StarlarkInfo> linkerInputs,
       @Nullable ExtraLinkTimeLibraries extraLinkTimeLibraries) {
     this.linkerInputs = linkerInputs;
     this.extraLinkTimeLibraries = extraLinkTimeLibraries;
@@ -286,7 +152,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
    * @deprecated Only use in tests
    */
   @Deprecated
-  public List<Artifact> getStaticModeParamsForExecutableLibraries() {
+  public List<Artifact> getStaticModeParamsForExecutableLibraries() throws EvalException {
     ImmutableList.Builder<Artifact> libraryListBuilder = ImmutableList.builder();
     for (LibraryToLink libraryToLink : getLibraries().toList()) {
       if (libraryToLink.getStaticLibrary() != null) {
@@ -306,7 +172,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
    * @deprecated Only use in tests
    */
   @Deprecated
-  public List<Artifact> getStaticModeParamsForDynamicLibraryLibraries() {
+  public List<Artifact> getStaticModeParamsForDynamicLibraryLibraries() throws EvalException {
     ImmutableList.Builder<Artifact> artifactListBuilder = ImmutableList.builder();
     for (LibraryToLink library : getLibraries().toList()) {
       if (library.getPicStaticLibrary() != null) {
@@ -326,7 +192,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
    * @deprecated Use only in tests. @Deprecated
    */
   @Deprecated
-  public List<Artifact> getDynamicLibrariesForRuntime(boolean linkingStatically) {
+  public List<Artifact> getDynamicLibrariesForRuntime(boolean linkingStatically)
+      throws EvalException {
     return LibraryToLink.getDynamicLibrariesForRuntime(linkingStatically, getLibraries().toList());
   }
 
@@ -334,21 +201,21 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
    * @deprecated Use only in tests
    */
   @Deprecated
-  public NestedSet<LibraryToLink> getLibraries() {
+  public NestedSet<LibraryToLink> getLibraries() throws EvalException {
     NestedSetBuilder<LibraryToLink> libraries = NestedSetBuilder.linkOrder();
-    for (LinkerInput linkerInput : linkerInputs.toList()) {
-      libraries.addAll(linkerInput.getLibraries());
+    for (StarlarkInfo linkerInput : linkerInputs.toList()) {
+      libraries.addAll(LinkerInput.getLibraries(linkerInput));
     }
     return libraries.build();
   }
 
-  public NestedSet<LinkerInput> getLinkerInputs() {
+  public NestedSet<StarlarkInfo> getLinkerInputs() {
     return linkerInputs;
   }
 
   @Override
   public Depset getStarlarkLinkerInputs() {
-    return Depset.of(LinkerInput.class, linkerInputs);
+    return Depset.of(StarlarkInfo.class, linkerInputs);
   }
 
   /**
@@ -357,14 +224,14 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Deprecated
   public ImmutableList<String> getFlattenedUserLinkFlags() {
     return getLinkerInputs().toList().stream()
-        .flatMap(linkerInputs -> linkerInputs.getUserLinkFlags().stream())
+        .flatMap(linkerInput -> LinkerInput.getUserLinkFlags(linkerInput).stream())
         .collect(toImmutableList());
   }
 
   public NestedSet<StarlarkInfo> getLinkstamps() {
     NestedSetBuilder<StarlarkInfo> linkstamps = NestedSetBuilder.linkOrder();
-    for (LinkerInput linkerInput : linkerInputs.toList()) {
-      linkstamps.addAll(linkerInput.getLinkstamps());
+    for (StarlarkInfo linkerInput : linkerInputs.toList()) {
+      linkstamps.addAll(LinkerInput.getLinkstamps(linkerInput));
     }
     return linkstamps.build();
   }
@@ -379,10 +246,10 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
    * @deprecated Only use in tests. Inline, using LinkerInputs.
    */
   @Deprecated
-  public NestedSet<Artifact> getNonCodeInputs() {
+  public NestedSet<Artifact> getNonCodeInputs() throws EvalException {
     NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.linkOrder();
-    for (LinkerInput linkerInput : linkerInputs.toList()) {
-      nonCodeInputs.addAll(linkerInput.getNonCodeInputs());
+    for (StarlarkInfo linkerInput : linkerInputs.toList()) {
+      nonCodeInputs.addAll(LinkerInput.getNonCodeInputs(linkerInput));
     }
     return nonCodeInputs.build();
   }
@@ -405,11 +272,11 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   /** Builder for {@link CcLinkingContext}. */
   public static class Builder {
-    private final NestedSetBuilder<LinkerInput> linkerInputs = NestedSetBuilder.linkOrder();
+    private final NestedSetBuilder<StarlarkInfo> linkerInputs = NestedSetBuilder.linkOrder();
     private ExtraLinkTimeLibraries extraLinkTimeLibraries = null;
 
     @CanIgnoreReturnValue
-    public Builder addTransitiveLinkerInputs(NestedSet<LinkerInput> linkerInputs) {
+    public Builder addTransitiveLinkerInputs(NestedSet<StarlarkInfo> linkerInputs) {
       this.linkerInputs.addTransitive(linkerInputs);
       return this;
     }

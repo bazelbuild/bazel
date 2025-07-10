@@ -29,10 +29,7 @@ import net.starlark.java.eval.StarlarkValue;
     name = "LinkerInput",
     category = DocCategory.BUILTIN,
     doc = "Either libraries, flags or other files that may be passed to the linker as inputs.")
-public interface LinkerInputApi<
-        LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
-        FileT extends FileApi>
-    extends StarlarkValue {
+public interface LinkerInputApi<FileT extends FileApi> extends StarlarkValue {
   @StarlarkMethod(
       name = "owner",
       doc = "Returns the owner of this LinkerInput.",

@@ -2517,7 +2517,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .getLinkerInputs()
         .toList()
         .stream()
-        .flatMap(linkerInputs -> linkerInputs.getUserLinkFlags().stream())
+        .flatMap(linkerInput -> LinkerInput.getUserLinkFlags(linkerInput).stream())
         .collect(toImmutableList());
   }
 

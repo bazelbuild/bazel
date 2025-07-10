@@ -1354,7 +1354,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     return builder;
   }
 
-  // TODO(b/420530680): remove after removing uses of depsets of LibraryToLink-s
+  // TODO(b/420530680): remove after removing uses of depsets of LibraryToLink-s, LinkerInputs
   @StarlarkMethod(
       name = "freeze",
       documented = false,

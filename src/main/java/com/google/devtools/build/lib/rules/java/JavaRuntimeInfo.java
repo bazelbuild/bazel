@@ -135,7 +135,8 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
    * @deprecated Use only in tests
    */
   @Deprecated
-  NestedSet<LibraryToLink> collectHermeticStaticLibrariesToLink() throws RuleErrorException {
+  NestedSet<LibraryToLink> collectHermeticStaticLibrariesToLink()
+      throws RuleErrorException, EvalException {
     NestedSetBuilder<LibraryToLink> result = NestedSetBuilder.stableOrder();
     for (CcInfo lib : hermeticStaticLibs()) {
       result.addTransitive(lib.getCcLinkingContext().getLibraries());

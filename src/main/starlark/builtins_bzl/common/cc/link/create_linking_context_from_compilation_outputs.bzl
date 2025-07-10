@@ -18,6 +18,7 @@ Used to prepare a single library for linking. See also: cc_common.link
 """
 
 load(":common/cc/link/cc_linking_helper.bzl", "create_cc_link_actions")
+load(":common/cc/link/create_linker_input.bzl", "create_linker_input")
 load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE")
 
 cc_internal = _builtins.internal.cc_internal
@@ -122,7 +123,7 @@ def create_linking_context_from_compilation_outputs(
         linked_dll_name_suffix = linked_dll_name_suffix,
     )
 
-    linker_input = cc_common_internal.create_linker_input(
+    linker_input = create_linker_input(
         # TODO(b/331164666): remove cheat, we always produce a file, file.owner gives us a label
         owner = cc_internal.actions2ctx_cheat(actions).label.same_package_label(name),
         libraries = depset([cc_linking_outputs.library_to_link]) if cc_linking_outputs.library_to_link else None,

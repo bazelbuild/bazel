@@ -113,7 +113,6 @@ public abstract class CcModule
         FeatureConfigurationForStarlark,
         CcCompilationContext,
         LtoBackendArtifacts,
-        CcLinkingContext.LinkerInput,
         CcLinkingContext,
         CcToolchainVariables,
         ConstraintValueInfo,
@@ -675,60 +674,6 @@ public abstract class CcModule
   }
 
   @Override
-  public CcLinkingContext.LinkerInput createLinkerInput(
-      Label owner,
-      Object librariesToLinkObject,
-      Object userLinkFlagsObject,
-      Object nonCodeInputs, // <FileT> expected
-      Object linkstampsObject,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException {
-    isCalledFromStarlarkCcCommon(thread);
-    ImmutableList.Builder<String> optionsBuilder = ImmutableList.builder();
-    if (userLinkFlagsObject instanceof Depset || userLinkFlagsObject instanceof NoneType) {
-      // Depsets are allowed in user_link_flags for compatibility purposes but they do not really
-      // make sense here since LinkerInput takes a list of flags. For storing user_link_flags
-      // without flattening they would have to be wrapped around a LinkerInput for which we keep
-      // a depset that isn't flattened till the end.
-      ImmutableList<String> userLinkFlagsFlattened =
-          Depset.noneableCast(userLinkFlagsObject, String.class, "user_link_flags").toList();
-      if (!userLinkFlagsFlattened.isEmpty()) {
-        optionsBuilder.addAll(userLinkFlagsFlattened);
-      }
-    } else if (userLinkFlagsObject instanceof Sequence) {
-      ImmutableList<Object> options =
-          Sequence.cast(userLinkFlagsObject, Object.class, "user_link_flags[]").getImmutableList();
-      if (!options.isEmpty()) {
-        if (options.get(0) instanceof String) {
-          optionsBuilder.addAll(
-              Sequence.cast(userLinkFlagsObject, String.class, "user_link_flags[]")
-                  .getImmutableList());
-        } else if (options.get(0) instanceof Sequence) {
-          for (Object optionObject : options) {
-            ImmutableList<String> option =
-                Sequence.cast(optionObject, String.class, "user_link_flags[][]").getImmutableList();
-            optionsBuilder.addAll(option);
-          }
-        } else {
-          throw Starlark.errorf(
-              "Elements of list in user_link_flags must be either Strings or lists.");
-        }
-      }
-    }
-
-    return CcLinkingContext.LinkerInput.builder()
-        .setOwner(owner)
-        .addLibraries(
-            Depset.noneableCast(librariesToLinkObject, StarlarkInfo.class, "libraries").toList())
-        .addUserLinkFlags(optionsBuilder.build())
-        .addLinkstamps(
-            convertToNestedSet(linkstampsObject, StarlarkInfo.class, "linkstamps").toList())
-        .addNonCodeInputs(
-            Depset.noneableCast(nonCodeInputs, Artifact.class, "additional_inputs").toList())
-        .build();
-  }
-
-  @Override
   public boolean checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
     return thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_CC_SHARED_LIBRARY);
@@ -759,7 +704,7 @@ public abstract class CcModule
     isCalledFromStarlarkCcCommon(thread);
     CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
     ccLinkingContextBuilder.addTransitiveLinkerInputs(
-        Depset.noneableCast(linkerInputs, CcLinkingContext.LinkerInput.class, "linker_inputs"));
+        Depset.noneableCast(linkerInputs, StarlarkInfo.class, "linker_inputs"));
     StarlarkInfo extraLinkTimeLibrary =
         convertFromNoneable(extraLinkTimeLibraryObject, /* defaultValue= */ null);
     if (extraLinkTimeLibrary != null) {

@@ -112,7 +112,7 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
       throws EvalException, InterruptedException, TypeException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
 
-    NestedSetBuilder<CcLinkingContext.LinkerInput> linkerInputs = NestedSetBuilder.linkOrder();
+    NestedSetBuilder<StarlarkInfo> linkerInputs = NestedSetBuilder.linkOrder();
     NestedSetBuilder<Artifact> runtimeLibraries = NestedSetBuilder.linkOrder();
     for (StarlarkInfo extraLibrary : getExtraLibraries()) {
       StarlarkFunction buildLibraryFunction =
@@ -141,11 +141,10 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
                 + buildLibraryFunction.getLocation()
                 + " should return (depset[CcLinkingContext], depset[File])");
       }
-      linkerInputs.addTransitive(
-          ((Depset) responseTuple.get(0)).getSet(CcLinkingContext.LinkerInput.class));
+      linkerInputs.addTransitive(((Depset) responseTuple.get(0)).getSet(StarlarkInfo.class));
       runtimeLibraries.addTransitive(((Depset) responseTuple.get(1)).getSet(Artifact.class));
     }
-    Depset linkerInputsDepset = Depset.of(CcLinkingContext.LinkerInput.class, linkerInputs.build());
+    Depset linkerInputsDepset = Depset.of(StarlarkInfo.class, linkerInputs.build());
     Depset runtimeLibrariesDepset = Depset.of(Artifact.class, runtimeLibraries.build());
     return Tuple.of(linkerInputsDepset, runtimeLibrariesDepset);
   }
