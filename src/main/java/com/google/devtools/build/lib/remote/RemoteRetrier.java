@@ -55,7 +55,7 @@ public class RemoteRetrier extends Retrier {
         return switch (s.getCode()) {
           case CANCELLED ->
             !Thread.currentThread().isInterrupted() ? Result.TRANSIENT_FAILURE : Result.PERMANENT_FAILURE;
-          case INVALID_ARGUMENT, NOT_FOUND, ALREADY_EXISTS, OUT_OF_RANGE ->
+          case NOT_FOUND, ALREADY_EXISTS, OUT_OF_RANGE ->
             Result.SUCCESS;
           case UNKNOWN, DEADLINE_EXCEEDED, ABORTED, INTERNAL, UNAVAILABLE, RESOURCE_EXHAUSTED ->
             Result.TRANSIENT_FAILURE;
@@ -66,10 +66,11 @@ public class RemoteRetrier extends Retrier {
   /** A ResultClassifier suitable to be used by GrpcRemoteExecutor. */
   public static final ResultClassifier<? super Exception> GRPC_RESULT_CLASSIFIER =
       e -> {
-        Result r = EXPERIMENTAL_GRPC_RESULT_CLASSIFIER.test(e);
-        return !r.equals(Result.TRANSIENT_FAILURE) && RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)
+        // A WaitExecution call in GrpcRemoteExecutor may fail with a NOT_FOUND error.
+        // That means the Operation was lost on the server, and we will retry to Execute.
+        return RemoteRetrierUtils.causedByStatus(e, Status.Code.NOT_FOUND)
             ? Result.TRANSIENT_FAILURE
-            : r;
+            : EXPERIMENTAL_GRPC_RESULT_CLASSIFIER.test(e);
       };
 
   public RemoteRetrier(

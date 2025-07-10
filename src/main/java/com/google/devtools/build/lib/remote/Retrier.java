@@ -268,16 +268,12 @@ public class Retrier {
       } catch (Exception e) {
         Throwables.throwIfInstanceOf(e, InterruptedException.class);
         Result r = resultClassifier.test(e);
-        if (!r.equals(Result.TRANSIENT_FAILURE)) {
-          if (r.equals(Result.SUCCESS)) {
-            circuitBreaker.recordSuccess();
-          } else {
-            circuitBreaker.recordFailure();
-          }
-          throw e;
+        if (r.equals(Result.SUCCESS)) {
+          circuitBreaker.recordSuccess();
+        } else {
+          circuitBreaker.recordFailure();
         }
-        circuitBreaker.recordFailure();
-        if (Objects.equals(circuitState, State.TRIAL_CALL)) {
+        if (!r.equals(Result.TRANSIENT_FAILURE) || Objects.equals(circuitState, State.TRIAL_CALL)) {
           throw e;
         }
         final long delayMillis = backoff.nextDelayMillis(e);
