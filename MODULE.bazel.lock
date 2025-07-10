@@ -3248,7 +3248,7 @@
               "dep_template": "@pip_deps//{name}:{target}",
               "python_interpreter_target": "@@rules_python++python+python_3_10_host//:python",
               "repo": "pip_deps_310",
-              "requirement": "setuptools<=70.3.0"
+              "requirement": "setuptools<=78.1.1"
             }
           },
           "pip_deps_311_numpy": {
@@ -3266,7 +3266,7 @@
               "dep_template": "@pip_deps//{name}:{target}",
               "python_interpreter_target": "@@rules_python++python+python_3_11_host//:python",
               "repo": "pip_deps_311",
-              "requirement": "setuptools<=70.3.0"
+              "requirement": "setuptools<=78.1.1"
             }
           },
           "pip_deps_312_numpy": {
@@ -3284,7 +3284,7 @@
               "dep_template": "@pip_deps//{name}:{target}",
               "python_interpreter_target": "@@rules_python++python+python_3_12_host//:python",
               "repo": "pip_deps_312",
-              "requirement": "setuptools<=70.3.0"
+              "requirement": "setuptools<=78.1.1"
             }
           },
           "pip_deps_38_numpy": {
@@ -3302,7 +3302,7 @@
               "dep_template": "@pip_deps//{name}:{target}",
               "python_interpreter_target": "@@rules_python++python+python_3_8_host//:python",
               "repo": "pip_deps_38",
-              "requirement": "setuptools<=70.3.0"
+              "requirement": "setuptools<=78.1.1"
             }
           },
           "pip_deps_39_numpy": {
@@ -3320,7 +3320,7 @@
               "dep_template": "@pip_deps//{name}:{target}",
               "python_interpreter_target": "@@rules_python++python+python_3_9_host//:python",
               "repo": "pip_deps_39",
-              "requirement": "setuptools<=70.3.0"
+              "requirement": "setuptools<=78.1.1"
             }
           },
           "rules_fuzzing_py_deps_310_absl_py": {
