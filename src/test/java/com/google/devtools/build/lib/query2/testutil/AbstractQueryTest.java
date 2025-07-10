@@ -1410,6 +1410,33 @@ public abstract class AbstractQueryTest<T> {
     assertThat(eval("//a:a + //a/b:cycle1 + //a/b:cycle2")).isEqualTo(eval("//a/..."));
   }
 
+  /* executables(x) operator */
+
+  @Test
+  public void testExecutablesQuery() throws Exception {
+    writeFile(
+        "donut/BUILD",
+        """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
+            name = "bin",
+            srcs = ["thief.sh"],
+        )
+
+        cc_test(
+            name = "test",
+            srcs = ["shop.cc"],
+        )
+
+        cc_library(
+            name = "lib",
+            srcs = ["shop.cc"],
+        )
+        """);
+
+    assertThat(eval("executables(//donut:all)")).isEqualTo(eval("//donut:bin"));
+  }
+
   /* set(x) operator */
 
   @Test

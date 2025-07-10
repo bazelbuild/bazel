@@ -191,6 +191,7 @@ public final class QueryParserTest {
     checkPrettyPrint("let x = e1 in e2");
     checkPrettyPrint("labels('srcs', x)");
     checkPrettyPrint("tests(x)");
+    checkPrettyPrint("executables(x)");
     checkPrettyPrint("set()");
     checkPrettyPrint("set(//a)");
     checkPrettyPrint("set(//a //b)");

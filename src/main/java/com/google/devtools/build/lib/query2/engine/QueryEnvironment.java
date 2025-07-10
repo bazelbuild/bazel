@@ -670,6 +670,9 @@ public interface QueryEnvironment<T> {
     /** Returns whether the given target is a rule. */
     boolean isRule(T target);
 
+    /** Returns whether the given rule is executable with 'bazel run'. */
+    boolean isExecutableNonTestRule(T target);
+
     /**
      * Returns whether the given target is a test target. If this returns true, then {@link #isRule}
      * must also return true for the target.
@@ -741,6 +744,7 @@ public interface QueryEnvironment<T> {
           new AttrFunction(),
           new BuildFilesFunction(),
           new DepsFunction(),
+          new ExecutablesFunction(),
           new FilterFunction(),
           new KindFunction(),
           new LabelsFunction(),
