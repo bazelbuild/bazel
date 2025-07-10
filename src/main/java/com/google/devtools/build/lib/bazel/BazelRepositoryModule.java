@@ -92,6 +92,7 @@ import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.IgnoredSubdirectoriesFunction;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
@@ -106,6 +107,9 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
@@ -327,22 +331,36 @@ public class BazelRepositoryModule extends BlazeModule {
       if (repoContentsCachePath != null
           && env.getWorkspace() != null
           && repoContentsCachePath.startsWith(env.getWorkspace())) {
-        // Having the repo contents cache inside the main repo is very dangerous. During the
-        // lifetime of a Bazel invocation, we treat files inside the main repo as immutable. This
-        // can cause mysterious failures if we write files inside the main repo during the
-        // invocation, as is often the case with the repo contents cache.
-        // TODO: wyv@ - This is a crude check that disables some use cases (such as when the output
-        //   base itself is inside the main repo). Investigate a better check.
-        repositoryCache.getRepoContentsCache().setPath(null);
-        throw new AbruptExitException(
+
+        boolean repoContentCachePathIsIgnored;
+        try {
+          ImmutableSet.Builder<PathFragment> ignoredPrefixesBuilder = ImmutableSet.builder();
+          IgnoredSubdirectoriesFunction.getIgnoredPrefixes(
+                  RootedPath.toRootedPath(Root.fromPath(env.getWorkspace()), IgnoredSubdirectoriesFunction.BAZELIGNORE_REPOSITORY_RELATIVE_PATH), ignoredPrefixesBuilder
+          );
+          ImmutableSet<PathFragment> ignoredPrefixes = ignoredPrefixesBuilder.build();
+          repoContentCachePathIsIgnored = ignoredPrefixes.stream().anyMatch(repoContentsCachePath.relativeTo(env.getWorkspace())::startsWith);
+        } catch (SkyFunctionException e) {
+          repoContentCachePathIsIgnored = false;
+        }
+
+        if (!repoContentCachePathIsIgnored) {
+          // Having the repo contents cache inside the main repo is very dangerous. During the
+          // lifetime of a Bazel invocation, we treat files inside the main repo as immutable. This
+          // can cause mysterious failures if we write files inside the main repo during the
+          // invocation, as is often the case with the repo contents cache.
+          repositoryCache.getRepoContentsCache().setPath(null);
+          throw new AbruptExitException(
             detailedExitCode(
                 """
                 The repo contents cache [%s] is inside the main repo [%s]. This can cause spurious \
                 failures. Disable the repo contents cache with `--repo_contents_cache=`, or \
-                specify `--repo_contents_cache=<path outside the main repo>`.
+                specify `--repo_contents_cache=<path outside the main repo>`, or \
+                add the repo_contents_cache path to .bazelignore file.
                 """
                     .formatted(repoContentsCachePath, env.getWorkspace()),
                 Code.BAD_REPO_CONTENTS_CACHE));
+        }
       }
       if (repositoryCache.getRepoContentsCache().isEnabled()) {
         try (SilentCloseable c =
