@@ -71,7 +71,7 @@ public record JavaCcInfoProvider(CcInfo ccInfo) implements JavaInfoInternalProvi
       }
       ccInfo =
           CcInfo.builder()
-              .setCcNativeLibraryInfo(new CcNativeLibraryInfo(transitiveCcNativeLibraries))
+              .setCcNativeLibraryInfo(CcNativeLibraryInfo.of(transitiveCcNativeLibraries))
               .build();
     }
     return create(ccInfo);

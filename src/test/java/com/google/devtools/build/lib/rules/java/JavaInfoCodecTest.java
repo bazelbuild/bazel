@@ -16,8 +16,17 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.SkyframeDependencyException;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping.MissingResultException;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import org.junit.Test;
@@ -62,27 +71,47 @@ public class JavaInfoCodecTest extends BuildViewTestCase {
         )
         """);
 
-    new SerializationTester(JavaInfo.getJavaInfo(getConfiguredTarget("//java/com/google/test:a")))
-        .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
-        .addDependencies(getCommonSerializationDependencies())
-        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
-        .setVerificationFunction(
-            (in, out) -> {
-              JavaInfo inInfo = (JavaInfo) in;
-              JavaInfo outInfo = (JavaInfo) out;
-              assertThat(inInfo.getCreationLocation()).isEqualTo(outInfo.getCreationLocation());
-              assertThat(inInfo.getDirectRuntimeJars()).isNotEmpty();
-              assertThat(inInfo.getDirectRuntimeJars()).isEqualTo(outInfo.getDirectRuntimeJars());
+    JavaInfo inInfo = JavaInfo.getJavaInfo(getConfiguredTarget("//java/com/google/test:a"));
+    JavaInfo outInfo = (JavaInfo) roundTripWithSkyframe(inInfo);
 
-              JavaCompilationArgsProvider inProvider =
-                  inInfo.getProvider(JavaCompilationArgsProvider.class);
-              JavaCompilationArgsProvider outProvider =
-                  outInfo.getProvider(JavaCompilationArgsProvider.class);
-              assertThat(inProvider.runtimeJars().toList()).hasSize(4);
-              assertThat(Dumper.dumpStructureWithEquivalenceReduction(inProvider.runtimeJars()))
-                  .isEqualTo(
-                      Dumper.dumpStructureWithEquivalenceReduction(outProvider.runtimeJars()));
-            })
-        .runTests();
+    assertThat(inInfo.getCreationLocation()).isEqualTo(outInfo.getCreationLocation());
+    assertThat(inInfo.getDirectRuntimeJars()).isNotEmpty();
+    assertThat(inInfo.getDirectRuntimeJars()).isEqualTo(outInfo.getDirectRuntimeJars());
+
+    JavaCompilationArgsProvider inProvider = inInfo.getProvider(JavaCompilationArgsProvider.class);
+    JavaCompilationArgsProvider outProvider =
+        outInfo.getProvider(JavaCompilationArgsProvider.class);
+    assertThat(inProvider.runtimeJars().toList()).hasSize(4);
+    assertThat(Dumper.dumpStructureWithEquivalenceReduction(inProvider.runtimeJars()))
+        .isEqualTo(Dumper.dumpStructureWithEquivalenceReduction(outProvider.runtimeJars()));
+  }
+
+  private Object roundTripWithSkyframe(Object subject)
+      throws SerializationException, SkyframeDependencyException, MissingResultException {
+    return RoundTripping.roundTripWithSkyframe(
+        createObjectCodecs(
+            ImmutableClassToInstanceMap.builder()
+                .putAll(getCommonSerializationDependencies())
+                .putAll(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
+                .build()),
+        FingerprintValueService.createForTesting(),
+        // Uses memoized skyframe values for resultProvider
+        k -> {
+          try {
+            return skyframeExecutor.getEvaluator().getExistingValue(k);
+          } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+          }
+        },
+        subject);
+  }
+
+  private ObjectCodecs createObjectCodecs(ImmutableClassToInstanceMap<Object> dependencies) {
+    ObjectCodecRegistry registry = AutoRegistry.get();
+    ObjectCodecRegistry.Builder registryBuilder = registry.getBuilder();
+    for (Object val : dependencies.values()) {
+      registryBuilder.addReferenceConstant(val);
+    }
+    return new ObjectCodecs(registryBuilder.build(), dependencies);
   }
 }

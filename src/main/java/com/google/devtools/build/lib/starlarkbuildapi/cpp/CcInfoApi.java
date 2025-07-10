@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
@@ -118,7 +119,7 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
               named = true,
               defaultValue = "None",
               allowedTypes = {
-                @ParamType(type = CcNativeLibraryInfoApi.class),
+                @ParamType(type = StarlarkInfo.class),
                 @ParamType(type = NoneType.class)
               })
         },

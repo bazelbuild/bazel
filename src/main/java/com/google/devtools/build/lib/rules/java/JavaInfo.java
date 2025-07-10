@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
@@ -381,7 +382,9 @@ public sealed class JavaInfo extends NativeInfo
   public NestedSet<LibraryToLink> getTransitiveNativeLibraries() {
     return getProviderAsNestedSet(
         JavaCcInfoProvider.class,
-        x -> x.ccInfo().getCcNativeLibraryInfo().getTransitiveCcNativeLibrariesForTests());
+        x ->
+            CcNativeLibraryInfo.wrap(x.ccInfo().getCcNativeLibraryInfo())
+                .getTransitiveCcNativeLibrariesForTests());
   }
 
   @Override

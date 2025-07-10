@@ -24,13 +24,12 @@ load(
     _package_source_root = "package_source_root",
     _repository_exec_path = "repository_exec_path",
 )
-load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_info.bzl", "CcInfo", "CcNativeLibraryInfo")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/paths.bzl", "paths")
 
 cc_internal = _builtins.internal.cc_internal
-CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
 config_common = _builtins.toplevel.config_common
 coverage_common = _builtins.toplevel.coverage_common
 platform_common = _builtins.toplevel.platform_common

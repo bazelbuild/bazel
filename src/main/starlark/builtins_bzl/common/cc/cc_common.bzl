@@ -18,7 +18,7 @@ load(
     _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = "CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES",
     _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST",
 )
-load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_info.bzl", "CcInfo", "CcNativeLibraryInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/compile/compile.bzl", "compile")
 load(":common/cc/link/create_extra_link_time_library.bzl", "create_extra_link_time_library")
@@ -29,7 +29,6 @@ load(":common/cc/link/link.bzl", "link")
 load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
 
 cc_common_internal = _builtins.internal.cc_common
-CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
 
 # buildifier: disable=name-conventions
 _UnboundValueProviderDoNotUse = provider("This provider is used as an unique symbol to distinguish between bound and unbound Starlark values, to avoid using kwargs.", fields = [])

@@ -17,3 +17,8 @@ Definition of CcInfo provider.
 """
 
 CcInfo = _builtins.toplevel.CcInfo
+
+CcNativeLibraryInfo = provider(
+    "CcNativeLibraryInfo",
+    fields = ["libraries_to_link"],
+)
