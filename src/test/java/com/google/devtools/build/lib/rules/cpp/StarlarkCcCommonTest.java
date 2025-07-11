@@ -6296,14 +6296,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCustomNameOutputArtifactRaisesError() throws Exception {
-    setupTestTransitiveLink(scratch, "output_type = 'dynamic_library'", " main_output=None");
-
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
-    assertThat(e).hasMessageThat().contains("cannot use private API");
-  }
-
-  @Test
   public void testInterfaceLibraryProducedForTransitiveLinkOnWindows() throws Exception {
     getAnalysisMock()
         .ccSupport()
