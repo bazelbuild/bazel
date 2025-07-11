@@ -479,7 +479,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       }
     }
     if (settings.contains(Setting.NO_IMPLICIT_DEPS)) {
-        deps = deps.stream().filter(dep -> !dep.implicit).collect(Collectors.toList());
+      deps = deps.stream().filter(dep -> !dep.implicit).collect(Collectors.toList());
     }
     return getDependencies(deps);
   }

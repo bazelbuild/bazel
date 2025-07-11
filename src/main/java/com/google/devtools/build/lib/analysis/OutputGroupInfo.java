@@ -175,8 +175,7 @@ public abstract class OutputGroupInfo extends StructImpl
   }
 
   /**
-   * Merges output groups from a list of output providers. The set of output groups must be
-   * disjoint, except for the special validation output group, which is always merged.
+   * Merges output groups from a list of output providers.
    */
   @Nullable
   public static OutputGroupInfo merge(List<OutputGroupInfo> providers) throws MergingException {

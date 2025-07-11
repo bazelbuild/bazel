@@ -41,7 +41,7 @@ public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
       TopLevelArtifactContext topLevelArtifactContext) {
     // Different targets may provide the same artifact, so we deduplicate the collection of all
     // results at the end.
-    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ true);
+    super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ true);
     this.topLevelArtifactContext = topLevelArtifactContext;
   }
 
@@ -60,7 +60,8 @@ public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
         continue;
       }
 
-      TopLevelArtifactHelper.getAllArtifactsToBuild(cf, topLevelArtifactContext)
+      TopLevelArtifactHelper.getAllArtifactsToBuild(
+              (ConfiguredTarget) accessor.mergeWithTopLevelAspects(cf), topLevelArtifactContext)
           .getImportantArtifacts()
           .toList()
           .stream()
