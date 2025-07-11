@@ -7216,6 +7216,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                             ctx.file.stripped_file if wrapped_dbginfo.stripped_file else None,
                         unstripped_file = out,
                         dwp_file = ctx.file.dwp_file if wrapped_dbginfo.dwp_file else None,
+                        dwo_files = wrapped_dbginfo.dwo_files
                     ),
                 )
             return result
@@ -7281,6 +7282,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(debugPackageProvider.getStrippedArtifact().getFilename()).isEqualTo("w.stripped");
     assertThat(debugPackageProvider.getUnstrippedArtifact().getFilename()).isEqualTo("w");
     assertThat(debugPackageProvider.getDwpArtifact()).isNull();
+    assertThat(debugPackageProvider.getDwoFiles()).isNull();
   }
 
   @Test
@@ -7293,6 +7295,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(debugPackageProvider.getStrippedArtifact().getFilename()).isEqualTo("w.stripped");
     assertThat(debugPackageProvider.getUnstrippedArtifact().getFilename()).isEqualTo("w");
     assertThat(debugPackageProvider.getDwpArtifact().getFilename()).isEqualTo("w.dwp");
+    Depset dwo_files = debugPackageProvider.getDwoFiles();
+    List<Artifact> f = dwo_files.toList(Artifact.class);
+    assertThat(f.size()).isEqualTo(2);
+    assertThat(f.get(0).getFilename()).isEqualTo("linkextra.dwo");
+    assertThat(f.get(1).getFilename()).isEqualTo("main.dwo");
   }
 
   @Test
