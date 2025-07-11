@@ -1,3 +1,34 @@
+## Release 9.0.0-pre.20250706.3 (2025-07-11)
+
+```
+Baseline: 07bd9661b56710aac7670738e81338715946785e
+```
+
+Important changes:
+
+  - Branches will always be merged as best as possible based on
+    branch and
+      block numbers during coverage report generation.
+  - `--experimental_worker_for_repo_fetching` is removed.
+  - Modules backed by `http_archive` or `git_repository` no longer
+    require a MODULE.bazel file to be contained in the source archive.
+
+This release contains contributions from many people at Google, as well as Adrian Vogelsgesang, Benjamin Peterson, dependabot[bot], Fabian Meumertzheim, Javier Maestro, Jordan Mele, Keith Smiley, Xdng Yng.
+
+## Release 9.0.0-pre.20250625.1 (2025-07-09)
+
+```
+Baseline: c3198249288246211a2e7d5e9f28c4837a37f3b0
+```
+
+Important changes:
+
+  - Added `--incompatible_compact_repo_mapping_manifest`, which
+    causes the repo mapping manifest file for runfiles to use a more
+    compat format when necessary.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Keith Smiley.
+
 ## Release 9.0.0-pre.20250620.1 (2025-07-01)
 
 ```
