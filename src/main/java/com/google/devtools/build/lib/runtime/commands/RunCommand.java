@@ -102,6 +102,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -167,19 +168,22 @@ public class RunCommand implements BlazeCommand {
 
     @Option(
         name = "run_env",
-        converter = Converters.OptionalAssignmentConverter.class,
+        converter = Converters.EnvVarsConverter.class,
         allowMultiple = true,
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
         help =
-            "Specifies the set of environment variables available to actions with target"
-                + " configuration. Variables can be either specified by name, in which case the"
-                + " value will be taken from the invocation environment, or by the name=value pair"
-                + " which sets the value independent of the invocation environment. This option can"
+            "Specifies the set of environment variables available to the target to run."
+                + " Variables can be either specified by name, in which case the value will be"
+                + " taken from the invocation environment, by the <code>name=value</code> pair"
+                + " which sets the value independent of the invocation environment, or by"
+                + " <code>=name</code>, which unsets the variable of that name. This option can"
                 + " be used multiple times; for options given for the same variable, the latest"
-                + " wins, options for different variables accumulate.")
-    public List<Map.Entry<String, String>> runEnvironment;
+                + " wins, options for different variables accumulate. Note that the executed target"
+                + " will generally see the full environment of the host expect for those variables"
+                + " that have been explicitly unset.")
+    public List<Converters.EnvVar> runEnvironment;
   }
 
   private static final String NO_TARGET_MESSAGE = "No targets found to run";
@@ -188,7 +192,7 @@ public class RunCommand implements BlazeCommand {
       "'run' only works with tests with one shard ('--test_sharding_strategy=disabled' is okay) "
           + "and without --runs_per_test";
 
-  private static final ImmutableSortedSet<String> ENV_VARIABLES_TO_CLEAR =
+  private static final ImmutableSortedSet<String> ENV_VARIABLES_TO_CLEAR_UNCONDITIONALLY =
       ImmutableSortedSet.of(
           // These variables are all used by runfiles libraries to locate the runfiles directory or
           // manifest and can cause incorrect behavior when set for the top-level binary run with
@@ -542,7 +546,7 @@ public class RunCommand implements BlazeCommand {
     }
     return execDescription
         .addAllEnvironmentVariableToClear(
-            ENV_VARIABLES_TO_CLEAR.stream()
+            runCommandLine.getEnvironmentVariablesToClear().stream()
                 .map(s -> ByteString.copyFrom(s, ISO_8859_1))
                 .collect(toImmutableList()))
         .setShouldExec(shouldRunTarget)
@@ -616,7 +620,7 @@ public class RunCommand implements BlazeCommand {
       return e.result;
     }
 
-    String scriptContents = runCommandLine.getScriptForm(shExecutable, ENV_VARIABLES_TO_CLEAR);
+    String scriptContents = runCommandLine.getScriptForm(shExecutable);
 
     if (runOptions.emitScriptPathInExecRequest) {
       execRequest.setScriptPath(
@@ -641,7 +645,7 @@ public class RunCommand implements BlazeCommand {
       BuiltTargets builtTargets,
       OptionsParsingResult options,
       ImmutableList<String> argsFromResidue,
-      List<Map.Entry<String, String>> extraRunEnvironment,
+      List<Converters.EnvVar> extraRunEnvironment,
       TestPolicy testPolicy)
       throws RunCommandException {
     if (builtTargets.targetToRun.getProvider(TestProvider.class) != null) {
@@ -660,22 +664,36 @@ public class RunCommand implements BlazeCommand {
               environmentProvider.getEnvironment(),
               ImmutableSet.copyOf(environmentProvider.getInheritedEnvironment()));
     }
+    // The final run environment is a combination of the environment constructed here and the
+    // unrestricted client environment. This means that there is a difference between a variable
+    // that isn't included in runEnvironment (which will have its value inherited from the
+    // client environment) and a variable that is explicitly removed (which will be unset in the
+    // run environment). We thus track the environment variables to clear separately.
     TreeMap<String, String> runEnvironment = makeMutableRunEnvironment(env);
+    HashSet<String> envVariablesToClear = new HashSet<>();
     ImmutableMap<String, String> clientEnv = env.getClientEnv();
     actionEnvironment.resolve(runEnvironment, clientEnv);
-    for (Map.Entry<String, String> entry : extraRunEnvironment) {
-      String key = entry.getKey();
-      String value = entry.getValue();
-      if (value == null) {
-        // If a value is missing, inherit from client environment if present, otherwise leave unset.
-        // In the latter case, explicitly remove since the same key might be given multiple times.
-        if (clientEnv.containsKey(key)) {
-          runEnvironment.put(key, clientEnv.get(key));
-        } else {
-          runEnvironment.remove(key);
+    for (var envVar : extraRunEnvironment) {
+      switch (envVar) {
+        case Converters.EnvVar.Set(String name, String value) -> {
+          runEnvironment.put(name, value);
+          envVariablesToClear.remove(name);
         }
-      } else {
-        runEnvironment.put(key, value);
+        case Converters.EnvVar.Inherit(String name) -> {
+          // If a value is missing, inherit from client environment if present, otherwise leave
+          // unset. In the latter case, explicitly remove since the same name might be given
+          // multiple times.
+          if (clientEnv.containsKey(name)) {
+            runEnvironment.put(name, clientEnv.get(name));
+          } else {
+            runEnvironment.remove(name);
+          }
+          envVariablesToClear.remove(name);
+        }
+        case Converters.EnvVar.Unset(String name) -> {
+          runEnvironment.remove(name);
+          envVariablesToClear.add(name);
+        }
       }
     }
 
@@ -699,6 +717,8 @@ public class RunCommand implements BlazeCommand {
         env,
         builtTargets,
         ImmutableSortedMap.copyOf(runEnvironment),
+        ImmutableSortedSet.copyOf(
+            Iterables.concat(envVariablesToClear, ENV_VARIABLES_TO_CLEAR_UNCONDITIONALLY)),
         argsFromBinary,
         argsFromResidue);
   }
@@ -795,6 +815,7 @@ public class RunCommand implements BlazeCommand {
 
     return new RunCommandLine.Builder(
             ImmutableSortedMap.copyOf(runEnvironment),
+            ENV_VARIABLES_TO_CLEAR_UNCONDITIONALLY,
             /* workingDir= */ devirtualizedExecRoot,
             /* isTestTarget= */ true)
         .addArgs(testArgs)
@@ -821,6 +842,7 @@ public class RunCommand implements BlazeCommand {
       CommandEnvironment env,
       BuiltTargets builtTargets,
       ImmutableSortedMap<String, String> runEnvironment,
+      ImmutableSortedSet<String> envVariablesToClear,
       ImmutableList<String> argsFromBinary,
       ImmutableList<String> argsFromResidue) {
     BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
@@ -832,6 +854,7 @@ public class RunCommand implements BlazeCommand {
     RunCommandLine.Builder runCommandLine =
         new RunCommandLine.Builder(
             runEnvironment,
+            envVariablesToClear,
             /* workingDir= */ builtTargets.targetToRunRunfilesDir != null
                 ? builtTargets.targetToRunRunfilesDir
                 : env.getWorkingDirectory(),

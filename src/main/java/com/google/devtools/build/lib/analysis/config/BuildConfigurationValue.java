@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.TriState;
 import java.io.PrintStream;
 import java.util.HashMap;
@@ -176,8 +177,12 @@ public class BuildConfigurationValue
     }
     // Order doesn't matter here as ActionEnvironment sorts by key.
     Map<String, String> testEnv = new HashMap<>();
-    for (Map.Entry<String, String> entry : buildOptions.get(TestOptions.class).testEnvironment) {
-      testEnv.put(entry.getKey(), entry.getValue());
+    for (Converters.EnvVar envVar : buildOptions.get(TestOptions.class).testEnvironment) {
+      switch (envVar) {
+        case Converters.EnvVar.Set(String name, String value) -> testEnv.put(name, value);
+        case Converters.EnvVar.Inherit(String name) -> testEnv.put(name, null);
+        case Converters.EnvVar.Unset(String name) -> testEnv.remove(name);
+      }
     }
     return ActionEnvironment.split(testEnv);
   }
