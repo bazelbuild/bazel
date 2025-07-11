@@ -78,6 +78,18 @@ java_test(
 )
 
 java_test(
+    name = "GcovJsonParserTest",
+    srcs = ["GcovJsonParserTest.java"],
+    deps = [
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:BranchCoverage",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:GcovJsonParser",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:SourceFileCoverage",
+    ],
+)
+
+java_test(
     name = "CoverageTest",
     srcs = ["CoverageTest.java"],
     deps = [
