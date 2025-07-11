@@ -59,7 +59,8 @@ def _compute_public_headers(
         label,
         binfiles_dir,
         non_module_map_headers,
-        is_sibling_repository_layout):
+        is_sibling_repository_layout,
+        shorten_virtual_includes):
     if include_prefix:
         if not paths.is_normalized(include_prefix, False):
             fail("include prefix should not contain uplevel references: " + include_prefix)
@@ -111,7 +112,11 @@ def _compute_public_headers(
 
     module_map_headers = []
     virtual_to_original_headers_list = []
-    virtual_include_dir = paths.join(paths.join(package_source_root(label.workspace_name, label.package, is_sibling_repository_layout), _VIRTUAL_INCLUDES_DIR), label.name)
+    source_package_path = package_source_root(label.workspace_name, label.package, is_sibling_repository_layout)
+    if shorten_virtual_includes:
+        virtual_include_dir = paths.join(_VIRTUAL_INCLUDES_DIR, "%x" % hash(paths.join(source_package_path, label.name)))
+    else:
+        virtual_include_dir = paths.join(source_package_path, _VIRTUAL_INCLUDES_DIR, label.name)
     for original_header in public_headers_artifacts:
         repo_relative_path = _repo_relative_path(original_header)
         if not repo_relative_path.startswith(strip_prefix):
@@ -360,6 +365,7 @@ def _init_cc_compilation_context(
     bin_include_dir = _include_dir(binfiles_dir, repo_path, sibling_repo_layout)
     quote_include_dirs_for_context = [repo_path, gen_include_dir, bin_include_dir] + quote_include_dirs
     external = repo_name != "" and _enabled(feature_configuration, "external_include_paths")
+    shorten_virtual_includes = _enabled(feature_configuration, "shorten_virtual_includes")
     external_include_dirs = []
     declared_include_srcs = []
 
@@ -388,6 +394,7 @@ def _init_cc_compilation_context(
         binfiles_dir,
         non_module_map_headers,
         sibling_repo_layout,
+        shorten_virtual_includes,
     )
     if public_headers.virtual_include_path:
         if external:
@@ -425,6 +432,7 @@ def _init_cc_compilation_context(
         binfiles_dir,
         non_module_map_headers,
         sibling_repo_layout,
+        shorten_virtual_includes,
     )
 
     separate_module = None
