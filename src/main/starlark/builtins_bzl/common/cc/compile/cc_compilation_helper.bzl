@@ -458,6 +458,7 @@ def _init_cc_compilation_context(
         binfiles_dir,
         non_module_map_headers,
         sibling_repo_layout,
+        shorten_virtual_includes,
         must_use_strip_prefix = False,
     )
     if textual_headers.virtual_include_path:
