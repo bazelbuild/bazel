@@ -243,7 +243,13 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
         new StarlarkOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor, starlarkSemantics),
         new FilesOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, topLevelArtifactContext));
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            topLevelArtifactContext,
+            topLevelTargetAspects));
   }
 
   @Override

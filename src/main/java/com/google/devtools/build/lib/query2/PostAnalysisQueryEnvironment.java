@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -726,6 +727,11 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   @Override
   public void close() {}
+
+  @VisibleForTesting
+  public ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> getTopLevelTargetAspects() {
+    return topLevelTargetAspects;
+  }
 
   /** A wrapper class for the set of top-level configurations in a query. */
   public static class TopLevelConfigurations {
