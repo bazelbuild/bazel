@@ -116,7 +116,7 @@ def _compute_public_headers(
     if shorten_virtual_includes:
         virtual_include_dir = paths.join(_VIRTUAL_INCLUDES_DIR, "%x" % hash(paths.join(source_package_path, label.name)))
     else:
-        virtual_include_dir = paths.join(paths.join(source_package_path, _VIRTUAL_INCLUDES_DIR), label.name)
+        virtual_include_dir = paths.join(source_package_path, _VIRTUAL_INCLUDES_DIR, label.name)
     for original_header in public_headers_artifacts:
         repo_relative_path = _repo_relative_path(original_header)
         if not repo_relative_path.startswith(strip_prefix):
