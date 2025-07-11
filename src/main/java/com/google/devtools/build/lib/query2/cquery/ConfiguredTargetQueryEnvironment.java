@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.cquery;
 import com.google.common.base.Joiner;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncFunction;
@@ -23,6 +24,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AspectValue;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -79,6 +81,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironment<CqueryNode> {
   /** Common query functions and cquery specific functions. */
   public static final ImmutableList<QueryFunction> FUNCTIONS = populateFunctions();
+
   /** Cquery specific functions. */
   public static final ImmutableList<QueryFunction> CQUERY_FUNCTIONS = getCqueryFunctions();
 
@@ -101,19 +104,20 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
       ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
+      ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       Set<Setting> settings,
       TopLevelArtifactContext topLevelArtifactContext,
-      LabelPrinter labelPrinter)
-      throws InterruptedException {
+      LabelPrinter labelPrinter) {
     super(
         keepGoing,
         eventHandler,
         extraFunctions,
         topLevelConfigurations,
         transitiveConfigurations,
+        topLevelTargetAspects,
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
@@ -130,19 +134,20 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
       ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
+      ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       CqueryOptions cqueryOptions,
       TopLevelArtifactContext topLevelArtifactContext,
-      LabelPrinter labelPrinter)
-      throws InterruptedException {
+      LabelPrinter labelPrinter) {
     this(
         keepGoing,
         eventHandler,
         extraFunctions,
         topLevelConfigurations,
         transitiveConfigurations,
+        topLevelTargetAspects,
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,

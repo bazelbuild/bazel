@@ -28,6 +28,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AspectValue;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -114,6 +115,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       skyKey -> (ConfiguredTargetKey) skyKey.argument();
 
   protected final TopLevelConfigurations topLevelConfigurations;
+  protected final ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect>
+      topLevelTargetAspects;
   private final TargetPattern.Parser mainRepoTargetParser;
   private final PathPackageLocator pkgPath;
   private final Supplier<WalkableGraph> walkableGraphSupplier;
@@ -144,6 +147,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
       ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
+      ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
@@ -152,6 +156,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     super(keepGoing, true, Rule.ALL_LABELS, eventHandler, settings, extraFunctions, labelPrinter);
     this.topLevelConfigurations = topLevelConfigurations;
     this.transitiveConfigurations = transitiveConfigurations;
+    this.topLevelTargetAspects = topLevelTargetAspects;
     this.mainRepoTargetParser = mainRepoTargetParser;
     this.pkgPath = pkgPath;
     this.walkableGraphSupplier = walkableGraphSupplier;
@@ -479,7 +484,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       }
     }
     if (settings.contains(Setting.NO_IMPLICIT_DEPS)) {
-        deps = deps.stream().filter(dep -> !dep.implicit).collect(Collectors.toList());
+      deps = deps.stream().filter(dep -> !dep.implicit).collect(Collectors.toList());
     }
     return getDependencies(deps);
   }

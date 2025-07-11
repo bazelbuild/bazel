@@ -13,13 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.testutil;
 
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.testutil.FoundationTestCase.failFastHandler;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -43,6 +46,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -60,6 +64,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import org.junit.After;
@@ -221,7 +226,11 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     return getPostAnalysisQueryEnvironment(
         walkableGraph,
         new TopLevelConfigurations(analysisResult.getTopLevelTargetsWithConfigs()),
-        transitiveConfigurations);
+        transitiveConfigurations,
+        analysisResult.getAspectsMap().entrySet().stream()
+            .collect(
+                toImmutableListMultimap(
+                    entry -> entry.getKey().getBaseConfiguredTargetKey(), Map.Entry::getValue)));
   }
 
   private static ImmutableMap<String, BuildConfigurationValue> getTransitiveConfigurations(
@@ -249,7 +258,8 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   protected abstract PostAnalysisQueryEnvironment<T> getPostAnalysisQueryEnvironment(
       WalkableGraph walkableGraph,
       TopLevelConfigurations topLevelConfigurations,
-      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations)
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
+      ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects)
       throws InterruptedException;
 
   @Override
