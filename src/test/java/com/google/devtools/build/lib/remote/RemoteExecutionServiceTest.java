@@ -2531,7 +2531,11 @@ public class RemoteExecutionServiceTest {
 
     // Check that inputs and outputs of the remote action are mapped correctly.
     var remoteAction = service.buildRemoteAction(spawn, context);
-    assertThat(remoteAction.getInputMap(false))
+    assertThat(
+            remoteAction
+                .getRemoteActionExecutionContext()
+                .getSpawnExecutionContext()
+                .getInputMapping(PathFragment.EMPTY_FRAGMENT))
         .containsExactly(
             PathFragment.create("outputs/bin/input1"), mappedInput,
             PathFragment.create("outputs/bin/input2"), unmappedInput);

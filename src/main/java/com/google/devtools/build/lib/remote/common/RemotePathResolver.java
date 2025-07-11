@@ -44,8 +44,7 @@ public interface RemotePathResolver {
    * Returns a {@link SortedMap} which maps from input paths for remote action to {@link
    * ActionInput}.
    */
-  SortedMap<PathFragment, ActionInput> getInputMapping(
-      SpawnExecutionContext context, boolean willAccessRepeatedly);
+  SortedMap<PathFragment, ActionInput> getInputMapping(SpawnExecutionContext context);
 
   void walkInputs(
       Spawn spawn, SpawnExecutionContext context, SpawnInputExpander.InputVisitor visitor)
@@ -99,9 +98,8 @@ public interface RemotePathResolver {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(
-        SpawnExecutionContext context, boolean willAccessRepeatedly) {
-      return context.getInputMapping(PathFragment.EMPTY_FRAGMENT, willAccessRepeatedly);
+    public SortedMap<PathFragment, ActionInput> getInputMapping(SpawnExecutionContext context) {
+      return context.getInputMapping(PathFragment.EMPTY_FRAGMENT);
     }
 
     @Override
@@ -156,13 +154,11 @@ public interface RemotePathResolver {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(
-        SpawnExecutionContext context, boolean willAccessRepeatedly) {
+    public SortedMap<PathFragment, ActionInput> getInputMapping(SpawnExecutionContext context) {
       // The "root directory" of the action from the point of view of RBE is the parent directory of
       // the execroot locally. This is so that paths of artifacts in external repositories don't
       // start with an uplevel reference.
-      return context.getInputMapping(
-          PathFragment.create(checkNotNull(getWorkingDirectory())), willAccessRepeatedly);
+      return context.getInputMapping(PathFragment.create(checkNotNull(getWorkingDirectory())));
     }
 
     @Override
@@ -222,9 +218,8 @@ public interface RemotePathResolver {
       }
 
       @Override
-      public SortedMap<PathFragment, ActionInput> getInputMapping(
-          SpawnExecutionContext context, boolean willAccessRepeatedly) {
-        return base.getInputMapping(context, willAccessRepeatedly);
+      public SortedMap<PathFragment, ActionInput> getInputMapping(SpawnExecutionContext context) {
+        return base.getInputMapping(context);
       }
 
       @Override

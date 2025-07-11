@@ -249,8 +249,21 @@ public interface SpawnRunner {
      * mapping is used in a context where the directory relative to which the keys are interpreted
      * is not the same as the execroot.
      */
-    SortedMap<PathFragment, ActionInput> getInputMapping(
-        PathFragment baseDirectory, boolean willAccessRepeatedly);
+    SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory);
+
+    /**
+     * Returns an iterable over all inputs of the spawn, with all giving rise to multiple files
+     * expanded.
+     *
+     * <p>Implementations are expected to return an iterable that contains the same elements as
+     * {@code getInputMapping(PathFragment.EMPTY_FRAGMENT).values()}, but possibly in a different
+     * order and with different multiplicity of individual inputs.
+     *
+     * <p>The returned iterable may contain duplicates.
+     */
+    default Iterable<ActionInput> lazilyExpandInputs() {
+      return getInputMapping(PathFragment.EMPTY_FRAGMENT).values();
+    }
 
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus progress);

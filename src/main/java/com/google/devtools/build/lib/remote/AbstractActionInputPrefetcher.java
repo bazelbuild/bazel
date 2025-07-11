@@ -60,7 +60,9 @@ import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.SequencedSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -309,7 +311,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       MetadataSupplier metadataSupplier,
       Priority priority,
       Reason reason) {
-    List<ActionInput> files = new ArrayList<>();
+    // Inputs may be duplicated, which results in unnecessary IO. Use a set with specified iteration
+    // order for best-effort deterministic errors.
+    SequencedSet<ActionInput> files = new LinkedHashSet<>();
 
     for (ActionInput input : inputs) {
       // Source artifacts don't need to be fetched.
@@ -474,9 +478,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Nullable
   private Symlink maybeGetSymlink(
-      ActionInput input,
-      FileArtifactValue metadata,
-      MetadataSupplier metadataSupplier)
+      ActionInput input, FileArtifactValue metadata, MetadataSupplier metadataSupplier)
       throws IOException, InterruptedException {
     if (input instanceof TreeFileArtifact treeFile) {
       SpecialArtifact treeArtifact = treeFile.getParent();
