@@ -1404,7 +1404,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             Iterables.concat(
                 Iterables.transform(
                     rootedIncludePaths("package/foo/bar"),
-                    element -> ImmutableList.of("-isystem", element)))));
+                    element -> ImmutableList.of("-I" + element)))));
   }
 
   @Test
