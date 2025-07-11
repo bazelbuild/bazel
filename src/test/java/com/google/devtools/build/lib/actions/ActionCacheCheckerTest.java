@@ -1744,12 +1744,10 @@ public class ActionCacheCheckerTest {
     public ActionResult execute(ActionExecutionContext actionExecutionContext) {
       for (Artifact output : getOutputs()) {
         Path path = output.getPath();
-        if (!path.exists()) {
-          try {
-            writeContentAsLatin1(path, "");
-          } catch (IOException e) {
-            throw new IllegalStateException("Failed to create output", e);
-          }
+        try {
+          writeContentAsLatin1(path, "");
+        } catch (IOException e) {
+          throw new IllegalStateException("Failed to create output", e);
         }
       }
 
