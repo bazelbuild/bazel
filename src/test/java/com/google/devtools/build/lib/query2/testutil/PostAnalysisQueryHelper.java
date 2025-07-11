@@ -198,6 +198,11 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
 
   public PostAnalysisQueryEnvironment<T> getPostAnalysisQueryEnvironment(
       Collection<String> universe) throws Exception {
+    return getPostAnalysisQueryEnvironment(universe, ImmutableList.of());
+  }
+
+  public PostAnalysisQueryEnvironment<T> getPostAnalysisQueryEnvironment(
+      Collection<String> universe, Iterable<String> aspects) throws Exception {
     if (ImmutableList.copyOf(universe)
         .equals(ImmutableList.of(PostAnalysisQueryTest.DEFAULT_UNIVERSE))) {
       throw new QueryException(
@@ -205,8 +210,8 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
               + "or setting explicitly through query helper.",
           Query.Code.QUERY_UNKNOWN);
     }
-    AnalysisResult analysisResult;
-    analysisResult = analysisHelper.update(universe.toArray(new String[0]));
+    AnalysisResult analysisResult =
+        analysisHelper.update(ImmutableList.copyOf(aspects), universe.toArray(new String[0]));
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(analysisHelper.getSkyframeExecutor());
     ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations =
@@ -331,8 +336,9 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     }
 
     @Override
-    protected AnalysisResult update(String... labels) throws Exception {
-      return super.update(labels);
+    protected AnalysisResult update(ImmutableList<String> aspects, String... labels)
+        throws Exception {
+      return super.update(aspects, labels);
     }
 
     protected SkyframeExecutor getSkyframeExecutor() {
