@@ -327,15 +327,13 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
   @Nullable
   protected CqueryNode getValueFromKey(SkyKey key) throws InterruptedException {
     SkyValue value = getConfiguredTargetValue(key);
-    if (value == null) {
-      return null;
-    } else if (value instanceof ConfiguredTargetValue configuredTargetValue) {
-      return configuredTargetValue.getConfiguredTarget();
-    } else if (value instanceof AspectValue && key instanceof AspectKey aspectValue) {
-      return aspectValue;
-    } else {
-      throw new IllegalStateException("unknown value type for CqueryNode");
-    }
+    return switch (value) {
+      case ConfiguredTargetValue configuredTargetValue ->
+          configuredTargetValue.getConfiguredTarget();
+      case AspectValue ignored when key instanceof AspectKey aspectKey -> aspectKey;
+      case null -> null;
+      default -> throw new IllegalStateException("unknown value type for CqueryNode");
+    };
   }
 
   /**
