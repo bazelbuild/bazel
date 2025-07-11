@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AspectValue;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -79,6 +80,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironment<CqueryNode> {
   /** Common query functions and cquery specific functions. */
   public static final ImmutableList<QueryFunction> FUNCTIONS = populateFunctions();
+
   /** Cquery specific functions. */
   public static final ImmutableList<QueryFunction> CQUERY_FUNCTIONS = getCqueryFunctions();
 
@@ -101,13 +103,13 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
       ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
+      ImmutableMap<AspectKey, ConfiguredAspect> topLevelAspects,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       Set<Setting> settings,
       TopLevelArtifactContext topLevelArtifactContext,
-      LabelPrinter labelPrinter)
-      throws InterruptedException {
+      LabelPrinter labelPrinter) {
     super(
         keepGoing,
         eventHandler,
@@ -119,7 +121,8 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
         walkableGraphSupplier,
         settings,
         labelPrinter);
-    this.accessor = new ConfiguredTargetAccessor(walkableGraphSupplier.get(), this);
+    this.accessor =
+        new ConfiguredTargetAccessor(walkableGraphSupplier.get(), this, topLevelAspects);
     this.configuredTargetKeyExtractor = CqueryNode::getLookupKey;
     this.topLevelArtifactContext = topLevelArtifactContext;
   }
@@ -130,19 +133,20 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
       ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
+      ImmutableMap<AspectKey, ConfiguredAspect> topLevelAspects,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       CqueryOptions cqueryOptions,
       TopLevelArtifactContext topLevelArtifactContext,
-      LabelPrinter labelPrinter)
-      throws InterruptedException {
+      LabelPrinter labelPrinter) {
     this(
         keepGoing,
         eventHandler,
         extraFunctions,
         topLevelConfigurations,
         transitiveConfigurations,
+        topLevelAspects,
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
@@ -322,15 +326,13 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
   @Nullable
   protected CqueryNode getValueFromKey(SkyKey key) throws InterruptedException {
     SkyValue value = getConfiguredTargetValue(key);
-    if (value == null) {
-      return null;
-    } else if (value instanceof ConfiguredTargetValue configuredTargetValue) {
-      return configuredTargetValue.getConfiguredTarget();
-    } else if (value instanceof AspectValue && key instanceof AspectKey aspectValue) {
-      return aspectValue;
-    } else {
-      throw new IllegalStateException("unknown value type for CqueryNode");
-    }
+    return switch (value) {
+      case ConfiguredTargetValue configuredTargetValue ->
+          configuredTargetValue.getConfiguredTarget();
+      case AspectValue ignored when key instanceof AspectKey aspectKey -> aspectKey;
+      case null -> null;
+      default -> throw new IllegalStateException("unknown value type for CqueryNode");
+    };
   }
 
   /**

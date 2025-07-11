@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryParser;
 import java.io.ByteArrayOutputStream;
@@ -32,6 +34,7 @@ import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
@@ -46,43 +49,77 @@ public final class FilesOutputFormatterCallbackTest extends ConfiguredTargetQuer
   public void defineSimpleRule() throws Exception {
     writeFile(
         "defs/rules.bzl",
-        "def _r_impl(ctx):",
-        "    default_file = ctx.actions.declare_file(ctx.attr.name + '_default_file')",
-        "    output_group_only = ctx.actions.declare_file(ctx.attr.name + '_output_group_only')",
-        "    runfile = ctx.actions.declare_file(ctx.attr.name + '_runfile')",
-        "    executable_only = ctx.actions.declare_file(ctx.attr.name + '_executable')",
-        "    files = [default_file, output_group_only, runfile, executable_only]",
-        "    ctx.actions.run_shell(",
-        "        outputs = files,",
-        "        command = '\\n'.join(['touch %s' % file.path for file in files]),",
-        "    )",
-        "    return [",
-        "        DefaultInfo(",
-        "            executable = executable_only,",
-        "            files = depset(",
-        "                direct = [",
-        "                    default_file,",
-        "                    ctx.file._implicit_source_dep,",
-        "                    ctx.file.explicit_source_dep,",
-        "                ],",
-        "                transitive = [info[DefaultInfo].files for info in ctx.attr.deps]",
-        "            ),",
-        "            runfiles = ctx.runfiles([runfile]),",
-        "        ),",
-        "        OutputGroupInfo(",
-        "            foobar = [output_group_only, ctx.file.explicit_source_dep],",
-        "        ),",
-        "    ]",
-        "r = rule(",
-        "    implementation = _r_impl,",
-        "    executable = True,",
-        "    attrs = {",
-        "        'deps': attr.label_list(),",
-        "        '_implicit_source_dep': attr.label(default = 'rules.bzl', allow_single_file ="
-            + " True),",
-        "        'explicit_source_dep': attr.label(allow_single_file = True),",
-        "    },",
-        ")");
+        """
+        AspectInfo = provider()
+        def _r_impl(ctx):
+            default_file = ctx.actions.declare_file(ctx.attr.name + '_default_file')
+            output_group_only = ctx.actions.declare_file(ctx.attr.name + '_output_group_only')
+            runfile = ctx.actions.declare_file(ctx.attr.name + '_runfile')
+            executable_only = ctx.actions.declare_file(ctx.attr.name + '_executable')
+            files = [default_file, output_group_only, runfile, executable_only]
+            ctx.actions.run_shell(
+                outputs = files,
+                command = '\\n'.join(['touch %s' % file.path for file in files]),
+            )
+            return [
+                DefaultInfo(
+                    executable = executable_only,
+                    files = depset(
+                        direct = [
+                            default_file,
+                            ctx.file._implicit_source_dep,
+                            ctx.file.explicit_source_dep,
+                        ],
+                        transitive = [info[DefaultInfo].files for info in ctx.attr.deps]
+                    ),
+                    runfiles = ctx.runfiles([runfile]),
+                ),
+                OutputGroupInfo(
+                    foobar = [output_group_only, ctx.file.explicit_source_dep],
+                ),
+            ]
+        r = rule(
+            implementation = _r_impl,
+            executable = True,
+            attrs = {
+                'deps': attr.label_list(),
+                '_implicit_source_dep': attr.label(default = 'rules.bzl', allow_single_file = True),
+                'explicit_source_dep': attr.label(allow_single_file = True),
+            },
+        )
+        def _a_impl(target, ctx):
+            custom_output_group = ctx.actions.declare_file(target.label.name + '_custom_aspect_a_file')
+            shared_output_group = ctx.actions.declare_file(target.label.name + '_shared_aspect_a_file')
+            ctx.actions.run_shell(
+                outputs = [custom_output_group, shared_output_group],
+                command = "touch %s && touch %s" % (custom_output_group.path, shared_output_group.path),
+            )
+            return [
+                OutputGroupInfo(
+                    aspect_files = depset([custom_output_group]),
+                    foobar = depset([shared_output_group]),
+                ),
+                # Collides with aspect b.
+                AspectInfo(),
+            ]
+        a = aspect(implementation = _a_impl)
+        def _b_impl(target, ctx):
+            custom_output_group = ctx.actions.declare_file(target.label.name + '_custom_aspect_b_file')
+            shared_output_group = ctx.actions.declare_file(target.label.name + '_shared_aspect_b_file')
+            ctx.actions.run_shell(
+                outputs = [custom_output_group, shared_output_group],
+                command = "touch %s && touch %s" % (custom_output_group.path, shared_output_group.path),
+            )
+            return [
+                OutputGroupInfo(
+                    aspect_files = depset([custom_output_group]),
+                    foobar = depset([shared_output_group]),
+                ),
+                # Collides with aspect a.
+                AspectInfo(),
+            ]
+        b = aspect(implementation = _b_impl)
+        """);
     writeFile("defs/BUILD", "exports_files(['rules.bzl'])");
     writeFile(
         "pkg/BUILD",
@@ -102,13 +139,14 @@ public final class FilesOutputFormatterCallbackTest extends ConfiguredTargetQuer
         """);
   }
 
-  private List<String> getOutput(String queryExpression, List<String> outputGroups)
-      throws Exception {
+  private List<String> getOutput(
+      String queryExpression, List<String> outputGroups, String... aspects) throws Exception {
     QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
     PostAnalysisQueryEnvironment<CqueryNode> env =
-        ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
+        ((ConfiguredTargetQueryHelper) helper)
+            .getPostAnalysisQueryEnvironment(targetPatternSet, Arrays.asList(aspects));
 
     ByteArrayOutputStream output = new ByteArrayOutputStream();
     FilesOutputFormatterCallback callback =
@@ -124,7 +162,10 @@ public final class FilesOutputFormatterCallbackTest extends ConfiguredTargetQuer
                 false,
                 OutputGroupInfo.determineOutputGroups(outputGroups, ValidationMode.OFF, false)));
     env.evaluateQuery(expression, callback);
-    return Arrays.asList(output.toString(UTF_8).split("\n"));
+    return Pattern.compile("\n")
+        .splitAsStream(output.toString(UTF_8))
+        .filter(line -> !line.isEmpty())
+        .collect(toImmutableList());
   }
 
   @Test
@@ -152,6 +193,85 @@ public final class FilesOutputFormatterCallbackTest extends ConfiguredTargetQuer
   @Test
   public void basicQuery_customOutputGroupOnly() throws Exception {
     List<String> output = getOutput("//pkg:other", ImmutableList.of("foobar"));
+    var sourceAndGeneratedFiles =
+        output.stream()
+            .collect(Collectors.<String>partitioningBy(path -> path.matches("^[^/]*-out/.*")));
+    assertThat(sourceAndGeneratedFiles.get(false)).containsExactly("pkg/BUILD");
+    assertContainsExactlyWithBinDirPrefix(
+        sourceAndGeneratedFiles.get(true), "pkg/other_output_group_only");
+  }
+
+  @Test
+  public void withAspect_customOutputGroupOnly() throws Exception {
+    helper.setQuerySettings(QueryEnvironment.Setting.INCLUDE_ASPECTS);
+    List<String> output =
+        getOutput("//pkg:other", ImmutableList.of("aspect_files"), "//defs:rules.bzl%a");
+    var sourceAndGeneratedFiles =
+        output.stream()
+            .collect(Collectors.<String>partitioningBy(path -> path.matches("^[^/]*-out/.*")));
+    assertThat(sourceAndGeneratedFiles.get(false)).isEmpty();
+    assertContainsExactlyWithBinDirPrefix(
+        sourceAndGeneratedFiles.get(true), "pkg/other_custom_aspect_a_file");
+  }
+
+  @Test
+  public void withAspect_sharedOutputGroupOnly() throws Exception {
+    helper.setQuerySettings(QueryEnvironment.Setting.INCLUDE_ASPECTS);
+    List<String> output =
+        getOutput("//pkg:other", ImmutableList.of("foobar"), "//defs:rules.bzl%a");
+    var sourceAndGeneratedFiles =
+        output.stream()
+            .collect(Collectors.<String>partitioningBy(path -> path.matches("^[^/]*-out/.*")));
+    assertThat(sourceAndGeneratedFiles.get(false)).containsExactly("pkg/BUILD");
+    assertContainsExactlyWithBinDirPrefix(
+        sourceAndGeneratedFiles.get(true),
+        "pkg/other_output_group_only",
+        "pkg/other_shared_aspect_a_file");
+  }
+
+  @Test
+  public void withAspects_customOutputGroupOnly() throws Exception {
+    helper.setQuerySettings(QueryEnvironment.Setting.INCLUDE_ASPECTS);
+    List<String> output =
+        getOutput(
+            "//pkg:other",
+            ImmutableList.of("aspect_files"),
+            "//defs:rules.bzl%a",
+            "//defs:rules.bzl%b");
+    var sourceAndGeneratedFiles =
+        output.stream()
+            .collect(Collectors.<String>partitioningBy(path -> path.matches("^[^/]*-out/.*")));
+    assertThat(sourceAndGeneratedFiles.get(false)).isEmpty();
+    assertContainsExactlyWithBinDirPrefix(
+        sourceAndGeneratedFiles.get(true),
+        "pkg/other_custom_aspect_b_file",
+        "pkg/other_custom_aspect_a_file");
+  }
+
+  @Test
+  public void withAspects_sharedOutputGroupOnly() throws Exception {
+    helper.setQuerySettings(QueryEnvironment.Setting.INCLUDE_ASPECTS);
+    List<String> output =
+        getOutput(
+            "//pkg:other", ImmutableList.of("foobar"), "//defs:rules.bzl%a", "//defs:rules.bzl%b");
+    var sourceAndGeneratedFiles =
+        output.stream()
+            .collect(Collectors.<String>partitioningBy(path -> path.matches("^[^/]*-out/.*")));
+    assertThat(sourceAndGeneratedFiles.get(false)).containsExactly("pkg/BUILD");
+    assertContainsExactlyWithBinDirPrefix(
+        sourceAndGeneratedFiles.get(true),
+        "pkg/other_output_group_only",
+        "pkg/other_shared_aspect_b_file",
+        "pkg/other_shared_aspect_a_file");
+  }
+
+  @Test
+  public void withAspects_noIncludeAspects() throws Exception {
+    // Explicitly omit INCLUDE_ASPECTS.
+    helper.setQuerySettings();
+    List<String> output =
+        getOutput(
+            "//pkg:other", ImmutableList.of("foobar"), "//defs:rules.bzl%a", "//defs:rules.bzl%b");
     var sourceAndGeneratedFiles =
         output.stream()
             .collect(Collectors.<String>partitioningBy(path -> path.matches("^[^/]*-out/.*")));

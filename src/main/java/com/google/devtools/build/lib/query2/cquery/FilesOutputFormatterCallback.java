@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -41,7 +43,7 @@ public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
       TopLevelArtifactContext topLevelArtifactContext) {
     // Different targets may provide the same artifact, so we deduplicate the collection of all
     // results at the end.
-    super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ true);
+    super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ true);
     this.topLevelArtifactContext = topLevelArtifactContext;
   }
 
@@ -60,15 +62,18 @@ public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
         continue;
       }
 
-      TopLevelArtifactHelper.getAllArtifactsToBuild(cf, topLevelArtifactContext)
-          .getImportantArtifacts()
-          .toList()
-          .stream()
-          .filter(
-              artifact ->
-                  TopLevelArtifactHelper.shouldDisplay(artifact) || artifact.isSourceArtifact())
-          .map(Artifact::getExecPathString)
-          .forEach(this::addResult);
+      for (var configuredObject :
+          Iterables.concat(ImmutableList.of(cf), accessor.getTopLevelAspects(cf))) {
+        TopLevelArtifactHelper.getAllArtifactsToBuild(configuredObject, topLevelArtifactContext)
+            .getImportantArtifacts()
+            .toList()
+            .stream()
+            .filter(
+                artifact ->
+                    TopLevelArtifactHelper.shouldDisplay(artifact) || artifact.isSourceArtifact())
+            .map(Artifact::getExecPathString)
+            .forEach(this::addResult);
+      }
     }
   }
 }
