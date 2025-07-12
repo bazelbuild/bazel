@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
@@ -41,6 +40,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -196,15 +196,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private final DirectoryTracker directoryTracker = new DirectoryTracker();
 
   /** A symlink in the output tree. */
-  record Symlink(PathFragment linkExecPath, PathFragment targetExecPath) {
+  record Symlink(Path linkPath, Path targetPath) {
     Symlink {
-      requireNonNull(linkExecPath, "linkExecPath");
-      requireNonNull(targetExecPath, "targetExecPath");
-      checkArgument(!linkExecPath.equals(targetExecPath));
+      requireNonNull(linkPath, "linkPath");
+      requireNonNull(targetPath, "targetPath");
     }
 
-    static Symlink of(PathFragment linkExecPath, PathFragment targetExecPath) {
-      return new Symlink(linkExecPath, targetExecPath);
+    static Symlink of(Path linkPath, Path targetPath) {
+      return new Symlink(linkPath, targetPath);
     }
   }
 
@@ -382,47 +381,56 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
         return immediateVoidFuture();
       }
 
-      PathFragment execPath = input.getExecPath();
+      Path path = execRoot.getRelative(input.getExecPath());
 
       // Metadata may legitimately be missing, e.g. if this is an optional test output.
       FileArtifactValue metadata = metadataSupplier.getMetadata(input);
-      if (metadata == null || !canDownloadFile(execRoot.getRelative(execPath), metadata)) {
+      if (metadata == null || !metadata.isLazy()) {
         return immediateVoidFuture();
       }
 
       @Nullable Symlink symlink = maybeGetSymlink(input, metadata, metadataSupplier);
 
       if (symlink != null) {
-        checkState(execPath.startsWith(symlink.linkExecPath()));
-        execPath =
-            symlink.targetExecPath().getRelative(execPath.relativeTo(symlink.linkExecPath()));
+        checkState(path.startsWith(symlink.linkPath()));
+        path = symlink.targetPath().getRelative(path.relativeTo(symlink.linkPath()));
       }
 
       @Nullable PathFragment treeRootExecPath = maybeGetTreeRoot(input, metadataSupplier);
 
-      Completable result =
-          downloadFileNoCheckRx(
-                  action,
-                  execRoot.getRelative(execPath),
-                  treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
-                  dirsWithOutputPermissions,
-                  input,
-                  metadata,
-                  priority,
-                  reason)
-              .onErrorResumeNext(
-                  t -> {
-                    if (t instanceof CacheNotFoundException cacheNotFoundException) {
-                      // Only the symlink itself is guaranteed to be an input to the action, so
-                      // report its path for rewinding.
-                      cacheNotFoundException.setExecPath(input.getExecPath());
-                      return Completable.error(cacheNotFoundException);
-                    }
-                    return Completable.error(t);
-                  });
+      Completable result;
+      if (canDownloadFile(path, metadata)) {
+        result =
+            downloadFileNoCheckRx(
+                    action,
+                    path,
+                    treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
+                    dirsWithOutputPermissions,
+                    input,
+                    metadata,
+                    priority,
+                    reason)
+                .onErrorResumeNext(
+                    t -> {
+                      if (t instanceof CacheNotFoundException cacheNotFoundException) {
+                        // Only the symlink itself is guaranteed to be an input to the action, so
+                        // report its path for rewinding.
+                        cacheNotFoundException.setExecPath(input.getExecPath());
+                        return Completable.error(cacheNotFoundException);
+                      }
+                      return Completable.error(t);
+                    });
+      } else if (metadata.getType() == FileStateType.SYMLINK) {
+        result = plantRelativeSymlink(path, metadata.getUnresolvedSymlinkTarget());
+      } else {
+        // This is a symlink to a local file.
+        checkState(metadata.getResolvedPath() != null);
+        checkState(!metadata.isRemote());
+        result = Completable.complete();
+      }
 
       if (symlink != null) {
-        result = result.andThen(plantSymlink(symlink));
+        result = result.andThen(plantAbsoluteSymlink(symlink));
       }
 
       return toListenableFuture(result);
@@ -474,9 +482,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Nullable
   private Symlink maybeGetSymlink(
-      ActionInput input,
-      FileArtifactValue metadata,
-      MetadataSupplier metadataSupplier)
+      ActionInput input, FileArtifactValue metadata, MetadataSupplier metadataSupplier)
       throws IOException, InterruptedException {
     if (input instanceof TreeFileArtifact treeFile) {
       SpecialArtifact treeArtifact = treeFile.getParent();
@@ -493,13 +499,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
       return maybeGetSymlink(treeArtifact, treeMetadata, metadataSupplier);
     }
-    PathFragment execPath = input.getExecPath();
-    PathFragment resolvedExecPath = execPath;
+    Path path = execRoot.getRelative(input.getExecPath());
+    Path resolvedPath = path;
     if (metadata.getResolvedPath() != null) {
-      resolvedExecPath = metadata.getResolvedPath().relativeTo(execRoot.asFragment());
+      resolvedPath = execRoot.getRelative(metadata.getResolvedPath());
     }
-    if (!resolvedExecPath.equals(execPath)) {
-      return Symlink.of(execPath, resolvedExecPath);
+    if (!resolvedPath.equals(path)) {
+      return Symlink.of(path, resolvedPath);
     }
     return null;
   }
@@ -683,17 +689,27 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
   }
 
-  private Completable plantSymlink(Symlink symlink) {
+  private Completable plantRelativeSymlink(Path linkPath, String target) {
     return downloadCache.executeIfNot(
-        execRoot.getRelative(symlink.linkExecPath()),
-        Completable.defer(
+        linkPath,
+        Completable.fromAction(
             () -> {
-              Path link = execRoot.getRelative(symlink.linkExecPath());
-              Path target = execRoot.getRelative(symlink.targetExecPath());
               // Delete the link path if it already exists. This is the case for tree artifacts,
               // whose root directory is created before the action runs.
-              link.delete();
-              link.createSymbolicLink(target);
+              linkPath.delete();
+              linkPath.createSymbolicLink(PathFragment.create(target));
+            }));
+  }
+
+  private Completable plantAbsoluteSymlink(Symlink symlink) {
+    return downloadCache.executeIfNot(
+        symlink.linkPath(),
+        Completable.defer(
+            () -> {
+              // Delete the link path if it already exists. This is the case for tree artifacts,
+              // whose root directory is created before the action runs.
+              symlink.linkPath().delete();
+              symlink.linkPath().createSymbolicLink(symlink.targetPath());
               return Completable.complete();
             }));
   }
@@ -732,7 +748,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       }
 
       var metadata = outputMetadataStore.getOutputMetadata(output);
-      if (!metadata.isRemote()) {
+      if (!metadata.isLazy()) {
         continue;
       }
 
