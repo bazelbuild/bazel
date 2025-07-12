@@ -914,10 +914,6 @@ def _get_local_defines_for_runfiles_lookup(ctx, all_deps):
             return ["BAZEL_CURRENT_REPOSITORY=\"{}\"".format(ctx.label.workspace_name)]
     return []
 
-# This should be enough to assume if two labels are equal.
-def _are_labels_equal(a, b):
-    return a.name == b.name and a.package == b.package
-
 def _map_to_list(m):
     result = []
     for k, v in m.items():
@@ -938,7 +934,7 @@ def _calculate_artifact_label_map(attr_list, attr_name):
                 if "." + artifact.extension not in extensions.CC_HEADER:
                     old_label = artifact_label_map.get(artifact, None)
                     artifact_label_map[artifact] = attr.label
-                    if old_label != None and not _are_labels_equal(old_label, attr.label) and (
+                    if old_label != None and old_label != attr.label and (
                         "." + artifact.extension in extensions.CC_AND_OBJC or attr_name == "module_interfaces"
                     ):
                         fail(
@@ -1189,7 +1185,6 @@ cc_helper = struct(
     is_stamping_enabled = _is_stamping_enabled,
     is_stamping_enabled_for_aspect = _is_stamping_enabled_for_aspect,
     get_local_defines_for_runfiles_lookup = _get_local_defines_for_runfiles_lookup,
-    are_labels_equal = _are_labels_equal,
     get_srcs = _get_srcs,
     get_cpp_module_interfaces = _get_cpp_module_interfaces,
     get_private_hdrs = _get_private_hdrs,
