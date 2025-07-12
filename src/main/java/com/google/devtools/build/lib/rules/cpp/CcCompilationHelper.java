@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,17 +22,21 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
@@ -55,6 +58,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -824,8 +828,21 @@ public final class CcCompilationHelper {
 
     // Create compile actions (both PIC and no-PIC).
     try {
-      CcCompilationOutputs ccOutputs = createCcCompileActions();
-
+      CcCompilationOutputs ccOutputs;
+      if (featureConfiguration.isEnabled(CppRuleClasses.CPP_MODULES)) {
+        // Handle C++20 Module compile
+        ccOutputs = createCcCompileActionsWithCpp20Module();
+        publicCompilationContext =
+            CcCompilationContext.createWithCpp20Modules(
+                publicCompilationContext,
+                ccOutputs.getPcmFiles(false),
+                ccOutputs.getPcmFiles(true),
+                ccOutputs.getModulesInfoFiles(false),
+                ccOutputs.getModulesInfoFiles(true));
+      } else {
+        // Create compile actions (both PIC and no-PIC).
+        ccOutputs = createCcCompileActions();
+      }
       if (cppConfiguration.processHeadersInDependencies()) {
         return new CompilationInfo(
             CcCompilationContext.createWithExtraHeaderTokens(
@@ -961,6 +978,267 @@ public final class CcCompilationHelper {
     return result.build();
   }
 
+  private CcCompilationOutputs createCcCompileActionsWithCpp20Module()
+      throws RuleErrorException, EvalException, InterruptedException {
+    Preconditions.checkState(
+        featureConfiguration.isEnabled(CppRuleClasses.CPP_MODULES),
+        "to use C++20 Modules, the feature CPP_MODULES must be enabled");
+    Preconditions.checkNotNull(ccCompilationContext);
+    var result = CcCompilationOutputs.builder();
+    var sourcesMap =
+        ImmutableMap.<Artifact, CppSource>builder()
+            .putAll(compilationUnitSources)
+            .putAll(moduleInterfaceSources)
+            .buildOrThrow();
+    ImmutableMap<Artifact, String> outputNameMap =
+        calculateOutputNameMapByType(sourcesMap, /* prefixDir= */ null);
+    if (generateNoPicAction) {
+      createCcCompileActionsWithCpp20ModuleHelper(result, /* usePic= */ false, outputNameMap);
+    }
+    if (generatePicAction) {
+      createCcCompileActionsWithCpp20ModuleHelper(result, /* usePic= */ true, outputNameMap);
+    }
+    return result.build();
+  }
+
+  private void createCcCompileActionsWithCpp20ModuleHelper(
+      CcCompilationOutputs.Builder result,
+      boolean usePic,
+      ImmutableMap<Artifact, String> outputNameMap)
+      throws RuleErrorException, EvalException, InterruptedException {
+    // .ddi files and module files are in 1-to-1 correspondence and must maintain the same order
+    // (hence the use of compile order for directModuleFilesBuilder, which specifies the order for
+    // direct children). Making directModuleFiles a NestedSet allows it to be reused for
+    // allModuleFilesBuilder below.
+    var directModuleFilesBuilder = NestedSetBuilder.<Artifact>newBuilder(Order.COMPILE_ORDER);
+    var sourceToModuleFileMapBuilder =
+        ImmutableMap.<Artifact, DerivedArtifact>builderWithExpectedSize(
+            moduleInterfaceSources.size());
+    var sourceToDdiFileMapBuilder =
+        ImmutableMap.<Artifact, DerivedArtifact>builderWithExpectedSize(
+            moduleInterfaceSources.size());
+
+    // declare <target-name>.CXXModules.json
+    // all modules information is put here
+    Artifact modulesInfoFile =
+        CppHelper.getCompileOutputArtifact(
+            actionConstructionContext,
+            label,
+            CppHelper.getArtifactNameForCategory(
+                ccToolchain,
+                ArtifactCategory.CPP_MODULES_INFO,
+                getOutputNameBaseWith(label.getName(), usePic)),
+            configuration);
+    if (usePic) {
+      result.addPicModulesInfoFile(modulesInfoFile);
+    } else {
+      result.addModulesInfoFile(modulesInfoFile);
+    }
+    for (CppSource source : moduleInterfaceSources.values()) {
+      Artifact sourceArtifact = source.getSource();
+      String outputName = outputNameMap.get(sourceArtifact);
+      ArtifactCategory outputCategory = ArtifactCategory.CPP_MODULE;
+      var moduleFile =
+          CppHelper.getCompileOutputArtifact(
+              actionConstructionContext,
+              label,
+              CppHelper.getArtifactNameForCategory(
+                  ccToolchain, outputCategory, getOutputNameBaseWith(outputName, usePic)),
+              configuration);
+      directModuleFilesBuilder.add(moduleFile);
+      sourceToModuleFileMapBuilder.put(sourceArtifact, moduleFile);
+      // dependencies information are put in .ddi file
+      // the format is https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p1689r5.html
+      var ddiOutputName =
+          CppHelper.getArtifactNameForCategory(
+              ccToolchain,
+              ArtifactCategory.CPP_MODULES_DDI,
+              getOutputNameBaseWith(outputName, usePic));
+      DerivedArtifact ddiFile =
+          CppHelper.getCompileOutputArtifact(
+              actionConstructionContext, label, ddiOutputName, configuration);
+      createScanDepsAction(source.getLabel(), sourceArtifact, usePic, ddiFile, ddiOutputName);
+      sourceToDdiFileMapBuilder.put(sourceArtifact, ddiFile);
+    }
+    var directModuleFiles = directModuleFilesBuilder.build();
+    var sourceToDdiFileMap = sourceToDdiFileMapBuilder.buildOrThrow();
+    createAggregateDdiAction(
+        ImmutableList.copyOf(sourceToDdiFileMap.values()),
+        directModuleFiles,
+        ccCompilationContext.getModulesInfoFiles(usePic),
+        modulesInfoFile);
+    var sourceToModuleFileMap = sourceToModuleFileMapBuilder.buildOrThrow();
+    var allModuleFilesBuilder =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(directModuleFiles)
+            .addTransitive(ccCompilationContext.getModuleFiles(usePic));
+    var allModuleFiles = allModuleFilesBuilder.build();
+    for (CppSource source : moduleInterfaceSources.values()) {
+      Artifact sourceArtifact = source.getSource();
+
+      Label sourceLabel = source.getLabel();
+      CppCompileActionBuilder builder = initializeCompileAction(sourceArtifact);
+      builder.setPicMode(usePic);
+      builder.setActionName(CppActionNames.CPP20_MODULE_COMPILE);
+
+      builder
+          .addMandatoryInputs(additionalCompilationInputs)
+          .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots);
+
+      boolean bitcodeOutput =
+          featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
+              && CppFileTypes.LTO_SOURCE.matches(sourceArtifact.getFilename());
+
+      String outputName = outputNameMap.get(sourceArtifact);
+      DerivedArtifact moduleFile = sourceToModuleFileMap.get(sourceArtifact);
+      Preconditions.checkNotNull(moduleFile);
+      builder.setAdditionalOutputs(ImmutableList.of(moduleFile));
+      builder.setModuleFiles(allModuleFiles);
+      if (usePic) {
+        result.addPicCpp20ModuleFile(moduleFile);
+      } else {
+        result.addCpp20ModuleFile(moduleFile);
+      }
+
+      // all -fmodule-file=<module-name>=<path/to/bmi> flags are put in .modmap file
+      var modmapFile =
+          CppHelper.getCompileOutputArtifact(
+              actionConstructionContext,
+              label,
+              CppHelper.getArtifactNameForCategory(
+                  ccToolchain,
+                  ArtifactCategory.CPP_MODULES_MODMAP,
+                  getOutputNameBaseWith(outputName, usePic)),
+              configuration);
+      // all path/to/bmi are put in .modmap.input file,
+      // which is convenient to get all bmi in CppCompileAction
+      var modmapInputFile =
+          CppHelper.getCompileOutputArtifact(
+              actionConstructionContext,
+              label,
+              CppHelper.getArtifactNameForCategory(
+                  ccToolchain,
+                  ArtifactCategory.CPP_MODULES_MODMAP_INPUT,
+                  getOutputNameBaseWith(outputName, usePic)),
+              configuration);
+      createGenModmapAction(
+          Preconditions.checkNotNull(sourceToDdiFileMap.get(sourceArtifact)),
+          modulesInfoFile,
+          modmapFile,
+          modmapInputFile);
+      builder.setModmapFile(modmapFile);
+      builder.setModmapInputFile(modmapInputFile);
+
+      PathFragment ccRelativeName = sourceArtifact.getRootRelativePath();
+      var additionalBuildVariables =
+          ImmutableMap.of(
+              CompileBuildVariables.CPP_MODULE_OUTPUT_FILE.getVariableName(),
+              moduleFile.getExecPathString(),
+              CompileBuildVariables.CPP_MODULE_MODMAP_FILE.getVariableName(),
+              modmapFile.getExecPathString());
+      createSourceActionHelper(
+          sourceLabel,
+          outputName,
+          result,
+          sourceArtifact,
+          builder,
+          ArtifactCategory.OBJECT_FILE,
+          ccCompilationContext.getCppModuleMap(),
+          /* addObject= */ true,
+          isCodeCoverageEnabled,
+          CcToolchainProvider.shouldCreatePerObjectDebugInfo(
+              featureConfiguration, cppConfiguration),
+          bitcodeOutput,
+          ccRelativeName,
+          usePic,
+          additionalBuildVariables);
+    }
+
+    for (CppSource source : compilationUnitSources.values()) {
+      Artifact sourceArtifact = source.getSource();
+      PathFragment sourcePath = sourceArtifact.getExecPath();
+      Label sourceLabel = source.getLabel();
+      CppCompileActionBuilder builder = initializeCompileAction(sourceArtifact);
+      builder.setPicMode(usePic);
+      builder
+          .addMandatoryInputs(additionalCompilationInputs)
+          .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots);
+
+      boolean bitcodeOutput =
+          featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
+              && CppFileTypes.LTO_SOURCE.matches(sourceArtifact.getFilename());
+
+      String outputName = outputNameMap.get(sourceArtifact);
+      ImmutableMap<String, String> additionalBuildVariables = ImmutableMap.of();
+      // Only C++ compilation unit will be compiled with C++20 Modules.
+      if (CppFileTypes.CPP_SOURCE.matches(sourcePath)) {
+        builder.setModuleFiles(allModuleFiles);
+  
+        // all -fmodule-file=<module-name>=<path/to/bmi> flags are put in .modmap file
+        var modmapFile =
+            CppHelper.getCompileOutputArtifact(
+                actionConstructionContext,
+                label,
+                CppHelper.getArtifactNameForCategory(
+                    ccToolchain,
+                    ArtifactCategory.CPP_MODULES_MODMAP,
+                    getOutputNameBaseWith(outputName, usePic)),
+                configuration);
+        // all path/to/bmi are put in .modmap.input file,
+        // which is convenient to get all bmi in CppCompileAction
+        var modmapInputFile =
+            CppHelper.getCompileOutputArtifact(
+                actionConstructionContext,
+                label,
+                CppHelper.getArtifactNameForCategory(
+                    ccToolchain,
+                    ArtifactCategory.CPP_MODULES_MODMAP_INPUT,
+                    getOutputNameBaseWith(outputName, usePic)),
+                configuration);
+        var ddiOutputName =
+            CppHelper.getArtifactNameForCategory(
+                ccToolchain,
+                ArtifactCategory.CPP_MODULES_DDI,
+                getOutputNameBaseWith(outputName, usePic));
+        Artifact ddiFile =
+            CppHelper.getCompileOutputArtifact(
+                actionConstructionContext, label, ddiOutputName, configuration);
+        createScanDepsAction(source.getLabel(), sourceArtifact, usePic, ddiFile, ddiOutputName);
+        createGenModmapAction(ddiFile, modulesInfoFile, modmapFile, modmapInputFile);
+        builder.setModmapFile(modmapFile);
+        builder.setModmapInputFile(modmapInputFile);
+        additionalBuildVariables =
+            ImmutableMap.of(
+                CompileBuildVariables.CPP_MODULE_MODMAP_FILE.getVariableName(),
+                modmapFile.getExecPathString());
+      }
+      PathFragment ccRelativeName = sourceArtifact.getRootRelativePath();
+      // TODO(plf): Continue removing CLIF logic from C++. Follow up changes would include
+      // refactoring CppSource.Type and ArtifactCategory to be classes instead of enums
+      // that could be instantiated with arbitrary values.
+      ArtifactCategory outputCategory =
+          source.getType() == CppSource.Type.CLIF_INPUT_PROTO
+              ? ArtifactCategory.CLIF_OUTPUT_PROTO
+              : ArtifactCategory.OBJECT_FILE;
+      createSourceActionHelper(
+          sourceLabel,
+          outputName,
+          result,
+          sourceArtifact,
+          builder,
+          outputCategory,
+          ccCompilationContext.getCppModuleMap(),
+          /* addObject= */ true,
+          isCodeCoverageEnabled,
+          CcToolchainProvider.shouldCreatePerObjectDebugInfo(
+              featureConfiguration, cppConfiguration),
+          bitcodeOutput,
+          ccRelativeName,
+          usePic,
+          additionalBuildVariables);
+    }
+  }
+
   /**
    * Constructs the C++ compiler actions. It generally creates one action for every specified source
    * file. It takes into account coverage, and PIC, in addition to using the settings specified on
@@ -968,6 +1246,9 @@ public final class CcCompilationHelper {
    */
   private CcCompilationOutputs createCcCompileActions()
       throws RuleErrorException, EvalException, InterruptedException {
+    Preconditions.checkState(
+        moduleInterfaceSources.isEmpty(),
+        "to use C++20 Modules, the feature cpp20_module must be enabled");
     CcCompilationOutputs.Builder result = CcCompilationOutputs.builder();
     Preconditions.checkNotNull(ccCompilationContext);
 
@@ -1487,6 +1768,108 @@ public final class CcCompilationHelper {
     result.addHeaderTokenFile(tokenFile);
   }
 
+  private void createScanDepsAction(
+      Label sourceLabel,
+      Artifact sourceArtifact,
+      boolean usePic,
+      Artifact ddiFile,
+      String outputName)
+      throws RuleErrorException, EvalException, InterruptedException {
+    var builder = initializeCompileAction(sourceArtifact);
+    builder.setActionName(CppActionNames.CPP_MODULE_DEPS_SCANNING);
+    Artifact dotdFile;
+    if (builder.dotdFilesEnabled() && builder.useDotdFile(sourceArtifact)) {
+      String dotdFileName =
+          CppHelper.getArtifactNameForCategory(
+              ccToolchain, ArtifactCategory.INCLUDED_FILE_LIST, outputName);
+      dotdFile =
+          CppHelper.getCompileOutputArtifact(
+              actionConstructionContext, label, dotdFileName, configuration);
+    } else {
+      dotdFile = null;
+    }
+    builder.setOutputs(ddiFile, dotdFile, null);
+    var variables =
+        setupCompileBuildVariables(
+            builder,
+            sourceLabel,
+            usePic,
+            /* needsFdoBuildVariables= */ false,
+            cppModuleMap,
+            /* enableCoverage= */ false,
+            /* gcnoFile= */ null,
+            /* isUsingFission= */ false,
+            /* dwoFile= */ null,
+            /* ltoIndexingFile= */ null,
+            /* additionalBuildVariables= */ ImmutableMap.of());
+
+    builder.setVariables(variables);
+    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
+    var scanDepsAction = builder.buildOrThrowRuleError(ruleErrorConsumer);
+    actionConstructionContext.registerAction(scanDepsAction);
+  }
+
+  private void createGenModmapAction(
+      Artifact ddiFile, Artifact modulesInfoFile, Artifact modmapFile, Artifact modmapInputFile)
+      throws EvalException {
+    var genModmapTool = ccToolchain.getGenerateModmap();
+    if (genModmapTool == null) {
+      throw new EvalException("the 'generate_modmap' tool is not defined in the C++ toolchain");
+    }
+    var commandLine =
+        CustomCommandLine.builder()
+            .addExecPath(ddiFile)
+            .addExecPath(modulesInfoFile)
+            .addExecPath(modmapFile)
+            .addDynamicString(ccToolchain.getCompiler())
+            .build();
+    var genModmapAction =
+        new SpawnAction.Builder()
+            .setExecutable(genModmapTool)
+            .addCommandLine(commandLine)
+            .addInput(ddiFile)
+            .addInput(modulesInfoFile)
+            .addOutput(modmapFile)
+            .addOutput(modmapInputFile)
+            .useDefaultShellEnvironment(ImmutableMap.of())
+            .setMnemonic("CppGenModmap")
+            .setProgressMessage("Generating C++20 modules modmap %{output}")
+            .build(actionConstructionContext);
+    actionConstructionContext.registerAction(genModmapAction);
+  }
+
+  private void createAggregateDdiAction(
+      ImmutableList<Artifact> ddiFiles,
+      NestedSet<Artifact> directModuleFiles,
+      NestedSet<Artifact> transitiveModulesInfoFiles,
+      Artifact modulesInfoFile)
+      throws EvalException {
+    var aggregateDdiTool = ccToolchain.getAggregateDdi();
+    if (aggregateDdiTool == null) {
+      throw new EvalException("the 'aggregate_ddi' tool is not defined in the C++ toolchain");
+    }
+    var commandLine =
+        CustomCommandLine.builder()
+            .addExecPaths(CustomCommandLine.VectorArg.addBefore("-d").each(ddiFiles))
+            .addExecPaths(CustomCommandLine.VectorArg.addBefore("-f").each(directModuleFiles))
+            .addExecPaths(
+                CustomCommandLine.VectorArg.addBefore("-m").each(transitiveModulesInfoFiles))
+            .addExecPath("-o", modulesInfoFile)
+            .build();
+    var aggregateDdiAction =
+        new SpawnAction.Builder()
+            .setExecutable(aggregateDdiTool)
+            .addCommandLine(commandLine)
+            .addInputs(ddiFiles)
+            .addTransitiveInputs(transitiveModulesInfoFiles)
+            .addOutput(modulesInfoFile)
+            .useDefaultShellEnvironment(ImmutableMap.of())
+            .setMnemonic("CppAggregateDdi")
+            .setProgressMessage("Generating C++20 modules info %{output}")
+            .build(actionConstructionContext);
+    actionConstructionContext.registerAction(aggregateDdiAction);
+  }
+
   private ImmutableList<Artifact> createModuleAction(
       CcCompilationOutputs.Builder result, CppModuleMap cppModuleMap)
       throws RuleErrorException, EvalException, InterruptedException {
@@ -1581,6 +1964,7 @@ public final class CcCompilationHelper {
     return directOutputs.build();
   }
 
+  @CanIgnoreReturnValue
   private Artifact createSourceActionHelper(
       Label sourceLabel,
       String outputName,

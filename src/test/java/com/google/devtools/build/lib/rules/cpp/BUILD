@@ -722,16 +722,3 @@ java_test(
         "//third_party:truth",
     ],
 )
-
-java_test(
-    name = "CppModulesConfiguredTargetTest",
-    srcs = ["CppModulesConfiguredTargetTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)

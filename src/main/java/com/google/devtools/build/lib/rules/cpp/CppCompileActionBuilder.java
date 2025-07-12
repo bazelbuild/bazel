@@ -53,6 +53,9 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   private Artifact sourceFile;
   private final NestedSetBuilder<Artifact> mandatoryInputsBuilder;
   private Artifact outputFile;
+  private Artifact modmapFile;
+  private Artifact modmapInputFile;
+  private NestedSet<Artifact> moduleFiles;
   private Artifact dwoFile;
   private Artifact ltoIndexingFile;
   private Artifact dotdFile;
@@ -131,6 +134,9 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     this.ccToolchain = other.ccToolchain;
     this.actionName = other.actionName;
     this.additionalOutputs = other.additionalOutputs;
+    this.moduleFiles = other.moduleFiles;
+    this.modmapFile = other.modmapFile;
+    this.modmapInputFile = other.modmapInputFile;
   }
 
   public CppCompileActionBuilder setSourceFile(Artifact sourceFile) {
@@ -318,7 +324,9 @@ public final class CppCompileActionBuilder implements StarlarkValue {
         cppSemantics,
         getBuiltinIncludeDirectories(),
         ccToolchain.getGrepIncludes(),
-        additionalOutputs);
+        additionalOutputs,
+        moduleFiles,
+        modmapInputFile);
   }
 
   private ImmutableList<Artifact> getBuiltinIncludeFiles() throws EvalException {
@@ -356,6 +364,9 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     if (!shouldScanIncludes && dotdFile == null && !shouldParseShowIncludes()) {
       realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
       realMandatoryInputsBuilder.addTransitive(additionalPrunableHeaders);
+    }
+    if (modmapFile != null) {
+      realMandatoryInputsBuilder.add(modmapFile).add(Preconditions.checkNotNull(modmapInputFile));
     }
     return realMandatoryInputsBuilder.build();
   }
@@ -616,6 +627,24 @@ public final class CppCompileActionBuilder implements StarlarkValue {
   public CppCompileActionBuilder setAdditionalPrunableHeaders(
       NestedSet<Artifact> additionalPrunableHeaders) {
     this.additionalPrunableHeaders = Preconditions.checkNotNull(additionalPrunableHeaders);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public CppCompileActionBuilder setModmapFile(Artifact modmapFile) {
+    this.modmapFile = modmapFile;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public CppCompileActionBuilder setModmapInputFile(Artifact modmapInputFile) {
+    this.modmapInputFile = modmapInputFile;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public CppCompileActionBuilder setModuleFiles(NestedSet<Artifact> moduleFiles) {
+    this.moduleFiles = moduleFiles;
     return this;
   }
 
