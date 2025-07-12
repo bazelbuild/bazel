@@ -426,18 +426,18 @@ EOF
   FOO=BEZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_not_log "BEZ"
 
-  # Test that --action_env value is taken
+  # Test that --repo_env value is taken
   # TODO(dmarting): The current implemnentation cannot invalidate on environment
   # but the incoming change can declare environment dependency, once this is
   # done, maybe we should update this test to remove clean --expunge and use the
   # invalidation mechanism instead?
   bazel clean --expunge
-  FOO=BAZ bazel build --action_env=FOO=BAZINGA @foo//:bar >& $TEST_log \
+  FOO=BAZ bazel build --repo_env=FOO=BAZINGA @foo//:bar >& $TEST_log \
       || fail "Failed to build"
   expect_log "BAZINGA"
 
   bazel clean --expunge
-  FOO=BAZ bazel build --action_env=FOO @foo//:bar >& $TEST_log \
+  FOO=BAZ bazel build --repo_env=FOO @foo//:bar >& $TEST_log \
       || fail "Failed to build"
   expect_log "BAZ"
   expect_not_log "BAZINGA"
@@ -498,7 +498,7 @@ function setup_invalidation_test() {
   setup_starlark_repository
 
   # We use a counter to avoid other invalidation to hide repository
-  # invalidation (e.g., --action_env will cause all action to re-run).
+  # invalidation (e.g., --repo_env will cause all repositories to re-run).
   local execution_file="${TEST_TMPDIR}/execution"
 
   # Our custom repository rule
@@ -596,28 +596,29 @@ function environ_invalidation_test_template() {
 
 function environ_invalidation_action_env_test_template() {
   local startup_flag="${1-}"
+  local command_flag="--noincompatible_repo_env_ignores_action_env"
   setup_starlark_repository
 
   # We use a counter to avoid other invalidation to hide repository
-  # invalidation (e.g., --action_env will cause all action to re-run).
+  # invalidation (e.g., --action_env=K=V will cause all repositories to re-run).
   local execution_file="$(setup_invalidation_test)"
 
   # Set to FOO=BAZ BAR=FOO
-  FOO=BAZ BAR=FOO bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+  FOO=BAZ BAR=FOO bazel ${startup_flag} build "${command_flag}" @foo//:bar >& $TEST_log \
       || fail "Failed to build"
   expect_log "<1> FOO=BAZ BAR=FOO BAZ=undefined"
   assert_equals 1 $(cat "${execution_file}")
 
   # Test with changing using --action_env
-  bazel ${startup_flag} build \
+  bazel ${startup_flag} build "${command_flag}" \
       --action_env FOO=BAZ --action_env BAR=FOO  --action_env BEZ=BAR \
       @foo//:bar >& $TEST_log || fail "Failed to build"
   assert_equals 1 $(cat "${execution_file}")
-  bazel ${startup_flag} build \
+  bazel ${startup_flag} build "${command_flag}" \
       --action_env FOO=BAZ --action_env BAR=FOO --action_env BAZ=BAR \
       @foo//:bar >& $TEST_log || fail "Failed to build"
   assert_equals 1 $(cat "${execution_file}")
-  bazel ${startup_flag} build \
+  bazel ${startup_flag} build "${command_flag}" \
       --action_env FOO=BAR --action_env BAR=FOO --action_env BAZ=BAR \
       @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "<2> FOO=BAR BAR=FOO BAZ=BAR"
@@ -645,7 +646,7 @@ function test_starlark_repository_environ_invalidation_action_env_batch() {
 function bzl_invalidation_test_template() {
   local startup_flag="${1-}"
   local execution_file="$(setup_invalidation_test)"
-  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+  local flags="--repo_env FOO=BAR --repo_env BAR=BAZ --repo_env BAZ=FOO"
 
   local bazel_build="bazel ${startup_flag} build ${flags}"
 
@@ -724,7 +725,7 @@ EOF
 function file_invalidation_test_template() {
   local startup_flag="${1-}"
   local execution_file="$(setup_invalidation_test)"
-  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+  local flags="--repo_env FOO=BAR --repo_env BAR=BAZ --repo_env BAZ=FOO"
 
   local bazel_build="bazel ${startup_flag} build ${flags}"
 
@@ -758,7 +759,7 @@ function test_starlark_repository_file_invalidation_batch() {
 function starlark_invalidation_test_template() {
   local startup_flag="${1-}"
   local execution_file="$(setup_invalidation_test)"
-  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+  local flags="--repo_env FOO=BAR --repo_env BAR=BAZ --repo_env BAZ=FOO"
   local bazel_build="bazel ${startup_flag} build ${flags}"
 
   ${bazel_build} --noincompatible_run_shell_command_string @foo//:bar \

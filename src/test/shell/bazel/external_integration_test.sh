@@ -2915,8 +2915,8 @@ EOF
 dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
 dummy_repository(name = 'foo', build_file = '@@//:BUILD.dummy')
 EOF
-  add_to_bazelrc "common --action_env=TRACKED=tracked"
-  add_to_bazelrc "common --action_env=UNTRACKED=untracked"
+  add_to_bazelrc "common --repo_env=TRACKED=tracked"
+  add_to_bazelrc "common --repo_env=UNTRACKED=untracked"
 
   bazel build @foo//:BUILD 2>$TEST_log || fail 'Expected build to succeed'
   expect_log "TRACKED=tracked"
