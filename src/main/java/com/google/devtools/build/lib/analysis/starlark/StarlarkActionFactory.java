@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.BuildInfoFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
@@ -354,7 +355,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               args.build(getMainRepoMappingSupplier()),
               args.getParameterFileType(),
               isExecutable,
-              mnemonic);
+              mnemonic,
+              ruleContext.getConfiguration().modifiedExecutionInfo(ImmutableMap.of(), mnemonic),
+              PathMappers.getOutputPathsMode(ruleContext.getConfiguration()));
     } else {
       throw new AssertionError("Unexpected type: " + content.getClass().getSimpleName());
     }

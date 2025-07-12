@@ -116,6 +116,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/custom_command_line",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/parameter_file_write_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_options",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",

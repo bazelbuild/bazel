@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -60,7 +61,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
   private SpecialArtifact treeArtifact;
 
   @Before
-  public void createArtifacts() throws Exception  {
+  public void createArtifacts() throws Exception {
     Path execRoot = scratch.getFileSystem().getPath("/exec");
     rootDir = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
     outputArtifact = getBinArtifactWithNoOwner("destination.txt");
@@ -73,8 +74,8 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     Action action =
         createParameterFileWriteAction(
             NestedSetBuilder.emptySet(Order.STABLE_ORDER), createNormalCommandLine(), false);
-    assertThat(Artifact.toRootRelativePaths(action.getOutputs())).containsExactly(
-        "destination.txt");
+    assertThat(Artifact.toRootRelativePaths(action.getOutputs()))
+        .containsExactly("destination.txt");
   }
 
   @Test
@@ -154,7 +155,9 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
         commandLine,
         ParameterFileType.UNQUOTED,
         executable,
-        AbstractFileWriteAction.MNEMONIC);
+        AbstractFileWriteAction.MNEMONIC,
+        /* executionInfo= */ ImmutableMap.of(),
+        CoreOptions.OutputPathsMode.OFF);
   }
 
   private static CommandLine createNormalCommandLine() {
