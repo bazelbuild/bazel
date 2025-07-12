@@ -15,14 +15,12 @@ package com.google.devtools.build.lib.query2.aquery;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -85,7 +83,6 @@ public class ActionGraphQueryEnvironment
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
       ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
-      ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
@@ -97,7 +94,6 @@ public class ActionGraphQueryEnvironment
         extraFunctions,
         topLevelConfigurations,
         transitiveConfigurations,
-        topLevelTargetAspects,
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
@@ -115,7 +111,6 @@ public class ActionGraphQueryEnvironment
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
       ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
-      ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
@@ -127,7 +122,6 @@ public class ActionGraphQueryEnvironment
         extraFunctions,
         topLevelConfigurations,
         transitiveConfigurations,
-        topLevelTargetAspects,
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,

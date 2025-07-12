@@ -168,7 +168,6 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
             extraFunctions,
             topLevelConfigurations,
             transitiveConfigurations,
-            topLevelTargetAspects,
             mainRepoTargetParser,
             env.getPackageManager().getPackagePath(),
             () -> walkableGraph,

@@ -117,13 +117,13 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
         extraFunctions,
         topLevelConfigurations,
         transitiveConfigurations,
-        topLevelTargetAspects,
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
         settings,
         labelPrinter);
-    this.accessor = new ConfiguredTargetAccessor(walkableGraphSupplier.get(), this);
+    this.accessor =
+        new ConfiguredTargetAccessor(walkableGraphSupplier.get(), this, topLevelTargetAspects);
     this.configuredTargetKeyExtractor = CqueryNode::getLookupKey;
     this.topLevelArtifactContext = topLevelArtifactContext;
   }
@@ -243,13 +243,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
         new StarlarkOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor, starlarkSemantics),
         new FilesOutputFormatterCallback(
-            eventHandler,
-            cqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            topLevelArtifactContext,
-            topLevelTargetAspects));
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, topLevelArtifactContext));
   }
 
   @Override

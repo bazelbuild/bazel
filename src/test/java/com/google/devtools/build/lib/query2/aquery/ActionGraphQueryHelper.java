@@ -44,7 +44,6 @@ public class ActionGraphQueryHelper extends PostAnalysisQueryHelper<ConfiguredTa
         extraFunctions,
         topLevelConfigurations,
         transitiveConfigurations,
-        topLevelTargetAspects,
         mainRepoTargetParser,
         analysisHelper.getPackageManager().getPackagePath(),
         () -> walkableGraph,

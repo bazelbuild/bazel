@@ -13,18 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -35,7 +31,6 @@ import java.io.OutputStream;
 public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   private final TopLevelArtifactContext topLevelArtifactContext;
-  private final ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects;
 
   FilesOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
@@ -43,13 +38,11 @@ public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<CqueryNode> accessor,
-      TopLevelArtifactContext topLevelArtifactContext,
-      ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects) {
+      TopLevelArtifactContext topLevelArtifactContext) {
     // Different targets may provide the same artifact, so we deduplicate the collection of all
     // results at the end.
     super(eventHandler, options, out, skyframeExecutor, accessor, /* uniquifyResults= */ true);
     this.topLevelArtifactContext = topLevelArtifactContext;
-    this.topLevelTargetAspects = topLevelTargetAspects;
   }
 
   @Override
@@ -67,15 +60,8 @@ public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
         continue;
       }
 
-      try {
-        cf =
-            MergedConfiguredTarget.of(
-                cf, topLevelTargetAspects.get((ConfiguredTargetKey) cf.getLookupKey()));
-      } catch (MergedConfiguredTarget.MergingException e) {
-        throw new IllegalStateException("Unexpected merging exception for " + cf, e);
-      }
-
-      TopLevelArtifactHelper.getAllArtifactsToBuild(cf, topLevelArtifactContext)
+      TopLevelArtifactHelper.getAllArtifactsToBuild(
+              (ConfiguredTarget) accessor.mergeWithTopLevelAspects(cf), topLevelArtifactContext)
           .getImportantArtifacts()
           .toList()
           .stream()

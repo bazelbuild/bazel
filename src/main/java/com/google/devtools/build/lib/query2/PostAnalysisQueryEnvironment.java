@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -29,7 +28,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AspectValue;
-import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -116,8 +114,6 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       skyKey -> (ConfiguredTargetKey) skyKey.argument();
 
   protected final TopLevelConfigurations topLevelConfigurations;
-  protected final ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect>
-      topLevelTargetAspects;
   private final TargetPattern.Parser mainRepoTargetParser;
   private final PathPackageLocator pkgPath;
   private final Supplier<WalkableGraph> walkableGraphSupplier;
@@ -148,7 +144,6 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
       ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
-      ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
@@ -157,7 +152,6 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     super(keepGoing, true, Rule.ALL_LABELS, eventHandler, settings, extraFunctions, labelPrinter);
     this.topLevelConfigurations = topLevelConfigurations;
     this.transitiveConfigurations = transitiveConfigurations;
-    this.topLevelTargetAspects = topLevelTargetAspects;
     this.mainRepoTargetParser = mainRepoTargetParser;
     this.pkgPath = pkgPath;
     this.walkableGraphSupplier = walkableGraphSupplier;
@@ -727,11 +721,6 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   @Override
   public void close() {}
-
-  @VisibleForTesting
-  public ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> getTopLevelTargetAspects() {
-    return topLevelTargetAspects;
-  }
 
   /** A wrapper class for the set of top-level configurations in a query. */
   public static class TopLevelConfigurations {

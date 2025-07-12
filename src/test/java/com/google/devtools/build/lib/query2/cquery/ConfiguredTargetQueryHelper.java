@@ -41,8 +41,7 @@ public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<CqueryN
       WalkableGraph walkableGraph,
       TopLevelConfigurations topLevelConfigurations,
       ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
-      ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects)
-      throws InterruptedException {
+      ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects) {
     ImmutableList<QueryFunction> extraFunctions =
         ImmutableList.copyOf(ConfiguredTargetQueryEnvironment.CQUERY_FUNCTIONS);
     return new ConfiguredTargetQueryEnvironment(

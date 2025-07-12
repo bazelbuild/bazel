@@ -228,7 +228,9 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
         thread.setMaxExecutionSteps(500_000L);
 
         // Invoke formatFn with `target` argument.
-        Object result = Starlark.positionalOnlyCall(thread, this.formatFn, target);
+        Object result =
+            Starlark.positionalOnlyCall(
+                thread, this.formatFn, accessor.mergeWithTopLevelAspects(target));
 
         addResult(Starlark.str(result, thread.getSemantics()));
       } catch (EvalException ex) {
