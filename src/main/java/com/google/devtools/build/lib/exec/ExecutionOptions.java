@@ -130,11 +130,19 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION},
       help =
           """
-          Filters spawn strategies by the execution platform.
-          Example: `--allowed_strategies_by_exec_platform=@platforms//host:host=local,sandboxed,worker`
-          to prevent actions configured for the host platform from being spawned remotely.
-          Example: `--allowed_strategies_by_exec_platform=//:linux_amd64=remote` to prevent actions
-          configured for a platform `//:linux_amd64` from being spawned locally.
+          Filters spawn strategies by the execution platform without affecting order.
+          For example:
+          ```
+          common --spawn_strategy=remote,sandboxed,worker,local
+          common --strategy=Genrule=local
+          common --allowed_strategies_by_exec_platform=@platforms//host:host=local,sandboxed,worker
+          common --allowed_strategies_by_exec_platform=//:linux_amd64=remote
+          ```
+          With the above options;
+          - Actions configured for the host platform will be given `remote,sandboxed,worker`.
+          - Actions configured for the `//:linux_amd64` platform will be given `remote`.
+          - Actions configured for the `//:linux_amd64` platform with mnemonic `Genrule` will be
+            given no strategies.
           """)
   public List<Map.Entry<Label, List<String>>> allowedStrategiesByExecPlatform;
 

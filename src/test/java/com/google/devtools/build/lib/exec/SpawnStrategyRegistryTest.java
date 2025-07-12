@@ -320,6 +320,27 @@ public class SpawnStrategyRegistryTest {
         .containsExactly(strategy1);
   }
 
+  /**
+   * Tests that platform filters not affect the strategy ordering.
+   */
+  @Test
+  public void testPlatformFilterOrder() throws Exception {
+    NoopStrategy strategy1 = new NoopStrategy("1");
+    NoopStrategy strategy2 = new NoopStrategy("2");
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder()
+            .registerStrategy(strategy1, "foo")
+            .registerStrategy(strategy2, "bar")
+            .addExecPlatformFilter(PlatformInfo.EMPTY_PLATFORM_INFO.label(), ImmutableList.of("bar", "foo"))
+            .build();
+
+    assertThat(
+            strategyRegistry.getStrategies(
+                createSpawnWithMnemonicAndDescription("", ""),
+                SpawnStrategyRegistryTest::noopEventHandler))
+        .containsExactly(strategy1, strategy2);
+  }
+
   @Test
   public void testMultipleDefaultStrategies() throws Exception {
     NoopStrategy strategy1 = new NoopStrategy("1");
