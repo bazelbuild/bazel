@@ -169,6 +169,7 @@ def _cc_import_impl(ctx):
         includes = cc_helper.system_include_dirs(ctx, additional_make_variable_substitutions),
         name = ctx.label.name,
         strip_include_prefix = ctx.attr.strip_include_prefix,
+        defines = cc_helper.defines(ctx, {}),
     )
 
     this_cc_info = CcInfo(compilation_context = compilation_context, linking_context = linking_context)
@@ -434,6 +435,16 @@ most build rules</a>."""),
             allow_files = True,
             flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
         ),
+        "defines": attr.string_list(doc = """
+List of defines to add to the compile line of this and all dependent targets.
+Subject to <a href="${link make-variables}">"Make" variable</a> substitution and
+<a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
+Each string, which must consist of a single Bourne shell token,
+is prepended with <code>-D</code> and added to the compile command line to this target,
+as well as to every rule that depends on it. Be very careful, since this may have
+far-reaching effects -- the defines are added to every target that depends on
+this target.
+"""),
         "_use_auto_exec_groups": attr.bool(default = True),
     },
     provides = [CcInfo],

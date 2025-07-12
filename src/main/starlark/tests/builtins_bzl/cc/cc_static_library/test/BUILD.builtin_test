@@ -73,6 +73,18 @@ cc_test(
     deps = [":static_import"],
 )
 
+cc_import(
+    name = "lib_with_define",
+    defines = ["IMPORT_DEFINE"],
+    static_library = ":lib_only",
+)
+
+cc_test(
+    name = "define_test",
+    srcs = ["require_define.cc"],
+    deps = [":lib_with_define"],
+)
+
 sh_test(
     name = "cc_static_library_integration_test",
     srcs = [
