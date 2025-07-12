@@ -341,6 +341,35 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void testExecutablesQuery() throws Exception {
+    write(
+        "donut/BUILD",
+        """
+        load('//test_defs:foo_binary.bzl', 'foo_binary')
+        foo_binary(
+            name = "bin",
+            srcs = ["thief.sh"],
+        )
+
+        cc_test(
+            name = "test",
+            srcs = ["shop.cc"],
+        )
+
+        cc_library(
+            name = "lib",
+            srcs = ["shop.cc"],
+        )
+        """);
+
+    // This should not throw an exception, and return 0 targets.
+    ProtoQueryOutput result = getProtoQueryResult("executables(//donut:all)");
+    QueryResult queryResult = result.getQueryResult();
+    assertThat(queryResult.getTargetCount()).isEqualTo(1);
+    assertQueryOutputContains(result.getQueryOutput(), "//donut:bin");
+  }
+
+  @Test
   public void testNonStrictTests() throws Exception {
     write(
         "donut/BUILD",

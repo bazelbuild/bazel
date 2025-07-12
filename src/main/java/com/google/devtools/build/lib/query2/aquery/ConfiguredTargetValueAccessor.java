@@ -89,6 +89,12 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<ConfiguredT
   }
 
   @Override
+  public boolean isExecutableRule(ConfiguredTargetValue configuredTargetValue) {
+    Target actualTarget = getTargetFromConfiguredTargetValue(configuredTargetValue);
+    return TargetUtils.isExecutableRule(actualTarget);
+  }
+
+  @Override
   public boolean isTestRule(ConfiguredTargetValue configuredTargetValue) {
     Target actualTarget = getTargetFromConfiguredTargetValue(configuredTargetValue);
     return TargetUtils.isTestRule(actualTarget);

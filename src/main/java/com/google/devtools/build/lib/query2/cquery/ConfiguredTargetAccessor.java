@@ -105,6 +105,12 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
   }
 
   @Override
+  public boolean isExecutableRule(CqueryNode target) {
+    Target actualTarget = getTarget(target);
+    return TargetUtils.isExecutableRule(actualTarget);
+  }
+
+  @Override
   public boolean isTestRule(CqueryNode target) {
     Target actualTarget = getTarget(target);
     return TargetUtils.isTestRule(actualTarget);
