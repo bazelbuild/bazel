@@ -2371,11 +2371,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         getPackageRoots());
   }
 
-  private PackageRoots getPackageRoots() {
-    Root virtualSourceRoot = directories.getVirtualSourceRoot();
-    return virtualSourceRoot != null
-        ? new VirtualPackageRoots(virtualSourceRoot)
-        : new MapAsPackageRoots(collectPackageRoots());
+  @ForOverride
+  protected PackageRoots getPackageRoots() {
+    return new MapAsPackageRoots(collectPackageRoots());
   }
 
   @Nullable

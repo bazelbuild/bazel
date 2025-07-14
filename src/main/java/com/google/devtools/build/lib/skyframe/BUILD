@@ -217,7 +217,6 @@ java_library(
         ":transitive_traversal_function",
         ":transitive_traversal_value",
         ":tree_artifact_value",
-        ":virtual_package_roots",
         ":workspace_info",
         ":workspace_info_receiver",
         ":workspace_status_function",
@@ -1938,8 +1937,8 @@ java_library(
 )
 
 java_library(
-    name = "virtual_package_roots",
-    srcs = ["VirtualPackageRoots.java"],
+    name = "single_source_package_roots",
+    srcs = ["SingleSourcePackageRoots.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

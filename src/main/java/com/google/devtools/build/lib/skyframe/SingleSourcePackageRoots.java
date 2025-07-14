@@ -21,22 +21,22 @@ import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.Root;
 
-/** {@link PackageRoots} with a single, virtual source root. */
-final class VirtualPackageRoots implements PackageRoots {
-  private final Root virtualSourceRoot;
+/** {@link PackageRoots} with a single source root. */
+public final class SingleSourcePackageRoots implements PackageRoots {
+  private final Root sourceRoot;
 
-  VirtualPackageRoots(Root virtualSourceRoot) {
-    this.virtualSourceRoot = checkNotNull(virtualSourceRoot);
+  public SingleSourcePackageRoots(Root sourceRoot) {
+    this.sourceRoot = checkNotNull(sourceRoot);
   }
 
   @Override
   public ImmutableMap<PackageIdentifier, Root> getPackageRootsMap() {
-    // Tells SymlinkForest to link all top-level path entries under the virtual source root.
-    return ImmutableMap.of(PackageIdentifier.EMPTY_PACKAGE_ID, virtualSourceRoot);
+    // Tells SymlinkForest to link all top-level path entries under the single source root.
+    return ImmutableMap.of(PackageIdentifier.EMPTY_PACKAGE_ID, sourceRoot);
   }
 
   @Override
   public PackageRootLookup getPackageRootLookup() {
-    return packageIdentifier -> virtualSourceRoot;
+    return packageIdentifier -> sourceRoot;
   }
 }
