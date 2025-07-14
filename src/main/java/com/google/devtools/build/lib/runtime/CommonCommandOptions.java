@@ -586,7 +586,7 @@ public class CommonCommandOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_repo_env_ignores_action_env",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
