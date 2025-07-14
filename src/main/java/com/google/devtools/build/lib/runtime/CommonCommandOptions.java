@@ -285,7 +285,7 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
           "Slims down the size of the JSON profile by merging events if the profile gets "
-              + " too large.")
+              + "too large.")
   public boolean slimProfile;
 
   @Option(
