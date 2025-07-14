@@ -132,6 +132,15 @@ java_library(
 )
 
 java_library(
+    name = "baseline-cl-diff-event",
+    srcs = ["buildtool/BaselineClDiffEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_info",
+    ],
+)
+
+java_library(
     name = "buildtool/symlink_forest",
     srcs = ["buildtool/SymlinkForest.java"],
     deps = [
@@ -308,6 +317,7 @@ java_library(
         ],
         exclude = [
             "buildtool/BuildRequestOptions.java",
+            "buildtool/BaselineCLDiffEvent.java",
             "buildtool/SymlinkForest.java",
             "runtime/BlazeCommandResult.java",
             "runtime/CommandDispatcher.java",
@@ -324,6 +334,7 @@ java_library(
         ],
     ),
     deps = [
+        ":baseline-cl-diff-event",
         ":build-request-options",
         ":buildtool/symlink_forest",
         ":keep-going-option",
