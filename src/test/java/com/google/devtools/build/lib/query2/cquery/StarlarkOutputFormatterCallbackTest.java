@@ -75,8 +75,15 @@ public final class StarlarkOutputFormatterCallbackTest extends ConfiguredTargetQ
                     shared = depset([shared_output_group]),
                 ),
                 FirstAspectInfo(),
-            ]
-        a = aspect(implementation = _a_impl)
+            ] + (
+                [SecondAspectInfo()] if ctx.attr.collide else []
+            )
+        a = aspect(
+            implementation = _a_impl,
+            attrs = {
+                'collide': attr.string(),
+            },
+        )
         def _b_impl(target, ctx):
             custom_output_group = ctx.actions.declare_file(target.label.name + '_custom_b_file')
             shared_output_group = ctx.actions.declare_file(target.label.name + '_shared_b_file')
@@ -162,13 +169,13 @@ public final class StarlarkOutputFormatterCallbackTest extends ConfiguredTargetQ
                 "[f.basename for f in providers(target)['OutputGroupInfo'].custom.to_list()]",
                 "//defs:rules.bzl%a",
                 "//defs:rules.bzl%b"))
-        .isEqualTo(strList("main_custom_b_file", "main_custom_a_file"));
+        .isEqualTo(strList("main_custom_a_file", "main_custom_b_file"));
     assertThat(
             getOutput(
                 "[f.basename for f in providers(target)['OutputGroupInfo'].shared.to_list()]",
                 "//defs:rules.bzl%a",
                 "//defs:rules.bzl%b"))
-        .isEqualTo(strList("BUILD", "main_shared_b_file", "main_shared_a_file"));
+        .isEqualTo(strList("BUILD", "main_shared_a_file", "main_shared_b_file"));
     assertThat(
             getOutput(
                 "sorted(providers(target).keys())", "//defs:rules.bzl%a", "//defs:rules.bzl%b"))
