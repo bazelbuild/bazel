@@ -8,20 +8,25 @@ common:remote_shared --remote_timeout=600
 common:remote_shared --google_default_credentials
 common:remote_shared --jobs=100
 common:remote_shared --action_env=PATH=/bin:/usr/bin:/usr/local/bin
-common:remote_shared --java_runtime_version=rbe_jdk
-common:remote_shared --tool_java_runtime_version=rbe_jdk
+
+common:remote_bazelci --config=remote_shared
+common:remote_bazelci --host_platform=@bazelci//:platform
+common:remote_bazelci --platforms=@bazelci//:platform
+common:remote_bazelci --extra_execution_platforms=@bazelci//:platform
 
 # Configuration to build and test Bazel on RBE on Ubuntu 18.04 with Java 11
-common:ubuntu2004 --extra_toolchains=@rbe_ubuntu2004//java:all
-common:ubuntu2004 --crosstool_top=@rbe_ubuntu2004//cc:toolchain
-common:ubuntu2004 --extra_toolchains=@rbe_ubuntu2004//config:cc-toolchain
-common:ubuntu2004 --extra_execution_platforms=//:rbe_ubuntu2004_platform,//:rbe_ubuntu2004_highcpu_platform
-common:ubuntu2004 --host_platform=//:rbe_ubuntu2004_platform
-common:ubuntu2004 --platforms=//:rbe_ubuntu2004_platform
-common:ubuntu2004 --config=remote_shared
+common:remobe_ubuntu2004 --java_runtime_version=rbe_jdk
+common:remobe_ubuntu2004 --tool_java_runtime_version=rbe_jdk
+common:remobe_ubuntu2004 --extra_toolchains=@rbe_ubuntu2004//java:all
+common:remobe_ubuntu2004 --crosstool_top=@rbe_ubuntu2004//cc:toolchain
+common:remobe_ubuntu2004 --extra_toolchains=@rbe_ubuntu2004//config:cc-toolchain
+common:remobe_ubuntu2004 --extra_execution_platforms=//:rbe_ubuntu2004_platform,//:rbe_ubuntu2004_highcpu_platform
+common:remobe_ubuntu2004 --host_platform=//:rbe_ubuntu2004_platform
+common:remobe_ubuntu2004 --platforms=//:rbe_ubuntu2004_platform
+common:remobe_ubuntu2004 --config=remote_shared
 
 # Alias
-common:remote --config=ubuntu2004
+common:remote --config=remote_ubuntu2004
 
 common:macos --host_macos_minimum_os=10.13
 common:macos --macos_minimum_os=10.13
