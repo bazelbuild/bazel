@@ -269,6 +269,13 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
             .getConfiguredTarget();
   }
 
+  ImmutableList<ConfiguredAspect> getTopLevelAspects(CqueryNode cn) {
+    if (!(cn.getLookupKey() instanceof ConfiguredTargetKey key)) {
+      return ImmutableList.of();
+    }
+    return topLevelTargetAspects.get(key);
+  }
+
   CqueryNode mergeWithTopLevelAspects(CqueryNode cn) {
     if (!(cn.getLookupKey() instanceof ConfiguredTargetKey key)) {
       return cn;

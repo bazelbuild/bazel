@@ -49,6 +49,7 @@ public final class FilesOutputFormatterCallbackTest extends ConfiguredTargetQuer
     writeFile(
         "defs/rules.bzl",
         """
+        AspectInfo = provider()
         def _r_impl(ctx):
             default_file = ctx.actions.declare_file(ctx.attr.name + '_default_file')
             output_group_only = ctx.actions.declare_file(ctx.attr.name + '_output_group_only')
@@ -86,17 +87,37 @@ public final class FilesOutputFormatterCallbackTest extends ConfiguredTargetQuer
             },
         )
         def _a_impl(target, ctx):
-            custom_output_group = ctx.actions.declare_file(target.label.name + '_custom_aspect_file')
-            shared_output_group = ctx.actions.declare_file(target.label.name + '_shared_aspect_file')
+            custom_output_group = ctx.actions.declare_file(target.label.name + '_custom_aspect_a_file')
+            shared_output_group = ctx.actions.declare_file(target.label.name + '_shared_aspect_a_file')
             ctx.actions.run_shell(
                 outputs = [custom_output_group, shared_output_group],
                 command = "touch %s && touch %s" % (custom_output_group.path, shared_output_group.path),
             )
-            return [OutputGroupInfo(
-                aspect_files = depset([custom_output_group]),
-                foobar = depset([shared_output_group]),
-            )]
+            return [
+                OutputGroupInfo(
+                    aspect_files = depset([custom_output_group]),
+                    foobar = depset([shared_output_group]),
+                ),
+                # Collides with aspect b.
+                AspectInfo(),
+            ]
         a = aspect(implementation = _a_impl)
+        def _b_impl(target, ctx):
+            custom_output_group = ctx.actions.declare_file(target.label.name + '_custom_aspect_b_file')
+            shared_output_group = ctx.actions.declare_file(target.label.name + '_shared_aspect_b_file')
+            ctx.actions.run_shell(
+                outputs = [custom_output_group, shared_output_group],
+                command = "touch %s && touch %s" % (custom_output_group.path, shared_output_group.path),
+            )
+            return [
+                OutputGroupInfo(
+                    aspect_files = depset([custom_output_group]),
+                    foobar = depset([shared_output_group]),
+                ),
+                # Collides with aspect a.
+                AspectInfo(),
+            ]
+        b = aspect(implementation = _b_impl)
         """);
     writeFile("defs/BUILD", "exports_files(['rules.bzl'])");
     writeFile(
@@ -188,7 +209,7 @@ public final class FilesOutputFormatterCallbackTest extends ConfiguredTargetQuer
             .collect(Collectors.<String>partitioningBy(path -> path.matches("^[^/]*-out/.*")));
     assertThat(sourceAndGeneratedFiles.get(false)).isEmpty();
     assertContainsExactlyWithBinDirPrefix(
-        sourceAndGeneratedFiles.get(true), "pkg/other_custom_aspect_file");
+        sourceAndGeneratedFiles.get(true), "pkg/other_custom_aspect_a_file");
   }
 
   @Test
@@ -202,7 +223,41 @@ public final class FilesOutputFormatterCallbackTest extends ConfiguredTargetQuer
     assertContainsExactlyWithBinDirPrefix(
         sourceAndGeneratedFiles.get(true),
         "pkg/other_output_group_only",
-        "pkg/other_shared_aspect_file");
+        "pkg/other_shared_aspect_a_file");
+  }
+
+  @Test
+  public void withAspects_customOutputGroupOnly() throws Exception {
+    List<String> output =
+        getOutput(
+            "//pkg:other",
+            ImmutableList.of("aspect_files"),
+            "//defs:rules.bzl%a",
+            "//defs:rules.bzl%b");
+    var sourceAndGeneratedFiles =
+        output.stream()
+            .collect(Collectors.<String>partitioningBy(path -> path.matches("^[^/]*-out/.*")));
+    assertThat(sourceAndGeneratedFiles.get(false)).isEmpty();
+    assertContainsExactlyWithBinDirPrefix(
+        sourceAndGeneratedFiles.get(true),
+        "pkg/other_custom_aspect_b_file",
+        "pkg/other_custom_aspect_a_file");
+  }
+
+  @Test
+  public void withAspects_sharedOutputGroupOnly() throws Exception {
+    List<String> output =
+        getOutput(
+            "//pkg:other", ImmutableList.of("foobar"), "//defs:rules.bzl%a", "//defs:rules.bzl%b");
+    var sourceAndGeneratedFiles =
+        output.stream()
+            .collect(Collectors.<String>partitioningBy(path -> path.matches("^[^/]*-out/.*")));
+    assertThat(sourceAndGeneratedFiles.get(false)).containsExactly("pkg/BUILD");
+    assertContainsExactlyWithBinDirPrefix(
+        sourceAndGeneratedFiles.get(true),
+        "pkg/other_output_group_only",
+        "pkg/other_shared_aspect_b_file",
+        "pkg/other_shared_aspect_a_file");
   }
 
   private static void assertContainsExactlyWithBinDirPrefix(
