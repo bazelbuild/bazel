@@ -38,6 +38,7 @@ PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     # C++ rules
     ("", "bazel_internal/test_rules/cc"),
     ("", "third_party/bazel_rules/rules_cc"),
+    ("", "tools/build_defs/cc"),
     ("rules_cc", ""),
     # CUDA rules
     ("", "third_party/gpus/cuda"),
