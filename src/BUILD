@@ -405,7 +405,6 @@ filegroup(
         "//src/test/tools:srcs",
         "//src/test/tools/bzlmod:srcs",
         "//src/test/tools/test_repos:srcs",
-        "//src/tools/android:srcs",
         "//src/tools/bzlmod:srcs",
         "//src/tools/diskcache:srcs",
         "//src/tools/execlog:srcs",
