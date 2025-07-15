@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -26,7 +25,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
-import java.util.List;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.syntax.Location;
 
@@ -89,21 +87,5 @@ public final class CcNativeLibraryInfo {
   @Deprecated
   public NestedSet<LibraryToLink> getTransitiveCcNativeLibrariesForTests() {
     return LibraryToLink.wrap(getTransitiveCcNativeLibraries(value));
-  }
-
-  /** Merge several CcNativeLibraryInfo objects into one. */
-  public static StarlarkInfo merge(List<StarlarkInfo> providers) {
-    if (providers.isEmpty()) {
-      return EMPTY;
-    } else if (providers.size() == 1) {
-      return Iterables.getOnlyElement(providers);
-    }
-
-    // TODO(b/425863238): Test the order of CCInfo.libraries_to_link
-    NestedSetBuilder<StarlarkInfo> transitiveCcNativeLibraries = NestedSetBuilder.linkOrder();
-    for (StarlarkInfo provider : providers) {
-      transitiveCcNativeLibraries.addTransitive(getTransitiveCcNativeLibraries(provider));
-    }
-    return CcNativeLibraryInfo.of(transitiveCcNativeLibraries.build());
   }
 }

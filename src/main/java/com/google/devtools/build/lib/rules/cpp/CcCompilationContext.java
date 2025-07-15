@@ -785,17 +785,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
     /**
      * Merges the given {@code CcCompilationContext}s into this one by adding the contents of their
-     * attributes.
-     */
-    @CanIgnoreReturnValue
-    public Builder addDependentCcCompilationContexts(
-        Iterable<CcCompilationContext> ccCompilationContexts) {
-      deps.addAll(ccCompilationContexts);
-      return this;
-    }
-
-    /**
-     * Merges the given {@code CcCompilationContext}s into this one by adding the contents of their
      * attributes, and re-exporting the direct headers and module maps of {@code
      * exportedCcCompilationContexts} through this one.
      */

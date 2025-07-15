@@ -157,7 +157,9 @@ are not intended to be dependencies of other Java targets.
       structField = true,
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API,
       doc = "Deprecated, do not use. C++ libraries to be linked into Java targets.")
-  CcInfoApi<FileT> getCcLinkParamInfo();
+  default CcInfoApi<FileT> getCcLinkParamInfo() {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "module_flags_info",

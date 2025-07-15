@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
@@ -46,7 +45,6 @@ import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec.FieldHa
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
 import com.google.errorprone.annotations.Keep;
@@ -93,14 +91,6 @@ public sealed class JavaInfo extends NativeInfo
       }
     }
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  }
-
-  public static CcInfo ccInfo(TransitiveInfoCollection target) throws RuleErrorException {
-    JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
-    if (javaInfo != null && javaInfo.providerJavaCcInfo != null) {
-      return javaInfo.providerJavaCcInfo.ccInfo();
-    }
-    return CcInfo.EMPTY;
   }
 
   /** Marker interface for encapuslated providers */
@@ -390,11 +380,6 @@ public sealed class JavaInfo extends NativeInfo
   @Override
   public Depset /*<LibraryToLink>*/ getTransitiveNativeLibrariesForStarlark() {
     throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public CcInfoApi<Artifact> getCcLinkParamInfo() {
-    return providerJavaCcInfo != null ? providerJavaCcInfo.ccInfo() : CcInfo.EMPTY;
   }
 
   @Override

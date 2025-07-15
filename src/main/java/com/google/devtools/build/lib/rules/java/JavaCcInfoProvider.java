@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -27,7 +25,6 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import java.util.Collection;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
@@ -48,13 +45,6 @@ public record JavaCcInfoProvider(CcInfo ccInfo) implements JavaInfoInternalProvi
             .setCcNativeLibraryInfo(ccInfo.getCcNativeLibraryInfo())
             .setCcDebugInfoContext(ccInfo.getCcDebugInfoContext())
             .build());
-  }
-
-  /** Merges several JavaCcInfoProvider providers into one. */
-  public static JavaCcInfoProvider merge(Collection<JavaCcInfoProvider> providers) {
-    ImmutableList<CcInfo> ccInfos =
-        providers.stream().map(JavaCcInfoProvider::ccInfo).collect(toImmutableList());
-    return create(CcInfo.merge(ccInfos));
   }
 
   @Nullable
