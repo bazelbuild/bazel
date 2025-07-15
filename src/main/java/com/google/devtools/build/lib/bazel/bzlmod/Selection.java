@@ -15,12 +15,16 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static java.util.Comparator.comparing;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import java.util.ArrayDeque;
@@ -204,10 +208,17 @@ final class Selection {
                   DepSpec.create(
                       depSpec.name(),
                       selectedVersions.get(selectionGroups.get(depSpec.toModuleKey())),
-                      -1));
+                      depSpec.maxCompatibilityLevel()));
 
       // Add all updated modules to the un-pruned dep graph.
-      unprunedDepGraphBuilder.put(key, updatedModule);
+      unprunedDepGraphBuilder.put(
+          key,
+          module.withDepsAndNodepDepsTransformed(
+              depSpec ->
+                  DepSpec.create(
+                      depSpec.name(),
+                      selectedVersions.get(selectionGroups.get(depSpec.toModuleKey())),
+                      -1)));
 
       // Remove any dep whose version isn't selected from the resolved graph.
       Version selectedVersion = selectedVersions.get(selectionGroups.get(module.getKey()));
@@ -221,11 +232,51 @@ final class Selection {
 
     // Further, removes unreferenced modules from the graph. We can find out which modules are
     // referenced by collecting deps transitively from the root.
-    // We can also take this opportunity to check that none of the remaining modules conflict with
-    // each other (e.g. same module name but different compatibility levels, or not satisfying
-    // multiple_version_override).
-    ImmutableMap<ModuleKey, InterimModule> prunedDepGraph =
-        new DepGraphWalker(newDepGraph, overrides, selectionGroups).walk();
+    var prunedNonUnifiedDepGraph =
+        new DepGraphWalker(newDepGraph, overrides, selectionGroups).walk(/* validate= */ false);
+
+    var selectionGroupsByName =
+        selectionGroups.entrySet().stream()
+            .collect(
+                Multimaps.toMultimap(
+                    entry -> entry.getKey().name(),
+                    Map.Entry::getValue,
+                    MultimapBuilder.hashKeys()
+                            .treeSetValues(
+                                comparing(SelectionGroup::compatibilityLevel)
+                                    .thenComparing(SelectionGroup::targetAllowedVersion))
+                        ::build));
+
+    // Upgrade deps with max_compatibility_level to the next higher supported compatibility level
+    // (if using a multiple-version override) or else the highest compatibility level that remains
+    // in the graph.
+    var prunedUnifiedDepGraph =
+        ImmutableMap.copyOf(
+            Maps.transformValues(
+                prunedNonUnifiedDepGraph,
+                module ->
+                    module.withDepsAndNodepDepsTransformed(
+                        depSpec -> {
+                          if (depSpec.maxCompatibilityLevel() == -1) {
+                            return depSpec;
+                          }
+                          if (overrides.get(depSpec.name()) instanceof MultipleVersionOverride) {
+                            return depSpec;
+                          }
+                          var newDepSpec =
+                              new DepSpec(
+                                  depSpec.name(),
+                                  selectedVersions.get(
+                                      selectionGroupsByName.get(depSpec.name()).last()),
+                                  -1);
+                          return newDepSpec;
+                        })));
+
+    // Check that none of the remaining modules conflict with each other (e.g. same module name but
+    // different compatibility levels, or not satisfying multiple_version_override).
+    var prunedDepGraph =
+        new DepGraphWalker(prunedUnifiedDepGraph, overrides, selectionGroups)
+            .walk(/* validate= */ true);
 
     // Return the result containing both the pruned and un-pruned dep graphs
     return new Result(prunedDepGraph, unprunedDepGraph);
@@ -256,7 +307,7 @@ final class Selection {
      * Walks the old dep graph and builds a new dep graph containing only deps reachable from the
      * root module. The returned map has a guaranteed breadth-first iteration order.
      */
-    ImmutableMap<ModuleKey, InterimModule> walk() throws ExternalDepsException {
+    ImmutableMap<ModuleKey, InterimModule> walk(boolean validate) throws ExternalDepsException {
       ImmutableMap.Builder<ModuleKey, InterimModule> newDepGraph = ImmutableMap.builder();
       Set<ModuleKey> known = new HashSet<>();
       Queue<ModuleKeyAndDependent> toVisit = new ArrayDeque<>();
@@ -266,7 +317,9 @@ final class Selection {
         ModuleKeyAndDependent moduleKeyAndDependent = toVisit.remove();
         ModuleKey key = moduleKeyAndDependent.moduleKey();
         InterimModule module = oldDepGraph.get(key);
-        visit(key, module, moduleKeyAndDependent.dependent());
+        if (validate) {
+          visit(key, module, moduleKeyAndDependent.dependent());
+        }
 
         for (DepSpec depSpec : module.getDeps().values()) {
           if (known.add(depSpec.toModuleKey())) {
