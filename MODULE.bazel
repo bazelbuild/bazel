@@ -42,6 +42,7 @@ bazel_dep(name = "zstd-jni", version = "1.5.6-9")
 # Depend on apple_support first and then rules_cc so that the Xcode toolchain
 # from apple_support wins over the generic Unix toolchain from rules_cc.
 bazel_dep(name = "apple_support", version = "1.22.1")
+bazel_dep(name = "toolchains_musl", version = "0.1.26")
 bazel_dep(name = "rules_cc", version = "0.1.2")
 
 # TODO: wyv@ - add remoteapis to the BCR
