@@ -23,6 +23,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
@@ -350,6 +351,39 @@ public final class SharedValueDeserializationContextTest {
         .contains(
             "missing shared value bytes for a [Ljava.lang.Object; instance belonging to a"
                 + " com.google.devtools.build.lib.skyframe.serialization.NotNestedSet instance");
+  }
+
+  @Test
+  public void sharedValueIsDecompressed(@TestParameter boolean compress) throws Exception {
+    GetRecordingStore store = new GetRecordingStore();
+    FingerprintValueService fingerprintValueService =
+        FingerprintValueService.createForTesting(store);
+    ObjectCodecs codecs = createObjectCodecs();
+    byte[] bytes = new byte[compress ? 2000 : 1000];
+    NotNestedSet subject =
+        new NotNestedSet(
+            new Object[] {
+              bytes,
+            });
+
+    SerializationResult<ByteString> serialized =
+        codecs.serializeMemoizedAndBlocking(
+            fingerprintValueService, subject, /* profileCollector= */ null);
+    ListenableFuture<Void> writeStatus = serialized.getFutureToBlockWritesOn();
+    if (writeStatus != null) {
+      assertThat(writeStatus.get()).isNull();
+    }
+
+    ListenableFuture<Object> result =
+        deserializeWithExecutor(codecs, fingerprintValueService, serialized.getObject());
+
+    ImmutableList<byte[]> storeValues =
+        ImmutableList.copyOf(store.getFingerprintToContents().values());
+    assertThat(storeValues).hasSize(1);
+    assertThat(storeValues.get(0)).hasLength(compress ? 23 : 1007);
+
+    store.takeFirstRequest().complete();
+    verifyDeserializedNotNestedSet(subject, (NotNestedSet) result.get());
   }
 
   private static class InternedValue {

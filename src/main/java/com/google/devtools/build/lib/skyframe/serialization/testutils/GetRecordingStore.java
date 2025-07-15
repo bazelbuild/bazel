@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import javax.annotation.Nullable;
@@ -50,6 +51,10 @@ public final class GetRecordingStore implements FingerprintValueStore {
 
   public GetRequest takeFirstRequest() throws InterruptedException {
     return requestQueue.take();
+  }
+
+  public Map<KeyBytesProvider, byte[]> getFingerprintToContents() {
+    return fingerprintToContents;
   }
 
   @Nullable

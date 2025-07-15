@@ -102,6 +102,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party/pprof:profile_java_proto",
         "@com_google_protobuf//:protobuf_java",
+        "@zstd-jni",
     ],
 )
 

@@ -19,6 +19,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.FutureHelpers.waitForDeserializationFuture;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
+import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.util.concurrent.AbstractFuture;
@@ -35,7 +36,9 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult.QueryDepCallback;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -373,7 +376,10 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
       SharedValueDeserializationContext innerContext = getFreshContext();
       DeferredValue<?> deferred;
       try {
-        deferred = codec.deserializeDeferred(innerContext, CodedInputStream.newInstance(bytes));
+        try (InputStream inputStream = maybeDecompressBytes(bytes)) {
+          deferred =
+              codec.deserializeDeferred(innerContext, CodedInputStream.newInstance(inputStream));
+        }
       } catch (SerializationException | IOException | RuntimeException | Error e) {
         onFailure(e);
         return;
@@ -415,6 +421,15 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
       }
       getOperation.setException(t);
     }
+  }
+
+  private static InputStream maybeDecompressBytes(byte[] bytes) throws IOException {
+    ByteArrayInputStream byteArrayInputStream =
+        new ByteArrayInputStream(bytes, 1, bytes.length - 1);
+    if (bytes[0] == (byte) 0) {
+      return byteArrayInputStream;
+    }
+    return new ZstdInputStream(byteArrayInputStream);
   }
 
   @Override

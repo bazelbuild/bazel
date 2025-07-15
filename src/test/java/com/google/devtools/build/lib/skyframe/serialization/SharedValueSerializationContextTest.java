@@ -16,9 +16,11 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.InMemoryFingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
 import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.SettableWriteStatus;
@@ -26,6 +28,8 @@ import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteS
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,9 +39,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class SharedValueSerializationContextTest {
   private static final int CONCURRENCY = 20;
 
@@ -330,6 +333,24 @@ public final class SharedValueSerializationContextTest {
                 codecs.serializeMemoizedAndBlocking(
                     fingerprintValueService, subject2, /* profileCollector= */ null));
     assertThat(thrown2).isSameInstanceAs(thrown1);
+  }
+
+  @Test
+  public void sharedValueIsCompressed(@TestParameter boolean compress) throws Exception {
+    InMemoryFingerprintValueStore store = new InMemoryFingerprintValueStore();
+    FingerprintValueService fingerprintValueService =
+        FingerprintValueService.createForTesting(store);
+    ObjectCodecs codecs = createObjectCodecs();
+    byte[] byteArray = new byte[compress ? 2000 : 1000];
+    Object[] a = new Object[] {byteArray};
+
+    var unused =
+        codecs.serializeMemoizedAndBlocking(
+            fingerprintValueService, new NotNestedSet(a), /* profileCollector= */ null);
+
+    ImmutableList<byte[]> storeValues = ImmutableList.copyOf(store.fingerprintToContents.values());
+    assertThat(storeValues).hasSize(1);
+    assertThat(storeValues.get(0)).hasLength(compress ? 23 : 1007);
   }
 
   /** Test data for {@link #errorInSharedPut}. */
