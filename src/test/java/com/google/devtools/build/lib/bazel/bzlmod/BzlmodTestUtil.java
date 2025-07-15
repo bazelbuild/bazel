@@ -45,14 +45,6 @@ public final class BzlmodTestUtil {
     }
   }
 
-  public static DepSpec createDepSpec(String name, String version, int maxCompatibilityLevel) {
-    try {
-      return DepSpec.create(name, Version.parse(version), maxCompatibilityLevel);
-    } catch (Version.ParseException e) {
-      throw new IllegalArgumentException(e);
-    }
-  }
-
   public static Module.Builder buildModule(String name, String version) throws Exception {
     return Module.builder()
         .setName(name)
@@ -107,20 +99,8 @@ public final class BzlmodTestUtil {
     }
 
     @CanIgnoreReturnValue
-    public InterimModuleBuilder addDep(String depRepoName, DepSpec depSpec) {
-      deps.put(depRepoName, depSpec);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
     public InterimModuleBuilder addOriginalDep(String depRepoName, ModuleKey key) {
       originalDeps.put(depRepoName, DepSpec.fromModuleKey(key));
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public InterimModuleBuilder addOriginalDep(String depRepoName, DepSpec depSpec) {
-      originalDeps.put(depRepoName, depSpec);
       return this;
     }
 
