@@ -112,10 +112,10 @@ public class LcovPrinterTest {
   @Test
   public void testPrintBrdaLines() throws Exception {
     SourceFileCoverage sourceFile = new SourceFileCoverage("foo");
-    sourceFile.addNewBrdaBranch(3, "0", "0", true, 1);
-    sourceFile.addNewBrdaBranch(3, "0", "1", true, 0);
-    sourceFile.addNewBrdaBranch(7, "0", "0", false, 0);
-    sourceFile.addNewBrdaBranch(7, "0", "1", false, 0);
+    sourceFile.addNewBranch(3, "0", "0", true, 1);
+    sourceFile.addNewBranch(3, "0", "1", true, 0);
+    sourceFile.addNewBranch(7, "0", "0", false, 0);
+    sourceFile.addNewBranch(7, "0", "1", false, 0);
     Coverage coverage = new Coverage();
     coverage.add(sourceFile);
 
@@ -144,14 +144,14 @@ public class LcovPrinterTest {
   public void testPrintBaLines() throws Exception {
     Coverage coverage = new Coverage();
     SourceFileCoverage sourceFile = new SourceFileCoverage("foo");
-    sourceFile.addNewBranch(3, 2);
-    sourceFile.addNewBranch(3, 1);
-    sourceFile.addNewBranch(7, 0);
-    sourceFile.addNewBranch(7, 0);
+    sourceFile.addNewBranch(3, "0", "0", true, 1);
+    sourceFile.addNewBranch(3, "0", "1", true, 0);
+    sourceFile.addNewBranch(7, "0", "0", false, 0);
+    sourceFile.addNewBranch(7, "0", "1", false, 0);
     coverage.add(sourceFile);
 
     ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
-    LcovPrinter.print(byteOutputStream, coverage);
+    LcovPrinter.print(byteOutputStream, coverage, true);
     Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString(UTF_8));
 
     assertThat(fileLines)

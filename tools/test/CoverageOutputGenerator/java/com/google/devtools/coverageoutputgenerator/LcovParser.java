@@ -251,14 +251,36 @@ class LcovParser {
     }
     try {
       int lineNumber = Integer.parseInt(lineData[0]);
-      int taken = Integer.parseInt(lineData[1]);
-      if (taken < 0 || taken > 2) {
-        logger.log(
-            Level.WARNING,
-            "Tracefile contains invalid BA " + line + " - value not one of {0, 1, 2}");
-        return false;
+      int execValue = Integer.parseInt(lineData[1]);
+      boolean evaluated = false;
+      long execCount = 0;
+      switch (execValue) {
+        case 0:
+          // Branch was never evaluated.
+          evaluated = false;
+          execCount = 0;
+          break;
+        case 1:
+          // Branch was evaluated, but not taken.
+          evaluated = true;
+          execCount = 0;
+          break;
+        case 2:
+          // Branch was taken. We don't know how often, so simply record "1".
+          evaluated = true;
+          execCount = 1;
+          break;
+        default:
+          logger.log(
+              Level.WARNING,
+              "Tracefile contains invalid BA " + line + " - value not one of {0, 1, 2}");
+          return false;
       }
-      currentSourceFileCoverage.addNewBranch(lineNumber, taken);
+      int branchNumber = currentSourceFileCoverage.getBranches(lineNumber).size();
+      currentSourceFileCoverage.addBranch(
+          lineNumber,
+          BranchCoverage.create(
+              lineNumber, "0", Integer.toString(branchNumber), evaluated, execCount));
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "Tracefile contains an invalid number BA line " + line);
       return false;
@@ -293,7 +315,7 @@ class LcovParser {
         wasEvaluated = true;
       }
       BranchCoverage branchCoverage =
-          BranchCoverage.createWithBlockAndBranch(
+          BranchCoverage.create(
               lineNumber, blockNumber, branchNumber, wasEvaluated, executionCount);
 
       currentSourceFileCoverage.addBranch(lineNumber, branchCoverage);

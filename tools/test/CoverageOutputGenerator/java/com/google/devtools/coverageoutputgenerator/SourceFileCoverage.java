@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MultimapBuilder;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -179,6 +180,10 @@ class SourceFileCoverage {
     return branches.values();
   }
 
+  List<BranchCoverage> getBranches(int lineNumber) {
+    return branches.get(lineNumber);
+  }
+
   @VisibleForTesting
   Map<Integer, Long> getLines() {
     return lines;
@@ -204,23 +209,15 @@ class SourceFileCoverage {
     this.functionsExecution.putAll(functionsExecution);
   }
 
-  /** Creates and adds a new "BA" branch to the source file. */
-  void addNewBranch(int lineNumber, int takenValue) {
-    int branchNumber = branches.get(lineNumber).size();
-    BranchCoverage branch = BranchCoverage.create(lineNumber, branchNumber, takenValue);
-    addBranch(lineNumber, branch);
-  }
-
-  /** Creates and adds a new "BRDA" branch to the source file. */
-  void addNewBrdaBranch(
+  /** Creates and adds a new branch to the source file. */
+  void addNewBranch(
       int lineNumber,
       String blockNumber,
       String branchNumber,
       boolean evaluated,
       long executionCount) {
     BranchCoverage branch =
-        BranchCoverage.createWithBlockAndBranch(
-            lineNumber, blockNumber, branchNumber, evaluated, executionCount);
+        BranchCoverage.create(lineNumber, blockNumber, branchNumber, evaluated, executionCount);
     addBranch(lineNumber, branch);
   }
 

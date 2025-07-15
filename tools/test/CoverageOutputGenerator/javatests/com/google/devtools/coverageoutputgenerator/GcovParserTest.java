@@ -155,21 +155,21 @@ public class GcovParserTest {
 
     assertThat(sourceFileCoverage.getAllBranches())
         .containsExactly(
-            BranchCoverage.createWithDummyBlock(21, "0", true, 1),
-            BranchCoverage.createWithDummyBlock(21, "1", true, 0),
-            BranchCoverage.createWithDummyBlock(23, "0", true, 1),
-            BranchCoverage.createWithDummyBlock(23, "1", true, 0),
-            BranchCoverage.createWithDummyBlock(24, "0", true, 1),
-            BranchCoverage.createWithDummyBlock(24, "1", true, 0),
-            BranchCoverage.createWithDummyBlock(27, "0", true, 1),
-            BranchCoverage.createWithDummyBlock(27, "1", true, 1),
-            BranchCoverage.createWithDummyBlock(30, "0", true, 0),
-            BranchCoverage.createWithDummyBlock(30, "1", true, 1),
-            BranchCoverage.createWithDummyBlock(32, "0", true, 0),
-            BranchCoverage.createWithDummyBlock(32, "1", true, 1),
-            BranchCoverage.createWithDummyBlock(33, "0", false, 0),
-            BranchCoverage.createWithDummyBlock(33, "1", false, 0),
-            BranchCoverage.createWithDummyBlock(35, "0", true, 1),
-            BranchCoverage.createWithDummyBlock(35, "1", true, 0));
+            BranchCoverage.create(21, "0", "0", true, 1),
+            BranchCoverage.create(21, "0", "1", true, 0),
+            BranchCoverage.create(23, "0", "0", true, 1),
+            BranchCoverage.create(23, "0", "1", true, 0),
+            BranchCoverage.create(24, "0", "0", true, 1),
+            BranchCoverage.create(24, "0", "1", true, 0),
+            BranchCoverage.create(27, "0", "0", true, 1),
+            BranchCoverage.create(27, "0", "1", true, 1),
+            BranchCoverage.create(30, "0", "0", true, 0),
+            BranchCoverage.create(30, "0", "1", true, 1),
+            BranchCoverage.create(32, "0", "0", true, 0),
+            BranchCoverage.create(32, "0", "1", true, 1),
+            BranchCoverage.create(33, "0", "0", false, 0),
+            BranchCoverage.create(33, "0", "1", false, 0),
+            BranchCoverage.create(35, "0", "0", true, 1),
+            BranchCoverage.create(35, "0", "1", true, 0));
   }
 }

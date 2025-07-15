@@ -72,8 +72,8 @@ public class GcovJsonParser {
           for (GcovJsonBranch branch : line.branches) {
             currentFileCoverage.addBranch(
                 line.line_number,
-                BranchCoverage.createWithDummyBlock(
-                    line.line_number, Integer.toString(branchNumber), taken, branch.count));
+                BranchCoverage.create(
+                    line.line_number, "0", Integer.toString(branchNumber), taken, branch.count));
             branchNumber += 1;
           }
         }

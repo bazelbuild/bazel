@@ -31,14 +31,22 @@ import java.util.Map.Entry;
 class LcovPrinter {
   private final BufferedWriter bufferedWriter;
 
-  private LcovPrinter(BufferedWriter bufferedWriter) {
+  private final boolean outputLegacyBranches;
+
+  private LcovPrinter(BufferedWriter bufferedWriter, boolean outputLegacyBranches) {
     this.bufferedWriter = bufferedWriter;
+    this.outputLegacyBranches = outputLegacyBranches;
   }
 
   static void print(OutputStream outputStream, Coverage coverage) throws IOException {
+    print(outputStream, coverage, false);
+  }
+
+  static void print(OutputStream outputStream, Coverage coverage, boolean outputLegacyBranches)
+      throws IOException {
     try (Writer fileWriter = new OutputStreamWriter(outputStream, UTF_8);
         BufferedWriter bufferedWriter = new BufferedWriter(fileWriter); ) {
-      LcovPrinter lcovPrinter = new LcovPrinter(bufferedWriter);
+      LcovPrinter lcovPrinter = new LcovPrinter(bufferedWriter, outputLegacyBranches);
       lcovPrinter.print(coverage);
     }
   }
@@ -61,8 +69,11 @@ class LcovPrinter {
     printFNDALines(sourceFile);
     printFNFLine(sourceFile);
     printFNHLine(sourceFile);
-    printBRDALines(sourceFile);
-    printBALines(sourceFile);
+    if (outputLegacyBranches) {
+      printBALines(sourceFile);
+    } else {
+      printBRDALines(sourceFile);
+    }
     printBRFLine(sourceFile);
     printBRHLine(sourceFile);
     printDALines(sourceFile);
@@ -117,10 +128,6 @@ class LcovPrinter {
   // BRDA:<line number>,<block number>,<branch number>,<taken>
   private void printBRDALines(SourceFileCoverage sourceFile) throws IOException {
     for (BranchCoverage branch : sourceFile.getAllBranches()) {
-      if (branch.blockNumber().isEmpty() || branch.branchNumber().isEmpty()) {
-        // This branch is a BA line
-        continue;
-      }
       bufferedWriter.write(Constants.BRDA_MARKER);
       bufferedWriter.write(Integer.toString(branch.lineNumber()));
       bufferedWriter.write(Constants.DELIMITER);
@@ -140,14 +147,15 @@ class LcovPrinter {
   // BA:<line number>,<taken>
   private void printBALines(SourceFileCoverage sourceFile) throws IOException {
     for (BranchCoverage branch : sourceFile.getAllBranches()) {
-      if (!branch.blockNumber().isEmpty() && !branch.branchNumber().isEmpty()) {
-        // This branch is a BRDA line
-        continue;
-      }
       bufferedWriter.write(Constants.BA_MARKER);
       bufferedWriter.write(Integer.toString(branch.lineNumber()));
       bufferedWriter.write(Constants.DELIMITER);
-      bufferedWriter.write(Long.toString(branch.nrOfExecutions()));
+      if (branch.evaluated()) {
+        String value = branch.nrOfExecutions() > 0 ? "2" : "1";
+        bufferedWriter.write(value);
+      } else {
+        bufferedWriter.write("0");
+      }
       bufferedWriter.newLine();
     }
   }
