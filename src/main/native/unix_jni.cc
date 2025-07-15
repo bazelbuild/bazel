@@ -91,10 +91,6 @@ void PostException(JNIEnv *env, int error_number, const std::string& message) {
       exception_classname =
           "com/google/devtools/build/lib/vfs/FileAccessException";
       break;
-    case EPERM:   // Operation not permitted
-      exception_classname =
-          "com/google/devtools/build/lib/unix/FilePermissionException";
-      break;
     case EINTR:   // Interrupted system call
       exception_classname = "java/io/InterruptedIOException";
       break;
@@ -120,6 +116,7 @@ void PostException(JNIEnv *env, int error_number, const std::string& message) {
 #if defined(EMULTIHOP)
     case EMULTIHOP:  // Multihop attempted
 #endif
+    case EPERM:      // Operation not permitted
     case ENOLINK:    // Link has been severed
     case EIO:        // I/O error
     case EAGAIN:     // Try again
