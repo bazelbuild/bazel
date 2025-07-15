@@ -32,13 +32,13 @@ public class LcovPrinterTest {
     Coverage coverage = new Coverage();
     SourceFileCoverage sourceFileCoverage1 = new SourceFileCoverage("src1.foo");
     SourceFileCoverage sourceFileCoverage2 = new SourceFileCoverage("src2.foo");
-    sourceFileCoverage1.addLineNumber("foo", 2);
-    sourceFileCoverage1.addLineNumber("bar", 4);
+    sourceFileCoverage1.addFunctionLineNumber("foo", 2);
+    sourceFileCoverage1.addFunctionLineNumber("bar", 4);
     sourceFileCoverage1.addFunctionExecution("foo", 3L);
     sourceFileCoverage1.addFunctionExecution("bar", 0L);
     sourceFileCoverage1.addLine(2, 3);
     sourceFileCoverage1.addLine(4, 0);
-    sourceFileCoverage2.addLineNumber("foo", 3);
+    sourceFileCoverage2.addFunctionLineNumber("foo", 3);
     sourceFileCoverage2.addFunctionExecution("foo", 1L);
     sourceFileCoverage2.addLine(3, 1);
     sourceFileCoverage2.addLine(4, 1);
@@ -80,8 +80,8 @@ public class LcovPrinterTest {
   public void testPrintOneFile() throws Exception {
     Coverage coverage = new Coverage();
     SourceFileCoverage sourceFileCoverage1 = new SourceFileCoverage("src1.foo");
-    sourceFileCoverage1.addLineNumber("foo", 2);
-    sourceFileCoverage1.addLineNumber("bar", 4);
+    sourceFileCoverage1.addFunctionLineNumber("foo", 2);
+    sourceFileCoverage1.addFunctionLineNumber("bar", 4);
     sourceFileCoverage1.addFunctionExecution("foo", 3L);
     sourceFileCoverage1.addFunctionExecution("bar", 0L);
     sourceFileCoverage1.addLine(2, 3);

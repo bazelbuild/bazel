@@ -77,8 +77,8 @@ public class LcovParserTest {
             2, 3L,
             4, 0L);
     assertThat(sourceFiles.get(1).getLines()).containsExactly(3, 1L, 4, 1L);
-    assertThat(sourceFiles.get(0).getLineNumbers()).containsExactly("bar", 4, "foo", 2);
-    assertThat(sourceFiles.get(1).getLineNumbers()).containsExactly("foo", 3);
+    assertThat(sourceFiles.get(0).getFunctionLineNumbers()).containsExactly("bar", 4, "foo", 2);
+    assertThat(sourceFiles.get(1).getFunctionLineNumbers()).containsExactly("foo", 3);
     assertThat(sourceFiles.get(0).getFunctionsExecution()).containsExactly("bar", 0L, "foo", 3L);
     assertThat(sourceFiles.get(1).getFunctionsExecution()).containsExactly("foo", 1L);
     assertThat(sourceFiles.get(0).getAllBranches()).isEmpty();
@@ -198,7 +198,7 @@ public class LcovParserTest {
         LcovParser.parse(new ByteArrayInputStream(Joiner.on("\n").join(traceFile).getBytes(UTF_8)));
     SourceFileCoverage sourceFile = sourceFiles.get(0);
 
-    assertThat(sourceFile.getAllLineNumbers()).containsExactly(Map.entry("func", 2));
+    assertThat(sourceFile.getAllFunctionLineNumbers()).containsExactly(Map.entry("func", 2));
   }
 
   @Test

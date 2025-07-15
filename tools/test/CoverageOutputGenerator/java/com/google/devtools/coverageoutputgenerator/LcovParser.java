@@ -172,7 +172,7 @@ class LcovParser {
       int lineNrFunctionStart = Integer.parseInt(funcData[0]);
       // Line number of function end is optional and not used.
       String functionName = funcData[funcData.length - 1];
-      currentSourceFileCoverage.addLineNumber(functionName, lineNrFunctionStart);
+      currentSourceFileCoverage.addFunctionLineNumber(functionName, lineNrFunctionStart);
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "Tracefile contains invalid line number on FN line " + line);
       return false;

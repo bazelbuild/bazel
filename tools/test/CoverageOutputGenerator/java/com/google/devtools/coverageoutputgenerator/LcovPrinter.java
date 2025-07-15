@@ -91,7 +91,7 @@ class LcovPrinter {
 
   // FN:<line number of function start>,<function name>
   private void printFNLines(SourceFileCoverage sourceFile) throws IOException {
-    for (Entry<String, Integer> entry : sourceFile.getAllLineNumbers()) {
+    for (Entry<String, Integer> entry : sourceFile.getAllFunctionLineNumbers()) {
       bufferedWriter.write(Constants.FN_MARKER);
       bufferedWriter.write(Integer.toString(entry.getValue())); // line number of function start
       bufferedWriter.write(Constants.DELIMITER);

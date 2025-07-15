@@ -62,7 +62,7 @@ public class GcovJsonParser {
       for (GcovJsonFile file : document.files) {
         SourceFileCoverage currentFileCoverage = new SourceFileCoverage(file.file);
         for (GcovJsonFunction function : file.functions) {
-          currentFileCoverage.addLineNumber(function.name, function.start_line);
+          currentFileCoverage.addFunctionLineNumber(function.name, function.start_line);
           currentFileCoverage.addFunctionExecution(function.name, function.execution_count);
         }
         for (GcovJsonLine line : file.lines) {

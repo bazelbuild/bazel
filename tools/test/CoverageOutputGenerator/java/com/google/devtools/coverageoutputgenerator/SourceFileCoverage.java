@@ -31,7 +31,7 @@ import java.util.stream.Stream;
 class SourceFileCoverage {
 
   private String sourceFileName;
-  private final SortedMap<String, Integer> lineNumbers; // function name to line numbers
+  private final SortedMap<String, Integer> functionLineNumbers; // function name to line numbers
   private final SortedMap<String, Long> functionsExecution; // function name to execution count
   private final ListMultimap<Integer, BranchCoverage> branches; // line number to branches
   private final SortedMap<Integer, Long> lines; // line number to line execution
@@ -39,7 +39,7 @@ class SourceFileCoverage {
   SourceFileCoverage(String sourcefile) {
     this.sourceFileName = sourcefile;
     this.functionsExecution = new TreeMap<>();
-    this.lineNumbers = new TreeMap<>();
+    this.functionLineNumbers = new TreeMap<>();
     this.lines = new TreeMap<>();
     this.branches = MultimapBuilder.treeKeys().arrayListValues().build();
   }
@@ -48,11 +48,11 @@ class SourceFileCoverage {
     this.sourceFileName = other.sourceFileName;
 
     this.functionsExecution = new TreeMap<>();
-    this.lineNumbers = new TreeMap<>();
+    this.functionLineNumbers = new TreeMap<>();
     this.lines = new TreeMap<>();
     this.branches = MultimapBuilder.treeKeys().arrayListValues().build();
 
-    this.lineNumbers.putAll(other.lineNumbers);
+    this.functionLineNumbers.putAll(other.functionLineNumbers);
     this.functionsExecution.putAll(other.functionsExecution);
     this.branches.putAll(other.branches);
     this.lines.putAll(other.lines);
@@ -64,10 +64,11 @@ class SourceFileCoverage {
 
   /** Returns the merged functions found in the two given {@code SourceFileCoverage}s. */
   @VisibleForTesting
-  static SortedMap<String, Integer> mergeLineNumbers(SourceFileCoverage s1, SourceFileCoverage s2) {
+  static SortedMap<String, Integer> mergeFunctionLineNumbers(
+      SourceFileCoverage s1, SourceFileCoverage s2) {
     SortedMap<String, Integer> merged = new TreeMap<>();
-    merged.putAll(s1.lineNumbers);
-    merged.putAll(s2.lineNumbers);
+    merged.putAll(s1.functionLineNumbers);
+    merged.putAll(s2.functionLineNumbers);
     return merged;
   }
 
@@ -120,7 +121,7 @@ class SourceFileCoverage {
     assert source1.sourceFileName.equals(source2.sourceFileName);
     SourceFileCoverage merged = new SourceFileCoverage(source2.sourceFileName);
 
-    merged.addAllLineNumbers(mergeLineNumbers(source1, source2));
+    merged.addAllFunctionLineNumbers(mergeFunctionLineNumbers(source1, source2));
     merged.addAllFunctionsExecution(mergeFunctionsExecution(source1, source2));
     merged.addAllBranches(source1.branches);
     merged.addAllBranches(source2.branches);
@@ -159,12 +160,12 @@ class SourceFileCoverage {
   }
 
   @VisibleForTesting
-  SortedMap<String, Integer> getLineNumbers() {
-    return lineNumbers;
+  SortedMap<String, Integer> getFunctionLineNumbers() {
+    return functionLineNumbers;
   }
 
-  Set<Entry<String, Integer>> getAllLineNumbers() {
-    return lineNumbers.entrySet();
+  Set<Entry<String, Integer>> getAllFunctionLineNumbers() {
+    return functionLineNumbers.entrySet();
   }
 
   @VisibleForTesting
@@ -193,12 +194,12 @@ class SourceFileCoverage {
     return lines.entrySet();
   }
 
-  void addLineNumber(String functionName, Integer lineNumber) {
-    this.lineNumbers.put(functionName, lineNumber);
+  void addFunctionLineNumber(String functionName, Integer lineNumber) {
+    this.functionLineNumbers.put(functionName, lineNumber);
   }
 
-  void addAllLineNumbers(SortedMap<String, Integer> lineNumber) {
-    this.lineNumbers.putAll(lineNumber);
+  void addAllFunctionLineNumbers(SortedMap<String, Integer> lineNumber) {
+    this.functionLineNumbers.putAll(lineNumber);
   }
 
   void addFunctionExecution(String functionName, Long executionCount) {

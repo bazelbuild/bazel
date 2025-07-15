@@ -151,7 +151,7 @@ public class GcovParser {
       int startLine = Integer.parseInt(items[0]);
       long execCount = items.length == 4 ? Long.parseLong(items[2]) : Long.parseLong(items[1]);
       String functionName = items.length == 4 ? items[3] : items[2];
-      currentSourceFileCoverage.addLineNumber(functionName, startLine);
+      currentSourceFileCoverage.addFunctionLineNumber(functionName, startLine);
       currentSourceFileCoverage.addFunctionExecution(functionName, execCount);
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "gcov info contains invalid line " + line);

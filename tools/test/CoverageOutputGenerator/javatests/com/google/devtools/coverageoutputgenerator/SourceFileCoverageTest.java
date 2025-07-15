@@ -27,7 +27,7 @@ public class SourceFileCoverageTest {
   @Test
   public void testCopyConstructor() {
     SourceFileCoverage sourceFile = new SourceFileCoverage("src.foo");
-    sourceFile.addLineNumber("foo", 3);
+    sourceFile.addFunctionLineNumber("foo", 3);
     sourceFile.addLine(3, 2);
     sourceFile.addLine(4, 1);
     sourceFile.addLine(5, 0);
@@ -39,7 +39,7 @@ public class SourceFileCoverageTest {
     SourceFileCoverage copy = new SourceFileCoverage(sourceFile);
 
     assertThat(copy.getLines()).isEqualTo(sourceFile.getLines());
-    assertThat(copy.getLineNumbers()).isEqualTo(sourceFile.getLineNumbers());
+    assertThat(copy.getFunctionLineNumbers()).isEqualTo(sourceFile.getFunctionLineNumbers());
     assertThat(copy.getAllBranches())
         .containsExactly(
             BranchCoverage.create(3, "0", "0", true, 2),
@@ -52,23 +52,23 @@ public class SourceFileCoverageTest {
   public void testMergeFunctionNameToLineNumber() {
     SourceFileCoverage sourceFile1 = new SourceFileCoverage("src.foo");
     SourceFileCoverage sourceFile2 = new SourceFileCoverage("src.foo");
-    sourceFile1.addLineNumber("foo", 3);
-    sourceFile1.addLineNumber("bar", 10);
-    sourceFile2.addLineNumber("foo", 3);
-    sourceFile2.addLineNumber("bar", 10);
+    sourceFile1.addFunctionLineNumber("foo", 3);
+    sourceFile1.addFunctionLineNumber("bar", 10);
+    sourceFile2.addFunctionLineNumber("foo", 3);
+    sourceFile2.addFunctionLineNumber("bar", 10);
 
     SourceFileCoverage merged = SourceFileCoverage.merge(sourceFile1, sourceFile2);
 
-    assertThat(merged.getLineNumbers()).containsExactly("foo", 3, "bar", 10);
+    assertThat(merged.getFunctionLineNumbers()).containsExactly("foo", 3, "bar", 10);
   }
 
   @Test
   public void testMergeFunctionNameToExecutionCount() {
     SourceFileCoverage sourceFile1 = new SourceFileCoverage("src.foo");
     SourceFileCoverage sourceFile2 = new SourceFileCoverage("src.foo");
-    sourceFile1.addLineNumber("foo", 3);
+    sourceFile1.addFunctionLineNumber("foo", 3);
     sourceFile1.addFunctionExecution("foo", 5L);
-    sourceFile2.addLineNumber("foo", 3);
+    sourceFile2.addFunctionLineNumber("foo", 3);
     sourceFile2.addFunctionExecution("foo", 7L);
 
     SourceFileCoverage merged = SourceFileCoverage.merge(sourceFile1, sourceFile2);
