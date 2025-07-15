@@ -219,7 +219,6 @@ public abstract sealed class PackagePiece extends Packageoid
           Metadata.builder()
               .packageIdentifier(identifier.getPackageIdentifier())
               .buildFilename(filename)
-              .isRepoRulePackage(false)
               .repositoryMapping(repositoryMapping)
               .associatedModuleName(associatedModuleName)
               .associatedModuleVersion(associatedModuleVersion)

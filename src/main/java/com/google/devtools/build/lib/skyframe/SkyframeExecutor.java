@@ -2401,10 +2401,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               if (key instanceof PackageIdentifier && nodeEntry.isDone()) {
                 PackageValue packageValue = (PackageValue) nodeEntry.getValue();
                 if (packageValue != null) { // Null for errors e.g. "no such package"
-                  Optional<Root> sourceRoot = packageValue.getPackage().getSourceRoot();
-                  if (sourceRoot.isPresent()) {
-                    roots.put((PackageIdentifier) key, sourceRoot.get());
-                  }
+                  roots.put((PackageIdentifier) key, packageValue.getPackage().getSourceRoot());
                 }
               }
             });

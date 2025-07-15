@@ -994,7 +994,6 @@ public final class StarlarkRuleContext
     Package.Metadata pkgMetadata = ruleContext.getRule().getPackageMetadata();
     return pkgMetadata
         .sourceRoot()
-        .get()
         .relativize(pkgMetadata.buildFilename().asPath())
         .getPathString();
   }

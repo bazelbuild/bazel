@@ -379,9 +379,8 @@ public abstract class PackageFunction implements SkyFunction {
           .setTransience(Transience.PERSISTENT)
           .setPackageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
           .setMessage(
-              "//external package is not available since the WORKSPACE file is disabled, please"
-                  + " migrate to Bzlmod or temporarily enable WORKSPACE via --enable_workspace. See"
-                  + " https://bazel.build/external/migration#bind-targets.")
+              "//external package is not available since the WORKSPACE file is deprecated, please"
+                  + " migrate to Bzlmod. See https://bazel.build/external/migration#bind-targets.")
           .setPackageLoadingCode(PackageLoading.Code.WORKSPACE_FILE_ERROR)
           .build();
     }
@@ -651,17 +650,16 @@ public abstract class PackageFunction implements SkyFunction {
    *
    * <p>The {@code packageId} is used only for error reporting.
    *
-   * <p>This function is called for load statements in BUILD and WORKSPACE files. For loads in .bzl
-   * files, see {@link BzlLoadFunction}.
+   * <p>This function is called for load statements in BUILD files. For loads in .bzl files, see
+   * {@link BzlLoadFunction}.
    */
   /*
    * TODO(b/237658764): This logic has several problems:
    *
    * - It is partly duplicated by loadPrelude() below.
    * - The meaty computeBzlLoads* helpers are almost copies of BzlLoadFunction#computeBzlLoads*.
-   * - This function is called from WorkspaceFileFunction and BzlmodRepoRuleFunction (and morally
-   *   probably should be called by SingleExtensionEvalFunction rather than requesting a BzlLoadKey
-   *   directly). But the API is awkward for these callers.
+   * - This function should morally probably be called by {Innate,Regular}RunnableExtension rather
+   *   than requesting a BzlLoadKey directly. But the API is awkward for these callers.
    * - InliningState is not shared across all callers within a BUILD file; see the comment in
    *   computeBzlLoadsWithInlining.
    *
@@ -700,8 +698,7 @@ public abstract class PackageFunction implements SkyFunction {
       if (bzlLoads == null) {
         return null; // Skyframe deps unavailable
       }
-      // Validate that the current BUILD/WORKSPACE file satisfies each loaded dependency's
-      // load visibility.
+      // Validate that the current BUILD file satisfies each loaded dependency's load visibility.
       if (checkVisibility) {
         BzlLoadFunction.checkLoadVisibilities(
             packageId,

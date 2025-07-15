@@ -101,9 +101,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   // detected.
   protected final TargetRecorder recorder;
 
-  // Initialized from outside but also potentially set by `workspace()` function in WORKSPACE
-  // file.
-  protected String workspaceName;
+  protected final String workspaceName;
 
   private final boolean simplifyUnconditionalSelectsInRuleAttrs;
 
@@ -132,8 +130,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   @Nullable protected IOException ioException = null;
   @Nullable protected DetailedExitCode ioExceptionDetailedExitCode = null;
 
-  // Used by glob(). Null for contexts where glob() is disallowed, including WORKSPACE files and
-  // some tests.
+  // Used by glob(). Null for contexts where glob() is disallowed, like some tests.
   @Nullable private final Globber globber;
 
   protected final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
@@ -175,26 +172,34 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   /**
    * Retrieves this object from a Starlark thread. If not present, throws an {@link EvalException}
    * with an error message indicating that {@code what} can only be used in a target definition
-   * context - meaning in a BUILD file, a legacy or symbolic macro, or a WORKSPACE file.
+   * context - meaning in a BUILD file, or a legacy or symbolic macro.
    */
   @CanIgnoreReturnValue
   public static TargetDefinitionContext fromOrFail(StarlarkThread thread, String what)
       throws EvalException {
-    @Nullable StarlarkThreadContext ctx = thread.getThreadLocal(StarlarkThreadContext.class);
-    if (ctx instanceof TargetDefinitionContext targetDefinitionContext) {
-      return targetDefinitionContext;
-    }
-    boolean symbolicMacrosEnabled =
-        thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS);
-    throw Starlark.errorf(
-        "%s can only be used while evaluating a BUILD file, a %smacro, or a WORKSPACE file",
-        what, symbolicMacrosEnabled ? "legacy or symbolic " : "");
+    return fromOrFail(thread, what, "used");
   }
 
   /**
    * Retrieves this object from a Starlark thread. If not present, throws an {@link EvalException}
-   * with an error message indicating that {@code what} can only be used in a BUILD file, a
-   * finalizer symbolic macro, or a WORKSPACE file.
+   * with an error message indicating that {@code what} can only be {@code participle}d in a target
+   * definition context - meaning in a BUILD file, or a legacy or symbolic macro.
+   */
+  @CanIgnoreReturnValue
+  public static TargetDefinitionContext fromOrFail(
+      StarlarkThread thread, String what, String participle) throws EvalException {
+    @Nullable StarlarkThreadContext ctx = thread.getThreadLocal(StarlarkThreadContext.class);
+    if (ctx instanceof TargetDefinitionContext targetDefinitionContext) {
+      return targetDefinitionContext;
+    }
+    throw newFromOrFailException(
+        what, participle, thread.getSemantics(), EnumSet.noneOf(FromOrFailMode.class));
+  }
+
+  /**
+   * Retrieves this object from a Starlark thread. If not present, throws an {@link EvalException}
+   * with an error message indicating that {@code what} can only be used in a BUILD file or a
+   * finalizer symbolic macro.
    */
   @CanIgnoreReturnValue
   public static TargetDefinitionContext fromOrFailDisallowNonFinalizerMacros(
@@ -208,38 +213,9 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
         what, thread.getSemantics(), EnumSet.of(FromOrFailMode.ONLY_FINALIZER_MACROS));
   }
 
-  /**
-   * Retrieves this object from a Starlark thread. If not present, throws an {@link EvalException}
-   * with an error message indicating that {@code what} can only be used in a BUILD file or a legacy
-   * or symbolic macro.
-   */
-  @CanIgnoreReturnValue
-  public static TargetDefinitionContext fromOrFailDisallowWorkspace(
-      StarlarkThread thread, String what, String participle) throws EvalException {
-    @Nullable StarlarkThreadContext ctx = thread.getThreadLocal(StarlarkThreadContext.class);
-    if (ctx instanceof TargetDefinitionContext targetDefinitionContext
-        && !targetDefinitionContext.isRepoRulePackage()) {
-      return targetDefinitionContext;
-    }
-    throw newFromOrFailException(
-        what, participle, thread.getSemantics(), EnumSet.of(FromOrFailMode.NO_WORKSPACE));
-  }
-
-  /**
-   * Retrieves this object from a Starlark thread. If not present, throws an {@link EvalException}
-   * with an error message indicating that {@code what} can only be used in a BUILD file or a legacy
-   * or symbolic macro.
-   */
-  @CanIgnoreReturnValue
-  public static TargetDefinitionContext fromOrFailDisallowWorkspace(
-      StarlarkThread thread, String what) throws EvalException {
-    return fromOrFailDisallowWorkspace(thread, what, "used");
-  }
-
   enum FromOrFailMode {
     NO_MACROS,
     ONLY_FINALIZER_MACROS,
-    NO_WORKSPACE,
   }
 
   static EvalException newFromOrFailException(
@@ -267,9 +243,6 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
                 : ""));
     if (symbolicMacrosEnabled && modes.contains(FromOrFailMode.ONLY_FINALIZER_MACROS)) {
       allowedUses.add("a rule finalizer");
-    }
-    if (!modes.contains(FromOrFailMode.NO_WORKSPACE)) {
-      allowedUses.add("a WORKSPACE file");
     }
 
     return Starlark.errorf(
@@ -467,36 +440,18 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   }
 
   /**
-   * Determine whether this package should contain build rules (returns {@code false}) or repo rules
-   * (returns {@code true}).
-   */
-  public boolean isRepoRulePackage() {
-    return metadata.isRepoRulePackage();
-  }
-
-  /**
-   * Returns the name of the workspace this package is in. Used as a prefix for the runfiles
-   * directory. This can be set in the WORKSPACE file. This must be a valid target name.
-   */
-  String getWorkspaceName() {
-    // Current value is stored in the builder field, final value is copied to the Package in
-    // finishInit().
-    return workspaceName;
-  }
-
-  /**
-   * Returns the name of the Bzlmod module associated with the repo this package is in. If this
-   * package is not from a Bzlmod repo, this is empty. For repos generated by module extensions,
-   * this is the name of the module hosting the extension.
+   * Returns the name of the Bazel module associated with the repo this package is in. If this
+   * package is in the special {@code @_builtins} pseudo-repo, this is empty. For repos generated by
+   * module extensions, this is the name of the module hosting the extension.
    */
   Optional<String> getAssociatedModuleName() {
     return metadata.associatedModuleName();
   }
 
   /**
-   * Returns the version of the Bzlmod module associated with the repo this package is in. If this
-   * package is not from a Bzlmod repo, this is empty. For repos generated by module extensions,
-   * this is the version of the module hosting the extension.
+   * Returns the version of the Bazel module associated with the repo this package is in. If this
+   * package is in the special {@code @_builtins} pseudo-repo, this is empty. For repos generated by
+   * module extensions, this is the version of the module hosting the extension.
    */
   Optional<String> getAssociatedModuleVersion() {
     return metadata.associatedModuleVersion();
@@ -554,8 +509,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
 
   /**
    * Returns the {@link Globber} used to implement {@code glob()} functionality during BUILD
-   * evaluation. Null for contexts where globbing is not possible, including WORKSPACE files and
-   * some tests.
+   * evaluation. Null for contexts where globbing is not possible, like some tests.
    */
   @Nullable
   public Globber getGlobber() {
@@ -809,7 +763,6 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
   }
 
   public void addMacro(MacroInstance macro) throws NameConflictException {
-    checkState(!isRepoRulePackage(), "Cannot instantiate symbolic macros in this context");
     recorder.addMacro(macro);
   }
 

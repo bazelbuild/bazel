@@ -79,14 +79,6 @@ public class RuleFactory {
     } catch (LabelSyntaxException e) {
       throw new InvalidRuleException("illegal rule name: " + name + ": " + e.getMessage());
     }
-    boolean inWorkspaceFile = targetDefinitionContext.isRepoRulePackage();
-    if (ruleClass.getWorkspaceOnly() && !inWorkspaceFile) {
-      throw new RuleFactory.InvalidRuleException(
-          ruleClass + " must be in the WORKSPACE file " + "(used by " + label + ")");
-    } else if (!ruleClass.getWorkspaceOnly() && inWorkspaceFile) {
-      throw new RuleFactory.InvalidRuleException(
-          ruleClass + " cannot be in the WORKSPACE file " + "(used by " + label + ")");
-    }
 
     // Add the generator_name attribute.
     BuildLangTypedAttributeValuesMap processedAttributes;
@@ -320,12 +312,7 @@ public class RuleFactory {
               case BUILD_ONLY ->
                   Package.AbstractBuilder.fromOrFailAllowBuildOnly(
                       thread, String.format("%s rule", ruleClass.getName()), "instantiated");
-              case WORKSPACE ->
-                  Package.Builder.fromOrFailAllowModuleExtension(
-                      thread, "a repository rule", "instantiated");
-              default ->
-                  TargetDefinitionContext.fromOrFailDisallowWorkspace(
-                      thread, "a rule", "instantiated");
+              default -> TargetDefinitionContext.fromOrFail(thread, "a rule", "instantiated");
             };
         RuleFactory.createAndAddRule(
             targetDefinitionContext,

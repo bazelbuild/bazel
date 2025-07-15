@@ -100,10 +100,7 @@ public final class FilteringPolicies {
   private static class RulesOnly extends AbstractFilteringPolicy {
     @Override
     public boolean shouldRetain(Target target, boolean explicit) {
-      // With the sibling repository layout in effect, TargetPatternFunction tries to recurse into
-      // the special //external package even when there are no build rules. Prevent it by excluding
-      // WORKSPACE-only rules in addition to checking if target is a Rule object.
-      return target instanceof Rule && !((Rule) target).getRuleClassObject().getWorkspaceOnly();
+      return target instanceof Rule;
     }
   }
 

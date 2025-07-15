@@ -138,9 +138,6 @@ public final class PackageFactory {
    * <p>Do not call this constructor directly in tests; please use
    * TestConstants#PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING instead.
    */
-  // TODO(bazel-team): Maybe store `version` in the RuleClassProvider rather than passing it in
-  // here? It's an extra constructor parameter that all the tests have to give, and it's only needed
-  // so WorkspaceFactory can add an extra top-level builtin.
   public PackageFactory(
       RuleClassProvider ruleClassProvider,
       ForkJoinPool executorForGlobbing,

@@ -86,7 +86,6 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkIm
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.MacroInstance;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -1474,8 +1473,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
       TargetDefinitionContext targetDefinitionContext =
-          TargetDefinitionContext.fromOrFailDisallowWorkspace(
-              thread, "a symbolic macro", "instantiated");
+          TargetDefinitionContext.fromOrFail(thread, "a symbolic macro", "instantiated");
 
       if (macroClass == null) {
         throw Starlark.errorf(
@@ -1650,11 +1648,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         throw new EvalException("Invalid rule class hasn't been exported by a bzl file");
       }
       TargetDefinitionContext targetDefinitionContext =
-          ruleClass.getWorkspaceOnly()
-              ? Package.Builder.fromOrFailAllowModuleExtension(
-                  thread, "a repository rule", "instantiated")
-              : TargetDefinitionContext.fromOrFailDisallowWorkspace(
-                  thread, "a rule", "instantiated");
+          TargetDefinitionContext.fromOrFail(thread, "a rule", "instantiated");
 
       validateRulePropagatedAspects(ruleClass);
 

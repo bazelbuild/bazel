@@ -104,7 +104,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         false,
         false,
         false,
-        false,
         SafeImplicitOutputsFunction.NONE,
         null,
         DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -131,7 +130,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     attributes.add(attr("another-string-attr", STRING).mandatory().build());
     return newRuleClass(
         "ruleB",
-        false,
         false,
         false,
         false,
@@ -301,7 +299,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             false,
             false,
             false,
-            false,
             SafeImplicitOutputsFunction.NONE,
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -343,7 +340,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             false,
             false,
             false,
-            false,
             SafeImplicitOutputsFunction.NONE,
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -374,7 +370,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     RuleClass depsRuleClass =
         newRuleClass(
             "ruleDeps",
-            false,
             false,
             false,
             false,
@@ -427,7 +422,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             false,
             false,
             false,
-            false,
             SafeImplicitOutputsFunction.NONE,
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -469,7 +463,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             false,
             false,
             false,
-            false,
             SafeImplicitOutputsFunction.NONE,
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -506,7 +499,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     RuleClass depsRuleClass =
         newRuleClass(
             "ruleDeps",
-            false,
             false,
             false,
             false,
@@ -607,7 +599,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             false,
             false,
             false,
-            false,
             ImplicitOutputsFunction.fromTemplates(
                 "foo-%{name}.bar", "lib%{name}-wazoo-%{name}.mumble", "stuff-%{outs}-bar"),
             null,
@@ -643,7 +634,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             false,
             false,
             false,
-            false,
             ImplicitOutputsFunction.fromTemplates("%{dirname}lib%{basename}.bar"),
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -666,7 +656,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     RuleClass ruleClass =
         newRuleClass(
             "ruleClass",
-            false,
             false,
             false,
             false,
@@ -700,7 +689,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
   private static RuleClass getRuleClassWithComputedDefault(Attribute computedDefault) {
     return newRuleClass(
         "ruleClass",
-        false,
         false,
         false,
         false,
@@ -873,7 +861,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
             false,
             false,
             false,
-            false,
             ImplicitOutputsFunction.fromTemplates("first-%{name}", "second-%{name}", "out-%{outs}"),
             null,
             DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -905,7 +892,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     RuleClass ruleClass =
         newRuleClass(
             "ruleA",
-            false,
             false,
             false,
             false,
@@ -1057,7 +1043,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
       boolean starlarkExecutable,
       boolean documented,
       boolean binaryOutput,
-      boolean workspaceOnly,
       boolean outputsDefaultExecutable,
       boolean isAnalysisTest,
       ImplicitOutputsFunction implicitOutputsFunction,
@@ -1084,7 +1069,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         /* starlarkTestable= */ false,
         documented,
         binaryOutput,
-        workspaceOnly,
         /* dependencyResolutionRule= */ false,
         outputsDefaultExecutable,
         isAnalysisTest,
@@ -1099,7 +1083,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         /* optionReferenceFunction= */ RuleClass.NO_OPTION_REFERENCE,
         /* ruleDefinitionEnvironmentLabel= */ null,
         /* ruleDefinitionEnvironmentDigest= */ null,
-        /* ruleDefinitionEnvironmentRepoMappingEntries= */ null,
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragments(allowedConfigurationFragments)
             .build(),
@@ -1123,7 +1106,6 @@ public final class RuleClassTest extends PackageLoadingTestCase {
   private static RuleClass createParentRuleClass() {
     return newRuleClass(
         "parent_rule",
-        false,
         false,
         false,
         false,
