@@ -54,7 +54,7 @@ my_macro = macro(
 Attribute type declarations accept the
 [parameters](https://bazel.build/rules/lib/toplevel/attr#parameters),
 `mandatory`, `default`, and `doc`. Most attribute types also accept the
-`configurable` parameter, which determines wheher the attribute accepts
+`configurable` parameter, which determines whether the attribute accepts
 `select`s. If an attribute is `configurable`, it will parse non-`select` values
 as an unconfigurable `select` – `"foo"` will become
 `select({"//conditions:default": "foo"})`. Learn more in [selects](#selects).
