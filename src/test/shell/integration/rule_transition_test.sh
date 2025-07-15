@@ -302,15 +302,15 @@ load("//settings:flag.bzl", "BuildSettingInfo")
 
 example_package = "${pkg}"
 
-# transition that sets cpu so that unresolvable selects before rule transition
+# transition that sets compilation_mode so that unresolvable selects before rule transition
 # becomes resolvable after rule transition
 def _transition_impl(settings, attr):
-    return {"//command_line_option:cpu": "ios_x86_64"}
+    return {"//command_line_option:compilation_mode": "dbg"}
 
 example_transition = transition(
     implementation = _transition_impl,
     inputs = [],
-    outputs = ["//command_line_option:cpu"],
+    outputs = ["//command_line_option:compilation_mode"],
 )
 
 def _rule_impl(ctx):
@@ -320,7 +320,7 @@ transition_attached = rule(
     implementation = _rule_impl,
     cfg = example_transition,
     attrs = {
-        "cpu_name": attr.string(),
+        "compilation_mode": attr.string(),
     },
 )
 EOF
@@ -333,30 +333,30 @@ load(
 )
 
 config_setting(
-    name = "ios_x86_64",
+    name = "dbg",
     values = {
-        "cpu": "ios_x86_64",
+        "compilation_mode": "dbg",
     },
 )
 
 config_setting(
-    name = "darwin",
+    name = "opt",
     values = {
-        "cpu": "darwin",
+        "compilation_mode": "opt",
     },
 )
 
 transition_attached(
     name = "top_level",
-    cpu_name = select(
+    compilation_mode = select(
         {
-            ":ios_x86_64": "ios_x86_64",
-            ":darwin": "darwin",
+            ":dbg": "dbg",
+            ":opt": "opt",
         },
     ),
 )
 EOF
-  bazel build "//${pkg}:top_level" &> $TEST_log || fail "Build failed"
+  bazel build --compilation_mode=fastbuild "//${pkg}:top_level" &> $TEST_log || fail "Build failed"
 }
 
 function test_unresolvable_select_error_out_after_applying_rule_transition() {
@@ -387,7 +387,7 @@ transition_attached = rule(
     implementation = _rule_impl,
     cfg = example_transition,
     attrs = {
-        "cpu_name": attr.string(),
+        "compilation_mode": attr.string(),
     },
 )
 EOF
@@ -400,31 +400,31 @@ load(
 )
 
 config_setting(
-  name = "ios_x86_64",
+  name = "dbg",
   values = {
-        "cpu": "ios_x86_64",
+        "compilation_mode": "dbg",
   },
 )
 
 config_setting(
-  name = "darwin",
+  name = "opt",
   values = {
-        "cpu": "darwin",
+        "compilation_mode": "opt",
   },
 )
 
 transition_attached(
     name = "top_level",
-    cpu_name = select(
+    compilation_mode = select(
         {
-            ":ios_x86_64": "ios_x86_64",
-            ":darwin": "darwin",
+            ":dbg": "dbg",
+            ":opt": "opt",
         },
     ),
 )
 EOF
-  bazel build "//${pkg}:top_level" &> $TEST_log && fail "Build did NOT complete successfully"
-  expect_log "configurable attribute \"cpu_name\" in //test_unresolvable_select_error_out_after_applying_rule_transition:top_level doesn't match this configuration. Would a default condition help?"
+  bazel build --compilation_mode=fastbuild "//${pkg}:top_level" &> $TEST_log && fail "Build did NOT complete successfully"
+  expect_log "configurable attribute \"compilation_mode\" in //test_unresolvable_select_error_out_after_applying_rule_transition:top_level doesn't match this configuration. Would a default condition help?"
 }
 
 # Regression test for b/338660045

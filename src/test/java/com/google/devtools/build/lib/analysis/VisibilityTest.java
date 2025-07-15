@@ -166,7 +166,7 @@ public class VisibilityTest extends AnalysisTestCase {
         """
         config_setting(
             name = "my_setting",
-            values = {"cpu": "does_not_matter"},
+            values = {"compilation_mode": "dbg"},
             visibility = ["//:__pkg__"],
         )
         """);

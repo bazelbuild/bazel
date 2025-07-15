@@ -3005,6 +3005,8 @@ public class ConfigSettingTest extends BuildViewTestCase {
         )
         """
             .formatted(flag));
+    // empty --incompatible_disable_select_on to get the warning.
+    useConfiguration("--incompatible_disable_select_on=");
     assertThat(getConfiguredTarget("//test:match")).isNotNull();
     assertContainsEvent(
         "select() on %s is deprecated. Use platform constraints instead".formatted(flag));
