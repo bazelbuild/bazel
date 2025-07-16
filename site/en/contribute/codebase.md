@@ -636,10 +636,6 @@ necessitates the following additional components:
 *   **The output runfiles manifest.** This is used by runtime libraries that
     handle runfiles trees, notably on Windows, which sometimes doesn't support
     symbolic links.
-*   **The runfiles middleman.** In order for a runfiles tree to exist, one needs
-    to build the symlink tree and the artifact the symlinks point to. In order
-    to decrease the number of dependency edges, the runfiles middleman can be
-    used to represent all these.
 *   **Command line arguments** for running the binary whose runfiles the
     `RunfilesSupport` object represents.
 
@@ -931,14 +927,6 @@ should, though -- referencing a source directory in a `BUILD` file is one of the
 few known long-standing incorrectness issues with Bazel; we have an
 implementation that kind of works which is enabled by the
 `BAZEL_TRACK_SOURCE_DIRECTORIES=1` JVM property)
-
-A notable kind of `Artifact` are middlemen. They are indicated by `Artifact`
-instances that are the outputs of `MiddlemanAction`. They are used for one
-special case:
-
-*   Runfiles middlemen are used to ensure the presence of a runfiles tree so
-    that one does not separately need to depend on the output manifest and every
-    single artifact referenced by the runfiles tree.
 
 Actions are best understood as a command that needs to be run, the environment
 it needs and the set of outputs it produces. The following things are the main
