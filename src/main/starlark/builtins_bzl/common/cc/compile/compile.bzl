@@ -526,7 +526,6 @@ def _create_cc_compile_actions(
                 configuration = configuration,
                 conlyopts = conlyopts,
                 copts = copts,
-                copts_filter = copts_filter,
                 cpp_configuration = cpp_configuration,
                 cxxopts = cxxopts,
                 fdo_context = fdo_context,

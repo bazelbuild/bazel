@@ -732,7 +732,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "configuration", positional = false, named = true), // BuildConfigurationValue
         @Param(name = "conlyopts", positional = false, named = true, defaultValue = "[]"),
         @Param(name = "copts", positional = false, named = true, defaultValue = "[]"),
-        @Param(name = "copts_filter", positional = false, named = true, defaultValue = "None"),
         @Param(name = "cpp_configuration", positional = false, named = true),
         @Param(name = "cxxopts", positional = false, named = true, defaultValue = "[]"),
         @Param(name = "fdo_context", positional = false, named = true, defaultValue = "None"),
@@ -762,7 +761,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       BuildConfigurationValue configuration,
       Sequence<?> conlyopts, // String
       Sequence<?> copts, // String
-      CoptsFilter coptsFilter,
       CppConfiguration cppConfiguration,
       Sequence<?> cxxopts, // String
       StructImpl fdoContext,
@@ -786,12 +784,8 @@ public class CcStarlarkInternal implements StarlarkValue {
             configuration,
             Sequence.cast(conlyopts, String.class, "conlyopts").getImmutableList(),
             Sequence.cast(copts, String.class, "copts").getImmutableList(),
-            coptsFilter,
             cppConfiguration,
             Sequence.cast(cxxopts, String.class, "cxxopts").getImmutableList(),
-            TargetUtils.getExecutionInfo(
-                starlarkRuleContext.getRuleContext().getRule(),
-                starlarkRuleContext.getRuleContext().isAllowTagsPropagation()),
             new FdoContext(fdoContext),
             Depset.cast(auxiliaryFdoInputs, Artifact.class, "auxiliary_fdo_inputs"),
             featureConfigurationForStarlark.getFeatureConfiguration(),
