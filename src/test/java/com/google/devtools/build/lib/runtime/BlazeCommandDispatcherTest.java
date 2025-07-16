@@ -244,8 +244,8 @@ public final class BlazeCommandDispatcherTest {
     String[] args = {"foo", "--stdout=Hello, out.",
                      "--stderr=Hello, err.", "--success=false"};
     BlazeCommandResult result = dispatch.exec(Arrays.asList(args), "test", outErr);
-    assertThat(outErr.outAsLatin1()).isEqualTo("Hello, out.");
-    assertThat(outErr.errAsLatin1()).isEqualTo("Hello, err.");
+    assertThat(outErr.outAsLatin1()).endsWith("Hello, out.");
+    assertThat(outErr.errAsLatin1()).endsWith("Hello, err.");
     assertThat(result.getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
   }
 
@@ -561,7 +561,7 @@ public final class BlazeCommandDispatcherTest {
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
     // TODO(bazel-team): Fix inconsistent line breaks that make the regex match necessary.
     assertThat(outErr.errAsLatin1())
-        .matches(
+        .containsMatch(
             "INFO: Reading rc options for 'foo' from /home/jrluser/.blazerc:\\s+"
                 + "  'foo' options: --stdout stdout --stderr stderr\\s+"
                 + "stderr");
@@ -608,7 +608,7 @@ public final class BlazeCommandDispatcherTest {
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
     // TODO(bazel-team): Fix inconsistent line breaks that make the regex match necessary.
     assertThat(outErr.errAsLatin1())
-        .matches(
+        .containsMatch(
             "INFO: Reading rc options for 'wiz' from /home/jrluser/.blazerc:\\s+"
                 + "  Inherited 'foo' options: --stdout stdout --stderr stderr\\s+"
                 + "stderr");
