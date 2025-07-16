@@ -46,7 +46,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -70,7 +69,6 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -79,7 +77,6 @@ import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateValue;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.OutputChecker;
@@ -631,24 +628,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   final class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
-    public boolean shouldCreatePathResolverForArtifactValues() {
-      return outputService.supportsPathResolverForArtifactValues();
-    }
-
-    @Override
-    public ArtifactPathResolver createPathResolverForArtifactValues(
-        ActionInputMap actionInputMap,
-        Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> treeArtifacts,
-        Map<Artifact, FilesetOutputTree> filesets) {
-      checkState(shouldCreatePathResolverForArtifactValues());
-      return outputService.createPathResolverForArtifactValues(
-          directories.getExecRoot(ruleClassProvider.getRunfilesPrefix()).asFragment(),
-          directories.getRelativeOutputPath(),
-          fileSystem,
-          getPackagePathEntries(),
-          actionInputMap,
-          treeArtifacts,
-          filesets);
+    public ArtifactPathResolver createPathResolverForArtifactValues(ActionInputMap actionInputMap) {
+      return outputService.supportsPathResolverForArtifactValues()
+          ? outputService.createPathResolverForArtifactValues(
+              directories.getExecRoot(ruleClassProvider.getRunfilesPrefix()).asFragment(),
+              directories.getRelativeOutputPath(),
+              fileSystem,
+              getPackagePathEntries(),
+              actionInputMap)
+          : ArtifactPathResolver.IDENTITY;
     }
   }
 

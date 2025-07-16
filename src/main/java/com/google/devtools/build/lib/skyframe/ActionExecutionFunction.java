@@ -97,7 +97,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunction.Reset;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -1043,11 +1042,7 @@ public final class ActionExecutionFunction implements SkyFunction {
 
       if (value != null) {
         ActionInputMapHelper.addToMap(
-            inputArtifactData,
-            (treeArtifact, treeValue) -> {},
-            input,
-            value,
-            MetadataConsumerForMetrics.NO_OP);
+            inputArtifactData, input, value, MetadataConsumerForMetrics.NO_OP);
       } else if (!hasMissingInputs && input.hasKnownGeneratingAction()) {
         // Derived inputs are mandatory, but we did not detect any missing inputs. This is only
         // possible for indirect inputs (beneath an ArtifactNestedSetKey) when, between the time the

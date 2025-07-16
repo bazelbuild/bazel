@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.function.BiConsumer;
 
 /** Static utilities for working with action inputs. */
 final class ActionInputMapHelper {
@@ -31,14 +30,12 @@ final class ActionInputMapHelper {
   /** Adds a value obtained by an Artifact SkyValue lookup to the action input map. */
   static void addToMap(
       ActionInputMap inputMap,
-      BiConsumer<Artifact, TreeArtifactValue> treeArtifactConsumer,
       Artifact key,
       SkyValue value,
       MetadataConsumerForMetrics consumer) {
     switch (value) {
       case TreeArtifactValue treeArtifactValue -> {
-        expandTreeArtifactAndPopulateArtifactData(
-            key, treeArtifactValue, treeArtifactConsumer, inputMap);
+        expandTreeArtifactAndPopulateArtifactData(key, treeArtifactValue, inputMap);
         consumer.accumulate(treeArtifactValue);
       }
       case ActionExecutionValue actionExecutionValue -> {
@@ -50,8 +47,7 @@ final class ActionInputMapHelper {
           SpecialArtifact treeArtifact = key.getParent();
           TreeArtifactValue treeArtifactValue =
               actionExecutionValue.getTreeArtifactValue(treeArtifact);
-          expandTreeArtifactAndPopulateArtifactData(
-              treeArtifact, treeArtifactValue, treeArtifactConsumer, inputMap);
+          expandTreeArtifactAndPopulateArtifactData(treeArtifact, treeArtifactValue, inputMap);
           consumer.accumulate(treeArtifactValue);
         }
         if (key.isFileset()) {
@@ -76,8 +72,7 @@ final class ActionInputMapHelper {
               });
           runfilesArtifactValue.forEachTree(
               (treeArtifact, metadata) -> {
-                expandTreeArtifactAndPopulateArtifactData(
-                    treeArtifact, metadata, treeArtifactConsumer, inputMap);
+                expandTreeArtifactAndPopulateArtifactData(treeArtifact, metadata, inputMap);
                 consumer.accumulate(metadata);
               });
 
@@ -112,9 +107,7 @@ final class ActionInputMapHelper {
   private static void expandTreeArtifactAndPopulateArtifactData(
       Artifact treeArtifact,
       TreeArtifactValue value,
-      BiConsumer<Artifact, TreeArtifactValue> treeArtifactConsumer,
       ActionInputMap inputMap) {
-    treeArtifactConsumer.accept(treeArtifact, value);
     inputMap.putTreeArtifact(treeArtifact, value);
     if (value.getArchivedRepresentation().isEmpty()) {
       return;

@@ -66,9 +66,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
@@ -184,9 +182,6 @@ public final class CompletionFunction<
       importantInputMap = new ActionInputMap(importantArtifacts.size());
     }
 
-    // TODO: b/239184359 - Can we just get the tree artifacts from the ActionInputMap?
-    Map<Artifact, TreeArtifactValue> treeArtifacts = new HashMap<>();
-
     ActionExecutionException firstActionExecutionException = null;
     NestedSetBuilder<Cause> rootCausesBuilder = NestedSetBuilder.stableOrder();
     Set<Artifact> builtArtifacts = new HashSet<>();
@@ -210,18 +205,13 @@ public final class CompletionFunction<
               key);
         } else {
           builtArtifacts.add(input);
-          ActionInputMapHelper.addToMap(
-              inputMap, treeArtifacts::put, input, artifactValue, currentConsumer);
+          ActionInputMapHelper.addToMap(inputMap, input, artifactValue, currentConsumer);
           if (!allArtifactsAreImportant && importantArtifacts.contains(input)) {
             // Calling #addToMap a second time with `input` and `artifactValue` will perform no-op
             // updates to the secondary collections passed in (eg. treeArtifacts, expandedFilesets).
             // MetadataConsumerForMetrics.NO_OP is used to avoid double-counting.
             ActionInputMapHelper.addToMap(
-                importantInputMap,
-                treeArtifacts::put,
-                input,
-                artifactValue,
-                MetadataConsumerForMetrics.NO_OP);
+                importantInputMap, input, artifactValue, MetadataConsumerForMetrics.NO_OP);
           }
         }
       } catch (ActionExecutionException e) {
@@ -248,12 +238,7 @@ public final class CompletionFunction<
     }
     CompletionContext ctx =
         CompletionContext.create(
-            treeArtifacts,
-            inputMap.getFilesets(),
-            key.topLevelArtifactContext().expandFilesets(),
-            inputMap,
-            importantInputMap,
-            pathResolverFactory);
+            key.topLevelArtifactContext().expandFilesets(), importantInputMap, pathResolverFactory);
 
     NestedSet<Cause> rootCauses = rootCausesBuilder.build();
     if (!rootCauses.isEmpty()) {
