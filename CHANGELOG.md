@@ -1,3 +1,21 @@
+## Release 9.0.0-pre.20250710.1 (2025-07-16)
+
+```
+Baseline: ed358a15be98fe048494fa2e834ebad66b393515
+```
+
+New features:
+
+  - The mnemonic of a file write action can now be set via the
+    `mnemonic` parameter of `ctx.actions.write`.
+
+Important changes:
+
+  - Symbolic macros which use inherit_attrs now correctly inherit the
+    aspect_hints attribute.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Keith Smiley, PikachuHy.
+
 ## Release 9.0.0-pre.20250706.3 (2025-07-11)
 
 ```
