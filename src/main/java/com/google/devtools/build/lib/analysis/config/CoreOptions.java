@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeSet;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Core options affecting a {@link BuildConfigurationValue} that don't belong in domain-specific
@@ -411,7 +412,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public List<String> affectedByStarlarkTransition;
 
   /** Values for the --experimental_exec_configuration_distinguisher options */
-  public enum ExecConfigurationDistinguisherScheme {
+  public enum ExecConfigurationDistinguisherScheme implements StarlarkValue {
     /** Use hash of selected execution platform for platform_suffix. */
     LEGACY,
     /** Do not touch platform_suffix or do anything else. * */
@@ -650,7 +651,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public List<Label> actionListeners;
 
   /** Values for the --experimental_output_directory_naming_scheme options */
-  public enum OutputDirectoryNamingScheme {
+  public enum OutputDirectoryNamingScheme implements StarlarkValue {
     /** Use `affected by starlark transition` to track configuration changes */
     LEGACY,
     /** Produce name based on diff from some baseline BuildOptions (usually top-level) */
@@ -790,7 +791,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean allowUnresolvedSymlinks;
 
   /** Values for --experimental_output_paths. */
-  public enum OutputPathsMode {
+  public enum OutputPathsMode implements StarlarkValue {
     /** Use the production output path model. */
     OFF,
     /**
@@ -1016,7 +1017,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   }
 
   /** Ways configured targets may provide the {@link Fragment}s they require. */
-  public enum IncludeConfigFragmentsEnum {
+  public enum IncludeConfigFragmentsEnum implements StarlarkValue {
     /**
      * Don't offer the provider at all. This is best for most builds, which don't use this
      * information and don't need the extra memory hit over every configured target.

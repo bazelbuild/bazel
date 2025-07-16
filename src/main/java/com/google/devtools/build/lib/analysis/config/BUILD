@@ -239,6 +239,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
     ],
 )
@@ -431,7 +432,6 @@ java_library(
     name = "starlark_defined_config_transition",
     srcs = ["StarlarkDefinedConfigTransition.java"],
     deps = [
-        ":core_options",
         ":optioninfo",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:patch_transition",
