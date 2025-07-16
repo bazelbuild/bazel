@@ -322,35 +322,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     return CppSource.create(source, label, CppSource.Type.valueOf(type));
   }
 
-  @StarlarkMethod(
-      name = "create_umbrella_header_action",
-      documented = false,
-      parameters = {
-        @Param(name = "actions", positional = false, named = true),
-        @Param(name = "umbrella_header", positional = false, named = true),
-        @Param(name = "public_headers", positional = false, named = true),
-        @Param(name = "additional_exported_headers", positional = false, named = true),
-      })
-  public void createUmbrellaHeaderAction(
-      StarlarkActionFactory actions,
-      Artifact umbrellaHeader,
-      Sequence<?> publicHeaders,
-      Sequence<?> additionalExportedHeaders)
-      throws EvalException {
-    actions
-        .getRuleContext()
-        .registerAction(
-            new UmbrellaHeaderAction(
-                actions.getRuleContext().getActionOwner(),
-                umbrellaHeader,
-                Sequence.cast(publicHeaders, Artifact.class, "public_headers"),
-                Sequence.cast(
-                        additionalExportedHeaders, String.class, "additional_exported_headers")
-                    .stream()
-                    .map(PathFragment::create)
-                    .collect(toImmutableList())));
-  }
-
   @SerializationConstant @VisibleForSerialization
   static final StarlarkProvider buildSettingInfo =
       StarlarkProvider.builder(Location.BUILTIN)
