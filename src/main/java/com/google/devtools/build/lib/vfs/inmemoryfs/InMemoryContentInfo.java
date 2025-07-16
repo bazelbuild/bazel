@@ -171,7 +171,7 @@ public abstract non-sealed class InMemoryContentInfo implements FileStatus, Inod
   /**
    * Returns whether the current file is readable.
    */
-  void setReadable(boolean readable) {
+  protected void setReadable(boolean readable) {
     isReadable = readable;
   }
 
@@ -179,7 +179,7 @@ public abstract non-sealed class InMemoryContentInfo implements FileStatus, Inod
   /**
    * Sets whether the current file is writable.
    */
-  void setWritable(boolean writable) {
+  protected void setWritable(boolean writable) {
     isWritable = writable;
     markChangeTime();
   }
@@ -194,7 +194,7 @@ public abstract non-sealed class InMemoryContentInfo implements FileStatus, Inod
   /**
    * Sets whether the current file is executable.
    */
-  void setExecutable(boolean executable) {
+  protected void setExecutable(boolean executable) {
     isExecutable = executable;
     markChangeTime();
   }

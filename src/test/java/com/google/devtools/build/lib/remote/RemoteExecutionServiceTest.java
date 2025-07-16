@@ -438,47 +438,6 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void downloadOutputs_executableBitIgnored() throws Exception {
-    // Test that executable bit of downloaded output files are ignored since it will be chmod 555
-    // after action execution.
-
-    // arrange
-    Digest fooDigest = cache.addContents(remoteActionExecutionContext, "foo-contents");
-    Digest barDigest = cache.addContents(remoteActionExecutionContext, "bar-contents");
-    Tree tree =
-        Tree.newBuilder()
-            .setRoot(
-                Directory.newBuilder()
-                    .addFiles(
-                        FileNode.newBuilder()
-                            .setName("bar")
-                            .setDigest(barDigest)
-                            .setIsExecutable(true)))
-            .build();
-    Digest treeDigest = cache.addContents(remoteActionExecutionContext, tree.toByteArray());
-    ActionResult.Builder builder = ActionResult.newBuilder();
-    builder.addOutputFilesBuilder().setPath("outputs/foo").setDigest(fooDigest);
-    builder.addOutputDirectoriesBuilder().setPath("outputs/dir").setTreeDigest(treeDigest);
-    RemoteActionResult result =
-        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
-    Spawn spawn = newSpawnFromResult(result);
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    RemoteExecutionService service = newRemoteExecutionService();
-    RemoteAction action = service.buildRemoteAction(spawn, context);
-    createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
-        .thenReturn(true);
-
-    // act
-    service.downloadOutputs(action, result);
-
-    // assert
-    assertThat(execRoot.getRelative("outputs/foo").isExecutable()).isFalse();
-    assertThat(execRoot.getRelative("outputs/dir/bar").isExecutable()).isFalse();
-    assertThat(context.isLockOutputFilesCalled()).isTrue();
-  }
-
-  @Test
   public void downloadOutputs_siblingLayout() throws Exception {
     // arrange
     remotePathResolver = new SiblingRepositoryLayoutResolver(execRoot);
@@ -2675,7 +2634,8 @@ public class RemoteExecutionServiceTest {
             execRoot.asFragment(),
             artifactRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
             new ActionInputMap(0),
-            actionInputFetcher);
+            actionInputFetcher,
+            OutputPermissions.READONLY);
 
     return new FakeSpawnExecutionContext(
         spawn, fakeFileCache, execRoot, outErr, ImmutableClassToInstanceMap.of(), actionFileSystem);
@@ -2702,7 +2662,8 @@ public class RemoteExecutionServiceTest {
         null,
         remoteOutputChecker,
         outputService,
-        Sets.newConcurrentHashSet());
+        Sets.newConcurrentHashSet(),
+        OutputPermissions.READONLY);
   }
 
   private RunfilesTree createRunfilesTree(String root, Collection<Artifact> artifacts) {

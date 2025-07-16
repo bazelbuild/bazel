@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -1910,7 +1911,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   protected void assertOutputDoesNotExist(String binRelativePath) {
     Path output = getOutputPath(binRelativePath);
-    assertThat(output.exists()).isFalse();
+    assertWithMessage("%s exists", binRelativePath).that(output.exists()).isFalse();
   }
 
   protected void assertOnlyOutputContent(String target, String filename, String content)
@@ -1934,11 +1935,33 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   protected void assertValidOutputFile(String binRelativePath, String content) throws Exception {
+    assertValidOutputFile(binRelativePath, content, OutputPermissions.READONLY);
+  }
+
+  protected void assertValidOutputFile(
+      String binRelativePath, String content, OutputPermissions outputPermissions)
+      throws Exception {
     Path output = getOutputPath(binRelativePath);
     assertOutputEquals(getOutputPath(binRelativePath), content);
-    assertThat(output.isReadable()).isTrue();
-    assertThat(output.isWritable()).isFalse();
-    assertThat(output.isExecutable()).isTrue();
+    assertWithMessage("%s is readable", binRelativePath).that(output.isReadable()).isTrue();
+    assertWithMessage("%s is writable", binRelativePath)
+        .that(output.isWritable())
+        .isEqualTo(outputPermissions == OutputPermissions.WRITABLE);
+    assertWithMessage("%s is executable", binRelativePath).that(output.isExecutable()).isTrue();
+  }
+
+  protected void assertValidOutputDir(String binRelativePath, OutputPermissions outputPermissions)
+      throws Exception {
+    Path output = getOutputPath(binRelativePath);
+    assertWithMessage("%s is a directory", binRelativePath).that(output.isDirectory()).isTrue();
+    // Windows doesn't maintain permission information for directories.
+    if (OS.getCurrent() != OS.WINDOWS) {
+      assertWithMessage("%s is readable", binRelativePath).that(output.isReadable()).isTrue();
+      assertWithMessage("%s is writable", binRelativePath)
+          .that(output.isWritable())
+          .isEqualTo(outputPermissions == OutputPermissions.WRITABLE);
+      assertWithMessage("%s is executable", binRelativePath).that(output.isExecutable()).isTrue();
+    }
   }
 
   protected void assertSymlink(String binRelativeLinkPath, PathFragment targetPath)
@@ -1987,22 +2010,27 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         """
         def _output_dir_impl(ctx):
             out = ctx.actions.declare_directory(ctx.attr.name)
-            args = []
+            script = ["set -e"]
             for name, content in ctx.attr.content_map.items():
-                args.append(out.path + "/" + name)
-                args.append(content)
+                path = out.path + "/" + name
+                script.append('mkdir -p $(dirname {})'.format(path))
+                script.append('echo -n "{}" > {}'.format(content, path))
+            for name, target in ctx.attr.symlinks.items():
+                path = out.path + "/" + name
+                script.append('mkdir -p $(dirname {})'.format(path))
+                script.append('ln -s {} {}'.format(target, path))
             ctx.actions.run_shell(
                 mnemonic = "OutputDir",
                 outputs = [out],
-                arguments = args,
-                command = 'while (($#)); do echo -n "$2" > $1; shift 2; done',
+                command = "\\n".join(script),
             )
             return DefaultInfo(files = depset([out]))
 
         output_dir = rule(
             implementation = _output_dir_impl,
             attrs = {
-                "content_map": attr.string_dict(mandatory = True),
+                "content_map": attr.string_dict(),
+                "symlinks": attr.string_dict(),
             },
         )
         """);

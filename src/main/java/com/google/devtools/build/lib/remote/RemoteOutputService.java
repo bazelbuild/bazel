@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -58,6 +59,7 @@ public class RemoteOutputService implements OutputService {
   @Nullable private RemoteOutputChecker remoteOutputChecker;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private LeaseService leaseService;
+  @Nullable private OutputPermissions outputPermissions;
 
   RemoteOutputService(BlazeDirectories directories) {
     this.directories = checkNotNull(directories);
@@ -73,6 +75,10 @@ public class RemoteOutputService implements OutputService {
 
   void setLeaseService(LeaseService leaseService) {
     this.leaseService = leaseService;
+  }
+
+  public void setOutputPermissions(OutputPermissions outputPermissions) {
+    this.outputPermissions = outputPermissions;
   }
 
   @Override
@@ -98,7 +104,8 @@ public class RemoteOutputService implements OutputService {
         execRootFragment,
         relativeOutputPath,
         inputArtifactData,
-        actionInputFetcher);
+        actionInputFetcher,
+        outputPermissions);
   }
 
   @Override
@@ -220,7 +227,12 @@ public class RemoteOutputService implements OutputService {
       Map<Artifact, FilesetOutputTree> filesets) {
     FileSystem remoteFileSystem =
         new RemoteActionFileSystem(
-            fileSystem, execRoot, relativeOutputPath, actionInputMap, actionInputFetcher);
+            fileSystem,
+            execRoot,
+            relativeOutputPath,
+            actionInputMap,
+            actionInputFetcher,
+            outputPermissions);
     return ArtifactPathResolver.createPathResolver(remoteFileSystem, fileSystem.getPath(execRoot));
   }
 
