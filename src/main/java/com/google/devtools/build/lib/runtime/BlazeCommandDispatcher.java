@@ -17,6 +17,8 @@ import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.BAD_OPTIO
 import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.ERROR_SEPARATOR;
 import static com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie;
 import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -60,6 +62,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
@@ -77,6 +80,7 @@ import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -505,6 +509,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         }
       }
 
+      warnIfUsingUnusupportedEncoding(runtime.getProductName(), reporter);
+
       try (SilentCloseable closeable = Profiler.instance().profile("replay stored events")) {
         // Now we're ready to replay the events.
         storedEventHandler.replayOn(reporter);
@@ -919,5 +925,19 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                 .setMessage(message)
                 .setCommand(FailureDetails.Command.newBuilder().setCode(detailedCode))
                 .build()));
+  }
+
+  private static void warnIfUsingUnusupportedEncoding(String productName, Reporter reporter) {
+    // The user can only influence the JVM's encoding on Linux. See blaze.cc for details.
+    if (OS.getCurrent() != OS.LINUX) {
+      return;
+    }
+    var sunJnuEncoding = Charset.forName(System.getProperty("sun.jnu.encoding"));
+    if (!sunJnuEncoding.equals(UTF_8) && !sunJnuEncoding.equals(ISO_8859_1)) {
+      reporter.handle(
+          Event.warn(
+              "%1$s has been started with an unsupported encoding (%2$s) and may not support Unicode filenames. Make sure that the C.UTF-8 or en_US.UTF-8 locale is installed on your system and restart %1$s."
+                  .formatted(productName, sunJnuEncoding)));
+    }
   }
 }
