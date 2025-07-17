@@ -43,4 +43,7 @@ message MemoryPressureStats {
   // Chronological history of full GCs in this invocation (i.e. elements are in
   // increasing order of invocation_wall_time_so_far_ms).
   repeated FullGcFractionPoint full_gc_fraction_point = 5;
+
+  // Peak point in full_gc_fraction_point. Precomputed for convenient querying.
+  FullGcFractionPoint peak_full_gc_fraction_point = 6;
 }

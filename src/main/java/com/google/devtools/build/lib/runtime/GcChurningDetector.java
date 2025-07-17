@@ -51,6 +51,8 @@ class GcChurningDetector {
   private final Clock clock;
   private final Instant start;
   private final ArrayList<FullGcFractionPoint> fullGcFractionPoints = new ArrayList<>();
+
+  private FullGcFractionPoint peakFullGcPractionPoint = FullGcFractionPoint.getDefaultInstance();
   private final BugReporter bugReporter;
 
   @VisibleForTesting
@@ -102,11 +104,15 @@ class GcChurningDetector {
       return;
     }
     double gcFraction = cumulativeFullGcDuration.toMillis() * 1.0 / invocationWallTimeSoFarMs;
-    fullGcFractionPoints.add(
+    FullGcFractionPoint fullGcFractionPoint =
         FullGcFractionPoint.newBuilder()
             .setInvocationWallTimeSoFarMs(invocationWallTimeSoFarMs)
             .setFullGcFractionSoFar(gcFraction)
-            .build());
+            .build();
+    if (gcFraction > peakFullGcPractionPoint.getFullGcFractionSoFar()) {
+      peakFullGcPractionPoint = fullGcFractionPoint;
+    }
+    fullGcFractionPoints.add(fullGcFractionPoint);
     logger.atInfo().log(
         "cumulativeFullGcDuration=%s invocationWallTimeDuration=%s gcFraction=%.3f",
         cumulativeFullGcDuration, invocationWallTimeDuration, gcFraction);
@@ -138,5 +144,8 @@ class GcChurningDetector {
 
   void populateStats(MemoryPressureStats.Builder memoryPressureStatsBuilder) {
     memoryPressureStatsBuilder.addAllFullGcFractionPoint(fullGcFractionPoints);
+    if (!fullGcFractionPoints.isEmpty()) {
+      memoryPressureStatsBuilder.setPeakFullGcFractionPoint(peakFullGcPractionPoint);
+    }
   }
 }

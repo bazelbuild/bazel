@@ -50,29 +50,51 @@ public class GcChurningDetectorTest {
             fakeClock,
             mockBugReporter);
 
+    {
+      MemoryPressureStats.Builder actualBuilder = MemoryPressureStats.newBuilder();
+      underTest.populateStats(actualBuilder);
+
+      assertThat(actualBuilder.build()).isEqualTo(MemoryPressureStats.getDefaultInstance());
+    }
+
     fakeClock.advance(Duration.ofMillis(50L));
     underTest.handle(fullGcEvent(Duration.ofMillis(10L)));
 
     fakeClock.advance(Duration.ofMillis(50L));
     underTest.handle(fullGcEvent(Duration.ofMillis(40L)));
 
-    MemoryPressureStats.Builder actualBuilder = MemoryPressureStats.newBuilder();
-    underTest.populateStats(actualBuilder);
+    fakeClock.advance(Duration.ofMillis(50L));
+    underTest.handle(fullGcEvent(Duration.ofMillis(10L)));
 
-    assertThat(actualBuilder.build())
-        .isEqualTo(
-            MemoryPressureStats.newBuilder()
-                .addFullGcFractionPoint(
-                    FullGcFractionPoint.newBuilder()
-                        .setInvocationWallTimeSoFarMs(50)
-                        .setFullGcFractionSoFar(0.2)
-                        .build())
-                .addFullGcFractionPoint(
-                    FullGcFractionPoint.newBuilder()
-                        .setInvocationWallTimeSoFarMs(100)
-                        .setFullGcFractionSoFar(0.5)
-                        .build())
-                .build());
+    {
+      MemoryPressureStats.Builder actualBuilder = MemoryPressureStats.newBuilder();
+      underTest.populateStats(actualBuilder);
+
+      assertThat(actualBuilder.build())
+          .isEqualTo(
+              MemoryPressureStats.newBuilder()
+                  .addFullGcFractionPoint(
+                      FullGcFractionPoint.newBuilder()
+                          .setInvocationWallTimeSoFarMs(50)
+                          .setFullGcFractionSoFar(0.2)
+                          .build())
+                  .addFullGcFractionPoint(
+                      FullGcFractionPoint.newBuilder()
+                          .setInvocationWallTimeSoFarMs(100)
+                          .setFullGcFractionSoFar(0.5)
+                          .build())
+                  .addFullGcFractionPoint(
+                      FullGcFractionPoint.newBuilder()
+                          .setInvocationWallTimeSoFarMs(150)
+                          .setFullGcFractionSoFar(0.4)
+                          .build())
+                  .setPeakFullGcFractionPoint(
+                      FullGcFractionPoint.newBuilder()
+                          .setInvocationWallTimeSoFarMs(100)
+                          .setFullGcFractionSoFar(0.5)
+                          .build())
+                  .build());
+    }
 
     verifyNoOom();
   }
@@ -101,6 +123,11 @@ public class GcChurningDetectorTest {
         .isEqualTo(
             MemoryPressureStats.newBuilder()
                 .addFullGcFractionPoint(
+                    FullGcFractionPoint.newBuilder()
+                        .setInvocationWallTimeSoFarMs(2)
+                        .setFullGcFractionSoFar(0.5)
+                        .build())
+                .setPeakFullGcFractionPoint(
                     FullGcFractionPoint.newBuilder()
                         .setInvocationWallTimeSoFarMs(2)
                         .setFullGcFractionSoFar(0.5)
