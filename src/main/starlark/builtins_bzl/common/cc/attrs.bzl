@@ -119,11 +119,10 @@ most build rules</a>.
    and that rule's <code>outs</code> are automatically added to
    this <code>cc_library</code>'s data files.
 </p>
-<p>Your C++ code can access these data files like so:</p>
-<pre><code class="lang-starlark">
-  const std::string path = devtools_build::GetDataDependencyFilepath(
-      "my/test/data/file");
-</code></pre>
+<p>The functionality of locating data files (runfiles) at runtime in Bazel-built 
+C++ binaries is provided by <a href="https://github.com/bazelbuild/rules_cc/blob/main/cc/runfiles/runfiles.h">runfiles.h.</a>.
+The functionality is documented inside the header file.
+</p>
 """,
     ),
     "includes": attr.string_list(doc = """
