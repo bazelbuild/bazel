@@ -122,7 +122,7 @@ public final class CppConfiguration extends Fragment
   }
 
   /** This enumeration is used for the --strip option. */
-  public enum StripMode {
+  public enum StripMode implements StarlarkValue {
     ALWAYS("always"), // Always strip.
     SOMETIMES("sometimes"), // Strip iff compilationMode == FASTBUILD.
     NEVER("never"); // Never strip.
