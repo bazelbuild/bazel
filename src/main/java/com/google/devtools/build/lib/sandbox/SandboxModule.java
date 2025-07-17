@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -489,6 +490,9 @@ public final class SandboxModule extends BlazeModule {
 
     @Override
     public boolean canExecWithLegacyFallback(Spawn spawn) {
+      if (Spawns.usesPathMapping(spawn)) {
+        return false;
+      }
       boolean canExec = !sandboxSpawnRunner.canExec(spawn) && fallbackSpawnRunner.canExec(spawn);
       if (canExec) {
         // We give a warning to use strategies instead, whether or not we allow the fallback

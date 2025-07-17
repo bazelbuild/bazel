@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -86,11 +87,15 @@ public final class SpawnStrategyResolver implements ActionContext {
       if (fallbackStrategies.isEmpty()) {
         String message =
             String.format(
-                "%s spawn cannot be executed with any of the available strategies: %s. Your"
+                "%s spawn%s cannot be executed with any of the available strategies: %s. Your"
                     + " --spawn_strategy, --genrule_strategy and/or --strategy flags are probably"
                     + " too strict. Visit https://github.com/bazelbuild/bazel/issues/7480 for"
                     + " advice",
-                spawn.getMnemonic(), strategies);
+                spawn.getMnemonic(),
+                Spawns.usesPathMapping(spawn)
+                    ? ", which requires sandboxing due to path mapping,"
+                    : "",
+                strategies);
         throw new UserExecException(
             FailureDetail.newBuilder()
                 .setMessage(message)
