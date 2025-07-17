@@ -26,7 +26,8 @@ import javax.annotation.Nullable;
  * Definitions of types.
  *
  * <p><code>
- *   t ::= None | bool | int | float | str | object
+ *   t1, t2 ::= None | bool | int | float | str | object
+ *           | t1|t2
  * </code>
  */
 public final class Types {
@@ -314,4 +315,56 @@ public final class Types {
   // without positional-only parameter and by retrieving parameter names from StarlarkFunction
   @AutoValue
   abstract static class GeneralCallableType extends CallableType {}
+
+  /**
+   * Constructs a union type.
+   *
+   * <p>If the types sets contains another Union type it's flattened. Duplicates are removed.
+   *
+   * <p>If types set contains Object type it's simplified to Object type. If the set contains a
+   * single element, it is returned instead of constructing a union.
+   *
+   * @throws IllegalArgumentException If an empty set is passed in.
+   */
+  public static StarlarkType union(StarlarkType... types) {
+    return union(ImmutableSet.copyOf(types));
+  }
+
+  /** Constructs a union type. */
+  public static StarlarkType union(ImmutableSet<StarlarkType> types) {
+    ImmutableSet.Builder<StarlarkType> subtypesBuilder = ImmutableSet.builder();
+    // Unions are flattened
+    for (StarlarkType type : types) {
+      if (type instanceof UnionType union) {
+        subtypesBuilder.addAll(union.getTypes());
+      } else {
+        subtypesBuilder.add(type);
+      }
+    }
+    ImmutableSet<StarlarkType> subtypes = subtypesBuilder.build();
+    if (subtypes.contains(Types.OBJECT)) {
+      return Types.OBJECT;
+    }
+    if (subtypes.size() == 1) {
+      return subtypes.iterator().next();
+    } else if (subtypes.isEmpty()) {
+      throw new IllegalArgumentException("Empty union!");
+    }
+    return new AutoValue_Types_UnionType(subtypes);
+  }
+
+  /**
+   * Union type
+   *
+   * <p>Unions with zero or one type are disallowed. See {@link Types#union}.
+   */
+  @AutoValue
+  public abstract static class UnionType extends StarlarkType {
+    public abstract ImmutableSet<StarlarkType> getTypes();
+
+    @Override
+    public final String toString() {
+      return getTypes().stream().map(StarlarkType::toString).collect(joining("|"));
+    }
+  }
 }

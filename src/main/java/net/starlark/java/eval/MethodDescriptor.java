@@ -14,6 +14,7 @@
 
 package net.starlark.java.eval;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Arrays.stream;
 
 import com.google.common.base.Preconditions;
@@ -133,8 +134,11 @@ final class MethodDescriptor {
 
   private StarlarkType buildStarlarkType() {
     if (getAnnotation().structField()) {
-      // TODO(ilist@): handle allowReturnNones once we have Optional type
-      return TypeChecker.fromJava(getMethod().getReturnType());
+      StarlarkType returnType = TypeChecker.fromJava(getMethod().getReturnType());
+      if (allowReturnNones) {
+        returnType = Types.union(returnType, Types.NONE);
+      }
+      return returnType;
     }
 
     ParamDescriptor[] parameters = getParameters();
@@ -160,19 +164,26 @@ final class MethodDescriptor {
         // Use annotation
         parameterTypes.add(TypeChecker.fromJava(parameters[i].getAllowedClasses().get(0)));
       } else {
-        // TODO(ilist@): handle union types once we have them
-        parameterTypes.add(Types.ANY);
+        parameterTypes.add(
+            Types.union(
+                parameters[i].getAllowedClasses().stream()
+                    .map(TypeChecker::fromJava)
+                    .collect(toImmutableSet())));
       }
 
       if (parameters[i].getDefaultValue() == null) {
         mandatoryParameters.add(parameters[i].getName());
       }
     }
-    // TODO(ilist@): handle allowReturnNones once we have Optional type
-    StarlarkType returnType =
-        getMethod().getReturnType() == Object.class
-            ? Types.ANY
-            : TypeChecker.fromJava(getMethod().getReturnType());
+    StarlarkType returnType;
+    if (getMethod().getReturnType() == Object.class) {
+      returnType = Types.ANY;
+    } else {
+      returnType = TypeChecker.fromJava(getMethod().getReturnType());
+      if (allowReturnNones) {
+        returnType = Types.union(returnType, Types.NONE);
+      }
+    }
 
     return Types.callable(
         parameterNames.build(),

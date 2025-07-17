@@ -39,6 +39,11 @@ public class StarlarkTypesTest {
   }
 
   @Test
+  public void resolveType_union() throws Exception {
+    assertThat(resolveType("int|bool")).isEqualTo(Types.union(Types.INT, Types.BOOL));
+  }
+
+  @Test
   public void resolveType_unknownIdentifier() {
     SyntaxError.Exception e = assertThrows(SyntaxError.Exception.class, () -> resolveType("Foo"));
 

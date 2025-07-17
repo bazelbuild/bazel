@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.truth.StringSubject;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
 import net.starlark.java.types.Types.CallableType;
 import org.junit.Before;
 import org.junit.Test;
@@ -40,7 +41,7 @@ public class TypeCheckTest {
   }
 
   @Test
-  public void runtimeTypecheck() throws Exception {
+  public void runtimeTypecheck_primitiveTypes() throws Exception {
     ev.exec("def f(a: None): pass", "f(None)");
     ev.exec("def f(a: bool): pass", "f(True)");
     ev.exec("def f(a: int): pass", "f(1)");
@@ -61,6 +62,51 @@ public class TypeCheckTest {
 
     assertExecThrows(EvalException.class, "def f() -> int: return 'abc'", "f()")
         .isEqualTo("f(): returns value of type 'str', declares 'int'");
+  }
+
+  @Test
+  public void runtimeTypecheck_unions() throws Exception {
+    ev.exec("def f(a: None|bool): pass", "f(None)");
+    ev.exec("def f(a: None|bool): pass", "f(True)");
+    assertExecThrows(EvalException.class, "def f(a: None|bool): pass", "f(1)")
+        .isEqualTo("in call to f(), parameter 'a' got value of type 'int', want 'None|bool'");
+  }
+
+  @Test
+  public void union_edgeCaseSyntax() throws Exception {
+    ev.exec("def f(a: None|None): pass", "f(None)");
+    ev.exec("def f(a: None|bool|bool): pass", "f(None)");
+    ev.exec("def f(a: None|bool|str): pass", "f(None)");
+  }
+
+  @Test
+  public void isSubtypeOf_union() throws Exception {
+    // repeated elements
+    assertThat(Types.union(Types.union(Types.NONE, Types.BOOL), Types.BOOL))
+        .isEqualTo(Types.union(Types.NONE, Types.BOOL));
+    // associativity doesn't matter
+    assertThat(Types.union(Types.union(Types.NONE, Types.BOOL), Types.STR))
+        .isEqualTo(Types.union(Types.NONE, Types.union(Types.STR, Types.BOOL)));
+    // any and unions
+    assertThat(TypeChecker.isSubtypeOf(Types.ANY, Types.union(Types.INT, Types.BOOL))).isTrue();
+    assertThat(TypeChecker.isSubtypeOf(Types.union(Types.INT, Types.BOOL), Types.ANY)).isTrue();
+    // any inside unions
+    assertThat(TypeChecker.isSubtypeOf(Types.union(Types.ANY, Types.BOOL), Types.INT)).isFalse();
+    assertThat(TypeChecker.isSubtypeOf(Types.union(Types.ANY), Types.INT)).isTrue();
+    assertThat(TypeChecker.isSubtypeOf(Types.INT, Types.union(Types.ANY, Types.BOOL))).isTrue();
+    // object and unions
+    assertThat(TypeChecker.isSubtypeOf(Types.OBJECT, Types.union(Types.INT, Types.BOOL))).isFalse();
+    assertThat(TypeChecker.isSubtypeOf(Types.union(Types.INT, Types.BOOL), Types.OBJECT)).isTrue();
+    // object inside unions
+    assertThat(TypeChecker.isSubtypeOf(Types.union(Types.OBJECT, Types.BOOL), Types.INT)).isFalse();
+    assertThat(TypeChecker.isSubtypeOf(Types.union(Types.OBJECT), Types.INT)).isFalse();
+    assertThat(TypeChecker.isSubtypeOf(Types.INT, Types.union(Types.OBJECT, Types.BOOL))).isTrue();
+    // bonus: any and object inside union
+    assertThat(TypeChecker.isSubtypeOf(Types.union(Types.ANY, Types.OBJECT), Types.INT)).isFalse();
+    assertThat(
+            TypeChecker.isSubtypeOf(
+                Types.union(Types.ANY, Types.OBJECT), Types.union(Types.ANY, Types.INT)))
+        .isTrue();
   }
 
   @Test

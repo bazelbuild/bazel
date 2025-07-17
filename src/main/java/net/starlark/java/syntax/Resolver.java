@@ -832,6 +832,15 @@ public final class Resolver extends NodeVisitor {
   @Nullable
   public StarlarkType resolveType(Resolver.Module module, Expression expr) {
     switch (expr.kind()) {
+      case BINARY_OPERATOR:
+        // Syntax sugar for union types, i.e. a|b == Union[a,b]
+        BinaryOperatorExpression binop = (BinaryOperatorExpression) expr;
+        if (binop.getOperator() == TokenKind.PIPE) {
+          StarlarkType x = resolveType(module, binop.getX());
+          StarlarkType y = resolveType(module, binop.getY());
+          return Types.union(x, y);
+        }
+        break;
       case IDENTIFIER:
         Identifier id = (Identifier) expr;
         // TODO(ilist@): consider moving resolution/TYPE_UNIVERSE into Module interface
@@ -844,7 +853,7 @@ public final class Resolver extends NodeVisitor {
         if (result instanceof StarlarkType type) {
           return type;
         }
-      // TODO(ilist@): full evaluation: type expressions, applications
+      // TODO(ilist@): full evaluation: applications
       // fall through
       default:
     }

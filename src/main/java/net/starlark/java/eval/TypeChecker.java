@@ -14,13 +14,37 @@
 
 package net.starlark.java.eval;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.math.BigInteger;
+import java.util.HashSet;
 import java.util.Objects;
 import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types;
+import net.starlark.java.types.Types.UnionType;
 
 /** Type checker for Starlark types. */
 public final class TypeChecker {
+
+  private static boolean isUnionSubtypeOf(
+      ImmutableSet<StarlarkType> subtypes1, ImmutableSet<StarlarkType> subtypes2) {
+    HashSet<StarlarkType> remainingSubtypes1 = new HashSet<>(subtypes1);
+    // happy path - works only for exact matches
+    // for example: Int < Int|Str, where Int is an exact match of Int
+    remainingSubtypes1.removeAll(subtypes2);
+
+    // This is the price we need to pay for having untagged unions
+    // TODO(ilist@): Test this code path once we have collection types
+    for (StarlarkType t2 : subtypes2) {
+      // we need to call isSubtype, for example isSubtype(List[Int], List[Int | Str])
+      for (StarlarkType t1 : ImmutableList.copyOf(remainingSubtypes1)) {
+        if (isSubtypeOf(t1, t2)) {
+          remainingSubtypes1.remove(t1);
+        }
+      }
+    }
+    return remainingSubtypes1.isEmpty();
+  }
 
   public static boolean isSubtypeOf(StarlarkType type1, StarlarkType type2) {
     // Primitive unification, this way the lattice doesn't collapse
@@ -33,6 +57,17 @@ public final class TypeChecker {
     // TODO(ilist@): test this code path ("object" is not exposed to Starlark methods)
     if (type2.equals(Types.OBJECT)) {
       return true;
+    }
+
+    // normalize unions
+    if (type1 instanceof UnionType union1) {
+      if (type2 instanceof UnionType union2) {
+        return isUnionSubtypeOf(union1.getTypes(), union2.getTypes());
+      } else {
+        return isUnionSubtypeOf(union1.getTypes(), ImmutableSet.of(type2)); // a|b < b
+      }
+    } else if (type2 instanceof UnionType union2) {
+      return isUnionSubtypeOf(ImmutableSet.of(type1), union2.getTypes()); // a < a|b
     }
 
     // TODO(ilist@): this just works for primitive types
@@ -70,6 +105,7 @@ public final class TypeChecker {
         || cls == long.class
         || cls == Integer.class
         || cls == Long.class
+        || cls == StarlarkInt.class
         || BigInteger.class.isAssignableFrom(cls)) {
       t = Types.INT;
     } else if (cls == double.class || cls == Double.class || cls == StarlarkFloat.class) {
