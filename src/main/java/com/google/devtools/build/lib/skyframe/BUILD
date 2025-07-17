@@ -46,6 +46,7 @@ java_library(
         "LoadTopLevelAspectsFunction.java",
         "LocalRepositoryLookupFunction.java",
         "MacroInstanceFunction.java",
+        "NonFinalizerPackagePiecesFunction.java",
         "PackageDeclarationsFunction.java",
         "PackageFunction.java",
         "PackageFunctionWithMultipleGlobDeps.java",
@@ -233,7 +234,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
-        "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_tree",
         "//src/main/java/com/google/devtools/build/lib/actions:important_output_handler",
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
@@ -1952,8 +1952,10 @@ java_library(
     name = "package_value",
     srcs = [
         "MacroInstanceValue.java",
+        "NonFinalizerPackagePiecesValue.java",
         "PackageDeclarationsValue.java",
         "PackagePieceValue.java",
+        "PackagePieces.java",
         "PackageValue.java",
         "PackageoidValue.java",
     ],
@@ -1967,6 +1969,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

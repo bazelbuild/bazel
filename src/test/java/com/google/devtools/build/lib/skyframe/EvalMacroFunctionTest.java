@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackagePieceException;
 import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.skyframe.MacroInstanceFunction.NoSuchMacroInstanceException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -35,6 +36,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -371,25 +373,33 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         """);
   }
 
-  // TODO(https://github.com/bazelbuild/bazel/issues/23852): support finalizers.
   @Test
-  public void finalizers_notSupportedYet() throws Exception {
+  public void finalizers_seeNonFinalizerDefinedRulesOrderedByName() throws Exception {
     scratch.file(
         "pkg/my_finalizer.bzl",
         """
+        # Dummy rule used to save native.existing_rules() keys in a string list attribute.
+        _existing_rules_saver = rule(
+            implementation = lambda ctx: [],
+            attrs = {"existing_rules": attr.string_list()},
+        )
+
         def _impl(name, visibility):
-            all_rules = []
-            for r in native.existing_rules():
-                print("finalizer saw " + r["name"])
-            native.filegroup(name = name + "_all_rules", srcs = all_rules)
+            _existing_rules_saver(name = name, existing_rules = list(native.existing_rules()))
         my_finalizer = macro(implementation = _impl, finalizer = True)
         """);
     scratch.file(
         "pkg/other_macro.bzl",
         """
-        def _impl(name, visibility):
+        def _other_inner_macro_impl(name, visibility):
             native.cc_library(name = name, visibility = visibility)
-        other_macro = macro(implementation = _impl)
+        other_inner_macro = macro(implementation = _other_inner_macro_impl)
+
+        def _other_macro_impl(name, visibility):
+            other_inner_macro(name = name + "_c_inner", visibility = visibility)
+            native.cc_library(name = name + "_b", visibility = visibility)
+            other_inner_macro(name = name + "_a_inner", visibility = visibility)
+        other_macro = macro(implementation = _other_macro_impl)
         """);
     scratch.file(
         "pkg/BUILD",
@@ -397,11 +407,169 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         load(":my_finalizer.bzl", "my_finalizer")
         load(":other_macro.bzl", "other_macro")
         my_finalizer(name = "finalize")
-        cc_library(name = "top_level_rule")
-        other_macro(name = "macro_defined")
+        other_macro(name = "macro_declared")
+        cc_library(name = "a_top_level")
+        cc_library(name = "z_top_level")
         """);
-    assertThat(getExceptionForPackagePiece(NoSuchPackagePieceException.class, "pkg", "finalize"))
-        .hasMessageThat()
-        .contains("finalizers not yet supported");
+    // getPackagePieceWithoutErrors("pkg", "finalize");
+    PackagePiece.ForMacro finalizerPiece = getPackagePieceWithoutErrors("pkg", "finalize");
+    Rule existingRulesSaverRule = (Rule) finalizerPiece.getTarget("finalize");
+    List<String> existingRules =
+        Types.STRING_LIST.cast(existingRulesSaverRule.getAttr("existing_rules"));
+    assertThat(existingRules)
+        .containsExactly(
+            // Ordered by name.
+            "a_top_level",
+            "macro_declared_a_inner",
+            "macro_declared_b",
+            "macro_declared_c_inner",
+            "z_top_level")
+        .inOrder();
+  }
+
+  @Test
+  public void finalizers_doNotSeeFinalizerDefinedTargets() throws Exception {
+    scratch.file(
+        "pkg/my_finalizer.bzl",
+        """
+        # Dummy rule used to save native.existing_rules() keys in a string list attribute.
+        _existing_rules_saver = rule(
+            implementation = lambda ctx: [],
+            attrs = {"existing_rules": attr.string_list()},
+        )
+
+        def _impl(name, visibility):
+            native.cc_library(name = name + "_dummy_rule")
+            _existing_rules_saver(name = name, existing_rules = list(native.existing_rules()))
+        my_finalizer = macro(implementation = _impl, finalizer = True)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_finalizer.bzl", "my_finalizer")
+        my_finalizer(name = "finalize")
+        my_finalizer(name = "other_finalize")
+        """);
+
+    PackagePiece.ForMacro finalizerPiece = getPackagePieceWithoutErrors("pkg", "finalize");
+    assertThat(
+            Types.STRING_LIST.cast(
+                ((Rule) finalizerPiece.getTarget("finalize")).getAttr("existing_rules")))
+        .isEmpty();
+    PackagePiece.ForMacro otherFinalizerPiece =
+        getPackagePieceWithoutErrors("pkg", "other_finalize");
+    assertThat(
+            Types.STRING_LIST.cast(
+                ((Rule) otherFinalizerPiece.getTarget("other_finalize")).getAttr("existing_rules")))
+        .isEmpty();
+  }
+
+  @Test
+  public void finalizers_notEvaluated_ifNonFinalizerPackagePieceInError() throws Exception {
+    scratch.file(
+        "pkg/my_finalizer.bzl",
+        """
+        def _impl(name, visibility):
+            native.filegroup(name = name + "_saw_rules", srcs = native.existing_rules())
+        my_finalizer = macro(implementation = _impl, finalizer = True)
+        """);
+    scratch.file(
+        "pkg/fail_macro.bzl",
+        """
+        def _impl(name, visibility):
+            native.cc_library(name = name, visibility = visibility)
+            fail("fail fail fail")
+
+        fail_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":fail_macro.bzl", "fail_macro")
+        load(":my_finalizer.bzl", "my_finalizer")
+        my_finalizer(name = "finalize")
+        cc_library(name = "top_level_rule")
+        fail_macro(name = "failing_macro")
+        """);
+    reporter.removeHandler(failFastHandler);
+    PackagePiece.ForMacro finalizerPiece = getPackagePiece("pkg", "finalize");
+    assertThat(finalizerPiece.containsErrors()).isTrue();
+    assertThat(finalizerPiece.getTargets()).isEmpty();
+    assertThat(finalizerPiece.getFailureDetail().getMessage())
+        .contains(
+            "cannot compute package piece for finalizer macro //pkg:finalize defined by"
+                + " //pkg:my_finalizer.bzl%my_finalizer: error in package piece for macro"
+                + " //pkg:failing_macro defined by //pkg:fail_macro.bzl%fail_macro");
+    assertThat(getPackagePiece("pkg", "failing_macro").containsErrors()).isTrue();
+    assertContainsEventsInOrder(
+        """
+        Traceback (most recent call last):
+        \tFile "/workspace/pkg/BUILD", line 5, column 11, in <toplevel>
+        \t\tfail_macro(name = "failing_macro")
+        \tFile "/workspace/pkg/fail_macro.bzl", line 5, column 1, in fail_macro
+        \t\tfail_macro = macro(implementation = _impl)
+        \tFile "/workspace/pkg/fail_macro.bzl", line 3, column 9, in _impl
+        \t\tfail("fail fail fail")
+        Error in fail: fail fail fail\
+        """,
+        "cannot compute package piece for finalizer macro //pkg:finalize defined by"
+            + " //pkg:my_finalizer.bzl%my_finalizer");
+  }
+
+  @Test
+  public void finalizers_notEvaluated_ifNameConflictBetweenNonFinalizerPackagePieces()
+      throws Exception {
+    scratch.file(
+        "pkg/my_finalizer.bzl",
+        """
+        def _impl(name, visibility):
+            native.filegroup(name = name + "_saw_rules", srcs = native.existing_rules())
+        my_finalizer = macro(implementation = _impl, finalizer = True)
+        """);
+    scratch.file(
+        "pkg/name_conflict_macro.bzl",
+        """
+        def _impl(name, suffix, visibility):
+            native.cc_library(name = name + suffix, visibility = visibility)
+
+        name_conflict_macro = macro(
+            implementation = _impl,
+            attrs = {"suffix": attr.string(configurable = False)},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_finalizer.bzl", "my_finalizer")
+        load(":name_conflict_macro.bzl", "name_conflict_macro")
+        my_finalizer(name = "finalize")
+        cc_library(name = "top_level_rule")
+        name_conflict_macro(name = "top", suffix = "_level_rule")
+        """);
+    reporter.removeHandler(failFastHandler);
+    PackagePiece.ForMacro finalizerPiece = getPackagePiece("pkg", "finalize");
+    assertThat(finalizerPiece.containsErrors()).isTrue();
+    assertThat(finalizerPiece.getTargets()).isEmpty();
+    assertThat(finalizerPiece.getFailureDetail().getMessage())
+        .contains(
+            "cannot compute package piece for finalizer macro //pkg:finalize defined by"
+                + " //pkg:my_finalizer.bzl%my_finalizer: cc_library rule 'top_level_rule' conflicts"
+                + " with existing cc_library rule");
+    // Note that individual non-finalizer package pieces are not in error - the conflict is in the
+    // NonFinalizerPackagePiecesValue.
+    getPackagePieceWithoutErrors("pkg", "top");
+    assertContainsEventsInOrder(
+        """
+        Traceback (most recent call last):
+        \tFile "/workspace/pkg/BUILD", line 5, column 20, in <toplevel>
+        \t\tname_conflict_macro(name = "top", suffix = "_level_rule")
+        \tFile "/workspace/pkg/name_conflict_macro.bzl", line 4, column 1, in name_conflict_macro
+        \t\tname_conflict_macro = macro(
+        \tFile "/workspace/pkg/name_conflict_macro.bzl", line 2, column 22, in _impl
+        \t\tnative.cc_library(name = name + suffix, visibility = visibility)
+        Error: cc_library rule 'top_level_rule' conflicts with existing cc_library rule, defined at /workspace/pkg/BUILD:4:11\
+        """,
+        "cannot compute package piece for finalizer macro //pkg:finalize defined by"
+            + " //pkg:my_finalizer.bzl%my_finalizer");
   }
 }

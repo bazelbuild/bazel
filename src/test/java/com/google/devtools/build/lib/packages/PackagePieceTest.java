@@ -269,7 +269,8 @@ def fail_impl(name, visibility, **kwargs):
         PackageOverheadEstimator.NOOP_ESTIMATOR,
         /* enableNameConflictChecking= */ true,
         /* trackFullMacroInformation= */ false,
-        Package.Builder.PackageLimits.DEFAULTS);
+        Package.Builder.PackageLimits.DEFAULTS,
+        /* existingRulesMapForFinalizer= */ null);
   }
 
   @CanIgnoreReturnValue

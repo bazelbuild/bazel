@@ -289,7 +289,8 @@ public final class PackageFactory {
       PackagePieceIdentifier parentIdentifier,
       StarlarkSemantics starlarkSemantics,
       RepositoryMapping mainRepositoryMapping,
-      @Nullable Semaphore cpuBoundSemaphore) {
+      @Nullable Semaphore cpuBoundSemaphore,
+      @Nullable ImmutableMap<String, Rule> existingRulesMapForFinalizer) {
     return PackagePiece.ForMacro.newBuilder(
         metadata,
         declarations,
@@ -302,7 +303,8 @@ public final class PackageFactory {
         packageOverheadEstimator,
         /* enableNameConflictChecking= */ true,
         /* trackFullMacroInformation= */ true,
-        packageValidator.getPackageLimits());
+        packageValidator.getPackageLimits(),
+        existingRulesMapForFinalizer);
   }
 
   /** Returns a new {@link NonSkyframeGlobber}. */

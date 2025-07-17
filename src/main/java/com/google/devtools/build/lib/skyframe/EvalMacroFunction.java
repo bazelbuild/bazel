@@ -14,9 +14,14 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.Math.max;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -26,6 +31,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.PackagePieceIdentifier;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackagePieceException;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.skyframe.MacroInstanceFunction.NoSuchMacroInstanceException;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -33,6 +39,11 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -98,13 +109,36 @@ final class EvalMacroFunction implements SkyFunction {
     }
     MacroInstance macroInstance = macroInstanceValue.macroInstance();
 
-    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support finalizers. Requires
-    // recursively expanding all non-finalizer macros in current package and creating a map of all
-    // non-finalizer-defined rules for native.existing_rules().
+    // Non-null iff the macro is a finalizer.
+    NonFinalizerPackagePiecesValue nonFinalizerPackagePiecesValue = null;
+    // Non-null iff the macro is a finalizer and finalizer dependencies were computed without error.
+    @Nullable ImmutableMap<String, Rule> existingRulesMapForFinalizer = null;
+
     if (macroInstance.getMacroClass().isFinalizer()) {
-      throw new EvalMacroFunctionException(
-          new InvalidPackagePieceException(
-              key, "finalizers not yet supported under lazy macro expansion"));
+      try {
+        nonFinalizerPackagePiecesValue =
+            (NonFinalizerPackagePiecesValue)
+                env.getValueOrThrow(
+                    new NonFinalizerPackagePiecesValue.Key(key.getPackageIdentifier()),
+                    NoSuchPackageException.class,
+                    NoSuchPackagePieceException.class,
+                    NoSuchMacroInstanceException.class);
+      } catch (NoSuchPackageException e) {
+        throw new EvalMacroFunctionException(e);
+      } catch (NoSuchPackagePieceException e) {
+        throw new EvalMacroFunctionException(e);
+      } catch (NoSuchMacroInstanceException e) {
+        throw new EvalMacroFunctionException(e);
+      }
+      if (nonFinalizerPackagePiecesValue == null) {
+        // Restart
+        return null;
+      } else if (!nonFinalizerPackagePiecesValue.containsErrors()) {
+        existingRulesMapForFinalizer =
+            nonFinalizerPackagePiecesValue.targets().entrySet().stream()
+                .filter(e -> e.getValue() instanceof Rule)
+                .collect(toImmutableMap(Map.Entry::getKey, e -> (Rule) e.getValue()));
+      }
     }
 
     // Expand the macro.
@@ -117,17 +151,38 @@ final class EvalMacroFunction implements SkyFunction {
             key.getParentIdentifier(),
             packageDeclarationsValue.starlarkSemantics(),
             packageDeclarationsValue.mainRepositoryMapping(),
-            cpuBoundSemaphore.get());
-    try {
-      MacroClass.executeMacroImplementation(
-          macroInstance, packagePieceBuilder, packageDeclarationsValue.starlarkSemantics());
-    } catch (EvalException e) {
-      packagePieceBuilder
-          .getLocalEventHandler()
-          .handle(
-              Package.error(
-                  e.getInnermostLocation(), e.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
+            cpuBoundSemaphore.get(),
+            existingRulesMapForFinalizer);
+    if (nonFinalizerPackagePiecesValue != null && nonFinalizerPackagePiecesValue.containsErrors()) {
+      // Error within one non-finalizer package piece or a name conflict between package pieces. It
+      // was already reported as an event with stack trace by the computation of the
+      // PackagePieceValue or NonFinalizerPackagePiecesValue, so we don't need to repeat the stack
+      // trace - just a brief summary.
+      if (!nonFinalizerPackagePiecesValue.getErrorKeys().isEmpty()) {
+        PackagePieceIdentifier errorKey = nonFinalizerPackagePiecesValue.getErrorKeys().getFirst();
+        PackagePiece errorPiece = nonFinalizerPackagePiecesValue.getPackagePieces().get(errorKey);
+        handleFinalizerDependencyError(
+            packagePieceBuilder, "error in " + errorPiece.getShortDescription());
+      } else {
+        handleFinalizerDependencyError(
+            packagePieceBuilder,
+            nonFinalizerPackagePiecesValue
+                .nameConflictBetweenPackagePiecesException()
+                .getMessage());
+      }
       packagePieceBuilder.setContainsErrors();
+    } else {
+      try {
+        MacroClass.executeMacroImplementation(
+            macroInstance, packagePieceBuilder, packageDeclarationsValue.starlarkSemantics());
+      } catch (EvalException e) {
+        packagePieceBuilder
+            .getLocalEventHandler()
+            .handle(
+                Package.error(
+                    e.getInnermostLocation(), e.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
+        packagePieceBuilder.setContainsErrors();
+      }
     }
     long loadTimeNanos = max(BlazeClock.nanoTime() - startTimeNanos, 0L);
 
@@ -152,6 +207,137 @@ final class EvalMacroFunction implements SkyFunction {
     }
 
     return new PackagePieceValue.ForMacro(packagePiece);
+  }
+
+  private static void handleFinalizerDependencyError(
+      PackagePiece.ForMacro.Builder packagePieceBuilder, String message) {
+    packagePieceBuilder
+        .getLocalEventHandler()
+        .handle(
+            Package.error(
+                packagePieceBuilder.getPackagePiece().getEvaluatedMacro().getBuildFileLocation(),
+                String.format(
+                    "cannot compute %s: %s",
+                    packagePieceBuilder.getPackagePiece().getShortDescription(), message),
+                Code.STARLARK_EVAL_ERROR));
+  }
+
+  /**
+   * A mutable {@link PackagePieces} implementation which produces its collection of package pieces
+   * by recursively expanding a starting collection of package piece identifiers.
+   *
+   * <p>Intended to be used as part of a skyfunction compute() implementation. The {@link
+   * RecursiveExpander} lacks any kind of invalidation of already-expanded package pieces, so it
+   * cannot be reused across multiple skyframe evaluations.
+   */
+  static class RecursiveExpander implements PackagePieces {
+    private final LinkedHashMap<PackagePieceIdentifier, PackagePiece> packagePieces =
+        new LinkedHashMap<>();
+    private final LinkedHashSet<PackagePieceIdentifier> errorKeys = new LinkedHashSet<>();
+
+    @Override
+    public ImmutableMap<PackagePieceIdentifier, PackagePiece> getPackagePieces() {
+      return ImmutableMap.copyOf(packagePieces);
+    }
+
+    @Override
+    public PackagePiece.ForBuildFile getPackagePieceForBuildFile() {
+      return (PackagePiece.ForBuildFile) packagePieces.values().iterator().next();
+    }
+
+    @Override
+    public ImmutableList<PackagePieceIdentifier> getErrorKeys() {
+      return ImmutableList.copyOf(errorKeys);
+    }
+
+    /**
+     * Recursively expands the pieces of a package. Intended for inlining into skyfunction
+     * implementations.
+     *
+     * @param pkgId the package whose pieces are being expanded
+     * @param env the skyframe environment
+     * @return this expander on success, or null to signal a skyframe restart.
+     */
+    @Nullable
+    RecursiveExpander expand(PackageIdentifier pkgId, Environment env, boolean expandFinalizers)
+        throws NoSuchPackageException,
+            NoSuchPackagePieceException,
+            NoSuchMacroInstanceException,
+            InterruptedException {
+      return expand(
+          ImmutableList.of(new PackagePieceIdentifier.ForBuildFile(pkgId)), env, expandFinalizers);
+    }
+
+    /**
+     * Performs "opportunistic BFS" recursive expansion of the given keys: expands in BFS order
+     * (siblings ordered by name) as far as possible, skipping missing values, and then signals a
+     * skyframe restart if any values were missing. Once all missing values have been obtained, the
+     * final evaluation of this function - one which does not trigger a restart - will collect
+     * package pieces in BFS order.
+     *
+     * @param keys set of keys to expand. If the expander is empty, must contain a single {@link
+     *     PackagePieceIdentifier.ForBuildFile}. Otherwise, must contain package piece keys of the
+     *     same depth, with siblings ordered by name.
+     * @return this expander on success, or null to signal a skyframe restart.
+     */
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852) - use state machine to reduce restart
+    // cost?
+    @Nullable
+    private RecursiveExpander expand(
+        Collection<? extends PackagePieceIdentifier> keys,
+        Environment env,
+        boolean expandFinalizers)
+        throws NoSuchPackageException,
+            NoSuchPackagePieceException,
+            NoSuchMacroInstanceException,
+            InterruptedException {
+      if (keys.isEmpty()) {
+        return this;
+      }
+      if (packagePieces.isEmpty()) {
+        checkArgument(
+            keys.size() == 1
+                && keys.iterator().next() instanceof PackagePieceIdentifier.ForBuildFile,
+            "expansion must start from a PackagePieceIdentifier.ForBuildFile");
+      }
+      boolean valuesMissing = false;
+      SkyframeLookupResult lookupResult = env.getValuesAndExceptions(keys);
+      ImmutableList.Builder<PackagePieceIdentifier.ForMacro> childKeys = ImmutableList.builder();
+      for (PackagePieceIdentifier key : keys) {
+        PackagePieceValue packagePieceValue =
+            (PackagePieceValue)
+                lookupResult.getOrThrow(
+                    key,
+                    NoSuchPackageException.class,
+                    NoSuchPackagePieceException.class,
+                    NoSuchMacroInstanceException.class);
+        if (packagePieceValue == null) {
+          valuesMissing = true;
+          continue;
+        }
+        packagePieces.put(key, packagePieceValue.getPackagePiece());
+        if (packagePieceValue.getPackagePiece().containsErrors()) {
+          errorKeys.add(key);
+        } else {
+          for (MacroInstance childMacroInstance : packagePieceValue.getPackagePiece().getMacros()) {
+            PackagePieceIdentifier.ForMacro childKey =
+                new PackagePieceIdentifier.ForMacro(
+                    key.getPackageIdentifier(), key, childMacroInstance.getName());
+            if (packagePieces.containsKey(childKey)) {
+              // Already expanded.
+              continue;
+            }
+            if (expandFinalizers || !childMacroInstance.getMacroClass().isFinalizer()) {
+              childKeys.add(childKey);
+            }
+          }
+        }
+      }
+      if (expand(childKeys.build(), env, expandFinalizers) == null) {
+        valuesMissing = true;
+      }
+      return valuesMissing ? null : this;
+    }
   }
 
   public static final class EvalMacroFunctionException extends SkyFunctionException {

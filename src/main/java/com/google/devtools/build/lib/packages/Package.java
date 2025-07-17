@@ -327,7 +327,8 @@ public class Package extends Packageoid {
           String.format(
               "Target %s declared in symbolic macro '%s' violates macro naming rules and cannot be"
                   + " built. %s",
-              target.getLabel(), macroNamespaceViolated, TargetRecorder.MACRO_NAMING_RULES));
+              target.getLabel(), macroNamespaceViolated, TargetRecorder.MACRO_NAMING_RULES),
+          target);
     }
   }
 

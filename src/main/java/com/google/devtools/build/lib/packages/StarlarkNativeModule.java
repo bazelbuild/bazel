@@ -437,12 +437,11 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
     TargetDefinitionContext targetDefinitionContext =
         TargetDefinitionContext.fromOrFailDisallowNonFinalizerMacros(thread, "existing_rule()");
-    if (!(targetDefinitionContext instanceof Package.Builder)) {
-      // TODO(https://github.com/bazelbuild/bazel/issues/25539): support native.existing_rule()
-      // in finalizers under lazy symbolic macro expansion. Figure out what to do if we encounter
-      // native.existing_rule() under PackagePiece.ForBuildFile.Builder (it's not obvious).
+    if (targetDefinitionContext instanceof PackagePiece.ForBuildFile.Builder) {
+      // TODO(https://github.com/bazelbuild/bazel/issues/25539): Figure out what to do if we
+      // encounter native.existing_rule() under PackagePiece.ForBuildFile.Builder.
       throw Starlark.errorf(
-          "existing_rule() is not yet supported under lazy symbolic macro expansion");
+          "under lazy macro expansion, existing_rule() is supported only in finalizer macros");
     }
     @Nullable Rule rule = targetDefinitionContext.getNonFinalizerInstantiatedRule(name);
     if (rule != null) {
@@ -510,12 +509,11 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
     TargetDefinitionContext targetDefinitionContext =
         TargetDefinitionContext.fromOrFailDisallowNonFinalizerMacros(thread, "existing_rules()");
-    if (!(targetDefinitionContext instanceof Package.Builder)) {
-      // TODO(https://github.com/bazelbuild/bazel/issues/25539): support native.existing_rules()
-      // in finalizers under lazy symbolic macro expansion. Figure out what to do if we encounter
-      // native.existing_rules() under PackagePiece.ForBuildFile.Builder (it's not obvious).
+    if (targetDefinitionContext instanceof PackagePiece.ForBuildFile.Builder) {
+      // TODO(https://github.com/bazelbuild/bazel/issues/25539): figure out what to do if we
+      // encounter native.existing_rules() under PackagePiece.ForBuildFile.Builder.
       throw Starlark.errorf(
-          "existing_rules() is not yet supported under lazy symbolic macro expansion");
+          "under lazy macro expansion, existing_rules() is supported only in finalizer macros");
     }
     return new ExistingRulesView(targetDefinitionContext.getRulesSnapshotView());
   }

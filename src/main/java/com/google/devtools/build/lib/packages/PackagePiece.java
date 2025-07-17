@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
@@ -35,6 +37,7 @@ import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViola
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
@@ -90,6 +93,11 @@ public abstract sealed class PackagePiece extends Packageoid
   @Nullable
   public MacroInstance getMacroByName(String name) {
     return macrosByName.get(name);
+  }
+
+  /** Returns a list of all the macro instances defined in this package piece, ordered by name. */
+  public ImmutableList<MacroInstance> getMacros() {
+    return ImmutableList.copyOf(macrosByName.values());
   }
 
   private NoSuchTargetException noSuchTargetException(String targetName) {
@@ -347,8 +355,10 @@ public abstract sealed class PackagePiece extends Packageoid
     @Override
     public String getShortDescription() {
       return String.format(
-          "package piece %s defined by %s",
-          getIdentifier().getCanonicalFormName(), getCanonicalFormDefinedBy());
+          "package piece for %smacro %s defined by %s",
+          getEvaluatedMacro().getMacroClass().isFinalizer() ? "finalizer " : "",
+          getIdentifier().getCanonicalFormName(),
+          getCanonicalFormDefinedBy());
     }
 
     public MacroInstance getEvaluatedMacro() {
@@ -376,7 +386,8 @@ public abstract sealed class PackagePiece extends Packageoid
             String.format(
                 "Target %s declared in symbolic macro '%s' violates macro naming rules and cannot"
                     + " be built. %s",
-                target.getLabel(), evaluatedMacro.getName(), TargetRecorder.MACRO_NAMING_RULES));
+                target.getLabel(), evaluatedMacro.getName(), TargetRecorder.MACRO_NAMING_RULES),
+            target);
       }
     }
 
@@ -424,7 +435,8 @@ public abstract sealed class PackagePiece extends Packageoid
         PackageOverheadEstimator packageOverheadEstimator,
         boolean enableNameConflictChecking,
         boolean trackFullMacroInformation,
-        PackageLimits packageLimits) {
+        PackageLimits packageLimits,
+        @Nullable ImmutableMap<String, Rule> existingRulesMapForFinalizer) {
       ForMacro forMacro = new ForMacro(metadata, declarations, evaluatedMacro, parentIdentifier);
       return new Builder(
           forMacro,
@@ -434,11 +446,16 @@ public abstract sealed class PackagePiece extends Packageoid
           packageOverheadEstimator,
           enableNameConflictChecking,
           trackFullMacroInformation,
-          packageLimits);
+          packageLimits,
+          existingRulesMapForFinalizer);
     }
 
     /** A builder for {@link PackagePieceForMacro} objects. */
     public static class Builder extends TargetDefinitionContext {
+      // Non-null iff this is a builder for a finalizer package piece and the non-finalizer package
+      // pieces that it depends upon are not in error. Used for native.existing_rules() and
+      // native.existing_rule().
+      @Nullable private final ImmutableMap<String, Rule> existingRulesMapForFinalizer;
 
       /** Retrieves this object from a Starlark thread. Returns null if not present. */
       @Nullable
@@ -454,6 +471,26 @@ public abstract sealed class PackagePiece extends Packageoid
       @Override
       public boolean eagerlyExpandMacros() {
         return false;
+      }
+
+      /** Can only be called for a finalizer package piece. */
+      @Override
+      Map<String, Rule> getRulesSnapshotView() {
+        checkState(
+            getPackagePiece().getEvaluatedMacro().getMacroClass().isFinalizer(),
+            "%s is defined by a non-finalizer macro",
+            getPackagePiece().getShortDescription());
+        return checkNotNull(
+            existingRulesMapForFinalizer,
+            "native.existing_rules map was not set in builder for %s",
+            getPackagePiece().getShortDescription());
+      }
+
+      /** Can only be called for a finalizer package piece. */
+      @Nullable
+      @Override
+      Rule getNonFinalizerInstantiatedRule(String name) {
+        return getRulesSnapshotView().get(name);
       }
 
       @Override
@@ -485,7 +522,8 @@ public abstract sealed class PackagePiece extends Packageoid
           PackageOverheadEstimator packageOverheadEstimator,
           boolean enableNameConflictChecking,
           boolean trackFullMacroInformation,
-          PackageLimits packageLimits) {
+          PackageLimits packageLimits,
+          @Nullable ImmutableMap<String, Rule> existingRulesMapForFinalizer) {
         super(
             forMacro.getMetadata(),
             forMacro,
@@ -501,6 +539,7 @@ public abstract sealed class PackagePiece extends Packageoid
             trackFullMacroInformation,
             /* enableTargetMapSnapshotting= */ false,
             packageLimits);
+        this.existingRulesMapForFinalizer = existingRulesMapForFinalizer;
       }
     }
   }
