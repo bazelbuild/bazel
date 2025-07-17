@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.ConcurrentPathTrie;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -62,6 +63,8 @@ public class RemoteOutputChecker implements OutputChecker {
   private final ImmutableList<Predicate<String>> patternsToDownload;
   @Nullable private final RemoteOutputChecker lastRemoteOutputChecker;
 
+  @Nullable private Clock clock;
+
   private final ConcurrentPathTrie pathsToDownload = new ConcurrentPathTrie();
 
   public RemoteOutputChecker(
@@ -87,6 +90,11 @@ public class RemoteOutputChecker implements OutputChecker {
     this.outputsMode = outputsMode;
     this.patternsToDownload = patternsToDownload;
     this.lastRemoteOutputChecker = lastRemoteOutputChecker;
+  }
+
+  /** Sets this checker to check the TTL of remote metadata when deciding whether to trust it. */
+  public void setCheckMetadataTtl(Clock clock) {
+    this.clock = clock;
   }
 
   // Skymeld-only.
@@ -318,11 +326,24 @@ public class RemoteOutputChecker implements OutputChecker {
       }
     }
 
-    // The remote metadata may have passed its TTL, but we optimistically assume that it's still
-    // available remotely. If it isn't, build or action rewinding will take care of rerunning the
-    // actions needed to produce the file and also evict the stale metadata. This incurs roughly the
-    // same performance hit, but only when actually needed.
-    return !shouldDownloadOutput(file, metadata);
+    if (shouldDownloadOutput(file, metadata)) {
+      return false;
+    }
+
+    if (clock != null) {
+      return isAlive(metadata);
+    }
+
+    // The remote metadata may have passed its TTL, but we are requested to optimistically assume
+    // that it's still available remotely. If it isn't, build or action rewinding will take care
+    // of rerunning the actions needed to produce the file and also evict the stale metadata. This
+    // incurs roughly the same performance hit, but only when actually needed.
+    return true;
+  }
+
+  private boolean isAlive(FileArtifactValue metadata) {
+    var expirationTime = metadata.getExpirationTime();
+    return expirationTime == null || expirationTime.isAfter(clock.now());
   }
 
   public void maybeInvalidateSkyframeValues(MemoizingEvaluator memoizingEvaluator) {
