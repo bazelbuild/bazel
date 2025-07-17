@@ -248,4 +248,30 @@ public class TestOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP})
   public String testDeprecated;
+
+  @Option(
+      name = "markdown_in_help",
+      defaultValue = "default",
+      help =
+          """
+          normal, `code span`, *emphasis*, **strong emphasis**, [inline link](/url (title)), [reference link][ref]
+          hard line\\
+          break
+          ```
+          code block
+          ```
+          - unordered
+          - list
+          1. ordered
+          2. list
+
+          paragraph 1
+
+          paragraph 2
+
+          [ref]: /url (title)
+          """,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP})
+  public String markdownInHelp;
 }

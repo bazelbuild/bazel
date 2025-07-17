@@ -490,3 +490,11 @@ java_library(
     name = "cleaner",
     srcs = ["BazelCleaner.java"],
 )
+
+java_library(
+    name = "markdown",
+    srcs = ["Markdown.java"],
+    deps = [
+        "@maven//:org_commonmark_commonmark",
+    ],
+)

@@ -49,6 +49,7 @@ java_library(
         ],
     ),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:markdown",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/build/lib/util:string_encoding",
         "//src/main/java/com/google/devtools/build/lib/util/regex:regex_util",
