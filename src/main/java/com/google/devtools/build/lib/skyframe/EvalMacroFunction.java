@@ -124,7 +124,9 @@ final class EvalMacroFunction implements SkyFunction {
     } catch (EvalException e) {
       packagePieceBuilder
           .getLocalEventHandler()
-          .handle(Package.error(null, e.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
+          .handle(
+              Package.error(
+                  e.getInnermostLocation(), e.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
       packagePieceBuilder.setContainsErrors();
     }
     long loadTimeNanos = max(BlazeClock.nanoTime() - startTimeNanos, 0L);
@@ -137,6 +139,7 @@ final class EvalMacroFunction implements SkyFunction {
       throw new EvalMacroFunctionException(e);
     }
     PackagePiece.ForMacro packagePiece = packagePieceBuilder.finishBuild();
+    packagePieceBuilder.getLocalEventHandler().replayOn(env.getListener());
 
     try {
       packageFactory.afterDoneLoadingPackagePiece(

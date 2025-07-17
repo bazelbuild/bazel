@@ -354,9 +354,21 @@ public final class EvalMacroFunctionTest extends BuildViewTestCase {
         my_macro(name = "foo")
         """);
 
+    reporter.removeHandler(failFastHandler);
     PackagePiece.ForMacro forMacro = getPackagePiece("pkg", "foo");
     assertThat(forMacro.containsErrors()).isTrue();
     assertThat(((Rule) forMacro.getTarget("foo")).containsErrors()).isTrue();
+    assertContainsEvent(
+        """
+        ERROR /workspace/pkg/my_macro.bzl:3:9: Traceback (most recent call last):
+        \tFile "/workspace/pkg/BUILD", line 2, column 9, in <toplevel>
+        \t\tmy_macro(name = "foo")
+        \tFile "/workspace/pkg/my_macro.bzl", line 4, column 1, in my_macro
+        \t\tmy_macro = macro(implementation = _impl)
+        \tFile "/workspace/pkg/my_macro.bzl", line 3, column 9, in _impl
+        \t\tfail("fail fail fail")
+        Error in fail: fail fail fail\
+        """);
   }
 
   // TODO(https://github.com/bazelbuild/bazel/issues/23852): support finalizers.
