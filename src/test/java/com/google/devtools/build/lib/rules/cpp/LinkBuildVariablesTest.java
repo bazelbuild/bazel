@@ -115,6 +115,13 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
     CcToolchainVariables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
+    assertThat(
+            variables
+                .getVariable(
+                    LinkBuildVariables.LIBRARY_SEARCH_DIRECTORIES.getVariableName(),
+                    PathMapper.NOOP)
+                .isTruthy())
+        .isTrue();
     List<String> variableValue =
         getSequenceVariableValue(
             getRuleContext(),
