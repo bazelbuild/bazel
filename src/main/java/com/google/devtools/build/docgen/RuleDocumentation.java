@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import javax.annotation.Nullable;
 
 /**
  * A class representing the documentation of a rule along with some meta-data. The sole ruleName
@@ -205,9 +206,20 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
   }
 
   /**
-   * Sets the {@link RuleLinkExpander} to be used to expand links in the HTML documentation for
-   * both this RuleDocumentation and all {@link RuleDocumentationAttribute}s associated with this
-   * rule.
+   * Returns the rule's RuleDocumentationAttribute with the given name, or null if no such attribute
+   * exists.
+   */
+  @Nullable
+  public RuleDocumentationAttribute getAttribute(String attributeName) {
+    return attributes.stream()
+        .filter(attribute -> attribute.getAttributeName().equals(attributeName))
+        .findFirst()
+        .orElse(null);
+  }
+
+  /**
+   * Sets the {@link RuleLinkExpander} to be used to expand links in the HTML documentation for both
+   * this RuleDocumentation and all {@link RuleDocumentationAttribute}s associated with this rule.
    */
   public void setRuleLinkExpander(RuleLinkExpander linkExpander) {
     this.linkExpander = linkExpander;
@@ -347,10 +359,11 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
 
   private int getTypePriority() {
     return switch (ruleType) {
-      case BINARY -> 1;
-      case LIBRARY -> 2;
-      case TEST -> 3;
-      case OTHER -> 4;
+      case FLAG -> 1;
+      case BINARY -> 2;
+      case LIBRARY -> 3;
+      case TEST -> 4;
+      case OTHER -> 5;
     };
   }
 
