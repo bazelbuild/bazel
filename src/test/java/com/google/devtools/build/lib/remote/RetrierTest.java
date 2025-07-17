@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker;
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreakerException;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.Retrier.ZeroBackoff;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import io.grpc.Status;
@@ -38,7 +40,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.concurrent.ThreadSafe;
 import org.junit.After;
@@ -58,8 +59,8 @@ public class RetrierTest {
   @Mock
   private CircuitBreaker alwaysOpen;
 
-  private static final Predicate<Exception> RETRY_ALL = (e) -> true;
-  private static final Predicate<Exception> RETRY_NONE = (e) -> false;
+  private static final ResultClassifier RETRY_ALL = (e) -> Result.TRANSIENT_FAILURE;
+  private static final ResultClassifier RETRY_NONE = (e) -> Result.SUCCESS;
 
   private ListeningScheduledExecutorService retryService;
 
@@ -345,7 +346,7 @@ public class RetrierTest {
         Arrays.asList(Status.NOT_FOUND, Status.OUT_OF_RANGE, Status.ALREADY_EXISTS);
     TripAfterNCircuitBreaker cb =
         new TripAfterNCircuitBreaker(retriableGrpcError.size() * (maxRetries + 1));
-    Retrier r = new Retrier(s, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService, cb);
+    Retrier r = new Retrier(s, RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, retryService, cb);
 
     int expectedConsecutiveFailures = 0;
 
@@ -364,6 +365,44 @@ public class RetrierTest {
     cb.trialCall();
 
     for (Status status : nonRetriableGrpcError) {
+      ListenableFuture<Void> res =
+          r.executeAsync(
+              () -> {
+                throw new StatusRuntimeException(status);
+              });
+      assertThat(cb.consecutiveFailures).isEqualTo(0);
+      assertThrows(ExecutionException.class, res::get);
+    }
+    assertThat(cb.state).isEqualTo(State.ACCEPT_CALLS);
+  }
+
+  @Test
+  public void testCircuitBreakerFailureAndSuccessCallOnNonRetriableGrpcError() {
+    Supplier<Backoff> s = () -> new ZeroBackoff(/* maxRetries= */ 2);
+    List<Status> nonRetriableFailure =
+        Arrays.asList(Status.PERMISSION_DENIED, Status.UNIMPLEMENTED, Status.DATA_LOSS);
+    List<Status> nonRetriableSuccess =
+        Arrays.asList(Status.NOT_FOUND, Status.OUT_OF_RANGE, Status.ALREADY_EXISTS);
+    TripAfterNCircuitBreaker cb = new TripAfterNCircuitBreaker(nonRetriableFailure.size());
+    Retrier r = new Retrier(s, RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, retryService, cb);
+
+    int expectedConsecutiveFailures = 0;
+
+    for (Status status : nonRetriableFailure) {
+      ListenableFuture<Void> res =
+          r.executeAsync(
+              () -> {
+                throw new StatusRuntimeException(status);
+              });
+      expectedConsecutiveFailures += 1;
+      assertThrows(ExecutionException.class, res::get);
+      assertThat(cb.consecutiveFailures).isEqualTo(expectedConsecutiveFailures);
+    }
+
+    assertThat(cb.state).isEqualTo(State.REJECT_CALLS);
+    cb.trialCall();
+
+    for (Status status : nonRetriableSuccess) {
       ListenableFuture<Void> res =
           r.executeAsync(
               () -> {

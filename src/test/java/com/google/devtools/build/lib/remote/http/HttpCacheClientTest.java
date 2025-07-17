@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.Retrier;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -292,7 +293,7 @@ public class HttpCacheClientTest {
                   MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
               return new RemoteRetrier(
                   () -> RemoteRetrier.RETRIES_DISABLED,
-                  (e) -> false,
+                  (e) -> Result.SUCCESS,
                   retryScheduler,
                   Retrier.ALLOW_ALL_CALLS);
             });
@@ -628,7 +629,9 @@ public class HttpCacheClientTest {
           new RemoteRetrier(
               () -> new Retrier.ZeroBackoff(1),
               (e) -> {
-                return e instanceof ClosedChannelException;
+                return e instanceof ClosedChannelException
+                    ? Result.TRANSIENT_FAILURE
+                    : Result.PERMANENT_FAILURE;
               },
               retryScheduler,
               Retrier.ALLOW_ALL_CALLS);
@@ -690,7 +693,9 @@ public class HttpCacheClientTest {
           new RemoteRetrier(
               () -> new Retrier.ZeroBackoff(1),
               (e) -> {
-                return e instanceof ClosedChannelException;
+                return e instanceof ClosedChannelException
+                    ? Result.TRANSIENT_FAILURE
+                    : Result.PERMANENT_FAILURE;
               },
               retryScheduler,
               Retrier.ALLOW_ALL_CALLS);
