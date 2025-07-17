@@ -21,10 +21,10 @@ def create_debug_packager_actions(
         ctx,
         cc_toolchain,
         dwp_output,
-        feature_configuration,
         *,
         cc_compilation_outputs,
         cc_debug_context,
+        feature_configuration,
         linking_mode,
         use_pic = True,
         lto_artifacts = []):

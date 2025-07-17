@@ -51,7 +51,9 @@ ASSEMBLE_ACTION_NAME = "assemble"
 # Name of the assembly preprocessing action.
 PREPROCESS_ASSEMBLE_ACTION_NAME = "preprocess-assemble"
 
+# Name of the coverage action.
 LLVM_COV = "llvm-cov"
+# Name of the DWARF packaging utility action.
 DWP = "dwp"
 
 # Name of the action producing ThinLto index.
