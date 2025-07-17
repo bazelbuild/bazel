@@ -1,5 +1,6 @@
 # Packaging
 
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
@@ -15,7 +16,15 @@ exports_files([
     "MODULE.tools",
 ])
 
-md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
+sh_binary(
+    name = "md5",
+    srcs = select({
+        "//src/conditions:darwin": ["md5_darwin_freebsd.sh"],
+        "//src/conditions:freebsd": ["md5_darwin_freebsd.sh"],
+        "//src/conditions:openbsd": ["md5_openbsd.sh"],
+        "//conditions:default": ["md5_default.sh"],
+    }),
+)
 
 [genrule(
     name = "install_base_key-file" + suffix,
@@ -36,14 +45,10 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
         ],
     }) + embedded_tools_target,
     outs = ["install_base_key" + suffix],
-    cmd = select({
-        "//src/conditions:darwin": md5_cmd % ("/sbin/md5", "/sbin/md5", "head -c 32"),
-        "//src/conditions:freebsd": md5_cmd % ("/sbin/md5", "/sbin/md5", "head -c 32"),
-        # We avoid using the `head` tool's `-c` option, since it does not exist
-        # on OpenBSD.
-        "//src/conditions:openbsd": md5_cmd % ("/bin/md5", "/bin/md5", "dd bs=32 count=1"),
-        "//conditions:default": md5_cmd % ("md5sum", "md5sum", "head -c 32"),
-    }),
+    cmd = "$(location :md5) $(SRCS) > $@",
+    tools = [
+        ":md5",
+    ],
 ) for suffix, embedded_tools_target in {
     "_jdk_allmodules": [":embedded_tools_jdk_allmodules"],
     "_jdk_minimal": [":embedded_tools_jdk_minimal"],
@@ -177,6 +182,15 @@ filegroup(
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
+# Only necessary to distinguish between the tool and the target JDK for location
+# expansion.
+copy_file(
+    name = "jdk_for_jlink",
+    src = ":embedded_jdk_vanilla",
+    out = "jdk_for_jlink",
+    allow_symlink = True,
+)
+
 # Reads the app manifest of a Windows executable.
 cc_binary(
     name = "read_manifest",
@@ -217,8 +231,9 @@ genrule(
         ":jdeps_modules.golden",
     ],
     outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
+    cmd = "$(location :minimize_jdk) $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
     tools = [
+        ":jdk_for_jlink",
         ":minimize_jdk",
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
@@ -231,8 +246,9 @@ genrule(
         ":jdeps_modules.golden",
     ],
     outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk) --allmodules $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
+    cmd = "$(location :minimize_jdk) --allmodules $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
     tools = [
+        ":jdk_for_jlink",
         ":minimize_jdk",
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
