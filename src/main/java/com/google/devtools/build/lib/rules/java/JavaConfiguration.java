@@ -38,6 +38,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /** A java compiler configuration containing the flags required for compilation. */
 @Immutable
@@ -45,7 +46,7 @@ import net.starlark.java.eval.StarlarkThread;
 public final class JavaConfiguration extends Fragment implements JavaConfigurationApi {
 
   /** Values for the --java_classpath option */
-  public enum JavaClasspathMode {
+  public enum JavaClasspathMode implements StarlarkValue {
     /** Use full transitive classpaths, the default behavior. */
     OFF,
     /** JavaBuilder computes the reduced classpath before invoking javac. */
@@ -57,7 +58,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   /** Values for the --experimental_one_version_enforcement option */
-  public enum OneVersionEnforcementLevel {
+  public enum OneVersionEnforcementLevel implements StarlarkValue {
     /** Don't attempt to check for one version violations (the default) */
     OFF,
     /**

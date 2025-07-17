@@ -156,7 +156,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   /** Types of android manifest mergers. */
-  public enum AndroidManifestMerger {
+  public enum AndroidManifestMerger implements StarlarkValue {
     LEGACY,
     ANDROID,
     FORCE_ANDROID;
@@ -185,7 +185,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   /** Orders for merging android manifests. */
-  public enum ManifestMergerOrder {
+  public enum ManifestMergerOrder implements StarlarkValue {
     /** Manifests are sorted alphabetically by exec path. */
     ALPHABETICAL,
     /** Manifests are sorted alphabetically by configuration-relative path. */
