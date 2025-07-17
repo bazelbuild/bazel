@@ -1528,6 +1528,10 @@ public final class ActionExecutionFunction implements SkyFunction {
                             "Code " + code + " had no failure detail for " + debugInfo));
                     return;
                   }
+                  if (code.getFailureDetail().hasFilesystem()) {
+                    sawSourceArtifactException.set(true);
+                    return;
+                  }
                   switch (code.getFailureDetail().getExecution().getCode()) {
                     case SOURCE_INPUT_IO_EXCEPTION -> sawSourceArtifactException.set(true);
                     case SOURCE_INPUT_MISSING -> sawMissingFile.set(true);
