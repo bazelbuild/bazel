@@ -24,6 +24,7 @@ load(":common/cc/semantics.bzl", "semantics")
 cc_internal = _builtins.internal.cc_internal
 
 def _cc_library_impl(ctx):
+    semantics.validate(ctx, "cc_library")
     cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library", True)
 
     semantics.check_cc_shared_library_tags(ctx)

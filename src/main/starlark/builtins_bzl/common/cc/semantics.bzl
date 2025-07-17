@@ -147,8 +147,13 @@ def _cpp_modules_tools():
         ),
     }
 
+def _validate(ctx, rule_name):
+    pass
+
 semantics = struct(
     toolchain = "@bazel_tools//tools/cpp:toolchain_type",
+    validate = _validate,
+    allowlist_attrs = {},
     ALLOWED_RULES_IN_DEPS = [
         "cc_library",
         "objc_library",

@@ -60,6 +60,7 @@ def _legacy_cc_test_impl(ctx):
     return providers
 
 def _impl(ctx):
+    semantics.validate(ctx, "cc_test")
     cc_test_toolchain = ctx.exec_groups["test"].toolchains[_CC_TEST_TOOLCHAIN_TYPE]
     if cc_test_toolchain:
         cc_test_info = cc_test_toolchain.cc_test_info
