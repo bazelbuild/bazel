@@ -43,15 +43,18 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
+import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -65,6 +68,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
@@ -97,6 +101,8 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Set;
 import java.util.SortedMap;
@@ -278,6 +284,11 @@ public class RemoteSpawnCacheTest {
   }
 
   private RemoteSpawnCache remoteSpawnCacheWithOptions(RemoteOptions options) {
+    return remoteSpawnCacheWithOptions(options, Options.getDefaults(ExecutionOptions.class));
+  }
+
+  private RemoteSpawnCache remoteSpawnCacheWithOptions(
+      RemoteOptions options, ExecutionOptions executionOptions) {
     RemoteExecutionService service =
         spy(
             new RemoteExecutionService(
@@ -290,6 +301,7 @@ public class RemoteSpawnCacheTest {
                 COMMAND_ID,
                 digestUtil,
                 options,
+                executionOptions,
                 combinedCache,
                 null,
                 tempPathGenerator,
@@ -1223,5 +1235,60 @@ public class RemoteSpawnCacheTest {
 
     // assert
     assertThat(cache.getInFlightExecutionsSize()).isEqualTo(0);
+  }
+
+  @Test
+  public void testMaterializeParamFiles() throws Exception {
+    testParamFilesAreMaterializedForFlag("--materialize_param_files");
+  }
+
+  @Test
+  public void testMaterializeParamFilesIsImpliedBySubcommands() throws Exception {
+    testParamFilesAreMaterializedForFlag("--subcommands");
+  }
+
+  private void testParamFilesAreMaterializedForFlag(String flag) throws Exception {
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    ExecutionOptions executionOptions = Options.parse(ExecutionOptions.class, flag).getOptions();
+    var cache = remoteSpawnCacheWithOptions(remoteOptions, executionOptions);
+
+    ImmutableList<String> args = ImmutableList.of("--foo", "--bar");
+    CommandLines.ParamFileActionInput input =
+        new CommandLines.ParamFileActionInput(
+            PathFragment.create("out/param_file"), args, ParameterFile.ParameterFileType.UNQUOTED);
+    Spawn spawn =
+        new SimpleSpawn(
+            new FakeOwner("foo", "bar", "//dummy:label"),
+            /* arguments= */ ImmutableList.of(),
+            /* environment= */ ImmutableMap.of(),
+            /* executionInfo= */ ImmutableMap.of(),
+            /* inputs= */ NestedSetBuilder.create(Order.STABLE_ORDER, input),
+            /* outputs= */ ImmutableSet.of(),
+            ResourceSet.ZERO);
+    Path paramFile = execRoot.getRelative("out/param_file");
+
+    ActionResult success = ActionResult.newBuilder().setExitCode(0).build();
+    when(combinedCache.downloadActionResult(
+            any(RemoteActionExecutionContext.class),
+            any(),
+            /* inlineOutErr= */ eq(false),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of())))
+        .thenReturn(CachedActionResult.remote(success));
+    doReturn(null).when(cache.getRemoteExecutionService()).downloadOutputs(any(), any());
+
+    var policy =
+        createSpawnExecutionContext(
+            spawn, execRoot, new FakeActionInputFileCache(execRoot), outErr);
+    try (CacheHandle secondCacheHandle = cache.lookup(spawn, policy)) {
+      assertThat(secondCacheHandle.hasResult()).isTrue();
+      assertThat(paramFile.exists()).isTrue();
+      try (InputStream inputStream = paramFile.getInputStream()) {
+        assertThat(
+                new String(ByteStreams.toByteArray(inputStream), StandardCharsets.UTF_8)
+                    .split("\n"))
+            .asList()
+            .containsExactly("--foo", "--bar");
+      }
+    }
   }
 }
