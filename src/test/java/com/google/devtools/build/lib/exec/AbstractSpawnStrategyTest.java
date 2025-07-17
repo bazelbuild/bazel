@@ -26,7 +26,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -331,11 +330,11 @@ public class AbstractSpawnStrategyTest {
 
     verify(spawnLogContext)
         .logSpawn(
-            SIMPLE_SPAWN,
-            inputMetadataProvider,
-            ImmutableSortedMap.of(),
-            actionFs,
-            Duration.ZERO,
-            spawnResult);
+            eq(SIMPLE_SPAWN),
+            eq(inputMetadataProvider),
+            any(),
+            eq(actionFs),
+            eq(Duration.ZERO),
+            eq(spawnResult));
   }
 }
