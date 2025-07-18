@@ -407,6 +407,12 @@ local_repository(
     path = "/usr/local/kythe",
 )
 
+# /tmp/bazelci is setup on Bazel CI machines
+local_repository(
+    name = "bazelci",
+    path = "/tmp/bazelci",
+)
+
 remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 
