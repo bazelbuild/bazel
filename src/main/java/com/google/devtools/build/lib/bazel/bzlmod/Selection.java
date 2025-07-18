@@ -16,6 +16,9 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -23,16 +26,16 @@ import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
-import com.google.common.collect.MultimapBuilder;
-import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
+import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /**
@@ -197,7 +200,7 @@ final class Selection {
         new ImmutableMap.Builder<>();
 
     // Also keep a version of the full dep graph with updated deps.
-    ImmutableMap.Builder<ModuleKey, InterimModule> unprunedNonUnifiedDepGraphBuilder =
+    ImmutableMap.Builder<ModuleKey, InterimModule> unprunedDepGraphBuilder =
         new ImmutableMap.Builder<>();
     for (InterimModule module : depGraph.values()) {
       // Rewrite deps to point to the selected version.
@@ -210,7 +213,7 @@ final class Selection {
                           selectionGroups.get(depSpec.toModuleKey()), depSpec.version())));
 
       // Add all updated modules to the un-pruned dep graph.
-      unprunedNonUnifiedDepGraphBuilder.put(key, updatedModule);
+      unprunedDepGraphBuilder.put(key, updatedModule);
 
       // Remove any dep whose version isn't selected from the resolved graph.
       Version selectedVersion = selectedVersions.get(selectionGroups.get(module.getKey()));
@@ -220,48 +223,18 @@ final class Selection {
     }
     ImmutableMap<ModuleKey, InterimModule> newDepGraph = newDepGraphBuilder.buildOrThrow();
     ImmutableMap<ModuleKey, InterimModule> unprunedNonUnifiedDepGraph =
-        unprunedNonUnifiedDepGraphBuilder.buildOrThrow();
+        unprunedDepGraphBuilder.buildOrThrow();
 
     // Further, removes unreferenced modules from the graph. We can find out which modules are
     // referenced by collecting deps transitively from the root.
     var prunedNonUnifiedDepGraph =
         new DepGraphWalker(newDepGraph, overrides, selectionGroups).walk(/* validate= */ false);
 
-    var selectionGroupsByName =
-        selectionGroups.entrySet().stream()
-            .filter(entry -> prunedNonUnifiedDepGraph.containsKey(entry.getKey()))
-            .collect(
-                Multimaps.toMultimap(
-                    entry -> entry.getKey().name(),
-                    Map.Entry::getValue,
-                    MultimapBuilder.hashKeys()
-                            .treeSetValues(
-                                comparing(SelectionGroup::compatibilityLevel)
-                                    .thenComparing(SelectionGroup::targetAllowedVersion))
-                        ::build));
-
     // Upgrade deps with max_compatibility_level to the next higher supported compatibility level
     // (if using a multiple-version override) or else the highest compatibility level that remains
     // in the graph.
     var prunedUnifiedDepGraph =
-        ImmutableMap.copyOf(
-            Maps.transformValues(
-                prunedNonUnifiedDepGraph,
-                module ->
-                    module.withDepsAndNodepDepsTransformed(
-                        depSpec -> {
-                          if (depSpec.maxCompatibilityLevel() == -1) {
-                            return depSpec;
-                          }
-                          if (overrides.get(depSpec.name()) instanceof MultipleVersionOverride) {
-                            return depSpec;
-                          }
-                          var newDepSpec =
-                              depSpec.withVersion(
-                                  selectedVersions.get(
-                                      selectionGroupsByName.get(depSpec.name()).last()));
-                          return newDepSpec;
-                        })));
+        unifyDepSpecs(prunedNonUnifiedDepGraph, overrides, selectionGroups, selectedVersions);
 
     // Check that none of the remaining modules conflict with each other (e.g. same module name but
     // different compatibility levels, or not satisfying multiple_version_override).
@@ -272,24 +245,58 @@ final class Selection {
     // Return the result containing both the pruned and un-pruned dep graphs
     return new Result(
         prunedDepGraph,
-        ImmutableMap.copyOf(
-            Maps.transformValues(
-                unprunedNonUnifiedDepGraph,
-                module ->
-                    module.withDepsAndNodepDepsTransformed(
-                        depSpec -> {
-                          if (depSpec.maxCompatibilityLevel() == -1) {
-                            return depSpec;
-                          }
-                          if (overrides.get(depSpec.name()) instanceof MultipleVersionOverride) {
-                            return depSpec;
-                          }
-                          var newDepSpec =
-                              depSpec.withVersion(
-                                  selectedVersions.get(
-                                      selectionGroupsByName.get(depSpec.name()).last()));
-                          return newDepSpec;
-                        }))));
+        unifyDepSpecs(unprunedNonUnifiedDepGraph, overrides, selectionGroups, selectedVersions));
+  }
+
+  private static ImmutableMap<ModuleKey, InterimModule> unifyDepSpecs(
+      ImmutableMap<ModuleKey, InterimModule> graph,
+      ImmutableMap<String, ModuleOverride> overrides,
+      ImmutableMap<ModuleKey, SelectionGroup> selectionGroups,
+      Map<SelectionGroup, Version> selectedVersions) {
+    var selectionGroupsByName =
+        selectionGroups.entrySet().stream()
+            .filter(entry -> graph.containsKey(entry.getKey()))
+            .collect(
+                groupingBy(
+                    entry -> entry.getKey().name(),
+                    mapping(
+                        Map.Entry::getValue,
+                        toCollection(
+                            () ->
+                                new TreeSet<>(
+                                    comparing(SelectionGroup::compatibilityLevel)
+                                        .thenComparing(SelectionGroup::targetAllowedVersion))))));
+    return ImmutableMap.copyOf(
+        Maps.transformValues(
+            graph,
+            module ->
+                module.withDepsTransformed(
+                    depSpec -> {
+                      int minCompatibilityLevel =
+                          selectionGroups.get(depSpec.toModuleKey()).compatibilityLevel();
+                      int maxCompatibilityLevel =
+                          depSpec.maxCompatibilityLevel() < 0
+                              ? minCompatibilityLevel
+                              : depSpec.maxCompatibilityLevel();
+                      var allowedSelectionGroups =
+                          selectionGroupsByName.get(depSpec.name()).stream()
+                              .filter(
+                                  group ->
+                                      group.compatibilityLevel() >= minCompatibilityLevel
+                                          && group.compatibilityLevel() <= maxCompatibilityLevel
+                                          && group
+                                                  .targetAllowedVersion()
+                                                  .compareTo(depSpec.version())
+                                              > 0);
+                      Optional<SelectionGroup> resolvedGroup;
+                      if (overrides.get(depSpec.name()) instanceof MultipleVersionOverride) {
+                        resolvedGroup = allowedSelectionGroups.findFirst();
+                      } else {
+                        resolvedGroup = allowedSelectionGroups.reduce((a, b) -> b);
+                      }
+                      return depSpec.withVersion(
+                          resolvedGroup.map(selectedVersions::get).orElse(depSpec.version()));
+                    })));
   }
 
   /**
@@ -397,7 +404,7 @@ final class Selection {
               depSpec.toModuleKey(),
               repoName,
               previousRepoName,
-              key.name());
+              depSpec.name());
         }
       }
     }
