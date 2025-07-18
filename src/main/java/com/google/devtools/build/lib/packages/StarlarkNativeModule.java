@@ -28,6 +28,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
@@ -334,11 +335,13 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
      */
     @Nullable
     private Object starlarkifyAttribute(String attributeName) {
-      if (!isPotentiallyExportableAttribute(rule.getRuleClassObject(), attributeName)) {
+      if (!isPotentiallyExportableAttribute(attributeName)) {
         return null;
       }
       return starlarkifyValue(
-          null /* immutable */, rule.getAttr(attributeName), rule.getPackageMetadata());
+          null /* immutable */,
+          rule.getAttr(attributeName),
+          rule.getPackageoid().getPackageIdentifier());
     }
 
     @Override
@@ -688,39 +691,11 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
    * <p>Even if this method returns true, the attribute may still be suppressed if it has a
    * prohibited value (e.g. is of a bad type, or is a select() that cannot be processed).
    */
-  private static boolean isPotentiallyExportableAttribute(
-      RuleClass ruleClass, String attributeName) {
-    if (attributeName.length() == 0 || !Character.isAlphabetic(attributeName.charAt(0))) {
+  private static boolean isPotentiallyExportableAttribute(String attributeName) {
+    if (attributeName.isEmpty() || !Character.isAlphabetic(attributeName.charAt(0))) {
       // Do not expose hidden or implicit attributes.
       return false;
     }
-    return true;
-  }
-
-  /**
-   * Returns true if the given value is generally allowed to be exposed via {@code
-   * native.existing_rule()} and or {@code native.existing_rules()}. Returns false for null.
-   *
-   * <p>Even if this method returns true, the value may still be suppressed if it is a select() that
-   * cannot be processed.
-   */
-  private static boolean isPotentiallyStarlarkifiableValue(@Nullable Object val) {
-    if (val == null) {
-      return false;
-    }
-    if (val.getClass().isAnonymousClass()) {
-      // Computed defaults. They will be represented as
-      // "deprecation": com.google.devtools.build.lib.analysis.BaseRuleClasses$2@6960884a,
-      // Filter them until we invent something more clever.
-      return false;
-    }
-
-    if (val instanceof License) {
-      // License is deprecated as a Starlark type, so omit this type from Starlark values
-      // to avoid exposing these objects, even though they are technically StarlarkValue.
-      return false;
-    }
-
     return true;
   }
 
@@ -736,100 +711,100 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
    * @return the value, or null if we don't want to export it to the user.
    */
   @Nullable
-  public static Object starlarkifyValue(Mutability mu, Object val, Package.Metadata pkgMetadata) {
+  public static Object starlarkifyValue(
+      Mutability mu, @Nullable Object val, PackageIdentifier packageIdentifier) {
     // easy cases
-    if (!isPotentiallyStarlarkifiableValue(val)) {
+    if (val == null) {
       return null;
     }
-    if (val instanceof Boolean || val instanceof String || val instanceof StarlarkInt) {
-      return val;
+    if (val.getClass().isAnonymousClass()) {
+      // Computed defaults. They will be represented as
+      // "deprecation": com.google.devtools.build.lib.analysis.BaseRuleClasses$2@6960884a,
+      // Filter them until we invent something more clever.
+      return false;
     }
 
-    if (val instanceof TriState) {
-      return switch ((TriState) val) {
-        case AUTO -> StarlarkInt.of(-1);
-        case YES -> StarlarkInt.of(1);
-        case NO -> StarlarkInt.of(0);
-      };
-    }
-
-    if (val instanceof Label l) {
-      if (l.getPackageName().equals(pkgMetadata.getName())) {
-        // TODO(https://github.com/bazelbuild/bazel/issues/13828): do not ignore the repo component
-        // of the label.
-        return ":" + l.getName();
-      }
-      return l.getCanonicalForm();
-    }
-
-    if (val instanceof List) {
-      List<Object> l = new ArrayList<>();
-      for (Object o : (List<?>) val) {
-        Object elt = starlarkifyValue(mu, o, pkgMetadata);
-        if (elt == null) {
-          continue;
-        }
-        l.add(elt);
-      }
-
-      return Tuple.copyOf(l);
-    }
-
-    if (val instanceof Map) {
-      Dict.Builder<Object, Object> m = Dict.builder();
-      for (Map.Entry<?, ?> e : ((Map<?, ?>) val).entrySet()) {
-        Object key = starlarkifyValue(mu, e.getKey(), pkgMetadata);
-        Object mapVal = starlarkifyValue(mu, e.getValue(), pkgMetadata);
-
-        if (key == null || mapVal == null) {
-          continue;
+    return switch (val) {
+      case Boolean b -> b;
+      case String s -> s;
+      case StarlarkInt i -> i;
+      case TriState triState ->
+          switch (triState) {
+            case AUTO -> StarlarkInt.of(-1);
+            case YES -> StarlarkInt.of(1);
+            case NO -> StarlarkInt.of(0);
+          };
+      case Label l when l.getPackageIdentifier().equals(packageIdentifier) -> ":" + l.getName();
+      case Label l when l.getRepository().equals(packageIdentifier.getRepository()) ->
+          "//" + l.getPackageFragment().getPathString() + ":" + l.getName();
+      case Label l -> l.getUnambiguousCanonicalForm();
+      case List<?> list -> {
+        List<Object> l = new ArrayList<>();
+        for (Object o : list) {
+          Object elt = starlarkifyValue(mu, o, packageIdentifier);
+          if (elt == null) {
+            continue;
+          }
+          l.add(elt);
         }
 
-        m.put(key, mapVal);
+        yield Tuple.copyOf(l);
       }
-      return m.build(mu);
-    }
-
-    if (val instanceof BuildType.SelectorList) {
-      List<Object> selectors = new ArrayList<>();
-      for (BuildType.Selector<?> selector : ((BuildType.SelectorList<?>) val).getSelectors()) {
+      case Map<?, ?> map -> {
         Dict.Builder<Object, Object> m = Dict.builder();
-        selector.forEach(
-            (rawKey, rawValue) -> {
-              Object key = starlarkifyValue(mu, rawKey, pkgMetadata);
-              // BuildType.Selector constructor transforms `None` values of selector branches into
-              // Java nulls if the selector original type's default value is null. We need to
-              // reverse this transformation.
-              Object mapVal =
-                  rawValue == null && selector.getOriginalType().getDefaultValue() == null
-                      ? Starlark.NONE
-                      : starlarkifyValue(mu, rawValue, pkgMetadata);
-              if (key != null && mapVal != null) {
-                m.put(key, mapVal);
-              }
-            });
-        Dict<?, ?> selectorDict = m.build(mu);
-        if (!selectorDict.isEmpty()) {
-          selectors.add(new SelectorValue(selectorDict, selector.getNoMatchError()));
+        for (Map.Entry<?, ?> e : map.entrySet()) {
+          Object key = starlarkifyValue(mu, e.getKey(), packageIdentifier);
+          Object mapVal = starlarkifyValue(mu, e.getValue(), packageIdentifier);
+
+          if (key == null || mapVal == null) {
+            continue;
+          }
+
+          m.put(key, mapVal);
         }
+        yield m.build(mu);
       }
-      if (selectors.isEmpty()) {
-        return null;
-      } else {
+      case BuildType.SelectorList<?> selectorList -> {
+        List<Object> selectors = new ArrayList<>();
+        for (BuildType.Selector<?> selector : selectorList.getSelectors()) {
+          var m = ImmutableMap.builderWithExpectedSize(selector.getNumEntries());
+          selector.forEach(
+              (label, rawValue) -> {
+                // BuildType.Selector constructor transforms `None` values of selector branches into
+                // Java nulls if the selector original type's default value is null. We need to
+                // reverse this transformation.
+                Object mapVal =
+                    rawValue == null && selector.getOriginalType().getDefaultValue() == null
+                        ? Starlark.NONE
+                        : starlarkifyValue(mu, rawValue, packageIdentifier);
+                if (mapVal != null) {
+                  // Preserve labels in select keys as such instead of prettifying them to strings -
+                  // selects can't be inspected directly (ignoring their string representation) and
+                  // the conversion risks resolving the label in a different context.
+                  m.put(label, mapVal);
+                }
+              });
+          var selectorDict = m.buildKeepingLast();
+          if (!selectorDict.isEmpty()) {
+            selectors.add(new SelectorValue(selectorDict, selector.getNoMatchError()));
+          }
+        }
+        if (selectors.isEmpty()) {
+          yield null;
+        }
         try {
-          return SelectorList.of(selectors);
+          yield SelectorList.of(selectors);
         } catch (EvalException e) {
-          return null;
+          yield null;
         }
       }
-    }
-
-    if (val instanceof StarlarkValue) {
-      return val;
-    }
-
-    // Cannot represent as a Starlark value.
-    return null;
+      // License is deprecated as a Starlark type, so omit this type from Starlark values
+      // to avoid exposing these objects, even though they are technically StarlarkValue.
+      case License license -> null;
+      case StarlarkValue starlarkValue -> starlarkValue;
+      // Cannot represent as a Starlark value.
+      default -> null;
+    };
   }
 
   @Override
