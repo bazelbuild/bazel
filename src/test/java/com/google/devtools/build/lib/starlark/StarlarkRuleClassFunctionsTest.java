@@ -6673,6 +6673,89 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "Error in analysis_test: 'name' cannot be set or overridden in 'attr_values'");
   }
 
+  @Test
+  public void testAnalysisTestFailureOrNone() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        """
+        def impl(ctx):
+            failure = testing.failure_or_none(lambda: fail("failure"))
+            if failure != "failure":
+                fail("Expected failure, got: %s" % failure)
+            no_failure = testing.failure_or_none(lambda: None)
+            if no_failure != None:
+                fail("Expected None, got: %s" % no_failure)
+            return [AnalysisTestResultInfo(
+                success = True,
+                message = "",
+            )]
+
+        def my_test_macro(name):
+            testing.analysis_test(name = name, implementation = impl)
+        """);
+    scratch.file(
+        "p/BUILD",
+        """
+        load(":b.bzl", "my_test_macro")
+
+        my_test_macro(name = "my_test_target")
+        """);
+
+    getConfiguredTarget("//p:my_test_target");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void testAnalysisTestFailureOrNoneCalledInBuildFile() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        """
+        def catch_failure():
+            testing.failure_or_none(lambda: fail("failure"))
+        """);
+    scratch.file(
+        "p/BUILD",
+        """
+        load(":b.bzl", "catch_failure")
+        catch_failure()
+        filegroup(name = "my_target")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//p:my_target");
+
+    assertContainsEvent(
+        "testing.failure_or_none can only be called from a rule or aspect implementation");
+  }
+
+  @Test
+  public void testAnalysisTestFailureOrNoneCalledInNonAnalysisTestRule() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        """
+        def impl(ctx):
+            failure = testing.failure_or_none(lambda: fail("failure"))
+            if failure != "failure":
+                fail("Expected failure, got: %s" % failure)
+
+        my_rule = rule(impl)
+        """);
+    scratch.file(
+        "p/BUILD",
+        """
+        load(":b.bzl", "my_rule")
+
+        my_rule(name = "my_target")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//p:my_target");
+
+    assertContainsEvent(
+        "testing.failure_or_none can only be called from an analysis_test");
+  }
+
   private Object eval(Module module, String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
     return Starlark.eval(input, FileOptions.DEFAULT, module, ev.getStarlarkThread());
