@@ -179,11 +179,11 @@ final class Selection {
   }
 
   /**
-   * Computes the possible list of ModuleKeys a single given DepSpec can resolve to. This is
-   * normally just one ModuleKey, but when max_compatibility_level is involved, multiple choices may
+   * Computes the possible list of versions a single given DepSpec can resolve to. This is
+   * normally just one version, but when max_compatibility_level is involved, multiple choices may
    * be possible.
    */
-  private static ImmutableList<ModuleKey> computePossibleResolutionResultsForOneDepSpec(
+  private static ImmutableList<Version> computePossibleResolutionResultsForOneDepSpec(
       DepSpec depSpec,
       ImmutableMap<ModuleKey, SelectionGroup> selectionGroups,
       Map<SelectionGroup, Version> selectedVersions) {
@@ -204,7 +204,7 @@ final class Selection {
         .stream()
         // Collect into an ImmutableSortedMap so that:
         //  1. The final list is sorted by compatibility level, guaranteeing lowest version first;
-        //  2. Only one ModuleKey is attempted per compatibility level, so that in the case of a
+        //  2. Only one version is attempted per compatibility level, so that in the case of a
         //     multiple-version override, we only try the lowest allowed version in that
         //     compatibility level (note the Comparators::min call).
         .collect(
@@ -215,7 +215,6 @@ final class Selection {
                 Comparators::min))
         .values()
         .stream()
-        .map(v -> new ModuleKey(depSpec.name(), v))
         .collect(toImmutableList());
   }
 
@@ -223,12 +222,12 @@ final class Selection {
    * Computes the possible list of ModuleKeys a DepSpec can resolve to, for all distinct DepSpecs in
    * the dependency graph.
    */
-  private static ImmutableMap<DepSpec, ImmutableList<ModuleKey>> computePossibleResolutionResults(
+  private static ImmutableMap<DepSpec, ImmutableList<Version>> computePossibleResolutionResults(
       ImmutableMap<ModuleKey, InterimModule> depGraph,
       ImmutableMap<ModuleKey, SelectionGroup> selectionGroups,
       Map<SelectionGroup, Version> selectedVersions) {
     // Important that we use a LinkedHashMap here to ensure reproducibility.
-    Map<DepSpec, ImmutableList<ModuleKey>> results = new LinkedHashMap<>();
+    Map<DepSpec, ImmutableList<Version>> results = new LinkedHashMap<>();
     for (InterimModule module : depGraph.values()) {
       for (DepSpec depSpec : module.getDeps().values()) {
         results.computeIfAbsent(
@@ -242,12 +241,12 @@ final class Selection {
   }
 
   /**
-   * Given the possible list of ModuleKeys each DepSpec can resolve to, enumerate through all the
-   * possible resolution strategies. Each strategy assigns each DepSpec to a single ModuleKey out of
+   * Given the possible list of versions each DepSpec can resolve to, enumerate through all the
+   * possible resolution strategies. Each strategy assigns each DepSpec to a single version out of
    * its possible list.
    */
-  private static List<Function<DepSpec, ModuleKey>> enumerateStrategies(
-      ImmutableMap<DepSpec, ImmutableList<ModuleKey>> possibleResolutionResults) {
+  private static List<Function<DepSpec, Version>> enumerateStrategies(
+      ImmutableMap<DepSpec, ImmutableList<Version>> possibleResolutionResults) {
     Map<DepSpec, Integer> depSpecToPosition = new HashMap<>();
     int position = 0;
     for (DepSpec depSpec : possibleResolutionResults.keySet()) {
@@ -255,7 +254,7 @@ final class Selection {
     }
     return Lists.transform(
         Lists.cartesianProduct(possibleResolutionResults.values().asList()),
-        (List<ModuleKey> choices) ->
+        (List<Version> choices) ->
             (DepSpec depSpec) -> choices.get(depSpecToPosition.get(depSpec)));
     // TODO(wyv): There are some strategies that we could eliminate earlier. For example, the
     //   strategy where (foo@1.1, maxCL=3) resolves to foo@2.0 and (foo@1.2, maxCL=3) resolves to
@@ -290,10 +289,10 @@ final class Selection {
       selectedVersions.merge(selectionGroup, key.version(), Comparators::max);
     }
 
-    // Compute the possible list of ModuleKeys that each DepSpec could resolve to.
-    ImmutableMap<DepSpec, ImmutableList<ModuleKey>> possibleResolutionResults =
+    // Compute the possible list of versions that each DepSpec could resolve to.
+    ImmutableMap<DepSpec, ImmutableList<Version>> possibleResolutionResults =
         computePossibleResolutionResults(depGraph, selectionGroups, selectedVersions);
-    for (Map.Entry<DepSpec, ImmutableList<ModuleKey>> e : possibleResolutionResults.entrySet()) {
+    for (Map.Entry<DepSpec, ImmutableList<Version>> e : possibleResolutionResults.entrySet()) {
       if (e.getValue().isEmpty()) {
         throw ExternalDepsException.withMessage(
             Code.VERSION_RESOLUTION_ERROR,
@@ -316,7 +315,7 @@ final class Selection {
     // we attempted to walk the graph using the first resolution strategy.
     DepGraphWalker depGraphWalker = new DepGraphWalker(depGraph, overrides, selectionGroups);
     ExternalDepsException firstFailure = null;
-    for (Function<DepSpec, ModuleKey> resolutionStrategy :
+    for (Function<DepSpec, Version> resolutionStrategy :
         enumerateStrategies(possibleResolutionResults)) {
       try {
         ImmutableMap<ModuleKey, InterimModule> prunedDepGraph =
@@ -328,7 +327,7 @@ final class Selection {
                     depGraph,
                     module ->
                         module.withDepsTransformed(
-                            depSpec -> DepSpec.fromModuleKey(resolutionStrategy.apply(depSpec)))));
+                            depSpec -> depSpec.withVersion(resolutionStrategy.apply(depSpec)))));
         return new Result(prunedDepGraph, unprunedDepGraph);
       } catch (ExternalDepsException e) {
         if (firstFailure == null) {
@@ -364,7 +363,7 @@ final class Selection {
      * Walks the old dep graph and builds a new dep graph containing only deps reachable from the
      * root module. The returned map has a guaranteed breadth-first iteration order.
      */
-    ImmutableMap<ModuleKey, InterimModule> walk(Function<DepSpec, ModuleKey> resolutionStrategy)
+    ImmutableMap<ModuleKey, InterimModule> walk(Function<DepSpec, Version> resolutionStrategy)
         throws ExternalDepsException {
       HashMap<String, ExistingModule> moduleByName = new HashMap<>();
       ImmutableMap.Builder<ModuleKey, InterimModule> newDepGraph = ImmutableMap.builder();
@@ -379,7 +378,7 @@ final class Selection {
             oldDepGraph
                 .get(key)
                 .withDepsTransformed(
-                    depSpec -> DepSpec.fromModuleKey(resolutionStrategy.apply(depSpec)));
+                    depSpec -> depSpec.withVersion(resolutionStrategy.apply(depSpec)));
         visit(key, module, moduleKeyAndDependent.dependent(), moduleByName);
 
         for (DepSpec depSpec : module.getDeps().values()) {
@@ -452,7 +451,7 @@ final class Selection {
               depSpec.toModuleKey(),
               repoName,
               previousRepoName,
-              key.name());
+              depSpec.name());
         }
       }
     }
