@@ -550,6 +550,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.remoteAnalysisCachingDependenciesProvider = remoteAnalysisCachingDependenciesProvider;
   }
 
+  @VisibleForTesting
+  public RemoteAnalysisCachingState getRemoteAnalysisCachingStateForTesting() {
+    return remoteAnalysisCachingState;
+  }
+
   /**
    * Sets the {@link RemoteAnalysisCachingState} for the latest build.
    *
@@ -1136,6 +1141,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     analysisCount.set(0);
     emittedEventState.clear();
     skyframeBuildView.reset();
+    remoteAnalysisCachingState = RemoteAnalysisCachingState.EMPTY;
     skyfocusState = DISABLED;
     // cleanupInterningPools must be called before init(), since init() initializes a new graph,
     // losing all references to the SkyKeyInterners that must be cleaned up.
