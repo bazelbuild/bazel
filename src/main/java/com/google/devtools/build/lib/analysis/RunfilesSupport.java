@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.lang.ref.WeakReference;
-import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -433,32 +432,6 @@ public final class RunfilesSupport {
       return null;
     }
     return FileSystemUtils.replaceExtension(runfilesInputManifest.getPath(), RUNFILES_DIR_EXT);
-  }
-
-  /**
-   * Returns the files pointed to by the symlinks in the runfiles symlink farm. This method is slow.
-   */
-  @VisibleForTesting
-  public Collection<Artifact> getRunfilesSymlinkTargets() {
-    return getRunfilesSymlinks().values();
-  }
-
-  /**
-   * Returns the names of the symlinks in the runfiles symlink farm as a Set of PathFragments. This
-   * method is slow.
-   */
-  // We should make this VisibleForTesting, but it is still used by TestHelper
-  public Set<PathFragment> getRunfilesSymlinkNames() {
-    return getRunfilesSymlinks().keySet();
-  }
-
-  /**
-   * Returns the names of the symlinks in the runfiles symlink farm as a Set of PathFragments. This
-   * method is slow.
-   */
-  @VisibleForTesting
-  public Map<PathFragment, Artifact> getRunfilesSymlinks() {
-    return runfilesTree.runfiles.asMapWithoutRootSymlinks();
   }
 
   /**

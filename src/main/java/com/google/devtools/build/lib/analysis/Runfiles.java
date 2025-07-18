@@ -452,22 +452,6 @@ public final class Runfiles implements RunfilesApi {
   }
 
   /**
-   * Returns the unified map of path fragments to artifacts, taking both artifacts and symlinks into
-   * account.
-   */
-  public Map<PathFragment, Artifact> asMapWithoutRootSymlinks() {
-    Map<PathFragment, Artifact> result =
-        entriesToMap(symlinks, new ConflictChecker(/* receiver= */ null));
-    // If multiple artifacts have the same output-dir-relative path, the last one in the list will
-    // win. That is because the runfiles tree cannot contain the same artifact for different
-    // configurations, because it only uses output-dir-relative paths.
-    for (Artifact artifact : artifacts.toList()) {
-      result.put(artifact.getOutputDirRelativePath(true), artifact);
-    }
-    return result;
-  }
-
-  /**
    * Returns the manifest expander specified for this runfiles tree.
    */
   private EmptyFilesSupplier getEmptyFilesProvider() {
@@ -578,8 +562,8 @@ public final class Runfiles implements RunfilesApi {
     private final String prefix;
 
     /**
-     * This must be COMPILE_ORDER because {@link #asMapWithoutRootSymlinks} overwrites earlier
-     * entries with later ones, so we want a post-order iteration.
+     * This must be COMPILE_ORDER because {@link ConflictChecker#put} overwrites earlier entries
+     * with later ones, so we want a post-order iteration.
      */
     private final NestedSetBuilder<Artifact> artifactsBuilder = NestedSetBuilder.compileOrder();
 
