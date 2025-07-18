@@ -124,9 +124,9 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Writes intermediate parameter files to output tree even when using "
-              + "remote action execution. Useful when debugging actions. "
-              + "This is implied by --subcommands and --verbose_failures.")
+          "Writes intermediate parameter files to output tree even when using remote action "
+              + "execution or caching. Useful when debugging actions. This is implied by "
+              + "--subcommands and --verbose_failures.")
   public boolean materializeParamFiles;
 
   @Option(
