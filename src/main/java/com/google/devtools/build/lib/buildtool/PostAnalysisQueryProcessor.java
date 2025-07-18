@@ -13,10 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.buildtool.BuildTool.ExitException;
@@ -39,6 +42,7 @@ import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.QueryRuntimeHelp
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -48,6 +52,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -90,13 +95,26 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
                     .build()));
       }
 
+      var queryOptions = getQueryOptions(env);
+      ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects;
+      if (queryOptions.useAspects) {
+        topLevelTargetAspects =
+            analysisResult.getAspectsMap().entrySet().stream()
+                .collect(
+                    toImmutableListMultimap(
+                        entry -> entry.getKey().getBaseConfiguredTargetKey(), Map.Entry::getValue));
+      } else {
+        topLevelTargetAspects = ImmutableListMultimap.of();
+      }
+
       try (QueryRuntimeHelper queryRuntimeHelper =
-          env.getRuntime().getQueryRuntimeHelperFactory().create(env, getQueryOptions(env))) {
+          env.getRuntime().getQueryRuntimeHelperFactory().create(env, queryOptions)) {
         doPostAnalysisQuery(
             request,
             env,
             runtime,
             new TopLevelConfigurations(analysisResult.getTopLevelTargetsWithConfigs()),
+            topLevelTargetAspects,
             env.getSkyframeExecutor().getTransitiveConfigurationKeys(),
             queryRuntimeHelper,
             queryExpression);
@@ -139,6 +157,7 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
       CommandEnvironment env,
       TopLevelConfigurations topLevelConfigurations,
       ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
+      ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects,
       WalkableGraph walkableGraph)
       throws InterruptedException;
 
@@ -158,10 +177,14 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
       CommandEnvironment env,
       BlazeRuntime runtime,
       TopLevelConfigurations topLevelConfigurations,
+      ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects,
       Collection<SkyKey> transitiveConfigurationKeys,
       QueryRuntimeHelper queryRuntimeHelper,
       QueryExpression queryExpression)
-      throws InterruptedException, QueryException, IOException, QueryRuntimeHelperException,
+      throws InterruptedException,
+          QueryException,
+          IOException,
+          QueryRuntimeHelperException,
           OptionsParsingException {
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(env.getSkyframeExecutor());
@@ -170,7 +193,12 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
 
     PostAnalysisQueryEnvironment<T> postAnalysisQueryEnvironment =
         getQueryEnvironment(
-            request, env, topLevelConfigurations, transitiveConfigurations, walkableGraph);
+            request,
+            env,
+            topLevelConfigurations,
+            transitiveConfigurations,
+            topLevelTargetAspects,
+            walkableGraph);
 
     Iterable<NamedThreadSafeOutputFormatterCallback<T>> callbacks =
         postAnalysisQueryEnvironment.getDefaultOutputFormatters(
@@ -217,7 +245,7 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
     }
     callback.start();
     callback.process(aggregateResultsCallback.getResult());
-    callback.close(/*failFast=*/ !result.getSuccess());
+    callback.close(/* failFast= */ !result.getSuccess());
 
     queryRuntimeHelper.afterQueryOutputIsWritten();
   }

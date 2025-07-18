@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.packages.LabelPrinter;
@@ -23,6 +25,7 @@ import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryHelper;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 
 /**
@@ -37,8 +40,8 @@ public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<CqueryN
   protected ConfiguredTargetQueryEnvironment getPostAnalysisQueryEnvironment(
       WalkableGraph walkableGraph,
       TopLevelConfigurations topLevelConfigurations,
-      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations)
-      throws InterruptedException {
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
+      ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects) {
     ImmutableList<QueryFunction> extraFunctions =
         ImmutableList.copyOf(ConfiguredTargetQueryEnvironment.CQUERY_FUNCTIONS);
     return new ConfiguredTargetQueryEnvironment(
@@ -47,6 +50,7 @@ public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<CqueryN
         extraFunctions,
         topLevelConfigurations,
         transitiveConfigurations,
+        topLevelTargetAspects,
         mainRepoTargetParser,
         analysisHelper.getPackageManager().getPackagePath(),
         () -> walkableGraph,

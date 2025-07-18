@@ -374,7 +374,10 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   public Dict<String, Object> getProvidersDictForQuery() {
-    return toProvidersDictForQuery(nonBaseProviders);
+    return Dict.<String, Object>builder()
+        .putAll(base.getProvidersDictForQuery())
+        .putAll(toProvidersDictForQuery(nonBaseProviders))
+        .buildImmutable();
   }
 
   @Override

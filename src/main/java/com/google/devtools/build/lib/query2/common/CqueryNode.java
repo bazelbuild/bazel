@@ -101,10 +101,9 @@ public interface CqueryNode {
   /**
    * This is only intended to be called from the query dialects of Starlark.
    *
-   * @return a map of provider names to their values, or null if there are no providers
+   * @return a map of provider names to their values
    */
-  @Nullable
   default Dict<String, Object> getProvidersDictForQuery() {
-    return null;
+    return Dict.empty();
   }
 }
