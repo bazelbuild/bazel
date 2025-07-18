@@ -1099,7 +1099,22 @@ conditions.
      <td>
        If enabled, virtual include header files are linked under <code>bin/_virtual_includes/&lt;hash of target path&gt;</code> instead of <code>bin/&lt;target package path&gt;/_virtual_includes/&lt;target name&gt;</code>. Useful on Windows to avoid long path issue with MSVC.
      </td>
-    </tr>
+  </tr>
+  <tr>
+    <td><strong><code>coverage_enabled</code></strong>
+    </td>
+    <td>
+      Enabled when coverage collection is generally enabled.
+    </td>
+  </tr>
+  <tr>
+    <td><strong><code>coverage_instrumented</code></strong>
+    </td>
+    <td>
+      Enabled when the current target should be instrumented for
+      coverage.
+    </td>
+  </tr>
 </table>
 
 #### Legacy features patching logic {:#legacy-features-patching-logic}
@@ -1157,4 +1172,3 @@ done. For the curious reader see the implementation in
 [CppActionConfigs](https://source.bazel.build/bazel/+/master:src/main/java/com/google/devtools/build/lib/rules/cpp/CppActionConfigs.java?q=cppactionconfigs&ss=bazel),
 and for production toolchains consider adding `no_legacy_features` to make
 the toolchain more standalone.
-

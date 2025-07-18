@@ -341,19 +341,6 @@ public final class CcCommon implements StarlarkValue {
     return StarlarkList.empty();
   }
 
-  public static ImmutableList<String> getCoverageFeatures(CppConfiguration cppConfiguration) {
-    ImmutableList.Builder<String> coverageFeatures = ImmutableList.builder();
-    if (cppConfiguration.collectCodeCoverage()) {
-      coverageFeatures.add(CppRuleClasses.COVERAGE);
-      if (cppConfiguration.useLLVMCoverageMapFormat()) {
-        coverageFeatures.add(CppRuleClasses.LLVM_COVERAGE_MAP_FORMAT);
-      } else {
-        coverageFeatures.add(CppRuleClasses.GCC_COVERAGE_MAP_FORMAT);
-      }
-    }
-    return coverageFeatures.build();
-  }
-
   /**
    * Creates a feature configuration for a given rule. Assumes strictly cc sources.
    *
@@ -467,8 +454,6 @@ public final class CcCommon implements StarlarkValue {
         allFeatures.add("nonhost");
       }
     }
-
-    allFeatures.addAll(getCoverageFeatures(cppConfiguration));
 
     if (!allUnsupportedFeatures.contains(CppRuleClasses.FDO_INSTRUMENT)) {
       if (cppConfiguration.getFdoInstrument() != null) {
@@ -630,8 +615,11 @@ public final class CcCommon implements StarlarkValue {
     if (featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
       try {
         CcToolchainVariables buildVariables = toolchainProvider.getBuildVars();
-      return CppHelper.getCommandLine(
-          ruleContext, featureConfiguration, buildVariables, CppActionNames.CC_FLAGS_MAKE_VARIABLE);
+        return CppHelper.getCommandLine(
+            ruleContext,
+            featureConfiguration,
+            buildVariables,
+            CppActionNames.CC_FLAGS_MAKE_VARIABLE);
 
       } catch (EvalException e) {
         throw new RuleErrorException(e.getMessage());

@@ -797,7 +797,6 @@ public class CcStarlarkInternal implements StarlarkValue {
             name = "feature_configuration",
             positional = false,
             named = true), // FeatureConfigurationForStarlark
-        @Param(name = "is_code_coverage_enabled", positional = false, named = true),
         @Param(name = "label", positional = false, named = true),
         @Param(name = "common_toolchain_variables", positional = false, named = true),
         @Param(name = "fdo_build_variables", positional = false, named = true, defaultValue = "{}"),
@@ -820,7 +819,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       StructImpl fdoContext,
       Depset auxiliaryFdoInputs,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      boolean isCodeCoverageEnabled,
       Label label,
       CcToolchainVariables commonToolchainVariables,
       Dict<?, ?> fdoBuildVariables,
@@ -846,7 +844,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         new FdoContext(fdoContext),
         Depset.cast(auxiliaryFdoInputs, Artifact.class, "auxiliary_fdo_inputs"),
         featureConfigurationForStarlark.getFeatureConfiguration(),
-        isCodeCoverageEnabled,
         label,
         commonToolchainVariables,
         ImmutableMap.copyOf(
@@ -903,7 +900,6 @@ public class CcStarlarkInternal implements StarlarkValue {
             },
             defaultValue = "None"),
         @Param(name = "add_object", positional = false, named = true),
-        @Param(name = "enable_coverage", positional = false, named = true),
         @Param(name = "generate_dwo", positional = false, named = true),
         @Param(name = "bitcode_output", positional = false, named = true)
       })
@@ -933,7 +929,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       String outputCategoryString,
       Object cppModuleMapObject,
       boolean addObject,
-      boolean enableCoverage,
       boolean generateDwo,
       boolean bitcodeOutput)
       throws RuleErrorException, EvalException, InterruptedException {
@@ -978,7 +973,6 @@ public class CcStarlarkInternal implements StarlarkValue {
             outputCategory,
             cppModuleMap,
             addObject,
-            enableCoverage,
             generateDwo,
             bitcodeOutput));
   }

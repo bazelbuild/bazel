@@ -434,14 +434,20 @@ public class CppRuleClasses {
   /** A string constant for the xbinaryfdo feature. */
   public static final String XBINARYFDO = "xbinaryfdo";
 
-  /** A string constant for the coverage feature. */
+  /** A string constant for the legacy coverage feature. */
   public static final String COVERAGE = "coverage";
 
-  /** Produce artifacts for coverage in llvm coverage mapping format. */
-  public static final String LLVM_COVERAGE_MAP_FORMAT = "llvm_coverage_map_format";
+  /**
+   * A string constant for the feature that is requested if coverage is generally enabled, even if
+   * the current target is not instrumented.
+   */
+  public static final String COVERAGE_ENABLED = "coverage_enabled";
 
-  /** Produce artifacts for coverage in gcc coverage mapping format. */
-  public static final String GCC_COVERAGE_MAP_FORMAT = "gcc_coverage_map_format";
+  /**
+   * A string constant for the feature that is requested if the current target is instrumented for
+   * coverage.
+   */
+  public static final String COVERAGE_INSTRUMENTED = "coverage_instrumented";
 
   /** A string constant for the match-clif action. */
   public static final String MATCH_CLIF = "match_clif";

@@ -30,12 +30,15 @@ def _cc_library_impl(ctx):
     semantics.check_cc_shared_library_tags(ctx)
 
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
-    cc_helper.report_invalid_options(cc_toolchain, ctx.fragments.cpp)
+    cpp_config = ctx.fragments.cpp
+    cc_helper.report_invalid_options(cc_toolchain, cpp_config)
 
+    features = ctx.features
+    features.extend(cc_helper.get_coverage_features(ctx, cpp_config))
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,
-        requested_features = ctx.features,
+        requested_features = features,
         unsupported_features = ctx.disabled_features,
     )
 
@@ -55,7 +58,7 @@ def _cc_library_impl(ctx):
     additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
     additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain))
 
-    (compilation_context, srcs_compilation_outputs) = cc_common.compile(
+    compilation_context, srcs_compilation_outputs = cc_common.compile(
         actions = ctx.actions,
         name = ctx.label.name,
         cc_toolchain = cc_toolchain,
@@ -72,7 +75,6 @@ def _cc_library_impl(ctx):
         module_interfaces = cc_helper.get_cpp_module_interfaces(ctx),
         private_hdrs = cc_helper.get_private_hdrs(ctx),
         public_hdrs = cc_helper.get_public_hdrs(ctx),
-        code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx),
         compilation_contexts = compilation_contexts,
         implementation_compilation_contexts = implementation_compilation_contexts,
         textual_hdrs = ctx.files.textual_hdrs,
