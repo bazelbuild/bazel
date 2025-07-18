@@ -105,6 +105,7 @@ maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven.install(
     artifacts = [
         # keep sorted
+        "args4j:args4j:2.37",
         "com.beust:jcommander:1.82",
         "com.github.ben-manes.caffeine:caffeine:3.1.8",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
