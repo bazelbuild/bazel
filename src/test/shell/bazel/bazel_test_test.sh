@@ -89,7 +89,9 @@ function test_tmpdir() {
   mkdir -p foo
   cat > foo/bar_test.sh <<'EOF'
 #!/bin/sh
+set -e
 echo TEST_TMPDIR=$TEST_TMPDIR
+touch "$TEST_TMPDIR/foo"
 EOF
   chmod +x foo/bar_test.sh
   cat > foo/BUILD <<EOF
