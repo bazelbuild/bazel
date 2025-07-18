@@ -47,7 +47,7 @@ public final class BzlmodTestUtil {
 
   public static DepSpec createDepSpec(String name, String version, int maxCompatibilityLevel) {
     try {
-      return DepSpec.create(name, Version.parse(version), maxCompatibilityLevel);
+      return new DepSpec(name, Version.parse(version), maxCompatibilityLevel);
     } catch (Version.ParseException e) {
       throw new IllegalArgumentException(e);
     }

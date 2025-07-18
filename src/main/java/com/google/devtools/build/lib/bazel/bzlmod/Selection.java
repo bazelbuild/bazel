@@ -197,7 +197,7 @@ final class Selection {
         new ImmutableMap.Builder<>();
 
     // Also keep a version of the full dep graph with updated deps.
-    ImmutableMap.Builder<ModuleKey, InterimModule> unprunedDepGraphBuilder =
+    ImmutableMap.Builder<ModuleKey, InterimModule> unprunedNonUnifiedDepGraphBuilder =
         new ImmutableMap.Builder<>();
     for (InterimModule module : depGraph.values()) {
       // Rewrite deps to point to the selected version.
@@ -205,20 +205,12 @@ final class Selection {
       InterimModule updatedModule =
           module.withDepsAndNodepDepsTransformed(
               depSpec ->
-                  DepSpec.create(
-                      depSpec.name(),
-                      selectedVersions.get(selectionGroups.get(depSpec.toModuleKey())),
-                      depSpec.maxCompatibilityLevel()));
+                  depSpec.withVersion(
+                      selectedVersions.getOrDefault(
+                          selectionGroups.get(depSpec.toModuleKey()), depSpec.version())));
 
       // Add all updated modules to the un-pruned dep graph.
-      unprunedDepGraphBuilder.put(
-          key,
-          module.withDepsAndNodepDepsTransformed(
-              depSpec ->
-                  DepSpec.create(
-                      depSpec.name(),
-                      selectedVersions.get(selectionGroups.get(depSpec.toModuleKey())),
-                      -1)));
+      unprunedNonUnifiedDepGraphBuilder.put(key, updatedModule);
 
       // Remove any dep whose version isn't selected from the resolved graph.
       Version selectedVersion = selectedVersions.get(selectionGroups.get(module.getKey()));
@@ -227,8 +219,8 @@ final class Selection {
       }
     }
     ImmutableMap<ModuleKey, InterimModule> newDepGraph = newDepGraphBuilder.buildOrThrow();
-    ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph =
-        unprunedDepGraphBuilder.buildOrThrow();
+    ImmutableMap<ModuleKey, InterimModule> unprunedNonUnifiedDepGraph =
+        unprunedNonUnifiedDepGraphBuilder.buildOrThrow();
 
     // Further, removes unreferenced modules from the graph. We can find out which modules are
     // referenced by collecting deps transitively from the root.
@@ -265,11 +257,9 @@ final class Selection {
                             return depSpec;
                           }
                           var newDepSpec =
-                              new DepSpec(
-                                  depSpec.name(),
+                              depSpec.withVersion(
                                   selectedVersions.get(
-                                      selectionGroupsByName.get(depSpec.name()).last()),
-                                  -1);
+                                      selectionGroupsByName.get(depSpec.name()).last()));
                           return newDepSpec;
                         })));
 
@@ -280,7 +270,26 @@ final class Selection {
             .walk(/* validate= */ true);
 
     // Return the result containing both the pruned and un-pruned dep graphs
-    return new Result(prunedDepGraph, unprunedDepGraph);
+    return new Result(
+        prunedDepGraph,
+        ImmutableMap.copyOf(
+            Maps.transformValues(
+                unprunedNonUnifiedDepGraph,
+                module ->
+                    module.withDepsAndNodepDepsTransformed(
+                        depSpec -> {
+                          if (depSpec.maxCompatibilityLevel() == -1) {
+                            return depSpec;
+                          }
+                          if (overrides.get(depSpec.name()) instanceof MultipleVersionOverride) {
+                            return depSpec;
+                          }
+                          var newDepSpec =
+                              depSpec.withVersion(
+                                  selectedVersions.get(
+                                      selectionGroupsByName.get(depSpec.name()).last()));
+                          return newDepSpec;
+                        }))));
   }
 
   /**

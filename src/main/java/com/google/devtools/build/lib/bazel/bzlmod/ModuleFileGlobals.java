@@ -307,8 +307,7 @@ public class ModuleFileGlobals {
     if (!(context.shouldIgnoreDevDeps() && devDependency)) {
       context.addDep(
           repoName,
-          DepSpec.create(
-              name, parsedVersion, maxCompatibilityLevel.toInt("max_compatibility_level")));
+          new DepSpec(name, parsedVersion, maxCompatibilityLevel.toInt("max_compatibility_level")));
     }
 
     if (repoName.isPresent()) {
