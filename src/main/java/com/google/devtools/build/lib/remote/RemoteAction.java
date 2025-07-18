@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.remote.common.NetworkTime;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
-import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.merkletree.v2.MerkleTreeComputer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
@@ -40,7 +40,7 @@ public class RemoteAction {
   private final SpawnExecutionContext spawnExecutionContext;
   private final RemoteActionExecutionContext remoteActionExecutionContext;
   private final RemotePathResolver remotePathResolver;
-  @Nullable private final MerkleTree merkleTree;
+  @Nullable private final MerkleTreeComputer.MerkleTree merkleTree;
   private final long inputBytes;
   private final long inputFiles;
   private final Digest commandHash;
@@ -53,7 +53,7 @@ public class RemoteAction {
       SpawnExecutionContext spawnExecutionContext,
       RemoteActionExecutionContext remoteActionExecutionContext,
       RemotePathResolver remotePathResolver,
-      MerkleTree merkleTree,
+      MerkleTreeComputer.MerkleTree merkleTree,
       Digest commandHash,
       Command command,
       Action action,
@@ -64,8 +64,8 @@ public class RemoteAction {
     this.remoteActionExecutionContext = remoteActionExecutionContext;
     this.remotePathResolver = remotePathResolver;
     this.merkleTree = remoteDiscardMerkleTrees ? null : merkleTree;
-    this.inputBytes = merkleTree.getInputBytes();
-    this.inputFiles = merkleTree.getInputFiles();
+    this.inputBytes = merkleTree.inputBytes();
+    this.inputFiles = merkleTree.inputFiles();
     this.commandHash = commandHash;
     this.command = command;
     this.action = action;
@@ -125,7 +125,7 @@ public class RemoteAction {
   }
 
   @Nullable
-  public MerkleTree getMerkleTree() {
+  public MerkleTreeComputer.MerkleTree getMerkleTree() {
     return merkleTree;
   }
 
