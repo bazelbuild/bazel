@@ -131,8 +131,8 @@ public class JavaStarlarkCommon
       Object injectingRuleKind,
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
-      Object headerCompilationJar,
-      Object headerCompilationDirectDeps)
+      Artifact headerCompilationJar,
+      Depset headerCompilationDirectDeps)
       throws EvalException,
           TypeException,
           RuleErrorException,
@@ -144,10 +144,7 @@ public class JavaStarlarkCommon
             .addSourceJars(Sequence.cast(sourceJars, Artifact.class, "source_jars"))
             .addSourceFiles(sourceFiles.toList(Artifact.class))
             .addDirectJars(directJars.getSet(Artifact.class))
-            .addHeaderCompilationDirectJars(
-                headerCompilationDirectDeps == Starlark.NONE
-                    ? NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER)
-                    : ((Depset) headerCompilationDirectDeps).getSet(Artifact.class))
+            .addHeaderCompilationDirectJars(headerCompilationDirectDeps.getSet(Artifact.class))
             .setCompileTimeClassPathEntriesWithPrependedDirectJars(
                 compileTimeClasspath.getSet(Artifact.class))
             .setStrictJavaDeps(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)))
@@ -173,9 +170,7 @@ public class JavaStarlarkCommon
                 .getImmutableList());
     compilationHelper.enableDirectClasspath(enableDirectClasspath);
     compilationHelper.createHeaderCompilationAction(
-        headerJar,
-        headerCompilationJar == Starlark.NONE ? null : (Artifact) headerCompilationJar,
-        headerDepsProto);
+        headerJar, headerCompilationJar, headerDepsProto);
   }
 
   @Override

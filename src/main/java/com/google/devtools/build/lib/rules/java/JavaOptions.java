@@ -163,13 +163,14 @@ public class JavaOptions extends FragmentOptions {
       oldName = "experimental_java_header_compilation")
   public boolean headerCompilation;
 
+  @Deprecated
   @Option(
       name = "experimental_java_header_compilation_direct_deps",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "Use separate outputs for header and regular compilation.")
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "This flag is a noop and scheduled for removal.")
   public boolean javaHeaderCompilationDirectDeps;
 
   @Option(
