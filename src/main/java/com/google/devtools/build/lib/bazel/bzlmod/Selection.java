@@ -237,6 +237,7 @@ final class Selection {
 
     var selectionGroupsByName =
         selectionGroups.entrySet().stream()
+            .filter(entry -> prunedNonUnifiedDepGraph.containsKey(entry.getKey()))
             .collect(
                 Multimaps.toMultimap(
                     entry -> entry.getKey().name(),
