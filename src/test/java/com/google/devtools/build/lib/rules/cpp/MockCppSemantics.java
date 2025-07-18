@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
@@ -41,10 +42,11 @@ public final class MockCppSemantics implements CppSemantics {
     return Language.CPP;
   }
 
-  private static final String CPP_TOOLCHAIN_TYPE = "@bazel_tools//tools/cpp:toolchain_type";
+  private static final Label CPP_TOOLCHAIN_TYPE =
+      Label.parseCanonicalUnchecked("@bazel_tools//tools/cpp:toolchain_type");
 
   @Override
-  public String getCppToolchainType() {
+  public Label getCppToolchainType() {
     return CPP_TOOLCHAIN_TYPE;
   }
 
@@ -53,10 +55,6 @@ public final class MockCppSemantics implements CppSemantics {
       BuildConfigurationValue configuration,
       FeatureConfiguration featureConfiguration,
       CppCompileActionBuilder actionBuilder) {}
-
-  @Override
-  public void finalizeLinkActionBuilder(
-      CppConfiguration configuration, CppLinkActionBuilder actionBuilder) {}
 
   @Override
   public boolean allowIncludeScanning() {

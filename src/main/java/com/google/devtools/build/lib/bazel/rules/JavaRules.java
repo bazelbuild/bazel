@@ -26,10 +26,7 @@ import com.google.devtools.build.lib.rules.java.JavaPluginsFlagAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaStarlarkCommon;
-import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
-import com.google.devtools.build.lib.starlarkbuildapi.java.JavaBootstrap;
-import com.google.devtools.build.lib.util.ResourceFileLoader;
-import java.io.IOException;
+import net.starlark.java.eval.Starlark;
 
 /** Rules for Java support in Bazel. */
 public class JavaRules implements RuleSet {
@@ -67,17 +64,9 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(new ExtraActionRule());
     builder.addRuleDefinition(new ActionListenerRule());
 
-    builder.addStarlarkBootstrap(new JavaBootstrap(ProguardSpecProvider.PROVIDER));
-
+    builder.addBzlToplevel("java_common", Starlark.NONE);
     builder.addStarlarkBuiltinsInternal(
         "java_common_internal_do_not_use", new JavaStarlarkCommon(BazelJavaSemantics.INSTANCE));
-
-    try {
-      builder.addWorkspaceFileSuffix(
-          ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
   }
 
   @Override

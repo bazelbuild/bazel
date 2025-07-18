@@ -99,7 +99,8 @@ public class CommandLineEventTest {
                 false,
                 ImmutableSortedMap.of(),
                 ImmutableSortedMap.of(),
-                fakeCommandOptions.asListOfCanonicalOptions())
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
 
@@ -218,7 +219,8 @@ public class CommandLineEventTest {
                 false,
                 ImmutableSortedMap.of(),
                 ImmutableSortedMap.of(),
-                fakeCommandOptions.asListOfCanonicalOptions())
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
 
@@ -308,7 +310,8 @@ public class CommandLineEventTest {
                 false,
                 ImmutableSortedMap.of(),
                 ImmutableSortedMap.of(),
-                fakeCommandOptions.asListOfCanonicalOptions())
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
 
@@ -385,7 +388,8 @@ public class CommandLineEventTest {
                 false,
                 ImmutableSortedMap.of(),
                 ImmutableSortedMap.of(),
-                fakeCommandOptions.asListOfCanonicalOptions())
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
 
@@ -466,7 +470,8 @@ public class CommandLineEventTest {
                 false,
                 ImmutableSortedMap.of(),
                 ImmutableSortedMap.of(),
-                fakeCommandOptions.asListOfCanonicalOptions())
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
 
@@ -623,7 +628,8 @@ public class CommandLineEventTest {
                 false,
                 ImmutableSortedMap.of(),
                 ImmutableSortedMap.of(),
-                fakeCommandOptions.asListOfCanonicalOptions())
+                fakeCommandOptions.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
 

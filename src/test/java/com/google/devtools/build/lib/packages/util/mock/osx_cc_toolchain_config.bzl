@@ -30,6 +30,7 @@ load(
     "variable_with_value",
     "with_feature_set",
 )
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 
 # Link actions using the C++ bazel actions.
 _NON_OBJC_LINK_ACTIONS = [

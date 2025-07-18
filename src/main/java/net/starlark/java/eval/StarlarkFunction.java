@@ -25,6 +25,7 @@ import net.starlark.java.eval.StarlarkThread.Frame;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Resolver;
+import net.starlark.java.types.StarlarkType;
 import net.starlark.java.types.Types.CallableType;
 
 /** A StarlarkFunction is a function value created by a Starlark {@code def} statement. */
@@ -91,7 +92,8 @@ public final class StarlarkFunction implements StarlarkCallable {
     return module.getGlobal(getName()) == this;
   }
 
-  public CallableType getStarlarkType() {
+  @Override
+  public StarlarkType getStarlarkType() {
     return rfn.getFunctionType();
   }
 
@@ -533,6 +535,27 @@ public final class StarlarkFunction implements StarlarkCallable {
         locals[getKwargsIndex()] =
             kwargs == null ? Dict.of(thread.mutability()) : Dict.wrap(thread.mutability(), kwargs);
       }
+
+      // Runtime type check
+      StarlarkType type = owner.getStarlarkType();
+      if (type instanceof CallableType functionType) {
+        for (int i = 0; i < functionType.getParameterTypes().size(); i++) {
+          if (locals[i] == null) {
+            continue; // the default value is already type checked
+          }
+          StarlarkType parameterType = functionType.getParameterTypeByPos(i);
+          if (!TypeChecker.isValueSubtypeOf(locals[i], parameterType)) {
+            throw Starlark.errorf(
+                "in call to %s(), parameter '%s' got value of type '%s', want '%s'",
+                owner.getName(),
+                owner.getParameterNames().get(i),
+                TypeChecker.type(locals[i]),
+                parameterType);
+          }
+        }
+        // TODO(ilist@): typecheck *args and **kwargs, once we have more than primitive types
+      }
+
       applyDefaultsReportMissingArgs();
       // Spill indicated locals to cells
       for (int index : rfn.getCellIndices()) {
@@ -546,7 +569,18 @@ public final class StarlarkFunction implements StarlarkCallable {
 
       Frame fr = thread.frame(0);
       fr.locals = locals;
-      return Eval.execFunctionBody(fr, rfn.getBody());
+      Object returnValue = Eval.execFunctionBody(fr, rfn.getBody());
+
+      // Return value check
+      if (type instanceof CallableType functionType) {
+        if (!TypeChecker.isValueSubtypeOf(returnValue, functionType.getReturnType())) {
+          throw Starlark.errorf(
+              "%s(): returns value of type '%s', declares '%s'",
+              owner.getName(), TypeChecker.type(returnValue), functionType.getReturnType());
+        }
+      }
+
+      return returnValue;
     }
   }
 }

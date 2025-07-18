@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfTupleA
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
+import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams.CoverageParams;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -54,9 +55,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
 
-/**
- * Helper class to create test actions.
- */
+/** Helper class to create test actions. */
 public final class TestActionBuilder {
   private static final String CC_CODE_COVERAGE_SCRIPT = "CC_CODE_COVERAGE_SCRIPT";
   private static final String LCOV_MERGER = "LCOV_MERGER";
@@ -99,8 +98,7 @@ public final class TestActionBuilder {
         "invalid",
         ImmutableList.of(),
         ImmutableList.of(),
-        FilesToRunProvider.EMPTY,
-        ImmutableList.of());
+        /* coverageParams= */ null);
   }
 
   /**
@@ -227,8 +225,7 @@ public final class TestActionBuilder {
         new TestTargetProperties(ruleContext, executionRequirements);
 
     // If the test rule does not provide InstrumentedFilesProvider, there's not much that we can do.
-    final boolean collectCodeCoverage = config.isCodeCoverageEnabled()
-        && instrumentedFiles != null;
+    final boolean collectCodeCoverage = config.isCodeCoverageEnabled() && instrumentedFiles != null;
 
     Artifact testActionExecutable =
         isUsingTestWrapperInsteadOfTestSetupScript
@@ -329,8 +326,8 @@ public final class TestActionBuilder {
       }
 
       Artifact instrumentedFileManifest =
-          InstrumentedFileManifestAction.getInstrumentedFileManifest(ruleContext,
-              instrumentedFiles.getInstrumentedFiles(), metadataFiles);
+          InstrumentedFileManifestAction.getInstrumentedFileManifest(
+              ruleContext, instrumentedFiles.getInstrumentedFiles(), metadataFiles);
       executionSettings =
           new TestTargetExecutionSettings(
               ruleContext,
@@ -457,18 +454,20 @@ public final class TestActionBuilder {
         results.add(cacheStatus);
       }
     }
-    // TODO(bazel-team): Passing the reportGenerator to every TestParams is a bit strange.
-    FilesToRunProvider reportGenerator = null;
+    CoverageParams coverageParams = null;
     if (config.isCodeCoverageEnabled()) {
+      // TODO(bazel-team): Passing the reportGenerator to every TestParams is a bit strange.
       // It's not enough to add this if the rule has coverage enabled because the command line may
       // contain rules with baseline coverage but no test rules that have coverage enabled, and in
       // that case, we still need the report generator.
       TransitiveInfoCollection reportGeneratorTarget =
           ruleContext.getPrerequisite(":coverage_report_generator");
-      reportGenerator = reportGeneratorTarget.getProvider(FilesToRunProvider.class);
+      FilesToRunProvider reportGenerator =
+          reportGeneratorTarget.getProvider(FilesToRunProvider.class);
       if (reportGenerator.getExecutable() == null) {
         ruleContext.ruleError("--coverage_report_generator does not refer to an executable target");
       }
+      coverageParams = new CoverageParams(coverageArtifacts.build(), reportGenerator, actionOwner);
     }
 
     return new TestParams(
@@ -478,8 +477,7 @@ public final class TestActionBuilder {
         TestTimeout.getTestTimeout(ruleContext.getRule()),
         ruleContext.getRule().getRuleClass(),
         ImmutableList.copyOf(results),
-        coverageArtifacts.build(),
-        reportGenerator,
-        testOutputs.build());
+        testOutputs.build(),
+        coverageParams);
   }
 }

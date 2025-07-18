@@ -119,7 +119,8 @@ public class PlatformRule implements RuleDefinition {
 
         /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(flags) -->
         A list of flags that will be enabled when this platform is used as the target platform in
-        a configuration. Only flags that can be set in transitions are allowed to be used.
+        a configuration. Only flags that are part of the configuration can be set, such as those
+        that can be used in transitions, or the <code>--define</code> flag.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(FLAGS_ATTR, Types.STRING_LIST)

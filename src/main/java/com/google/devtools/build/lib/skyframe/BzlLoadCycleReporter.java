@@ -21,11 +21,9 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.repository.RequestRepositoryInformationEvent;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -40,9 +38,6 @@ public class BzlLoadCycleReporter implements CyclesReporter.SingleCycleReporter 
 
   private static final Predicate<SkyKey> IS_PACKAGE_LOOKUP =
       SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE_LOOKUP);
-
-  private static final Predicate<SkyKey> IS_WORKSPACE_FILE =
-      SkyFunctions.isSkyFunction(WorkspaceFileValue.WORKSPACE_FILE);
 
   private static final Predicate<SkyKey> IS_REPOSITORY_DIRECTORY =
       SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY);
@@ -83,11 +78,10 @@ public class BzlLoadCycleReporter implements CyclesReporter.SingleCycleReporter 
     }
 
     if (Iterables.all(cycle, IS_BZL_LOAD)
-        // The last element before the cycle has to be a PackageFunction, a .bzl file, the
-        // WORKSPACE, or an extension eval.
+        // The last element before the cycle has to be a PackageFunction, a .bzl file, or an
+        // extension eval.
         && (IS_PACKAGE_SKY_KEY.apply(lastPathElement)
             || IS_BZL_LOAD.apply(lastPathElement)
-            || IS_WORKSPACE_FILE.apply(lastPathElement)
             || IS_BZLMOD_EXTENSION.apply(lastPathElement))) {
 
       Function<Object, String> printer =
@@ -99,12 +93,6 @@ public class BzlLoadCycleReporter implements CyclesReporter.SingleCycleReporter 
             if (input.argument() instanceof PackageIdentifier) {
               return input.argument() + "/BUILD";
             }
-            if (input.argument() instanceof WorkspaceFileValue.WorkspaceFileKey) {
-              return ((WorkspaceFileValue.WorkspaceFileKey) input.argument())
-                  .getPath()
-                  .getRootRelativePath()
-                  .toString();
-            }
             Preconditions.checkArgument(input.argument() instanceof ModuleExtensionId);
             ModuleExtensionId id = (ModuleExtensionId) input.argument();
             return "module extension " + id;
@@ -113,13 +101,12 @@ public class BzlLoadCycleReporter implements CyclesReporter.SingleCycleReporter 
       StringBuilder cycleMessage =
           new StringBuilder().append("cycle detected in extension files: ");
 
-      // go back the path that lead to the cycle till we found the BUILD file, WORKSPACE
-      // file or extension eval that lead to the circular load,
+      // go back the path that lead to the cycle till we found the BUILD file or extension eval
+      // that lead to the circular load,
       int startIndex = pathToCycle.size() - 1;
       while (startIndex > 0
           && (IS_PACKAGE_SKY_KEY.apply(pathToCycle.get(startIndex - 1))
               || IS_BZL_LOAD.apply(pathToCycle.get(startIndex - 1))
-              || IS_WORKSPACE_FILE.apply(pathToCycle.get(startIndex - 1))
               || IS_BZLMOD_EXTENSION.apply(pathToCycle.get(startIndex - 1)))) {
 
         startIndex--;
@@ -146,46 +133,6 @@ public class BzlLoadCycleReporter implements CyclesReporter.SingleCycleReporter 
           };
       AbstractLabelCycleReporter.printCycle(ImmutableList.copyOf(repos), cycleMessage, printer);
       eventHandler.handle(Event.error(null, cycleMessage.toString()));
-      // To help debugging, request that the information be printed about where the respective
-      // repositories were defined.
-      requestRepoDefinitions(eventHandler, repos);
-      return true;
-    } else if (Iterables.any(cycle, IS_REPOSITORY_DIRECTORY)
-        && Iterables.any(cycle, IS_WORKSPACE_FILE)) {
-      Iterable<SkyKey> repos =
-          Iterables.filter(Iterables.concat(pathToCycle, cycle), IS_REPOSITORY_DIRECTORY);
-
-      StringBuilder message = new StringBuilder();
-
-      if (Iterables.any(cycle, IS_BZL_LOAD)) {
-        Label fileLabel =
-            ((BzlLoadValue.Key) Iterables.getLast(Iterables.filter(cycle, IS_BZL_LOAD))).getLabel();
-        message.append("Failed to load Starlark extension '").append(fileLabel).append("'.\n");
-      }
-
-      message
-          .append("Cycle in the workspace file detected. ")
-          .append("This indicates that a repository is used prior to being defined.\n")
-          .append(
-              "The following chain of repository dependencies lead to the missing definition.\n");
-      for (SkyKey repo : repos) {
-        if (repo instanceof RepositoryDirectoryValue.Key) {
-          message
-              .append(" - ")
-              .append(((RepositoryDirectoryValue.Key) repo).argument())
-              .append("\n");
-        }
-      }
-      SkyKey missingRepo = Iterables.getLast(repos);
-      if (missingRepo instanceof RepositoryDirectoryValue.Key) {
-        message
-            .append("This could either mean you have to add the '")
-            .append(((RepositoryDirectoryValue.Key) missingRepo).argument())
-            .append("' repository with a statement like `http_archive` in your WORKSPACE file")
-            .append(" (note that transitive dependencies are not added automatically), or move")
-            .append(" an existing definition earlier in your WORKSPACE file.");
-      }
-      eventHandler.handle(Event.error(message.toString()));
       // To help debugging, request that the information be printed about where the respective
       // repositories were defined.
       requestRepoDefinitions(eventHandler, repos);

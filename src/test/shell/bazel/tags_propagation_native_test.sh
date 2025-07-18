@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -100,8 +100,11 @@ EOF
 }
 
 function test_java_library_tags_propagated() {
+  add_rules_java "MODULE.bazel"
   mkdir -p test
   cat > test/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+
 package(default_visibility = ["//visibility:public"])
 java_library(
   name = 'test',
@@ -128,8 +131,11 @@ EOF
 }
 
 function test_java_binary_tags_propagated() {
+  add_rules_java "MODULE.bazel"
   mkdir -p test
   cat > test/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 package(default_visibility = ["//visibility:public"])
 java_binary(
   name = 'test',
@@ -156,10 +162,40 @@ EOF
   assert_contains_n "no-remote:" 4 output1
 }
 
+function test_java_test_tags_propagated() {
+  add_rules_java "MODULE.bazel"
+  mkdir -p test
+  cat > test/BUILD <<EOF
+load("@rules_java//java:java_test.bzl", "java_test")
+
+package(default_visibility = ["//visibility:public"])
+java_test(
+  name = "test",
+  srcs = [ "Tests.java" ],
+  test_class = "Tests",
+  tags = ["no-cache", "no-remote", "local"],
+  resources = ["resource.txt"],
+)
+EOF
+  touch test/Tests.java
+  touch test/resource.txt
+
+  bazel aquery --incompatible_allow_tags_propagation '//test:test' > output1 2> $TEST_log \
+      || fail "should have generated output successfully"
+
+  assert_contains_n "Command Line:" 6 output1
+  assert_contains_n "local:" 6 output1
+  assert_contains_n "no-cache:" 6 output1
+  assert_contains_n "no-remote:" 6 output1
+}
+
 function write_hello_library_files() {
+  add_rules_java "MODULE.bazel"
   local -r pkg="$1"
   mkdir -p $pkg/java/main || fail "mkdir"
   cat >$pkg/java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = 'main',
     deps = ['//$pkg/java/hello_library'],
@@ -182,6 +218,8 @@ EOF
 
   mkdir -p $pkg/java/hello_library || fail "mkdir"
   cat >$pkg/java/hello_library/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+
 package(default_visibility=['//visibility:public'])
 java_library(name = 'hello_library',
              srcs = ['HelloLibrary.java']);
@@ -234,8 +272,11 @@ EOF
 
 # Test a native test rule which has tags, that should be propagated (independent of flags)
 function test_test_rules_tags_propagated() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p test
   cat > test/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(default_visibility = ["//visibility:public"])
 cc_test(
   name = 'test',
@@ -260,8 +301,11 @@ EOF
 # Test a basic native rule which has tags, that should not be propagated
 # as --incompatible_allow_tags_propagation flag set to false
 function test_cc_library_tags_not_propagated_when_incompatible_flag_off() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p test
   cat > test/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 package(default_visibility = ["//visibility:public"])
 cc_library(
   name = 'test',
@@ -290,9 +334,11 @@ EOF
 }
 
 function test_cc_binary_tags_not_propagated_when_incompatible_flag_off() {
-
- mkdir -p test
+  add_rules_cc "MODULE.bazel"
+  mkdir -p test
   cat > test/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 package(default_visibility = ["//visibility:public"])
 cc_binary(
   name = "test",
@@ -315,8 +361,11 @@ EOF
 }
 
 function test_java_tags_not_propagated_when_incompatible_flag_off() {
+  add_rules_java "MODULE.bazel"
   mkdir -p test
   cat > test/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+
 package(default_visibility = ["//visibility:public"])
 java_library(
   name = 'test',

@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
@@ -43,11 +44,11 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkInfoNoSchema;
 import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
-import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import net.starlark.java.eval.EvalException;
@@ -129,7 +130,9 @@ public class JavaStarlarkCommon
       Label targetLabel,
       Object injectingRuleKind,
       boolean enableDirectClasspath,
-      Sequence<?> additionalInputs)
+      Sequence<?> additionalInputs,
+      Object headerCompilationJar,
+      Object headerCompilationDirectDeps)
       throws EvalException,
           TypeException,
           RuleErrorException,
@@ -141,6 +144,10 @@ public class JavaStarlarkCommon
             .addSourceJars(Sequence.cast(sourceJars, Artifact.class, "source_jars"))
             .addSourceFiles(sourceFiles.toList(Artifact.class))
             .addDirectJars(directJars.getSet(Artifact.class))
+            .addHeaderCompilationDirectJars(
+                headerCompilationDirectDeps == Starlark.NONE
+                    ? NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER)
+                    : ((Depset) headerCompilationDirectDeps).getSet(Artifact.class))
             .setCompileTimeClassPathEntriesWithPrependedDirectJars(
                 compileTimeClasspath.getSet(Artifact.class))
             .setStrictJavaDeps(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)))
@@ -165,7 +172,10 @@ public class JavaStarlarkCommon
             Sequence.cast(additionalInputs, Artifact.class, "additional_inputs")
                 .getImmutableList());
     compilationHelper.enableDirectClasspath(enableDirectClasspath);
-    compilationHelper.createHeaderCompilationAction(headerJar, headerDepsProto);
+    compilationHelper.createHeaderCompilationAction(
+        headerJar,
+        headerCompilationJar == Starlark.NONE ? null : (Artifact) headerCompilationJar,
+        headerDepsProto);
   }
 
   @Override
@@ -279,12 +289,25 @@ public class JavaStarlarkCommon
     BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
   }
 
+  private static ImmutableList<Artifact> getDynamicLibrariesForLinking(
+      NestedSet<StarlarkInfo> libraries) {
+    ImmutableList.Builder<Artifact> dynamicLibrariesForLinkingBuilder = ImmutableList.builder();
+    for (StarlarkInfo libraryToLink : libraries.toList()) {
+      if (libraryToLink.getValue("interface_library") instanceof Artifact artifact) {
+        dynamicLibrariesForLinkingBuilder.add(artifact);
+      } else if (libraryToLink.getValue("dynamic_library") instanceof Artifact artifact) {
+        dynamicLibrariesForLinkingBuilder.add(artifact);
+      }
+    }
+    return dynamicLibrariesForLinkingBuilder.build();
+  }
+
   @Override
   public Sequence<String> collectNativeLibsDirs(Depset libraries, StarlarkThread thread)
       throws EvalException, TypeException {
     checkPrivateAccess(thread);
     ImmutableList<Artifact> nativeLibraries =
-        LibraryToLink.getDynamicLibrariesForLinking(libraries.getSet(LibraryToLink.class));
+        getDynamicLibrariesForLinking(libraries.getSet(StarlarkInfo.class));
     ImmutableList<String> uniqueDirs =
         nativeLibraries.stream()
             .filter(

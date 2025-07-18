@@ -86,8 +86,8 @@ final class FormatUtils {
 
   private static Location getLocationUnderAlternateRoot(
       Location location, @Nullable Package.Metadata base, PathFragment alternateRoot) {
-    if (base != null && base.sourceRoot().isPresent()) { // !isPresent => WORKSPACE pseudo-package
-      Root root = base.sourceRoot().get();
+    if (base != null) {
+      Root root = base.sourceRoot();
       PathFragment file = PathFragment.create(location.file());
       if (root.contains(file)) {
         PathFragment rel = root.relativize(file);

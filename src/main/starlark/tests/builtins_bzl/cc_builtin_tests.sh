@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -77,7 +77,6 @@ EOF
   fi
 
   bazel $START_OPTS test --define=is_bazel=true --test_output=streamed \
-    --experimental_cc_static_library \
     //src/main/starlark/tests/builtins_bzl/cc/... || fail "expected success"
 }
 
@@ -115,7 +114,7 @@ EOF
 int foo() { return 21; }
 EOF
 
-  bazel build --experimental_cc_static_library //pkg:static \
+  bazel build //pkg:static \
     &> $TEST_log && fail "Expected build to fail"
   if "$is_windows"; then
     expect_log "direct1.obj"
@@ -131,7 +130,7 @@ EOF
     expect_log "indirect.pic.o: T foo()"
   fi
 
-  bazel build --experimental_cc_static_library //pkg:static \
+  bazel build //pkg:static \
     --features=-symbol_check \
     &> $TEST_log || fail "Expected build to succeed"
 }
@@ -170,7 +169,7 @@ EOF
 int foo = 21;
 EOF
 
-  bazel build --experimental_cc_static_library //pkg:static \
+  bazel build //pkg:static \
     &> $TEST_log && fail "Expected build to fail"
   if "$is_windows"; then
     expect_log "direct1.obj"
@@ -186,7 +185,7 @@ EOF
     expect_log "indirect.pic.o: D foo"
   fi
 
-  bazel build --experimental_cc_static_library //pkg:static \
+  bazel build //pkg:static \
     --features=-symbol_check \
     &> $TEST_log || fail "Expected build to succeed"
 }
@@ -212,7 +211,7 @@ EOF
   else
     CXXOPTS="--cxxopt=-Wno-deprecated-declarations --host_cxxopt=-Wno-deprecated-declarations"
   fi
-  bazel build $CXXOPTS --experimental_cc_static_library //pkg:protobuf \
+  bazel build $CXXOPTS //pkg:protobuf \
     &> $TEST_log || fail "Expected build to fail"
 }
 

@@ -27,8 +27,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Iterator;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
@@ -62,7 +60,8 @@ public record JavaCompilationArgsProvider(
     NestedSet<Artifact> transitiveCompileTimeJars,
     NestedSet<Artifact> directFullCompileTimeJars,
     NestedSet<Artifact> transitiveFullCompileTimeJars,
-    NestedSet<Artifact> compileTimeJavaDependencyArtifacts)
+    NestedSet<Artifact> compileTimeJavaDependencyArtifacts,
+    NestedSet<Artifact> directHeaderCompilationJars)
     implements JavaInfoInternalProvider {
   public JavaCompilationArgsProvider {
     requireNonNull(runtimeJars, "runtimeJars");
@@ -71,11 +70,13 @@ public record JavaCompilationArgsProvider(
     requireNonNull(directFullCompileTimeJars, "directFullCompileTimeJars");
     requireNonNull(transitiveFullCompileTimeJars, "transitiveFullCompileTimeJars");
     requireNonNull(compileTimeJavaDependencyArtifacts, "compileTimeJavaDependencyArtifacts");
+    requireNonNull(directHeaderCompilationJars, "directHeaderCompilationJars");
   }
 
   @SerializationConstant
   public static final JavaCompilationArgsProvider EMPTY =
       create(
+          NestedSetBuilder.create(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.create(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.create(Order.NAIVE_LINK_ORDER),
           NestedSetBuilder.create(Order.NAIVE_LINK_ORDER),
@@ -89,206 +90,16 @@ public record JavaCompilationArgsProvider(
       NestedSet<Artifact> transitiveCompileTimeJars,
       NestedSet<Artifact> directFullCompileTimeJars,
       NestedSet<Artifact> transitiveFullCompileTimeJars,
-      NestedSet<Artifact> compileTimeJavaDependencyArtifacts) {
+      NestedSet<Artifact> compileTimeJavaDependencyArtifacts,
+      NestedSet<Artifact> directHeaderCompilationJars) {
     return new JavaCompilationArgsProvider(
         runtimeJars,
         directCompileTimeJars,
         transitiveCompileTimeJars,
         directFullCompileTimeJars,
         transitiveFullCompileTimeJars,
-        compileTimeJavaDependencyArtifacts);
-  }
-
-  /** Enum to specify transitive compilation args traversal */
-  public enum ClasspathType {
-    /* treat the same for compile time and runtime */
-    BOTH,
-
-    /* Only include on compile classpath */
-    COMPILE_ONLY,
-
-    /* Only include on runtime classpath */
-    RUNTIME_ONLY
-  }
-
-  /**
-   * Disable strict deps enforcement for the given {@link JavaCompilationArgsProvider}; the direct
-   * jars in the result include the full transitive compile-time classpath from the input.
-   */
-  public static JavaCompilationArgsProvider makeNonStrict(JavaCompilationArgsProvider args) {
-    // Omit jdeps, which aren't available transitively and aren't useful for reduced classpath
-    // pruning for non-strict targets: the direct classpath and transitive classpath are the same,
-    // so there's nothing to prune, and reading jdeps at compile-time isn't free.
-    return builder()
-        .addDirectCompileTimeJars(
-            /* interfaceJars= */ args.transitiveCompileTimeJars(),
-            /* fullJars= */ args.transitiveFullCompileTimeJars())
-        .addRuntimeJars(args.runtimeJars())
-        .build();
-  }
-
-  /**
-   * Returns a {@link JavaCompilationArgsProvider} that forwards the union of information from the
-   * inputs. Direct deps of the inputs are merged into the direct deps of the outputs.
-   *
-   * <p>This is morally equivalent to an exports-only {@code java_import} rule that forwards some
-   * dependencies.
-   */
-  public static JavaCompilationArgsProvider merge(Iterable<JavaCompilationArgsProvider> providers) {
-    Iterator<JavaCompilationArgsProvider> it = providers.iterator();
-    if (!it.hasNext()) {
-      return EMPTY;
-    }
-    JavaCompilationArgsProvider first = it.next();
-    if (!it.hasNext()) {
-      return first;
-    }
-    Builder javaCompilationArgs = builder();
-    javaCompilationArgs.addExports(first);
-    do {
-      javaCompilationArgs.addExports(it.next());
-    } while (it.hasNext());
-    return javaCompilationArgs.build();
-  }
-
-  /** Returns a new builder instance. */
-  public static final Builder builder() {
-    return new Builder();
-  }
-
-  /** A {@link JavaCompilationArgsProvider}Builder. */
-  public static final class Builder {
-    private final NestedSetBuilder<Artifact> runtimeJarsBuilder = NestedSetBuilder.naiveLinkOrder();
-    private final NestedSetBuilder<Artifact> directCompileTimeJarsBuilder =
-        NestedSetBuilder.naiveLinkOrder();
-    private final NestedSetBuilder<Artifact> transitiveCompileTimeJarsBuilder =
-        NestedSetBuilder.naiveLinkOrder();
-    private final NestedSetBuilder<Artifact> directFullCompileTimeJarsBuilder =
-        NestedSetBuilder.naiveLinkOrder();
-    private final NestedSetBuilder<Artifact> transitiveFullCompileTimeJarsBuilder =
-        NestedSetBuilder.naiveLinkOrder();
-    private final NestedSetBuilder<Artifact> compileTimeJavaDependencyArtifactsBuilder =
-        NestedSetBuilder.naiveLinkOrder();
-
-    /** Use {@code TransitiveJavaCompilationArgs#builder()} to instantiate the builder. */
-    private Builder() {}
-
-    @CanIgnoreReturnValue
-    public Builder addRuntimeJar(Artifact runtimeJar) {
-      this.runtimeJarsBuilder.add(runtimeJar);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addRuntimeJars(NestedSet<Artifact> runtimeJars) {
-      this.runtimeJarsBuilder.addTransitive(runtimeJars);
-      return this;
-    }
-
-    /** Adds a pair of direct interface and implementation jars. */
-    @CanIgnoreReturnValue
-    public Builder addDirectCompileTimeJar(Artifact interfaceJar, Artifact fullJar) {
-      this.directCompileTimeJarsBuilder.add(interfaceJar);
-      this.transitiveCompileTimeJarsBuilder.add(interfaceJar);
-      this.directFullCompileTimeJarsBuilder.add(fullJar);
-      this.transitiveFullCompileTimeJarsBuilder.add(fullJar);
-      return this;
-    }
-
-    /** Adds paired sets of direct interface and implementation jars. */
-    @CanIgnoreReturnValue
-    public Builder addDirectCompileTimeJars(
-        NestedSet<Artifact> interfaceJars, NestedSet<Artifact> fullJars) {
-      this.directCompileTimeJarsBuilder.addTransitive(interfaceJars);
-      this.transitiveCompileTimeJarsBuilder.addTransitive(interfaceJars);
-      this.directFullCompileTimeJarsBuilder.addTransitive(fullJars);
-      this.transitiveFullCompileTimeJarsBuilder.addTransitive(fullJars);
-      return this;
-    }
-
-    // Needed to preserve order while translating Starlark JavaInfo
-    private Builder addStrictlyDirectCompileTimeJars(
-        NestedSet<Artifact> interfaceJars, NestedSet<Artifact> fullJars) {
-      this.directCompileTimeJarsBuilder.addTransitive(interfaceJars);
-      this.directFullCompileTimeJarsBuilder.addTransitive(fullJars);
-      return this;
-    }
-
-    private Builder addTransitiveCompileTimeJars(
-        NestedSet<Artifact> interfaceJars, NestedSet<Artifact> fullJars) {
-      this.transitiveCompileTimeJarsBuilder.addTransitive(interfaceJars);
-      this.transitiveFullCompileTimeJarsBuilder.addTransitive(fullJars);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addCompileTimeJavaDependencyArtifacts(
-        NestedSet<Artifact> compileTimeJavaDependencyArtifacts) {
-      this.compileTimeJavaDependencyArtifactsBuilder.addTransitive(
-          compileTimeJavaDependencyArtifacts);
-      return this;
-    }
-
-    /**
-     * Add the {@link JavaCompilationArgsProvider} for a dependency with export-like semantics; see
-     * also {@link #addExports(JavaCompilationArgsProvider, ClasspathType)}.
-     */
-    public Builder addExports(JavaCompilationArgsProvider args) {
-      return addExports(args, ClasspathType.BOTH);
-    }
-    /**
-     * Add the {@link JavaCompilationArgsProvider} for a dependency with export-like semantics:
-     * direct jars of the input are direct jars of the output.
-     *
-     * @param type of jars to collect; use {@link ClasspathType#RUNTIME_ONLY} for neverlink
-     */
-    public Builder addExports(JavaCompilationArgsProvider args, ClasspathType type) {
-      return addArgs(args, type, true);
-    }
-
-    /**
-     * Includes the contents of another instance of {@link JavaCompilationArgsProvider}.
-     *
-     * @param args the {@link JavaCompilationArgsProvider} instance
-     * @param type the classpath(s) to consider
-     */
-    @CanIgnoreReturnValue
-    private Builder addArgs(
-        JavaCompilationArgsProvider args, ClasspathType type, boolean recursive) {
-      if (!ClasspathType.RUNTIME_ONLY.equals(type)) {
-        if (recursive) {
-          directCompileTimeJarsBuilder.addTransitive(args.directCompileTimeJars());
-          directFullCompileTimeJarsBuilder.addTransitive(args.directFullCompileTimeJars());
-          compileTimeJavaDependencyArtifactsBuilder.addTransitive(
-              args.compileTimeJavaDependencyArtifacts());
-        }
-        transitiveCompileTimeJarsBuilder.addTransitive(args.transitiveCompileTimeJars());
-        transitiveFullCompileTimeJarsBuilder.addTransitive(args.transitiveFullCompileTimeJars());
-      }
-      if (!ClasspathType.COMPILE_ONLY.equals(type)) {
-        runtimeJarsBuilder.addTransitive(args.runtimeJars());
-      }
-      return this;
-    }
-
-    /** Builds a {@link JavaCompilationArgsProvider}. */
-    public JavaCompilationArgsProvider build() {
-      if (runtimeJarsBuilder.isEmpty()
-          && directCompileTimeJarsBuilder.isEmpty()
-          && transitiveCompileTimeJarsBuilder.isEmpty()
-          && directFullCompileTimeJarsBuilder.isEmpty()
-          && transitiveFullCompileTimeJarsBuilder.isEmpty()
-          && compileTimeJavaDependencyArtifactsBuilder.isEmpty()) {
-        return EMPTY;
-      }
-      return create(
-          runtimeJarsBuilder.build(),
-          directCompileTimeJarsBuilder.build(),
-          transitiveCompileTimeJarsBuilder.build(),
-          directFullCompileTimeJarsBuilder.build(),
-          transitiveFullCompileTimeJarsBuilder.build(),
-          compileTimeJavaDependencyArtifactsBuilder.build());
-    }
+        compileTimeJavaDependencyArtifacts,
+        directHeaderCompilationJars);
   }
 
   /**
@@ -308,24 +119,31 @@ public record JavaCompilationArgsProvider(
     if (isBinary != null && isBinary) {
       return null;
     }
-    JavaCompilationArgsProvider.Builder builder =
-        JavaCompilationArgsProvider.builder()
-            .addStrictlyDirectCompileTimeJars(
-                javaInfo.getValue("compile_jars", Depset.class).getSet(Artifact.class),
-                javaInfo.getValue("full_compile_jars", Depset.class).getSet(Artifact.class))
-            .addTransitiveCompileTimeJars(
-                javaInfo
-                    .getValue("transitive_compile_time_jars", Depset.class)
-                    .getSet(Artifact.class),
-                javaInfo
-                    .getValue("_transitive_full_compile_time_jars", Depset.class)
-                    .getSet(Artifact.class))
-            .addCompileTimeJavaDependencyArtifacts(
-                javaInfo
-                    .getValue("_compile_time_java_dependencies", Depset.class)
-                    .getSet(Artifact.class))
-            .addRuntimeJars(
-                javaInfo.getValue("transitive_runtime_jars", Depset.class).getSet(Artifact.class));
-    return builder.build();
+    return create(
+        /* runtimeJars= */ getDepset(javaInfo, "transitive_runtime_jars"),
+        /* directCompileTimeJars= */ getDepset(javaInfo, "compile_jars"),
+        /* transitiveCompileTimeJars= */ getDepset(javaInfo, "transitive_compile_time_jars"),
+        /* directFullCompileTimeJars= */ getDepset(javaInfo, "full_compile_jars"),
+        /* transitiveFullCompileTimeJars= */ getDepset(
+            javaInfo, "_transitive_full_compile_time_jars"),
+        /* compileTimeJavaDependencyArtifacts= */ getDepset(
+            javaInfo, "_compile_time_java_dependencies"),
+        /* directHeaderCompilationJars= */ maybeGetDepset(
+            javaInfo, "header_compilation_direct_deps"));
+  }
+
+  // TODO: b/417791104 - make this unconditional once Bazel 8.3.0 is released
+  private static final NestedSet<Artifact> maybeGetDepset(StructImpl javaInfo, String name)
+      throws EvalException, TypeException {
+    Depset depset = javaInfo.getValue(name, Depset.class);
+    if (depset == null) {
+      return NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
+    }
+    return depset.getSet(Artifact.class);
+  }
+
+  private static final NestedSet<Artifact> getDepset(StructImpl javaInfo, String name)
+      throws EvalException, TypeException {
+    return javaInfo.getValue(name, Depset.class).getSet(Artifact.class);
   }
 }

@@ -259,6 +259,7 @@ message ExternalRepository {
     BAD_DOWNLOADER_CONFIG = 2 [(metadata) = { exit_code: 2 }];
     REPOSITORY_MAPPING_RESOLUTION_FAILED = 3 [(metadata) = { exit_code: 37 }];
     CREDENTIALS_INIT_FAILURE = 4 [(metadata) = { exit_code: 2 }];
+    BAD_REPO_CONTENTS_CACHE = 5 [(metadata) = { exit_code: 2 }];
   }
   Code code = 1;
   // Additional data could include external repository names.
@@ -332,11 +333,6 @@ message Crash {
   // to the outermost exception and at most 4 nested causes (so, max size of 5).
   repeated Throwable causes = 2;
 
-  // True when the root cause of the crash was not an OutOfMemoryError, but
-  // CRASH_OOM was chosen because an OutOfMemoryError was detected prior to the
-  // crash.
-  bool oom_detector_override = 3;
-
   enum OomCauseCategory {
     // This was not an OOM.
     NONE = 0;
@@ -347,8 +343,6 @@ message Crash {
     // Originally a crash, but changed to an OOM because Blaze's native code was
     // told by the JVM there was an OOM, and then Blaze's app-land code assumed
     // the crash was a symptom of that OOM.
-    //
-    // Conveys the same thing that the field oom_detector_override does.
     OOM_DETECTOR_OVERRIDE = 2;
 
     // Blaze gave up and pretended it OOM'd because its post-full-GC heap size
@@ -366,6 +360,8 @@ message Crash {
 
   // If Blaze OOM'd (code = CRASH_OOM), the category of cause of that OOM.
   OomCauseCategory oom_cause_category = 4;
+
+  reserved 3;
 }
 
 message Throwable {
@@ -409,9 +405,9 @@ message Skyfocus {
     // The defined working set cannot be used for the focused targets. For
     // example, this happens when the intersection of the working set and the
     // transitive closure of the focused target is empty.
-    INVALID_WORKING_SET = 0 [(metadata) = { exit_code: 2 }];
+    INVALID_ACTIVE_DIRECTORIES = 0 [(metadata) = { exit_code: 2 }];
     // The user needs to augment their working set to include the new file(s).
-    NON_WORKING_SET_CHANGE = 1 [(metadata) = { exit_code: 2 }];
+    NON_ACTIVE_DIRECTORIES_CHANGE = 1 [(metadata) = { exit_code: 2 }];
     CONFIGURATION_CHANGE = 2 [(metadata) = { exit_code: 2 }];
     DISALLOWED_OPERATION_ON_FOCUSED_GRAPH = 3 [(metadata) = { exit_code: 2 }];
   }
@@ -425,6 +421,8 @@ message RemoteAnalysisCaching {
     REMOTE_ANALYSIS_CACHING_UNKNOWN = 0 [(metadata) = { exit_code: 1 }];
     SERIALIZED_FRONTIER_PROFILE_FAILED = 1 [(metadata) = { exit_code: 1 }];
     PROJECT_FILE_NOT_FOUND = 2 [(metadata) = { exit_code: 2 }];
+    INCOMPATIBLE_OPTIONS = 3 [(metadata) = { exit_code: 2 }];
+    INVALID_SERVER_ADDRESS = 4 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -783,6 +781,7 @@ message LocalExecution {
     LOCAL_EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     LOCKFREE_OUTPUT_PREREQ_UNMET = 1 [(metadata) = { exit_code: 2 }];
     UNTRACKED_RESOURCE = 2 [(metadata) = { exit_code: 1 }];
+    NOT_ENOUGH_LOCAL_RESOURCE = 3 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1385,6 +1384,7 @@ message ExternalDeps {
     ERROR_ACCESSING_REGISTRY = 5 [(metadata) = { exit_code: 32 }];
     INVALID_EXTENSION_IMPORT = 6 [(metadata) = { exit_code: 48 }];
     BAD_LOCKFILE = 7 [(metadata) = { exit_code: 48 }];
+    EXTENSION_EVAL_ERROR = 8 [(metadata) = { exit_code: 48 }];
   }
 
   Code code = 1;

@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -233,6 +234,22 @@ class ArgTokenStream {
     next();
     while (!AtEnd() && '-' != token_.at(0)) {
       optargs->push_back(token_);
+      next();
+    }
+    return true;
+  }
+
+  // Process --OPTION OPTARG1 OPTARG2 ...
+  // If a current token is --OPTION, insert all subsequent tokens up to the
+  // next option to the OPTARGS set, proceed to the next option and return
+  // true.
+  bool MatchAndSet(const char *option, std::set<std::string> *optargs) {
+    if (token_ != option) {
+      return false;
+    }
+    next();
+    while (!AtEnd() && '-' != token_.at(0)) {
+      optargs->insert(token_);
       next();
     }
     return true;

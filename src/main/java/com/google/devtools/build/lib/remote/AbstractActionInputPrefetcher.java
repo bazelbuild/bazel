@@ -47,7 +47,9 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSymlinkLoopException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -221,23 +223,29 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     this.outputPermissions = outputPermissions;
   }
 
-  private static boolean shouldDownloadFile(Path path, FileArtifactValue metadata) {
-    if (!path.exists()) {
+  private static boolean shouldDownloadFile(Path path, FileArtifactValue metadata)
+      throws IOException {
+    var stat = path.statIfFound();
+    if (stat == null) {
       return true;
     }
 
-    // In the most cases, skyframe should be able to detect source files modifications and delete
-    // staled outputs before action execution. However, there are some cases where outputs are not
-    // tracked by skyframe. We compare the digest here to make sure we don't use staled files.
-    try {
-      byte[] digest = path.getFastDigest();
-      if (digest == null) {
-        digest = path.getDigest();
-      }
-      return !Arrays.equals(digest, metadata.getDigest());
-    } catch (IOException ignored) {
+    // If an action output is stale, Skyframe will delete it prior to action execution. However,
+    // this doesn't apply to spawn outputs that aren't action outputs. To avoid incorrectly reusing
+    // one such stale output, check for its up-to-dateness here.
+    if (stat.getSize() != metadata.getSize()) {
       return true;
     }
+    var contentsProxy = metadata.getContentsProxy();
+    if (contentsProxy != null && contentsProxy.equals(FileContentsProxy.create(stat))) {
+      return false;
+    }
+
+    byte[] digest = path.getFastDigest();
+    if (digest == null) {
+      digest = path.getDigest();
+    }
+    return !Arrays.equals(digest, metadata.getDigest());
   }
 
   protected abstract boolean canDownloadFile(Path path, FileArtifactValue metadata);
@@ -394,14 +402,24 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
       Completable result =
           downloadFileNoCheckRx(
-              action,
-              execRoot.getRelative(execPath),
-              treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
-              dirsWithOutputPermissions,
-              input,
-              metadata,
-              priority,
-              reason);
+                  action,
+                  execRoot.getRelative(execPath),
+                  treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
+                  dirsWithOutputPermissions,
+                  input,
+                  metadata,
+                  priority,
+                  reason)
+              .onErrorResumeNext(
+                  t -> {
+                    if (t instanceof CacheNotFoundException cacheNotFoundException) {
+                      // Only the symlink itself is guaranteed to be an input to the action, so
+                      // report its path for rewinding.
+                      cacheNotFoundException.setExecPath(input.getExecPath());
+                      return Completable.error(cacheNotFoundException);
+                    }
+                    return Completable.error(t);
+                  });
 
       if (symlink != null) {
         result = result.andThen(plantSymlink(symlink));
@@ -558,6 +576,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     Path finalPath = path;
+    PathFragment execPath = finalPath.relativeTo(execRoot);
 
     Completable download =
         usingTempPath(
@@ -565,19 +584,25 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 toCompletable(
                         () ->
                             doDownloadFile(
-                                action,
-                                reporter,
-                                tempPath,
-                                finalPath.relativeTo(execRoot),
-                                metadata,
-                                priority,
-                                reason),
+                                action, reporter, tempPath, execPath, metadata, priority, reason),
                         directExecutor())
                     .doOnComplete(
                         () -> {
                           finalizeDownload(
                               metadata, tempPath, finalPath, dirsWithOutputPermissions);
                           alreadyDeleted.set(true);
+                        })
+                    .onErrorResumeNext(
+                        error -> {
+                          if (error instanceof CacheNotFoundException) {
+                            return Completable.error(error);
+                          }
+
+                          // Treat other download error as CacheNotFoundException so that Bazel can
+                          // correctly rewind the action/build.
+                          var digest =
+                              DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+                          return Completable.error(new CacheNotFoundException(digest, execPath));
                         }));
 
     return downloadCache.executeIfNot(
@@ -605,16 +630,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       // parent directory after prefetching.
       directoryTracker.setTemporarilyWritable(parentDir);
     } else {
-      // There are three cases:
+      // One of the following must apply:
       //   (1) The file does not belong to a tree artifact.
       //   (2) The file belongs to a tree artifact created by an action template expansion.
-      //   (3) The file belongs to a tree artifact but we don't know it. This can occur when the
-      //       file belongs to a tree artifact inside a fileset (see b/254844173).
       // In case (1), the parent directory is a package or a subdirectory of a package, and should
-      // remain writable. In cases (2) and (3), even though we arguably ought to set the output
-      // permissions on the parent directory to match the outcome of a locally executed action, we
-      // choose not to do it and avoid the additional implementation complexity required to detect a
-      // race condition between concurrent calls touching the same directory.
+      // remain writable. In case (2), even though we arguably ought to set the output permissions
+      // on the parent directory to match local execution, we choose not to do it and avoid the
+      // additional implementation complexity required to detect a race condition between concurrent
+      // calls touching the same directory.
       directoryTracker.setPermanentlyWritable(parentDir);
     }
 

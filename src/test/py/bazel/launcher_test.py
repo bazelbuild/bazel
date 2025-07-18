@@ -237,14 +237,19 @@ class LauncherTest(test_base.TestBase):
     self.assertEqual(stdout, arguments)
 
   def testJavaBinaryLauncher(self):
-    self.ScratchFile('foo/BUILD', [
-        'java_binary(',
-        '  name = "foo",',
-        '  srcs = ["Main.java"],',
-        '  main_class = "Main",',
-        '  data = ["//bar:bar.txt"],',
-        ')',
-    ])
+    self.AddBazelDep('rules_java')
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_java//java:java_binary.bzl", "java_binary")',
+            'java_binary(',
+            '  name = "foo",',
+            '  srcs = ["Main.java"],',
+            '  main_class = "Main",',
+            '  data = ["//bar:bar.txt"],',
+            ')',
+        ],
+    )
     self.ScratchFile('foo/Main.java', [
         'public class Main {',
         '  public static void main(String[] args) {'
@@ -266,13 +271,18 @@ class LauncherTest(test_base.TestBase):
     self._buildJavaTargets(bazel_bin, '.exe' if self.IsWindows() else '')
 
   def testJavaBinaryArgumentPassing(self):
-    self.ScratchFile('foo/BUILD', [
-        'java_binary(',
-        '  name = "bin",',
-        '  srcs = ["Main.java"],',
-        '  main_class = "Main",',
-        ')',
-    ])
+    self.AddBazelDep('rules_java')
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_java//java:java_binary.bzl", "java_binary")',
+            'java_binary(',
+            '  name = "bin",',
+            '  srcs = ["Main.java"],',
+            '  main_class = "Main",',
+            ')',
+        ],
+    )
     self.ScratchFile('foo/Main.java', [
         'public class Main {',
         '  public static void main(String[] args) {'
@@ -286,6 +296,7 @@ class LauncherTest(test_base.TestBase):
     self._buildAndCheckArgumentPassing('foo', 'bin')
 
   def testShBinaryLauncher(self):
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'foo/BUILD',
         [
@@ -295,6 +306,7 @@ class LauncherTest(test_base.TestBase):
             # On Windows, if the srcs's extension is one of ".exe", ".cmd", or
             # ".bat", then Bazel requires the rule's name has the same
             # extension, and the output file will be a copy of the source file.
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
             'sh_binary(',
             '  name = "bin1.sh",',
             '  srcs = ["foo.sh"],',
@@ -310,7 +322,8 @@ class LauncherTest(test_base.TestBase):
             '  srcs = ["foo.cmd"],',
             '  data = ["//bar:bar.txt"],',
             ')',
-        ])
+        ],
+    )
     foo_sh = self.ScratchFile('foo/foo.sh', [
         '#!/bin/bash',
         'echo hello shell',
@@ -328,12 +341,17 @@ class LauncherTest(test_base.TestBase):
     self._buildShBinaryTargets(bazel_bin, '.exe' if self.IsWindows() else '')
 
   def testShBinaryArgumentPassing(self):
-    self.ScratchFile('foo/BUILD', [
-        'sh_binary(',
-        '  name = "bin",',
-        '  srcs = ["bin.sh"],',
-        ')',
-    ])
+    self.AddBazelDep('rules_shell')
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
+            '  name = "bin",',
+            '  srcs = ["bin.sh"],',
+            ')',
+        ],
+    )
     foo_sh = self.ScratchFile('foo/bin.sh', [
         '#!/bin/bash',
         '# Store arguments in a array',
@@ -350,6 +368,7 @@ class LauncherTest(test_base.TestBase):
     self._buildAndCheckArgumentPassing('foo', 'bin')
 
   def testPyBinaryLauncher(self):
+    self.AddBazelDep('rules_python')
     self.ScratchFile(
         'foo/foo.bzl',
         [
@@ -372,12 +391,30 @@ class LauncherTest(test_base.TestBase):
             ')',
         ],
     )
-    self.ScratchFile('foo/BUILD', [
-        'load(":foo.bzl", "helloworld")', '', 'py_binary(', '  name = "foo",',
-        '  srcs = ["foo.py"],', '  data = ["//bar:bar.txt"],', ')', '',
-        'py_test(', '  name = "test",', '  srcs = ["test.py"],', ')', '',
-        'helloworld(', '  name = "hello",', '  out = "hello.txt",', ')'
-    ])
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_python//python:py_binary.bzl", "py_binary")',
+            'load("@rules_python//python:py_test.bzl", "py_test")',
+            'load(":foo.bzl", "helloworld")',
+            '',
+            'py_binary(',
+            '  name = "foo",',
+            '  srcs = ["foo.py"],',
+            '  data = ["//bar:bar.txt"],',
+            ')',
+            '',
+            'py_test(',
+            '  name = "test",',
+            '  srcs = ["test.py"],',
+            ')',
+            '',
+            'helloworld(',
+            '  name = "hello",',
+            '  out = "hello.txt",',
+            ')',
+        ],
+    )
     foo_py = self.ScratchFile('foo/foo.py', [
         '#!/usr/bin/env python3',
         'import sys',
@@ -406,12 +443,17 @@ class LauncherTest(test_base.TestBase):
     self._buildPyTargets(bazel_bin, '.exe' if self.IsWindows() else '')
 
   def testPyBinaryArgumentPassing(self):
-    self.ScratchFile('foo/BUILD', [
-        'py_binary(',
-        '  name = "bin",',
-        '  srcs = ["bin.py"],',
-        ')',
-    ])
+    self.AddBazelDep('rules_python')
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_python//python:py_binary.bzl", "py_binary")',
+            'py_binary(',
+            '  name = "bin",',
+            '  srcs = ["bin.py"],',
+            ')',
+        ],
+    )
     self.ScratchFile('foo/bin.py', [
         'import sys',
         'for arg in sys.argv[1:]:',
@@ -422,12 +464,17 @@ class LauncherTest(test_base.TestBase):
 
   def testPyBinaryLauncherWithDifferentArgv0(self):
     """Test for https://github.com/bazelbuild/bazel/issues/14343."""
-    self.ScratchFile('foo/BUILD', [
-        'py_binary(',
-        '  name = "bin",',
-        '  srcs = ["bin.py"],',
-        ')',
-    ])
+    self.AddBazelDep('rules_python')
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_python//python:py_binary.bzl", "py_binary")',
+            'py_binary(',
+            '  name = "bin",',
+            '  srcs = ["bin.py"],',
+            ')',
+        ],
+    )
     self.ScratchFile('foo/bin.py', ['print("Hello world")'])
 
     _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
@@ -447,15 +494,20 @@ class LauncherTest(test_base.TestBase):
     # Skip this test on non-Windows platforms
     if not self.IsWindows():
       return
-    self.ScratchFile('foo/BUILD', [
-        'java_binary(',
-        '  name = "foo",',
-        '  srcs = ["Main.java"],',
-        '  main_class = "Main",',
-        '  jvm_flags = ["--flag1", "--flag2"],',
-        '  data = ["advice-1.jar", "advice-2.jar"],',
-        ')',
-    ])
+    self.AddBazelDep('rules_java')
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_java//java:java_binary.bzl", "java_binary")',
+            'java_binary(',
+            '  name = "foo",',
+            '  srcs = ["Main.java"],',
+            '  main_class = "Main",',
+            '  jvm_flags = ["--flag1", "--flag2"],',
+            '  data = ["advice-1.jar", "advice-2.jar"],',
+            ')',
+        ],
+    )
     self.ScratchFile('foo/advice-1.jar')
     self.ScratchFile('foo/advice-2.jar')
     self.ScratchFile('foo/Main.java', [
@@ -569,17 +621,25 @@ class LauncherTest(test_base.TestBase):
   def testWindowsNativeLauncherInNonEnglishPath(self):
     if not self.IsWindows():
       return
-    self.ScratchFile('bin/BUILD', [
-        'java_binary(',
-        '  name = "bin_java",',
-        '  srcs = ["Main.java"],',
-        '  main_class = "Main",',
-        ')',
-        'sh_binary(',
-        '  name = "bin_sh",',
-        '  srcs = ["main.sh"],',
-        ')',
-    ])
+    self.AddBazelDep('rules_java')
+    self.AddBazelDep('rules_python')
+    self.AddBazelDep('rules_shell')
+    self.ScratchFile(
+        'bin/BUILD',
+        [
+            'load("@rules_java//java:java_binary.bzl", "java_binary")',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'java_binary(',
+            '  name = "bin_java",',
+            '  srcs = ["Main.java"],',
+            '  main_class = "Main",',
+            ')',
+            'sh_binary(',
+            '  name = "bin_sh",',
+            '  srcs = ["main.sh"],',
+            ')',
+        ],
+    )
     self.ScratchFile('bin/Main.java', [
         'public class Main {',
         '  public static void main(String[] args) {'
@@ -617,9 +677,15 @@ class LauncherTest(test_base.TestBase):
   def testWindowsNativeLauncherInLongPath(self):
     if not self.IsWindows():
       return
+    self.AddBazelDep('rules_java')
+    self.AddBazelDep('rules_python')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'bin/BUILD',
         [
+            'load("@rules_java//java:java_binary.bzl", "java_binary")',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'load("@rules_python//python:py_binary.bzl", "py_binary")',
             'java_binary(',
             '  name = "not_short_bin_java",',
             '  srcs = ["Main.java"],',
@@ -713,9 +779,15 @@ class LauncherTest(test_base.TestBase):
   def testWindowsNativeLauncherInvalidArgv0(self):
     if not self.IsWindows():
       return
+    self.AddBazelDep('rules_java')
+    self.AddBazelDep('rules_python')
+    self.AddBazelDep('rules_shell')
     self.ScratchFile(
         'bin/BUILD',
         [
+            'load("@rules_java//java:java_binary.bzl", "java_binary")',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'load("@rules_python//python:py_binary.bzl", "py_binary")',
             'java_binary(',
             '  name = "bin_java",',
             '  srcs = ["Main.java"],',
@@ -782,20 +854,18 @@ class LauncherTest(test_base.TestBase):
   def testBuildLaunchersWithClangClOnWindows(self):
     if not self.IsWindows():
       return
+    self.AddBazelDep('platforms')
+    self.AddBazelDep('rules_cc')
     self.ScratchFile(
         'MODULE.bazel',
         [
-            'bazel_dep(name = "platforms", version = "0.0.9")',
-            'bazel_dep(name = "rules_cc", version = "0.0.12")',
-            (
-                'cc_configure ='
-                ' use_extension("@rules_cc//cc:extensions.bzl",'
-                ' "cc_configure_extension")'
-            ),
+            'cc_configure = use_extension(',
+            '    "@rules_cc//cc:extensions.bzl", "cc_configure_extension")',
             'use_repo(cc_configure, "local_config_cc")',
             # Register all cc toolchains for Windows
             'register_toolchains("@local_config_cc//:all")',
         ],
+        mode='a',
     )
     self.ScratchFile(
         'BUILD',

@@ -79,14 +79,6 @@ public class RuleFactory {
     } catch (LabelSyntaxException e) {
       throw new InvalidRuleException("illegal rule name: " + name + ": " + e.getMessage());
     }
-    boolean inWorkspaceFile = targetDefinitionContext.isRepoRulePackage();
-    if (ruleClass.getWorkspaceOnly() && !inWorkspaceFile) {
-      throw new RuleFactory.InvalidRuleException(
-          ruleClass + " must be in the WORKSPACE file " + "(used by " + label + ")");
-    } else if (!ruleClass.getWorkspaceOnly() && inWorkspaceFile) {
-      throw new RuleFactory.InvalidRuleException(
-          ruleClass + " cannot be in the WORKSPACE file " + "(used by " + label + ")");
-    }
 
     // Add the generator_name attribute.
     BuildLangTypedAttributeValuesMap processedAttributes;
@@ -271,8 +263,9 @@ public class RuleFactory {
     }
 
     String generatorName =
-        targetDefinitionContext.getGeneratorNameByLocation(
-            macro != null ? macro.getBuildFileLocation() : callstack.get(0).location);
+        macro != null
+            ? macro.getGeneratorName()
+            : targetDefinitionContext.getGeneratorNameByLocation(callstack.get(0).location);
     if (generatorName == null) {
       // Fall back on target name (meh).
       generatorName = (String) args.getAttributeValue("name");
@@ -319,12 +312,7 @@ public class RuleFactory {
               case BUILD_ONLY ->
                   Package.AbstractBuilder.fromOrFailAllowBuildOnly(
                       thread, String.format("%s rule", ruleClass.getName()), "instantiated");
-              case WORKSPACE ->
-                  Package.Builder.fromOrFailAllowWorkspaceOrModuleExtension(
-                      thread, "a repository rule", "instantiated");
-              default ->
-                  TargetDefinitionContext.fromOrFailDisallowWorkspace(
-                      thread, "a rule", "instantiated");
+              default -> TargetDefinitionContext.fromOrFail(thread, "a rule", "instantiated");
             };
         RuleFactory.createAndAddRule(
             targetDefinitionContext,

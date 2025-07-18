@@ -17,6 +17,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
@@ -161,6 +162,11 @@ public final class SpawnRunnerTestUtil {
     @Override
     public FileSystem getActionFileSystem() {
       return null;
+    }
+
+    @Override
+    public ImmutableMap<String, String> getClientEnv() {
+      return ImmutableMap.of();
     }
   }
 

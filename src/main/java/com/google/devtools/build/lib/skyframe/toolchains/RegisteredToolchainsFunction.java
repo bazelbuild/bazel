@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.skyframe.toolchains;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -32,21 +32,16 @@ import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
-import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
+import com.google.devtools.build.lib.rules.platform.ToolchainRule;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
-import com.google.devtools.build.lib.skyframe.PackageValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil.InvalidTargetPatternException;
@@ -60,7 +55,6 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.List;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * {@link SkyFunction} that returns all registered toolchains available for toolchain resolution.
@@ -71,7 +65,6 @@ public class RegisteredToolchainsFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     RegisteredToolchainsValue.Key key = (RegisteredToolchainsValue.Key) skyKey;
     BuildConfigurationValue configuration =
         (BuildConfigurationValue) env.getValue(key.getConfigurationKey());
@@ -99,37 +92,12 @@ public class RegisteredToolchainsFunction implements SkyFunction {
           new InvalidToolchainLabelException(e), Transience.PERSISTENT);
     }
 
-    // Get registered toolchains from the root Bazel module.
-    ImmutableList<TargetPattern> bzlmodRootModuleToolchains =
-        getBzlmodToolchains(starlarkSemantics, env, /* forRootModule= */ true);
-    if (bzlmodRootModuleToolchains == null) {
+    // Get registered toolchains from the external dep graph.
+    ImmutableList<TargetPattern> bzlmodToolchains = getBzlmodToolchains(env);
+    if (bzlmodToolchains == null) {
       return null;
     }
-    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodRootModuleToolchains));
-
-    // Get the toolchains from the user-supplied WORKSPACE file.
-    ImmutableList<TargetPattern> userRegisteredWorkspaceToolchains =
-        getWorkspaceToolchains(starlarkSemantics, env, /* userRegistered= */ true);
-    if (userRegisteredWorkspaceToolchains == null) {
-      return null;
-    }
-    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(userRegisteredWorkspaceToolchains));
-
-    // Get registered toolchains from non-root Bazel modules.
-    ImmutableList<TargetPattern> bzlmodNonRootModuleToolchains =
-        getBzlmodToolchains(starlarkSemantics, env, /* forRootModule= */ false);
-    if (bzlmodNonRootModuleToolchains == null) {
-      return null;
-    }
-    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodNonRootModuleToolchains));
-
-    // Get the toolchains from the Bazel-supplied WORKSPACE suffix.
-    ImmutableList<TargetPattern> workspaceSuffixToolchains =
-        getWorkspaceToolchains(starlarkSemantics, env, /* userRegistered= */ false);
-    if (workspaceSuffixToolchains == null) {
-      return null;
-    }
-    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(workspaceSuffixToolchains));
+    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodToolchains));
 
     // Expand target patterns.
     ImmutableList<Label> toolchainLabels;
@@ -165,7 +133,10 @@ public class RegisteredToolchainsFunction implements SkyFunction {
                         toolchain.toolchainType().typeLabel(), toolchain.targetLabel(), message)
                 : null;
         if (ConfigMatchingUtil.validate(
-            toolchain.targetLabel(), toolchain.targetSettings(), errorHandler)) {
+            toolchain.targetLabel(),
+            toolchain.targetSettings(),
+            errorHandler,
+            ToolchainRule.TARGET_SETTING_ATTR)) {
           validToolchains.add(toolchain);
         }
       } catch (InvalidConfigurationException e) {
@@ -179,40 +150,9 @@ public class RegisteredToolchainsFunction implements SkyFunction {
         rejectedToolchains != null ? ImmutableTable.copyOf(rejectedToolchains) : null);
   }
 
-  /**
-   * Loads the external package and then returns the registered toolchains.
-   *
-   * @param env the environment to use for lookups
-   */
   @Nullable
-  @VisibleForTesting
-  public static ImmutableList<TargetPattern> getWorkspaceToolchains(
-      StarlarkSemantics semantics, Environment env, boolean userRegistered)
-      throws InterruptedException {
-    if (!semantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
-      return ImmutableList.of();
-    }
-    PackageValue externalPackageValue =
-        (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
-    if (externalPackageValue == null) {
-      return null;
-    }
-
-    Package externalPackage = externalPackageValue.getPackage();
-    if (userRegistered) {
-      return externalPackage.getUserRegisteredToolchains();
-    } else {
-      return externalPackage.getWorkspaceSuffixRegisteredToolchains();
-    }
-  }
-
-  @Nullable
-  private static ImmutableList<TargetPattern> getBzlmodToolchains(
-      StarlarkSemantics semantics, Environment env, boolean forRootModule)
+  private static ImmutableList<TargetPattern> getBzlmodToolchains(Environment env)
       throws InterruptedException, RegisteredToolchainsFunctionException {
-    if (!semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
-      return ImmutableList.of();
-    }
     BazelDepGraphValue bazelDepGraphValue =
         (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
     if (bazelDepGraphValue == null) {
@@ -220,9 +160,6 @@ public class RegisteredToolchainsFunction implements SkyFunction {
     }
     ImmutableList.Builder<TargetPattern> toolchains = ImmutableList.builder();
     for (Module module : bazelDepGraphValue.getDepGraph().values()) {
-      if (forRootModule != module.getKey().equals(ModuleKey.ROOT)) {
-        continue;
-      }
       TargetPattern.Parser parser =
           new TargetPattern.Parser(
               PathFragment.EMPTY_FRAGMENT,
@@ -244,7 +181,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
   private static ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(
       Environment env, BuildConfigurationValue configuration, List<Label> labels)
       throws InterruptedException, RegisteredToolchainsFunctionException {
-    ImmutableList<ActionLookupKey> keys =
+    ImmutableSet<ActionLookupKey> keys =
         labels.stream()
             .map(
                 label ->
@@ -252,7 +189,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
                         .setLabel(label)
                         .setConfiguration(configuration)
                         .build())
-            .collect(toImmutableList());
+            .collect(toImmutableSet());
 
     SkyframeLookupResult values = env.getValuesAndExceptions(keys);
     ImmutableList.Builder<DeclaredToolchainInfo> toolchains = new ImmutableList.Builder<>();

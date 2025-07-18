@@ -26,7 +26,8 @@ import javax.annotation.Nullable;
  * Definitions of types.
  *
  * <p><code>
- *   t ::= None | bool | int | float | str
+ *   t1, t2 ::= None | bool | int | float | str | object
+ *           | t1|t2
  * </code>
  */
 public final class Types {
@@ -39,6 +40,7 @@ public final class Types {
   public static final StarlarkType INT = new Int();
   public static final StarlarkType FLOAT = new FloatType();
   public static final StarlarkType STR = new Str();
+  public static final StarlarkType OBJECT = new ObjectType();
 
   // A frequently used function without parameters, that returns Any.
   public static final CallableType NO_PARAMS_CALLABLE =
@@ -59,10 +61,39 @@ public final class Types {
     return env.buildOrThrow();
   }
 
+  // hashCode and equals implementation is a workaround for serialization code that may duplicate
+  // otherwise singletons
   private static final class Any extends StarlarkType {
     @Override
     public String toString() {
       return "Any";
+    }
+
+    @Override
+    public int hashCode() {
+      return Any.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof Any;
+    }
+  }
+
+  private static final class ObjectType extends StarlarkType {
+    @Override
+    public String toString() {
+      return "object";
+    }
+
+    @Override
+    public int hashCode() {
+      return ObjectType.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof ObjectType;
     }
   }
 
@@ -71,12 +102,32 @@ public final class Types {
     public String toString() {
       return "None";
     }
+
+    @Override
+    public int hashCode() {
+      return None.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof None;
+    }
   }
 
   private static final class Bool extends StarlarkType {
     @Override
     public String toString() {
       return "bool";
+    }
+
+    @Override
+    public int hashCode() {
+      return Bool.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof Bool;
     }
   }
 
@@ -85,6 +136,16 @@ public final class Types {
     public String toString() {
       return "int";
     }
+
+    @Override
+    public int hashCode() {
+      return Int.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof Int;
+    }
   }
 
   private static final class FloatType extends StarlarkType { // Float clashes with java.lang.Float
@@ -92,12 +153,32 @@ public final class Types {
     public String toString() {
       return "float";
     }
+
+    @Override
+    public int hashCode() {
+      return FloatType.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof Float;
+    }
   }
 
   private static final class Str extends StarlarkType {
     @Override
     public String toString() {
       return "str";
+    }
+
+    @Override
+    public int hashCode() {
+      return Str.class.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof Str;
     }
   }
 
@@ -234,4 +315,56 @@ public final class Types {
   // without positional-only parameter and by retrieving parameter names from StarlarkFunction
   @AutoValue
   abstract static class GeneralCallableType extends CallableType {}
+
+  /**
+   * Constructs a union type.
+   *
+   * <p>If the types sets contains another Union type it's flattened. Duplicates are removed.
+   *
+   * <p>If types set contains Object type it's simplified to Object type. If the set contains a
+   * single element, it is returned instead of constructing a union.
+   *
+   * @throws IllegalArgumentException If an empty set is passed in.
+   */
+  public static StarlarkType union(StarlarkType... types) {
+    return union(ImmutableSet.copyOf(types));
+  }
+
+  /** Constructs a union type. */
+  public static StarlarkType union(ImmutableSet<StarlarkType> types) {
+    ImmutableSet.Builder<StarlarkType> subtypesBuilder = ImmutableSet.builder();
+    // Unions are flattened
+    for (StarlarkType type : types) {
+      if (type instanceof UnionType union) {
+        subtypesBuilder.addAll(union.getTypes());
+      } else {
+        subtypesBuilder.add(type);
+      }
+    }
+    ImmutableSet<StarlarkType> subtypes = subtypesBuilder.build();
+    if (subtypes.contains(Types.OBJECT)) {
+      return Types.OBJECT;
+    }
+    if (subtypes.size() == 1) {
+      return subtypes.iterator().next();
+    } else if (subtypes.isEmpty()) {
+      throw new IllegalArgumentException("Empty union!");
+    }
+    return new AutoValue_Types_UnionType(subtypes);
+  }
+
+  /**
+   * Union type
+   *
+   * <p>Unions with zero or one type are disallowed. See {@link Types#union}.
+   */
+  @AutoValue
+  public abstract static class UnionType extends StarlarkType {
+    public abstract ImmutableSet<StarlarkType> getTypes();
+
+    @Override
+    public final String toString() {
+      return getTypes().stream().map(StarlarkType::toString).collect(joining("|"));
+    }
+  }
 }

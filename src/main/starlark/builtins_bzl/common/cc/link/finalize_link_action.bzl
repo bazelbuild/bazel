@@ -13,9 +13,10 @@
 # limitations under the License.
 """Common functions that create C++ link and LTO indexing action."""
 
-load(":common/cc/link/libraries_to_link_collector.bzl", "LINKING_MODE", "collect_libraries_to_link")
+load(":common/cc/link/collect_solib_dirs.bzl", "collect_solib_dirs")
+load(":common/cc/link/create_libraries_to_link_values.bzl", "add_libraries_to_link", "add_object_files_to_link", "process_objects_for_lto")
 load(":common/cc/link/link_build_variables.bzl", "setup_common_linking_variables")
-load(":common/cc/link/target_types.bzl", "LINK_TARGET_TYPE", "USE_ARCHIVER", "USE_LINKER", "is_dynamic_library")
+load(":common/cc/link/target_types.bzl", "LINKING_MODE", "LINK_TARGET_TYPE", "USE_ARCHIVER", "USE_LINKER", "is_dynamic_library")
 load(":common/cc/semantics.bzl", "semantics")
 
 cc_common_internal = _builtins.internal.cc_common
@@ -34,12 +35,10 @@ def finalize_link_action(
         # Inputs:
         object_file_inputs,
         non_code_inputs,
-        unique_libraries,
+        libraries_to_link,
         linkstamp_map,
         linkstamp_object_artifacts,
         linkstamp_object_file_inputs,
-        toolchain_libraries_type,
-        toolchain_libraries_input,
         user_link_flags,
         # Custom user input files and variables:
         additional_linker_inputs,
@@ -75,14 +74,12 @@ def finalize_link_action(
         feature_configuration: (FeatureConfiguration) `feature_configuration` to be queried.
         cc_toolchain: (CcToolchainInfo) CcToolchainInfo provider to be used.
         progress_message: (str) The progress message of the action.
-        object_file_inputs: (list[LegacyLinkerInput]) Object files
+        object_file_inputs: (list[File]) Object files
         non_code_inputs: (list[File]) Additional inputs to the linker.
-        unique_libraries: (list[LegacyLinkerInput]) The libraries to link in.
+        libraries_to_link: (list[LibraryToLink]) The libraries to link in.
         linkstamp_map: (dict[Linkstamp, File]) Map from linkstamps to their object files.
         linkstamp_object_artifacts: (list[File]) Linkstamp object files.
-        linkstamp_object_file_inputs: (list[LegacyLinkerInput]) Linkstamp object files wrapped into LinkerInputs.
-        toolchain_libraries_type: (artifact_category) Type of toolchain libraries.
-        toolchain_libraries_input: (depset[File]) Toolchain libraries.
+        linkstamp_object_file_inputs: (list[File]) Linkstamp object files wrapped into LinkerInputs.
         user_link_flags: (list[str]) Additional list of linker options.
         additional_linker_inputs: (list[File]|depset[File]) For additional inputs to the linking action,
                   e.g.: linking scripts.
@@ -109,46 +106,82 @@ def finalize_link_action(
         cc_toolchain._cpp_configuration,
     )
 
-    must_keep_debug = any([lib.must_keep_debug for lib in unique_libraries])
+    must_keep_debug = any([lib._must_keep_debug for lib in libraries_to_link])
 
     toolchain_libraries_solib_dir = ""
     if feature_configuration.is_enabled("static_link_cpp_runtimes"):
         toolchain_libraries_solib_dir = cc_toolchain.dynamic_runtime_solib_dir
 
-    # Linker inputs without any start/end lib expansions.
-    non_expanded_linker_inputs = object_file_inputs + linkstamp_object_file_inputs + \
-                                 unique_libraries
+    solib_dir = output.root.path + "/" + cc_toolchain._solib_dir
+    libraries_to_link_values = []
+    expanded_linker_artifacts = []
+    lto_map = dict(lto_mapping)  # copy map, because following functions pop from it
 
-    # Adding toolchain libraries without whole archive no-matter-what. People don't want to
-    # include whole libstdc++ in their binary ever.
-    non_expanded_linker_inputs.extend([
-        cc_internal.simple_linker_input(input, toolchain_libraries_type, True)
-        for input in toolchain_libraries_input.to_list()
+    if feature_configuration.is_enabled("use_lto_native_object_directory"):
+        shared_non_lto_obj_root_prefix = "shared.nonlto-obj"
+    else:
+        shared_non_lto_obj_root_prefix = "shared.nonlto"
+    object_file_inputs = process_objects_for_lto(
+        object_file_inputs,
+        lto_map,
+        allow_lto_indexing,
+        shared_non_lto_obj_root_prefix,
+        expanded_linker_artifacts,
+    )
+    add_object_files_to_link(object_file_inputs, libraries_to_link_values)
+    add_object_files_to_link(linkstamp_object_file_inputs, libraries_to_link_values)
+
+    # TODO(b/331164666): Remove CppHelper.getArchiveType
+    use_start_end_lib = (cc_toolchain._cpp_configuration.start_end_lib() and
+                         feature_configuration.is_enabled("supports_start_end_lib"))
+
+    # TODO(b/338618120): deduplicate prefer_static_lib, prefer_pic_libs
+    prefer_static_libs = linking_mode == LINKING_MODE.STATIC or \
+                         not feature_configuration.is_enabled("supports_dynamic_linker")
+
+    # TODO(b/412540147): We select PIC libraries iff creating a dynamic library. Match PIC flags.
+    prefer_pic_libs = is_dynamic_library(link_type)
+
+    add_libraries_to_link(
+        libraries_to_link,
+        prefer_static_libs,
+        prefer_pic_libs,
+        use_start_end_lib,
+        need_whole_archive,
+        lto_map,
+        allow_lto_indexing,
+        shared_non_lto_obj_root_prefix,
+        feature_configuration,
+        expanded_linker_artifacts,
+        libraries_to_link_values,
+    )
+
+    # Interning is necessary because the values are repeated so often.
+    # Without it, this causes a very large regression.
+    libraries_to_link_values = cc_internal.intern_seq(libraries_to_link_values)
+
+    if lto_map:
+        fail("Still have LTO objects left: %s" % lto_map)
+    expanded_linker_artifacts = depset([
+        lto_mapping.get(li, li)
+        for li in expanded_linker_artifacts
     ])
 
-    solib_dir = output.root.path + "/" + cc_toolchain._solib_dir
-    collected_libraries_to_link = collect_libraries_to_link(
-        non_expanded_linker_inputs,
+    library_search_directories, all_runtime_library_search_directories = collect_solib_dirs(
+        libraries_to_link,
         cc_toolchain,
         feature_configuration,
+        prefer_static_libs,
         output,
         dynamic_library_solib_symlink_output,
         link_type,
         linking_mode,
         native_deps,
-        need_whole_archive,
         solib_dir,
         toolchain_libraries_solib_dir,
-        allow_lto_indexing,
-        lto_mapping,
         # TODO(b/338618120): remove cheat using semantic or simplifying collect_libraries_to_link
         cc_internal.actions2ctx_cheat(actions).workspace_name,
     )
-
-    expanded_linker_artifacts = depset([
-        lto_mapping.get(li.file, li.file)
-        for li in collected_libraries_to_link.expanded_linker_inputs
-    ])
 
     #  Add build variables necessary to template link args into the crosstool.
     build_variables = setup_common_linking_variables(
@@ -160,10 +193,9 @@ def finalize_link_action(
         must_keep_debug = must_keep_debug,
         use_test_only_flags = use_test_only_flags,
         user_link_flags = user_link_flags,
-        runtime_library_search_directories =
-            collected_libraries_to_link.all_runtime_library_search_directories,
-        libraries_to_link = collected_libraries_to_link.libraries_to_link,
-        library_search_directories = collected_libraries_to_link.library_search_directories,
+        runtime_library_search_directories = all_runtime_library_search_directories,
+        libraries_to_link = libraries_to_link_values,
+        library_search_directories = library_search_directories,
     )
 
     build_variables = build_variables | additional_build_variables

@@ -76,7 +76,7 @@ public final class ArtifactTest {
   @Before
   public void setRootDir() throws Exception {
     execDir = scratch.dir("/base/exec");
-    rootDir = ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "root");
+    rootDir = ArtifactRoot.asDerivedRoot(execDir, RootType.OUTPUT, "root");
   }
 
   @Test
@@ -86,7 +86,7 @@ public final class ArtifactTest {
         IllegalArgumentException.class,
         () ->
             ActionsTestUtil.createArtifactWithExecPath(
-                    ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "bogus"),
+                    ArtifactRoot.asDerivedRoot(execDir, RootType.OUTPUT, "bogus"),
                     f1.relativeTo(execDir))
                 .getRootRelativePath());
   }
@@ -192,7 +192,7 @@ public final class ArtifactTest {
     Path execRoot = scratch.getFileSystem().getPath("/execroot/workspace");
     Artifact a =
         ActionsTestUtil.createArtifact(
-            ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "b"), "c");
+            ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "b"), "c");
     assertThat(a.toDetailString()).isEqualTo("[[<execution_root>]b]c");
   }
 
@@ -203,7 +203,7 @@ public final class ArtifactTest {
         IllegalArgumentException.class,
         () ->
             ActionsTestUtil.createArtifactWithExecPath(
-                    ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "a"),
+                    ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "a"),
                     PathFragment.create("c"))
                 .getRootRelativePath());
   }
@@ -216,7 +216,7 @@ public final class ArtifactTest {
         new ArtifactSerializationContext() {
           @Override
           public SourceArtifact getSourceArtifact(
-              PathFragment execPath, Root root, ArtifactOwner owner) {
+              PathFragment execPath, ArtifactRoot root, ArtifactOwner owner) {
             throw new UnsupportedOperationException();
           }
 
@@ -242,7 +242,7 @@ public final class ArtifactTest {
     artifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
 
     ArtifactRoot anotherRoot =
-        ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), RootType.Output, "other");
+        ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), RootType.OUTPUT, "other");
     DerivedArtifact anotherArtifact =
         DerivedArtifact.create(
             anotherRoot,
@@ -409,7 +409,7 @@ public final class ArtifactTest {
         .isTrue();
     assertThat(
             ActionsTestUtil.createArtifact(
-                    ArtifactRoot.asDerivedRoot(scratch.dir("/genfiles"), RootType.Output, "aaa"),
+                    ArtifactRoot.asDerivedRoot(scratch.dir("/genfiles"), RootType.OUTPUT, "aaa"),
                     scratch.file("/genfiles/aaa/bar.out"))
                 .isSourceArtifact())
         .isFalse();
@@ -418,7 +418,7 @@ public final class ArtifactTest {
   @Test
   public void testGetRoot() throws Exception {
     Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "newRoot");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "newRoot");
     assertThat(ActionsTestUtil.createArtifact(root, scratch.file("/newRoot/foo")).getRoot())
         .isEqualTo(root);
   }
@@ -426,7 +426,7 @@ public final class ArtifactTest {
   @Test
   public void hashCodeAndEquals() {
     Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "newRoot");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "newRoot");
     ActionLookupKey firstOwner =
         new ActionLookupKey() {
           @Override
@@ -502,7 +502,7 @@ public final class ArtifactTest {
   @Test
   public void canDeclareContentBasedOutput() {
     Path execRoot = scratch.getFileSystem().getPath("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "newRoot");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "newRoot");
     assertThat(
             DerivedArtifact.create(
                     root,
@@ -545,7 +545,7 @@ public final class ArtifactTest {
   @Test
   public void archivedTreeArtifact_create_returnsArtifactInArchivedRoot() {
     ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "blaze-out", "fastbuild");
+        ArtifactRoot.asDerivedRoot(execDir, RootType.OUTPUT, "blaze-out", "fastbuild");
     SpecialArtifact tree = createTreeArtifact(root, "tree");
 
     ArchivedTreeArtifact archivedTreeArtifact = ArchivedTreeArtifact.createForTree(tree);
@@ -576,7 +576,7 @@ public final class ArtifactTest {
   @Test
   public void archivedTreeArtifact_createWithCustomDerivedTreeRoot_returnsArtifactWithCustomRoot() {
     ArtifactRoot root =
-        ArtifactRoot.asDerivedRoot(execDir, RootType.Output, "blaze-out", "fastbuild");
+        ArtifactRoot.asDerivedRoot(execDir, RootType.OUTPUT, "blaze-out", "fastbuild");
     SpecialArtifact tree = createTreeArtifact(root, "dir/tree");
 
     ArchivedTreeArtifact archivedTreeArtifact =
@@ -595,7 +595,7 @@ public final class ArtifactTest {
       @TestParameter boolean useSharedValues) throws Exception {
     ArchivedTreeArtifact artifact1 = createArchivedTreeArtifact(rootDir, "tree1");
     ArtifactRoot anotherRoot =
-        ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), RootType.Output, "src");
+        ArtifactRoot.asDerivedRoot(scratch.getFileSystem().getPath("/"), RootType.OUTPUT, "src");
     ArchivedTreeArtifact artifact2 = createArchivedTreeArtifact(anotherRoot, "tree2");
     SerializationTester tester =
         new SerializationTester(artifact1, artifact2)
@@ -655,7 +655,7 @@ public final class ArtifactTest {
 
     Path execRoot = scratch.getFileSystem().getPath("/some/path");
     ArtifactRoot outputArtifactRoot =
-        ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "output", "k8-opt", "bin");
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "output", "k8-opt", "bin");
     Artifact outputArtifact1 =
         ActionsTestUtil.createArtifactWithExecPath(
             outputArtifactRoot, PathFragment.create("output/k8-opt/bin/path/to/pkg/file1"));

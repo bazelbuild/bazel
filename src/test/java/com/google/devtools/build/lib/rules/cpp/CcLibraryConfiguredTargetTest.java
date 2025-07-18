@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FIL
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -39,12 +41,14 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
@@ -113,11 +117,13 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     return compilationSteps.get(0);
   }
 
-  private CppModuleMapAction getCppModuleMapAction(String label) throws Exception {
-    ConfiguredTarget target = getConfiguredTarget(label);
-    CppModuleMap cppModuleMap =
-        target.get(CcInfo.PROVIDER).getCcCompilationContext().getCppModuleMap();
-    return (CppModuleMapAction) getGeneratingAction(cppModuleMap.getArtifact());
+  private String getCppModuleMapData(Artifact moduleMap) throws Exception {
+    AbstractFileWriteAction action = (AbstractFileWriteAction) getGeneratingAction(moduleMap);
+    ByteArrayOutputStream output = new ByteArrayOutputStream();
+    ActionExecutionContext actionContext =
+        ActionsTestUtil.createContextForFileWriteAction(reporter);
+    action.newDeterministicWriter(actionContext).writeTo(output);
+    return output.toString("utf-8");
   }
 
   private void assertNoCppModuleMapAction(String label) throws Exception {
@@ -235,10 +241,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactly(archive, implSharedObject, implInterfaceSharedObject);
     assertThat(
             LibraryToLink.getDynamicLibrariesForLinking(
-                hello
-                    .get(CcInfo.PROVIDER)
-                    .getCcNativeLibraryInfo()
-                    .getTransitiveCcNativeLibraries()))
+                CcNativeLibraryInfo.wrap(hello.get(CcInfo.PROVIDER).getCcNativeLibraryInfo())
+                    .getTransitiveCcNativeLibrariesForTests()))
         .containsExactly(implInterfaceSharedObjectLink);
     assertThat(
             hello
@@ -288,10 +292,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactly(archive, sharedObject, implSharedObject);
     assertThat(
             LibraryToLink.getDynamicLibrariesForLinking(
-                hello
-                    .get(CcInfo.PROVIDER)
-                    .getCcNativeLibraryInfo()
-                    .getTransitiveCcNativeLibraries()))
+                CcNativeLibraryInfo.wrap(hello.get(CcInfo.PROVIDER).getCcNativeLibraryInfo())
+                    .getTransitiveCcNativeLibrariesForTests()))
         .containsExactly(sharedObjectLink);
     assertThat(
             hello
@@ -314,7 +316,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testEmptyLinkopts() throws Exception {
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
-    assertThat(hello.get(CcInfo.PROVIDER).getCcLinkingContext().getUserLinkFlags().isEmpty())
+    assertThat(
+            hello.get(CcInfo.PROVIDER).getCcLinkingContext().getLinkerInputs().toList().stream()
+                .allMatch(linkerInput -> LinkerInput.getUserLinkFlags(linkerInput).isEmpty()))
         .isTrue();
   }
 
@@ -984,11 +988,15 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.MODULE_MAPS));
     useConfiguration();
     writeSimpleCcLibrary();
-    CppModuleMapAction action = getCppModuleMapAction("//module:map");
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getDependencyArtifacts()))
-        .contains("crosstool.cppmap");
-    assertThat(artifactsToStrings(action.getPrivateHeaders())).containsExactly("src module/a.h");
-    assertThat(action.getPublicHeaders()).isEmpty();
+
+    ConfiguredTarget lib = getConfiguredTarget("//module:map");
+    Artifact moduleMap =
+        lib.get(CcInfo.PROVIDER).getCcCompilationContext().getCppModuleMap().getArtifact();
+    String moduleMapData = getCppModuleMapData(moduleMap);
+    assertThat(moduleMapData).contains("use \"crosstool\"");
+    assertThat(moduleMapData).containsMatch("private textual header \".*module\\/a.h\"");
+    // check there are no public headers
+    assertThat(moduleMapData).doesNotContainMatch("(?<!(private textual )|(private ))header");
   }
 
   /**
@@ -1585,7 +1593,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//foo");
     assertThat(
             target.get(CcInfo.PROVIDER).getCcLinkingContext().getLinkerInputs().toList().stream()
-                .map(x -> x.getOwner().toString())
+                .map(x -> LinkerInput.getOwner(x).toString())
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly("//foo:foo", "//foo:bar", "//foo:baz")
         .inOrder();
@@ -2370,13 +2378,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                     CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY));
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
     Artifact sharedObject =
-        hello
-            .get(CcInfo.PROVIDER)
-            .getCcLinkingContext()
-            .getLinkerInputs()
-            .toList()
-            .get(0)
-            .getLibraries()
+        LinkerInput.getLibraries(
+                hello.get(CcInfo.PROVIDER).getCcLinkingContext().getLinkerInputs().toList().get(0))
             .get(0)
             .getDynamicLibrary();
     SpawnAction action = (SpawnAction) getGeneratingAction(sharedObject);
@@ -2432,7 +2435,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .getLinkerInputs()
                 .toList()
                 .stream()
-                .map(x -> x.getOwner().toString()))
+                .map(x -> LinkerInput.getOwner(x).toString()))
         .containsExactly("//foo:lib")
         .inOrder();
   }

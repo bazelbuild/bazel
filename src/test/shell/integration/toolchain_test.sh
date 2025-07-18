@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -772,7 +772,7 @@ EOF
     --platform_mappings= \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log "Performing resolution of //${pkg}/toolchain:test_toolchain for target platform ${default_host_platform}"
-  expect_log "Rejected toolchain //${pkg}/demo:toolchain_invalid; mismatching config settings: optimized"
+  expect_log "Rejected toolchain //${pkg}/demo:toolchain_invalid; mismatching target_settings: optimized"
   expect_log "Toolchain //register/${pkg}:test_toolchain_1 (resolves to //register/${pkg}:test_toolchain_impl_1) is compatible with target platform, searching for execution platforms:"
   expect_log "Compatible execution platform ${default_host_platform}"
   expect_log "Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
@@ -1838,15 +1838,6 @@ EOF
   expect_log 'Using toolchain: value "foo"'
 }
 
-function test_local_config_platform() {
-  if [ "${PRODUCT_NAME}" != "bazel" ]; then
-    # Tests of external repositories only work under bazel.
-    return 0
-  fi
-  bazel query @local_config_platform//... &> $TEST_log || fail "Build failed"
-  expect_log '@local_config_platform//:host'
-}
-
 # Test cycles in registered toolchains, which can only happen when
 # registered_toolchains is called for something that is not actually
 # using the "toolchain" rule.
@@ -1967,6 +1958,7 @@ EOF
 # Catch the error when a target platform requires a configuration which contains the same target platform.
 # This can only happen when the target platform is not actually a platform.
 function test_target_platform_cycle() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg="${FUNCNAME[0]}"
   mkdir -p "${pkg}"
   cat > "${pkg}/hello.sh" <<EOF
@@ -1980,6 +1972,8 @@ EOF
   chmod +x "${pkg}/hello.sh"
   chmod +x "${pkg}/target.sh"
   cat > "${pkg}/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 package(default_visibility = ["//visibility:public"])
 
 sh_binary(
@@ -2693,6 +2687,8 @@ foo_toolchain = rule(
 EOF
   mkdir -p "${pkg}/external"/rules_foo/foo_tools
   cat > "${pkg}/external/rules_foo/foo_tools/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 package(default_visibility = ["//visibility:public"])
 
 sh_binary(
@@ -2728,6 +2724,7 @@ register_toolchains(
   "@rules_foo//toolchain:foo_default_toolchain",
 )
 EOF
+  add_rules_shell "$TOOLCHAIN_REGISTRATION_FILE"
 
   # Test the build.
   bazel build \
@@ -3012,6 +3009,7 @@ EOF
 function write_exec_platform_required_setting {
   local pkg="$1"
 
+  add_rules_shell "MODULE.bazel"
   # Add test platforms.
   mkdir -p "${pkg}/platforms"
   cat > "${pkg}/platforms/BUILD" <<EOF
@@ -3042,6 +3040,8 @@ echo hello
 EOF
   chmod +x "${pkg}/demo/hello.sh"
   cat > "${pkg}/demo/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = 'sample',
   srcs = ["hello.sh"],
@@ -3063,7 +3063,7 @@ function test_exec_platform_required_setting {
   expect_log "Selected execution platform //${pkg}/platforms:platform_basic"
 
   # Verify the debug log.
-  expect_log "Rejected execution platform //${pkg}/platforms:platform_opt; mismatching config settings: optimized"
+  expect_log "Rejected execution platform //${pkg}/platforms:platform_opt; mismatching required_settings: optimized"
 
   # Use the new exec platforms, with the reqired_settings version first.
   # Enable the config_setting.
@@ -3081,6 +3081,7 @@ function test_exec_platform_required_setting {
 function test_exec_platform_required_setting_cycle {
   local -r pkg="${FUNCNAME[0]}"
 
+  add_rules_shell "MODULE.bazel"
   # Add test platforms.
   mkdir -p "${pkg}/platforms"
   cat > "${pkg}/platforms/BUILD" <<EOF
@@ -3112,6 +3113,8 @@ echo hello
 EOF
   chmod +x "${pkg}/demo/hello.sh"
   cat > "${pkg}/demo/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
   name = 'sample',
   srcs = ["hello.sh"],

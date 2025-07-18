@@ -124,7 +124,7 @@ public final class FilesOutputFormatterCallbackTest extends ConfiguredTargetQuer
                 false,
                 OutputGroupInfo.determineOutputGroups(outputGroups, ValidationMode.OFF, false)));
     env.evaluateQuery(expression, callback);
-    return Arrays.asList(output.toString(UTF_8).split(System.lineSeparator()));
+    return Arrays.asList(output.toString(UTF_8).split("\n"));
   }
 
   @Test

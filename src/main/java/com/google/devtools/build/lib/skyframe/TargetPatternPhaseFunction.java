@@ -74,7 +74,6 @@ final class TargetPatternPhaseFunction implements SkyFunction {
   @Nullable
   public TargetPatternPhaseValue compute(SkyKey key, Environment env) throws InterruptedException {
     TargetPatternPhaseKey options = (TargetPatternPhaseKey) key.argument();
-    WorkspaceNameValue workspaceName = (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     if (repositoryMappingValue == null) {
@@ -227,8 +226,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
                 ? targetLabels.getTargets()
                 : nonExpandedLabels,
             targets.hasError(),
-            expandedTargets.hasError(),
-            workspaceName.getName());
+            expandedTargets.hasError());
 
     env.getListener()
         .post(

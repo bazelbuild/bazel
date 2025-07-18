@@ -151,8 +151,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
 
     private static byte[] printStatusMap(Map<String, String> map) {
       String s =
-          map.entrySet()
-              .stream()
+          map.entrySet().stream()
               .map(entry -> entry.getKey() + " " + entry.getValue())
               .collect(joining("\n"));
       s += "\n";
@@ -311,7 +310,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
           env.getOptions().getOptions(WorkspaceStatusAction.Options.class);
       return options.workspaceStatusCommand.equals(PathFragment.EMPTY_FRAGMENT)
           ? null
-          : new CommandBuilder()
+          : new CommandBuilder(env.getClientEnv())
               .addArgs(options.workspaceStatusCommand.toString())
               // Pass client env to allow SCM clients (like git) relying on environment variables to
               // work correctly.

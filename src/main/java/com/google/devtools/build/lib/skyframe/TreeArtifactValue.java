@@ -112,8 +112,19 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     private MultiBuilder() {}
 
     /**
+     * Adds an empty tree artifact into this builder.
+     *
+     * @return {@code this} for convenience
+     */
+    @CanIgnoreReturnValue
+    public MultiBuilder addTree(SpecialArtifact tree) {
+      map.computeIfAbsent(tree, Builder::new);
+      return this;
+    }
+
+    /**
      * Puts a child tree file into this builder under its {@linkplain TreeFileArtifact#getParent
-     * parent}.
+     * parent}, inserting the latter into the builder if not already present.
      *
      * @return {@code this} for convenience
      */

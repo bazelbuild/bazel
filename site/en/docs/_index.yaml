@@ -71,9 +71,7 @@ landing_page:
     - heading: Sharing variables
       path: /build/share-variables
     - heading: Working with external dependencies
-      path: /build/external
-    - heading: Managing external dependencies with Bzlmod
-      path: /build/bzlmod
+      path: /external/overview
     - heading: Recommended rules
       path: /community/recommended-rules
     - heading: Building programs with Bazel

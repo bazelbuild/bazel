@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -44,15 +44,27 @@ public interface InputMetadataProvider {
    * @param input the input to retrieve the digest for
    * @return the artifact's digest or null if digest cannot be obtained (due to artifact
    *     non-existence, lookup errors, or any other reason)
+   * @throws InterruptedException if interrupted
    * @throws IOException if the action input cannot be digested
    * @throws MissingDepExecException if a Skyframe restart is required to provide the requested data
    */
   @Nullable
   FileArtifactValue getInputMetadataChecked(ActionInput input)
-      throws IOException, MissingDepExecException;
+      throws InterruptedException, IOException, MissingDepExecException;
 
+  /**
+   * Returns the {@link TreeArtifactValue} for the given path, or {@code null} if no such tree
+   * artifact exists.
+   */
   @Nullable
   TreeArtifactValue getTreeMetadata(ActionInput input);
+
+  /**
+   * Returns the {@link TreeArtifactValue} for the tree artifact that contains the given path or
+   * {@code null} if no such tree artifact exists.
+   */
+  @Nullable
+  TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath);
 
   /**
    * Like {@link #getInputMetadata(ActionInput)}, but assumes that no Skyframe restart is needed.
@@ -63,7 +75,7 @@ public interface InputMetadataProvider {
   default FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
     try {
       return getInputMetadataChecked(input);
-    } catch (MissingDepExecException e) {
+    } catch (MissingDepExecException | InterruptedException e) {
       throw new IllegalStateException(e);
     }
   }
@@ -102,27 +114,14 @@ public interface InputMetadataProvider {
   ActionInput getInput(String execPath);
 
   /**
-   * Returns a {@link FileSystem} which, if not-null, should be used instead of the one associated
-   * with {@linkplain Artifact#getPath() the path provided for input artifacts}.
-   *
-   * <p>For {@linkplain ActionInput ActionInputs} which are {@linkplain Artifact Artifacts}, we can
-   * perform direct operations on the {@linkplain Artifact#getPath path}. Doing so, may require
-   * {@link FileSystem} redirection. This method defines whether that is the case and which {@link
-   * FileSystem} to use for that.
-   */
-  @Nullable
-  default FileSystem getFileSystemForInputResolution() {
-    return null;
-  }
-
-  /**
-   * Expands runfiles trees and tree artifacts in a sequence of {@link ActionInput}s.
+   * Expands tree artifacts in a sequence of {@link ActionInput}s.
    *
    * <p>If {@code keepEmptyTreeArtifacts} is true, a tree artifact will be included in the
    * constructed list when it expands into zero file artifacts. Otherwise, only the file artifacts
    * the tree artifact expands into will be included.
    *
-   * <p>Runfiles tree artifacts will be returned if {@code keepRunfilesTrees} is set.
+   * <p>Runfiles tree artifacts will be returned if {@code keepRunfilesTrees} is set, otherwise they
+   * will be filtered out.
    *
    * <p>Non-runfiles, non-tree artifacts are returned untouched.
    */

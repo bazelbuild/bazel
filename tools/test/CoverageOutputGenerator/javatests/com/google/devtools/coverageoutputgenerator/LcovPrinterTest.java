@@ -15,16 +15,10 @@
 package com.google.devtools.coverageoutputgenerator;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.TRACEFILE1;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.TRACEFILE1_DIFFERENT_NAME;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createLinesExecution1;
-import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createSourceFile1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Splitter;
 import java.io.ByteArrayOutputStream;
-import java.util.ArrayList;
-import java.util.List;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,74 +27,102 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class LcovPrinterTest {
 
-  private SourceFileCoverage sourceFileCoverage1;
-  private SourceFileCoverage sourceFileCoverage2;
-  private ByteArrayOutputStream byteOutputStream;
-  private Coverage coverage;
-
-  @Before
-  public void init() {
-    sourceFileCoverage1 = createSourceFile1(createLinesExecution1());
-    sourceFileCoverage2 =
-        LcovMergerTestUtils.createSourceFile1(
-            TRACEFILE1_DIFFERENT_NAME.get(0).substring(3), createLinesExecution1());
-    byteOutputStream = new ByteArrayOutputStream();
-    coverage = new Coverage();
-  }
-
   @Test
   public void testPrintTwoFiles() throws Exception {
+    Coverage coverage = new Coverage();
+    SourceFileCoverage sourceFileCoverage1 = new SourceFileCoverage("src1.foo");
+    SourceFileCoverage sourceFileCoverage2 = new SourceFileCoverage("src2.foo");
+    sourceFileCoverage1.addFunctionLineNumber("foo", 2);
+    sourceFileCoverage1.addFunctionLineNumber("bar", 4);
+    sourceFileCoverage1.addFunctionExecution("foo", 3L);
+    sourceFileCoverage1.addFunctionExecution("bar", 0L);
+    sourceFileCoverage1.addLine(2, 3);
+    sourceFileCoverage1.addLine(4, 0);
+    sourceFileCoverage2.addFunctionLineNumber("foo", 3);
+    sourceFileCoverage2.addFunctionExecution("foo", 1L);
+    sourceFileCoverage2.addLine(3, 1);
+    sourceFileCoverage2.addLine(4, 1);
     coverage.add(sourceFileCoverage1);
     coverage.add(sourceFileCoverage2);
 
+    ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
     LcovPrinter.print(byteOutputStream, coverage);
     byteOutputStream.close();
+    Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString(UTF_8).strip());
 
-    Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString());
-
-    List<String> tracefiles = new ArrayList<>();
-    tracefiles.addAll(TRACEFILE1_DIFFERENT_NAME);
-    tracefiles.addAll(TRACEFILE1);
-
-    // Last line of the file will always be a newline.
-    assertThat(fileLines).hasSize(tracefiles.size() + 1);
-    int lineIndex = 0;
-    for (String line : fileLines) {
-      if (lineIndex == tracefiles.size()) {
-        break;
-      }
-      assertThat(line).isEqualTo(tracefiles.get(lineIndex++));
-    }
+    assertThat(fileLines)
+        .containsExactly(
+            "SF:src1.foo",
+            "FN:4,bar",
+            "FN:2,foo",
+            "FNDA:0,bar",
+            "FNDA:3,foo",
+            "FNF:2",
+            "FNH:1",
+            "DA:2,3",
+            "DA:4,0",
+            "LH:1",
+            "LF:2",
+            "end_of_record",
+            "SF:src2.foo",
+            "FN:3,foo",
+            "FNDA:1,foo",
+            "FNF:1",
+            "FNH:1",
+            "DA:3,1",
+            "DA:4,1",
+            "LH:2",
+            "LF:2",
+            "end_of_record");
   }
 
   @Test
   public void testPrintOneFile() throws Exception {
+    Coverage coverage = new Coverage();
+    SourceFileCoverage sourceFileCoverage1 = new SourceFileCoverage("src1.foo");
+    sourceFileCoverage1.addFunctionLineNumber("foo", 2);
+    sourceFileCoverage1.addFunctionLineNumber("bar", 4);
+    sourceFileCoverage1.addFunctionExecution("foo", 3L);
+    sourceFileCoverage1.addFunctionExecution("bar", 0L);
+    sourceFileCoverage1.addLine(2, 3);
+    sourceFileCoverage1.addLine(4, 0);
     coverage.add(sourceFileCoverage1);
+
+    ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
     LcovPrinter.print(byteOutputStream, coverage);
     byteOutputStream.close();
-    Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString());
-    // Last line of the file will always be a newline.
-    assertThat(fileLines).hasSize(TRACEFILE1.size() + 1);
-    int lineIndex = 0;
-    for (String line : fileLines) {
-      if (lineIndex == TRACEFILE1.size()) {
-        break;
-      }
-      assertThat(line).isEqualTo(TRACEFILE1.get(lineIndex++));
-    }
+    Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString(UTF_8).strip());
+
+    assertThat(fileLines)
+        .containsExactly(
+            "SF:src1.foo",
+            "FN:4,bar",
+            "FN:2,foo",
+            "FNDA:0,bar",
+            "FNDA:3,foo",
+            "FNF:2",
+            "FNH:1",
+            "DA:2,3",
+            "DA:4,0",
+            "LH:1",
+            "LF:2",
+            "end_of_record");
   }
 
   @Test
   public void testPrintBrdaLines() throws Exception {
     SourceFileCoverage sourceFile = new SourceFileCoverage("foo");
-    sourceFile.addBranch(3, BranchCoverage.createWithBlockAndBranch(3, "0", "0", true, 1));
-    sourceFile.addBranch(3, BranchCoverage.createWithBlockAndBranch(3, "0", "1", true, 0));
-    sourceFile.addBranch(7, BranchCoverage.createWithBlockAndBranch(7, "0", "0", false, 0));
-    sourceFile.addBranch(7, BranchCoverage.createWithBlockAndBranch(7, "0", "1", false, 0));
+    sourceFile.addNewBranch(3, "0", "0", true, 1);
+    sourceFile.addNewBranch(3, "0", "1", true, 0);
+    sourceFile.addNewBranch(7, "0", "0", false, 0);
+    sourceFile.addNewBranch(7, "0", "1", false, 0);
+    Coverage coverage = new Coverage();
     coverage.add(sourceFile);
 
+    ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
     LcovPrinter.print(byteOutputStream, coverage);
-    Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString());
+    Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString(UTF_8));
+
     assertThat(fileLines)
         .containsExactly(
             "SF:foo",
@@ -110,6 +132,37 @@ public class LcovPrinterTest {
             "BRDA:3,0,1,0",
             "BRDA:7,0,0,-",
             "BRDA:7,0,1,-",
+            "BRF:4",
+            "BRH:1",
+            "LH:0",
+            "LF:0",
+            "end_of_record",
+            "");
+  }
+
+  @Test
+  public void testPrintBaLines() throws Exception {
+    Coverage coverage = new Coverage();
+    SourceFileCoverage sourceFile = new SourceFileCoverage("foo");
+    sourceFile.addNewBranch(3, "0", "0", true, 1);
+    sourceFile.addNewBranch(3, "0", "1", true, 0);
+    sourceFile.addNewBranch(7, "0", "0", false, 0);
+    sourceFile.addNewBranch(7, "0", "1", false, 0);
+    coverage.add(sourceFile);
+
+    ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
+    LcovPrinter.print(byteOutputStream, coverage, true);
+    Iterable<String> fileLines = Splitter.on('\n').split(byteOutputStream.toString(UTF_8));
+
+    assertThat(fileLines)
+        .containsExactly(
+            "SF:foo",
+            "FNF:0",
+            "FNH:0",
+            "BA:3,2",
+            "BA:3,1",
+            "BA:7,0",
+            "BA:7,0",
             "BRF:4",
             "BRH:1",
             "LH:0",

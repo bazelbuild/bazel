@@ -88,8 +88,8 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   @Nullable
   public <T> Attribute.ComputedDefault getComputedDefault(String attributeName, Type<T> type) {
     Object value = rule.getAttr(attributeName, type);
-    if (value instanceof Attribute.ComputedDefault) {
-      return (Attribute.ComputedDefault) value;
+    if (value instanceof Attribute.ComputedDefault computedDefault) {
+      return computedDefault;
     } else {
       return null;
     }
@@ -210,9 +210,21 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
    * its inputs are configurable.
    */
   public static boolean isConfigurable(RuleOrMacroInstance rule, String attributeName) {
+    return isConfigurable(rule, attributeName, /* includeComputedDefaults= */ true);
+  }
+
+  /**
+   * Checks if an attribute is uses select. If {@code includeComputedDefaults} is true, also returns
+   * true on computed defaults that have any configurable inputs.
+   */
+  public static boolean isConfigurable(
+      RuleOrMacroInstance rule, String attributeName, boolean includeComputedDefaults) {
     Object attr = rule.getAttr(attributeName);
-    if (attr instanceof Attribute.ComputedDefault) {
-      for (String dep : ((Attribute.ComputedDefault) attr).dependencies()) {
+    if (attr instanceof Attribute.ComputedDefault computedDefault) {
+      if (!includeComputedDefaults) {
+        return false;
+      }
+      for (String dep : computedDefault.dependencies()) {
         if (isConfigurable(rule, dep)) {
           return true;
         }

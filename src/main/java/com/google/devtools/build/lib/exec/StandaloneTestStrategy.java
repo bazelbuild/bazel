@@ -74,6 +74,7 @@ import java.util.TreeMap;
 /** Runs TestRunnerAction actions. */
 // TODO(bazel-team): add tests for this strategy.
 public class StandaloneTestStrategy extends TestStrategy {
+  private static final String TEST_NAME_ENV = "TEST_NAME";
   private static final ImmutableMap<String, String> ENV_VARS =
       ImmutableMap.<String, String>builder()
           .put("TZ", "UTC")
@@ -106,8 +107,15 @@ public class StandaloneTestStrategy extends TestStrategy {
           "cannot run local tests with --nobuild_runfile_manifests");
     }
     Map<String, String> testEnvironment =
-        createEnvironment(
-            actionExecutionContext, action, tmpDirRoot, executionOptions.splitXmlGeneration);
+        createEnvironment(actionExecutionContext, action, tmpDirRoot);
+
+    if (testEnvironment.containsKey(TEST_NAME_ENV)) {
+      throw createTestExecException(
+          TestAction.Code.LOCAL_TEST_PREREQ_UNMET,
+          String.format(
+              "cannot set env variable TEST_NAME=%s because TEST_NAME is reserved",
+              testEnvironment.get(TEST_NAME_ENV)));
+    }
 
     Map<String, String> executionInfo = new TreeMap<>(action.getExecutionInfo());
     if (!action.shouldAcceptCachedResult()) {
@@ -197,7 +205,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       StandaloneTestResult result)
       throws IOException {
     return processTestAttempt(
-        attemptId, /*isLastAttempt=*/ false, actionExecutionContext, action, result);
+        attemptId, /* isLastAttempt= */ false, actionExecutionContext, action, result);
   }
 
   private void finalizeTest(
@@ -458,7 +466,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     // "PATH" and "TEST_BINARY" are also required, they should always be set in testEnv.
     Preconditions.checkArgument(testEnv.containsKey("PATH"));
     Preconditions.checkArgument(testEnv.containsKey("TEST_BINARY"));
-    envBuilder.putAll(testEnv).put("TEST_NAME", action.getTestName());
+    envBuilder.putAll(testEnv).put(TEST_NAME_ENV, action.getTestName());
     // testEnv only contains TEST_SHARD_INDEX and TEST_TOTAL_SHARDS if the test action is sharded,
     // we need to set the default value when the action isn't sharded.
     if (!action.isSharded()) {
@@ -484,18 +492,17 @@ public class StandaloneTestStrategy extends TestStrategy {
       ActionExecutionContext actionExecutionContext,
       TestRunnerAction action,
       List<ActionInput> expandedCoverageDir,
-      Path tmpDirRoot,
-      boolean splitXmlGeneration) {
+      Path tmpDirRoot) {
     ImmutableList<String> args =
         ImmutableList.of(action.getCollectCoverageScript().getExecPathString());
 
     Map<String, String> testEnvironment =
-        createEnvironment(actionExecutionContext, action, tmpDirRoot, splitXmlGeneration);
+        createEnvironment(actionExecutionContext, action, tmpDirRoot);
 
     testEnvironment.put("TEST_SHARD_INDEX", Integer.toString(action.getShardNum()));
     testEnvironment.put(
         "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()));
-    testEnvironment.put("TEST_NAME", action.getTestName());
+    testEnvironment.put(TEST_NAME_ENV, action.getTestName());
     testEnvironment.put("IS_COVERAGE_SPAWN", "1");
 
     return new SimpleSpawn(
@@ -518,21 +525,13 @@ public class StandaloneTestStrategy extends TestStrategy {
   }
 
   private static Map<String, String> createEnvironment(
-      ActionExecutionContext actionExecutionContext,
-      TestRunnerAction action,
-      Path tmpDirRoot,
-      boolean splitXmlGeneration) {
+      ActionExecutionContext actionExecutionContext, TestRunnerAction action, Path tmpDirRoot) {
     Path execRoot = actionExecutionContext.getExecRoot();
     ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();
     Path runfilesDir = pathResolver.convertPath(action.getExecutionSettings().getRunfilesDir());
     Path tmpDir = pathResolver.convertPath(tmpDirRoot.getChild(TestStrategy.getTmpDirName(action)));
-    Map<String, String> testEnvironment =
-        setupEnvironment(
-            action, actionExecutionContext.getClientEnv(), execRoot, runfilesDir, tmpDir);
-    if (splitXmlGeneration) {
-      testEnvironment.put("EXPERIMENTAL_SPLIT_XML_GENERATION", "1");
-    }
-    return testEnvironment;
+    return setupEnvironment(
+        action, actionExecutionContext.getClientEnv(), execRoot, runfilesDir, tmpDir);
   }
 
   @Override
@@ -771,8 +770,7 @@ public class StandaloneTestStrategy extends TestStrategy {
               actionExecutionContext,
               testAction,
               ImmutableList.copyOf(expandedCoverageDir),
-              tmpDirRoot,
-              executionOptions.splitXmlGeneration);
+              tmpDirRoot);
       SpawnStrategyResolver spawnStrategyResolver =
           actionExecutionContext.getContext(SpawnStrategyResolver.class);
 
@@ -843,13 +841,11 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     Path xmlOutputPath = resolvedPaths.getXmlOutputPath();
 
-    // If the test did not create a test.xml, and --experimental_split_xml_generation is enabled,
-    // then we run a separate action to create a test.xml from test.log. We do this as a spawn
-    // rather than doing it locally in-process, as the test.log file may only exist remotely (when
-    // remote execution is enabled), and we do not want to have to download it.
-    if (executionOptions.splitXmlGeneration
-        && fileOutErr.getOutputPath().exists()
-        && !xmlOutputPath.exists()) {
+    // If the test did not create a test.xml, then we run a separate action to create a test.xml
+    // from test.log. We do this as a spawn rather than doing it locally in-process, as the test.log
+    // file may only exist remotely (when remote execution is enabled), and we do not want to have
+    // to download it.
+    if (fileOutErr.getOutputPath().exists() && !xmlOutputPath.exists()) {
       Spawn xmlGeneratingSpawn =
           createXmlGeneratingSpawn(testAction, spawn.getEnvironment(), spawnResults.get(0));
       SpawnStrategyResolver spawnStrategyResolver =

@@ -96,8 +96,8 @@ public final class Json implements StarlarkValue {
               + " floating-point value.\n"
               + "<li>A string value is encoded as a JSON string literal that denotes the value. "
               + " Each unpaired surrogate is replaced by U+FFFD.\n"
-              + "<li>A dict is encoded as a JSON object, in key order.  It is an error if any key"
-              + " is not a string.\n"
+              + "<li>A dict is encoded as a JSON object, in lexicographical key order.  It is an"
+              + " error if any key is not a string.\n"
               + "<li>A list or tuple is encoded as a JSON array.\n"
               + "<li>A struct-like value is encoded as a JSON object, in field name order.\n"
               + "</ul>\n"
@@ -691,9 +691,8 @@ public final class Json implements StarlarkValue {
         @Param(name = "x"),
         @Param(name = "prefix", positional = false, named = true, defaultValue = "''"),
         @Param(name = "indent", positional = false, named = true, defaultValue = "'\\t'"),
-      },
-      useStarlarkThread = true)
-  public String encodeIndent(Object x, String prefix, String indent, StarlarkThread starlarkThread)
+      })
+  public String encodeIndent(Object x, String prefix, String indent)
       throws EvalException, InterruptedException {
     return indent(encode(x), prefix, indent);
   }

@@ -37,7 +37,6 @@ final class LocationFunctionBuilder {
   private final Label root;
   private final boolean multiple;
   private LocationFunction.PathType pathType = LocationFunction.PathType.LOCATION;
-  private boolean legacyExternalRunfiles;
   private final Map<Label, Collection<Artifact>> labelMap = new HashMap<>();
 
   LocationFunctionBuilder(String rootLabel, boolean multiple) {
@@ -46,19 +45,12 @@ final class LocationFunctionBuilder {
   }
 
   public LocationFunction build() {
-    return new LocationFunction(
-        root, Suppliers.ofInstance(labelMap), pathType, legacyExternalRunfiles, multiple);
+    return new LocationFunction(root, Suppliers.ofInstance(labelMap), pathType, multiple);
   }
 
   @CanIgnoreReturnValue
   public LocationFunctionBuilder setPathType(LocationFunction.PathType pathType) {
     this.pathType = pathType;
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public LocationFunctionBuilder setLegacyExternalRunfiles(boolean legacyExternalRunfiles) {
-    this.legacyExternalRunfiles = legacyExternalRunfiles;
     return this;
   }
 
@@ -76,7 +68,7 @@ final class LocationFunctionBuilder {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     if (path.startsWith("/exec/out")) {
       return ActionsTestUtil.createArtifact(
-          ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.Output, "out"),
+          ArtifactRoot.asDerivedRoot(fs.getPath("/exec"), RootType.OUTPUT, "out"),
           fs.getPath(path));
     } else {
       return ActionsTestUtil.createArtifact(

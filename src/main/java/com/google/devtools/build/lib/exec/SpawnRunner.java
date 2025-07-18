@@ -15,13 +15,13 @@ package com.google.devtools.build.lib.exec;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -159,29 +159,15 @@ public interface SpawnRunner {
      * Prefetches the Spawns input files to the local machine. There are cases where Bazel runs on a
      * network file system, and prefetching the files in parallel is a significant performance win.
      * This should only be called by local strategies when local execution is imminent.
-     *
-     * <p>Should be called with the equivalent of: <code>
-     * policy.prefetchInputs(
-     *      Iterables.filter(policy.getInputMapping().values(), Predicates.notNull()));
-     * </code>
-     *
-     * <p>Note in particular that {@link #getInputMapping} may return {@code null} values, but this
-     * method does not accept {@code null} values.
-     *
-     * <p>The reason why this method requires passing in the inputs is that getInputMapping may be
-     * slow to compute, so if the implementation already called it, we don't want to compute it
-     * again. I suppose we could require implementations to memoize getInputMapping (but not compute
-     * it eagerly), and that may change in the future.
      */
-    ListenableFuture<Void> prefetchInputs() throws ForbiddenActionInputException;
+    ListenableFuture<Void> prefetchInputs();
 
     /**
      * Prefetches the Spawns input files to the local machine and wait to finish.
      *
      * @see #prefetchInputs()
      */
-    default void prefetchInputsAndWait()
-        throws IOException, ExecException, InterruptedException, ForbiddenActionInputException {
+    default void prefetchInputsAndWait() throws IOException, ExecException, InterruptedException {
       ListenableFuture<Void> future = prefetchInputs();
       try (SilentCloseable s =
           Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "stage remote inputs")) {
@@ -191,12 +177,11 @@ public interface SpawnRunner {
         if (cause != null) {
           throwIfInstanceOf(cause, IOException.class);
           throwIfInstanceOf(cause, ExecException.class);
-          throwIfInstanceOf(cause, ForbiddenActionInputException.class);
           throwIfInstanceOf(cause, RuntimeException.class);
         }
         throw new IOException(e);
       } catch (InterruptedException e) {
-        future.cancel(/*mayInterruptIfRunning=*/ true);
+        future.cancel(/* mayInterruptIfRunning= */ true);
         throw e;
       }
     }
@@ -265,8 +250,7 @@ public interface SpawnRunner {
      * is not the same as the execroot.
      */
     SortedMap<PathFragment, ActionInput> getInputMapping(
-        PathFragment baseDirectory, boolean willAccessRepeatedly)
-        throws ForbiddenActionInputException;
+        PathFragment baseDirectory, boolean willAccessRepeatedly);
 
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus progress);
@@ -287,6 +271,9 @@ public interface SpawnRunner {
     /** Returns action-scoped file system or {@code null} if it doesn't exist. */
     @Nullable
     FileSystem getActionFileSystem();
+
+    /** Returns the environment of the Bazel client. */
+    ImmutableMap<String, String> getClientEnv();
   }
 
   /**
@@ -302,7 +289,7 @@ public interface SpawnRunner {
    * @throws ExecException if the request is malformed
    */
   SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws InterruptedException, IOException, ExecException, ForbiddenActionInputException;
+      throws InterruptedException, IOException, ExecException;
 
   /** Returns whether this SpawnRunner supports executing the given Spawn. */
   boolean canExec(Spawn spawn);

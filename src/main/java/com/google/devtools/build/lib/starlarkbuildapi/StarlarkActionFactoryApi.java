@@ -67,6 +67,23 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
           + " volatile nature the output file of this action is special cased in Bazel, similar to"
           + " <code>ctx.version_file</code>. Therefore changes in this file will not retrigger"
           + " actions depending on it.";
+  static final String TOOLS_ARG_DOC =
+"""
+List or <a href="../builtins/depset.html"><code>depset</code></a> of any tools needed by the \
+action. Tools are executable inputs that may have their own runfiles which are automatically made \
+available to the action. \
+<p>
+When a list is provided, it can be a heterogenous collection of:
+<ul>
+    <li><code>File</code>s</li>
+    <li><code>FilesToRunProvider</code> instances</li>
+    <li><code>depset</code>s of <code>File</code>s</li>
+</ul>
+<code>File</code>s from <a href="../builtins/ctx#executable"><code>ctx.executable</code></a> \
+and <code>FilesToRunProvider</code>s which are directly in the list will have their runfiles \
+automatically added. All tools are implicitly added as inputs.
+</p>
+""";
 
   @StarlarkMethod(
       name = "declare_file",
@@ -300,9 +317,19 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             name = "is_executable",
             defaultValue = "False",
             doc = "Whether the output file should be executable.",
-            named = true)
+            named = true),
+        @Param(
+            name = "mnemonic",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = "A one-word description of the action, for example, CppCompile or GoLink."),
       })
-  void write(FileApi output, Object content, Boolean isExecutable)
+  void write(FileApi output, Object content, Boolean isExecutable, Object mnemonicUnchecked)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
@@ -365,15 +392,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "unbound",
             named = true,
             positional = false,
-            doc =
-                "List or depset of any tools needed by the action. Tools are inputs with "
-                    + "additional runfiles that are automatically made available to the action. "
-                    + "When a list is provided, it can be a heterogenous collection of "
-                    + "Files, FilesToRunProvider instances, or depsets of Files. Files which are "
-                    + "directly in the list and come from ctx.executable will have their runfiles "
-                    + "automatically added. When a depset is provided, it must contain only Files. "
-                    + "In both cases, files within depsets are not cross-referenced with "
-                    + "ctx.executable for runfiles."),
+            doc = TOOLS_ARG_DOC),
         @Param(
             name = "arguments",
             // TODO(#13365): improve the @ParamType annotation once it can support multiple
@@ -581,10 +600,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             defaultValue = "unbound",
             named = true,
             positional = false,
-            doc =
-                "List or depset of any tools needed by the action. Tools are inputs with "
-                    + "additional runfiles that are automatically made available to the action. "
-                    + "The list can contain Files or FilesToRunProvider instances."),
+            doc = TOOLS_ARG_DOC),
         @Param(
             name = "arguments",
             // TODO(#13365): improve the @ParamType annotation once it can support multiple

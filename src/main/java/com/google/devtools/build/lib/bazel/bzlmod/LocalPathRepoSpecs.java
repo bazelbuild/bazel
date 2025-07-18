@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import net.starlark.java.eval.Dict;
 
 /** A utility class to create {@link RepoSpec}s for {@code local_repository}. */
 public final class LocalPathRepoSpecs {
@@ -29,6 +30,8 @@ public final class LocalPathRepoSpecs {
           "local_repository");
 
   public static RepoSpec create(String path) {
-    return new RepoSpec(LOCAL_REPOSITORY, AttributeValues.create(ImmutableMap.of("path", path)));
+    return new RepoSpec(
+        LOCAL_REPOSITORY,
+        AttributeValues.create(Dict.immutableCopyOf(ImmutableMap.of("path", path))));
   }
 }

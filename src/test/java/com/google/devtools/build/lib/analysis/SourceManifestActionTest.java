@@ -75,7 +75,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
     fakeManifest.put(buildFilePath.relativeTo(rootDirectory), buildFile);
     fakeManifest.put(pythonSourcePath.relativeTo(rootDirectory), pythonSourceFile);
     ArtifactRoot outputDir =
-        ArtifactRoot.asDerivedRoot(rootDirectory, RootType.Output, "blaze-output");
+        ArtifactRoot.asDerivedRoot(rootDirectory, RootType.OUTPUT, "blaze-output");
     outputDir.getRoot().asPath().createDirectoryAndParents();
     manifestOutputFile =
         ActionsTestUtil.createArtifact(
@@ -108,7 +108,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
   }
 
   private SourceManifestAction createAction(ManifestType type, boolean addInitPy) {
-    Runfiles.Builder builder = new Runfiles.Builder("TESTING", false);
+    Runfiles.Builder builder = new Runfiles.Builder("TESTING");
     builder.addSymlinks(fakeManifest);
     if (addInitPy) {
       builder.setEmptyFilesSupplier(analysisMock.pySupport().getEmptyRunfilesSupplier());
@@ -174,7 +174,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
                 mockWriter,
                 NULL_ACTION_OWNER,
                 manifestOutputFile,
-                new Runfiles.Builder("TESTING", false).addSymlinks(fakeManifest).build())
+                new Runfiles.Builder("TESTING").addSymlinks(fakeManifest).build())
             .getFileContents(reporter);
     assertThat(mockWriter.unconsumedInputs()).isEqualTo(0);
     assertThat(manifestContents).isEmpty();
@@ -284,7 +284,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest1,
-            new Runfiles.Builder("TESTING", false)
+            new Runfiles.Builder("TESTING")
                 .addRootSymlinks(ImmutableMap.of(PathFragment.create("a"), buildFile))
                 .build());
 
@@ -293,7 +293,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest2,
-            new Runfiles.Builder("TESTING", false)
+            new Runfiles.Builder("TESTING")
                 .addRootSymlinks(ImmutableMap.of(PathFragment.create("b"), buildFile))
                 .build());
 
@@ -311,7 +311,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest1,
-            new Runfiles.Builder("TESTING", false)
+            new Runfiles.Builder("TESTING")
                 .addSymlink(PathFragment.create("a"), buildFile)
                 .setEmptyFilesSupplier(
                     new Runfiles.EmptyFilesSupplier() {
@@ -335,7 +335,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest2,
-            new Runfiles.Builder("TESTING", false)
+            new Runfiles.Builder("TESTING")
                 .addSymlink(PathFragment.create("a"), buildFile)
                 .setEmptyFilesSupplier(
                     new Runfiles.EmptyFilesSupplier() {
@@ -366,7 +366,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest,
-            new Runfiles.Builder("TESTING", false)
+            new Runfiles.Builder("TESTING")
                 .addArtifact(absoluteSymlink)
                 .addArtifact(buildFile)
                 .addArtifact(relativeSymlink)
@@ -406,7 +406,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             ManifestType.SOURCE_SYMLINKS,
             NULL_ACTION_OWNER,
             manifest,
-            new Runfiles.Builder("TESTING", false)
+            new Runfiles.Builder("TESTING")
                 .addSymlink(PathFragment.create("no/sp\\ace"), buildFile)
                 .addSymlink(PathFragment.create("also/no/sp\\ace"), fileWithSpaceAndBackslash)
                 .addSymlink(PathFragment.create("still/no/sp\\ace"), fileWithNewlineAndBackslash)

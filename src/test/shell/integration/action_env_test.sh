@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -27,15 +27,18 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 set -e
 
 function set_up() {
+  add_rules_shell "MODULE.bazel"
+
   mkdir -p pkg
   cat > pkg/BUILD <<EOF
+load("//pkg:build.bzl", "environ")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 genrule(
   name = "showenv",
   outs = ["env.txt"],
   cmd = "env | sort > \"\$@\""
 )
-
-load("//pkg:build.bzl", "environ")
 
 environ(name = "no_default_env", env = 0)
 environ(name = "with_default_env", env = 1)
@@ -121,6 +124,31 @@ function test_simple_latest_wins() {
   expect_log "BAR=bar"
 }
 
+function test_simple_latest_wins_removed() {
+  export FOO=environmentfoo
+  export BAR=environmentbar
+  bazel build --action_env=FOO=foo \
+      --action_env=BAR=willbeoverridden --action_env==BAR pkg:showenv \
+      || fail "${PRODUCT_NAME} build showenv failed"
+
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
+  expect_log "FOO=foo"
+  expect_not_log "BAR"
+}
+
+function test_simple_latest_wins_removed_then_added() {
+  export FOO=environmentfoo
+  export BAR=environmentbar
+  bazel build --action_env=FOO=foo \
+      --action_env=BAR=willbeoverridden --action_env==BAR \
+      --action_env=BAR=override pkg:showenv \
+      || fail "${PRODUCT_NAME} build showenv failed"
+
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
+  expect_log "FOO=foo"
+  expect_log "BAR=override"
+}
+
 function test_client_env() {
   export FOO=startup_foo
   bazel clean --expunge
@@ -131,6 +159,18 @@ function test_client_env() {
 
   cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
   expect_log "FOO=client_foo"
+}
+
+function test_empty() {
+  export FOO=startup_foo
+  bazel clean --expunge
+  bazel help build > /dev/null || fail "${PRODUCT_NAME} help failed"
+  export FOO=client_foo
+  bazel build --action_env=FOO= pkg:showenv || \
+    fail "${PRODUCT_NAME} build showenv failed"
+
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
+  expect_log "FOO=$"
 }
 
 function test_redo_action() {

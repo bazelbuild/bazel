@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
@@ -138,7 +139,10 @@ public final class ActionsTestUtil {
         actionKeyContext,
         fileOutErr,
         new SingleBuildFileCache(
-            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
+            execRoot.getPathString(),
+            PathFragment.create("dummy-output-path"),
+            execRoot.getFileSystem(),
+            SyscallCache.NO_CACHE),
         outputMetadataStore,
         /* clientEnv= */ ImmutableMap.of());
   }
@@ -172,6 +176,18 @@ public final class ActionsTestUtil {
     return createContext(new DummyExecutor(), eventHandler);
   }
 
+  public static ActionExecutionContext createContextForFileWriteAction(
+      ExtendedEventHandler eventHandler) {
+    return createContext(
+        new DummyExecutor(),
+        eventHandler,
+        new ActionKeyContext(),
+        null,
+        new FakeActionInputFileCache(),
+        null,
+        ImmutableMap.of());
+  }
+
   public static ActionExecutionContext createContext(
       Executor executor, ExtendedEventHandler eventHandler) {
     return new ActionExecutionContext(
@@ -197,16 +213,17 @@ public final class ActionsTestUtil {
       ActionKeyContext actionKeyContext,
       FileOutErr fileOutErr,
       Path execRoot,
-      OutputMetadataStore outputMetadataStore,
       Environment environment,
       DiscoveredModulesPruner discoveredModulesPruner) {
     return ActionExecutionContext.forInputDiscovery(
         executor,
         new SingleBuildFileCache(
-            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
+            execRoot.getPathString(),
+            PathFragment.create("dummy-output-path"),
+            execRoot.getFileSystem(),
+            SyscallCache.NO_CACHE),
         ActionInputPrefetcher.NONE,
         actionKeyContext,
-        outputMetadataStore,
         /* rewindingEnabled= */ false,
         LostInputsCheck.NONE,
         fileOutErr,
@@ -302,7 +319,7 @@ public final class ActionsTestUtil {
   }
 
   public static ArtifactRoot createArtifactRootFromTwoPaths(Path root, Path execPath) {
-    return ArtifactRoot.asDerivedRoot(root, RootType.Output, execPath.relativeTo(root));
+    return ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, execPath.relativeTo(root));
   }
 
   /**
@@ -359,7 +376,7 @@ public final class ActionsTestUtil {
       };
 
   public static final ActionTemplateExpansionKey NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER =
-      ActionTemplateExpansionValue.key(NULL_ARTIFACT_OWNER, /*actionIndex=*/ 0);
+      ActionTemplateExpansionValue.key(NULL_ARTIFACT_OWNER, /* actionIndex= */ 0);
 
   @SerializationConstant
   static final InMemoryFileSystem DUMMY_ARTIFACT_FILE_SYSTEM =
@@ -469,9 +486,7 @@ public final class ActionsTestUtil {
     }
 
     public MockAction(
-        Iterable<Artifact> inputs,
-        ImmutableSet<Artifact> outputs,
-        boolean isShareable) {
+        Iterable<Artifact> inputs, ImmutableSet<Artifact> outputs, boolean isShareable) {
       super(
           NULL_ACTION_OWNER,
           NestedSetBuilder.<Artifact>stableOrder().addAll(inputs).build(),
@@ -930,6 +945,12 @@ public final class ActionsTestUtil {
       throw new UnsupportedOperationException();
     }
 
+    @Nullable
+    @Override
+    public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
+      throw new UnsupportedOperationException();
+    }
+
     @Override
     @Nullable
     public FilesetOutputTree getFileset(ActionInput input) {
@@ -1011,5 +1032,34 @@ public final class ActionsTestUtil {
     assertThat(buildConfigurationEvent.getEventId().isInitialized()).isTrue();
     assertThat(buildConfigurationEvent.asStreamProto(/* unusedConverters= */ null).isInitialized())
         .isTrue();
+  }
+
+  private static final class SimpleActionLookupKey implements ActionLookupKey {
+    private final String name;
+
+    SimpleActionLookupKey(String name) {
+      this.name = name;
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctionName.createHermetic(name);
+    }
+
+    @Nullable
+    @Override
+    public Label getLabel() {
+      return null;
+    }
+
+    @Nullable
+    @Override
+    public BuildConfigurationKey getConfigurationKey() {
+      return null;
+    }
+  }
+
+  public static ActionLookupKey createActionLookupKey(String name) {
+    return new SimpleActionLookupKey(name);
   }
 }

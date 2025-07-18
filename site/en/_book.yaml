@@ -142,8 +142,8 @@ upper_tabs:
         path: /external/mod-command
       - title: Bzlmod migration guide
         path: /external/migration
-      - title: Advanced topics
-        path: /external/advanced
+      - title: FAQ
+        path: /external/faq
       - heading: Querying your build
       - title: Query quickstart
         path: /query/quickstart

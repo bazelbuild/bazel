@@ -63,7 +63,7 @@ public class MerkleTreeTest {
   public void setup() {
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec");
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "srcs");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "srcs");
     digestUtil = new DigestUtil(SyscallCache.NO_CACHE, fs.getDigestFunction());
   }
 

@@ -14,7 +14,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -24,6 +24,8 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Comparator.naturalOrder;
+import static java.util.function.Function.identity;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -47,7 +49,6 @@ import build.bazel.remote.execution.v2.NodeProperty;
 import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.OutputSymlink;
-import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
@@ -81,7 +82,6 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
@@ -109,6 +109,7 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRem
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
@@ -117,6 +118,7 @@ import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.TempPathGenerator;
@@ -136,8 +138,8 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Random;
+import java.util.SortedMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -215,7 +217,7 @@ public class RemoteExecutionServiceTest {
     execRoot = fs.getPath("/execroot");
     execRoot.createDirectoryAndParents();
 
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outputs");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "outputs");
 
     checkNotNull(artifactRoot.getRoot().asPath()).createDirectoryAndParents();
 
@@ -464,7 +466,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     // act
@@ -493,7 +495,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     // act
@@ -520,7 +522,7 @@ public class RemoteExecutionServiceTest {
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     // act
@@ -566,7 +568,7 @@ public class RemoteExecutionServiceTest {
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     // act
@@ -603,7 +605,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     // act
@@ -653,7 +655,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     // act
@@ -700,7 +702,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     // act
@@ -755,7 +757,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     // act
@@ -799,7 +801,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     // Doesn't check for dangling links, hence download succeeds.
@@ -824,7 +826,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     // Doesn't check for dangling links, hence download succeeds.
@@ -853,7 +855,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     // Doesn't check for dangling links, hence download succeeds.
@@ -884,7 +886,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     // Doesn't check for dangling links, hence download succeeds.
@@ -910,7 +912,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     service.downloadOutputs(action, result);
@@ -932,7 +934,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     service.downloadOutputs(action, result);
@@ -958,7 +960,7 @@ public class RemoteExecutionServiceTest {
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     IOException expected =
@@ -1041,7 +1043,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     assertThrows(BulkTransferException.class, () -> service.downloadOutputs(action, result));
@@ -1076,7 +1078,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     BulkTransferException downloadException =
@@ -1110,7 +1112,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     BulkTransferException e =
@@ -1143,7 +1145,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     BulkTransferException downloadException =
@@ -1176,7 +1178,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     InterruptedException e =
@@ -1209,7 +1211,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     service.downloadOutputs(action, result);
@@ -1252,7 +1254,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     assertThrows(BulkTransferException.class, () -> service.downloadOutputs(action, result));
@@ -1287,7 +1289,7 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
+    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any(), any()))
         .thenReturn(true);
 
     service.downloadOutputs(action, result);
@@ -1315,7 +1317,8 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(PathFragment.create("outputs/file1")))
+    when(remoteOutputChecker.shouldDownloadOutput(
+            PathFragment.create("outputs/file1"), /* treeRootExecPath= */ null))
         .thenReturn(true);
 
     // act
@@ -1401,7 +1404,8 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
     createOutputDirectories(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(PathFragment.create("outputs/dir/file1")))
+    when(remoteOutputChecker.shouldDownloadOutput(
+            PathFragment.create("outputs/dir/file1"), PathFragment.create("outputs/dir")))
         .thenReturn(true);
 
     // act
@@ -1723,8 +1727,12 @@ public class RemoteExecutionServiceTest {
             .build();
     RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    when(remoteOutputChecker.shouldDownloadOutput(output1.getExecPath())).thenReturn(true);
-    when(remoteOutputChecker.shouldDownloadOutput(output2.getExecPath())).thenReturn(true);
+    when(remoteOutputChecker.shouldDownloadOutput(
+            output1.getExecPath(), /* treeRootExecPath= */ null))
+        .thenReturn(true);
+    when(remoteOutputChecker.shouldDownloadOutput(
+            output2.getExecPath(), /* treeRootExecPath= */ null))
+        .thenReturn(true);
     RemoteExecutionService service = newRemoteExecutionService();
     RemoteAction action = service.buildRemoteAction(spawn, context);
 
@@ -2325,16 +2333,28 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void buildRemoteActionForRemotePersistentWorkers() throws Exception {
+  public void buildRemoteActionForRemotePersistentWorkers(@TestParameter boolean enablePathMapping)
+      throws Exception {
     var input = ActionsTestUtil.createArtifact(artifactRoot, "input");
     fakeFileCache.createScratchInput(input, "value");
     var toolInput = ActionsTestUtil.createArtifact(artifactRoot, "worker_input");
     fakeFileCache.createScratchInput(toolInput, "worker value");
+
+    Artifact toolDat = ActionsTestUtil.createArtifact(artifactRoot, "tool.dat");
+    fakeFileCache.createScratchInput(toolDat, "tool.dat");
+    RunfilesTree runfilesTree =
+        createRunfilesTree("outputs/worker_input.runfiles", ImmutableList.of(toolDat));
+    ActionInput runfilesArtifact =
+        ActionsTestUtil.createRunfilesArtifact(artifactRoot, "outputs/worker_input.runfiles");
+    fakeFileCache.addRunfilesTree(runfilesArtifact, runfilesTree);
+
     Spawn spawn =
         new SpawnBuilder("@flagfile")
             .withExecutionInfo(ExecutionRequirements.SUPPORTS_WORKERS, "1")
-            .withInputs(input, toolInput)
-            .withTool(toolInput)
+            .withInputs(input, toolInput, runfilesArtifact)
+            .withTools(toolInput, runfilesArtifact)
+            .setPathMapper(
+                enablePathMapping ? path -> PathFragment.create("mapped_" + path) : PathMapper.NOOP)
             .build();
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
     remoteOptions.markToolInputs = true;
@@ -2342,64 +2362,84 @@ public class RemoteExecutionServiceTest {
     RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
 
     // Check that worker files are properly marked in the merkle tree.
-    var remoteAction = service.buildRemoteAction(spawn, context);
-    assertThat(remoteAction.getAction().getPlatform())
-        .isEqualTo(
-            Platform.newBuilder()
-                .addProperties(
-                    Platform.Property.newBuilder()
-                        .setName("persistentWorkerKey")
-                        .setValue(
-                            "628637504c26bb74fb6bb3f60fb7132b3aa574b866db4181770774882a8853e5"))
-                .build());
-    var merkleTree = remoteAction.getMerkleTree();
-    var outputDirectory =
-        merkleTree.getDirectoryByDigest(merkleTree.getRootProto().getDirectories(0).getDigest());
+    var runfilesSubDirectory =
+        Directory.newBuilder()
+            .addFiles(
+                FileNode.newBuilder()
+                    .setName("tool.dat")
+                    .setDigest(digestUtil.computeAsUtf8("tool.dat"))
+                    .setIsExecutable(true)
+                    .setNodeProperties(
+                        NodeProperties.newBuilder()
+                            .addProperties(NodeProperty.newBuilder().setName("bazel_tool_input")))
+                    .build())
+            .build();
+
+    var runfilesDirectory =
+        Directory.newBuilder()
+            .addDirectories(
+                DirectoryNode.newBuilder()
+                    .setName(TestConstants.WORKSPACE_NAME)
+                    .setDigest(digestUtil.compute(runfilesSubDirectory))
+                    .build())
+            .build();
+
     var inputFile =
         FileNode.newBuilder()
             .setName("input")
-            .setDigest(
-                Digest.newBuilder()
-                    .setHash("cd42404d52ad55ccfa9aca4adc828aa5800ad9d385a0671fbcbf724118320619")
-                    .setSizeBytes(5))
-            .setIsExecutable(true);
+            .setDigest(digestUtil.computeAsUtf8("value"))
+            .setIsExecutable(true)
+            .build();
     var toolFile =
         FileNode.newBuilder()
             .setName("worker_input")
-            .setDigest(
-                Digest.newBuilder()
-                    .setHash("bbd21d9e9b2bbadb2bb67202833df0edc8d14baf38be49388ffc71831eb88ac4")
-                    .setSizeBytes(12))
+            .setDigest(digestUtil.computeAsUtf8("worker value"))
             .setIsExecutable(true)
             .setNodeProperties(
                 NodeProperties.newBuilder()
-                    .addProperties(NodeProperty.newBuilder().setName("bazel_tool_input")));
-    assertThat(outputDirectory)
-        .isEqualTo(Directory.newBuilder().addFiles(inputFile).addFiles(toolFile).build());
+                    .addProperties(NodeProperty.newBuilder().setName("bazel_tool_input")))
+            .build();
+    var outputsDirectory =
+        Directory.newBuilder()
+            .addFiles(inputFile)
+            .addFiles(toolFile)
+            .addDirectories(
+                DirectoryNode.newBuilder()
+                    .setName("worker_input.runfiles")
+                    .setDigest(digestUtil.compute(runfilesDirectory))
+                    .build())
+            .build();
 
-    // Check that if an non-tool input changes, the persistent worker key does not change.
+    var rootDirectory =
+        Directory.newBuilder()
+            .addDirectories(
+                DirectoryNode.newBuilder()
+                    .setName(enablePathMapping ? "mapped_outputs" : "outputs")
+                    .setDigest(digestUtil.compute(outputsDirectory))
+                    .build())
+            .build();
+
+    var remoteAction1 = service.buildRemoteAction(spawn, context);
+    var merkleTree = remoteAction1.getMerkleTree();
+    assertThat(merkleTree.getRootProto()).isEqualTo(rootDirectory);
+    assertThat(remoteAction1.getAction().getPlatform().getPropertiesList()).hasSize(1);
+    assertThat(remoteAction1.getAction().getPlatform().getProperties(0).getName())
+        .isEqualTo("persistentWorkerKey");
+
+    // Check that if a non-tool input changes, the persistent worker key does not change.
     fakeFileCache.createScratchInput(input, "value2");
-    assertThat(service.buildRemoteAction(spawn, context).getAction().getPlatform())
-        .isEqualTo(
-            Platform.newBuilder()
-                .addProperties(
-                    Platform.Property.newBuilder()
-                        .setName("persistentWorkerKey")
-                        .setValue(
-                            "628637504c26bb74fb6bb3f60fb7132b3aa574b866db4181770774882a8853e5"))
-                .build());
+    var remoteAction2 = service.buildRemoteAction(spawn, context);
+    assertThat(remoteAction2.getAction().getPlatform())
+        .isEqualTo(remoteAction1.getAction().getPlatform());
 
     // Check that if a tool input changes, the persistent worker key changes.
     fakeFileCache.createScratchInput(toolInput, "worker value2");
-    assertThat(service.buildRemoteAction(spawn, context).getAction().getPlatform())
-        .isEqualTo(
-            Platform.newBuilder()
-                .addProperties(
-                    Platform.Property.newBuilder()
-                        .setName("persistentWorkerKey")
-                        .setValue(
-                            "98e07ff5afc8f4d127e93d326c87c132f89cfd009517422671e6abec2fe05e2b"))
-                .build());
+    var remoteAction3 = service.buildRemoteAction(spawn, context);
+    assertThat(remoteAction3.getAction().getPlatform().getPropertiesList()).hasSize(1);
+    assertThat(remoteAction3.getAction().getPlatform().getProperties(0).getName())
+        .isEqualTo("persistentWorkerKey");
+    assertThat(remoteAction3.getAction().getPlatform().getProperties(0).getValue())
+        .isNotEqualTo(remoteAction1.getAction().getPlatform().getProperties(0).getValue());
   }
 
   @Test
@@ -2617,12 +2657,6 @@ public class RemoteExecutionServiceTest {
   }
 
   private FakeSpawnExecutionContext newSpawnExecutionContext(Spawn spawn, FileOutErr outErr) {
-    ImmutableList<Artifact> actionOutputs =
-        spawn.getOutputFiles().stream()
-            .filter(i -> i instanceof Artifact)
-            .map(i -> (Artifact) i)
-            .collect(toImmutableList());
-
     var actionInputFetcher =
         new RemoteActionInputFetcher(
             new Reporter(new EventBus()),
@@ -2641,8 +2675,6 @@ public class RemoteExecutionServiceTest {
             execRoot.asFragment(),
             artifactRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
             new ActionInputMap(0),
-            actionOutputs,
-            StaticInputMetadataProvider.empty(),
             actionInputFetcher);
 
     return new FakeSpawnExecutionContext(
@@ -2681,8 +2713,15 @@ public class RemoteExecutionServiceTest {
       }
 
       @Override
-      public Map<PathFragment, Artifact> getMapping() {
-        return artifacts.stream().collect(toImmutableMap(Artifact::getExecPath, a -> a));
+      public SortedMap<PathFragment, Artifact> getMapping() {
+        return artifacts.stream()
+            .collect(
+                toImmutableSortedMap(
+                    naturalOrder(),
+                    artifact ->
+                        PathFragment.create(TestConstants.WORKSPACE_NAME)
+                            .getRelative(artifact.getRunfilesPath()),
+                    identity()));
       }
 
       @Override
@@ -2732,11 +2771,6 @@ public class RemoteExecutionServiceTest {
       }
 
       @Override
-      public boolean isLegacyExternalRunfiles() {
-        return false;
-      }
-
-      @Override
       public boolean isMappingCached() {
         return false;
       }
@@ -2762,7 +2796,7 @@ public class RemoteExecutionServiceTest {
   private static void uploadOutputsAndWait(
       RemoteExecutionService service, RemoteAction action, SpawnResult result) throws Exception {
     SettableFuture<Void> future = SettableFuture.create();
-    service.uploadOutputs(action, result, () -> future.set(null));
+    service.uploadOutputs(action, result, () -> future.set(null), ConcurrentChangesCheckLevel.OFF);
     future.get();
   }
 }

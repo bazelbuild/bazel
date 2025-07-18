@@ -13,10 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.LongVersionClientId;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ClientId.SnapshotClientId;
+
 /**
- * A snapshot of the present workspace state as of this invocation.
+ * A unique identifier for a client that interacts with the AnalysisCacheService.
  *
- * @param workspaceId a unique string identifier of this workspace
- * @param snapshotVersion a monotonically incrementing number of the snapshot.
+ * <p>This identifier exists for purposes related to caching the state of the client itself
+ * regardless of the particular requested keys.
  */
-public record ClientId(String workspaceId, int snapshotVersion) {}
+public sealed interface ClientId permits SnapshotClientId, LongVersionClientId {
+  /**
+   * A snapshot of the present workspace state as of this invocation.
+   *
+   * @param workspaceId a unique string identifier of this workspace
+   * @param snapshotVersion a monotonically incrementing number of the snapshot.
+   */
+  record SnapshotClientId(String workspaceId, int snapshotVersion) implements ClientId {}
+
+  /**
+   * The long version of the workspace for this invocation
+   *
+   * @param evaluatingVersion a unique long identifier of this workspace
+   */
+  record LongVersionClientId(long evaluatingVersion) implements ClientId {}
+}

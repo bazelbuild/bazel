@@ -102,9 +102,7 @@ public final class RewindingTest extends BuildIntegrationTestCase {
       // Necessary due to the RepositoryHelpersHolder nulling above, simulates the effect of
       // TopLevelTargetReadyForSymlinkPlanting.
       FileSystemUtils.ensureSymbolicLink(
-          getExecRootBase()
-              .getChild(TestConstants.WORKSPACE_NAME)
-              .getRelative("external/bazel_tools"),
+          directories.getExecRoot(TestConstants.WORKSPACE_NAME).getRelative("external/bazel_tools"),
           getOutputBase().getRelative("external/bazel_tools"));
     }
   }

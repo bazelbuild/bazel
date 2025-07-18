@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -26,6 +27,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.time.Duration;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 
@@ -43,8 +45,52 @@ public class RepositoryOptions extends OptionsBase {
           "Specifies the cache location of the downloaded values obtained "
               + "during the fetching of external repositories. An empty string "
               + "as argument requests the cache to be disabled, "
-              + "otherwise the default of '<output_user_root>/cache/repos/v1' is used")
-  public PathFragment experimentalRepositoryCache;
+              + "otherwise the default of '<--output_user_root>/cache/repos/v1' is used")
+  public PathFragment repositoryCache;
+
+  @Option(
+      name = "repo_contents_cache",
+      oldName = "repository_contents_cache",
+      oldNameWarning = false,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help =
+          """
+          Specifies the location of the repo contents cache, which contains fetched repo \
+          directories shareable across workspaces. An empty string as argument requests the repo \
+          contents cache to be disabled, otherwise the default of '<--repository_cache>/contents' \
+          is used. Note that this means setting '--repository_cache=' would by default disable the \
+          repo contents cache as well, unless '--repo_contents_cache=<some_path>' is also set.
+          """)
+  public PathFragment repoContentsCache;
+
+  @Option(
+      name = "repo_contents_cache_gc_max_age",
+      defaultValue = "14d",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = DurationConverter.class,
+      help =
+          """
+          Specifies the amount of time an entry in the repo contents cache can stay unused before \
+          it's garbage collected. If set to zero, garbage collection is disabled.
+          """)
+  public Duration repoContentsCacheGcMaxAge;
+
+  @Option(
+      name = "repo_contents_cache_gc_idle_delay",
+      defaultValue = "5m",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = DurationConverter.class,
+      help =
+          """
+          Specifies the amount of time the server must remain idle before garbage collection happens
+          to the repo contents cache.
+          """)
+  public Duration repoContentsCacheGcIdleDelay;
 
   @Option(
       name = "registry",
@@ -95,17 +141,6 @@ public class RepositoryOptions extends OptionsBase {
               + " fetching. Note that network access is not completely disabled; ctx.execute could"
               + " still run an arbitrary executable that accesses the Internet.")
   public boolean disableDownload;
-
-  @Option(
-      name = "incompatible_disable_native_repo_rules",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "If false, native repo rules can be used in WORKSPACE; otherwise, Starlark repo rules "
-              + "must be used instead. Native repo rules include local_repository, "
-              + "new_local_repository, local_config_platform, and android_sdk_repository.")
-  public boolean disableNativeRepoRules;
 
   @Option(
       name = "experimental_repository_downloader_retries",
@@ -195,14 +230,6 @@ public class RepositoryOptions extends OptionsBase {
   public double experimentalScaleTimeouts;
 
   @Option(
-      name = "experimental_resolved_file_instead_of_workspace",
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS},
-      help = "If non-empty read the specified resolved file instead of the WORKSPACE file")
-  public String experimentalResolvedFileInsteadOfWorkspace;
-
-  @Option(
       name = "downloader_config",
       oldName = "experimental_downloader_config",
       defaultValue = "null",
@@ -217,32 +244,6 @@ public class RepositoryOptions extends OptionsBase {
               + "`$1`. It is possible for multiple `rewrite` directives for the same URL to be "
               + "given, and in this case multiple URLs will be returned.")
   public PathFragment downloaderConfig;
-
-  /** See {@link #workerForRepoFetching}. */
-  public enum WorkerForRepoFetching {
-    OFF,
-    PLATFORM,
-    VIRTUAL,
-    AUTO;
-
-    static class Converter extends EnumConverter<WorkerForRepoFetching> {
-      public Converter() {
-        super(WorkerForRepoFetching.class, "worker for repo fetching");
-      }
-    }
-  }
-
-  @Option(
-      name = "experimental_worker_for_repo_fetching",
-      defaultValue = "auto",
-      converter = WorkerForRepoFetching.Converter.class,
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "The threading mode to use for repo fetching. If set to 'off', no worker thread is used,"
-              + " and the repo fetching is subject to restarts. Otherwise, uses a virtual worker"
-              + " thread.")
-  public WorkerForRepoFetching workerForRepoFetching;
 
   @Option(
       name = "ignore_dev_dependency",

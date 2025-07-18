@@ -387,6 +387,12 @@ public class CppRuleClasses {
   /** A string constant for a feature that, if enabled, disables .d file handling. */
   public static final String NO_DOTD_FILE = "no_dotd_file";
 
+  /**
+   * A string constant for a feature that, if enabled, shortens the virtual include paths via
+   * hashing.
+   */
+  public static final String SHORTEN_VIRTUAL_INCLUDES = "shorten_virtual_includes";
+
   /*
    * A string constant for the fdo_instrument feature.
    */

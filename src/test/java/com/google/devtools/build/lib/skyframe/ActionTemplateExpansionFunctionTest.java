@@ -385,7 +385,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     }
     ActionTemplateExpansionValue actionTemplateExpansionValue = result.get(templateKey);
     ImmutableList.Builder<Action> actionList = ImmutableList.builder();
-    for (int i = 0; i < actionTemplateExpansionValue.getNumActions(); i++) {
+    for (int i = 0; i < actionTemplateExpansionValue.getActions().size(); i++) {
       actionList.add(actionTemplateExpansionValue.getAction(i));
     }
     return actionList.build();
@@ -403,7 +403,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
   private SpecialArtifact createTreeArtifact(String path) {
     PathFragment execPath = PathFragment.create("out").getRelative(path);
     return SpecialArtifact.create(
-        ArtifactRoot.asDerivedRoot(rootDirectory, RootType.Output, "out"),
+        ArtifactRoot.asDerivedRoot(rootDirectory, RootType.OUTPUT, "out"),
         execPath,
         CTKEY,
         SpecialArtifactType.TREE);

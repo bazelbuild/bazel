@@ -314,7 +314,10 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   @Override
   public void setMainRepoTargetParser(RepositoryMapping mapping) {
     this.mainRepoTargetParser =
-        new TargetPattern.Parser(parserPrefix, RepositoryName.MAIN, mapping);
+        new TargetPattern.Parser(
+            parserPrefix,
+            RepositoryName.MAIN,
+            mapping.withAdditionalMappings(DEFAULT_MAIN_REPO_MAPPING));
   }
 
   /** Helper class that provides a framework for testing {@code PostAnalysisQueryHelper} */

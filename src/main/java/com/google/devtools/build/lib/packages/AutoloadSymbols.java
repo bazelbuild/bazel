@@ -33,10 +33,8 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
-import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -92,8 +90,6 @@ public class AutoloadSymbols {
   // bzl environment where autoloads aren't used, uninjected (not loaded yet)
   private final ImmutableMap<String, Object> uninjectedBuildBzlEnvWithoutAutoloads;
 
-  // Used for nicer error messages
-  private final boolean bzlmodEnabled;
   private final boolean autoloadsEnabled;
 
   // Should the autoloads be disabled in root project (main repository)
@@ -106,7 +102,6 @@ public class AutoloadSymbols {
   public AutoloadSymbols(RuleClassProvider ruleClassProvider, StarlarkSemantics semantics) {
     ImmutableList<String> symbolConfiguration =
         ImmutableList.copyOf(semantics.get(BuildLanguageOptions.INCOMPATIBLE_AUTOLOAD_EXTERNALLY));
-    this.bzlmodEnabled = semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
     this.disableAutoloadsInMainRepo =
         semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_AUTOLOADS_IN_MAIN_REPO);
     this.autoloadsEnabled = !symbolConfiguration.isEmpty();
@@ -440,46 +435,32 @@ public class AutoloadSymbols {
       throws InterruptedException {
 
     final RepoContext repoContext;
-    ImmutableMap<String, ModuleKey> highestVersionRepo = ImmutableMap.of();
-    if (bzlmodEnabled) {
-      BazelDepGraphValue bazelDepGraphValue =
-          (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
-      if (bazelDepGraphValue == null) {
-        return null;
-      }
-
-      highestVersionRepo =
-          bazelDepGraphValue.getCanonicalRepoNameLookup().values().stream()
-              .collect(
-                  toImmutableMap(
-                      SymbolRedirect::toRepoName,
-                      moduleKey -> moduleKey,
-                      (m1, m2) -> m1.version().compareTo(m2.version()) >= 0 ? m1 : m2));
-      RepositoryMapping repositoryMapping =
-          RepositoryMapping.create(
-              highestVersionRepo.entrySet().stream()
-                  .collect(
-                      toImmutableMap(
-                          Map.Entry::getKey,
-                          entry ->
-                              bazelDepGraphValue
-                                  .getCanonicalRepoNameLookup()
-                                  .inverse()
-                                  .get(entry.getValue()))),
-              RepositoryName.MAIN);
-      repoContext = Label.RepoContext.of(RepositoryName.MAIN, repositoryMapping);
-    } else {
-      RepositoryMappingValue repositoryMappingValue =
-          (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
-      if (repositoryMappingValue == null) {
-        return null;
-      }
-      repoContext =
-          Label.RepoContext.of(
-              RepositoryName.MAIN,
-              RepositoryMapping.createAllowingFallback(
-                  repositoryMappingValue.repositoryMapping().entries()));
+    BazelDepGraphValue bazelDepGraphValue =
+        (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
+    if (bazelDepGraphValue == null) {
+      return null;
     }
+
+    ImmutableMap<String, ModuleKey> highestVersionRepo =
+        bazelDepGraphValue.getCanonicalRepoNameLookup().values().stream()
+            .collect(
+                toImmutableMap(
+                    SymbolRedirect::toRepoName,
+                    moduleKey -> moduleKey,
+                    (m1, m2) -> m1.version().compareTo(m2.version()) >= 0 ? m1 : m2));
+    RepositoryMapping repositoryMapping =
+        RepositoryMapping.create(
+            highestVersionRepo.entrySet().stream()
+                .collect(
+                    toImmutableMap(
+                        Map.Entry::getKey,
+                        entry ->
+                            bazelDepGraphValue
+                                .getCanonicalRepoNameLookup()
+                                .inverse()
+                                .get(entry.getValue()))),
+            RepositoryName.MAIN);
+    repoContext = RepoContext.of(RepositoryName.MAIN, repositoryMapping);
 
     // Inject loads for rules and symbols removed from Bazel
     ImmutableMap.Builder<String, BzlLoadValue.Key> loadKeysBuilder =
@@ -500,18 +481,7 @@ public class AutoloadSymbols {
 
       Label label = AUTOLOAD_CONFIG.get(symbol).getLabel(repoContext);
 
-      boolean repositoryExists;
-      if (bzlmodEnabled) {
-        repositoryExists = label.getRepository().isVisible();
-      } else {
-        RepositoryDirectoryValue repo =
-            (RepositoryDirectoryValue)
-                env.getValue(RepositoryDirectoryValue.key(label.getRepository()));
-        if (repo == null) {
-          return null;
-        }
-        repositoryExists = repo.repositoryExists();
-      }
+      boolean repositoryExists = label.getRepository().isVisible();
       // Only load if the dependency is present
       if (repositoryExists) {
         loadKeysBuilder.put(symbol, BzlLoadValue.keyForBuild(label));
@@ -536,11 +506,6 @@ public class AutoloadSymbols {
 
     ImmutableMap.Builder<String, Object> newSymbols =
         ImmutableMap.builderWithExpectedSize(autoloadValues.size());
-    String workspaceWarning =
-        bzlmodEnabled
-            ? ""
-            : " Most likely you need to upgrade the version of rules repository in the"
-                + " WORKSPACE file.";
     for (Map.Entry<String, BzlLoadValue> autoload : autoloadValues.entrySet()) {
       String symbol = autoload.getKey();
       // Check if the symbol is named differently in the bzl file than natively. Renames are rare:
@@ -555,8 +520,8 @@ public class AutoloadSymbols {
         throw new AutoloadException(
             String.format(
                 "The toplevel symbol '%s' set by --incompatible_load_symbols_externally couldn't"
-                    + " be loaded. '%s' not found in auto loaded '%s'.%s",
-                symbol, newName, AUTOLOAD_CONFIG.get(symbol).loadLabel(), workspaceWarning));
+                    + " be loaded. '%s' not found in auto loaded '%s'.",
+                symbol, newName, AUTOLOAD_CONFIG.get(symbol).loadLabel()));
       }
       newSymbols.put(symbol, symbolValue); // Exposed as old name
     }
@@ -576,11 +541,8 @@ public class AutoloadSymbols {
               public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
                   throws EvalException {
                 String what =
-                    bzlmodEnabled
-                        ? "a 'bazel_dep(name = \"%s\", ...)' in your MODULE.bazel file"
-                            .formatted(AUTOLOAD_CONFIG.get(symbol).getModuleName())
-                        : "an 'http_archive(name = \"%s\", ...)' in your WORKSPACE file"
-                            .formatted(AUTOLOAD_CONFIG.get(symbol).getRepoName());
+                    "a 'bazel_dep(name = \"%s\", ...)' in your MODULE.bazel file"
+                        .formatted(AUTOLOAD_CONFIG.get(symbol).getModuleName());
                 throw Starlark.errorf(
                     "Couldn't auto load '%s' from '%s'. Ensure that you have %s or add an explicit"
                         + " load statement to your BUILD file.",
@@ -597,7 +559,6 @@ public class AutoloadSymbols {
     // These fields are used to generate all other private fields.
     // Thus, other fields don't need to be included in hash code.
     return Objects.hash(
-        bzlmodEnabled,
         autoloadedSymbols,
         removedSymbols,
         partiallyRemovedSymbols,
@@ -613,8 +574,7 @@ public class AutoloadSymbols {
     if (that instanceof AutoloadSymbols other) {
       // These fields are used to generate all other private fields.
       // Thus, other fields don't need to be included in comparison.
-      return this.bzlmodEnabled == other.bzlmodEnabled
-          && this.autoloadedSymbols.equals(other.autoloadedSymbols)
+      return this.autoloadedSymbols.equals(other.autoloadedSymbols)
           && this.removedSymbols.equals(other.removedSymbols)
           && this.partiallyRemovedSymbols.equals(other.partiallyRemovedSymbols)
           && this.reposDisallowingAutoloads.equals(other.reposDisallowingAutoloads)
@@ -695,7 +655,9 @@ public class AutoloadSymbols {
           "build_bazel_apple_support",
           "bazel_skylib",
           "bazel_tools",
-          "bazel_features");
+          "bazel_features",
+          "bazel_features_version",
+          "bazel_features_globals");
 
   private static final ImmutableMap<String, Version> requiredVersionForModules;
 

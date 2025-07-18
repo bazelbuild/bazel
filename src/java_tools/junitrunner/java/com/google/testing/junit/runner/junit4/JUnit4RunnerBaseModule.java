@@ -14,13 +14,11 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import com.google.testing.junit.runner.internal.Stdout;
 import com.google.testing.junit.runner.internal.junit4.MemoizingRequest;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
-import javax.inject.Singleton;
 import org.junit.internal.TextListener;
 import org.junit.runner.Request;
 
@@ -31,8 +29,7 @@ import org.junit.runner.Request;
  */
 public abstract class JUnit4RunnerBaseModule {
 
-  @Singleton
-  static TextListener provideTextListener(@Stdout PrintStream testRunnerOut) {
+  static TextListener provideTextListener(PrintStream testRunnerOut) {
     return new TextListener(asUtf8PrintStream(testRunnerOut));
   }
 
@@ -44,8 +41,7 @@ public abstract class JUnit4RunnerBaseModule {
     }
   }
 
-  @Singleton
-  static Request provideRequest(@TopLevelSuite Class<?> suiteClass) {
+  static Request provideRequest(Class<?> suiteClass) {
     /*
      * JUnit4Runner requests the Runner twice, once to build the model (before
      * filtering) and once to run the tests (after filtering). Constructing the

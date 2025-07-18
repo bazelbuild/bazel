@@ -2,7 +2,16 @@
   Report an issue<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
 </a>
 {% dynamic if not setvar.source_file %}
-<a class="button button-with-icon" href="https://github.com/bazelbuild/bazel/tree/master/site/en{% dynamic print request.path %}.md" target="_blank">
+{% dynamic if "version" in request.path %}
+{% dynamic setvar branchpath "/release-"+request.path.split("/")[2]+"/site/en/"+"/".join(request.path.split("/")[3:]) %}
+<a class="button button-with-icon"
+href="https://github.com/bazelbuild/bazel/tree{% dynamic print setvar.branchpath %}.md"
+target="_blank">
+{% dynamic else %}
+<a class="button button-with-icon"
+href="https://github.com/bazelbuild/bazel/tree/master/site/en{% dynamic print request.path %}.md"
+target="_blank">
+{% dynamic endif %}
   View source<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
 </a>
 {% dynamic elif setvar.source_file != "NONE" %}
@@ -22,6 +31,18 @@
 <!-- The lines below are updated by //scripts/docs:gen_new_toc -->
 <!-- BEGIN_VERSION_INDICATOR -->
 ·
+{% dynamic if setvar.version == "8.3.0" %}
+<strong>8.3</strong>
+{% dynamic else %}
+<a href="/versions/8.3.0{% dynamic print setvar.original_path %}">8.3</a>
+{% dynamic endif %}
+·
+{% dynamic if setvar.version == "8.2.0" %}
+<strong>8.2</strong>
+{% dynamic else %}
+<a href="/versions/8.2.0{% dynamic print setvar.original_path %}">8.2</a>
+{% dynamic endif %}
+·
 {% dynamic if setvar.version == "8.1.0" %}
 <strong>8.1</strong>
 {% dynamic else %}
@@ -39,18 +60,7 @@
 {% dynamic else %}
 <a href="/versions/7.6.0{% dynamic print setvar.original_path %}">7.6</a>
 {% dynamic endif %}
-·
-{% dynamic if setvar.version == "7.5.0" %}
-<strong>7.5</strong>
-{% dynamic else %}
-<a href="/versions/7.5.0{% dynamic print setvar.original_path %}">7.5</a>
-{% dynamic endif %}
-·
-{% dynamic if setvar.version == "7.4.0" %}
-<strong>7.4</strong>
-{% dynamic else %}
-<a href="/versions/7.4.0{% dynamic print setvar.original_path %}">7.4</a>
-{% dynamic endif %}
+
 <!-- END_VERSION_INDICATOR -->
 </span>
 <p/>

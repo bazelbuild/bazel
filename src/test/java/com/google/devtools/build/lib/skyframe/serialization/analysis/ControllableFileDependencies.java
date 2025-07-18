@@ -36,6 +36,11 @@ final class ControllableFileDependencies extends FileDependencies {
     this.dependencies = dependencies;
   }
 
+  @Override
+  public boolean isMissingData() {
+    return false;
+  }
+
   void awaitEarliestMatchEntered() throws InterruptedException {
     findEarliestMatchEntered.await();
   }

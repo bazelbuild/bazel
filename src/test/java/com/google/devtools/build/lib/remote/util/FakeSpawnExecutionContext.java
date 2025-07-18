@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.remote.util;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ClassToInstanceMap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.Protos.Digest;
@@ -125,8 +125,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
   @Override
   public SortedMap<PathFragment, ActionInput> getInputMapping(
-      PathFragment baseDirectory, boolean willAccessRepeatedly)
-      throws ForbiddenActionInputException {
+      PathFragment baseDirectory, boolean willAccessRepeatedly) {
     return getSpawnInputExpander().getInputMapping(spawn, inputMetadataProvider, baseDirectory);
   }
 
@@ -152,5 +151,10 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   @Override
   public RemoteActionFileSystem getActionFileSystem() {
     return actionFileSystem;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getClientEnv() {
+    return ImmutableMap.of();
   }
 }

@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_library", "java_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//src/java_tools/import_deps_checker/javatests/com/google/devtools/build/importdeps:tests.bzl", "create_golden_test")
 
 # Description:
@@ -328,5 +329,8 @@ sh_test(
 java_binary(
     name = "DumpProto",
     srcs = ["DumpProto.java"],
-    deps = ["//src/main/protobuf:deps_java_proto"],
+    deps = [
+        "//src/main/protobuf:deps_java_proto",
+        "@com_google_protobuf//:protobuf_java",
+    ],
 )

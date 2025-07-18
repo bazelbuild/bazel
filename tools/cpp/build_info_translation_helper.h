@@ -41,15 +41,15 @@ class BuildInfoTranslationHelper {
       : info_file_path_(info_file_path),
         version_file_path_(version_file_path) {}
 
-  const absl::Status ParseInfoFile(
+  absl::Status ParseInfoFile(
       std::unordered_map<std::string, std::string>& file_map);
-  const absl::Status ParseVersionFile(
+  absl::Status ParseVersionFile(
       std::unordered_map<std::string, std::string>& file_map);
 
  private:
   const std::string info_file_path_;
   const std::string version_file_path_;
-  const absl::Status ParseFile(
+  absl::Status ParseFile(
       const std::string& file_path,
       std::unordered_map<std::string, std::string>& file_map);
 };

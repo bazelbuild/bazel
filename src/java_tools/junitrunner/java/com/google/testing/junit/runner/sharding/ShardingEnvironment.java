@@ -16,7 +16,6 @@ package com.google.testing.junit.runner.sharding;
 
 import java.io.File;
 import java.io.IOException;
-import javax.inject.Inject;
 
 /**
  * Utility class that encapsulates dependencies from sharding implementations
@@ -33,7 +32,6 @@ public class ShardingEnvironment {
   /** Usage: -Dtest.sharding.strategy=round_robin */
   private static final String TEST_SHARDING_STRATEGY = "test.sharding.strategy";
 
-  @Inject
   public ShardingEnvironment() {}
 
   /**

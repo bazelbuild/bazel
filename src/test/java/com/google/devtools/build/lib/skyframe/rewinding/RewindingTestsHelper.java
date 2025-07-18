@@ -150,7 +150,7 @@ public class RewindingTestsHelper {
   private final SpawnController spawnController = new SpawnController();
   final LostImportantOutputHandlerModule lostOutputsModule;
 
-  RewindingTestsHelper(BuildIntegrationTestCase testCase, ActionEventRecorder recorder) {
+  public RewindingTestsHelper(BuildIntegrationTestCase testCase, ActionEventRecorder recorder) {
     this.testCase = checkNotNull(testCase);
     this.recorder = checkNotNull(recorder);
     this.lostOutputsModule = createLostOutputsModule();
@@ -748,7 +748,7 @@ public class RewindingTestsHelper {
    * This test sets up {@link ActionRewindStrategy#MAX_ACTION_REWIND_EVENTS} + 1 (N) genrules that
    * consume 1 ... N inputs respectively and will build each of the genrules. All N inputs will be
    * lost and throw a {@link LostInputsExecException} such that all of the genrule actions will
-   * rewind. The {@link ActionRewindingStats} event will contain the top {@link
+   * rewind. The {@link PostableActionRewindingStats} event will contain the top {@link
    * ActionRewindStrategy#MAX_ACTION_REWIND_EVENTS} action rewind events based on the maximum number
    * of nodes invalidated for each rewind action plan. The expected action rewind events logged will
    * not contain the genrule action with one input.

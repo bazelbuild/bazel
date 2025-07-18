@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.LookupAbandonedException;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.PeerFailedException;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.SkyframeLookup;
-import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.StateEvictedException;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -32,7 +34,7 @@ import javax.annotation.Nullable;
  * A partial deserialization result that may require one or more Skyframe lookups to complete.
  *
  * <p>This class is designed to reside in {@link SkyKeyComputeState}. In particular, note that
- * {@link #handleEviction} should be called.
+ * {@link #abandon} should be called.
  */
 public final class SkyframeLookupContinuation {
   private final ArrayDeque<SkyframeLookup<?>> skyframeLookups;
@@ -82,15 +84,21 @@ public final class SkyframeLookupContinuation {
   }
 
   /**
-   * Performs state eviction cleanup.
+   * Performs state cleanup.
    *
-   * <p>This must be called on {@link SkyKeyComputeState#close} of any containing compute state.
+   * <p>This must be called if the lookups cannot be completed, for example, if {@link
+   * SkyKeyComputeState#close} is called on any containing compute state or if there's an error.
    */
-  public void handleEviction() {
-    var exception = new StateEvictedException();
+  public void abandon(LookupAbandonedException exception) {
     for (SkyframeLookup<?> lookup : skyframeLookups) {
-      lookup.handleEviction(exception);
+      lookup.abandon(exception);
     }
+    skyframeLookups.clear();
+  }
+
+  @VisibleForTesting
+  ArrayDeque<SkyframeLookup<?>> getSkyframeLookupsForTesting() {
+    return skyframeLookups;
   }
 
   /**
@@ -107,8 +115,16 @@ public final class SkyframeLookupContinuation {
     }
 
     // TODO: b/335901349 - consider implementing an optimized codepath for unary lookups.
-    SkyframeLookupResult lookupResult =
-        env.getValuesAndExceptions(Iterables.transform(skyframeLookups, SkyframeLookup::getKey));
+    SkyframeLookupResult lookupResult;
+    try {
+      // This is the only method that can throw InterruptedException.
+      lookupResult =
+          env.getValuesAndExceptions(Iterables.transform(skyframeLookups, SkyframeLookup::getKey));
+    } catch (InterruptedException e) {
+      abandon(new LookupAbandonedException(e));
+      Thread.currentThread().interrupt(); // Restores the interrupted status.
+      throw e;
+    }
     int lookupCount = skyframeLookups.size();
     for (int i = 0; i < lookupCount; i++) {
       SkyframeLookup<?> lookup = skyframeLookups.pollFirst();
@@ -163,7 +179,12 @@ public final class SkyframeLookupContinuation {
     try {
       var unused = Futures.getDone(lookup);
     } catch (ExecutionException e) {
-      throw (SkyframeDependencyException) e.getCause();
+      // In general, SkyframeLookups can contain either SkyframeDependencyExceptions or
+      // LookupAbandonedExceptions. This is only reachable before any LookupAbandonedExceptions can
+      // be propagated.
+      var cause = (SkyframeDependencyException) e.getCause();
+      abandon(new PeerFailedException(cause));
+      throw cause;
     }
     throw new IllegalStateException("should have thrown an exception: " + lookup);
   }

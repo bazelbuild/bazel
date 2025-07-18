@@ -15,6 +15,10 @@ load(
     "runfiles_test",
     "wrapped_cc_lib",
 )
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_import.bzl", "cc_import")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 LINKABLE_MORE_THAN_ONCE = "LINKABLE_MORE_THAN_ONCE"
 
@@ -473,9 +477,6 @@ genrule(
 cc_library(
     name = "hdr_only",
     hdrs = [":hdr_only_hdr"],
-    linkopts = [
-        "-Wl,-rpath,hdr_only",
-    ],
 )
 
 cc_library(

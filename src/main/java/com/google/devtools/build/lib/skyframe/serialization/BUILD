@@ -57,7 +57,9 @@ java_library(
         ":serialization_registry_setup_helpers",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
-        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_services_supplier",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
     ],
 )
 
@@ -84,12 +86,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:client_id",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_cache_client",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:registered-singleton",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:file_invalidation_data_java_proto",
         "//third_party:auto_value",
         "//third_party:caffeine",
@@ -100,6 +102,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party/pprof:profile_java_proto",
         "@com_google_protobuf//:protobuf_java",
+        "@zstd-jni",
     ],
 )
 

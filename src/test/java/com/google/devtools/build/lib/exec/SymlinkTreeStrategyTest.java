@@ -85,7 +85,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
         .createSymlinkTree(any(), any());
 
     Runfiles runfiles =
-        new Runfiles.Builder("TESTING", false)
+        new Runfiles.Builder("TESTING")
             .setEmptyFilesSupplier(
                 new Runfiles.EmptyFilesSupplier() {
                   @Override
@@ -141,7 +141,7 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
     Artifact runfile = getBinArtifactWithNoOwner("dir/runfile");
 
     Runfiles runfiles =
-        new Runfiles.Builder("TESTING", false)
+        new Runfiles.Builder("TESTING")
             .setEmptyFilesSupplier(
                 new Runfiles.EmptyFilesSupplier() {
                   @Override

@@ -4,24 +4,126 @@ Book: /_book.yaml
 # External dependencies overview
 
 {% include "_buttons.html" %}
+{# disableFinding("repo") #}
 
 Bazel supports *external dependencies*, source files (both text and binary) used
 in your build that are not from your workspace. For example, they could be a
 ruleset hosted in a GitHub repo, a Maven artifact, or a directory on your local
 machine outside your current workspace.
 
-As of Bazel 6.0, there are two ways to manage external dependencies with Bazel:
-the traditional, repository-focused [`WORKSPACE` system](#workspace-system), and
-the newer module-focused [`MODULE.bazel` system](#bzlmod) (codenamed *Bzlmod*,
-and enabled with the flag `--enable_bzlmod`). The two systems can be used
-together, but Bzlmod is replacing the `WORKSPACE` system in future Bazel
-releases, check the [Bzlmod migration guide](/external/migration) on how to
-migrate.
+This document gives an overview of the system before examining some of the
+concepts in more detail.
 
-This document explains the concepts surrounding external dependency management
-in Bazel, before going into a bit more detail about the two systems in order.
+## Overview of the system {:#overview}
+
+Bazel's external dependency system works on the basis of [*Bazel
+modules*](#module), each of which is a versioned Bazel project, and
+[*repositories*](#repository) (or repos), which are directory trees containing
+source files.
+
+Bazel starts from the root module -- that is, the project you're working on.
+Like all modules, it needs to have a `MODULE.bazel` file at its directory root,
+declaring its basic metadata and direct dependencies. The following is a basic
+example:
+
+```python
+module(name = "my-module", version = "1.0")
+
+bazel_dep(name = "rules_cc", version = "0.1.1")
+bazel_dep(name = "platforms", version = "0.0.11")
+```
+
+From there, Bazel looks up all transitive dependency modules in a
+[*Bazel registry*](registry) — by default, the [Bazel Central
+Registry](https://bcr.bazel.build/). The registry provides the
+dependencies' `MODULE.bazel` files, which allows Bazel to discover the entire
+transitive dependency graph before performing version resolution.
+
+After version resolution, in which one version is selected for each module,
+Bazel consults the registry again to learn how to define a repo for each module
+-- that is, how the sources for each dependency module should be fetched. Most
+of the time, these are just archives downloaded from the internet and extracted.
+
+Modules can also specify customized pieces of data called *tags*, which are
+consumed by [*module extensions*](extension) after module resolution
+to define additional repos. These extensions can perform actions like file I/O
+and sending network requests. Among other things, they allow Bazel to interact
+with other package management systems while also respecting the dependency graph
+built out of Bazel modules.
+
+The three kinds of repos -- the main repo (which is the source tree you're
+working in), the repos representing transitive dependency modules, and the repos
+created by module extensions -- form the [*workspace*](#workspace) together.
+External repos (non-main repos) are fetched on demand, for example when they're
+referred to by labels (like `@repo//pkg:target`) in BUILD files.
+
+## Benefits {:#benefits}
+
+Bazel's external dependency system offers a wide range of benefits.
+
+### Automatic Dependency Resolution {:#automatic-dependency-resolution}
+
+-   **Deterministic Version Resolution**: Bazel adopts the deterministic
+    [MVS](module#version-selection) version resolution algorithm,
+    minimizing conflicts and addressing diamond dependency issues.
+-   **Simplified Dependency Management**: `MODULE.bazel` declares only direct
+    dependencies, while transitive dependencies are automatically resolved,
+    providing a clearer overview of the project's dependencies.
+-   **[Strict Dependency visibility](module#repository_names_and_strict_deps)**:
+    Only direct dependencies are visible, ensuring correctness and
+    predictability.
+
+### Ecosystem Integration {:#ecosystem-integration}
+
+-   **[Bazel Central Registry](https://registry.bazel.build/)**: A centralized
+    repository for discovering and managing common dependencies as Bazel
+    modules.
+-   **Adoption of Non-Bazel Projects**: When a non-Bazel project (usually a C++
+    library) is adapted for Bazel and made available in BCR, it streamlines its
+    integration for the whole community and eliminates duplicated effort and
+    conflicts of custom BUILD files.
+-   **Unified Integration with Language-Specific Package Managers**: Rulesets
+    streamline integration with external package managers for non-Bazel
+    dependencies, including:
+    *   [rules_jvm_external](https://github.com/bazel-contrib/rules_jvm_external/blob/master/docs/bzlmod.md)
+        for Maven,
+    *   [rules_python](https://rules-python.readthedocs.io/en/latest/pypi-dependencies.html#using-bzlmod)
+        for PyPi,
+    *   [bazel-gazelle](https://github.com/bazel-contrib/rules_go/blob/master/docs/go/core/bzlmod.md#external-dependencies)
+        for Go Modules,
+    *   [rules_rust](https://bazelbuild.github.io/rules_rust/crate_universe_bzlmod.html)
+        for Cargo.
+
+### Advanced Features {:#advanced-features}
+
+-   **[Module Extensions](extension)**: The
+    [`use_repo_rule`](/rules/lib/globals/module#use_repo_rule) and module
+    extension features allow flexible use of custom repository rules and
+    resolution logic to introduce any non-Bazel dependencies.
+-   **[`bazel mod` Command](mod-command)**: The sub-command offers
+    powerful ways to inspect external dependencies. You know exactly how an
+    external dependency is defined and where it comes from.
+-   **[Vendor Mode](vendor)**: Pre-fetch the exact external dependencies you
+    need to facilitate offline builds.
+-   **[Lockfile](lockfile)**: The lockfile improves build reproducibility and
+    accelerates dependency resolution.
+-   **(Upcoming) [BCR Provenance
+    Attestations](https://github.com/bazelbuild/bazel-central-registry/discussions/2721)**:
+    Strengthen supply chain security by ensuring verified provenance of
+    dependencies.
 
 ## Concepts {:#concepts}
+
+This section gives more detail on concepts related to external dependencies.
+
+### Module {:#module}
+
+A Bazel project that can have multiple versions, each of which can have
+dependencies on other modules.
+
+In a local Bazel workspace, a module is represented by a repository.
+
+For more details, see [Bazel modules](module).
 
 ### Repository {:#repository}
 
@@ -52,7 +154,7 @@ repository, and sometimes even used as a synonym of "repository".
 
 ### Canonical repository name {:#canonical-repo-name}
 
-The canonical name a repository is addressable by. Within the context of a
+The name by which a repository is always addressable. Within the context of a
 workspace, each repository has a single canonical name. A target inside a repo
 whose canonical name is `canonical_name` can be addressed by the label
 `@@canonical_name//package:target` (note the double `@`).
@@ -61,9 +163,9 @@ The main repository always has the empty string as the canonical name.
 
 ### Apparent repository name {:#apparent-repo-name}
 
-The name a repository is addressable by in the context of a certain other repo.
-This can be thought of as a repo's "nickname": The repo with the canonical name
-`michael` might have the apparent name `mike` in the context of the repo
+The name by which a repository is addressable in the context of a certain other
+repo. This can be thought of as a repo's "nickname": The repo with the canonical
+name `michael` might have the apparent name `mike` in the context of the repo
 `alice`, but might have the apparent name `mickey` in the context of the repo
 `bob`. In this case, a target inside `michael` can be addressed by the label
 `@mike//package:target` in the context of `alice` (note the single `@`).
@@ -79,7 +181,7 @@ and extract it", or "fetch a certain Maven artifact and make it available as a
 `java_import` target", or simply "symlink a local directory". Every repo is
 **defined** by calling a repo rule with an appropriate number of arguments.
 
-See [Repository rules](/external/repo) for more information about how to write
+See [Repository rules](repo) for more information about how to write
 your own repository rules.
 
 The most common repo rules by far are
@@ -144,62 +246,11 @@ repo(
 )
 ```
 
-## Manage external dependencies with Bzlmod {:#bzlmod}
+## The legacy WORKSPACE system {:#workspace-system}
 
-Bzlmod, the new external dependency subsystem, does not directly work with repo
-definitions. Instead, it builds a dependency graph from _modules_, runs
-_extensions_ on top of the graph, and defines repos accordingly.
-
-A [Bazel **module**](/external/module) is a Bazel project that can have multiple
-versions, each of which publishes metadata about other modules that it depends
-on. A module must have a `MODULE.bazel` file at its repo root, next to the
-`WORKSPACE` file. This file is the module's manifest, declaring its name,
-version, list of dependencies, among other information. The following is a basic
-example:
-
-```python
-module(name = "my-module", version = "1.0")
-
-bazel_dep(name = "rules_cc", version = "0.0.1")
-bazel_dep(name = "protobuf", version = "3.19.0")
-```
-
-A module must only list its direct dependencies, which Bzlmod looks up in a
-[Bazel registry](/external/registry) — by default, the [Bazel Central
-Registry](https://bcr.bazel.build/){:.external}. The registry provides the
-dependencies' `MODULE.bazel` files, which allows Bazel to discover the entire
-transitive dependency graph before performing version resolution.
-
-After version resolution, in which one version is selected for each module,
-Bazel consults the registry again to learn how to define a repo for each module
-(in most cases, using `http_archive`).
-
-Modules can also specify customized pieces of data called *tags*, which are
-consumed by [**module extensions**](/external/extension) after module resolution
-to define additional repos. These extensions have capabilities similar to repo
-rules, enabling them to perform actions like file I/O and sending network
-requests. Among other things, they allow Bazel to interact with other package
-management systems while also respecting the dependency graph built out of Bazel
-modules.
-
-### Advantages of Bzlmod {:#advantages-bzlmod}
-
-Bzlmod improves dependency resolution, ecosystem integration, build reliability
-and security ([see details](/external/migration#benefits-of-bzlmod)).
-
-### External links on Bzlmod {:#external-links}
-
-*   [Bzlmod usage examples in bazelbuild/examples](https://github.com/bazelbuild/examples/tree/main/bzlmod){:.external}
-*   [Bazel External Dependencies Overhaul](https://docs.google.com/document/d/1moQfNcEIttsk6vYanNKIy3ZuK53hQUFq1b1r0rmsYVg/edit){: .external}
-    (original Bzlmod design doc)
-*   [BazelCon 2021 talk on Bzlmod](https://www.youtube.com/watch?v=TxOCKtU39Fs){: .external}
-*   [Bazel Community Day talk on Bzlmod](https://www.youtube.com/watch?v=MB6xxis9gWI){: .external}
-
-## Define repos with `WORKSPACE` {:#workspace-system}
-
-Historically, you can manage external dependencies by defining repos in the
-`WORKSPACE` (or `WORKSPACE.bazel`) file. This file has a similar syntax to
-`BUILD` files, employing repo rules instead of build rules.
+In older Bazel versions (before 9.0), external dependencies were introduced by
+defining repos in the `WORKSPACE` (or `WORKSPACE.bazel`) file. This file has a
+similar syntax to `BUILD` files, employing repo rules instead of build rules.
 
 The following snippet is an example to use the `http_archive` repo rule in the
 `WORKSPACE` file:
@@ -222,8 +273,8 @@ See the [full list](/rules/lib/globals/workspace) of functions available in
 
 ### Shortcomings of the `WORKSPACE` system {:#workspace-shortcomings}
 
-In the years since the `WORKSPACE` system was introduced, users have reported
-many pain points, including:
+In the years after the `WORKSPACE` system was introduced, users reported many
+pain points, including:
 
 *   Bazel does not evaluate the `WORKSPACE` files of any dependencies, so all
     transitive dependencies must be defined in the `WORKSPACE` file of the main
@@ -241,6 +292,15 @@ many pain points, including:
         version resolution in the case of diamond dependencies (`A` depends on
         `B` and `C`; `B` and `C` both depend on different versions of `D`).
 
-Due to the shortcomings of WORKSPACE, Bzlmod is going to replace the legacy
-WORKSPACE system in future Bazel releases. Please read the [Bzlmod migration
-guide](/external/migration) on how to migrate to Bzlmod.
+Due to the shortcomings of WORKSPACE, the new module-based system (codenamed
+"Bzlmod") gradually replaced the legacy WORKSPACE system between Bazel 6 and 9.
+Read the [Bzlmod migration guide](migration) on how to migrate
+to Bzlmod.
+
+### External links on Bzlmod {:#external-links}
+
+*   [Bzlmod usage examples in bazelbuild/examples](https://github.com/bazelbuild/examples/tree/main/bzlmod)
+*   [Bazel External Dependencies Overhaul](https://docs.google.com/document/d/1moQfNcEIttsk6vYanNKIy3ZuK53hQUFq1b1r0rmsYVg/edit)
+    (original Bzlmod design doc)
+*   [BazelCon 2021 talk on Bzlmod](https://www.youtube.com/watch?v=TxOCKtU39Fs)
+*   [Bazel Community Day talk on Bzlmod](https://www.youtube.com/watch?v=MB6xxis9gWI)

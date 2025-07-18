@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.collect;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie.PathFragmentAlreadyAddedException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,7 +45,7 @@ public class PathFragmentPrefixTrieTest {
   }
 
   @Test
-  public void testSimpleInclusions() {
+  public void testSimpleInclusions() throws Exception {
     PathFragmentPrefixTrie trie = new PathFragmentPrefixTrie();
 
     trie.put(PathFragment.create("a"), true);
@@ -59,7 +60,7 @@ public class PathFragmentPrefixTrieTest {
   }
 
   @Test
-  public void testSimpleExclusions() {
+  public void testSimpleExclusions() throws Exception {
     PathFragmentPrefixTrie trie = new PathFragmentPrefixTrie();
 
     trie.put(PathFragment.create("a"), true);
@@ -73,7 +74,7 @@ public class PathFragmentPrefixTrieTest {
   }
 
   @Test
-  public void testAncestors() {
+  public void testAncestors() throws Exception {
     PathFragmentPrefixTrie trie = new PathFragmentPrefixTrie();
 
     trie.put(PathFragment.create("a/b/c"), true);
@@ -104,27 +105,35 @@ public class PathFragmentPrefixTrieTest {
   }
 
   @Test
-  public void testSamePathFragmentIncludedAndExcluded_isDisallowed() {
+  public void testSamePathFragmentIncludedAndExcluded_isDisallowed() throws Exception {
     PathFragmentPrefixTrie trie = new PathFragmentPrefixTrie();
 
     trie.put(PathFragment.create("a/b/c"), false);
-    IllegalArgumentException e =
+    PathFragmentAlreadyAddedException e =
         assertThrows(
-            IllegalArgumentException.class, () -> trie.put(PathFragment.create("a/b/c"), true));
+            PathFragmentAlreadyAddedException.class,
+            () -> trie.put(PathFragment.create("a/b/c"), true));
     assertThat(e)
         .hasMessageThat()
-        .contains("a/b/c has already been explicitly marked as excluded.");
+        .contains(
+            "a/b/c has already been explicitly marked as excluded. Current state: [included:"
+                + " [], excluded: [a/b/c]]");
 
     trie.put(PathFragment.create("a/b"), true);
 
     e =
         assertThrows(
-            IllegalArgumentException.class, () -> trie.put(PathFragment.create("a/b"), false));
-    assertThat(e).hasMessageThat().contains("a/b has already been explicitly marked as included.");
+            PathFragmentAlreadyAddedException.class,
+            () -> trie.put(PathFragment.create("a/b"), false));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "a/b has already been explicitly marked as included. Current state: [included:"
+                + " [a/b], excluded: [a/b/c]]");
   }
 
   @Test
-  public void testStringRepr() {
+  public void testStringRepr() throws Exception {
     PathFragmentPrefixTrie trie = new PathFragmentPrefixTrie();
 
     trie.put(PathFragment.create("a"), true);
@@ -135,4 +144,5 @@ public class PathFragmentPrefixTrieTest {
 
     assertThat(trie.toString()).isEqualTo("[included: [a, a/b/c, e], excluded: [a/b, a/b/d]]");
   }
+
 }

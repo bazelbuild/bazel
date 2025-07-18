@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -351,10 +351,13 @@ EOF
 }
 
 function test_counts_exclusive_tests_in_total_work() {
+  add_rules_shell "MODULE.bazel"
+
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "mkdir $pkg"
 
   cat >"${pkg}/BUILD" <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 [sh_test(
     name = "t%d" % i,
     srcs = ["test.sh"],

@@ -35,8 +35,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNode;
 import com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.FileOpNodeOrEmpty;
@@ -68,7 +66,6 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -93,7 +90,6 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
   private final InMemoryGraph graph;
   private final ObjectCodecs codecs;
   private final FrontierNodeVersion frontierVersion;
-  private final Predicate<PackageIdentifier> matcher;
 
   private final FingerprintValueService fingerprintValueService;
 
@@ -104,7 +100,7 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
 
   private final EventBus eventBus;
   private final ProfileCollector profileCollector;
-  private final AtomicInteger frontierValueCount;
+  private final AtomicInteger serializedCount;
 
   /** Uploads the entries of {@code selection} to {@code fingerprintValueService}. */
   static ListenableFuture<Void> uploadSelection(
@@ -112,12 +108,11 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
       LongVersionGetter versionGetter,
       ObjectCodecs codecs,
       FrontierNodeVersion frontierVersion,
-      Predicate<PackageIdentifier> matcher,
       ImmutableMap<SkyKey, SelectionMarking> selection,
       FingerprintValueService fingerprintValueService,
       EventBus eventBus,
       ProfileCollector profileCollector,
-      AtomicInteger frontierValueCount) {
+      AtomicInteger serializedCount) {
     var fileOpNodes = new FileOpNodeMemoizingLookup(graph);
     var fileDependencySerializer =
         new FileDependencySerializer(versionGetter, graph, fingerprintValueService);
@@ -127,14 +122,13 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
             graph,
             codecs,
             frontierVersion,
-            matcher,
             fingerprintValueService,
             fileOpNodes,
             fileDependencySerializer,
             writeStatuses,
             eventBus,
             profileCollector,
-            frontierValueCount);
+            serializedCount);
     selection.entrySet().parallelStream().forEach(serializer);
     writeStatuses.notifyAllStarted();
     return writeStatuses;
@@ -144,25 +138,24 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
       InMemoryGraph graph,
       ObjectCodecs codecs,
       FrontierNodeVersion frontierVersion,
-      Predicate<PackageIdentifier> matcher,
       FingerprintValueService fingerprintValueService,
       FileOpNodeMemoizingLookup fileOpNodes,
       FileDependencySerializer fileDependencySerializer,
       WriteStatusesFuture writeStatuses,
       EventBus eventBus,
       ProfileCollector profileCollector,
-      AtomicInteger frontierValueCount) {
+      AtomicInteger serializedCount) {
     this.graph = graph;
     this.codecs = codecs;
     this.frontierVersion = frontierVersion;
-    this.matcher = matcher;
+
     this.fingerprintValueService = fingerprintValueService;
     this.fileOpNodes = fileOpNodes;
     this.fileDependencySerializer = fileDependencySerializer;
     this.writeStatuses = writeStatuses;
     this.eventBus = eventBus;
     this.profileCollector = profileCollector;
-    this.frontierValueCount = frontierValueCount;
+    this.serializedCount = serializedCount;
   }
 
   @Override
@@ -170,56 +163,15 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
     // TODO: b/371508153 - only upload nodes that were freshly computed by this invocation and
     // unaffected by local, un-submitted changes.
     SkyKey key = entry.getKey();
-    SelectionMarking marking = entry.getValue();
     try {
       switch (key) {
         case ActionLookupKey actionLookupKey:
-          if (hasActiveDependency(marking, actionLookupKey.getLabel())) {
-            // When Bazel runs an action, it assumes that the analysis node that generated the
-            // action is already in RAM and thus the action can be accessed by simply looking it up
-            // in Skyframe and that operation is guaranteed to require no further Skyframe
-            // evaluation. It crashes with a not-yet-present owner error if this condition is not
-            // satisfied.
-            //
-            // Note that with frontier-based invalidation, the client will never retrieve remotely
-            // written nodes that are in the active directories, even if they are written. So to
-            // avoid the not-yet-present owner exception, we ensure that any action execution value
-            // that might be retrieved as the result of an analysis cache hit is available in the
-            // cache (both written to the cache and outside of an active-directory). To achieve
-            // this, it suffices to avoid writing nodes to cache that are outside of the active
-            // directories but have dependencies in the active directories. Nodes that are outside
-            // of the active directories and have no dependencies in the active directories
-            // encounter no excluding conditions to having their transitive input action values
-            // serialized. Since all the action values are serialized, actual action execution is
-            // avoided.
-            //
-            // This is brittle in cases of orphaned actions, but is a transitional step towards
-            // granular invalidation, which won't have this problem.
-            return; // Needed to avoid Not-yet-present artifact owner.
-          }
           uploadEntry(actionLookupKey, actionLookupKey);
           break;
         case ActionLookupData lookupData:
-          if (hasActiveDependency(marking, lookupData.getLabel())) {
-            // It's necessary to avoid serializing action execution values that have dependencies
-            // in the active directories but are not inside the active directories themselves for
-            // incremental correctness.
-            //
-            // The reason is that such values have transitive dependencies in the active
-            // directories but won't have the corresponding Skyframe edges. They are thus not
-            // invalidated when the corresponding transitive dependencies are invalidated, as they
-            // need to be.
-            //
-            // Note that this same reasoning applies to ActionLookupKeys as well, in addition to the
-            // immediate not-yet-present owner error encountered when serializing those.
-            return;
-          }
           uploadEntry(lookupData, checkNotNull(lookupData.getActionLookupKey(), lookupData));
           break;
         case DerivedArtifact artifact:
-          if (hasActiveDependency(marking, artifact.getOwnerLabel())) {
-            return; // This is needed for incremental correctness.
-          }
           // This case handles the subclasses of DerivedArtifact. DerivedArtifact itself will show
           // up here as ActionLookupData.
           uploadEntry(artifact, checkNotNull(artifact.getArtifactOwner(), artifact));
@@ -227,25 +179,11 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
         default:
           throw new AssertionError("Unexpected selected type: " + key.getCanonicalName());
       }
-      frontierValueCount.getAndIncrement();
+      serializedCount.getAndIncrement();
       eventBus.post(new SerializedNodeEvent(key));
     } catch (SerializationException e) {
       writeStatuses.addWriteStatus(immediateFailedFuture(e));
     }
-  }
-
-  /**
-   * True if the entry is outside of the active directories, but has dependencies inside the active
-   * directories.
-   *
-   * <p>With frontier-based invalidation, these must not be serialized. If an entry satisfying this
-   * condition is fetched remotely, it won't have any explicit Skyframe dependencies. So if a change
-   * were to invalidate any of its locally evaluated dependencies, the remotely fetched node would
-   * become stale but not invalidated.
-   */
-  // TODO: b/364831651 - remove this special casing when granular invalidation becomes available.
-  private boolean hasActiveDependency(SelectionMarking marking, Label label) {
-    return marking == SelectionMarking.ACTIVE && !matcher.test(label.getPackageIdentifier());
   }
 
   /**

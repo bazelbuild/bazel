@@ -16,6 +16,8 @@ package net.starlark.java.eval;
 
 import java.math.BigInteger;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
 
 /** The Starlark int data type. */
 @StarlarkBuiltin(
@@ -33,6 +35,10 @@ import net.starlark.java.annot.StarlarkBuiltin;
             + "int(\"18\")\n"
             + "</pre>")
 public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkInt> {
+  @Override
+  public StarlarkType getStarlarkType() {
+    return Types.INT;
+  }
 
   // A cache of small integers >= LEAST_SMALLINT.
   private static final int LEAST_SMALLINT = -128;
@@ -387,14 +393,10 @@ public abstract class StarlarkInt implements StarlarkValue, Comparable<StarlarkI
     if (this instanceof Int32) {
       return ((Int32) this).v;
     }
-    // Use a constant exception to avoid allocation.
     // This operator is provided for fast access and case discrimination.
     // Use toInt(String) for user-visible errors.
-    throw NOT_INT32;
+    throw new IllegalArgumentException("not a signed 32-bit value");
   }
-
-  private static final IllegalArgumentException NOT_INT32 =
-      new IllegalArgumentException("not a signed 32-bit value");
 
   /** Returns the result of truncating this value into the signed 32-bit range. */
   public int truncateToInt() {

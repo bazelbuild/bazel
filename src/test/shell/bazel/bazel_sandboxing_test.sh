@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -132,11 +132,14 @@ function test_can_enable_pseudoterminals() {
     return 0
   fi
 
+  add_rules_python "MODULE.bazel"
   cat > test.py <<'EOF'
 import pty
 pty.openpty()
 EOF
   cat > BUILD <<'EOF'
+load("@rules_python//python:py_test.bzl", "py_test")
+
 py_test(
   name = "test",
   srcs = ["test.py"],
@@ -173,13 +176,13 @@ EOF
     && fail "build should have failed with hermetic sandbox" || true
   expect_log "child exited normally with code 1"
 
-  bazel build --verbose_failures --sandbox_debug --incompatible_sandbox_hermetic_tmp :broken &> $TEST_log \
+  bazel build --verbose_failures --sandbox_debug :broken &> $TEST_log \
     && fail "build should have failed with hermetic sandbox /tmp" || true
   expect_log "child exited normally with code 1"
 }
 
 function test_sandbox_expands_tree_artifacts_in_runfiles_tree() {
-
+  add_rules_shell "MODULE.bazel"
   cat > def.bzl <<'EOF'
 def _mkdata_impl(ctx):
     out = ctx.actions.declare_directory(ctx.label.name + ".d")
@@ -200,7 +203,7 @@ mkdata = rule(
 EOF
 
   cat > mkdata_test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
@@ -217,6 +220,7 @@ EOF
 
   cat > BUILD <<'EOF'
 load("//:def.bzl", "mkdata")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 mkdata(name = "mkdata")
 
@@ -325,8 +329,11 @@ EOF
 function setup_tmp_hermeticity_check() {
   local -r tmpdir=$1
 
+  add_rules_cc "MODULE.bazel"
   mkdir -p test
   cat > test/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
     name = "create_file",
     srcs = ["create_file.cc"],
@@ -689,7 +696,7 @@ EOF
 
 function test_hermetic_tmp_under_tmp {
   if [[ "$(uname -s)" != Linux ]]; then
-    echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
+    echo "Skipping test: hermetic /tmp is only supported in Linux" 1>&2
     return 0
   fi
 
@@ -706,8 +713,11 @@ function test_hermetic_tmp_under_tmp {
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name="repo", path="${temp_dir}/repo")
 EOF
+  add_rules_shell "MODULE.bazel"
 
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 genrule(
   name = "g",
   outs = ["go"],
@@ -772,7 +782,6 @@ EOF
   bazel \
     --output_base="${temp_dir}/output-base" \
     build \
-    --incompatible_sandbox_hermetic_tmp \
     --package_path="%workspace%:${temp_dir}/package-path" \
     //a:t || fail "build failed"
 }

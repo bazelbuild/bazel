@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
@@ -85,7 +86,7 @@ public final class WorkerTest {
     SandboxInputs sandboxInputs = null;
     SandboxOutputs sandboxOutputs = null;
     worker.prepareExecution(
-        sandboxInputs, sandboxOutputs, key.getWorkerFilesWithDigests().keySet());
+        sandboxInputs, sandboxOutputs, key.getWorkerFilesWithDigests().keySet(), ImmutableMap.of());
 
     workerForCleanup = worker;
 
@@ -124,13 +125,13 @@ public final class WorkerTest {
     testWorker.putRequest(WorkRequest.getDefaultInstance());
 
     OutputStream stdout = testWorker.getFakeSubprocess().getOutputStream();
-    assertThat(stdout.toString()).isEqualTo("{}" + System.lineSeparator());
+    assertThat(stdout.toString()).isEqualTo("{}\n");
   }
 
   @Test
   public void testGetResponse_json_success()
       throws IOException, InterruptedException, UserExecException {
-    TestWorker testWorker = createTestWorker(("{}" + System.lineSeparator()).getBytes(UTF_8), JSON);
+    TestWorker testWorker = createTestWorker("{}\n".getBytes(UTF_8), JSON);
     WorkResponse readResponse = testWorker.getResponse(0);
     WorkResponse response = WorkResponse.getDefaultInstance();
 
@@ -157,9 +158,7 @@ public final class WorkerTest {
 
     OutputStream stdout = testWorker.getFakeSubprocess().getOutputStream();
     String requestJsonString =
-        "{\"arguments\":[\"testRequest\"],\"inputs\":"
-            + "[{\"path\":\"testPath\",\"digest\":\"dGVzdERpZ2VzdA==\"}],\"requestId\":1,\"verbosity\":11}"
-            + System.lineSeparator();
+        "{\"arguments\":[\"testRequest\"],\"inputs\":[{\"path\":\"testPath\",\"digest\":\"dGVzdERpZ2VzdA==\"}],\"requestId\":1,\"verbosity\":11}\n";
     assertThat(stdout.toString()).isEqualTo(requestJsonString);
   }
 
@@ -178,8 +177,7 @@ public final class WorkerTest {
 
   private void verifyGetResponseFailure(String responseString, String expectedError)
       throws IOException, InterruptedException, UserExecException {
-    TestWorker testWorker =
-        createTestWorker((responseString + System.lineSeparator()).getBytes(UTF_8), JSON);
+    TestWorker testWorker = createTestWorker((responseString + "\n").getBytes(UTF_8), JSON);
     IOException ex = assertThrows(IOException.class, () -> testWorker.getResponse(0));
     assertThat(ex).hasMessageThat().contains(expectedError);
   }

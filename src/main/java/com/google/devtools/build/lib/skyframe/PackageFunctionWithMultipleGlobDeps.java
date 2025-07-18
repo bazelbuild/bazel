@@ -139,7 +139,7 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
     private final Set<SkyKey> globDepKeys;
 
     private LoadedPackageWithGlobDeps(
-        Package.Builder builder, long loadTimeNanos, Set<SkyKey> globDepKeys) {
+        Package.AbstractBuilder builder, long loadTimeNanos, Set<SkyKey> globDepKeys) {
       super(builder, loadTimeNanos);
       this.globDepKeys = globDepKeys;
     }
@@ -401,7 +401,7 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
 
   @Override
   protected LoadedPackage newLoadedPackage(
-      Package.Builder packageBuilder, @Nullable Globber globber, long loadTimeNanos) {
+      Package.AbstractBuilder packageBuilder, @Nullable Globber globber, long loadTimeNanos) {
     Set<SkyKey> globDepKeys = ImmutableSet.of();
     if (globber != null) {
       globDepKeys = ((SkyframeHybridGlobber) globber).getGlobDepsRequested();

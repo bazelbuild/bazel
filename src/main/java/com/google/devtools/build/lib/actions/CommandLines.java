@@ -105,14 +105,14 @@ public abstract sealed class CommandLines {
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
       ArgChunk chunk = commandLine.expand(inputMetadataProvider, pathMapper);
       if (paramFileInfo == null) {
-        arguments.addAll(chunk.arguments());
-        cmdLineLength += chunk.totalArgLength();
+        arguments.addAll(chunk.arguments(pathMapper));
+        cmdLineLength += chunk.totalArgLength(pathMapper);
       } else {
         boolean useParamFile = true;
         if (!paramFileInfo.always()) {
-          int tentativeCmdLineLength = cmdLineLength + chunk.totalArgLength();
+          int tentativeCmdLineLength = cmdLineLength + chunk.totalArgLength(pathMapper);
           if (tentativeCmdLineLength <= conservativeMaxLength) {
-            arguments.addAll(chunk.arguments());
+            arguments.addAll(chunk.arguments(pathMapper));
             cmdLineLength = tentativeCmdLineLength;
             useParamFile = false;
           }
@@ -135,16 +135,16 @@ public abstract sealed class CommandLines {
             paramFiles.add(
                 new ParamFileActionInput(
                     paramFileExecPath,
-                    ParameterFile.flagsOnly(chunk.arguments()),
+                    ParameterFile.flagsOnly(chunk.arguments(pathMapper)),
                     paramFileInfo.getFileType()));
-            for (String positionalArg : ParameterFile.nonFlags(chunk.arguments())) {
+            for (String positionalArg : ParameterFile.nonFlags(chunk.arguments(pathMapper))) {
               arguments.add(positionalArg);
               cmdLineLength += positionalArg.length() + 1;
             }
           } else {
             paramFiles.add(
                 new ParamFileActionInput(
-                    paramFileExecPath, chunk.arguments(), paramFileInfo.getFileType()));
+                    paramFileExecPath, chunk.arguments(pathMapper), paramFileInfo.getFileType()));
           }
         }
       }

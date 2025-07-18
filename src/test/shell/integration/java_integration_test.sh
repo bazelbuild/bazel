@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -42,6 +42,7 @@ add_to_bazelrc "build --package_path=%workspace%"
 
 function set_up() {
   add_rules_java MODULE.bazel
+  add_platforms MODULE.bazel
 }
 
 #### HELPER FUNCTIONS ##################################################
@@ -149,9 +150,15 @@ EOF
 load("@rules_java//java:java_library.bzl", "java_library")
 package(default_visibility=['//visibility:public'])
 java_library(name = 'hello_library',
-             srcs = ['HelloLibrary.java']);
+             srcs = ['HelloLibrary.java', 'module-info.java'],
+             resources = ['hello.properties'],
+             );
 EOF
-
+  touch $pkg/java/hello_library/hello.properties
+  cat > $pkg/java/hello_library/module-info.java <<EOF
+module hello {
+}
+EOF
   cat >$pkg/java/hello_library/HelloLibrary.java <<EOF
 package hello_library;
 public class HelloLibrary {
@@ -853,37 +860,6 @@ EOF
   expect_log "symbol not found missing.NoSuch"
 }
 
-function test_java_import_with_empty_jars_attribute() {
-  local -r pkg="${FUNCNAME[0]}"
-  mkdir -p $pkg/java/hello/ || fail "Expected success"
-  cat > $pkg/java/hello/Hello.java <<EOF
-package hello;
-public class Hello {
-  public static void main(String[] args) {
-    System.out.println("Hello World!");
-  }
-}
-EOF
-  cat > $pkg/java/hello/BUILD <<EOF
-load("@rules_java//java:java_binary.bzl", "java_binary")
-load("@rules_java//java:java_import.bzl", "java_import")
-java_import(
-    name='empty_java_import',
-    jars=[]
-)
-java_binary(
-    name='hello',
-    srcs=['Hello.java'],
-    deps=[':empty_java_import'],
-    main_class = 'hello.Hello'
-)
-EOF
-  bazel build --incompatible_disallow_java_import_empty_jars=0 //$pkg/java/hello:hello //$pkg/java/hello:hello_deploy.jar >& "$TEST_log" \
-      || fail "Expected success"
-  bazel run --incompatible_disallow_java_import_empty_jars=0 //$pkg/java/hello:hello -- --singlejar >& "$TEST_log"
-  expect_log "Hello World!"
-}
-
 function test_arg_compile_action() {
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
@@ -919,6 +895,19 @@ EOF
 
   cat "${PRODUCT_NAME}-bin/${package}/aspect_out" | grep "0.params .*1.params" \
       || fail "aspect Args do not contain both params files"
+}
+
+# https://github.com/bazelbuild/rules_java/issues/293
+function test_class_jar_retains_module_info() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir "$pkg" || fail "mkdir $pkg"
+  write_hello_library_files "$pkg"
+
+  bazel build -s //$pkg/java/main:main || fail "build failed"
+  unzip -l ${PRODUCT_NAME}-bin/$pkg/java/hello_library/libhello_library.jar \
+    > $TEST_log
+  expect_log "/hello.properties" "missing resources file"
+  expect_log " module-info.class" "missing module-info file"
 }
 
 run_suite "Java integration tests"

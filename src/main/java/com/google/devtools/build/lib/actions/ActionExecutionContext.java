@@ -43,6 +43,7 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
+import java.util.SortedMap;
 import javax.annotation.Nullable;
 
 /** A class that groups services in the scope of the action. Like the FileOutErr object. */
@@ -67,7 +68,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     }
 
     @Override
-    public Map<PathFragment, Artifact> getMapping() {
+    public SortedMap<PathFragment, Artifact> getMapping() {
       return wrapped.getMapping();
     }
 
@@ -118,11 +119,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     }
 
     @Override
-    public boolean isLegacyExternalRunfiles() {
-      return wrapped.isLegacyExternalRunfiles();
-    }
-
-    @Override
     public boolean isMappingCached() {
       return wrapped.isMappingCached();
     }
@@ -159,7 +155,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     @Nullable
     @Override
     public FileArtifactValue getInputMetadataChecked(ActionInput input)
-        throws IOException, MissingDepExecException {
+        throws InterruptedException, IOException, MissingDepExecException {
       return wrapped.getInputMetadataChecked(input);
     }
 
@@ -167,6 +163,12 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     @Override
     public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
       return wrapped.getTreeMetadata(actionInput);
+    }
+
+    @Nullable
+    @Override
+    public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
+      return wrapped.getEnclosingTreeMetadata(execPath);
     }
 
     @Nullable
@@ -201,12 +203,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     public ImmutableList<RunfilesTree> getRunfilesTrees() {
       return ImmutableList.of(overriddenTree);
     }
-
-    @Override
-    public FileSystem getFileSystemForInputResolution() {
-      return wrapped.getFileSystemForInputResolution();
-    }
-
   }
 
   /** Enum for --subcommands flag */
@@ -317,7 +313,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       InputMetadataProvider actionInputFileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
-      OutputMetadataStore outputMetadataStore,
       boolean rewindingEnabled,
       LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
@@ -333,7 +328,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionInputFileCache,
         actionInputPrefetcher,
         actionKeyContext,
-        outputMetadataStore,
+        null,
         rewindingEnabled,
         lostInputsCheck,
         fileOutErr,
@@ -435,9 +430,9 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   public void setRichArtifactData(RichArtifactData richArtifactData) {
     Preconditions.checkState(
         this.richArtifactData == null,
-        String.format(
-            "rich artifact data was set twice, old=%s, new=%s",
-            this.richArtifactData, richArtifactData));
+        "rich artifact data was set twice, old=%s, new=%s",
+        this.richArtifactData,
+        richArtifactData);
     this.richArtifactData = richArtifactData;
   }
 

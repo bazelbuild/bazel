@@ -67,7 +67,7 @@ public class CommonQueryOptions extends OptionsBase {
       return "\0";
     }
 
-    return System.lineSeparator();
+    return "\n";
   }
 
   @Option(

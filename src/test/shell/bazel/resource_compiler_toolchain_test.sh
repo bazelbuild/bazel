@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -129,7 +129,7 @@ dir /s /b /o:n *.dat>>%out%
 eof
   else
     cat > "toolchains/rc-src.bat" <<'eof'
-#!/bin/bash
+#!/usr/bin/env bash
 for a in $*; do
   if [[ "$a" =~ /fo.* ]]; then
     out="${a#/fo}"
@@ -192,6 +192,7 @@ function _assert_no_outputs() {
 function test_toolchain_selection() {
   echo "module(name = 'io_bazel')" > MODULE.bazel
   add_platforms "MODULE.bazel"
+  add_rules_cc "MODULE.bazel"
   _symlink_res_toolchain_files
   _create_pkg
 

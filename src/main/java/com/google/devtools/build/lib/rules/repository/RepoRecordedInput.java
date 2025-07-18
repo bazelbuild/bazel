@@ -668,12 +668,7 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
 
     @Override
     public SkyKey getSkyKey(BlazeDirectories directories) {
-      // Since we only record repo mapping entries for repos defined in Bzlmod, we can request the
-      // WORKSPACE-less version of the main repo mapping (as no repos defined in Bzlmod can see
-      // stuff from WORKSPACE).
-      return sourceRepo.isMain()
-          ? RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS
-          : RepositoryMappingValue.key(sourceRepo);
+      return RepositoryMappingValue.key(sourceRepo);
     }
 
     @Override

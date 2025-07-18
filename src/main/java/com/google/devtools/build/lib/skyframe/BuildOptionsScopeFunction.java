@@ -115,9 +115,9 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
           projectScopedFlag,
           new Scope(
               scopes.get(projectScopedFlag).getScopeType(),
-              projectValue.getDefaultActiveDirectory().isEmpty()
+              projectValue.getDefaultProjectDirectories().isEmpty()
                   ? null
-                  : new Scope.ScopeDefinition(projectValue.getDefaultActiveDirectory())));
+                  : new Scope.ScopeDefinition(projectValue.getDefaultProjectDirectories())));
     }
 
     return BuildOptionsScopeValue.create(
@@ -164,13 +164,12 @@ public final class BuildOptionsScopeFunction implements SkyFunction {
   private Scope.ScopeType getScopeType(
       Environment env, Label label, PackageIdentifier packageIdentifier)
       throws BuildOptionsScopeFunctionException, InterruptedException {
-    PackageContext packageContext =
-        PackageContext.of(packageIdentifier, RepositoryMapping.ALWAYS_FALLBACK);
+    PackageContext packageContext = PackageContext.of(packageIdentifier, RepositoryMapping.EMPTY);
     SkyframeTargetLoader targetLoader = new SkyframeTargetLoader(env, packageContext);
 
     Target target;
     try {
-      target = targetLoader.loadBuildSetting(label.toString());
+      target = targetLoader.loadBuildSetting(label.getUnambiguousCanonicalForm());
     } catch (TargetParsingException e) {
       throw new BuildOptionsScopeFunctionException(e);
     }

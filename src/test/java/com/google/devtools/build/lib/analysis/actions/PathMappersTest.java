@@ -101,6 +101,7 @@ public class PathMappersTest extends BuildViewTestCase {
             format("%s/cfg/bin/java/com/google/test/C.java", outDir),
             format("%s/cfg/bin/java/com/google/test/liba-hjar.jar", outDir),
             format("%s/cfg/bin/java/com/google/test/liba-hjar.jdeps", outDir),
+            format("%s/cfg/bin/java/com/google/test/liba-tjar.jar", outDir),
             format("-XepOpt:foo:bar=%s/cfg/bin/java/com/google/test/B.java", outDir),
             format(
                 "-XepOpt:baz=%s/cfg/bin/java/com/google/test/C.java,%s/cfg/bin/java/com/google/test/B.java",

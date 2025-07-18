@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -49,6 +49,7 @@ msys*|mingw*|cygwin*)
 esac
 
 function setup_test_project() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p validation_actions
 
   cat > validation_actions/defs.bzl <<'EOF'
@@ -109,6 +110,7 @@ load(
     ":defs.bzl",
     "rule_with_implicit_outs_and_validation",
     "rule_with_implicit_and_host_deps")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 rule_with_implicit_outs_and_validation(name = "foo0", visibility = ["//visibility:public"])
 rule_with_implicit_outs_and_validation(name = "foo1", visibility = ["//visibility:public"])
@@ -190,7 +192,7 @@ chmod +x validation_actions/test_with_rule_with_validation_in_deps.sh
 
 function setup_passing_validation_action() {
     cat > validation_actions/validation_tool <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo "validation output" > $1
 EOF
   chmod +x validation_actions/validation_tool
@@ -199,7 +201,7 @@ EOF
 
 function setup_failing_validation_action() {
     cat > validation_actions/validation_tool <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo "validation failed!"
 exit 1
 EOF
@@ -208,7 +210,7 @@ EOF
 
 function setup_slow_failing_validation_action() {
     cat > validation_actions/validation_tool <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 sleep 10
 echo "validation failed!"
 exit 1
@@ -525,7 +527,7 @@ validation_aspect = aspect(
 )
 EOF
   cat > aspect/aspect_validation_tool <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo "aspect validation output" > $1
 EOF
   chmod +x aspect/aspect_validation_tool
@@ -545,7 +547,7 @@ function test_validation_actions_in_rule_and_aspect_no_use_validation_aspect() {
   assert_exists bazel-bin/validation_actions/foo0.aspect_validation
 
   cat > aspect/aspect_validation_tool <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo "aspect validation failed!"
 exit 1
 EOF
@@ -570,7 +572,7 @@ function test_validation_actions_in_rule_and_aspect_use_validation_aspect() {
   assert_exists bazel-bin/validation_actions/foo0.aspect_validation
 
   cat > aspect/aspect_validation_tool <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 echo "aspect validation failed!"
 exit 1
 EOF

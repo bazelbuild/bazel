@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.profiler;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.NetworkMetrics;
-import com.google.devtools.build.lib.profiler.SystemNetworkStats.NetIfAddr;
 import com.google.devtools.build.lib.profiler.SystemNetworkStats.NetIoCounter;
 import java.io.IOException;
-import java.util.List;
+import java.net.NetworkInterface;
+import java.util.Enumeration;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -30,7 +30,7 @@ public final class NetworkMetricsCollector {
   /** The metrics collector (a static singleton instance). Inactive by default. */
   private static final NetworkMetricsCollector instance = new NetworkMetricsCollector();
 
-  @Nullable private ImmutableSet<String> localLoopbackInterfaces = null;
+  @Nullable private ImmutableSet<String> loopbackInterfaceNames = null;
   @Nullable private Map<String, NetIoCounter> previousNetworkIoCounters = null;
   private final NetworkMetrics.SystemNetworkStats.Builder systemNetworkStats =
       NetworkMetrics.SystemNetworkStats.newBuilder();
@@ -52,6 +52,14 @@ public final class NetworkMetricsCollector {
 
   @Nullable
   public SystemNetworkUsages collectSystemNetworkUsages(double deltaNanos) {
+    if (loopbackInterfaceNames == null) {
+      try {
+        loopbackInterfaceNames = getLoopbackInterfaceNames();
+      } catch (IOException e) {
+        logger.atWarning().withCause(e).log("Failed to get loopback interface names");
+      }
+    }
+
     Map<String, NetIoCounter> nextNetworkIoCounters = null;
     try {
       nextNetworkIoCounters = SystemNetworkStats.getNetIoCounters();
@@ -65,17 +73,13 @@ public final class NetworkMetricsCollector {
 
     SystemNetworkUsages usages = null;
     if (previousNetworkIoCounters != null && nextNetworkIoCounters != null) {
-      if (localLoopbackInterfaces == null) {
-        localLoopbackInterfaces = getLocalLoopbackInterfaces();
-      }
-
       long deltaBytesSent = 0;
       long deltaBytesRecv = 0;
       long deltaPacketsSent = 0;
       long deltaPacketsRecv = 0;
       for (Map.Entry<String, NetIoCounter> entry : previousNetworkIoCounters.entrySet()) {
         String name = entry.getKey();
-        if (localLoopbackInterfaces.contains(name)) {
+        if (loopbackInterfaceNames.contains(name)) {
           continue;
         }
         NetIoCounter previous = entry.getValue();
@@ -119,40 +123,6 @@ public final class NetworkMetricsCollector {
     return usages;
   }
 
-  private ImmutableSet<String> getLocalLoopbackInterfaces() {
-    ImmutableSet.Builder<String> result = ImmutableSet.builder();
-    try {
-      for (Map.Entry<String, List<NetIfAddr>> entry :
-          SystemNetworkStats.getNetIfAddrs().entrySet()) {
-        if (isLocalLoopback(entry.getValue())) {
-          result.add(entry.getKey());
-        }
-      }
-    } catch (IOException e) {
-      logger.atWarning().withCause(e).log("Failed to query network interfaces");
-    }
-    return result.build();
-  }
-
-  private boolean isLocalLoopback(List<NetIfAddr> addresses) {
-    for (NetIfAddr addr : addresses) {
-      switch (addr.family()) {
-        case AF_INET -> {
-          if (addr.ipAddr().equals("127.0.0.1")) {
-            return true;
-          }
-        }
-        case AF_INET6 -> {
-          if (addr.ipAddr().equals("::1")) {
-            return true;
-          }
-        }
-        case UNKNOWN -> {}
-      }
-    }
-    return false;
-  }
-
   /** Aggregated system network usages over all interfaces except local loopback. */
   public record SystemNetworkUsages(
       double bytesSentPerSec,
@@ -175,6 +145,18 @@ public final class NetworkMetricsCollector {
     public double megabitsRecvPerSec() {
       return bytesPerSecToMegabitsPerSec(bytesRecvPerSec());
     }
+  }
+
+  private static ImmutableSet<String> getLoopbackInterfaceNames() throws IOException {
+    ImmutableSet.Builder<String> result = ImmutableSet.builder();
+    Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
+    while (ifaces.hasMoreElements()) {
+      NetworkInterface iface = ifaces.nextElement();
+      if (iface.isLoopback()) {
+        result.add(iface.getName());
+      }
+    }
+    return result.build();
   }
 
   private static long calcDelta(long prev, long next) {

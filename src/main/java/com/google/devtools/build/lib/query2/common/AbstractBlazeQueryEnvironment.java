@@ -500,7 +500,8 @@ public abstract class AbstractBlazeQueryEnvironment<T>
 
     @Override
     public Target getBuildFileTarget(Target originalTarget) {
-      return originalTarget.getPackageDeclarations().getBuildFile();
+      // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
+      return originalTarget.getPackage().getBuildFile();
     }
 
     @Override

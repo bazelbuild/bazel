@@ -151,7 +151,7 @@ public class GcovParser {
       int startLine = Integer.parseInt(items[0]);
       long execCount = items.length == 4 ? Long.parseLong(items[2]) : Long.parseLong(items[1]);
       String functionName = items.length == 4 ? items[3] : items[2];
-      currentSourceFileCoverage.addLineNumber(functionName, startLine);
+      currentSourceFileCoverage.addFunctionLineNumber(functionName, startLine);
       currentSourceFileCoverage.addFunctionExecution(functionName, execCount);
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "gcov info contains invalid line " + line);
@@ -175,7 +175,7 @@ public class GcovParser {
       // Ignore has_unexecuted_block since it's not used.
       int lineNr = Integer.parseInt(items[0]);
       long execCount = Long.parseLong(items[1]);
-      currentSourceFileCoverage.addLine(lineNr, LineCoverage.create(lineNr, execCount, null));
+      currentSourceFileCoverage.addLine(lineNr, execCount);
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "gcov info contains invalid line " + line);
       return false;
@@ -235,8 +235,9 @@ public class GcovParser {
         }
         currentSourceFileCoverage.addBranch(
             lineEntry.getKey(),
-            BranchCoverage.createWithBranch(
-                lineEntry.getKey(), Integer.toString(branchNumber), evaluated, execCount));
+            BranchCoverage.create(
+                lineEntry.getKey(), "0", Integer.toString(branchNumber), evaluated, execCount));
+
         branchNumber++;
       }
     }

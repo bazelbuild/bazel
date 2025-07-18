@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -62,9 +62,12 @@ function set_up() {
 #### TESTS #############################################################
 
 function test_passing_test_is_reported_correctly() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
   cat >$pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "success",
     size = "small",
@@ -86,9 +89,12 @@ EOF
 }
 
 function test_failing_test_is_reported_correctly() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
   cat >$pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "fail",
     size = "small",
@@ -110,9 +116,12 @@ EOF
 }
 
 function test_build_fail_terse_summary() {
+    add_rules_shell "MODULE.bazel"
     local -r pkg=$FUNCNAME
     mkdir -p $pkg || fail "mkdir -p $pkg failed"
     cat > $pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 genrule(
   name = "testsrc",
   outs = ["test.sh"],
@@ -176,9 +185,12 @@ EOF
 }
 
 function test_test_suite_non_expansion() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
   cat > $pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(name = 'test_a',
         srcs = [':a.sh'],
 )
@@ -206,9 +218,12 @@ EOF
 }
 
 function test_print_relative_test_log_paths() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg="$FUNCNAME"
   mkdir -p "$pkg" || fail "mkdir -p $pkg failed"
   cat > "$pkg"/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(name = 'fail', srcs = ['fail.sh'])
 EOF
   cat > "$pkg"/fail.sh <<'EOF'
@@ -242,11 +257,16 @@ EOF
 # See also test_run_a_test_and_a_binary_rule_with_input_from_stdin() in
 # //src/test/shell/integration:run_test
 function test_a_test_rule_with_input_from_stdin() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg="$FUNCNAME"
   mkdir -p "$pkg" || fail "mkdir -p $pkg failed"
-  echo 'sh_test(name = "x", srcs = ["x.sh"])' > "$pkg/BUILD"
+  cat > "$pkg/BUILD" <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(name = "x", srcs = ["x.sh"])
+EOF
   cat > "$pkg/x.sh" <<'eof'
-#!/bin/bash
+#!/usr/bin/env bash
 read -n5 FOO
 echo "foo=($FOO)"
 eof
@@ -293,8 +313,11 @@ function do_test_interrupt_streamed_output() {
 
   local strategy="${1}"; shift
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   cat >pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "sleep",
   srcs = ["sleep.sh"],
@@ -345,8 +368,11 @@ function do_sigint_test() {
   local strategy="${1}"; shift
   local tags="${1}"; shift
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   cat >pkg/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = "test_with_cleanup",
   srcs = ["test_with_cleanup.sh"],
@@ -415,9 +441,12 @@ function test_sigint_with_graceful_termination_sandboxed() {
 }
 
 function test_env_attribute() {
+  add_rules_shell "MODULE.bazel"
   local -r pkg=$FUNCNAME
   mkdir -p $pkg || fail "mkdir -p $pkg failed"
   cat > $pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
   name = 't',
   srcs = [':t.sh'],
@@ -446,6 +475,59 @@ EOF
   expect_log "ENV_C=no_surprise"
   expect_not_log "ENV_D=surprise"
   expect_log "ENV_DATA=${pkg}/t.dat"
+}
+
+function run_test_executable_in_symlinks_only() {
+  add_platforms "MODULE.bazel"
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg || fail "mkdir -p $pkg failed"
+  cat > $pkg/BUILD <<'EOF'
+load(":defs.bzl", "my_test")
+
+my_test(
+  name = "t",
+)
+EOF
+  cat > $pkg/defs.bzl <<EOF
+def _my_test_impl(ctx):
+    if ctx.target_platform_has_constraint(ctx.attr._windows_constraint[platform_common.ConstraintValueInfo]):
+        bin = ctx.actions.declare_file("bin.bat")
+        ctx.actions.write(bin, "@REM hi", is_executable = True)
+    else:
+        bin = ctx.actions.declare_file("bin.sh")
+        ctx.actions.write(bin, "", is_executable = True)
+    return [
+        DefaultInfo(
+            executable = bin,
+            $1 = ctx.runfiles(
+                symlinks = {
+                    "custom_path": bin,
+                },
+            ),
+        ),
+    ]
+
+my_test = rule(
+    implementation = _my_test_impl,
+    test = True,
+    attrs = {
+        "_windows_constraint": attr.label(
+            default = "@platforms//os:windows",
+        ),
+    },
+)
+EOF
+
+  bazel test --test_output=streamed //$pkg:t &> $TEST_log \
+      || fail "expected test to pass"
+}
+
+function test_executable_in_symlinks_only_stateful_runfiles() {
+  run_test_executable_in_symlinks_only "default_runfiles"
+}
+
+function test_executable_in_symlinks_only_stateless_runfiles() {
+  run_test_executable_in_symlinks_only "runfiles"
 }
 
 run_suite "test tests"

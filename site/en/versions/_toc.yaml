@@ -1,14 +1,14 @@
 toc:
+- label: '8.3'
+  path: /versions/8.3.0
+- label: '8.2'
+  path: /versions/8.2.0
+- label: '8.1'
+  path: /versions/8.1.0
 - label: '8.0'
   path: /versions/8.0.0
 - label: '7.6'
   path: /versions/7.6.0
-- label: '7.5'
-  path: /versions/7.5.0
-- label: '7.4'
-  path: /versions/7.4.0
-- label: '7.0'
-  path: /versions/7.0.0
 - label: '6.5'
   path: /versions/6.5.0
 - label: "5.4.1"

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2021 The Bazel Authors. All rights reserved.
 #
@@ -171,7 +171,7 @@ EOF
   # https://github.com/openjdk/jdk/blob/2faf8b8d582183275b1fdc92313a1c63c1753e80/src/java.base/share/classes/sun/nio/fs/AbstractWatchKey.java#L40
   touch "$pkg/{1..600}.txt"
   bazel build --watchfs "//$pkg:gen" &> "$TEST_log" || fail "Expected success."
-  expect_not_log "WARNING:"
+  expect_not_log "WARNING: Overflow when watching local filesystem"
 }
 
 run_suite "Integration tests for --watchfs."

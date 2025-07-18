@@ -59,14 +59,21 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Collection;
 import java.util.List;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Test case for objc_library. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   private static final RuleType RULE_TYPE = new OnlyNeedsSourcesRuleType("objc_library");
@@ -2074,9 +2081,25 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(archiveAction.getMnemonic()).isEqualTo("CppArchive");
   }
 
-  private static List<String> linkstampExecPaths(NestedSet<CcLinkingContext.Linkstamp> linkstamps) {
-    return ActionsTestUtil.execPaths(
-        ActionsTestUtil.transform(linkstamps.toList(), CcLinkingContext.Linkstamp::getArtifact));
+  private static List<StarlarkInfo> getLinkstamps(StarlarkInfo linkerInput) {
+    try {
+      @SuppressWarnings("unchecked")
+      List<StarlarkInfo> linkstamps =
+          (List<StarlarkInfo>) linkerInput.getValue("linkstamps", List.class);
+      return linkstamps;
+    } catch (EvalException e) {
+      return ImmutableList.of();
+    }
+  }
+
+  private static Artifact getLinkstampFile(StarlarkInfo linkstamp) {
+    try (Mutability mu = Mutability.create()) {
+      StarlarkFunction func = linkstamp.getValue("file", StarlarkFunction.class);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
+      return (Artifact) Starlark.positionalOnlyCall(thread, func);
+    } catch (EvalException | InterruptedException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Test
@@ -2095,12 +2118,13 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         )
         """);
 
+    CcLinkingContext ccLinkingContext =
+        getConfiguredTarget("//x:foo").get(CcInfo.PROVIDER).getCcLinkingContext();
     assertThat(
-            linkstampExecPaths(
-                getConfiguredTarget("//x:foo")
-                    .get(CcInfo.PROVIDER)
-                    .getCcLinkingContext()
-                    .getLinkstamps()))
+            ccLinkingContext.getLinkerInputs().toList().stream()
+                .flatMap(linkerInput -> getLinkstamps(linkerInput).stream())
+                .map(ObjcLibraryTest::getLinkstampFile)
+                .map(Artifact::getExecPathString))
         .containsExactly("x/bar.cc");
   }
 
@@ -2497,11 +2521,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     return getConfiguredTarget(target)
         .get(CcInfo.PROVIDER)
         .getCcLinkingContext()
-        .getUserLinkFlags()
+        .getLinkerInputs()
         .toList()
         .stream()
-        .map(CcLinkingContext.LinkOptions::get)
-        .flatMap(List::stream)
+        .flatMap(linkerInput -> LinkerInput.getUserLinkFlags(linkerInput).stream())
         .collect(toImmutableList());
   }
 
@@ -2602,5 +2625,42 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     getConfiguredTarget("//bar:lib");
 
     assertNoEvents();
+  }
+
+  @Test
+  public void testObjcTransitionWithTopLevelApplePlatforms(
+      @TestParameter boolean usePlatformsInAppleCrosstoolTransition) throws Exception {
+    scratch.file(
+        "bin/BUILD",
+        """
+        objc_library(
+            name = "objc",
+            srcs = ["objc.m"],
+        )
+
+        cc_binary(
+            name = "cc",
+            srcs = ["cc.cc"],
+            deps = [":objc"],
+        )
+        """);
+
+    setBuildLanguageOptions("--noincompatible_disable_objc_library_transition");
+    ImmutableList.Builder<String> args = ImmutableList.builder();
+    args.add(
+        "--apple_platform_type=ios",
+        "--platforms=" + MockObjcSupport.IOS_ARM64,
+        "--experimental_platform_in_output_dir",
+        "--use_platforms_in_apple_crosstool_transition=" + usePlatformsInAppleCrosstoolTransition);
+    if (!usePlatformsInAppleCrosstoolTransition) {
+      args.add("--cpu=ios_arm64");
+    }
+    useConfiguration(args.build().toArray(new String[0]));
+
+    ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
+    Artifact objcObject =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(cc)), "objc.o");
+    assertThat(objcObject.getExecPathString()).contains("ios_arm64");
   }
 }

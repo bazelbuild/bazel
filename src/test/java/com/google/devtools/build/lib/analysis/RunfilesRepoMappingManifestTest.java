@@ -26,15 +26,16 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtine
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Map.Entry;
 import net.starlark.java.eval.EvalException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests that the repo mapping manifest file is properly generated for runfiles. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
   @Override
@@ -391,5 +392,86 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
     assertThat(getFilesToBuild(getConfiguredTarget("//:get_repo_mapping")).toList())
         .containsExactly(getRunfilesSupport("//:aaa").getRepoMappingManifest());
+  }
+
+  @Test
+  public void runfilesFromExtension(@TestParameter boolean compactRepoMapping) throws Exception {
+    if (compactRepoMapping) {
+      useConfiguration("--incompatible_compact_repo_mapping_manifest");
+    } else {
+      useConfiguration("--noincompatible_compact_repo_mapping_manifest");
+    }
+
+    scratch.overwriteFile(
+        "MODULE.bazel",
+        """
+        module(name='aaa',version='1.0')
+        bazel_dep(name='bare_rule',version='1.0')
+        deps = use_extension('//:deps.bzl', 'deps')
+        use_repo(deps, dep='dep1')
+        """);
+
+    scratch.overwriteFile(
+        "BUILD",
+        """
+        load('@bare_rule//:defs.bzl', 'bare_binary')
+        bare_binary(name='aaa',data=['@dep//:dep1'])
+        """);
+    scratch.overwriteFile(
+        "deps.bzl",
+        """
+        def _deps_repo_impl(ctx):
+            ctx.file('BUILD', \"""
+        load('@bare_rule//:defs.bzl', 'bare_binary')
+        bare_binary(
+            name = 'dep' + str({count}),
+            data = ['@dep' + str({count} + 1)] if {count} < 3 else [],
+            visibility = ['//visibility:public']
+        )
+        \""".format(count = ctx.attr.count))
+        _deps_repo = repository_rule(_deps_repo_impl, attrs = {'count': attr.int()})
+        def _deps_impl(_):
+            _deps_repo(name = 'dep1', count = 1)
+            _deps_repo(name = 'dep2', count = 2)
+            _deps_repo(name = 'dep3', count = 3)
+        deps = module_extension(_deps_impl)
+        """);
+
+    // Called last as it triggers package invalidation, which requires a valid MODULE.bazel setup.
+    invalidatePackages();
+
+    if (compactRepoMapping) {
+      assertThat(getRepoMappingManifestForTarget("//:aaa"))
+          .containsExactly(
+              ",aaa," + getRuleClassProvider().getRunfilesPrefix(),
+              ",dep,+deps+dep1",
+              "+deps+*,aaa," + getRuleClassProvider().getRunfilesPrefix(),
+              "+deps+*,dep,+deps+dep1",
+              "+deps+*,dep1,+deps+dep1",
+              "+deps+*,dep2,+deps+dep2",
+              "+deps+*,dep3,+deps+dep3")
+          .inOrder();
+    } else {
+      assertThat(getRepoMappingManifestForTarget("//:aaa"))
+          .containsExactly(
+              ",aaa," + getRuleClassProvider().getRunfilesPrefix(),
+              ",dep,+deps+dep1",
+              "+deps+dep1,aaa," + getRuleClassProvider().getRunfilesPrefix(),
+              "+deps+dep1,dep,+deps+dep1",
+              "+deps+dep1,dep1,+deps+dep1",
+              "+deps+dep1,dep2,+deps+dep2",
+              "+deps+dep1,dep3,+deps+dep3",
+              "+deps+dep2,aaa," + getRuleClassProvider().getRunfilesPrefix(),
+              "+deps+dep2,dep,+deps+dep1",
+              "+deps+dep2,dep1,+deps+dep1",
+              "+deps+dep2,dep2,+deps+dep2",
+              "+deps+dep2,dep3,+deps+dep3",
+              "+deps+dep3,aaa," + getRuleClassProvider().getRunfilesPrefix(),
+              "+deps+dep3,dep,+deps+dep1",
+              "+deps+dep3,dep1,+deps+dep1",
+              "+deps+dep3,dep2,+deps+dep2",
+              "+deps+dep3,dep3,+deps+dep3")
+          .inOrder();
+    }
   }
 }

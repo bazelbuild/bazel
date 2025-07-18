@@ -34,6 +34,50 @@ import java.util.List;
  * Common test code to test that C++ linking action is populated with the correct build variables.
  */
 public class LinkBuildVariablesTestCase extends BuildViewTestCase {
+  public enum LinkBuildVariables {
+    /** Entries in the linker search path (usually set by -L flag) */
+    LIBRARY_SEARCH_DIRECTORIES("library_search_directories"),
+    /** Flags providing files to link as inputs in the linker invocation */
+    LIBRARIES_TO_LINK("libraries_to_link"),
+    /** Location of linker param file created by bazel to overcome command line length limit */
+    LINKER_PARAM_FILE("linker_param_file"),
+    /** execpath of the output of the linker. */
+    OUTPUT_EXECPATH("output_execpath"),
+    /** "yes"|"no" depending on whether interface library should be generated. */
+    GENERATE_INTERFACE_LIBRARY("generate_interface_library"),
+    /** Path to the interface library builder tool. */
+    INTERFACE_LIBRARY_BUILDER("interface_library_builder_path"),
+    /** Input for the interface library ifso builder tool. */
+    INTERFACE_LIBRARY_INPUT("interface_library_input_path"),
+    /** Path where to generate interface library using the ifso builder tool. */
+    INTERFACE_LIBRARY_OUTPUT("interface_library_output_path"),
+    /** Linker flags coming from the --linkopt or linkopts attribute. */
+    USER_LINK_FLAGS("user_link_flags"),
+    /** A build variable giving linkstamp paths. */
+    LINKSTAMP_PATHS("linkstamp_paths"),
+    /** Presence of this variable indicates that PIC code should be generated. */
+    FORCE_PIC("force_pic"),
+    /** Presence of this variable indicates that the debug symbols should be stripped. */
+    STRIP_DEBUG_SYMBOLS("strip_debug_symbols"),
+    /** Truthy when current action is a cc_test linking action, falsey otherwise. */
+    IS_CC_TEST("is_cc_test"),
+    /**
+     * Presence of this variable indicates that files were compiled with fission (debug info is in
+     * .dwo files instead of .o files and linker needs to know).
+     */
+    IS_USING_FISSION("is_using_fission");
+
+    /** Path to the fdo instrument. */
+    private final String variableName;
+
+    LinkBuildVariables(String variableName) {
+      this.variableName = variableName;
+    }
+
+    public String getVariableName() {
+      return variableName;
+    }
+  }
 
   protected SpawnAction getCppLinkAction(ConfiguredTarget target, Link.LinkTargetType type) {
     Artifact linkerOutput = null;

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -449,12 +449,19 @@ function test_toolchain_transition_test_rule() {
   write_rules "${pkg}"
 
   mkdir -p "${pkg}"
+  cat > "${pkg}/empty_toolchain.bzl" <<EOF
+empty_toolchain = rule(
+    implementation = lambda ctx: platform_common.ToolchainInfo(),
+)
+EOF
+
   cat > "${pkg}/BUILD" <<EOF
 package(default_visibility = ["//visibility:public"])
 
 load("//${pkg}/rule:rule.bzl", "sample_test")
+load(":empty_toolchain.bzl", "empty_toolchain")
 
-# Use a test rul to trigger b/284495846
+# Use a test rule to trigger b/284495846
 sample_test(
     name = "sample_test",
     exec_compatible_with = [
@@ -462,13 +469,26 @@ sample_test(
     ],
     message = "Hello",
 )
+
+# Define a custom test toolchain for the target platform.
+empty_toolchain(name = "empty_toolchain")
+
+toolchain(
+    name = "target_test_toolchain",
+    toolchain_type = "@bazel_tools//tools/test:default_test_toolchain_type",
+    toolchain = ":empty_toolchain",
+    target_compatible_with = [
+        "//${pkg}/constraint:target",
+    ],
+)
 EOF
 
   bazel build \
     --platforms="//${pkg}/platform:target" \
     --host_platform="//${pkg}/platform:host" \
-    --use_target_platform_for_tests \
-     "//${pkg}:sample_test" &> $TEST_log || fail "Build failed"
+    --extra_toolchains="//${pkg}:target_test_toolchain" \
+    -- \
+    "//${pkg}:sample_test" &> $TEST_log || fail "Build failed"
 
   # Verify contents of sample_test.log.
   cat "bazel-bin/${pkg}/sample_test.log" >> $TEST_log

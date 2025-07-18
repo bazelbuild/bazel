@@ -20,12 +20,11 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.repository.RepositoryUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -75,9 +74,7 @@ public class BazelModTidyFunction implements SkyFunction {
     }
     RootedPath buildozer;
     try {
-      buildozer = RepositoryFunction.getRootedPathFromLabel(buildozerLabel, env);
-    } catch (NeedsSkyframeRestartException e) {
-      return null;
+      buildozer = RepositoryUtils.getRootedPathFromLabel(buildozerLabel, env);
     } catch (EvalException e) {
       throw new IllegalStateException(e);
     }

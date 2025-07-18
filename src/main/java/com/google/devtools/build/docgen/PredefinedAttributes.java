@@ -58,6 +58,7 @@ public class PredefinedAttributes {
    */
   public static final ImmutableList<String> COMMON_ATTRIBUTES_DOCFILES =
       ImmutableList.of(
+          "templates/attributes/common/aspect_hints.html",
           "templates/attributes/common/compatible_with.html",
           "templates/attributes/common/deprecation.html",
           "templates/attributes/common/exec_compatible_with.html",

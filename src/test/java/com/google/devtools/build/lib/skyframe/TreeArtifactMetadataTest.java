@@ -213,7 +213,7 @@ public final class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     Path fullPath = root.getRelative(execPath);
     SpecialArtifact output =
         SpecialArtifact.create(
-            ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+            ArtifactRoot.asDerivedRoot(root, RootType.OUTPUT, "out"),
             execPath,
             ALL_OWNER,
             SpecialArtifactType.TREE);

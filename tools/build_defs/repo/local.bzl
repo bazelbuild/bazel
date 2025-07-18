@@ -59,7 +59,9 @@ def _get_dir_path(rctx):
     return path
 
 def _local_repository_impl(rctx):
-    rctx.symlink(_get_dir_path(rctx), ".")
+    path = _get_dir_path(rctx)
+    rctx.watch(path)  # In case the target is removed
+    rctx.symlink(path, ".")
 
 local_repository = repository_rule(
     implementation = _local_repository_impl,

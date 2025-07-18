@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -58,7 +58,7 @@ commit_hash=$(git rev-parse HEAD)
 timestamp=$(date +%s)
 bazel_version=$(bazel info release | cut -d' ' -f2)
 
-RELEASE_BUILD_OPTS="-c opt --tool_java_language_version=8 --java_language_version=8"
+RELEASE_BUILD_OPTS="-c opt"
 
 # Check that the build machine is set up for Unicode.
 bazel run ${RELEASE_BUILD_OPTS} //src:CheckSunJnuEncoding

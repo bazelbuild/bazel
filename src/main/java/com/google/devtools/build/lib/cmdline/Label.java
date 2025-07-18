@@ -182,13 +182,6 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       if (ABSOLUTE_PACKAGE_NAMES.contains(parts.pkg())) {
         return RepositoryName.MAIN;
       }
-      // The legacy //external package can only be referenced by external repos defined in
-      // WORKSPACE, which never use strict visibility. For the main repo repoContext.currentRepo()
-      // is equal to RepositoryName.MAIN.
-      if (LabelConstants.EXTERNAL_PACKAGE_NAME.getPathString().equals(parts.pkg())
-          && repoContext.repoMapping().ownerRepo() == null) {
-        return RepositoryName.MAIN;
-      }
       return repoContext.currentRepo();
     }
     if (parts.repoIsCanonical()) {
@@ -703,21 +696,10 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       return;
     }
 
-    if (semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
-      // If Bzlmod is enabled, we use canonical label literal syntax here and prepend an extra '@'.
-      // So the result looks like "@@//foo:bar" for the main repo and "@@foo+//bar:quux" for
-      // other repos.
-      printer.append(getUnambiguousCanonicalForm());
-      return;
-    }
-    // If Bzlmod is not enabled, we just use a single '@'.
-    // So the result looks like "@//foo:bar" for the main repo and "@foo//bar:quux" for other repos.
-    printer.append(
-        String.format(
-            "@%s//%s:%s",
-            packageIdentifier.getRepository().getName(),
-            packageIdentifier.getPackageFragment(),
-            name));
+    // Otherwise, we use canonical label literal syntax here and prepend an extra '@'.
+    // So the result looks like "@@//foo:bar" for the main repo and "@@foo+//bar:quux" for
+    // other repos.
+    printer.append(getUnambiguousCanonicalForm());
   }
 
   @Override

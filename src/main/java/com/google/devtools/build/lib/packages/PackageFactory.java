@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackagePieceException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -138,9 +138,6 @@ public final class PackageFactory {
    * <p>Do not call this constructor directly in tests; please use
    * TestConstants#PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING instead.
    */
-  // TODO(bazel-team): Maybe store `version` in the RuleClassProvider rather than passing it in
-  // here? It's an extra constructor parameter that all the tests have to give, and it's only needed
-  // so WorkspaceFactory can add an extra top-level builtin.
   public PackageFactory(
       RuleClassProvider ruleClassProvider,
       ForkJoinPool executorForGlobbing,
@@ -207,22 +204,6 @@ public final class PackageFactory {
     return ruleClassProvider;
   }
 
-  public Package.Builder newExternalPackageBuilder(
-      WorkspaceFileKey workspaceFileKey,
-      String workspaceName,
-      RepositoryMapping mainRepoMapping,
-      StarlarkSemantics starlarkSemantics) {
-    return Package.newExternalPackageBuilder(
-        packageSettings,
-        workspaceFileKey,
-        workspaceName,
-        mainRepoMapping,
-        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
-        starlarkSemantics.getBool(
-            BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
-        packageOverheadEstimator);
-  }
-
   // This function is public only for the benefit of skyframe.PackageFunction,
   // which is morally part of lib.packages, so that it can create empty packages
   // in case of error before BUILD execution. Do not call it from anywhere else.
@@ -230,7 +211,6 @@ public final class PackageFactory {
   public Package.Builder newPackageBuilder(
       PackageIdentifier packageId,
       RootedPath filename,
-      String workspaceName,
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
@@ -244,7 +224,7 @@ public final class PackageFactory {
         packageSettings,
         packageId,
         filename,
-        workspaceName,
+        ruleClassProvider.getRunfilesPrefix(),
         associatedModuleName,
         associatedModuleVersion,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
@@ -258,7 +238,73 @@ public final class PackageFactory {
         configSettingVisibilityPolicy,
         globber,
         /* enableNameConflictChecking= */ true,
-        /* trackFullMacroInformation= */ true);
+        /* trackFullMacroInformation= */ true,
+        packageValidator.getPackageLimits());
+  }
+
+  // This function is public only for the benefit of skyframe.PackageFunction, which is morally part
+  // of lib.packages, so that it can create empty package pieces in case of error before BUILD
+  // execution. Do not call it from anywhere else.
+  public PackagePiece.ForBuildFile.Builder newPackagePieceForBuildFileBuilder(
+      PackagePieceIdentifier.ForBuildFile packagePieceId,
+      RootedPath filename,
+      Optional<String> associatedModuleName,
+      Optional<String> associatedModuleVersion,
+      StarlarkSemantics starlarkSemantics,
+      RepositoryMapping repositoryMapping,
+      RepositoryMapping mainRepositoryMapping,
+      @Nullable Semaphore cpuBoundSemaphore,
+      @Nullable ImmutableMap<Location, String> generatorMap,
+      @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
+      @Nullable Globber globber) {
+    return PackagePiece.ForBuildFile.newBuilder(
+        packageSettings,
+        packagePieceId,
+        filename,
+        ruleClassProvider.getRunfilesPrefix(),
+        associatedModuleName,
+        associatedModuleVersion,
+        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
+        starlarkSemantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
+        repositoryMapping,
+        mainRepositoryMapping,
+        cpuBoundSemaphore,
+        packageOverheadEstimator,
+        generatorMap,
+        configSettingVisibilityPolicy,
+        globber,
+        /* enableNameConflictChecking= */ true,
+        /* trackFullMacroInformation= */ true,
+        packageValidator.getPackageLimits());
+  }
+
+  // This function is public only for the benefit of skyframe.EvalMacroFunction, which is morally
+  // part of lib.packages, so that it can create empty package pieces in case of error before macro
+  // execution. Do not call it from anywhere else.
+  public PackagePiece.ForMacro.Builder newPackagePieceForMacroBuilder(
+      Package.Metadata metadata,
+      Package.Declarations declarations,
+      MacroInstance macro,
+      PackagePieceIdentifier parentIdentifier,
+      StarlarkSemantics starlarkSemantics,
+      RepositoryMapping mainRepositoryMapping,
+      @Nullable Semaphore cpuBoundSemaphore,
+      @Nullable ImmutableMap<String, Rule> existingRulesMapForFinalizer) {
+    return PackagePiece.ForMacro.newBuilder(
+        metadata,
+        declarations,
+        macro,
+        parentIdentifier,
+        starlarkSemantics.getBool(
+            BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
+        mainRepositoryMapping,
+        cpuBoundSemaphore,
+        packageOverheadEstimator,
+        /* enableNameConflictChecking= */ true,
+        /* trackFullMacroInformation= */ true,
+        packageValidator.getPackageLimits(),
+        existingRulesMapForFinalizer);
   }
 
   /** Returns a new {@link NonSkyframeGlobber}. */
@@ -321,6 +367,48 @@ public final class PackageFactory {
   }
 
   /**
+   * Runs final validation and administrative tasks on newly loaded package piece. Called by a
+   * caller of {@link #executeBuildFile} after this caller has fully loaded the package piece.
+   *
+   * @throws InvalidPackagePieceException if the package is determined to be invalid
+   */
+  public void afterDoneLoadingPackagePiece(
+      PackagePiece pkgPiece,
+      StarlarkSemantics starlarkSemantics,
+      long loadTimeNanos,
+      ExtendedEventHandler eventHandler)
+      throws InvalidPackagePieceException {
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): add package piece validation.
+
+    // Enforce limit on number of compute steps in BUILD file (b/151622307).
+    long maxSteps = starlarkSemantics.get(BuildLanguageOptions.MAX_COMPUTATION_STEPS);
+    long steps = pkgPiece.getComputationSteps();
+    if (maxSteps > 0 && steps > maxSteps) {
+      String message =
+          String.format(
+              "%s took %d computation steps, but --max_computation_steps=%d",
+              pkgPiece instanceof PackagePiece.ForBuildFile
+                  ? "BUILD file computation without expanding symbolic macros"
+                  : "symbolic macro evaluation",
+              steps,
+              maxSteps);
+      throw new InvalidPackagePieceException(
+          pkgPiece.getIdentifier(),
+          message,
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setPackageLoading(
+                      PackageLoading.newBuilder()
+                          .setCode(PackageLoading.Code.MAX_COMPUTATION_STEPS_EXCEEDED)
+                          .build())
+                  .build()));
+    }
+
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): inform packageLoadingListener
+  }
+
+  /**
    * Populates the Package.Builder by executing the specified BUILD file.
    *
    * <p>The package exists---we have parsed its BUILD file---but it may contain errors, either
@@ -342,7 +430,7 @@ public final class PackageFactory {
   // which is logically part of the loading phase and should in due course be moved to lib.packages,
   // but that cannot happen until Skyframe's core interfaces have been separated.
   public void executeBuildFile(
-      Package.Builder pkgBuilder,
+      Package.AbstractBuilder pkgBuilder,
       Program buildFileProgram,
       ImmutableList<String> globs,
       ImmutableList<String> globsWithDirs,
@@ -388,7 +476,7 @@ public final class PackageFactory {
   }
 
   private void executeBuildFileImpl(
-      Package.Builder pkgBuilder,
+      Package.AbstractBuilder pkgBuilder,
       Program buildFileProgram,
       ImmutableMap<String, Object> predeclared,
       ImmutableMap<String, Module> loadedModules,
@@ -410,9 +498,8 @@ public final class PackageFactory {
       // StarlarkRuleClassFunctions#createRule. So we set it here as a thread-local to be retrieved
       // by StarlarkTestingModule#analysisTest.
       thread.setThreadLocal(RuleDefinitionEnvironment.class, ruleClassProvider);
-      packageValidator.configureThreadWhileLoading(thread);
 
-      try {
+      try (var updater = pkgBuilder.updateStartedThreadComputationSteps(thread)) {
         Starlark.execFileProgram(buildFileProgram, module, thread);
       } catch (EvalException ex) {
         pkgBuilder
@@ -424,13 +511,12 @@ public final class PackageFactory {
           // Suppress the interrupted exception: we have an error of our own to return.
           Thread.currentThread().interrupt();
           logger.atInfo().withCause(ex).log(
-              "Suppressing InterruptedException for Package %s because an error was also found",
-              pkgBuilder.getPackageIdentifier().getCanonicalForm());
+              "Suppressing InterruptedException for %s because an error was also found",
+              pkgBuilder.getShortDescription());
         } else {
           throw ex;
         }
       }
-      pkgBuilder.setComputationSteps(thread.getExecutedSteps());
     }
   }
 

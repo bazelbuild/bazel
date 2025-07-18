@@ -16,7 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.vfs.Path;
@@ -58,7 +58,7 @@ public class RegistryFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, RegistryException {
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
-    Optional<Path> vendorDir = RepositoryDelegatorFunction.VENDOR_DIRECTORY.get(env);
+    Optional<Path> vendorDir = RepositoryDirectoryValue.VENDOR_DIRECTORY.get(env);
 
     if (lockfileMode == LockfileMode.REFRESH) {
       RegistryFunction.LAST_INVALIDATION.get(env);

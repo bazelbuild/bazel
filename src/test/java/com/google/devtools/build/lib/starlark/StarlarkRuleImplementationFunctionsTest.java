@@ -91,6 +91,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -894,8 +895,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  label_dict = {}",
         "  all = []",
         "  for dep in ruleContext.attr.srcs + ruleContext.attr.tools:",
-        "    all.extend(dep.files.to_list())",
-        "    label_dict[dep.label] = dep.files.to_list()",
+        "    all.extend(dep[DefaultInfo].files.to_list())",
+        "    label_dict[dep.label] = dep[DefaultInfo].files.to_list()",
         "  return ruleContext.resolve_command(",
         "    command='A$(locations //foo:mytool) B$(location //foo:file3.dat)',",
         "    attribute='cmd', expand_locations=True, label_dict=label_dict)",
@@ -1197,9 +1198,15 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   @Test
   public void testNoSuchProviderErrorMessage() throws Exception {
     setRuleContext(createRuleContext("//foo:bar"));
+    ev.update(
+        "MyInfo",
+        StarlarkProvider.builder(Location.BUILTIN)
+            .buildExported(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonicalUnchecked("//myinfo:myinfo.bzl")), "MyInfo")));
     ev.checkEvalErrorContains(
-        "<target //foo:jl> (rule 'java_library') doesn't have provider 'my_provider'",
-        "ruleContext.attr.srcs[0].my_provider");
+        "<target //foo:jl> (rule 'java_library') doesn't contain declared provider 'MyInfo'",
+        "ruleContext.attr.srcs[0][MyInfo]");
   }
 
   @Test
@@ -1702,9 +1709,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
     assertThat(expected)
         .hasMessageThat()
-        .contains(
-            "element in 'provides' is of unexpected type. "
-                + "Should be list of providers, but got item of type int");
+        .contains("Error in rule: at index 0 of provides, got element of type int, want Provider");
   }
 
   @Test
@@ -2972,7 +2977,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
           attrs = {
             '_attr': attr.label(
                 cfg = foo_transition,
-                default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})
+                default = configuration_field(fragment = "coverage", name = "output_generator"))})
         """);
 
     scratch.file(
@@ -3883,7 +3888,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
   }
 
   private CommandLine getCommandLine(String... lines) throws Exception {
-    return getCommandLine(RepositoryMapping.ALWAYS_FALLBACK, lines);
+    return getCommandLine(RepositoryMapping.EMPTY, lines);
   }
 
   private CommandLine getCommandLine(RepositoryMapping mainRepoMapping, String... lines)
@@ -3927,7 +3932,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
     Sequence<?> result = (Sequence<?>) ev.eval("args, directory");
     Args args = (Args) result.get(0);
     Artifact directory = (Artifact) result.get(1);
-    CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    CommandLine commandLine = args.build(() -> RepositoryMapping.EMPTY);
 
     // When asking for arguments without an artifact expander we just return the directory
     assertThat(commandLine.arguments()).containsExactly("foo/dir");
@@ -3951,7 +3956,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
     Sequence<?> result = (Sequence<?>) ev.eval("args, directory");
     Args args = (Args) result.get(0);
     Artifact directory = (Artifact) result.get(1);
-    CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    CommandLine commandLine = args.build(() -> RepositoryMapping.EMPTY);
 
     InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(directory.getRootRelativePathString(), "file1", "file2");
@@ -4000,7 +4005,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
         "args.add_all([directory, file3], map_each=_expand_dirs)");
     Args args = (Args) ev.eval("args");
     Artifact directory = (Artifact) ev.eval("directory");
-    CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    CommandLine commandLine = args.build(() -> RepositoryMapping.EMPTY);
 
     InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(directory.getRootRelativePathString(), "file1", "file2");
@@ -4018,7 +4023,7 @@ args.add_all(d, map_each = _map_each, uniquify = True)
         "  return dir_expander.expand('oh no a string')",
         "args.add_all([f], map_each=_expand_dirs)");
     Args args = (Args) ev.eval("args");
-    CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    CommandLine commandLine = args.build(() -> RepositoryMapping.EMPTY);
     assertThrows(CommandLineExpansionException.class, commandLine::arguments);
   }
 

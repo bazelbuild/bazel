@@ -30,6 +30,7 @@ load(
     "tool_path",
     "with_feature_set",
 )
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 
 _FEATURE_NAMES = struct(
     cpp_modules = "cpp_modules",
@@ -122,6 +123,7 @@ _FEATURE_NAMES = struct(
     cpp_compile_with_requirements = "cpp_compile_with_requirements",
     no_copts_tokenization = "no_copts_tokenization",
     generate_linkmap = "generate_linkmap",
+    shorten_virtual_includes = "shorten_virtual_includes",
 )
 
 _cpp_modules_feature = feature(
@@ -139,6 +141,11 @@ _do_not_split_linking_cmdline_feature = feature(name = _FEATURE_NAMES.do_not_spl
 
 _supports_dynamic_linker_feature = feature(
     name = _FEATURE_NAMES.supports_dynamic_linker,
+    enabled = True,
+)
+
+_shorten_virtual_includes_feature = feature(
+    name = _FEATURE_NAMES.shorten_virtual_includes,
     enabled = True,
 )
 
@@ -1451,6 +1458,7 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.cpp_compile_with_requirements: _cpp_compile_with_requirements,
     _FEATURE_NAMES.generate_pdb_file: _generate_pdb_file_feature,
     _FEATURE_NAMES.generate_linkmap: _generate_linkmap_feature,
+    _FEATURE_NAMES.shorten_virtual_includes: _shorten_virtual_includes_feature,
     "header_modules_feature_configuration": _header_modules_feature_configuration,
     "env_var_feature_configuration": _env_var_feature_configuration,
     "host_and_nonhost_configuration": _host_and_nonhost_configuration,

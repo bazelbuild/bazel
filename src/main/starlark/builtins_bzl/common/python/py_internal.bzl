@@ -90,7 +90,7 @@ def _expand_location_and_make_variables(*args, **kwargs):
     return _py_builtins.expand_location_and_make_variables(*args, **kwargs)
 
 def _extra_libraries_build_libraries(extra_libraries, *args, **kwargs):
-    return extra_libraries.build_libraries(*args, **kwargs)
+    return cc_common.build_extra_link_time_libraries(extra_libraries.libraries, *args, **kwargs)
 
 def _get_current_os_name(*args, **kwargs):
     return _py_builtins.get_current_os_name(*args, **kwargs)
@@ -99,7 +99,7 @@ def _get_label_repo_runfiles_path(*args, **kwargs):
     return _py_builtins.get_label_repo_runfiles_path(*args, **kwargs)
 
 def _get_legacy_external_runfiles(*args, **kwargs):
-    return _py_builtins.get_legacy_external_runfiles(*args, **kwargs)
+    return False
 
 def _get_rule_name(*args, **kwargs):
     return _py_builtins.get_rule_name(*args, **kwargs)
@@ -126,7 +126,7 @@ def _link(*args, **kwargs):
     return cc_common.link(*args, **kwargs)
 
 def _linking_context_extra_link_time_libraries(linking_context, *args, **kwargs):
-    return linking_context.extra_link_time_libraries(*args, **kwargs)
+    return linking_context._extra_link_time_libraries
 
 def _linking_context_linkstamps(linking_context, *args, **kwargs):
     return linking_context.linkstamps(*args, **kwargs)
@@ -134,8 +134,9 @@ def _linking_context_linkstamps(linking_context, *args, **kwargs):
 def _linkstamp_file(linkstamp, *args, **kwargs):
     return linkstamp.file(*args, **kwargs)
 
-def _make_runfiles_respect_legacy_external_runfiles(*args, **kwargs):
-    return _py_builtins.make_runfiles_respect_legacy_external_runfiles(*args, **kwargs)
+# TODO(https://github.com/bazelbuild/bazel/issues/17415): Cleanup uses and remove
+def _make_runfiles_respect_legacy_external_runfiles(_ctx, runfiles):
+    return runfiles
 
 def _merge_debug_context(*args, **kwargs):
     return cc_common.merge_debug_context(*args, **kwargs)

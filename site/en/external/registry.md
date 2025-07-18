@@ -5,7 +5,7 @@ Book: /_book.yaml
 
 {% include "_buttons.html" %}
 
-Bzlmod discovers dependencies by requesting their information from Bazel
+Bazel discovers dependencies by requesting their information from Bazel
 *registries*: databases of Bazel modules. Bazel only supports one type of
 registries — [*index registries*](#index_registry) — local directories or static
 HTTP servers following a specific format.
@@ -30,7 +30,11 @@ An index registry must have the following format:
     *   `MODULE.bazel`: The `MODULE.bazel` file of this module version. Note
         that this is the `MODULE.bazel` file read during Bazel's external
         dependency resolution, _not_ the one from the source archive (unless
-        there's a non-registry override).
+        there's a [non-registry
+        override](/external/module#non-registry_overrides)). Also note that it's
+        best to use this file to set the version of a release and avoid doing so
+        in the source archive `MODULE.bazel` file. To learn more about module
+        versioning, [see the FAQ](faq.md#module-versioning-best-practices).
     *   [`source.json`](#source-json): A JSON file containing information on how
         to fetch the source of this module version
     *   `patches/`: An optional directory containing patch files, only used when
@@ -83,6 +87,8 @@ field, which defaults to `archive`.
     by downloading an archive from a given URL and extracting its contents. It
     supports the following fields:
     *   `url`: A string, the URL of the source archive
+    *   `mirror_urls`: A list of string, the mirror URLs of the source archive.
+        The URLs are tried in order after `url` as backups.
     *   `integrity`: A string, the [Subresource
         Integrity][subresource-integrity] checksum of the archive
     *   `strip_prefix`: A string, the directory prefix to strip when extracting
@@ -96,7 +102,8 @@ field, which defaults to `archive`.
         extracted archive. The patch files are located under the
         `/modules/$MODULE/$VERSION/patches` directory. The keys are the
         patch file names, and the values are the integrity checksum of
-        the patch files. The patches are applied after the overlay files.
+        the patch files. The patches are applied after the overlay files and in
+        the order they appear in `patches`.
     *   `patch_strip`: A number; the same as the `--strip` argument of Unix
         `patch`.
     *   `archive_type`: A string, the archive type of the downloaded file (Same

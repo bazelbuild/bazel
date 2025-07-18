@@ -1,4 +1,6 @@
-load("//:workspace_deps.bzl", "gen_workspace_stanza")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -8,7 +10,7 @@ filegroup(
     visibility = ["//src/test/shell:__pkg__"],
 )
 
-filegroup(
+sh_library(
     name = "test-deps",
     testonly = 1,
     srcs = [
@@ -16,7 +18,7 @@ filegroup(
     ],
 )
 
-filegroup(
+sh_library(
     name = "test-deps-minimal-bazel",
     testonly = 1,
     srcs = [
@@ -26,21 +28,13 @@ filegroup(
     ],
 )
 
-filegroup(
+sh_library(
     name = "test-deps-nojdk",
     testonly = 1,
     srcs = [
         "//src:bazel-bin_nojdk",
         "//src/test/shell:bin/bazel_nojdk",
         "//src/test/shell/bazel:test-deps-wo-bazel",
-    ],
-)
-
-gen_workspace_stanza(
-    name = "protobuf_stanza",
-    out = "protobuf_stanza.txt",
-    repos = [
-        "rules_python",
     ],
 )
 
@@ -373,7 +367,6 @@ sh_test(
     name = "modify_execution_info_test",
     srcs = ["modify_execution_info_test.sh"],
     data = [
-        ":protobuf_stanza.txt",
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
         "@zlib",
@@ -683,6 +676,7 @@ sh_test(
     srcs = ["flagset_test.sh"],
     data = [
         ":test-deps",
+        "//src/main/protobuf/project:project_proto_scl_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 3,
@@ -1019,6 +1013,7 @@ sh_test(
     srcs = ["flags_scoping_integration_tests.sh"],
     data = [
         ":test-deps",
+        "//src/main/protobuf/project:project_proto_scl_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
 )

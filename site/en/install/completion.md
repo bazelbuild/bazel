@@ -44,15 +44,12 @@ If you installed Bazel:
             ```
 
 *   Via [bootstrapping](/install/compile-source), then:
-    1.  Build the completion script:
+    1.  Emit the completion script into a file:
 
         ```
-        bazel build //scripts:bazel-complete.bash
+        bazel help completion bash > bazel-complete.bash
         ```
-    2.  The completion file is built under
-        `bazel-bin/scripts/bazel-complete.bash`.
-
-        Do one of the following:
+    2.  Do one of the following:
         *   Copy this file to your completion directory, if you have
             one.
 

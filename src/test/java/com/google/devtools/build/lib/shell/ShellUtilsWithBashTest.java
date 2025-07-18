@@ -43,7 +43,7 @@ public class ShellUtilsWithBashTest {
     };
     String stdout = null;
     try {
-      stdout = new String(new Command(execArgs).execute().getStdout());
+      stdout = new String(new Command(execArgs, System.getenv()).execute().getStdout());
     } catch (Exception e) {
       fail("/bin/sh failed:\n" + in + "\n" + shellCommand + "\n" + e.getMessage());
     }

@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo.ExecPropertiesException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -516,6 +517,13 @@ public class PlatformInfoTest extends BuildViewTestCase {
         ImmutableMultimap.of(),
         ImmutableMap.of(),
         ImmutableSet.of(),
-        ConfigMatchingProvider.MatchResult.create(match));
+        match
+            ? MatchResult.MATCH
+            : new MatchResult.NoMatch(
+                ImmutableList.of(
+                    MatchResult.NoMatch.Diff.what(Label.parseCanonicalUnchecked("//fake"))
+                        .want("foo")
+                        .got("bar")
+                        .build())));
   }
 }

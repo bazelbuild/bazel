@@ -228,7 +228,8 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
     invalidatePackages();
     getConfiguredTarget("//:x");
-    assertContainsEvent("repository rules can only be used while evaluating a WORKSPACE file");
+    assertContainsEvent(
+        "repo rules can only be called from within module extension impl functions");
   }
 
   @Test

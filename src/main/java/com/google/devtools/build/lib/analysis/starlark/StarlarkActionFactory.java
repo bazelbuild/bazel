@@ -39,9 +39,11 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.ShToolchain;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.BuildInfoFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
@@ -64,7 +66,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -333,15 +334,18 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   @Override
-  public void write(FileApi output, Object content, Boolean isExecutable)
+  public void write(FileApi output, Object content, Boolean isExecutable, Object mnemonicUnchecked)
       throws EvalException, InterruptedException {
     context.checkMutable("actions.write");
     RuleContext ruleContext = getRuleContext();
 
+    String mnemonic = getMnemonic(mnemonicUnchecked, AbstractFileWriteAction.MNEMONIC);
+
     final Action action;
     if (content instanceof String) {
       action =
-          FileWriteAction.create(ruleContext, (Artifact) output, (String) content, isExecutable);
+          FileWriteAction.create(
+              ruleContext, (Artifact) output, (String) content, isExecutable, mnemonic);
     } else if (content instanceof Args args) {
       action =
           new ParameterFileWriteAction(
@@ -349,7 +353,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               NestedSetBuilder.wrap(Order.STABLE_ORDER, args.getDirectoryArtifacts()),
               (Artifact) output,
               args.build(getMainRepoMappingSupplier()),
-              args.getParameterFileType());
+              args.getParameterFileType(),
+              isExecutable,
+              mnemonic,
+              ruleContext.getConfiguration().modifiedExecutionInfo(ImmutableMap.of(), mnemonic),
+              PathMappers.getOutputPathsMode(ruleContext.getConfiguration()));
     } else {
       throw new AssertionError("Unexpected type: " + content.getClass().getSimpleName());
     }
@@ -760,7 +768,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
     }
 
-    String mnemonic = getMnemonic(mnemonicUnchecked);
+    String mnemonic = getMnemonic(mnemonicUnchecked, "Action");
     try {
       builder.setMnemonic(mnemonic);
     } catch (IllegalArgumentException e) {
@@ -868,7 +876,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     @Override
-    public ResourceSet buildResourceSet(OS os, int inputsSize) throws ExecException {
+    public ResourceSet buildResourceSet(OS os, int inputsSize)
+        throws ExecException, InterruptedException {
       try (Mutability mu = Mutability.create("resource_set_builder_function")) {
         // Only numerical values are retained from the result, so a transient SymbolGenerator
         // is fine.
@@ -906,13 +915,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                     FailureDetails.StarlarkAction.newBuilder()
                         .setCode(FailureDetails.StarlarkAction.Code.STARLARK_ACTION_UNKNOWN)
                         .build())
-                .build());
-      } catch (InterruptedException e) {
-        throw new UserExecException(
-            FailureDetail.newBuilder()
-                .setMessage(e.getMessage())
-                .setInterrupted(
-                    Interrupted.newBuilder().setCode(Interrupted.Code.INTERRUPTED).build())
                 .build());
       }
     }
@@ -982,8 +984,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
   }
 
-  private String getMnemonic(Object mnemonicUnchecked) {
-    String mnemonic = mnemonicUnchecked == Starlark.NONE ? "Action" : (String) mnemonicUnchecked;
+  private String getMnemonic(Object mnemonicUnchecked, String defaultMnemonic) {
+    String mnemonic =
+        mnemonicUnchecked == Starlark.NONE ? defaultMnemonic : (String) mnemonicUnchecked;
     if (getRuleContext().getConfiguration().getReservedActionMnemonics().contains(mnemonic)) {
       mnemonic = mangleMnemonic(mnemonic);
     }

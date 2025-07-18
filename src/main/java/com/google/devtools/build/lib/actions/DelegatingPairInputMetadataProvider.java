@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -36,7 +37,7 @@ public final class DelegatingPairInputMetadataProvider implements InputMetadataP
 
   @Override
   public FileArtifactValue getInputMetadataChecked(ActionInput input)
-      throws IOException, MissingDepExecException {
+      throws InterruptedException, IOException, MissingDepExecException {
     FileArtifactValue metadata = primary.getInputMetadata(input);
     return (metadata != null) && (metadata != FileArtifactValue.MISSING_FILE_MARKER)
         ? metadata
@@ -48,6 +49,13 @@ public final class DelegatingPairInputMetadataProvider implements InputMetadataP
   public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
     TreeArtifactValue metadata = primary.getTreeMetadata(actionInput);
     return metadata != null ? metadata : secondary.getTreeMetadata(actionInput);
+  }
+
+  @Nullable
+  @Override
+  public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
+    TreeArtifactValue metadata = primary.getEnclosingTreeMetadata(execPath);
+    return metadata != null ? metadata : secondary.getEnclosingTreeMetadata(execPath);
   }
 
   @Override

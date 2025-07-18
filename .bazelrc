@@ -1,55 +1,58 @@
 common --enable_platform_specific_config
 
 # Shared configuration flags to build and test Bazel on RBE.
-build:remote_shared --remote_instance_name=projects/bazel-untrusted/instances/default_instance
-build:remote_shared --remote_executor=grpcs://remotebuildexecution.googleapis.com
-build:remote_shared --remote_download_toplevel
-build:remote_shared --remote_timeout=600
-build:remote_shared --google_default_credentials
-build:remote_shared --jobs=100
-build:remote_shared --action_env=PATH=/bin:/usr/bin:/usr/local/bin
-build:remote_shared --java_runtime_version=rbe_jdk
-build:remote_shared --tool_java_runtime_version=rbe_jdk
+common:remote_shared --remote_instance_name=projects/bazel-untrusted/instances/default_instance
+common:remote_shared --remote_executor=grpcs://remotebuildexecution.googleapis.com
+common:remote_shared --remote_download_toplevel
+common:remote_shared --remote_timeout=600
+common:remote_shared --google_default_credentials
+common:remote_shared --jobs=100
+common:remote_shared --action_env=PATH=/bin:/usr/bin:/usr/local/bin
+common:remote_shared --java_runtime_version=rbe_jdk
+common:remote_shared --tool_java_runtime_version=rbe_jdk
 
 # Configuration to build and test Bazel on RBE on Ubuntu 18.04 with Java 11
-build:ubuntu2004 --extra_toolchains=@rbe_ubuntu2004//java:all
-build:ubuntu2004 --crosstool_top=@rbe_ubuntu2004//cc:toolchain
-build:ubuntu2004 --extra_toolchains=@rbe_ubuntu2004//config:cc-toolchain
-build:ubuntu2004 --extra_execution_platforms=//:rbe_ubuntu2004_platform,//:rbe_ubuntu2004_highcpu_platform
-build:ubuntu2004 --host_platform=//:rbe_ubuntu2004_platform
-build:ubuntu2004 --platforms=//:rbe_ubuntu2004_platform
-build:ubuntu2004 --config=remote_shared
+common:ubuntu2004 --extra_toolchains=@rbe_ubuntu2004//java:all
+common:ubuntu2004 --crosstool_top=@rbe_ubuntu2004//cc:toolchain
+common:ubuntu2004 --extra_toolchains=@rbe_ubuntu2004//config:cc-toolchain
+common:ubuntu2004 --extra_execution_platforms=//:rbe_ubuntu2004_platform,//:rbe_ubuntu2004_highcpu_platform
+common:ubuntu2004 --host_platform=//:rbe_ubuntu2004_platform
+common:ubuntu2004 --platforms=//:rbe_ubuntu2004_platform
+common:ubuntu2004 --config=remote_shared
 
 # Alias
-build:remote --config=ubuntu2004
+common:remote --config=ubuntu2004
 
-build:macos --host_macos_minimum_os=10.13
-build:macos --macos_minimum_os=10.13
+common:macos --host_macos_minimum_os=10.13
+common:macos --macos_minimum_os=10.13
 
-build:windows_arm64 --platforms=//:windows_arm64
-build:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
+common:windows_arm64 --platforms=//:windows_arm64
+common:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
 
 # Check direct Bazel module dependencies are up-to-date
 common --check_direct_dependencies=error
 
 # Add mirrors for certain download URLs
-common --experimental_downloader_config=bazel_downloader.cfg
+common --downloader_config=bazel_downloader.cfg
 
 # Enable modern C++ features
-build:linux --cxxopt=-std=c++17
-build:linux --host_cxxopt=-std=c++17
-build:macos --cxxopt=-std=c++17
-build:macos --host_cxxopt=-std=c++17
-build:windows --cxxopt=/std:c++17
-build:windows --host_cxxopt=/std:c++17
+common:linux --cxxopt=-std=c++17
+common:linux --host_cxxopt=-std=c++17
+common:macos --cxxopt=-std=c++17
+common:macos --host_cxxopt=-std=c++17
+common:windows --cxxopt=/std:c++17
+common:windows --host_cxxopt=/std:c++17
 
 # Suppress warnings from external repos, we have no direct control on them anyway.
-build:linux --per_file_copt=external/.*@-w
-build:linux --host_per_file_copt=external/.*@-w
-build:macos --per_file_copt=external/.*@-w
-build:macos --host_per_file_copt=external/.*@-w
-build:windows --per_file_copt=external/.*@/w
-build:windows --host_per_file_copt=external/.*@/w
+common:linux --per_file_copt=external/.*@-w
+common:linux --host_per_file_copt=external/.*@-w
+common:macos --per_file_copt=external/.*@-w
+common:macos --host_per_file_copt=external/.*@-w
+common:windows --per_file_copt=external/.*@/w
+common:windows --host_per_file_copt=external/.*@/w
+
+# Enable Protobuf MSVC support on Windows
+build:windows --define=protobuf_allow_msvc=true
 
 # Enable Java 21 language features
 build --java_runtime_version=21
@@ -60,7 +63,7 @@ build --tool_java_runtime_version=21
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc
 
-build:docs --workspace_status_command=scripts/docs/get_workspace_status.sh
+common:docs --workspace_status_command=scripts/docs/get_workspace_status.sh
 
 # Flags for CI builds
 ## Common
@@ -68,30 +71,30 @@ common:ci-common --lockfile_mode=error
 
 ## For Linux
 common:ci-linux --config=ci-common
-build:ci-linux --repository_cache=/var/lib/buildkite-agent/bazeltest/repo_cache
-test:ci-linux --test_env=TEST_INSTALL_BASE=/var/lib/buildkite-agent/bazeltest/install_base
-test:ci-linux --test_env=REPOSITORY_CACHE=/var/lib/buildkite-agent/bazeltest/repo_cache
-test:ci-linux --test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80
+common:ci-linux --repository_cache=/var/lib/buildkite-agent/bazeltest/repo_cache
+common:ci-linux --test_env=TEST_INSTALL_BASE=/var/lib/buildkite-agent/bazeltest/install_base
+common:ci-linux --test_env=REPOSITORY_CACHE=/var/lib/buildkite-agent/bazeltest/repo_cache
+common:ci-linux --test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80
 test:ci-linux --sandbox_writable_path=/var/lib/buildkite-agent/bazeltest
 test:ci-linux --sandbox_default_allow_network=false
 
 ## For macOS
 common:ci-macos --config=ci-common
-build:ci-macos --repository_cache=/Users/buildkite/bazeltest/repo_cache
-build:ci-macos --experimental_collect_system_network_usage
-test:ci-macos --test_env=TEST_INSTALL_BASE=/Users/buildkite/bazeltest/install_base
-test:ci-macos --test_env=REPOSITORY_CACHE=/Users/buildkite/bazeltest/repo_cache
-test:ci-macos --test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80
+common:ci-macos --repository_cache=/Users/buildkite/bazeltest/repo_cache
+common:ci-macos --experimental_collect_system_network_usage
+common:ci-macos --test_env=TEST_INSTALL_BASE=/Users/buildkite/bazeltest/install_base
+common:ci-macos --test_env=REPOSITORY_CACHE=/Users/buildkite/bazeltest/repo_cache
+common:ci-macos --test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80
 test:ci-macos --sandbox_writable_path=/Users/buildkite/bazeltest
 # TODO(pcloudy): Revert to false once https://github.com/bazelbuild/bazel/issues/23726 is resolved.
 test:ci-macos --sandbox_default_allow_network=true
-test:ci-macos --test_tag_filters=-no_macos
+common:ci-macos --test_tag_filters=-no_macos
 
 ## For Windows
 common:ci-windows --config=ci-common
-build:ci-windows --repository_cache=C:/b/bazeltest_repo_cache
-test:ci-windows --test_env=BAZEL_VC
-test:ci-windows --test_env=JAVA_HOME
-test:ci-windows --test_env=TEST_INSTALL_BASE=C:/b/bazeltest_install_base
-test:ci-windows --test_env=REPOSITORY_CACHE=C:/b/bazeltest_repo_cache
-test:ci-windows --test_tag_filters=-no_windows,-slow
+common:ci-windows --repository_cache=C:/b/bazeltest_repo_cache
+common:ci-windows --test_env=BAZEL_VC
+common:ci-windows --test_env=JAVA_HOME
+common:ci-windows --test_env=TEST_INSTALL_BASE=C:/b/bazeltest_install_base
+common:ci-windows --test_env=REPOSITORY_CACHE=C:/b/bazeltest_repo_cache
+common:ci-windows --test_tag_filters=-no_windows,-slow

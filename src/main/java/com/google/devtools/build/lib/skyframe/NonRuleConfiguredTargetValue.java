@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.TargetData;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
@@ -34,6 +35,8 @@ import javax.annotation.Nullable;
 public final class NonRuleConfiguredTargetValue
     extends AbstractConfiguredTargetValue<ConfiguredTarget> implements ConfiguredTargetValue {
 
+  private TargetData targetData;
+
   @AutoCodec.Instantiator
   @VisibleForSerialization
   NonRuleConfiguredTargetValue(
@@ -45,6 +48,20 @@ public final class NonRuleConfiguredTargetValue
   NonRuleConfiguredTargetValue(
       ConfiguredTarget configuredTarget, @Nullable NestedSet<Package.Metadata> transitivePackages) {
     super(configuredTarget, transitivePackages);
+  }
+
+  NonRuleConfiguredTargetValue(
+      ConfiguredTarget configuredTarget,
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
+      TargetData targetData) {
+    super(configuredTarget, transitivePackages);
+    this.targetData = targetData;
+  }
+
+  @Nullable
+  @Override
+  public TargetData getTargetData() {
+    return targetData;
   }
 
   @Override

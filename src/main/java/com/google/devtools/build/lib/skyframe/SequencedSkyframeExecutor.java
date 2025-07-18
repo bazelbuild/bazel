@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.buildtool.BaselineClDiffEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
@@ -88,6 +89,7 @@ import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
+import com.google.devtools.build.skyframe.IntVersion;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
@@ -143,6 +145,9 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   private final AtomicInteger modifiedFilesDuringPreviousBuild = new AtomicInteger();
 
   private Duration outputTreeDiffCheckingDuration = Duration.ofSeconds(-1L);
+
+  // Null before the first invocation or if the evaluating version cannot be computed.
+  @Nullable private IntVersion lastEvaluatedVersion;
 
   // Use delegation so that the underlying inconsistency receiver can be changed per-command without
   // recreating the evaluator.
@@ -298,6 +303,13 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     Profiler.instance().logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "handleDiffs");
     long duration = stopTime - startTime;
     sourceDiffCheckingDuration = duration > 0 ? Duration.ofNanos(duration) : Duration.ZERO;
+    IntVersion priorLastEvaluatedVersion = lastEvaluatedVersion;
+    lastEvaluatedVersion = workspaceInfo != null ? workspaceInfo.getEvaluatingVersion() : null;
+    if (priorLastEvaluatedVersion != null && lastEvaluatedVersion != null) {
+      eventHandler.post(
+          new BaselineClDiffEvent(
+              workspaceInfo.getEvaluatingVersion().getVal() - priorLastEvaluatedVersion.getVal()));
+    }
     return workspaceInfo;
   }
 
@@ -518,7 +530,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
           SkyKeyStats ruleStat =
               ruleStats.computeIfAbsent(
                   ruleClassId.key(), k -> new SkyKeyStats(k, ruleClassId.name()));
-          ruleStat.countWithActions(ctValue.getNumActions());
+          ruleStat.countWithActions(ctValue.getActions().size());
         }
       } else if (functionName.equals(SkyFunctions.ASPECT)) {
         AspectValue aspectValue = (AspectValue) value;
@@ -531,7 +543,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         SkyKeyStats aspectStat =
             aspectStats.computeIfAbsent(
                 aspectClass.getKey(), k -> new SkyKeyStats(k, aspectClass.getName()));
-        aspectStat.countWithActions(aspectValue.getNumActions());
+        aspectStat.countWithActions(aspectValue.getActions().size());
       }
 
       // We record rules and aspects again here so function count is correct.

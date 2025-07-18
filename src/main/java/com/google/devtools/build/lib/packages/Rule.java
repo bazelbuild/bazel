@@ -133,6 +133,17 @@ public class Rule extends RuleOrMacroInstance implements Target {
     return pkg.getDeclarations();
   }
 
+  /**
+   * Implements {@link RuleOrMacroClass#getDeclaringMacro} using {@link Target#getDeclaringMacro}.
+   *
+   * <p>This method cannot be called for rules in deserialized packages.
+   */
+  @Override
+  @Nullable
+  public MacroInstance getDeclaringMacro() {
+    return Target.super.getDeclaringMacro();
+  }
+
   public RuleClass getRuleClassObject() {
     return ruleClass;
   }
@@ -305,6 +316,9 @@ public class Rule extends RuleOrMacroInstance implements Target {
    * <p>Requires reconstructing the call stack from a compact representation, so should only be
    * called when the full call stack is needed.
    */
+  // TODO(https://github.com/bazelbuild/bazel/issues/26128): Avoid new uses of this method; it is
+  // hostile to change pruning for lazy macro expansion. Replace with a method that takes a context
+  // argument which provides ancestor symbolic macros.
   public ImmutableList<StarlarkThread.CallStackEntry> reconstructCallStack() {
     ImmutableList.Builder<StarlarkThread.CallStackEntry> stack = ImmutableList.builder();
     stack.add(StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, location));
@@ -324,20 +338,17 @@ public class Rule extends RuleOrMacroInstance implements Target {
     return this;
   }
 
-  /*
-   *******************************************************************
-   * Attribute accessor functions.
+  /**
+   * ****************************************************************** Attribute accessor
+   * functions.
    *
-   * The below provide access to attribute definitions and other generic
-   * metadata.
+   * <p>The below provide access to attribute definitions and other generic metadata.
    *
-   * For access to attribute *values* (e.g. "What's the value of attribute
-   * X for Rule Y?"), go through {@link RuleContext#attributes}. If no
-   * RuleContext is available, create a localized {@link AbstractAttributeMapper}
-   * instance instead.
-   *******************************************************************
+   * <p>For access to attribute *values* (e.g. "What's the value of attribute X for Rule Y?"), go
+   * through {@link RuleContext#attributes}. If no RuleContext is available, create a localized
+   * {@link AbstractAttributeMapper} instance instead.
+   * ******************************************************************
    */
-
   @Nullable
   private String getRelativeLocation() {
     // Determining the workspace root only works reliably if both location and label point to files
@@ -733,20 +744,6 @@ public class Rule extends RuleOrMacroInstance implements Target {
       return License.NO_LICENSE;
     } else {
       return getPackageDeclarations().getPackageArgs().license();
-    }
-  }
-
-  /**
-   * Returns the license of the output of the binary created by this rule, or null if it is not
-   * specified.
-   */
-  @Nullable
-  public License getToolOutputLicense(AttributeMap attributes) {
-    if (isAttrDefined("output_licenses", BuildType.LICENSE)
-        && attributes.isAttributeValueExplicitlySpecified("output_licenses")) {
-      return attributes.get("output_licenses", BuildType.LICENSE);
-    } else {
-      return null;
     }
   }
 

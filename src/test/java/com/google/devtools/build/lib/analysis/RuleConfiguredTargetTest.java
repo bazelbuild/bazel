@@ -14,8 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
-import static com.google.devtools.build.lib.skyframe.serialization.SerializationRegistrySetupHelpers.createAnalysisCodecRegistrySupplier;
+import static com.google.devtools.build.lib.skyframe.serialization.SerializationRegistrySetupHelpers.initializeAnalysisCodecRegistryBuilder;
 import static com.google.devtools.build.lib.skyframe.serialization.SerializationRegistrySetupHelpers.makeReferenceConstants;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping.roundTripWithSkyframe;
@@ -570,26 +569,24 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   public void testRulesDontProvideRequiredFragmentsByDefault() throws Exception {
     scratch.file(
         "a/BUILD",
-        String.format(
-            """
-            %s
-            config_setting(
-                name = "config",
-                values = {"start_end_lib": "1"},
-            )
+        """
+        load('//test_defs:foo_library.bzl', 'foo_library')
+        config_setting(
+            name = "config",
+            values = {"start_end_lib": "1"},
+        )
 
-            py_library(
-                name = "pylib",
-                srcs = ["pylib.py"],
-            )
+        foo_library(
+            name = "pylib",
+            srcs = ["pylib.py"],
+        )
 
-            cc_library(
-                name = "a",
-                srcs = ["A.cc"],
-                data = [":pylib"],
-            )
-            """,
-            getPyLoad("py_library")));
+        foo_library(
+            name = "a",
+            srcs = ["A.cc"],
+            deps = [":pylib"],
+        )
+        """);
     assertThat(getConfiguredTarget("//a:a").getProvider(RequiredConfigFragmentsProvider.class))
         .isNull();
     assertThat(getConfiguredTarget("//a:config").getProvider(RequiredConfigFragmentsProvider.class))
@@ -735,13 +732,13 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     var deserialized =
         roundTripWithSkyframe(
             new ObjectCodecs(
-                createAnalysisCodecRegistrySupplier(
+                initializeAnalysisCodecRegistryBuilder(
                         getRuleClassProvider(),
                         makeReferenceConstants(
                             directories,
                             getRuleClassProvider(),
                             directories.getWorkspace().getBaseName()))
-                    .get(),
+                    .build(),
                 ImmutableClassToInstanceMap.builder()
                     .put(
                         ArtifactSerializationContext.class,

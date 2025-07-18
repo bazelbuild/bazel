@@ -40,6 +40,9 @@ java_library(
 
 java_test(
     name = "StarlarkDocExtractTests",
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":StarlarkDocExtractTests_lib",

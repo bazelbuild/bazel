@@ -14,8 +14,10 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.devtools.build.lib.concurrent.QuiescingFuture;
+import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.PeerFailedException;
 import com.google.devtools.build.lib.skyframe.serialization.SharedValueDeserializationContext.SkyframeLookup;
 import java.util.ArrayDeque;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * Tracks state pertaining to Skyframe lookups from deserialization.
@@ -28,6 +30,9 @@ import java.util.ArrayDeque;
 final class SkyframeLookupCollector extends QuiescingFuture<ArrayDeque<SkyframeLookup<?>>> {
   /** Skyframe lookups required for deserialization. */
   private final ArrayDeque<SkyframeLookup<?>> skyframeLookups = new ArrayDeque<>();
+
+  @GuardedBy("this")
+  private PeerFailedException cause;
 
   /**
    * A notification that balances the pre-increment of {@link QuiescingFuture}.
@@ -52,6 +57,18 @@ final class SkyframeLookupCollector extends QuiescingFuture<ArrayDeque<SkyframeL
   }
 
   void notifyFetchException(Throwable t) {
+    synchronized (this) {
+      if (cause == null) {
+        // If this is the first failure, captures it and abandons any previously collected lookups.
+        cause = new PeerFailedException(t);
+        for (SkyframeLookup<?> lookup : skyframeLookups) {
+          lookup.abandon(cause);
+        }
+        skyframeLookups.clear();
+      }
+    }
+    // The future fails fast here. Any lookups that are added after the failure are immediately
+    // abandoned.
     notifyException(t);
   }
 
@@ -61,6 +78,10 @@ final class SkyframeLookupCollector extends QuiescingFuture<ArrayDeque<SkyframeL
   }
 
   synchronized void addLookup(SkyframeLookup<?> lookup) {
+    if (cause != null) {
+      lookup.abandon(cause); // Abandons any lookups added after the first error.
+      return;
+    }
     skyframeLookups.addLast(lookup);
   }
 }

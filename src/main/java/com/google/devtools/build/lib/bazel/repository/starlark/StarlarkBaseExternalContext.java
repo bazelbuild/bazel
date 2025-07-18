@@ -29,10 +29,12 @@ import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
-import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
-import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
+import com.google.devtools.build.lib.bazel.repository.RepositoryUtils;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorDescriptor;
+import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorValue;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
@@ -49,12 +51,9 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.Dirents;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
@@ -281,7 +280,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     // getEnvVarValues doesn't return null since the Skyframe dependencies have already been
     // established by getenv calls.
     return RepoRecordedInput.EnvVar.wrap(
-        ImmutableSortedMap.copyOf(RepositoryFunction.getEnvVarValues(env, accumulatedEnvKeys)));
+        ImmutableSortedMap.copyOf(RepositoryUtils.getEnvVarValues(env, accumulatedEnvKeys)));
   }
 
   protected void checkInOutputDirectory(String operation, StarlarkPath path)
@@ -505,7 +504,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       return originalChecksum.get();
     }
     try {
-      return Checksum.fromString(KeyType.SHA256, RepositoryCache.getChecksum(KeyType.SHA256, path));
+      return Checksum.fromString(KeyType.SHA256, DownloadCache.getChecksum(KeyType.SHA256, path));
     } catch (Checksum.InvalidChecksumException e) {
       throw new IllegalStateException(
           "Unexpected invalid checksum from internal computation of SHA-256 checksum on "
@@ -643,7 +642,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @StarlarkMethod(
       name = "download",
       doc =
-          """
+"""
 Downloads a file to the output path for the provided url and returns a struct \
 containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file \
@@ -850,7 +849,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
   @StarlarkMethod(
       name = "download_and_extract",
       doc =
-          """
+"""
 Downloads a file to the output path for the provided url, extracts it, and returns a \
 struct containing <code>success</code>, a flag which is <code>true</code> if the \
 download completed successfully, and if successful, a hash of the file with the \
@@ -908,7 +907,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
                 The archive type of the downloaded file. By default, the archive type is \
                 determined from the file extension of the URL. If the file has no \
                 extension, you can explicitly specify either "zip", "jar", "war", \
-                "aar", "nupkg", "tar", "tar.gz", "tgz", "tar.xz", "txz", ".tar.zst", \
+                "aar", "nupkg", "whl", "tar", "tar.gz", "tgz", "tar.xz", "txz", ".tar.zst", \
                 ".tzst", "tar.bz2", ".tbz", ".ar", or ".deb" here.
                 """),
         @Param(
@@ -941,7 +940,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
             doc =
                 """
                 If set, restrict cache hits to those cases where the file was added to the cache \
-                with the same canonical id. By default caching uses the checksum"
+                with the same canonical id. By default caching uses the checksum
                 (<code>sha256</code> or <code>integrity</code>).
                 """),
         @Param(
@@ -976,7 +975,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
             named = true,
             positional = false,
             doc =
-                """
+"""
 An optional dict specifying files to rename during the extraction. Archive entries \
 with names exactly matching a key will be renamed to the value, prior to \
 any directory prefix adjustment. This can be used to extract archives that \
@@ -1737,7 +1736,7 @@ the same path on case-insensitive filesystems.
   }
 
   /** Whether this context supports remote execution. */
-  protected abstract boolean isRemotable();
+  public abstract boolean isRemotable();
 
   private boolean canExecuteRemote() {
     boolean featureEnabled =
@@ -1988,6 +1987,219 @@ the same path on case-insensitive filesystems.
   }
 
   @StarlarkMethod(
+      name = "load_wasm",
+      doc =
+          """
+          Load a WebAssembly module from a file on the filesystem.
+
+          <p>This method returns a <code>wasm_module</code>, which can be passed to
+          <a href="#execute_wasm"><code>execute_wasm</code></a> for execution.
+          """,
+      useStarlarkThread = true,
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM,
+      parameters = {
+        @Param(
+            name = "path",
+            positional = true,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            doc = "Path of the WebAssembly module to load."),
+        @Param(
+            name = "allocate_fn",
+            defaultValue = "'allocate'",
+            positional = false,
+            named = true,
+            doc =
+                """
+                Name of an exported function that allocates memory in the module's address space.
+
+                <p>The function signature must be <code>(size: u32, align: u32) -&gt; *u8</code>,
+                where <code>size</code> is the size of the allocation and <code>align</code>
+                is its alignment hint. The returned value must be a valid pointer within the
+                module's address space, or <code>NULL</code> (<code>0x00000000</code>) to signal
+                an allocation failure.
+
+                <p>The allocation function is allowed to create an allocation that exceeds
+                the requested size. The alignment hint may be ignored, and Bazel does not
+                require that the returned pointer have any particular alignment.
+                """),
+        @Param(
+            name = "watch",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                """
+                Whether to <a href="#watch">watch</a> the file. Can be the string 'yes', 'no',
+                or 'auto'. Passing 'yes' is equivalent to immediately invoking the
+                <a href="#watch"><code>watch()</code></a> method; passing 'no' does not
+                attempt to watch the file; passing 'auto' will only attempt to watch the
+                file when it is legal to do so (see <code>watch()</code> docs for more
+                information.
+                """)
+      })
+  public StarlarkWasmModule loadWasm(
+      Object path, String allocateFn, String watch, StarlarkThread thread)
+      throws EvalException, RepositoryFunctionException, InterruptedException {
+    StarlarkPath p = getPath(path);
+
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newLoadWasmEvent(
+            p.toString(), allocateFn, identifyingStringForLogging, thread.getCallerLocation());
+    env.getListener().post(w);
+    maybeWatch(p, ShouldWatch.fromString(watch));
+
+    try {
+      byte[] moduleContent = FileSystemUtils.readContent(p.getPath());
+      return new StarlarkWasmModule(p, path, moduleContent, allocateFn);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  @StarlarkMethod(
+      name = "execute_wasm",
+      doc =
+"""
+          Instantiate a WebAssembly module and execute the specified function,
+          passing in the given input buffer.
+
+          <p>The function to execute must have the following signature:
+<pre><code>
+func(
+  input_ptr: *u8,
+  input_len: u32,
+  output_ptr_ptr: **u8,
+  output_ptr_len: *u32,
+) -&gt; u32
+</code></pre>
+
+          <p>Additionally there must be an allocation function defined, named
+          <code>allocate</code> by default. See <a href="#load_wasm"><code>load_wasm</code></a>
+          for details on the allocation function's type signature and semantics.
+
+          <p>The execution time is limited by <code>timeout</code> (in seconds,
+          default 600 seconds). The memory use is limited by <code>memory_limit</code>
+          (in bytes, default 64 MiB).
+
+          <p>This method returns a <code>wasm_exec_result</code> structure containing
+          the function's return code (in field <code>return_code</code>) and output
+          buffer (in field <code>output</code>). If execution failed before the function
+          returned then the return code will be negative and the <code>error_message</code>
+          field will be set.
+""",
+      useStarlarkThread = true,
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_REPOSITORY_CTX_EXECUTE_WASM,
+      parameters = {
+        @Param(
+            name = "module",
+            positional = true,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class),
+              @ParamType(type = StarlarkWasmModule.class)
+            },
+            doc =
+                """
+                Path of the WebAssembly module to execute, or a <code>wasm_module</code>
+                loaded by <a href="#load_wasm"><code>load_wasm</code></a>.
+                """),
+        @Param(
+            name = "function",
+            positional = true,
+            named = true,
+            doc = "The name of the function to execute"),
+        @Param(
+            name = "input",
+            positional = false,
+            named = true,
+            doc = "The content of the input buffer."),
+        @Param(
+            name = "timeout",
+            defaultValue = "600",
+            positional = false,
+            named = true,
+            doc = "Execution timeout in seconds (default is 600 seconds)."),
+        @Param(
+            name = "memory_limit",
+            defaultValue = "67108864", // 64 MiB
+            positional = false,
+            named = true,
+            doc = "Memory limit in bytes (default is 64 MiB"),
+        @Param(
+            name = "watch",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                """
+                Whether to <a href="#watch">watch</a> the file. Can be the string 'yes', 'no', \
+                or 'auto'. Passing 'yes' is equivalent to immediately invoking the \
+                <a href="#watch"><code>watch()</code></a> method; passing 'no' does not \
+                attempt to watch the file; passing 'auto' will only attempt to watch the \
+                file when it is legal to do so (see <code>watch()</code> docs for more \
+                information.
+                """)
+      })
+  public StarlarkWasmExecutionResult executeWasm(
+      Object pathOrModule,
+      String function,
+      String input,
+      StarlarkInt timeoutI,
+      StarlarkInt memLimitI,
+      String watch,
+      StarlarkThread thread)
+      throws EvalException, RepositoryFunctionException, InterruptedException {
+    StarlarkPath path = null;
+    StarlarkWasmModule wasmModule = null;
+    switch (pathOrModule) {
+      case StarlarkWasmModule m:
+        wasmModule = m;
+        path = wasmModule.getPath();
+        break;
+      default:
+        path = getPath(pathOrModule);
+        break;
+    }
+    ;
+
+    byte[] inputBytes = StringUnsafe.getInternalStringBytes(input);
+    int timeoutSeconds = timeoutI.toInt("timeout");
+    long memLimit = memLimitI.toLong("memory_limit");
+
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newExecuteWasmEvent(
+            path.toString(),
+            function,
+            inputBytes,
+            timeoutSeconds,
+            memLimit,
+            identifyingStringForLogging,
+            thread.getCallerLocation());
+    env.getListener().post(w);
+
+    long timeoutMillis = Math.round(timeoutSeconds * 1000L * timeoutScaling);
+    Duration timeout = Duration.ofMillis(timeoutMillis);
+
+    try {
+      if (wasmModule == null) {
+        maybeWatch(path, ShouldWatch.fromString(watch));
+        byte[] moduleContent = FileSystemUtils.readContent(path.getPath());
+        wasmModule = new StarlarkWasmModule(path, pathOrModule, moduleContent, "allocate");
+      }
+      return wasmModule.execute(function, inputBytes, timeout, memLimit);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  @StarlarkMethod(
       name = "which",
       doc =
           """
@@ -2051,7 +2263,10 @@ the same path on case-insensitive filesystems.
 
   // Resolve the label given by value into a file path.
   protected StarlarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
-    RootedPath rootedPath = RepositoryFunction.getRootedPathFromLabel(label, env);
+    RootedPath rootedPath = RepositoryUtils.getRootedPathFromLabel(label, env);
+    if (rootedPath == null) {
+      throw new NeedsSkyframeRestartException();
+    }
     StarlarkPath starlarkPath = new StarlarkPath(this, rootedPath.asPath());
     try {
       maybeWatch(

@@ -20,6 +20,11 @@ SUPRESSED_WARNINGS = select({
 })
 
 filegroup(
+    name = "ImportDepsChecker",
+    srcs = ["java_tools/ImportDepsChecker_deploy.jar"],
+)
+
+filegroup(
     name = "GenClass",
     srcs = ["java_tools/GenClass_deploy.jar"],
 )

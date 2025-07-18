@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelToStringEntryConverter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -39,7 +40,9 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeSet;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Core options affecting a {@link BuildConfigurationValue} that don't belong in domain-specific
@@ -59,6 +62,17 @@ import java.util.TreeSet;
  * string.
  */
 public class CoreOptions extends FragmentOptions implements Cloneable {
+
+  @Option(
+      name = "incompatible_filegroup_runfiles_for_data",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, runfiles of targets listed in the srcs attribute are available to targets"
+              + " that consume the filegroup as a data dependency.")
+  public boolean filegroupRunfilesForData;
 
   @Option(
       name = "scl_config",
@@ -169,7 +183,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean usePlatformsInOutputDirLegacyHeuristic;
 
   @Option(
-      name = "experimental_override_name_platform_in_output_dir",
+      name = "experimental_override_platform_cpu_name",
+      oldName = "experimental_override_name_platform_in_output_dir",
+      oldNameWarning = false,
       converter = LabelToStringEntryConverter.class,
       defaultValue = "null",
       allowMultiple = true,
@@ -178,9 +194,22 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "Each entry should be of the form label=value where label refers to a platform and values"
-              + " is the desired shortname to use in the output path. Only used when"
-              + " --experimental_platform_in_output_dir is true. Has highest naming priority.")
-  public List<Map.Entry<Label, String>> overrideNamePlatformInOutputDirEntries;
+              + " is the desired shortname to override the platform's CPU name in $(TARGET_CPU)"
+              + " make variable and output path. Only used when"
+              + " --experimental_platform_in_output_dir or --incompatible_target_cpu_from_platform"
+              + " is true. Has highest naming priority.")
+  public List<Map.Entry<Label, String>> overridePlatformCpuName;
+
+  @Option(
+      name = "incompatible_target_cpu_from_platform",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If specified, the value of the cpu constraint (@platforms//cpu:cpu) of"
+              + " the target platform is used to set the $(TARGET_CPU) make variable.")
+  public boolean incompatibleTargetCpuFromPlatform;
 
   @Option(
       name = "define",
@@ -383,7 +412,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public List<String> affectedByStarlarkTransition;
 
   /** Values for the --experimental_exec_configuration_distinguisher options */
-  public enum ExecConfigurationDistinguisherScheme {
+  public enum ExecConfigurationDistinguisherScheme implements StarlarkValue {
     /** Use hash of selected execution platform for platform_suffix. */
     LEGACY,
     /** Do not touch platform_suffix or do anything else. * */
@@ -438,23 +467,29 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   // environment to skyframe.
   @Option(
       name = "action_env",
-      converter = Converters.OptionalAssignmentConverter.class,
+      converter = Converters.EnvVarsConverter.class,
       allowMultiple = true,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
-          "Specifies the set of environment variables available to actions with target"
-              + " configuration. Variables can be either specified by name, in which case the"
-              + " value will be taken from the invocation environment, or by the name=value pair"
-              + " which sets the value independent of the invocation environment. This option can"
-              + " be used multiple times; for options given for the same variable, the latest"
-              + " wins, options for different variables accumulate.")
-  public List<Map.Entry<String, String>> actionEnvironment;
+          """
+          Specifies the set of environment variables available to actions with target \
+          configuration. Variables can be either specified by <code>name</code>, in which case
+          the value will be taken from the invocation environment, by the \
+          <code>name=value</code> pair which sets the value independent of the invocation \
+          environment, or by <code>=name</code>, which unsets the variable of that name. \
+          This option can be used multiple times; for options given for the same \
+          variable, the latest wins, options for different variables accumulate.
+          <br>
+          Note that unless <code>--incompatible_repo_env_ignores_action_env</code> is true, all <code>name=value</code> \
+          pairs will be available to repository rules.
+          """)
+  public List<Converters.EnvVar> actionEnvironment;
 
   @Option(
       name = "host_action_env",
-      converter = Converters.OptionalAssignmentConverter.class,
+      converter = Converters.EnvVarsConverter.class,
       allowMultiple = true,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -462,11 +497,12 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "Specifies the set of environment variables available to actions with execution"
               + " configurations. Variables can be either specified by name, in which case the"
-              + " value will be taken from the invocation environment, or by the name=value pair"
-              + " which sets the value independent of the invocation environment. This option can"
+              + " value will be taken from the invocation environment, by the name=value pair"
+              + " which sets the value independent of the invocation environment, or by"
+              + " <code>=name</code>, which unsets the variable of that name. This option can"
               + " be used multiple times; for options given for the same variable, the latest"
               + " wins, options for different variables accumulate.")
-  public List<Map.Entry<String, String>> hostActionEnvironment;
+  public List<Converters.EnvVar> hostActionEnvironment;
 
   @Option(
       name = "collect_code_coverage",
@@ -512,16 +548,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean buildRunfileLinks;
 
   @Option(
-      name = "legacy_external_runfiles",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If true, build runfiles symlink forests for external repositories under "
-              + ".runfiles/wsname/external/repo (in addition to .runfiles/repo).")
-  public boolean legacyExternalRunfiles;
-
-  @Option(
       name = "incompatible_always_include_files_in_data",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -532,6 +558,18 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "their runfiles, which matches the recommended behavior for Starlark rules ("
               + "https://bazel.build/extending/rules#runfiles_features_to_avoid).")
   public boolean alwaysIncludeFilesToBuildInData;
+
+  @Option(
+      name = "incompatible_compact_repo_mapping_manifest",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, the <binary>.repo_mapping file emits a module extension's repo mapping "
+              + "only once instead of once for each repo generated by the extension that "
+              + "contributes runfiles.")
+  public boolean compactRepoMapping;
 
   @Option(
       name = "run_under",
@@ -549,7 +587,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " '//package:target --options'.")
   public RunUnder runUnder;
 
-  // TODO(b/248763226): Consider moving this to a non-FragmentOptions.
+  // TODO: b/248763226 - Mark this and --verbose_visibility_errors as nonconfigurable. Requires
+  // something like https://github.com/bazelbuild/bazel/issues/25984.
   @Option(
       name = "check_visibility",
       defaultValue = "true",
@@ -557,6 +596,14 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       help = "If disabled, visibility errors in target dependencies are demoted to warnings.")
   public boolean checkVisibility;
+
+  @Option(
+      name = "verbose_visibility_errors",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      help = "If enabled, visibility errors include additional diagnostic information.")
+  public boolean verboseVisibilityErrors;
 
   @Option(
       name = "incompatible_check_testonly_for_output_files",
@@ -606,7 +653,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public List<Label> actionListeners;
 
   /** Values for the --experimental_output_directory_naming_scheme options */
-  public enum OutputDirectoryNamingScheme {
+  public enum OutputDirectoryNamingScheme implements StarlarkValue {
     /** Use `affected by starlark transition` to track configuration changes */
     LEGACY,
     /** Produce name based on diff from some baseline BuildOptions (usually top-level) */
@@ -746,7 +793,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean allowUnresolvedSymlinks;
 
   /** Values for --experimental_output_paths. */
-  public enum OutputPathsMode {
+  public enum OutputPathsMode implements StarlarkValue {
     /** Use the production output path model. */
     OFF,
     /**
@@ -832,7 +879,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "incompatible_modify_execution_info_additive",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {
         OptionEffectTag.EXECUTION,
@@ -953,14 +1000,26 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   // target.
   @Option(
       name = "use_target_platform_for_tests",
+      deprecationWarning =
+          "Tests select an execution platform matching all constraints of the target platform by"
+              + " default. Instead of using this flag, make sure that all test target platform are"
+              + " registered as execution platforms.",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "If true, use the target platform for running tests rather than the test exec group.")
   public boolean useTargetPlatformForTests;
 
+  public Optional<String> getPlatformCpuNameOverride(Label platform) {
+    // As highest priority, use the last entry that matches in name override option.
+    return Streams.findLast(
+        overridePlatformCpuName.stream()
+            .filter(e -> e.getKey().equals(platform))
+            .map(Map.Entry::getValue));
+  }
+
   /** Ways configured targets may provide the {@link Fragment}s they require. */
-  public enum IncludeConfigFragmentsEnum {
+  public enum IncludeConfigFragmentsEnum implements StarlarkValue {
     /**
      * Don't offer the provider at all. This is best for most builds, which don't use this
      * information and don't need the extra memory hit over every configured target.
@@ -1041,8 +1100,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     // Normalize features.
     result.defaultFeatures = getNormalizedFeatures(defaultFeatures);
 
-    result.actionEnvironment = normalizeEntries(actionEnvironment);
-    result.hostActionEnvironment = normalizeEntries(hostActionEnvironment);
+    result.actionEnvironment = normalizeEnvVars(actionEnvironment);
+    result.hostActionEnvironment = normalizeEnvVars(hostActionEnvironment);
     result.commandLineFlagAliases = sortEntries(normalizeEntries(commandLineFlagAliases));
 
     return result;

@@ -655,7 +655,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         .containsCell(
             testToolchainTypeLabel,
             Label.parseCanonicalUnchecked("//extra:extra_toolchain"),
-            "mismatching config settings: optimized");
+            "mismatching target_settings: optimized");
   }
 
   @Test
@@ -715,7 +715,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         .hasMessageThat()
         .contains(
             "Unrecoverable errors resolving config_setting associated with"
-                + " //extra:extra_toolchain: For config_setting flagged, Feature flag"
+                + " //extra:extra_toolchain: For config_setting flagged: Feature flag"
                 + " //extra:flag was accessed in a configuration it is not present in.");
   }
 

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
 import static org.mockito.Mockito.mock;
@@ -24,11 +25,13 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.runtime.BlazeWorkspace.ActionCacheGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.runtime.commands.VersionCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.GcAndInternerShrinkingIdleTask;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.InstallBaseGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -173,13 +176,55 @@ public class BlazeRuntimeTest {
   }
 
   @Test
+  public void addsGcAndInternerShrinkingIdleTask_noStateKeptAfterBuild() throws Exception {
+    BlazeRuntime runtime = createRuntime();
+    CommandEnvironment env = createCommandEnvironment(runtime);
+    CommonCommandOptions options = new CommonCommandOptions();
+    options.keepStateAfterBuild = false;
+
+    runtime.beforeCommand(env, options);
+
+    ImmutableList<IdleTask> gcIdleTasks =
+        env.getIdleTasks().stream()
+            .filter(t -> t instanceof GcAndInternerShrinkingIdleTask)
+            .collect(toImmutableList());
+    assertThat(gcIdleTasks).hasSize(1);
+    var idleTask = (GcAndInternerShrinkingIdleTask) gcIdleTasks.get(0);
+    assertThat(idleTask.delay()).isEqualTo(Duration.ZERO);
+  }
+
+  @Test
+  public void addsGcAndInternerShrinkingIdleTask_stateKeptAfterBuild() throws Exception {
+    BlazeRuntime runtime = createRuntime();
+    CommandEnvironment env = createCommandEnvironment(runtime);
+    CommonCommandOptions options = new CommonCommandOptions();
+    options.keepStateAfterBuild = true;
+
+    runtime.beforeCommand(env, options);
+
+    ImmutableList<IdleTask> gcIdleTasks =
+        env.getIdleTasks().stream()
+            .filter(t -> t instanceof GcAndInternerShrinkingIdleTask)
+            .collect(toImmutableList());
+    assertThat(gcIdleTasks).hasSize(1);
+    var idleTask = (GcAndInternerShrinkingIdleTask) gcIdleTasks.get(0);
+    assertThat(idleTask.delay()).isGreaterThan(Duration.ZERO);
+  }
+
+  @Test
   public void doesNotAddInstallBaseGcIdleTaskWhenDisabled() throws Exception {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
     CommonCommandOptions options = new CommonCommandOptions();
     options.installBaseGcMaxAge = Duration.ZERO;
+
     runtime.beforeCommand(env, options);
-    assertThat(env.getIdleTasks()).isEmpty();
+
+    ImmutableList<IdleTask> gcIdleTasks =
+        env.getIdleTasks().stream()
+            .filter(t -> t instanceof InstallBaseGarbageCollectorIdleTask)
+            .collect(toImmutableList());
+    assertThat(gcIdleTasks).isEmpty();
   }
 
   @Test
@@ -188,10 +233,15 @@ public class BlazeRuntimeTest {
     CommandEnvironment env = createCommandEnvironment(runtime);
     CommonCommandOptions options = new CommonCommandOptions();
     options.installBaseGcMaxAge = Duration.ofDays(365);
+
     runtime.beforeCommand(env, options);
-    assertThat(env.getIdleTasks()).hasSize(1);
-    assertThat(env.getIdleTasks().get(0)).isInstanceOf(InstallBaseGarbageCollectorIdleTask.class);
-    var idleTask = (InstallBaseGarbageCollectorIdleTask) env.getIdleTasks().get(0);
+
+    ImmutableList<IdleTask> gcIdleTasks =
+        env.getIdleTasks().stream()
+            .filter(t -> t instanceof InstallBaseGarbageCollectorIdleTask)
+            .collect(toImmutableList());
+    assertThat(gcIdleTasks).hasSize(1);
+    var idleTask = (InstallBaseGarbageCollectorIdleTask) gcIdleTasks.get(0);
     assertThat(idleTask.delay()).isEqualTo(Duration.ZERO);
     assertThat(idleTask.getGarbageCollector().getRoot())
         .isEqualTo(blazeDirectories.getInstallBase().getParentDirectory());
@@ -201,11 +251,69 @@ public class BlazeRuntimeTest {
   }
 
   @Test
+  public void doesNotAddActionCacheGcIdleTaskWhenDisabled() throws Exception {
+    BlazeRuntime runtime = createRuntime();
+    CommandEnvironment env = createCommandEnvironment(runtime);
+    CommonCommandOptions options = new CommonCommandOptions();
+    options.actionCacheGcMaxAge = Duration.ZERO;
+    options.actionCacheGcIdleDelay = Duration.ofMinutes(5);
+    options.actionCacheGcThreshold = 10;
+
+    runtime.beforeCommand(env, options);
+
+    ImmutableList<IdleTask> gcIdleTasks =
+        env.getIdleTasks().stream()
+            .filter(t -> t instanceof ActionCacheGarbageCollectorIdleTask)
+            .collect(toImmutableList());
+    assertThat(gcIdleTasks).isEmpty();
+  }
+
+  @Test
+  public void addsActionCacheGcIdleTaskWhenEnabled() throws Exception {
+    BlazeRuntime runtime = createRuntime();
+    CommandEnvironment env = createCommandEnvironment(runtime);
+    CommonCommandOptions options = new CommonCommandOptions();
+    options.actionCacheGcMaxAge = Duration.ofDays(7);
+    options.actionCacheGcIdleDelay = Duration.ofMinutes(5);
+    options.actionCacheGcThreshold = 10;
+
+    runtime.beforeCommand(env, options);
+
+    ImmutableList<IdleTask> gcIdleTasks =
+        env.getIdleTasks().stream()
+            .filter(t -> t instanceof ActionCacheGarbageCollectorIdleTask)
+            .collect(toImmutableList());
+    assertThat(gcIdleTasks).hasSize(1);
+    var idleTask = (ActionCacheGarbageCollectorIdleTask) gcIdleTasks.get(0);
+    assertThat(idleTask.delay()).isEqualTo(Duration.ofMinutes(5));
+    assertThat(idleTask.getThreshold()).isEqualTo(0.1f);
+    assertThat(idleTask.getMaxAge()).isEqualTo(Duration.ofDays(7));
+  }
+
+  @Test
   public void addsIdleTasksFromModules() throws Exception {
     BlazeRuntime runtime = createRuntime();
     CommandEnvironment env = createCommandEnvironment(runtime);
-    IdleTask fooTask = () -> {};
-    IdleTask barTask = () -> {};
+    IdleTask fooTask =
+        new IdleTask() {
+          @Override
+          public String displayName() {
+            return "foo";
+          }
+
+          @Override
+          public void run() {}
+        };
+    IdleTask barTask =
+        new IdleTask() {
+          @Override
+          public String displayName() {
+            return "bar";
+          }
+
+          @Override
+          public void run() {}
+        };
     env.addIdleTask(fooTask);
     env.addIdleTask(barTask);
     assertThat(
@@ -213,7 +321,7 @@ public class BlazeRuntimeTest {
                 .afterCommand(
                     /* forceKeepStateForTesting= */ false, env, BlazeCommandResult.success())
                 .getIdleTasks())
-        .containsExactly(fooTask, barTask);
+        .containsAtLeast(fooTask, barTask);
   }
 
   @Test
@@ -255,8 +363,9 @@ public class BlazeRuntimeTest {
         /* warnings= */ ImmutableList.of(),
         /* waitTimeInMs= */ 0L,
         /* commandStartTime= */ 0L,
-        /* commandExtensions= */ ImmutableList.of(),
+        /* idleTaskResultsFromPreviousIdlePeriod= */ ImmutableList.of(),
         /* shutdownReasonConsumer= */ shutdownReason::set,
+        /* commandExtensions= */ ImmutableList.of(),
         NO_OP_COMMAND_EXTENSION_REPORTER,
         /* attemptNumber= */ 1,
         /* buildRequestIdOverride= */ null,

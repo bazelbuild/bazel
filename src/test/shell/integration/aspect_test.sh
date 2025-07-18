@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -68,8 +68,12 @@ def _simple_aspect_impl(target, ctx):
 
 simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
-  echo "sh_library(name = 'cycletarget', deps = [':cycletarget'])" \
-      > test/BUILD || fail "Couldn't write BUILD file"
+
+  add_rules_shell "MODULE.bazel"
+  cat > test/BUILD << 'EOF' || fail "Couldn't write BUILD file"
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = 'cycletarget', deps = [':cycletarget'])
+EOF
 
   # No flag, use the default from the rule.
   bazel build --nobuild -k //test:cycletarget \
@@ -86,7 +90,8 @@ EOF
 # This test would be flaky if errors were non-deterministically reported during
 # target and aspect analysis, and would fail outright if aspect failures were
 # preferred.
-function test_aspect_on_target_with_analysis_failure() {
+# TODO: b/380281737 - Re-enable when not flaky
+function disabled_test_aspect_on_target_with_analysis_failure() {
   mkdir -p test
   cat > test/aspect.bzl << 'EOF' || fail "Couldn't write aspect.bzl"
 def _simple_aspect_impl(target, ctx):
@@ -94,8 +99,12 @@ def _simple_aspect_impl(target, ctx):
 
 simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
-  echo "sh_library(name = 'brokentarget', deps = [':missing'])" \
-      > test/BUILD || fail "Couldn't write BUILD file"
+
+  add_rules_shell "MODULE.bazel"
+  cat > test/BUILD <<EOF || fail "Couldn't write BUILD file"
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = 'brokentarget', deps = [':missing'])
+EOF
 
   bazel build //test:brokentarget \
       --aspects 'test/aspect.bzl%simple_aspect' &> $TEST_log \
@@ -1272,7 +1281,9 @@ EOF
   cat > "${package}/tool.sh" <<EOF
 EOF
 
+  add_rules_shell "MODULE.bazel"
   cat > "${package}/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load('//test:defs.bzl', 'r1', 'r2')
 r1(
   name = 't1',
@@ -1342,7 +1353,9 @@ EOF
   cat > "${package}/tool.sh" <<EOF
 EOF
 
+  add_rules_shell "MODULE.bazel"
   cat > "${package}/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load('//test:defs.bzl', 'r1', 'r2')
 r1(
   name = 't1',
@@ -1413,7 +1426,9 @@ EOF
   cat > "${package}/tool.sh" <<EOF
 EOF
 
+  add_rules_shell "MODULE.bazel"
   cat > "${package}/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load('//test:defs.bzl', 'r1', 'r2')
 r1(
   name = 't1',
@@ -1435,8 +1450,9 @@ EOF
 function test_aspect_with_missing_attr() {
   local package="test"
   mkdir -p "${package}"
-
+  add_rules_shell "MODULE.bazel"
   cat > "${package}/BUILD" <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = "foo")
 EOF
 
@@ -1524,8 +1540,10 @@ EOF
   cat > "${package}/tool.sh" <<EOF
 EOF
 
+  add_rules_shell "MODULE.bazel"
   cat > "${package}/BUILD" <<EOF
 load('//test:defs.bzl', 'r1', 'r2')
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 r1(
   name = 't1',
   dep = ':t2',
@@ -1736,7 +1754,9 @@ EOF
   cat > "${package}/tool.sh" <<EOF
 EOF
 
+  add_rules_shell "MODULE.bazel"
   cat > "${package}/BUILD" <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load('//test:defs.bzl', 'r1')
 r1(
   name = 't1',
@@ -1797,8 +1817,9 @@ test_toolchain = rule(
   },
 )
 EOF
-
+  add_rules_shell "MODULE.bazel"
   cat > "${toolchains_package}/BUILD" <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 load("//${toolchains_package}:defs.bzl", "test_toolchain")
 
 toolchain_type(name = "toolchain_type")

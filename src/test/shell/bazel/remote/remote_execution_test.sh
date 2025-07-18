@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -307,8 +307,10 @@ EOF
 }
 
 function test_cc_binary() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 cc_binary(
 name = 'test',
@@ -334,8 +336,10 @@ EOF
 }
 
 function test_cc_test() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 package(default_visibility = ["//visibility:public"])
 cc_test(
 name = 'test',
@@ -350,36 +354,15 @@ EOF
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       --test_output=errors \
-      --noexperimental_split_xml_generation \
-      //a:test >& $TEST_log \
-      || fail "Failed to run //a:test with remote execution"
-}
-
-function test_cc_test_split_xml() {
-  mkdir -p a
-  cat > a/BUILD <<EOF
-package(default_visibility = ["//visibility:public"])
-cc_test(
-name = 'test',
-srcs = [ 'test.cc' ],
-)
-EOF
-  cat > a/test.cc <<EOF
-#include <iostream>
-int main() { std::cout << "Hello test!" << std::endl; return 0; }
-EOF
-  bazel test \
-      --spawn_strategy=remote \
-      --remote_executor=grpc://localhost:${worker_port} \
-      --test_output=errors \
-      --experimental_split_xml_generation \
       //a:test >& $TEST_log \
       || fail "Failed to run //a:test with remote execution"
 }
 
 function test_cc_binary_grpc_cache() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 cc_binary(
 name = 'test',
@@ -404,8 +387,10 @@ EOF
 }
 
 function test_cc_binary_grpc_cache_statsline() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 cc_binary(
 name = 'test',
@@ -428,8 +413,10 @@ EOF
 }
 
 function test_failing_cc_test() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 package(default_visibility = ["//visibility:public"])
 cc_test(
 name = 'test',
@@ -616,8 +603,10 @@ function is_file_uploaded() {
 function test_failed_test_outputs_not_uploaded() {
   # Test that outputs of a failed test/action are not uploaded to the remote
   # cache. This is a regression test for https://github.com/bazelbuild/bazel/issues/7232
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 package(default_visibility = ["//visibility:public"])
 cc_test(
   name = 'test',
@@ -671,8 +660,10 @@ EOF
 }
 
 function test_py_test() {
+  add_rules_python "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_python//python:py_test.bzl", "py_test")
 package(default_visibility = ["//visibility:public"])
 py_test(
 name = 'test',
@@ -693,8 +684,10 @@ EOF
 }
 
 function test_py_test_with_xml_output() {
+  add_rules_python "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_python//python:py_test.bzl", "py_test")
 package(default_visibility = ["//visibility:public"])
 py_test(
 name = 'test',
@@ -731,8 +724,10 @@ EOF
 }
 
 function test_failing_py_test_with_xml_output() {
+  add_rules_python "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_python//python:py_test.bzl", "py_test")
 package(default_visibility = ["//visibility:public"])
 py_test(
 name = 'test',
@@ -795,8 +790,10 @@ EOF
 }
 
 function test_timeout() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "sleep",
   timeout = "short",
@@ -805,7 +802,7 @@ sh_test(
 EOF
 
   cat > a/sleep.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 for i in {1..3}
 do
     echo "Sleeping $i..."
@@ -828,8 +825,10 @@ EOF
 }
 
 function test_passed_env_user() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "user_test",
   timeout = "short",
@@ -885,8 +884,10 @@ EOF
 # For example, if the network connection to the remote executor fails it shouldn't be displayed as
 # a test error.
 function test_display_non_testerrors() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "test",
   timeout = "short",
@@ -1221,9 +1222,9 @@ EOF
 
 function test_nobuild_runfile_links() {
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
-
+  add_rules_shell "MODULE.bazel"
   cat > test.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 [[ -f ${RUNFILES_DIR}/_main/data/hello ]]
 [[ -f ${RUNFILES_DIR}/_main/data/world ]]
@@ -1231,6 +1232,8 @@ exit 0
 EOF
   chmod 755 test.sh
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 filegroup(
   name = "runfiles",
   srcs = ["data/hello", "data/world"],
@@ -2043,6 +2046,7 @@ EOF
 }
 
 function setup_exclusive_test_case() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/success.sh <<'EOF'
 #!/bin/sh
@@ -2050,6 +2054,7 @@ exit 0
 EOF
   chmod 755 a/success.sh
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = "success_test",
   srcs = ["success.sh"],
@@ -2125,6 +2130,7 @@ function test_exclusive_test_wont_remote_exec() {
 # runfiles. The error we would see here without the flag would be "Cannot find
 # runfiles". See #4685.
 function test_java_rbe_coverage_produces_report() {
+  add_rules_java "MODULE.bazel"
   mkdir -p java/factorial
 
   JAVA_TOOLS_ZIP="released"
@@ -2133,6 +2139,9 @@ function test_java_rbe_coverage_produces_report() {
   cd java/factorial
 
   cat > BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_library(
     name = "fact",
     srcs = ["Factorial.java"],
@@ -2412,10 +2421,14 @@ function test_cc_rbe_coverage_produces_report() {
   # Check to see if intermediate files are supported, otherwise skip.
   gcov --help | grep "\-i," || return 0
 
+  add_rules_cc "MODULE.bazel"
   local test_dir="a/cc/coverage_test"
   mkdir -p $test_dir
 
   cat > "$test_dir"/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -2547,10 +2560,15 @@ function test_cc_rbe_coverage_produces_report_with_llvm() {
     return 0
   fi
 
+  add_rules_cc "MODULE.bazel"
   local test_dir="a/cc/coverage_test"
   mkdir -p $test_dir
 
   cat > "$test_dir"/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -2681,8 +2699,11 @@ EOF
 }
 
 function test_async_upload_works_for_flaky_tests() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 sh_test(
     name = "test",
     srcs = ["test.sh"],
@@ -2763,8 +2784,10 @@ function test_local_test_execution_with_disk_cache() {
   # considered stale on a cache hit.
   # Regression test for https://github.com/bazelbuild/bazel/issues/14426.
 
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = 'test',
   srcs = ['test.sh'],
@@ -3021,12 +3044,14 @@ local_repository(
   path = "other_repo",
 )
 EOF
+  add_rules_cc "MODULE.bazel"
 
   mkdir -p other_repo
   touch other_repo/REPO.bazel
 
   mkdir -p other_repo/lib
   cat > other_repo/lib/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
   name = "lib",
   srcs = ["lib.cpp"],
@@ -3046,6 +3071,7 @@ EOF
 
   mkdir -p other_repo/test
   cat > other_repo/test/BUILD <<'EOF'
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_test(
   name = "test",
   srcs = ["test.cpp"],
@@ -3185,6 +3211,7 @@ local_repository(
   path = "other_repo",
 )
 EOF
+  add_rules_cc "MODULE.bazel"
 
   mkdir -p $repo
   touch $repo/REPO.bazel
@@ -3193,6 +3220,9 @@ EOF
   # Use a comma in the target name as that is known to be problematic whith -Wl,
   # which is commonly used to pass rpaths to the linker.
   cat > $repo/lib/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_import.bzl", "cc_import")
+
 cc_binary(
   name = "l,ib",
   srcs = ["lib.cpp"],
@@ -3219,6 +3249,8 @@ EOF
 
   mkdir -p $repo/pkg
   cat > $repo/pkg/BUILD <<'EOF'
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
   name = "tool",
   srcs = ["tool.cpp"],
@@ -3275,7 +3307,9 @@ function test_external_cc_binary_tool_with_dynamic_deps_sibling_repository_layou
 }
 
 function test_shard_status_file_checked_remote_download_minimal() {
+  add_rules_shell "MODULE.bazel"
   cat <<'EOF' > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'x',
     srcs = ['x.sh'],
@@ -3301,7 +3335,9 @@ EOF
 }
 
 function test_premature_exit_file_checked_remote_download_minimal() {
+  add_rules_shell "MODULE.bazel"
   cat <<'EOF' > BUILD
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = 'x',
     srcs = ['x.sh'],
@@ -3555,6 +3591,7 @@ EOF
 }
 
 function setup_inlined_outputs() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/input.txt <<'EOF'
 input
@@ -3595,6 +3632,7 @@ my_rule = rule(
 EOF
   cat > a/BUILD <<'EOF'
 load("//a:defs.bzl", "my_rule")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 my_rule(
   name = "my_rule",
@@ -3701,6 +3739,122 @@ EOF
     --experimental_output_paths=strip \
     //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
   assert_contains "input" bazel-bin/a/my_rule
+}
+
+# Verifies that the contents of a directory have the same representation with
+# remote execution regardless of whether they are added as a source directory or
+# via globbing.
+function test_source_directory() {
+  add_rules_shell "MODULE.bazel"
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+filegroup(
+    name = "source_directory",
+    srcs = ["dir"],
+)
+
+filegroup(
+    name = "glob",
+    srcs = glob(["dir/**"]),
+)
+
+sh_binary(
+    name = "tool_with_source_directory",
+    srcs = ["tool.sh"],
+    data = [":source_directory"],
+)
+
+sh_binary(
+    name = "tool_with_glob",
+    srcs = ["tool.sh"],
+    data = [":glob"],
+)
+
+GENRULE_COMMAND_TEMPLATE = """
+[[ -f a/dir/file.txt ]] || { echo "a/dir/file.txt is not a file"; exit 1; }
+[[ ! -L a/dir/file.txt ]] || { echo "a/dir/file.txt is a symlink"; exit 1; }
+[[ -f a/dir/subdir/file.txt ]] || { echo "a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L a/dir/subdir/file.txt ]] || { echo "a/dir/subdir/file.txt is a symlink"; exit 1; }
+[[ -f a/dir/symlink.txt ]] || { echo "a/dir/symlink.txt is not a file"; exit 1; }
+[[ ! -L a/dir/symlink.txt ]] || { echo "a/dir/symlink.txt is a symlink"; exit 1; }
+[[ -f a/dir/symlink_dir/file.txt ]] || { echo "a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L a/dir/symlink_dir ]] || { echo "a/dir/symlink_dir is a symlink"; exit 1; }
+[[ ! -e a/dir/empty_dir ]] || { echo "a/dir/empty_dir exists"; exit 1; }
+[[ ! -e a/dir/symlink_empty_dir ]] || { echo "a/dir/symlink_empty_dir exists"; exit 1; }
+
+runfiles_prefix=$(execpath %s).runfiles/_main
+[[ -f $$runfiles_prefix/a/dir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/file.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/file.txt is a symlink"; exit 1; }
+[[ -f $$runfiles_prefix/a/dir/subdir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/subdir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/subdir/file.txt is a symlink"; exit 1; }
+[[ -f $$runfiles_prefix/a/dir/symlink.txt ]] || { echo "$$runfiles_prefix/a/dir/symlink.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/symlink.txt ]] || { echo "$$runfiles_prefix/a/dir/symlink.txt is a symlink"; exit 1; }
+[[ -f $$runfiles_prefix/a/dir/symlink_dir/file.txt ]] || { echo "$$runfiles_prefix/a/dir/subdir/file.txt is not a file"; exit 1; }
+[[ ! -L $$runfiles_prefix/a/dir/symlink_dir ]] || { echo "$$runfiles_prefix/a/dir/symlink_dir is a symlink"; exit 1; }
+[[ ! -e $$runfiles_prefix/a/dir/empty_dir ]] || { echo "$$runfiles_prefix/a/dir/empty_dir exists"; exit 1; }
+[[ ! -e $$runfiles_prefix/a/dir/symlink_empty_dir ]] || { echo "$$runfiles_prefix/a/dir/symlink_empty_dir exists"; exit 1; }
+
+touch $@
+"""
+
+genrule(
+    name = "gen_source_directory",
+    srcs = [":source_directory"],
+    tools = [":tool_with_source_directory"],
+    outs = ["out1"],
+    cmd = GENRULE_COMMAND_TEMPLATE % ":tool_with_source_directory",
+)
+
+genrule(
+    name = "gen_glob",
+    srcs = [":glob"],
+    tools = [":tool_with_glob"],
+    outs = ["out2"],
+    cmd = GENRULE_COMMAND_TEMPLATE % ":tool_with_glob",
+)
+EOF
+  mkdir -p a/dir
+  touch a/tool.sh
+  chmod +x a/tool.sh
+  touch a/dir/file.txt
+  ln -s file.txt a/dir/symlink.txt
+  mkdir -p a/dir/subdir
+  touch a/dir/subdir/file.txt
+  ln -s subdir a/dir/symlink_dir
+  mkdir a/dir/empty_dir
+  ln -s empty_dir a/dir/symlink_empty_dir
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:gen_glob >& $TEST_log || fail "Failed to build //a:gen_glob"
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:gen_source_directory >& $TEST_log || fail "Failed to build //a:gen_source_directory"
+}
+
+# TODO: Turn this into a more targeted test after enabling proper source
+#  directory tracking (#25834) - it is not specific to remote execution.
+function test_source_directory_dangling_symlink() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+    name = "gen",
+    srcs = ["dir"],
+    outs = ["out"],
+    cmd = """
+touch $@
+""",
+)
+EOF
+  mkdir -p a/dir
+  ln -s does_not_exist a/dir/symlink.txt
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:gen >& $TEST_log && fail "build //a:gen should fail"
+  expect_log "The file type of 'a/dir/symlink.txt' is not supported."
 }
 
 run_suite "Remote execution and remote cache tests"

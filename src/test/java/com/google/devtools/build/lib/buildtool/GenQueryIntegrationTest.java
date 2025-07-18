@@ -42,16 +42,11 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
 
-  @TestParameter private boolean ttvFree;
   @TestParameter private boolean keepGoing;
 
   @Override
   protected void setupOptions() throws Exception {
     super.setupOptions();
-    runtimeWrapper.addOptions(
-        ttvFree
-            ? "--experimental_skip_ttvs_for_genquery"
-            : "--noexperimental_skip_ttvs_for_genquery");
     runtimeWrapper.addOptions(keepGoing ? "--keep_going" : "--nokeep_going");
   }
 
@@ -797,7 +792,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
   @Test
   public void testLoadingPhaseCycle() throws Exception {
     // This test uses a target in a self-cycle to demonstrate that a genquery rule having a cycle in
-    // its scope causes it to fail, unless --experimental_skip_ttvs_for_genquery is used.
+    // its scope does not cause it to fail.
     write(
         "cycle/BUILD",
         """
@@ -813,12 +808,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
             deps = [":cycle"],
         )
         """);
-    if (ttvFree) {
-      assertQueryResult("//cycle:gen", "//cycle:cycle");
-    } else {
-      assertThrows(expectedExceptionClass(), () -> buildTarget("//cycle:gen"));
-      assertContainsEvent("in foo_library rule //cycle:cycle: cycle in dependency graph");
-    }
+    assertQueryResult("//cycle:gen", "//cycle:cycle");
   }
 
   private void writeAspectDefinition(String aspectPackage, String extraDep) throws Exception {
@@ -1016,7 +1006,7 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
     buildTarget(queryTarget);
     Artifact output = Iterables.getOnlyElement(getArtifacts(queryTarget));
     assertThat(getAllKeysInGraph().stream().anyMatch(key -> key instanceof TransitiveTargetKey))
-        .isEqualTo(!ttvFree);
+        .isFalse();
     return readContentAsLatin1String(output);
   }
 

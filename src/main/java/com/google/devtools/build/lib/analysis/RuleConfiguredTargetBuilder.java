@@ -91,8 +91,6 @@ public final class RuleConfiguredTargetBuilder {
 
   public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
-    // Avoid building validations in analysis tests (b/143988346)
-    addNativeDeclaredProvider(LicensesProviderImpl.of(ruleContext));
   }
 
   /**
@@ -349,7 +347,7 @@ public final class RuleConfiguredTargetBuilder {
       if (rdeLabel != null
           && BuiltinRestriction.isNotAllowed(
               rdeLabel,
-              RepositoryMapping.ALWAYS_FALLBACK,
+              RepositoryMapping.EMPTY,
               BuiltinRestriction.INTERNAL_STARLARK_API_ALLOWLIST)) {
         ruleContext.ruleError(rdeLabel + " cannot access the _transitive_validation private API");
         return;
@@ -420,9 +418,9 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Invokes Blaze's constraint enforcement system: checks that this rule's dependencies
-   * support its environments and reports appropriate errors if violations are found. Also
-   * publishes this rule's supported environments for the rules that depend on it.
+   * Invokes Blaze's constraint enforcement system: checks that this rule's dependencies support its
+   * environments and reports appropriate errors if violations are found. Also publishes this rule's
+   * supported environments for the rules that depend on it.
    */
   private void checkConstraints() {
     if (!ruleContext.getRule().getRuleClassObject().supportsConstraintChecking()) {
@@ -435,8 +433,8 @@ public final class RuleConfiguredTargetBuilder {
     if (supportedEnvironments != null) {
       EnvironmentCollection.Builder refinedEnvironments = new EnvironmentCollection.Builder();
       Map<Label, RemovedEnvironmentCulprit> removedEnvironmentCulprits = new LinkedHashMap<>();
-      constraintSemantics.checkConstraints(ruleContext, supportedEnvironments, refinedEnvironments,
-          removedEnvironmentCulprits);
+      constraintSemantics.checkConstraints(
+          ruleContext, supportedEnvironments, refinedEnvironments, removedEnvironmentCulprits);
       add(
           SupportedEnvironmentsProvider.class,
           SupportedEnvironments.create(
@@ -453,9 +451,10 @@ public final class RuleConfiguredTargetBuilder {
       ruleContext.attributeError("shard_count", "Must not be negative.");
     }
     if (explicitShardCount > 50) {
-      ruleContext.attributeError("shard_count",
+      ruleContext.attributeError(
+          "shard_count",
           "Having more than 50 shards is indicative of poor test organization. "
-          + "Please reduce the number of shards.");
+              + "Please reduce the number of shards.");
     }
     TestActionBuilder testActionBuilder =
         new TestActionBuilder(ruleContext)
@@ -522,6 +521,7 @@ public final class RuleConfiguredTargetBuilder {
     providersBuilder.addAll(providers);
     return this;
   }
+
   /**
    * Adds a "declared provider" defined in Starlark to the rule. Use this method for declared
    * providers defined in Starlark. The provider symbol must be exported.

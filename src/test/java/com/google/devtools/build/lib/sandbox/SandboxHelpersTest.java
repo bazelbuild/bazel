@@ -238,19 +238,6 @@ public class SandboxHelpersTest {
   }
 
   @Test
-  public void atomicallyWriteVirtualInput_writesArbitraryVirtualInput() throws Exception {
-    VirtualActionInput input = ActionsTestUtil.createVirtualActionInput("file", "hello");
-
-    input.atomicallyWriteRelativeTo(scratch.resolve("/outputs"));
-
-    assertThat(scratch.resolve("/outputs").readdir(Symlinks.NOFOLLOW))
-        .containsExactly(new Dirent("file", Dirent.Type.FILE));
-    Path outputFile = scratch.resolve("/outputs/file");
-    assertThat(FileSystemUtils.readLines(outputFile, UTF_8)).containsExactly("hello");
-    assertThat(outputFile.isExecutable()).isTrue();
-  }
-
-  @Test
   public void cleanExisting_updatesDirs() throws IOException, InterruptedException {
     Path inputTxt = scratch.getFileSystem().getPath(PathFragment.create("/hello.txt"));
     Path rootDir = execRoot.getParentDirectory();
@@ -318,7 +305,7 @@ public class SandboxHelpersTest {
   @Test
   public void populateInputsAndDirsToCreate_createsMappedDirectories() {
     ArtifactRoot outputRoot =
-        ArtifactRoot.asDerivedRoot(execRoot, ArtifactRoot.RootType.Output, "outputs");
+        ArtifactRoot.asDerivedRoot(execRoot, ArtifactRoot.RootType.OUTPUT, "outputs");
     ActionInput outputFile = ActionsTestUtil.createArtifact(outputRoot, "bin/config/dir/file");
     ActionInput outputDir =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(

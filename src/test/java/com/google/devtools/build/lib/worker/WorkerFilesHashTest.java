@@ -55,7 +55,7 @@ import org.junit.runners.JUnit4;
 public final class WorkerFilesHashTest {
 
   private final ArtifactRoot outputRoot =
-      ArtifactRoot.asDerivedRoot(new Scratch().resolve("/execroot"), RootType.Output, "bazel-out");
+      ArtifactRoot.asDerivedRoot(new Scratch().resolve("/execroot"), RootType.OUTPUT, "bazel-out");
 
   @Test
   public void getWorkerFilesWithDigests_returnsToolsWithCorrectDigests() throws Exception {
@@ -168,6 +168,12 @@ public final class WorkerFilesHashTest {
       @Nullable
       @Override
       public TreeArtifactValue getTreeMetadata(ActionInput actionInput) {
+        return null;
+      }
+
+      @Nullable
+      @Override
+      public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
         return null;
       }
 

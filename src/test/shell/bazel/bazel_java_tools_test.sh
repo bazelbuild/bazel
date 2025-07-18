@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -102,6 +102,9 @@ function expect_path_in_java_tools_prebuilt() {
   [[ "$count" -gt 0 ]] || fail "Path $path not found in java_tools_prebuilt.zip"
 }
 
+function test_java_tools_has_import_deps_checker() {
+  expect_path_in_java_tools "java_tools/ImportDepsChecker_deploy.jar"
+}
 
 function test_java_tools_has_ijar() {
   expect_path_in_java_tools "java_tools/ijar"

@@ -40,15 +40,14 @@ public final class JacocoInstrumentationProcessor {
 
   public static JacocoInstrumentationProcessor create(List<String> args)
       throws InvalidCommandLineException {
+    // Ignore extra arguments for backwards compatibility (they used to contain filters).
     if (args.size() < 1) {
       throw new InvalidCommandLineException(
           "Number of arguments for Jacoco instrumentation should be 1+ (given "
               + args.size()
-              + ": metadataOutput [filters*].");
+              + ": pathsForCoverageFile");
     }
 
-    // ignoring filters, they weren't used in the previous implementation
-    // TODO(bazel-team): filters should be correctly handled
     return new JacocoInstrumentationProcessor(args.get(0));
   }
 

@@ -2,6 +2,8 @@ Project: /_project.yaml
 Book: /_book.yaml
 keywords: bzlmod
 
+{# disableFinding(LINE_OVER_80_LINK) #}
+
 # Bzlmod Migration Guide
 
 {% include "_buttons.html" %}
@@ -14,71 +16,102 @@ your project to Bzlmod and drop WORKSPACE for managing external dependencies.
 
 ## Why migrate to Bzlmod? {:#why-migrate-to-bzlmod}
 
-*   There are many [advantages](#benefits-of-bzlmod) compared to the legacy
+*   There are many [advantages](overview#benefits) compared to the legacy
     WORKSPACE system, which helps to ensure a healthy growth of the Bazel
     ecosystem.
 
 *   If your project is a dependency of other projects, migrating to Bzlmod will
-   unblock their migration and make it easier for them to depend on your
+    unblock their migration and make it easier for them to depend on your
     project.
 
 *   Migration to Bzlmod is a necessary step in order to use future Bazel
     versions (mandatory in Bazel 9).
 
-## Benefits of Bzlmod {:#benefits-of-bzlmod}
+## How to migrate to Bzlmod? {:#how-migrate-to-bzlmod}
 
-This section outlines the key advantages of using Bzlmod.
+Recommended migration process:
 
-#### Automatic Dependency Resolution
+1.  Use [migration tool](#migration-tool) as a helper tool to streamline the
+    migration process as much as possible. Check [migration
+    tool](#migration-tool) and [how to use the tool](#migration-tool-how-to-use)
+    sections.
+2.  If there are errors left after using the migration tool, resolve them
+    manually. For understanding the main differences between concepts inside
+    `WORKSPACE` and `MODULE.bazel` files, check [WORKSPACE versus
+    Bzlmod](#workspace-vs-bzlmod) section.
 
--   **Deterministic Version Resolution**: Bzlmod adopts the deterministic
-    [MVS](/external/module#version-selection) version resolution algorithm,
-    minimizing conflicts and addressing diamond dependency issues.
--   **Simplified Dependency Management**: `MODULE.bazel` declares only direct
-    dependencies, while transitive dependencies are automatically resolved,
-    providing a clearer overview of the project's dependencies.
--   **[Strict Dependency
-    Visibility](/external/module#repository_names_and_strict_deps)**: Only
-    direct dependencies are visible, ensuring correctness and predictability.
+## Migration tool {:#migration-tool}
 
-#### Ecosystem Integration
+[migration_script]: https://github.com/bazelbuild/bazel-central-registry/blob/main/tools/migrate_to_bzlmod.py
 
--   **[Bazel Central Registry](https://registry.bazel.build/)**: A centralized
-    repository for discovering and managing common dependencies as Bazel
-    modules.
--   **Adoption of Non-Bazel Projects**: When a non-Bazel project (usually a C++
-    library) is adapted for Bazel and made available in BCR, it streamlines its
-    integration for the whole community and eliminates duplicated effort and
-    conflicts of custom BUILD files.
--   **Unified Integration with Language-Specific Package Managers**: Rulesets
-    streamline integration with external package managers for non-Bazel
-    dependencies, including:
-    *   [rules_jvm_external](https://github.com/bazel-contrib/rules_jvm_external/blob/master/docs/bzlmod.md)
-        for Maven,
-    *   [rules_python](https://rules-python.readthedocs.io/en/latest/pypi-dependencies.html#using-bzlmod)
-        for PyPi,
-    *   [bazel-gazelle](https://github.com/bazel-contrib/rules_go/blob/master/docs/go/core/bzlmod.md#external-dependencies)
-        for Go Modules,
-    *   [rules_rust](https://bazelbuild.github.io/rules_rust/crate_universe_bzlmod.html)
-        for Cargo.
+To simplify the often complex process of moving from WORKSPACE to Bzlmod, it's
+highly recommended to use the [migration script][migration_script]. This helper
+tool automates many of the steps involved in migrating your external dependency
+management system.
 
-#### Advanced Features
+### Core Functionality {:#migration-tool-core-functionality}
 
--   **[Module Extensions](/external/extension)**: The
-    [`use_repo_rule`](/rules/lib/globals/module#use_repo_rule) and module
-    extension features allow flexible use of custom repository rules and
-    resolution logic to introduce any non-Bazel dependencies.
--   **[`bazel mod` Command](/external/mod-command)**: The sub-command offers
-    powerful ways to inspect external dependencies. You know exactly how an
-    external dependency is defined and where it comes from.
--   **[Vendor Mode](/external/vendor)**: Pre-fetch the exact external
-    dependencies you need to facilitate offline builds.
--   **[Lockfile](/external/lockfile)**: The Bzlmod lockfile feature improves
-    build reproducibility and accelerates dependency resolution.
--   **(Upcoming) [BCR Provenance
-    Attestations](https://github.com/bazelbuild/bazel-central-registry/discussions/2721)**:
-    Strengthen supply chain security by ensuring verified provenance of
-    dependencies.
+The script's primary functions are:
+
+*   **Dependency Information Collection:** Analyzes your project's `WORKSPACE`
+    file to identify external repositories used by specified build targets. It
+    uses Bazel's
+    [experimental_repository_resolved_file](https://bazel.build/versions/8.2.0/reference/command-line-reference#flag--experimental_repository_resolved_file)
+    flag to generate a `resolved_deps.py` file containing this information.
+*   **Direct Dependency Identification:** Uses `bazel query` to determine which
+    repositories are direct dependencies for the specified targets.
+*   **Bzlmod Migration:** Translates relevant `WORKSPACE` dependencies into
+    their Bzlmod equivalents. This is a two-step process:
+    1.  Tries introducing all identified direct dependencies to the
+        `MODULE.bazel` file.
+    2.  Attempts to build specified targets with Bzlmod enabled, then
+        iteratively identifies and fixes recognizable errors. This step is
+        needed since some dependencies might be missing in the first step.
+*   **Migration Report Generation:** Creates a `migration_info.md` file that
+    documents the migration process. This report includes a list of direct
+    dependencies, the generated Bzlmod declarations, and any manual steps that
+    may be required to complete the migration.
+
+The migration tool supports:
+
+*   Dependencies available in the Bazel Central Registry
+*   User-defined custom repository rules
+*   \[Upcoming\] Package manager dependencies
+
+**Important Note**: The migration tool is a best-effort utility. Always
+double-check its recommendations for correctness.
+
+### How to Use the Migration Tool {:#migration-tool-how-to-use}
+
+Before you begin:
+
+*   Upgrade to the latest Bazel 7 release, which provides robust support for
+    both WORKSPACE and Bzlmod.
+*   Verify the following command runs successfully for your project's main build
+    targets:
+
+    ```shell
+    bazel build --nobuild --enable_workspace --noenable_bzlmod <targets>
+    ```
+
+Once the prerequisites are met, run the following commands to use the migration
+tool:
+
+```shell
+# Clone the Bazel Central Registry repository
+git clone https://github.com/bazelbuild/bazel-central-registry.git
+cd bazel-central-registry
+
+# Build the migration tool
+bazel build //tools:migrate_to_bzlmod
+
+# Create a convenient alias for the tool
+alias migrate2bzlmod=$(realpath ./bazel-bin/tools/migrate_to_bzlmod)
+
+# Navigate to your project's root directory and run the tool
+cd <your workspace root>
+migrate2bzlmod -t <your build targets>
+```
 
 ## WORKSPACE vs Bzlmod {:#workspace-vs-bzlmod}
 
@@ -621,8 +654,10 @@ bind(
 This allows other targets to depend on `//external:openssl`. You can migrate
 away from this by:
 
-*   Replace all usages of `//external:openssl` with
-    `@my-ssl//src:openssl-lib`.
+*   Replace all usages of `//external:openssl` with `@my-ssl//src:openssl-lib`.
+    *   Tip: Use `bazel query --output=build --noenable_bzlmod
+        --enable_workspace [target]` command to find relevant info
+        about the target.
 
 *   Or use the [`alias`](/reference/be/general#alias) build rule
     *   Define the following target in a package (e.g. `//third_party`)
@@ -656,12 +691,13 @@ flag after fetching all repos needed for a build.
     You can fetch a target, a repository, a set of configured repos or all
     repositories involved in your dependency resolution and module extensions.
     The fetch result is cached and to force a fetch you must include the
-    `--force` option during the fetch process.
+ `--force` option during the fetch process.
 
-## Migration {:#migration}
+## Manual migration {:#manual-migration}
 
-This section provides useful information and guidance for your Bzlmod migration
-process.
+This section provides useful information and guidance for your **manual** Bzlmod
+migration process. For more automatized migration process, check [recommended
+migration process](#how-migrate-to-bzlmod) section.
 
 ### Know your dependencies in WORKSPACE {:#know-deps-in-workspace}
 
@@ -792,7 +828,7 @@ another repository generated by the same module extension and direct
 dependencies of the module hosting the module extension, then for repository
 `@bar`, `@foo` refers to the latter.
 
-### Migration process {:#migration-process}
+### Manual migration process {:#manual-migration-process}
 
 A typical Bzlmod migration process can look like this:
 
@@ -806,40 +842,6 @@ A typical Bzlmod migration process can look like this:
 1.  Introduce the missing dependency as a Bazel module, through a module
     extension, or leave it in the WORKSPACE.bzlmod for later migration.
 1.  Go back to 4 and repeat until all dependencies are available.
-
-#### Migration tool {:#migration-tool}
-
-There is an interactive Bzlmod migration [helper script][migration_script] that
-can get you started.
-
-[migration_script]: https://github.com/bazelbuild/bazel-central-registry/blob/main/tools/migrate_to_bzlmod.py
-
-The script does the following things:
-
-*   Generate and parse the WORKSPACE resolved file.
-*   Print repository info from the resolved file in a human readable way.
-*   Run bazel build command, detect recognized error messages, and recommend a
-    way to migrate.
-*   Check if a dependency is already available in the BCR.
-*   Add a dependency to MODULE.bazel file.
-*   Add a dependency through a module extension.
-*   Add a dependency to WORKSPACE.bzlmod file.
-
-To use it, make sure you have the latest Bazel release installed, and run the
-following command:
-
-```shell
-git clone https://github.com/bazelbuild/bazel-central-registry.git
-cd bazel-central-registry
-bazel build //tools:migrate_to_bzlmod
-alias migrate2bzlmod=$(realpath ./bazel-bin/tools/migrate_to_bzlmod)
-
-cd <your workspace root>
-migrate2bzlmod -t <your build targets>
-```
-
-Note: The migration script is not perfect and may not be up-to-date since Bzlmod
-is evolving, always double check if the recommended solution is correct.
 
 ## Publish Bazel modules {:#publish-modules}
 

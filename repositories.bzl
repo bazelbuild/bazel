@@ -23,50 +23,53 @@ load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 # The list of repositories required while bootstrapping Bazel offline
 #
 ##################################################################################
-DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
-    # keep sorted
-    "abseil-cpp",
-    "apple_support",
+DIST_ARCHIVE_REPOS = [
+    # Bazel module dependencies, keep sorted
+    "abseil-cpp+",
+    "apple_support+",
+    "bazel_features+",
+    "bazel_skylib+",
+    "blake3+",
+    "c-ares+",
+    "chicory+",
+    "envoy_api+",
+    "googleapis+",
+    "googleapis-grpc-java+",
+    "googleapis-java+",
+    "googleapis-rules-registry+",
+    "grpc+",
+    "grpc-java+",
+    "opencensus-cpp+",
+    "platforms",
+    "protobuf+",
+    "protoc-gen-validate+",
+    "rules_apple+",
+    "rules_cc+",
+    "rules_fuzzing+",
+    "rules_go+",
+    "rules_graalvm+",
+    "rules_java+",
+    "rules_jvm_external+",
+    "rules_kotlin+",
+    "rules_license+",
+    "rules_perl+",
+    "rules_pkg+",
+    "rules_proto+",
+    "rules_python+",
+    "rules_shell+",
+    "rules_swift+",
+    "stardoc+",
+    "with_cfg.bzl+",
+    "xds+",
+    "zlib+",
+    "zstd-jni+",
+] + [get_canonical_repo_name(repo) for repo in [
+    # Module extension repos
     "async_profiler",
     "async_profiler_linux_arm64",
     "async_profiler_linux_x64",
     "async_profiler_macos",
-    "bazel_skylib",
-    "blake3",
-    "c-ares",
-    "com_github_grpc_grpc",
-    "com_google_protobuf",
-    "googleapis",
-    "grpc-java",
-    "io_bazel_skydoc",
-    "platforms",
-    "rules_cc",
-    "rules_go",
-    "rules_graalvm",
-    "rules_java",
-    "rules_jvm_external",
-    "rules_kotlin",
-    "rules_license",
-    "rules_pkg",
-    "rules_proto",
-    "rules_python",
-    "rules_shell",
-    "zlib",
-    "zstd-jni",
-]] + [(get_canonical_repo_name("com_github_grpc_grpc") + "+grpc_repo_deps_ext+" + suffix) for suffix in [
-    # Extra grpc dependencies introduced via its module extension
-    "com_envoyproxy_protoc_gen_validate",
-    "com_github_cncf_xds",
-    "envoy_api",
-    "google_cloud_cpp",
-    "io_opencensus_cpp",
-]] + [
-    "bazel_features+",
-    "rules_apple+",
-    "rules_foreign_cc+",
-    "rules_fuzzing+",
-    "rules_swift+",
-]
+]]
 
 ##################################################################################
 #

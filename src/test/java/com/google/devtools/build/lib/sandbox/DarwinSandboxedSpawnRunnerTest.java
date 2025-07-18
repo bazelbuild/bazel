@@ -68,7 +68,6 @@ public final class DarwinSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTe
   @Before
   public void setUp() throws Exception {
     commandEnvironment = runtimeWrapper.newCommand();
-    commandEnvironment.setWorkspaceName("workspace");
     commandEnvironment
         .getLocalResourceManager()
         .setAvailableResources(LocalHostCapacity.getLocalHostCapacity());

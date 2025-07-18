@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.analysis.Fron
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.FRONTIER_CANDIDATE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.LongVersionGetterTestInjection.getVersionGetterForTesting;
 import static com.google.devtools.build.lib.util.TestType.isInTest;
-import static java.util.concurrent.ForkJoinPool.commonPool;
+import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue.WithRichData;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -62,7 +63,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
@@ -86,10 +86,6 @@ public final class FrontierSerializer {
       Reporter reporter,
       EventBus eventBus)
       throws InterruptedException {
-    // Starts initializing ObjectCodecs in a background thread as it can take some time.
-    var futureCodecs = new FutureTask<>(dependenciesProvider::getObjectCodecs);
-    commonPool().execute(futureCodecs);
-
     var stopwatch = new ResettingStopwatch(Stopwatch.createStarted());
     InMemoryGraph graph = skyframeExecutor.getEvaluator().getInMemoryGraph();
 
@@ -110,21 +106,7 @@ public final class FrontierSerializer {
       return Optional.empty();
     }
 
-    ObjectCodecs codecs;
-    try {
-      codecs = futureCodecs.get();
-    } catch (ExecutionException e) {
-      // No exceptions are expected here.
-      throw new IllegalStateException("failed to initialize ObjectCodecs", e.getCause());
-    }
-    if (codecs == null) {
-      String message = "serialization not supported";
-      reporter.error(null, message);
-      return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
-    }
-
-    reporter.handle(Event.info(String.format("Initializing codecs took %s\n", stopwatch)));
-
+    ObjectCodecs codecs = requireNonNull(dependenciesProvider.getObjectCodecs());
     FrontierNodeVersion frontierVersion;
     try {
       frontierVersion = dependenciesProvider.getSkyValueVersion();
@@ -135,7 +117,7 @@ public final class FrontierSerializer {
     }
 
     var profileCollector = new ProfileCollector();
-    var frontierValueCount = new AtomicInteger();
+    var serializedCount = new AtomicInteger();
 
     if (versionGetter == null) {
       if (isInTest()) {
@@ -151,19 +133,26 @@ public final class FrontierSerializer {
             versionGetter,
             codecs,
             frontierVersion,
-            dependenciesProvider::withinActiveDirectories,
             selection,
             dependenciesProvider.getFingerprintValueService(),
             eventBus,
             profileCollector,
-            frontierValueCount);
-
-    reporter.handle(
-        Event.info(
-            String.format("Serialized %s frontier entries in %s", frontierValueCount, stopwatch)));
+            serializedCount);
 
     try {
       var unusedNull = writeStatus.get();
+
+      FingerprintValueStore.Stats stats =
+          dependenciesProvider.getFingerprintValueService().getStats();
+
+      reporter.handle(
+          Event.info(
+              String.format(
+                  "Serialized %s frontier nodes into %s bytes and %s entries in %s",
+                  serializedCount.get(),
+                  stats.valueBytesSent(),
+                  stats.entriesWritten(),
+                  stopwatch)));
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
       String message = cause.getMessage();
@@ -245,6 +234,9 @@ public final class FrontierSerializer {
                 // value type can be used to distinguish this case.
                 return;
               }
+              // Notably, we don't check the `matcher` for execution values, because we want to
+              // serialize all ActionLookupData even if they're below the frontier, because the
+              // owning ActionLookupValue will be pruned.
               selection.putIfAbsent(data, FRONTIER_CANDIDATE);
             }
             case Artifact artifact -> {
@@ -261,6 +253,8 @@ public final class FrontierSerializer {
                   if (artifactKey instanceof ActionLookupData) {
                     return; // Already handled in the ActionLookupData switch case above.
                   }
+                  // Like ActionLookupData, we want to serialize these even if they're below the
+                  // frontier.
                   selection.putIfAbsent(artifactKey, FRONTIER_CANDIDATE);
                   break;
                 case SourceArtifact ignored:

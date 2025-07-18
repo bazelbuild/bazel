@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -31,8 +32,10 @@ import com.google.devtools.build.lib.skyframe.SkymeldModule;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.ErrorTransienceValue;
 import com.google.devtools.build.skyframe.NodeEntry.LifecycleState;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -40,6 +43,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.junit.Before;
@@ -50,6 +54,16 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
   private EventsSubscriber eventsSubscriber;
+
+  /**
+   * {@link Correspondence} for use in assertions about maps containing {@link SkyValue} values.
+   * Because {@link ErrorTransienceValue} instances don't compare equal to themselves, we have to
+   * use this hack so map assertions will work reliably.
+   */
+  private static final Correspondence<SkyValue, SkyValue> IS_EQUIVALENT_SKY_VALUE =
+      Correspondence.from(
+          (actual, expected) -> actual == expected || Objects.equals(actual, expected),
+          "is equivalent SkyValue to");
 
   @Before
   public void setUp() {
@@ -87,7 +101,7 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
             implementation = _impl,
             attrs = {
                 "srcs": attr.label_list(allow_files = True),
-                "deps": attr.label_list(providers = ["DefaultInfo"]),
+                "deps": attr.label_list(),
             },
         )
         """);
@@ -273,6 +287,7 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
 
     buildTarget("//hello:target");
     assertThat(getSkyframeExecutor().getEvaluator().getDoneValues())
+        .comparingValuesUsing(IS_EQUIVALENT_SKY_VALUE)
         .containsExactlyEntriesIn(getSkyframeExecutor().getEvaluator().getValues());
 
     buildTarget("//hello:target2");
@@ -299,6 +314,7 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     } else {
       // This doesn't happen for non-Skymeld builds.
       assertThat(getSkyframeExecutor().getEvaluator().getDoneValues())
+          .comparingValuesUsing(IS_EQUIVALENT_SKY_VALUE)
           .containsExactlyEntriesIn(getSkyframeExecutor().getEvaluator().getValues());
     }
   }

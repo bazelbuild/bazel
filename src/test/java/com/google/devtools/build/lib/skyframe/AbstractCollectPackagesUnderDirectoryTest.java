@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWithSkyframeForTesting;
 import com.google.devtools.build.lib.testing.common.FakeOptions;
@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -74,6 +75,8 @@ import org.junit.Test;
  * SkyFunctions#COLLECT_PACKAGES_UNDER_DIRECTORY}.
  */
 public abstract class AbstractCollectPackagesUnderDirectoryTest {
+  private static final String FAKE_INSTALL_MD5_STRING = "abcedf1234567890abcedf1234567890";
+
   protected FileSystem fileSystem;
   protected Root root;
   protected Path workingDir;
@@ -99,7 +102,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
                 fileSystem.getPath("/user_root"),
                 fileSystem.getPath("/execroot"),
                 useVirtualSourceRoot() ? root : null,
-                null),
+                FAKE_INSTALL_MD5_STRING),
             workingDir,
             /* defaultSystemJavabase= */ null,
             /* productName= */ "DummyProductNameForUnitTests");
@@ -297,6 +300,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
             .setRunfilesPrefix("workspace")
             .setPrelude("//tools:empty_prelude.bzl")
             .useDummyBuiltinsBzl()
+            .setPrerequisiteValidator(new TestRuleClassProvider.MinimalPrerequisiteValidator())
             .build();
     SkyframeExecutor skyframeExecutor =
         makeSkyframeExecutorFactory()
@@ -318,14 +322,12 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(
                 RepositoryMappingFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.FORCE_FETCH,
-                RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
+                RepositoryDirectoryValue.FORCE_FETCH,
+                RepositoryDirectoryValue.FORCE_FETCH_DISABLED),
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty())));
+                RepositoryDirectoryValue.VENDOR_DIRECTORY, Optional.empty())));
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);

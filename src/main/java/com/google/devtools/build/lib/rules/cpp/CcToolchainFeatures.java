@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.getSequenceValue;
+
 import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
@@ -88,6 +90,10 @@ public class CcToolchainFeatures implements StarlarkValue {
   public static class ExpansionException extends EvalException {
     ExpansionException(String message) {
       super(message);
+    }
+
+    ExpansionException(String message, @Nullable Throwable cause) {
+      super(message, cause);
     }
   }
 
@@ -384,7 +390,9 @@ public class CcToolchainFeatures implements StarlarkValue {
       }
       if (iterateOverVariable != null) {
         for (CcToolchainVariables.VariableValue variableValue :
-            variables.getSequenceVariable(iterateOverVariable, inputMetadataProvider, pathMapper)) {
+            getSequenceValue(
+                iterateOverVariable,
+                variables.getVariable(iterateOverVariable, inputMetadataProvider, pathMapper))) {
           CcToolchainVariables nestedVariables =
               new SingleVariables(variables, iterateOverVariable, variableValue);
           for (Expandable expandable : expandables) {

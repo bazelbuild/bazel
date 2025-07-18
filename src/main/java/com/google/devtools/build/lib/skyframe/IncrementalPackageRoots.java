@@ -49,7 +49,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -180,7 +179,7 @@ public class IncrementalPackageRoots implements PackageRoots {
 
   /** There is currently no use case for this method, and it should not be called. */
   @Override
-  public Optional<ImmutableMap<PackageIdentifier, Root>> getPackageRootsMap() {
+  public ImmutableMap<PackageIdentifier, Root> getPackageRootsMap() {
     throw new UnsupportedOperationException(
         "IncrementalPackageRoots does not provide the package roots map directly.");
   }
@@ -278,12 +277,12 @@ public class IncrementalPackageRoots implements PackageRoots {
       Package.Metadata pkg, Set<Path> lazilyPlantedSymlinksRef) throws AbruptExitException {
     try {
       PackageIdentifier pkgId = pkg.packageIdentifier();
-      if (isExternalRepository(pkgId) && pkg.sourceRoot().isPresent()) {
+      if (isExternalRepository(pkgId)) {
         threadSafeExternalRepoPackageRootsMap.putIfAbsent(
-            pkg.packageIdentifier(), pkg.sourceRoot().get());
+            pkg.packageIdentifier(), pkg.sourceRoot());
         SymlinkForest.plantSingleSymlinkForExternalRepo(
             pkgId.getRepository(),
-            pkg.sourceRoot().get().asPath(),
+            pkg.sourceRoot().asPath(),
             execroot,
             useSiblingRepositoryLayout,
             lazilyPlantedSymlinksRef);

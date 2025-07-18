@@ -49,8 +49,8 @@ public final class SkyValueRetrieverUtils {
           default -> throw new IllegalStateException("unexpected key: " + key.getCanonicalName());
         };
 
-    if (label == null
-        || analysisCachingDeps.withinActiveDirectories(label.getPackageIdentifier())) {
+    if (label == null) {
+      // If there's no label, there's no cached data.
       return NO_CACHED_DATA;
     }
 
@@ -63,6 +63,7 @@ public final class SkyValueRetrieverUtils {
               new DefaultDependOnFutureShim(env),
               analysisCachingDeps.getObjectCodecs(),
               analysisCachingDeps.getFingerprintValueService(),
+              analysisCachingDeps.getAnalysisCacheClient(),
               key,
               state,
               /* frontierNodeVersion= */ analysisCachingDeps.getSkyValueVersion());

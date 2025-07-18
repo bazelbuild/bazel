@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.actions.cache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.time.Instant.EPOCH;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -42,6 +42,7 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
@@ -60,10 +61,13 @@ public class CompactPersistentActionCacheTest {
   private Path execRoot;
   private Path cacheRoot;
   private Path corruptedCacheRoot;
+  private Path tmpDir;
   private Path mapFile;
   private Path journalFile;
   private Path indexFile;
   private Path indexJournalFile;
+  private Path timestampFile;
+  private Path timestampJournalFile;
   private final ManualClock clock = new ManualClock();
   private CompactPersistentActionCache cache;
   private ArtifactRoot artifactRoot;
@@ -75,14 +79,17 @@ public class CompactPersistentActionCacheTest {
     execRoot = scratch.resolve("/output");
     cacheRoot = scratch.resolve("/cache_root");
     corruptedCacheRoot = scratch.resolve("/corrupted_cache_root");
+    tmpDir = scratch.resolve("/cache_tmp_dir");
     cache =
         CompactPersistentActionCache.create(
-            cacheRoot, corruptedCacheRoot, clock, NullEventHandler.INSTANCE);
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, NullEventHandler.INSTANCE);
     mapFile = CompactPersistentActionCache.cacheFile(cacheRoot);
     journalFile = CompactPersistentActionCache.journalFile(cacheRoot);
     indexFile = CompactPersistentActionCache.indexFile(cacheRoot);
     indexJournalFile = CompactPersistentActionCache.indexJournalFile(cacheRoot);
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, ArtifactRoot.RootType.Output, "bin");
+    timestampFile = CompactPersistentActionCache.timestampFile(cacheRoot);
+    timestampJournalFile = CompactPersistentActionCache.timestampJournalFile(cacheRoot);
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, ArtifactRoot.RootType.OUTPUT, "bin");
   }
 
   @Test
@@ -145,7 +152,8 @@ public class CompactPersistentActionCacheTest {
     assertThat(journalFile.exists()).isFalse();
 
     CompactPersistentActionCache newCache =
-        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
     verify(eventHandler, never()).handle(any());
     ActionCache.Entry readentry = newCache.get(key);
     assertThat(readentry).isNotNull();
@@ -167,7 +175,8 @@ public class CompactPersistentActionCacheTest {
     // Make sure we have all the entries, including those in the journal,
     // after deserializing into a new cache.
     CompactPersistentActionCache newcache =
-        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
     verify(eventHandler, never()).handle(any());
     for (int i = 0; i < 100; i++) {
       assertKeyEquals(cache, newcache, Integer.toString(i));
@@ -179,7 +188,8 @@ public class CompactPersistentActionCacheTest {
 
     // Make sure we can see previous journal values after a second incremental save.
     CompactPersistentActionCache newerCache =
-        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
     verify(eventHandler, never()).handle(any());
     for (int i = 0; i < 100; i++) {
       assertKeyEquals(cache, newerCache, Integer.toString(i));
@@ -220,7 +230,8 @@ public class CompactPersistentActionCacheTest {
 
     // Make sure we get the same result after deserializing into a new cache.
     CompactPersistentActionCache newerCache =
-        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
     verify(eventHandler, never()).handle(any());
     for (int i = 0; i < 100; i++) {
       ActionCache.Entry entry = newerCache.get(Integer.toString(i));
@@ -248,51 +259,150 @@ public class CompactPersistentActionCacheTest {
 
     // Make sure we get the same result after deserializing into a new cache.
     CompactPersistentActionCache newerCache =
-        CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
     verify(eventHandler, never()).handle(any());
     assertThat(newerCache.size()).isEqualTo(0);
   }
 
-  // Regression test to check that CompactActionCacheEntry.toString does not mutate the object.
-  // Mutations may result in IllegalStateException.
-  @SuppressWarnings("ReturnValueIgnored")
   @Test
-  public void testEntryToStringIsIdempotent() {
-    ActionCache.Entry entry =
-        new ActionCache.Entry(
-            "actionKey", ImmutableMap.of(), false, OutputPermissions.READONLY, false);
-    entry.toString();
-    entry.addInputFile(
-        PathFragment.create("foo/bar"), FileArtifactValue.createForDirectoryWithMtime(1234));
-    entry.toString();
-    entry.getFileDigest();
-    entry.toString();
+  public void testTimestamps() throws IOException {
+    clock.advance(Duration.ofDays(100));
+    putKey("abc");
+    clock.advance(Duration.ofDays(100));
+    putKey("def");
+    clock.advance(Duration.ofDays(100));
+    putKey("ghi");
+    clock.advance(Duration.ofDays(100));
+    putKey("jkl");
+    clock.advance(Duration.ofDays(100));
+    putKey("mno", /* discoversInputs= */ true);
+
+    // Getting an entry should update its timestamp.
+    clock.advance(Duration.ofDays(100));
+    var unused = cache.get("abc");
+
+    // Overwriting an entry should update its timestamp.
+    clock.advance(Duration.ofDays(100));
+    putKey("def");
+
+    // Remove an entry should remove its timestamp.
+    clock.advance(Duration.ofDays(100));
+    cache.remove("ghi");
+
+    // Removing entries matching a predicate should not affect the timestamp of other entries.
+    clock.advance(Duration.ofDays(100));
+    cache.removeIf(e -> e.discoversInputs());
+
+    assertFullSave();
+
+    assertThat(cache.getActionTimestampMap())
+        .containsExactly(
+            "abc",
+            EPOCH.plus(Duration.ofDays(600)),
+            "def",
+            EPOCH.plus(Duration.ofDays(700)),
+            "jkl",
+            EPOCH.plus(Duration.ofDays(400)));
+
+    // Make sure we get the same result after deserializing into a new cache.
+    CompactPersistentActionCache newerCache =
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
+    verify(eventHandler, never()).handle(any());
+    assertThat(newerCache.getActionTimestampMap())
+        .containsExactly(
+            "abc",
+            EPOCH.plus(Duration.ofDays(600)),
+            "def",
+            EPOCH.plus(Duration.ofDays(700)),
+            "jkl",
+            EPOCH.plus(Duration.ofDays(400)));
   }
 
-  private void assertToStringIsntTooBig(int numRecords) {
-    for (int i = 0; i < numRecords; i++) {
-      putKey(Integer.toString(i));
-    }
-    String val = cache.toString();
-    assertThat(val).startsWith("Action cache (" + numRecords + " records):\n");
-    assertWithMessage(val).that(val.length()).isAtMost(2000);
-    // Cache was too big to print out fully.
-    if (numRecords > 10) {
-      assertThat(val).endsWith("...");
-    }
+  @Test
+  public void testTrimNoThreshold() throws Exception {
+    clock.advance(Duration.ofDays(100));
+    putKey("abc");
+    clock.advance(Duration.ofDays(100));
+    putKey("def");
+    clock.advance(Duration.ofDays(100));
+    putKey("ghi");
+    clock.advance(Duration.ofDays(100));
+    putKey("jkl");
+    clock.advance(Duration.ofDays(100));
+    assertFullSave();
+
+    cache = cache.trim(0, Duration.ofDays(250));
+
+    // Check that the cache was trimmed correctly.
+    assertThat(cache.get("abc")).isNull();
+    assertThat(cache.get("def")).isNull();
+    assertThat(cache.get("ghi")).isNotNull();
+    assertThat(cache.get("jkl")).isNotNull();
+
+    // Make sure we get the same result after deserializing into a new cache.
+    CompactPersistentActionCache newerCache =
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
+    verify(eventHandler, never()).handle(any());
+    assertThat(newerCache.get("abc")).isNull();
+    assertThat(newerCache.get("def")).isNull();
+    assertThat(newerCache.get("ghi")).isNotNull();
+    assertThat(newerCache.get("jkl")).isNotNull();
   }
 
   @Test
-  public void testToStringIsntTooBig() {
-    assertToStringIsntTooBig(3);
-    assertToStringIsntTooBig(3000);
+  public void testTrimBelowThreshold() throws Exception {
+    clock.advance(Duration.ofDays(100));
+    putKey("abc");
+    clock.advance(Duration.ofDays(100));
+    putKey("def");
+    clock.advance(Duration.ofDays(100));
+    putKey("ghi");
+    clock.advance(Duration.ofDays(100));
+    putKey("jkl");
+    clock.advance(Duration.ofDays(100));
+    assertFullSave();
+
+    // 1 of 4 entries is stale, below 30% threshold.
+    cache = cache.trim(0.3f, Duration.ofDays(350));
+
+    assertThat(cache.get("abc")).isNotNull();
+    assertThat(cache.get("def")).isNotNull();
+    assertThat(cache.get("ghi")).isNotNull();
+    assertThat(cache.get("jkl")).isNotNull();
+  }
+
+  @Test
+  public void testTrimAboveThreshold() throws Exception {
+    clock.advance(Duration.ofDays(100));
+    putKey("abc");
+    clock.advance(Duration.ofDays(100));
+    putKey("def");
+    clock.advance(Duration.ofDays(100));
+    putKey("ghi");
+    clock.advance(Duration.ofDays(100));
+    putKey("jkl");
+    clock.advance(Duration.ofDays(100));
+    assertFullSave();
+
+    // 1 of 4 entries is stale, above 20% threshold.
+    cache = cache.trim(0.2f, Duration.ofDays(350));
+
+    assertThat(cache.get("abc")).isNull();
+    assertThat(cache.get("def")).isNotNull();
+    assertThat(cache.get("ghi")).isNotNull();
+    assertThat(cache.get("jkl")).isNotNull();
   }
 
   enum IncompatibleFile {
     MAP_FILE,
     JOURNAL_FILE,
     INDEX_FILE,
-    INDEX_JOURNAL_FILE
+    INDEX_JOURNAL_FILE,
+    TIMESTAMP_FILE,
+    TIMESTAMP_JOURNAL_FILE
   }
 
   @Test
@@ -303,11 +413,15 @@ public class CompactPersistentActionCacheTest {
           case JOURNAL_FILE -> journalFile;
           case INDEX_FILE -> indexFile;
           case INDEX_JOURNAL_FILE -> indexJournalFile;
+          case TIMESTAMP_FILE -> timestampFile;
+          case TIMESTAMP_JOURNAL_FILE -> timestampJournalFile;
         };
 
     FileSystemUtils.writeContent(incompatibleFile, "incompatible".getBytes(ISO_8859_1));
 
-    cache = CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+    cache =
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
 
     verify(eventHandler, never()).handle(any());
     assertThat(corruptedCacheRoot.exists()).isFalse();
@@ -324,7 +438,9 @@ public class CompactPersistentActionCacheTest {
     byte[] contents = FileSystemUtils.readContent(mapFile);
     FileSystemUtils.writeContent(mapFile, Arrays.copyOf(contents, contents.length - 1));
 
-    cache = CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+    cache =
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
 
     verify(eventHandler).handle(any());
     assertThat(corruptedCacheRoot.exists()).isTrue();
@@ -346,7 +462,9 @@ public class CompactPersistentActionCacheTest {
     byte[] contents = FileSystemUtils.readContent(journalFile);
     FileSystemUtils.writeContent(journalFile, Arrays.copyOf(contents, contents.length - 1));
 
-    cache = CompactPersistentActionCache.create(cacheRoot, corruptedCacheRoot, clock, eventHandler);
+    cache =
+        CompactPersistentActionCache.create(
+            cacheRoot, corruptedCacheRoot, tmpDir, clock, eventHandler);
 
     verify(eventHandler, never()).handle(any());
     assertThat(corruptedCacheRoot.exists()).isFalse();
@@ -416,77 +534,61 @@ public class CompactPersistentActionCacheTest {
 
   @Test
   public void putAndGet_savesRemoteFileMetadata() {
-    String key = "key";
-    ActionCache.Entry entry =
-        new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY, false);
     Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
     FileArtifactValue metadata = createRemoteMetadata(artifact, "content");
-    entry.addOutputFile(artifact, metadata, /*saveFileMetadata=*/ true);
+    var entry =
+        builder("key").addOutputFile(artifact, metadata, /* saveFileMetadata= */ true).build();
+    cache.put("key", entry);
 
-    cache.put(key, entry);
-    entry = cache.get(key);
+    entry = cache.get("key");
 
     assertThat(entry.getOutputFile(artifact)).isEqualTo(metadata);
   }
 
   @Test
   public void putAndGet_savesRemoteFileMetadata_withExpirationTime() {
-    String key = "key";
-    ActionCache.Entry entry =
-        new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY, false);
     Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
     Instant expirationTime = Instant.now().truncatedTo(ChronoUnit.MILLIS);
     FileArtifactValue metadata =
         createRemoteMetadata(artifact, "content", expirationTime, /* resolvedPath= */ null);
-    entry.addOutputFile(artifact, metadata, /* saveFileMetadata= */ true);
+    var entry =
+        builder("key").addOutputFile(artifact, metadata, /* saveFileMetadata= */ true).build();
+    cache.put("key", entry);
 
-    cache.put(key, entry);
-    entry = cache.get(key);
+    entry = cache.get("key");
 
     assertThat(entry.getOutputFile(artifact).getExpirationTime()).isEqualTo(expirationTime);
   }
 
   @Test
   public void putAndGet_savesRemoteFileMetadata_withResolvedPath() {
-    String key = "key";
-    ActionCache.Entry entry =
-        new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY, false);
     Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
     FileArtifactValue metadata =
         createRemoteMetadata(artifact, "content", execRoot.getRelative("some/path").asFragment());
-    entry.addOutputFile(artifact, metadata, /*saveFileMetadata=*/ true);
+    var entry =
+        builder("key").addOutputFile(artifact, metadata, /* saveFileMetadata= */ true).build();
+    cache.put("key", entry);
 
-    cache.put(key, entry);
-    entry = cache.get(key);
+    entry = cache.get("key");
 
     assertThat(entry.getOutputFile(artifact)).isEqualTo(metadata);
   }
 
   @Test
   public void putAndGet_ignoresLocalFileMetadata() throws IOException {
-    String key = "key";
-    ActionCache.Entry entry =
-        new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY, false);
     Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
     FileArtifactValue metadata = createLocalMetadata(artifact, "content");
-    entry.addOutputFile(artifact, metadata, /*saveFileMetadata=*/ true);
+    var entry =
+        builder("key").addOutputFile(artifact, metadata, /* saveFileMetadata= */ true).build();
+    cache.put("key", entry);
 
-    cache.put(key, entry);
-    entry = cache.get(key);
+    entry = cache.get("key");
 
     assertThat(entry.getOutputFile(artifact)).isNull();
   }
 
   @Test
   public void putAndGet_treeMetadata_onlySavesRemoteFileMetadata() throws IOException {
-    String key = "key";
-    ActionCache.Entry entry =
-        new ActionCache.Entry(
-            key,
-            ImmutableMap.of(),
-            false,
-            OutputPermissions.READONLY,
-            /* useArchivedTreeArtifacts= */ false);
     SpecialArtifact artifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             artifactRoot, PathFragment.create("bin/dummy"));
@@ -506,10 +608,11 @@ public class CompactPersistentActionCacheTest {
                         "content2")),
             /* archivedArtifactValue= */ Optional.empty(),
             /* resolvedPath= */ Optional.empty());
-    entry.addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true);
+    var entry =
+        builder("key").addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true).build();
+    cache.put("key", entry);
 
-    cache.put(key, entry);
-    entry = cache.get(key);
+    entry = cache.get("key");
 
     assertThat(entry.getOutputTree(artifact))
         .isEqualTo(
@@ -522,19 +625,10 @@ public class CompactPersistentActionCacheTest {
                         "content1")),
                 /* archivedFileValue= */ Optional.empty(),
                 /* resolvedPath= */ Optional.empty()));
-    assertThat(entry.useArchivedTreeArtifacts()).isFalse();
   }
 
   @Test
   public void putAndGet_treeMetadata_savesRemoteArchivedArtifact() {
-    String key = "key";
-    ActionCache.Entry entry =
-        new ActionCache.Entry(
-            key,
-            ImmutableMap.of(),
-            false,
-            OutputPermissions.READONLY,
-            /* useArchivedTreeArtifacts= */ true);
     SpecialArtifact artifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             artifactRoot, PathFragment.create("bin/dummy"));
@@ -544,10 +638,11 @@ public class CompactPersistentActionCacheTest {
             ImmutableMap.of(),
             Optional.of(createRemoteMetadata(artifact, "content")),
             /* resolvedPath= */ Optional.empty());
-    entry.addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true);
+    var entry =
+        builder("key").addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true).build();
+    cache.put("key", entry);
 
-    cache.put(key, entry);
-    entry = cache.get(key);
+    entry = cache.get("key");
 
     assertThat(entry.getOutputTree(artifact))
         .isEqualTo(
@@ -555,19 +650,10 @@ public class CompactPersistentActionCacheTest {
                 ImmutableMap.of(),
                 Optional.of(createRemoteMetadata(artifact, "content")),
                 Optional.empty()));
-    assertThat(entry.useArchivedTreeArtifacts()).isTrue();
   }
 
   @Test
   public void putAndGet_treeMetadata_ignoresLocalArchivedArtifact() throws IOException {
-    String key = "key";
-    ActionCache.Entry entry =
-        new ActionCache.Entry(
-            key,
-            ImmutableMap.of(),
-            false,
-            OutputPermissions.READONLY,
-            /* useArchivedTreeArtifacts= */ true);
     SpecialArtifact artifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             artifactRoot, PathFragment.create("bin/dummy"));
@@ -579,21 +665,18 @@ public class CompactPersistentActionCacheTest {
                 createLocalMetadata(
                     ActionsTestUtil.createArtifact(artifactRoot, "bin/archive"), "content")),
             /* resolvedPath= */ Optional.empty());
-    entry.addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true);
+    var entry =
+        builder("key").addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true).build();
+    cache.put("key", entry);
 
-    cache.put(key, entry);
-    entry = cache.get(key);
+    entry = cache.get("key");
 
     assertThat(entry.getOutputTree(artifact)).isNull();
-    assertThat(entry.useArchivedTreeArtifacts()).isTrue();
   }
 
   @Test
   public void putAndGet_treeMetadata_savesResolvedPath() {
-    String key = "key";
     PathFragment resolvedPath = execRoot.getRelative("some/path").asFragment();
-    ActionCache.Entry entry =
-        new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY, false);
     SpecialArtifact artifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             artifactRoot, PathFragment.create("bin/dummy"));
@@ -603,10 +686,12 @@ public class CompactPersistentActionCacheTest {
             ImmutableMap.of(),
             /* archivedArtifactValue= */ Optional.empty(),
             Optional.of(resolvedPath));
-    entry.addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true);
+    var entry =
+        builder("key").addOutputTree(artifact, metadata, /* saveTreeMetadata= */ true).build();
 
-    cache.put(key, entry);
-    entry = cache.get(key);
+    cache.put("key", entry);
+
+    entry = cache.get("key");
 
     assertThat(entry.getOutputTree(artifact))
         .isEqualTo(
@@ -642,11 +727,22 @@ public class CompactPersistentActionCacheTest {
     putKey(key, cache, discoversInputs);
   }
 
-  private void putKey(String key, ActionCache ac, boolean discoversInputs) {
-    ActionCache.Entry entry =
-        new ActionCache.Entry(
-            key, ImmutableMap.of("k", "v"), discoversInputs, OutputPermissions.READONLY, false);
-    entry.getFileDigest();
-    ac.put(key, entry);
+  private void putKey(String key, ActionCache actionCache, boolean discoversInputs) {
+    var entry = builder(key, discoversInputs).build();
+    actionCache.put(key, entry);
+  }
+
+  private static ActionCache.Entry.Builder builder(String actionKey) {
+    return builder(actionKey, /* discoversInputs= */ false);
+  }
+
+  private static ActionCache.Entry.Builder builder(String actionKey, boolean discoversInputs) {
+    return new ActionCache.Entry.Builder(
+        actionKey,
+        discoversInputs,
+        /* clientEnv= */ ImmutableMap.of(),
+        /* execProperties= */ ImmutableMap.of(),
+        OutputPermissions.READONLY,
+        /* useArchivedTreeArtifacts= */ false);
   }
 }

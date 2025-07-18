@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -24,10 +24,7 @@ commit_hash=$(git rev-parse HEAD)
 timestamp=$(date +%s)
 bazel_version=$(bazel info release | cut -d' ' -f2)
 
-bazel build \
-    --java_language_version=8 \
-    --tool_java_language_version=8 \
-    //tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator.zip
+bazel build -c opt //tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator.zip
 
 cov_gen_zip="bazel-bin/tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator/coverage_output_generator.zip"
 
@@ -46,7 +43,7 @@ To build the same zip from source, run the commands:
 
 $ git clone https://github.com/bazelbuild/bazel.git
 $ git checkout ${commit_hash}
-$ bazel build --java_language_version=8 --tool_java_language_version=8 //tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator.zip
+$ bazel build -c opt //tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator.zip
 EOF
 
 zip -rjv "${tmp_zip}" "${readme_file}"

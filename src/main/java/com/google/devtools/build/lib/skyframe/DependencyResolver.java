@@ -17,11 +17,13 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationIdMessage;
 import static com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer.createDetailedExitCode;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.DependencyKind;
@@ -124,6 +126,8 @@ import net.starlark.java.syntax.Location;
  * DependencyResolver#computeDependencies}.
  */
 public final class DependencyResolver {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   /**
    * Memoizies computation steps of {@link #evaluate} so they do not need to be repeated on {@code
    * Skyframe} restart.
@@ -678,6 +682,15 @@ public final class DependencyResolver {
         // In practice, this comes from resolveConfigurations: other InterruptedExceptions are
         // declared for Skyframe value retrievals, which don't throw in reality.
         if (state.transitiveState.hasRootCause()) {
+          // TODO: b/418000794 - remove this logging once the underlying bug is resolved
+          if (state.dependencyMapError != null) {
+            logger.atWarning().log(
+                "There was an error %s but signaling missing deps. This could trigger a crash.",
+                state.dependencyMapError);
+          } else {
+            logger.atWarning().atMostEvery(5, SECONDS).log(
+                "Dependency resolution was interrupted.");
+          }
           // Allow caller to throw, don't prioritize interrupt: we may be error bubbling.
           Thread.currentThread().interrupt();
           return null;

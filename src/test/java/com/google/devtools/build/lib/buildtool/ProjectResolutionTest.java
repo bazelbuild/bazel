@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.Project;
 import com.google.devtools.build.lib.analysis.ProjectResolutionException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,6 +36,13 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ProjectResolutionTest extends BuildViewTestCase {
+  @Before
+  public void setUp() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+    writeProjectSclDefinition("test/project_proto.scl");
+    scratch.file("test/BUILD");
+  }
+
   @Test
   public void buildWithNoProjectFiles() throws Exception {
     scratch.file("pkg/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['a.out'])");
@@ -51,12 +59,17 @@ public class ProjectResolutionTest extends BuildViewTestCase {
   @Test
   public void buildWithOneProjectFile() throws Exception {
     scratch.file("pkg/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['a.out'])");
-    scratch.file("pkg/" + PROJECT_FILE_NAME, "project = {}");
+    scratch.file(
+        "pkg/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
             ImmutableList.of(Label.parseCanonical("//pkg:f")), getSkyframeExecutor(), reporter);
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//pkg:" + PROJECT_FILE_NAME));
   }
 
@@ -64,14 +77,24 @@ public class ProjectResolutionTest extends BuildViewTestCase {
   public void buildWithTwoProjectFiles() throws Exception {
     scratch.file("foo/bar/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['a.out'])");
     scratch.file("foo/BUILD");
-    scratch.file("foo/" + PROJECT_FILE_NAME, "project = {}");
-    scratch.file("foo/bar/" + PROJECT_FILE_NAME, "project = {}");
+    scratch.file(
+        "foo/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
+    scratch.file(
+        "foo/bar/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
             ImmutableList.of(Label.parseCanonical("//foo/bar:f")), getSkyframeExecutor(), reporter);
 
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//foo/bar:" + PROJECT_FILE_NAME));
   }
 
@@ -79,7 +102,12 @@ public class ProjectResolutionTest extends BuildViewTestCase {
   public void twoTargetsSameProjectFile() throws Exception {
     scratch.file("foo/bar/BUILD", "genrule(name='child', cmd = '', srcs=[], outs=['c.out'])");
     scratch.file("foo/BUILD", "genrule(name='parent', cmd = '', srcs=[], outs=['p.out'])");
-    scratch.file("foo/" + PROJECT_FILE_NAME, "project = {}");
+    scratch.file(
+        "foo/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
@@ -87,7 +115,7 @@ public class ProjectResolutionTest extends BuildViewTestCase {
                 Label.parseCanonical("//foo:parent"), Label.parseCanonical("//foo/bar:child")),
             getSkyframeExecutor(),
             reporter);
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//foo:" + PROJECT_FILE_NAME));
   }
 
@@ -95,21 +123,31 @@ public class ProjectResolutionTest extends BuildViewTestCase {
   public void twoTargetsDifferentProjectFiles() throws Exception {
     scratch.file("foo/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['f.out'])");
     scratch.file("bar/BUILD", "genrule(name='g', cmd = '', srcs=[], outs=['g.out'])");
-    scratch.file("foo/" + PROJECT_FILE_NAME, "project = {}");
-    scratch.file("bar/" + PROJECT_FILE_NAME, "project = {}");
+    scratch.file(
+        "foo/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
+    scratch.file(
+        "bar/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
             ImmutableList.of(Label.parseCanonical("//foo:f"), Label.parseCanonical("//bar:g")),
             getSkyframeExecutor(),
             reporter);
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(
             Label.parseCanonical("//foo:" + PROJECT_FILE_NAME),
             Label.parseCanonical("//bar:" + PROJECT_FILE_NAME));
     assertThat(projectFiles.differentProjectsDetails())
         .contains(
-            """
+"""
 Targets have different project settings:
   - //foo:f -> //foo:PROJECT.scl
   - //bar:g -> //bar:PROJECT.scl\
@@ -120,18 +158,23 @@ Targets have different project settings:
   public void twoTargetsOnlyOneHasProjectFile() throws Exception {
     scratch.file("foo/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['f.out'])");
     scratch.file("bar/BUILD", "genrule(name='g', cmd = '', srcs=[], outs=['g.out'])");
-    scratch.file("foo/" + PROJECT_FILE_NAME, "project = {}");
+    scratch.file(
+        "foo/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
             ImmutableList.of(Label.parseCanonical("//foo:f"), Label.parseCanonical("//bar:g")),
             getSkyframeExecutor(),
             reporter);
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//foo:" + PROJECT_FILE_NAME));
     assertThat(projectFiles.differentProjectsDetails())
         .contains(
-            """
+"""
 Targets have different project settings:
   - //foo:f -> //foo:PROJECT.scl
   - //bar:g -> no project file\
@@ -141,17 +184,27 @@ Targets have different project settings:
   @Test
   public void innermostPackageIsAParentDirectory() throws Exception {
     scratch.file("pkg/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['a.out'])");
-    scratch.file("pkg/" + PROJECT_FILE_NAME, "project = {}");
+    scratch.file(
+        "pkg/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
     scratch.file("pkg/subdir/not_a_build_file");
     // Doesn't count because it's not colocated with a BUILD file:
-    scratch.file("pkg/subdir" + PROJECT_FILE_NAME, "project = {}");
+    scratch.file(
+        "pkg/subdir/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
             ImmutableList.of(Label.parseCanonical("//pkg/subdir:fake_target")),
             getSkyframeExecutor(),
             reporter);
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//pkg:" + PROJECT_FILE_NAME));
   }
 
@@ -166,12 +219,17 @@ Targets have different project settings:
         }
         """);
     scratch.file("canonical/BUILD");
-    scratch.file("canonical/PROJECT.scl", "project = {}");
+    scratch.file(
+        "canonical/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
             ImmutableList.of(Label.parseCanonical("//pkg:f")), getSkyframeExecutor(), reporter);
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//canonical:PROJECT.scl"));
   }
 
@@ -299,12 +357,17 @@ Targets have different project settings:
         }
         """);
     scratch.file("canonical/BUILD");
-    scratch.file("canonical/PROJECT.scl", "project = {}");
+    scratch.file(
+        "canonical/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
             ImmutableList.of(Label.parseCanonical("//pkg:f")), getSkyframeExecutor(), reporter);
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//canonical:PROJECT.scl"));
   }
 
@@ -327,14 +390,19 @@ Targets have different project settings:
         }
         """);
     scratch.file("canonical/BUILD");
-    scratch.file("canonical/PROJECT.scl", "project = {}");
+    scratch.file(
+        "canonical/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
             ImmutableList.of(Label.parseCanonical("//pkg1:f"), Label.parseCanonical("//pkg2:g")),
             getSkyframeExecutor(),
             reporter);
-    assertThat(projectFiles.projectFiles())
+    assertThat(projectFiles.projectFilesToTargetLabels().keySet())
         .containsExactly(Label.parseCanonical("//canonical:PROJECT.scl"));
   }
 
@@ -357,9 +425,19 @@ Targets have different project settings:
         }
         """);
     scratch.file("canonical1/BUILD");
-    scratch.file("canonical1/PROJECT.scl", "project = {}");
+    scratch.file(
+        "canonical1/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
     scratch.file("canonical2/BUILD");
-    scratch.file("canonical2/PROJECT.scl", "project = {}");
+    scratch.file(
+        "canonical2/" + PROJECT_FILE_NAME,
+        """
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create()
+        """);
 
     var projectFiles =
         Project.getProjectFiles(
@@ -368,7 +446,7 @@ Targets have different project settings:
             reporter);
     assertThat(projectFiles.differentProjectsDetails())
         .contains(
-            """
+"""
 Targets have different project settings:
   - //pkg1:f -> //canonical1:PROJECT.scl
   - //pkg2:g -> //canonical2:PROJECT.scl\

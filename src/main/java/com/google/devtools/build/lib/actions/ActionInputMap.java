@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /**
@@ -125,6 +126,18 @@ public final class ActionInputMap implements InputMetadataProvider {
         current = (TrieArtifact) next;
       }
       return null;
+    }
+
+    void forEachTreeArtifact(
+        BiConsumer<PathFragment, TreeArtifactValue> consumer, PathFragment execPath) {
+      for (Map.Entry<String, Object> entry : subFolders.entrySet()) {
+        PathFragment childPath = execPath.getRelative(entry.getKey());
+        switch (entry.getValue()) {
+          case TreeArtifactValue val -> consumer.accept(childPath, val);
+          case TrieArtifact next -> next.forEachTreeArtifact(consumer, childPath);
+          default -> throw new AssertionError(entry);
+        }
+      }
     }
   }
 
@@ -270,6 +283,14 @@ public final class ActionInputMap implements InputMetadataProvider {
   }
 
   /**
+   * For each tree artifact in this input map, invokes the given callback with its exec path and its
+   * metadata.
+   */
+  public void forEachTreeArtifact(BiConsumer<PathFragment, TreeArtifactValue> consumer) {
+    treeArtifactsRoot.forEachTreeArtifact(consumer, PathFragment.EMPTY_FRAGMENT);
+  }
+
+  /**
    * Returns metadata for given path.
    *
    * <p>This method is less efficient than {@link #getInputMetadata(ActionInput)}, please use that
@@ -307,10 +328,6 @@ public final class ActionInputMap implements InputMetadataProvider {
     return getTreeMetadata(input.getExecPath());
   }
 
-  /**
-   * Returns the {@link TreeArtifactValue} for the given path, or {@code null} if no such tree
-   * artifact exists.
-   */
   @Nullable
   public TreeArtifactValue getTreeMetadata(PathFragment execPath) {
     int index = getIndex(execPath.getPathString());
@@ -321,13 +338,9 @@ public final class ActionInputMap implements InputMetadataProvider {
     return value instanceof TreeArtifactValue treeValue ? treeValue : null;
   }
 
-  /**
-   * Returns the {@link TreeArtifactValue} for the shortest prefix of the given path, possibly the
-   * path itself, that corresponds to a tree artifact; or {@code null} if no such tree artifact
-   * exists.
-   */
   @Nullable
-  public TreeArtifactValue getTreeMetadataForPrefix(PathFragment execPath) {
+  @Override
+  public TreeArtifactValue getEnclosingTreeMetadata(PathFragment execPath) {
     return treeArtifactsRoot.findTreeArtifactNodeAtPrefix(execPath);
   }
 

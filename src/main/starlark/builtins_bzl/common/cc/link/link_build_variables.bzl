@@ -147,6 +147,12 @@ def create_link_variables(
     if feature_configuration.is_enabled("fdo_instrument"):
         fail("FDO instrumentation not supported")
 
+    # Normalize input values, so that we don't set Nones on CcToolchainVariables
+    runtime_library_search_directories = runtime_library_search_directories or []
+    library_search_directories = library_search_directories or []
+    user_link_flags = user_link_flags or []
+    use_test_only_flags = use_test_only_flags or False
+
     vars = setup_common_linking_variables(
         cc_toolchain,
         feature_configuration,

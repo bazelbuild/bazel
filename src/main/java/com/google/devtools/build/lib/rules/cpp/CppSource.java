@@ -16,9 +16,13 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkValue;
+
 
 /** A source file that is an input to a c++ compilation. */
-public abstract class CppSource {
+public abstract class CppSource implements StarlarkValue {
   private final Artifact source;
   private final Label label;
 
@@ -36,16 +40,14 @@ public abstract class CppSource {
     this.label = label;
   }
 
-  /**
-   * Returns the actual source file.
-   */
+  /** Returns the actual source file. */
+  @StarlarkMethod(name = "file", documented = false, structField = true)
   public Artifact getSource() {
     return source;
   }
 
-  /**
-   * Returns the label from which this source arises in the build graph.
-   */
+  /** Returns the label from which this source arises in the build graph. */
+  @StarlarkMethod(name = "label", documented = false, structField = true)
   public Label getLabel() {
     return label;
   }
@@ -54,6 +56,27 @@ public abstract class CppSource {
    * Returns the type of this source.
    */
   abstract Type getType();
+
+  @StarlarkMethod(name = "type", documented = false, structField = true)
+  public String getTypeForStarlark() {
+    return getType().name();
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true;
+  }
+
+  @Override
+  public void repr(Printer printer) {
+    printer.append("CppSource(type=");
+    printer.append(getType().name());
+    printer.append(", label=");
+    printer.append(label.toString());
+    printer.append(", source=");
+    printer.append(source.getExecPathString());
+    printer.append(")");
+  }
 
   private static class SourceCppSource extends CppSource {
 

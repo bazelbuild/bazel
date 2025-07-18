@@ -186,7 +186,7 @@ public class GrpcCacheClientTest {
 
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
-            backoffSupplier, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService);
+            backoffSupplier, RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
             new ChannelConnectionWithServerCapabilitiesFactory() {
@@ -690,7 +690,6 @@ public class GrpcCacheClientTest {
       throws Exception {
     UploadManifest uploadManifest =
         UploadManifest.create(
-            combinedCache.options,
             combinedCache.getRemoteCacheCapabilities(),
             combinedCache.digestUtil,
             remotePathResolver,

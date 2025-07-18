@@ -876,8 +876,7 @@ public class TestAspects {
       return AspectPropagationEdgesSupplier.createForToolchainsAspects(
           StarlarkList.immutableCopyOf(toolchainsAspects),
           /* thread= */ null,
-          new LabelConverter(
-              PackageIdentifier.createInMainRepo("quux"), RepositoryMapping.ALWAYS_FALLBACK));
+          new LabelConverter(PackageIdentifier.createInMainRepo("quux"), RepositoryMapping.EMPTY));
     } catch (EvalException e) {
       throw new IllegalStateException(e);
     }
@@ -911,7 +910,6 @@ public class TestAspects {
       new AspectDefinition.Builder(FALSE_ADVERTISEMENT_ASPECT)
           .advertiseProvider(
               ImmutableList.of(
-                  StarlarkProviderIdentifier.forLegacy("advertised_provider"),
                   StarlarkProviderIdentifier.forKey(REQUIRED_PROVIDER_KEY)))
           .build();
 

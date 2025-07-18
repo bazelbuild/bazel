@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics.TargetCompatibilityCheckException;
+import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -845,7 +846,8 @@ public final class SkyframeErrorProcessor {
     // analyze with --nokeep_going.
     if (cause instanceof SaneAnalysisException
         || cause instanceof NoSuchTargetException
-        || cause instanceof NoSuchPackageException) {
+        || cause instanceof NoSuchPackageException
+        || cause instanceof ExternalDepsException) {
       return (DetailedException) cause;
     }
     return null;

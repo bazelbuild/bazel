@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,7 +30,7 @@ function test_server_javabase() {
   MAGIC="the cake is a lie"
 
   cat << EOF > test_server_javabase/bin/java
-#!/bin/bash
+#!/usr/bin/env bash
 echo "$MAGIC"
 EOF
   chmod +x test_server_javabase/bin/java
@@ -75,6 +75,8 @@ EOF
 
   mkdir java
   cat << EOF > java/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "javalib",
     srcs = ["HelloWorld.java"],
@@ -106,8 +108,12 @@ EOF
 # compatibility between JDK and Javabuilder, and ability to compile desired source.
 # Testing: Javabuilder in target configuration.
 function test_toolchain_java_runtime_set_from_toolchain() {
+  add_rules_java "MODULE.bazel"
+
   mkdir java
   cat << EOF > java/BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "javalib",
     srcs = ["HelloWorld.java"],
@@ -167,6 +173,7 @@ EOF
 
   cat << EOF > java/BUILD
 load(":rule.bzl", "sample_rule")
+load("@rules_java//java:java_library.bzl", "java_library")
 
 java_library(
     name = "javalib",
@@ -235,7 +242,7 @@ EOF
   touch zoo/bin/java
 
   cat << EOF > BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
     name = "toolchain",
     # Implicitly use the host_javabase bootclasspath, since the target doesn't
@@ -250,6 +257,8 @@ EOF
 
   mkdir java
   cat << EOF > java/BUILD
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "javabin",
     srcs = ["HelloWorld.java"],
@@ -273,6 +282,8 @@ EOF
 function write_javabase_files() {
   mkdir -p javabase_test
   cat << EOF > javabase_test/BUILD
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "a",
     srcs = ["A.java"],
@@ -367,7 +378,7 @@ EOF
 
   mkdir -p foo/bin bar/bin
   cat << EOF > BUILD
-
+load("@rules_java//java/toolchains:java_runtime.bzl", "java_runtime")
 
 java_runtime(
     name = "bar_runtime",

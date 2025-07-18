@@ -54,6 +54,10 @@ import net.starlark.java.spelling.SpellChecker;
  * <p>This is analogous to {@link RuleClass}. In essence, a {@code MacroClass} consists of the
  * macro's schema and its implementation function.
  */
+// Do not implement equals() or hashCode() for MacroClass unless they guarantee identical behavior
+// of executeMacroImplementation() after arbitrary Skyframe invalidations. In particular,
+// token-based equality comparison of the implementation StarlarkFunction is not sufficient - we'd
+// also need to verify e.g. the digests of the underlying Starlark modules.
 public final class MacroClass {
 
   /**
@@ -387,7 +391,7 @@ public final class MacroClass {
       MacroInstance macro,
       TargetDefinitionContext targetDefinitionContext,
       StarlarkSemantics semantics)
-      throws InterruptedException {
+      throws EvalException, InterruptedException {
     // Ensure we're not expanding a (possibly indirect) recursive macro. This is morally analogous
     // to StarlarkThread#isRecursiveCall, except in this context, recursion is through the chain of
     // macro instantiations, which may or may not actually be concurrently executing on the stack
@@ -450,7 +454,7 @@ public final class MacroClass {
         }
         kwargs.put(attr.getName(), attrValue);
       }
-      try {
+      try (var updater = targetDefinitionContext.updateStartedThreadComputationSteps(thread)) {
         Object returnValue =
             Starlark.call(
                 thread,
@@ -463,12 +467,19 @@ public final class MacroClass {
               macro.getName(), Starlark.repr(returnValue));
         }
       } catch (EvalException ex) { // from either call() or non-None return
-        targetDefinitionContext
-            .getLocalEventHandler()
-            .handle(
-                Package.error(
-                    /* location= */ null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
-        targetDefinitionContext.setContainsErrors();
+        if (ex.getCallStack().isEmpty()
+            || ex.getCallStack().getFirst().location.file().endsWith(".bzl")) {
+          // If the call stack starts at a .bzl file (i.e. at the macro definition), prepend the
+          // call stacks of all outer threads to it, so that the user understands how the failing
+          // macro was instantiated.
+          throw new EvalException(ex.getMessage(), ex.getCause())
+              .withCallStack(
+                  ImmutableList.<StarlarkThread.CallStackEntry>builder()
+                      .addAll(macro.reconstructParentCallStack())
+                      .addAll(ex.getCallStack())
+                      .build());
+        }
+        throw ex;
       } finally {
         // Restore the previously running symbolic macro's state (if any).
         @Nullable MacroFrame top = targetDefinitionContext.setCurrentMacroFrame(parentMacroFrame);

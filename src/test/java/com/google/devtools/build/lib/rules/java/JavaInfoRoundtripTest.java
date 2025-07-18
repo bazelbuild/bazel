@@ -65,6 +65,7 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
   /** A simple rule that calls JavaInfo constructor using identical attribute as java_library. */
   @Before
   public void constructJavaInfo() throws Exception {
+    useConfiguration("--experimental_java_header_compilation_direct_deps");
     if (!getAnalysisMock().isThisBazel()) {
       setBuildLanguageOptions("--experimental_google_legacy_api");
     }
@@ -83,6 +84,7 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
                 "jdeps": "lib%s.jdeps",
                 "manifest": "lib%s.jar_manifest_proto",
                 "headers": "lib%s-native-header.jar",
+                "tjar": "lib%s-tjar.jar",
             }
             for file, name in OUTS.items():
                 OUTS[file] = ctx.actions.declare_file(name % ctx.label.name)
@@ -101,6 +103,7 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
                 runtime_deps = [d[JavaInfo] for d in ctx.attr.runtime_deps],
                 exports = [d[JavaInfo] for d in ctx.attr.exports],
                 jdeps = OUTS["jdeps"],
+                header_compilation_jar = OUTS["tjar"],
             )
             return [java_info]
 

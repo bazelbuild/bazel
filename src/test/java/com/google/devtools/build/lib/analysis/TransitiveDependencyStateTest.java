@@ -153,8 +153,7 @@ public final class TransitiveDependencyStateTest {
         .buildFilename(
             RootedPath.toRootedPath(
                 fakeRoot, fakeRoot.getRelative(id.getPackageFragment().getRelative("BUILD"))))
-        .isRepoRulePackage(false)
-        .repositoryMapping(RepositoryMapping.ALWAYS_FALLBACK)
+        .repositoryMapping(RepositoryMapping.EMPTY)
         .succinctTargetNotFoundErrors(PackageSettings.DEFAULTS.succinctTargetNotFoundErrors())
         .build();
   }

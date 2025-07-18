@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.ParallelVisitorUtils.ParallelQueryVisitor;
@@ -33,13 +34,12 @@ import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
-import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.DirectoryListingStateValue;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.WorkspaceNameValue;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -167,14 +167,14 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
       WalkableGraph graph, Iterable<PathFragment> fileKeys)
       throws QueryException, InterruptedException {
     visitAndWaitForCompletion(
-        getSkyKeysForFileFragments(graph, fileKeys, /*includeAncestorKeys=*/ false));
+        getSkyKeysForFileFragments(graph, fileKeys, /* includeAncestorKeys= */ false));
   }
 
   public void visitFileAndDirectoryKeysAndWaitForCompletion(
       WalkableGraph graph, Iterable<PathFragment> fileKeys)
       throws QueryException, InterruptedException {
     visitAndWaitForCompletion(
-        getSkyKeysForFileFragments(graph, fileKeys, /*includeAncestorKeys=*/ true));
+        getSkyKeysForFileFragments(graph, fileKeys, /* includeAncestorKeys= */ true));
   }
 
   /**
@@ -284,15 +284,16 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
   private static void checkWorkspaceFile(Set<SkyKey> result, PathFragment file) {
     // The WORKSPACE file is a transitive dependency of every package. Unfortunately, there is
     // no specific SkyValue that we can use to figure out under which package path entries it
-    // lives so we add a dependency on the WorkspaceNameValue key.
-    if (WorkspaceFileHelper.matchWorkspaceFileName(file)) {
+    // lives so we add a dependency on the main repo mapping key.
+    if (file.equals(LabelConstants.WORKSPACE_FILE_NAME)
+        || file.equals(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME)) {
       // TODO(mschaller): this should not be checked at runtime. These are constants!
       Preconditions.checkState(
           LabelConstants.WORKSPACE_FILE_NAME
               .getParentDirectory()
               .equals(PathFragment.EMPTY_FRAGMENT),
           LabelConstants.WORKSPACE_FILE_NAME);
-      result.add(WorkspaceNameValue.key());
+      result.add(RepositoryMappingValue.key(RepositoryName.MAIN));
     }
   }
 

@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.TemplateContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -141,6 +142,12 @@ public class RuleContext extends TargetContext
      */
     void validate(
         Builder contextBuilder, ConfiguredTargetAndData prerequisite, Attribute attribute);
+
+    /**
+     * Returns whether a package is considered experimental. Packages outside of experimental may
+     * not depend on packages that are experimental.
+     */
+    public abstract boolean packageUnderExperimental(PackageIdentifier packageIdentifier);
   }
 
   public static final String TOOLCHAIN_ATTR_NAME = "$toolchain";
@@ -314,10 +321,6 @@ public class RuleContext extends TargetContext
 
   public ArtifactRoot getGenfilesDirectory() {
     return getConfiguration().getGenfilesDirectory(getLabel().getRepository());
-  }
-
-  public ArtifactRoot getCoverageMetadataDirectory() {
-    return getConfiguration().getCoverageMetadataDirectory(getLabel().getRepository());
   }
 
   public ArtifactRoot getTestLogsDirectory() {
@@ -1259,6 +1262,15 @@ public class RuleContext extends TargetContext
       return null;
     }
     ResolvedToolchainContext toolchainContext = getToolchainContext(execGroup);
+    return toolchainContext == null ? null : toolchainContext.executionPlatform();
+  }
+
+  @Nullable
+  public PlatformInfo getExecutionPlatformForToolchainType(Label toolchainType) {
+    if (toolchainContexts == null) {
+      return null;
+    }
+    ResolvedToolchainContext toolchainContext = getToolchainContextForToolchainType(toolchainType);
     return toolchainContext == null ? null : toolchainContext.executionPlatform();
   }
 

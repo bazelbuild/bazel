@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -18,7 +18,7 @@ set -euo pipefail
 
 function check_symbol_present() {
   message="Should have seen '$2' but didn't."
-  echo "$1" | (grep -q "$2" || (echo "$message" && exit 1))
+  echo "$1" | (grep "$2" || (echo "$message" && exit 1))
 }
 
 function check_symbol_absent() {

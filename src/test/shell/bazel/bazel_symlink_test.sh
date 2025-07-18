@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -70,6 +70,7 @@ function expect_symlink() {
 }
 
 function set_up() {
+  add_rules_python "MODULE.bazel"
   mkdir -p symlink
   touch symlink/BUILD
   cat > symlink/symlink.bzl <<EOF
@@ -98,6 +99,7 @@ EOF
   # Windows.
   mkdir -p symlink_helper
   cat > symlink_helper/BUILD <<EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
 py_binary(
     name = "symlink_helper",
     srcs = ["symlink_helper.py"],

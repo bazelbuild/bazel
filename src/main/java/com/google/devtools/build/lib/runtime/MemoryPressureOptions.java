@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.DurationConverter;
+import com.google.devtools.common.options.Converters.OptionalPercentageConverter;
 import com.google.devtools.common.options.Converters.PercentageConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
@@ -27,6 +28,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.time.Duration;
+import java.util.OptionalInt;
 
 /** Options for responding to memory pressure. */
 public final class MemoryPressureOptions extends OptionsBase {
@@ -118,6 +120,21 @@ public final class MemoryPressureOptions extends OptionsBase {
               + " Blaze will give up and fail with an OOM. A value of 100 effectively means to"
               + " never give up for this reason.")
   public int gcChurningThreshold;
+
+  @Option(
+      name = "gc_churning_threshold_if_multiple_top_level_targets",
+      defaultValue = OptionalPercentageConverter.UNSET,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      converter = OptionalPercentageConverter.class,
+      help =
+          "If set to a value in [0, 100] and this is a command that takes top-level targets (e.g."
+              + " build but not query) and there are multiple such top-level targets, overrides"
+              + " --gc_churning_threshold. Useful to configure more aggressive OOMing behavior"
+              + " (i.e. a lower value than --gc_churning_threshold) when they are multiple"
+              + " top-level targets so that the invoker of Bazel can split and retry while still"
+              + " having less aggressive behavior when there is a single top-level target.")
+  public OptionalInt gcChurningThresholdIfMultipleTopLevelTargets;
 
   // NOTE: 2024-06-11, this matches both known patterns of:
   // jdk.internal.vm.Filler[Array|Element[]] but does not match the thread

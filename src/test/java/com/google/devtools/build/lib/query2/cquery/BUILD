@@ -15,6 +15,9 @@ java_test(
     name = "BuildOutputFormatterCallbackTest",
     size = "medium",
     srcs = ["BuildOutputFormatterCallbackTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 4,
     deps = [
         ":configured_target_query_helper",
@@ -38,6 +41,9 @@ java_test(
     name = "GraphOutputFormatterCallbackTest",
     size = "medium",
     srcs = ["GraphOutputFormatterCallbackTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 4,
     deps = [
         ":configured_target_query_helper",
@@ -58,6 +64,9 @@ java_test(
     size = "medium",
     timeout = "long",
     srcs = ["ConfiguredTargetQuerySemanticsTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 2,
     deps = [
         ":configured_target_query_test",
@@ -124,6 +133,9 @@ java_test(
     name = "ProtoOutputFormatterCallbackTest",
     size = "medium",
     srcs = ["ProtoOutputFormatterCallbackTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 4,
     deps = [
         ":configured_target_query_helper",
@@ -153,6 +165,9 @@ java_test(
     name = "TransitionsOutputFormatterTest",
     size = "medium",
     srcs = ["TransitionsOutputFormatterTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 4,
     deps = [
         ":configured_target_query_helper",
@@ -179,6 +194,9 @@ java_test(
 java_test(
     name = "FilesOutputFormatterCallbackTest",
     srcs = ["FilesOutputFormatterCallbackTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 4,
     deps = [
         ":configured_target_query_helper",

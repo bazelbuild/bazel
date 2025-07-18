@@ -23,7 +23,7 @@ package_group(
     packages = [
         "//src/...",
         "//src/java_tools/buildjar/...",
-        "//src/tools/android/...",
+        "//third_party/bazel_rules/rules_android/src/tools/...",
     ],
 )
 

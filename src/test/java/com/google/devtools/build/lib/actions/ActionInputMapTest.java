@@ -32,7 +32,9 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Random;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,7 +48,7 @@ public final class ActionInputMapTest {
   private final ArtifactRoot artifactRoot =
       ArtifactRoot.asDerivedRoot(
           new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/execroot"),
-          RootType.Output,
+          RootType.OUTPUT,
           "bazel-out");
 
   @Test
@@ -342,9 +344,9 @@ public final class ActionInputMapTest {
     ActionInput file = ActionInputHelper.fromPath("some/file");
     map.put(file, TestMetadata.create(1));
 
-    assertThat(map.getTreeMetadataForPrefix(file.getExecPath())).isNull();
-    assertThat(map.getTreeMetadataForPrefix(file.getExecPath().getParentDirectory())).isNull();
-    assertThat(map.getTreeMetadataForPrefix(file.getExecPath().getChild("under"))).isNull();
+    assertThat(map.getEnclosingTreeMetadata(file.getExecPath())).isNull();
+    assertThat(map.getEnclosingTreeMetadata(file.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getEnclosingTreeMetadata(file.getExecPath().getChild("under"))).isNull();
   }
 
   @Test
@@ -353,9 +355,9 @@ public final class ActionInputMapTest {
     TreeArtifactValue treeValue = TreeArtifactValue.newBuilder(tree).build();
     map.putTreeArtifact(tree, treeValue);
 
-    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getParentDirectory())).isNull();
-    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath())).isEqualTo(treeValue);
-    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getChild("under")))
+    assertThat(map.getEnclosingTreeMetadata(tree.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getEnclosingTreeMetadata(tree.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getEnclosingTreeMetadata(tree.getExecPath().getChild("under")))
         .isEqualTo(treeValue);
   }
 
@@ -367,12 +369,12 @@ public final class ActionInputMapTest {
         TreeArtifactValue.newBuilder(tree).putChild(child, TestMetadata.create(1)).build();
     map.putTreeArtifact(tree, treeValue);
 
-    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath().getParentDirectory())).isNull();
-    assertThat(map.getTreeMetadataForPrefix(tree.getExecPath())).isEqualTo(treeValue);
-    assertThat(map.getTreeMetadataForPrefix(child.getExecPath())).isEqualTo(treeValue);
-    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getParentDirectory()))
+    assertThat(map.getEnclosingTreeMetadata(tree.getExecPath().getParentDirectory())).isNull();
+    assertThat(map.getEnclosingTreeMetadata(tree.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getEnclosingTreeMetadata(child.getExecPath())).isEqualTo(treeValue);
+    assertThat(map.getEnclosingTreeMetadata(child.getExecPath().getParentDirectory()))
         .isEqualTo(treeValue);
-    assertThat(map.getTreeMetadataForPrefix(child.getExecPath().getChild("under")))
+    assertThat(map.getEnclosingTreeMetadata(child.getExecPath().getChild("under")))
         .isEqualTo(treeValue);
   }
 
@@ -450,6 +452,10 @@ public final class ActionInputMapTest {
     assertThat(map.getMetadata(input.getExecPath())).isEqualTo(treeValue.getMetadata());
     assertThat(map.getTreeMetadata(input.getExecPath())).isSameInstanceAs(treeValue);
     assertThat(map.getInput(input.getExecPathString())).isSameInstanceAs(input);
+
+    Map<PathFragment, TreeArtifactValue> trees = new HashMap<>();
+    map.forEachTreeArtifact(trees::put);
+    assertThat(trees).containsAtLeast(input.getExecPath(), treeValue);
   }
 
   private static class TestEntry {

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -42,9 +42,15 @@ if [[ $# -gt 0 ]]; then
     add_to_bazelrc "build --tool_java_runtime_version=${JAVA_RUNTIME_VERSION}"
 fi
 
+function set_up() {
+  add_rules_java "MODULE.bazel"
+}
+
 function test_java_test_coverage() {
   cat <<EOF > BUILD
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//java:java_test.bzl", "java_test")
+load("@rules_java//java:java_library.bzl", "java_library")
 
 java_test(
     name = "test",
@@ -139,6 +145,9 @@ end_of_record"
 function test_java_test_coverage_combined_report() {
 
   cat <<EOF > BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_test(
     name = "test",
     srcs = glob(["src/test/**/*.java"]),
@@ -228,6 +237,10 @@ end_of_record"
 function test_java_test_java_import_coverage() {
 
   cat <<EOF > BUILD
+load("@rules_java//java:java_test.bzl", "java_test")
+load("@rules_java//java:java_import.bzl", "java_import")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_test(
     name = "test",
     srcs = glob(["src/test/**/*.java"]),
@@ -319,6 +332,8 @@ function test_run_jar_in_subprocess_empty_env() {
   mkdir -p java/cov
   mkdir -p javatests/cov
   cat >java/cov/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 package(default_visibility=['//visibility:public'])
 java_binary(name = 'Cov',
             main_class = 'cov.Cov',
@@ -341,6 +356,7 @@ public class Cov {
 EOF
 
   cat >javatests/cov/BUILD <<EOF
+load("@rules_java//java:java_test.bzl", "java_test")
 java_test(name = 'CovTest',
           srcs = ['CovTest.java'],
           data = ['//java/cov:Cov_deploy.jar'],
@@ -409,6 +425,9 @@ function test_runtime_deploy_jar() {
   mkdir -p java/cov
   mkdir -p javatests/cov
   cat >java/cov/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 package(default_visibility=['//visibility:public'])
 java_binary(
     name = 'RandomBinary',
@@ -447,6 +466,8 @@ public class Cov {
 EOF
 
   cat >javatests/cov/BUILD <<EOF
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_test(name = 'CovTest',
           srcs = ['CovTest.java'],
           deps = ['//java/cov:Cov'],
@@ -478,6 +499,8 @@ function test_runtime_and_data_deploy_jars() {
   mkdir -p java/cov
   mkdir -p javatests/cov
   cat >java/cov/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 package(default_visibility=['//visibility:public'])
 java_binary(
     name = 'RandomBinary',
@@ -517,6 +540,8 @@ public class Cov {
 EOF
 
   cat >javatests/cov/BUILD <<EOF
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_test(name = 'CovTest',
           srcs = ['CovTest.java'],
           data = ['//java/cov:Cov_deploy.jar'],
@@ -622,6 +647,9 @@ function test_java_coverage_with_classpath_jar() {
   # Verifies the logic in JacocoCoverageRunner can unpack the classpath jar
   # created when the classpath is too long.
   cat <<EOF > BUILD
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_library(
     name = "lib",
     srcs = ["src/main/java/lib/Lib.java"],
@@ -686,6 +714,10 @@ LF:2"
 
 function test_java_coverage_with_classpath_and_data_jar() {
   cat <<EOF > BUILD
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_test.bzl", "java_test")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_binary(
     name = "foo",
     srcs = ["src/main/java/foo/Foo.java"],
@@ -784,6 +816,9 @@ function test_java_string_switch_coverage() {
   # (because a switch on String::hashCode is made first) - these branches should
   # be filtered.
   cat <<EOF > BUILD
+load("@rules_java//java:java_test.bzl", "java_test")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_test(
     name = "test",
     srcs = glob(["src/test/**/*.java"]),
@@ -876,6 +911,9 @@ function test_finally_block_branch_coverage() {
   # may enter them (e.g. via an exception handler or when no exception is
   # thrown).
   cat <<EOF > BUILD
+load("@rules_java//java:java_test.bzl", "java_test")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_test(
     name = "test",
     srcs = glob(["src/test/**/*.java"]),
@@ -1081,7 +1119,10 @@ function test_java_test_coverage_cc_binary() {
   fi
 
   ########### Setup source files and BUILD file ###########
+  add_rules_cc "MODULE.bazel"
   cat <<EOF > BUILD
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_test(
     name = "NumJava",
     srcs = ["NumJava.java"],
@@ -1103,6 +1144,9 @@ EOF
   mkdir -p examples/cpp
 
   cat <<EOF > examples/cpp/BUILD
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_binary(
@@ -1227,6 +1271,8 @@ local_repository(
 EOF
 
   cat > BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "math",
     srcs = ["src/main/com/example/Math.java"],
@@ -1250,6 +1296,9 @@ EOF
   touch other_repo/REPO.bazel
 
   cat > other_repo/BUILD <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//java:java_test.bzl", "java_test")
+
 java_library(
     name = "collatz",
     srcs = ["src/main/com/example/Collatz.java"],

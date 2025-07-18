@@ -164,6 +164,15 @@ public class JavaOptions extends FragmentOptions {
   public boolean headerCompilation;
 
   @Option(
+      name = "experimental_java_header_compilation_direct_deps",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "Use separate outputs for header and regular compilation.")
+  public boolean javaHeaderCompilationDirectDeps;
+
+  @Option(
       name = "java_deps",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -174,7 +183,7 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "experimental_java_classpath",
       allowMultiple = false,
-      defaultValue = "javabuilder",
+      defaultValue = "bazel",
       converter = JavaClasspathModeConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -289,12 +298,13 @@ public class JavaOptions extends FragmentOptions {
    * optimizers must understand the same flags as Proguard.
    */
   @Option(
-      name = "experimental_bytecode_optimizers",
+      name = "bytecode_optimizers",
       defaultValue = "Proguard",
       converter = LabelMapConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Do not use.")
+      help = "Do not use.",
+      oldName = "experimental_bytecode_optimizers")
   public Map<String, Label> bytecodeOptimizers;
 
   /**
@@ -548,15 +558,6 @@ public class JavaOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help = "When enabled, java_import.exports is not supported.")
   public boolean disallowJavaImportExports;
-
-  @Option(
-      name = "incompatible_disallow_java_import_empty_jars",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "When enabled, empty java_import.jars is not supported.")
-  public boolean disallowJavaImportEmptyJars;
 
   @Option(
       name = "experimental_enable_jspecify",

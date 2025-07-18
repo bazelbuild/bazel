@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.DotBazelFileSyntaxChecker;
 import com.google.devtools.build.lib.packages.VendorThreadContext;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.StarlarkUtil;
 import com.google.devtools.build.lib.util.StringEncoding;
@@ -58,7 +58,7 @@ public class VendorFileFunction implements SkyFunction {
 
   private static final String VENDOR_FILE_HEADER =
       StringEncoding.unicodeToInternal(
-          """
+"""
 ###############################################################################
 # This file is used to configure how external repositories are handled in vendor mode.
 # ONLY the two following functions can be used:
@@ -83,7 +83,7 @@ public class VendorFileFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-    if (RepositoryDelegatorFunction.VENDOR_DIRECTORY.get(env).isEmpty()) {
+    if (RepositoryDirectoryValue.VENDOR_DIRECTORY.get(env).isEmpty()) {
       throw new VendorFileFunctionException(
           new IllegalStateException(
               "VENDOR.bazel file is not accessible with vendor mode off (without --vendor_dir"
@@ -91,7 +91,7 @@ public class VendorFileFunction implements SkyFunction {
           Transience.PERSISTENT);
     }
 
-    Path vendorPath = RepositoryDelegatorFunction.VENDOR_DIRECTORY.get(env).get();
+    Path vendorPath = RepositoryDirectoryValue.VENDOR_DIRECTORY.get(env).get();
     RootedPath vendorFilePath =
         RootedPath.toRootedPath(Root.fromPath(vendorPath), LabelConstants.VENDOR_FILE_NAME);
 

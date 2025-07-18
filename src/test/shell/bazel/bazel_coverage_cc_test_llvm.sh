@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -28,6 +28,10 @@ if [[ "${COVERAGE_GENERATOR_DIR}" != "released" ]]; then
   COVERAGE_GENERATOR_DIR="$(rlocation io_bazel/$COVERAGE_GENERATOR_DIR)"
   add_to_bazelrc "build --override_repository=remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
 fi
+
+function set_up() {
+  add_rules_cc "MODULE.bazel"
+}
 
 # Configures Bazel to emit coverage using LLVM tools, returning a non-zero exit
 # code if the tools are not available.
@@ -67,6 +71,9 @@ function setup_llvm_coverage_tools_for_lcov() {
 # collect code coverage. The sources are a.cc, a.h and t.cc.
 function setup_a_cc_lib_and_t_cc_test() {
   cat << EOF > BUILD
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "a",
     srcs = ["a.cc"],
@@ -201,8 +208,13 @@ end_of_record"
 
 function test_cc_test_with_runtime_objects_not_in_runfiles() {
   setup_llvm_coverage_tools_for_lcov || return 0
+  add_rules_java "MODULE.bazel"
 
   cat << EOF > BUILD
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_test(
     name = "main",
     srcs = ["main.cpp"],
@@ -265,8 +277,11 @@ local_repository(
     path = "other_repo",
 )
 EOF
+  add_rules_cc "MODULE.bazel"
 
   cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "b",
     srcs = ["b.cc"],
@@ -424,6 +439,9 @@ function test_coverage_with_tmp_in_path() {
 
   mkdir -p foo/tmp
   cat > foo/tmp/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "a",
     srcs = ["a.cc"],
@@ -494,6 +512,9 @@ function test_coverage_for_header() {
   setup_llvm_coverage_tools_for_lcov || return 0
 
   cat << EOF > BUILD
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
   name = "foo",
   srcs = ["foo.cc"],

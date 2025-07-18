@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -30,7 +31,7 @@ import net.starlark.java.eval.StarlarkValue;
 public interface CppSemantics extends StarlarkValue {
 
   /** Returns cpp toolchain type. */
-  String getCppToolchainType();
+  Label getCppToolchainType();
 
   /** What language to treat the headers. */
   Language language();
@@ -45,15 +46,6 @@ public interface CppSemantics extends StarlarkValue {
       BuildConfigurationValue configuration,
       FeatureConfiguration featureConfiguration,
       CppCompileActionBuilder actionBuilder)
-      throws EvalException;
-
-  /**
-   * Called before a C++ link action is built.
-   *
-   * <p>Gives the semantics implementation the opportunity to change link actions at the last
-   * minute.
-   */
-  void finalizeLinkActionBuilder(CppConfiguration configuration, CppLinkActionBuilder actionBuilder)
       throws EvalException;
 
   /**

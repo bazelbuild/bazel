@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.config;
 
-import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
+import static com.google.devtools.build.lib.cmdline.LabelConstants.COMMAND_LINE_OPTION_PREFIX;
 
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
@@ -153,7 +153,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
                 singularErrorDescriptor,
                 label,
                 label.getRepository().getName(),
-                label.getRepository().getOwnerRepoDisplayString());
+                label.getRepository().getContextRepoDisplayString());
           }
         } catch (LabelSyntaxException e) {
           throw Starlark.errorf(
@@ -190,7 +190,6 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     }
 
     if (optionName.equals("incompatible_enable_cc_toolchain_resolution")
-        || optionName.equals("incompatible_enable_cgo_toolchain_resolution")
         || optionName.equals("incompatible_enable_apple_toolchain_resolution")) {
       // This is specifically allowed.
       return true;

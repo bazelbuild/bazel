@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.ReplaceableBuildEvent;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.ChunkList;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.CommandLine;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.CommandLineSection;
@@ -329,11 +330,13 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
   }
 
   /** This reports the canonical form of the command line. */
-  public static class CanonicalCommandLineEvent extends BazelCommandLineEvent {
+  public static class CanonicalCommandLineEvent extends BazelCommandLineEvent
+      implements ReplaceableBuildEvent {
     public static final String LABEL = "canonical";
     protected final Map<String, Object> explicitStarlarkOptions;
     protected final Map<String, Object> starlarkOptions;
     protected final List<ParsedOptionDescription> canonicalOptions;
+    private final boolean replaceable;
 
     public CanonicalCommandLineEvent(
         BlazeRuntime runtime,
@@ -342,7 +345,8 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
         boolean includeResidueInRunBepEvent,
         Map<String, Object> explicitStarlarkOptions,
         Map<String, Object> starlarkOptions,
-        List<ParsedOptionDescription> canonicalOptions) {
+        List<ParsedOptionDescription> canonicalOptions,
+        boolean replaceable) {
       this(
           runtime.getProductName(),
           runtime.getStartupOptionsProvider(),
@@ -351,7 +355,8 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
           includeResidueInRunBepEvent,
           explicitStarlarkOptions,
           starlarkOptions,
-          canonicalOptions);
+          canonicalOptions,
+          replaceable);
     }
 
     @VisibleForTesting
@@ -363,16 +368,23 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
         boolean includeResidueInRunBepEvent,
         Map<String, Object> explicitStarlarkOptions,
         Map<String, Object> starlarkOptions,
-        List<ParsedOptionDescription> canonicalOptions) {
+        List<ParsedOptionDescription> canonicalOptions,
+        boolean replaceable) {
       super(productName, activeStartupOptions, commandName, residue, includeResidueInRunBepEvent);
       this.explicitStarlarkOptions = explicitStarlarkOptions;
       this.starlarkOptions = starlarkOptions;
       this.canonicalOptions = canonicalOptions;
+      this.replaceable = replaceable;
     }
 
     @Override
     public BuildEventId getEventId() {
       return BuildEventIdUtil.structuredCommandlineId(LABEL);
+    }
+
+    @Override
+    public boolean replaceable() {
+      return replaceable;
     }
 
     /**

@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.ModifiedOutputsReceiver;
@@ -61,8 +60,6 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -119,7 +116,9 @@ import org.mockito.ArgumentCaptor;
 @RunWith(TestParameterInjector.class)
 public final class FilesystemValueCheckerTest {
   private static final OutputChecker CHECK_TTL =
-      (file, metadata) -> metadata.isAlive(Instant.now());
+      (file, metadata) ->
+          metadata.getExpirationTime() == null
+              || metadata.getExpirationTime().isAfter(Instant.now());
   private static final int FSVC_THREADS_FOR_TEST = 200;
   private static final ActionLookupKey ACTION_LOOKUP_KEY =
       new ActionLookupKey() {
@@ -165,7 +164,7 @@ public final class FilesystemValueCheckerTest {
     Path outputPath = outputDir.getRelative(relPath);
     outputDir.createDirectory();
     ArtifactRoot derivedRoot =
-        ArtifactRoot.asDerivedRoot(fs.getPath("/"), RootType.Output, outSegment);
+        ArtifactRoot.asDerivedRoot(fs.getPath("/"), RootType.OUTPUT, outSegment);
     return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
         derivedRoot,
         derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)));
@@ -319,20 +318,7 @@ public final class FilesystemValueCheckerTest {
         new PackageLookupFunction(
             new AtomicReference<>(ImmutableSet.of()),
             CrossRepositoryLabelViolationStrategy.ERROR,
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
-            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
-    skyFunctions.put(
-        WorkspaceFileValue.WORKSPACE_FILE,
-        new WorkspaceFileFunction(
-            TestRuleClassProvider.getRuleClassProvider(),
-            TestPackageFactoryBuilderFactory.getInstance()
-                .builder(directories)
-                .build(TestRuleClassProvider.getRuleClassProvider(), fs),
-            directories,
-            /* bzlLoadFunctionForInlining= */ null));
-    skyFunctions.put(
-        SkyFunctions.EXTERNAL_PACKAGE,
-        new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
 
     differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions.buildOrThrow(), differencer);
@@ -1291,7 +1277,7 @@ public final class FilesystemValueCheckerTest {
     Path outputPath = fs.getPath("/" + outSegment);
     outputPath.createDirectory();
     return ActionsTestUtil.createArtifact(
-        ArtifactRoot.asDerivedRoot(fs.getPath("/"), RootType.Output, outSegment),
+        ArtifactRoot.asDerivedRoot(fs.getPath("/"), RootType.OUTPUT, outSegment),
         outputPath.getRelative(relPath));
   }
 

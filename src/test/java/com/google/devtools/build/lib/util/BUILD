@@ -11,6 +11,7 @@ filegroup(
     testonly = 0,
     srcs = glob(["*"]) + [
         "//src/test/java/com/google/devtools/build/lib/util/io:srcs",
+        "//src/test/java/com/google/devtools/build/lib/util/regex:srcs",
         "//src/test/java/com/google/devtools/build/lib/util/subjects:srcs",
     ],
     visibility = ["//src:__subpackages__"],
@@ -44,7 +45,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/collect:concurrent_identity_set",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/util",

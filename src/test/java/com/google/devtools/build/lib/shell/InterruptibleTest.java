@@ -34,12 +34,11 @@ import org.junit.runners.JUnit4;
 /**
  * Tests of the interaction of Thread.interrupt and Command.execute.
  *
- * Read http://www.ibm.com/developerworks/java/library/j-jtp05236/
- * for background material.
+ * <p>Read http://www.ibm.com/developerworks/java/library/j-jtp05236/ for background material.
  *
- * NOTE: This test is dependent on thread timings.  Under extreme machine load
- * it's possible that this test could fail spuriously or intermittently.  In
- * that case, adjust the timing constants to increase the tolerance.
+ * <p>NOTE: This test is dependent on thread timings. Under extreme machine load it's possible that
+ * this test could fail spuriously or intermittently. In that case, adjust the timing constants to
+ * increase the tolerance.
  */
 @RunWith(JUnit4.class)
 public class InterruptibleTest {
@@ -80,7 +79,7 @@ public class InterruptibleTest {
         script,
         ImmutableList.of(
             "echo start", "sleep 20", "touch " + dirString + "endfile", "echo end >&2"));
-    this.command = new Command(new String[] {script.toString()});
+    this.command = new Command(new String[] {script.toString()}, System.getenv());
 
     interrupter.start();
   }

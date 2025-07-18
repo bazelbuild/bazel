@@ -1128,11 +1128,13 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         SkyframeExecutorTestUtils.evaluate(skyframeExecutor, skyKey, false, reporter);
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
-        "ERROR /workspace/defs.bzl:3:12: //:+ext+ext: expected value of type 'string' for attribute"
-            + " 'data' of 'data_repo', but got 42 (int)");
-    assertThat(result.getError().getException())
-        .hasMessageThat()
-        .isEqualTo("error evaluating module extension @@//:defs.bzl%ext");
+        """
+        ERROR /workspace/defs.bzl:3:12: Traceback (most recent call last):
+        \tFile "/workspace/defs.bzl", line 3, column 12, in _ext_impl
+        \t\tdata_repo(name='ext',data=42)
+        Error: in call to 'data_repo' repo rule with name 'ext', expected value of type 'string' \
+        for attribute 'data', but got 42 (int)\
+        """);
   }
 
   @Test
@@ -1185,9 +1187,9 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         ERROR /workspace/defs.bzl:8:12: Traceback (most recent call last):
         \tFile "/workspace/defs.bzl", line 8, column 12, in _ext_impl
         \t\tdata_repo(name='ext',data='@not_other_repo//:foo')
-        Error in repository_rule: no repository visible as '@not_other_repo' in \
-        the extension '@@//:defs.bzl%ext', but referenced by label \
-        '@not_other_repo//:foo' in attribute 'data' of data_repo 'ext'.\
+        Error: in call to 'data_repo' repo rule with name 'ext', no repository visible as \
+        '@not_other_repo' in the extension '@@//:defs.bzl%ext', but referenced by label \
+        '@not_other_repo//:foo' in attribute 'data'\
         """);
   }
 
@@ -1228,9 +1230,9 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         \tFile "/usr/local/google/_blaze_jrluser/FAKEMD5/external/ext_module+/defs.bzl", \
         line 8, column 12, in _ext_impl
         \t\tdata_repo(name='ext',data='@not_other_repo//:foo')
-        Error in repository_rule: no repository visible as '@not_other_repo' in the extension \
-        '@@ext_module+//:defs.bzl%ext', but referenced by label '@not_other_repo//:foo' in \
-        attribute 'data' of data_repo 'ext'.\
+        Error: in call to 'data_repo' repo rule with name 'ext', no repository visible as \
+        '@not_other_repo' in the extension '@@ext_module+//:defs.bzl%ext', but referenced by label \
+        '@not_other_repo//:foo' in attribute 'data'\
         """);
   }
 
@@ -1269,9 +1271,11 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         .hasMessageThat()
         .isEqualTo(
             """
-            in tag at /workspace/MODULE.bazel:2:10: no repository visible as '@other_repo' to the \
-            root module, but referenced by label '@other_repo//:foo' in attribute 'label' of tag \
-            'label'.\
+            Traceback (most recent call last):
+            \tFile "/workspace/MODULE.bazel", line 2, column 10, in <toplevel>
+            \t\text.label(label = '@other_repo//:foo')
+            Error: in 'label' tag, no repository visible as '@other_repo' \
+            to the root module, but referenced by label '@other_repo//:foo' in attribute 'label'\
             """);
   }
 
@@ -1302,9 +1306,9 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         ERROR /workspace/defs.bzl:8:12: Traceback (most recent call last):
         \tFile "/workspace/defs.bzl", line 8, column 12, in _ext_impl
         \t\tdata_repo(name='ext',data=['@not_other_repo//:foo'])
-        Error in repository_rule: no repository visible as '@not_other_repo' \
-        in the extension '@@//:defs.bzl%ext', but referenced by label \
-        '@not_other_repo//:foo' in attribute 'data' of data_repo 'ext'.\
+        Error: in call to 'data_repo' repo rule with name 'ext', no repository visible as \
+        '@not_other_repo' in the extension '@@//:defs.bzl%ext', but referenced by label \
+        '@not_other_repo//:foo' in attribute 'data'\
         """);
   }
 
@@ -1335,9 +1339,9 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
         ERROR /workspace/defs.bzl:8:12: Traceback (most recent call last):
         \tFile "/workspace/defs.bzl", line 8, column 12, in _ext_impl
         \t\tdata_repo(name='ext',data={'@not_other_repo//:foo':'bar'})
-        Error in repository_rule: no repository visible as '@not_other_repo' \
-        in the extension '@@//:defs.bzl%ext', but referenced by label \
-        '@not_other_repo//:foo' in attribute 'data' of data_repo 'ext'.\
+        Error: in call to 'data_repo' repo rule with name 'ext', no repository visible as \
+        '@not_other_repo' in the extension '@@//:defs.bzl%ext', but referenced by label \
+        '@not_other_repo//:foo' in attribute 'data'\
         """);
   }
 
@@ -2847,16 +2851,12 @@ public class ModuleExtensionResolutionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
         """
-        ERROR /workspace/MODULE.bazel:3:10: //:+data_repo+data: expected value of type 'string' \
-        for attribute 'data' of 'data_repo', but got 5 (int)\
+        ERROR /workspace/MODULE.bazel:3:10: Traceback (most recent call last):
+        \tFile "/workspace/MODULE.bazel", line 3, column 10, in <toplevel>
+        \t\tdata_repo(name='data', data=5)
+        Error: in call to 'data_repo' repo rule with name 'data', expected value of type 'string' \
+        for attribute 'data', but got 5 (int)\
         """);
-    assertThat(result.getError().getException())
-        .hasMessageThat()
-        .isEqualTo(
-            """
-            error creating repo data requested at /workspace/MODULE.bazel:3:10: failed to \
-            instantiate 'data_repo' from this module extension\
-            """);
   }
 
   @Test

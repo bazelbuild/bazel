@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -240,22 +240,22 @@ EOF
 load(':rule.bzl', 'demo_rule')
 
 config_setting(
-  name = "k8_cpu",
-  values = {'cpu': 'k8'},
+  name = "dbg_mode",
+  values = {'compilation_mode': 'dbg'},
 )
 
 demo_rule(
   name = 'demo',
   srcs = select({
-    ':k8_cpu': ['a.txt'],
+    ':dbg_mode': ['a.txt'],
   }) + select({
-    ':k8_cpu': ['b.txt'],
+    ':dbg_mode': ['b.txt'],
   }),
   foo = 'foobar',
 )
 EOF
 
-  bazel cquery --cpu=k8 --experimental_use_validation_aspect //$pkg:foobar.txt &> $TEST_log \
+  bazel cquery --compilation_mode=dbg --experimental_use_validation_aspect //$pkg:foobar.txt &> $TEST_log \
     || fail "Cquery 'foobar.txt' expected to succeed"
 }
 

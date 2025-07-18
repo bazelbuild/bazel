@@ -92,7 +92,12 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
     String developerDir = "";
     if (containsXcodeVersion && !containsDeveloperDir) {
       String version = env.get(AppleConfiguration.XCODE_VERSION_ENV_NAME);
-      developerDir = getDeveloperDir(binTools, DottedVersion.fromStringUnchecked(version));
+      // Directly use version as DEVELOPER_DIR when a path is passed
+      if (version.startsWith("/")) {
+        developerDir = version;
+      } else {
+        developerDir = getDeveloperDir(binTools, DottedVersion.fromStringUnchecked(version));
+      }
       newEnvBuilder.put("DEVELOPER_DIR", developerDir);
     }
     if (containsAppleSdkPlatform) {
@@ -117,7 +122,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
    *     either because the SDK platform/version pair doesn't exist, or there was an unexpected
    *     issue finding or running the tool
    */
-  private static String querySdkRoot(String developerDir, String appleSdkPlatform)
+  private String querySdkRoot(String developerDir, String appleSdkPlatform)
       throws IOException, InterruptedException {
     try {
       String sdkString = Ascii.toLowerCase(appleSdkPlatform);
@@ -127,7 +132,10 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
               : ImmutableMap.of("DEVELOPER_DIR", developerDir);
       CommandResult xcrunResult =
           new Command(
-                  new String[] {"/usr/bin/xcrun", "--sdk", sdkString, "--show-sdk-path"}, env, null)
+                  new String[] {"/usr/bin/xcrun", "--sdk", sdkString, "--show-sdk-path"},
+                  env,
+                  null,
+                  clientEnv)
               .execute();
 
       return new String(xcrunResult.getStdout(), StandardCharsets.UTF_8).trim();
@@ -174,7 +182,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
    *     either because the SDK platform/version pair doesn't exist, or there was an unexpected
    *     issue finding or running the tool
    */
-  private static String getSdkRoot(String developerDir, String appleSdkPlatform)
+  private String getSdkRoot(String developerDir, String appleSdkPlatform)
       throws IOException, InterruptedException {
     try {
       return sdkRootCache.computeIfAbsent(
@@ -223,12 +231,12 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
    *     either because there is no installed Xcode with the given version, or there was an
    *     unexpected issue finding or running the tool
    */
-  private static String queryDeveloperDir(BinTools binTools, DottedVersion version)
+  private String queryDeveloperDir(BinTools binTools, DottedVersion version)
       throws IOException, InterruptedException {
     String xcodeLocatorPath = binTools.getEmbeddedPath("xcode-locator").getPathString();
     try {
       CommandResult xcodeLocatorResult =
-          new Command(new String[] {xcodeLocatorPath, version.toString()}).execute();
+          new Command(new String[] {xcodeLocatorPath, version.toString()}, clientEnv).execute();
 
       return new String(xcodeLocatorResult.getStdout(), StandardCharsets.UTF_8).trim();
     } catch (AbnormalTerminationException e) {
@@ -282,7 +290,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
    *     either because there is no installed Xcode with the given version, or there was an
    *     unexpected issue finding or running the tool
    */
-  private static String getDeveloperDir(BinTools binTools, DottedVersion version)
+  private String getDeveloperDir(BinTools binTools, DottedVersion version)
       throws IOException, InterruptedException {
     try {
       return developerDirCache.computeIfAbsent(

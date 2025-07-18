@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.common.base.Ascii;
 import com.google.common.hash.HashCode;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import java.io.IOException;
 import java.util.Base64;
 

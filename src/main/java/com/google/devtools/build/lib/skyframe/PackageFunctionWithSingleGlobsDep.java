@@ -84,7 +84,9 @@ final class PackageFunctionWithSingleGlobsDep extends PackageFunction {
     private final ImmutableSet<GlobRequest> globRequests;
 
     private LoadedPackageWithGlobRequests(
-        Package.Builder builder, long loadTimeNanos, ImmutableSet<GlobRequest> globRequests) {
+        Package.AbstractBuilder builder,
+        long loadTimeNanos,
+        ImmutableSet<GlobRequest> globRequests) {
       super(builder, loadTimeNanos);
       this.globRequests = globRequests;
     }
@@ -211,7 +213,7 @@ final class PackageFunctionWithSingleGlobsDep extends PackageFunction {
 
   @Override
   protected LoadedPackage newLoadedPackage(
-      Package.Builder packageBuilder, @Nullable Globber globber, long loadTimeNanos) {
+      Package.AbstractBuilder packageBuilder, @Nullable Globber globber, long loadTimeNanos) {
     return new LoadedPackageWithGlobRequests(
         packageBuilder, loadTimeNanos, ((GlobsGlobber) globber).getGlobRequests());
   }

@@ -16,14 +16,21 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.vfs.PathFragment.pathFragmentCodec;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.pkgcache.PackagePathCodecDependencies;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.HashCodes;
@@ -31,10 +38,14 @@ import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -159,8 +170,8 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   }
 
   /**
-   * Returns the time when the remote file contents expire. If the contents never expire, including
-   * when they're not remote, returns null.
+   * Returns the time when the remote file contents may expire. If the contents never expire,
+   * including when they're not remote, returns null.
    *
    * <p>The expiration time does not factor into equality, as it can be mutated by {@link
    * #setExpirationTime}.
@@ -175,13 +186,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    * nothing.
    */
   public void setExpirationTime(Instant newExpirationTime) {}
-
-  /**
-   * Returns whether the file contents are available (either locally, or remotely and not expired).
-   */
-  public final boolean isAlive(Instant now) {
-    return getExpirationTime() == null || getExpirationTime().isAfter(now);
-  }
 
   /**
    * Provides a best-effort determination whether the file was changed since the digest was
@@ -589,8 +593,35 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       if (proxy == null) {
         return false;
       }
-      FileStatus stat = path.statIfFound(Symlinks.FOLLOW);
-      return stat == null || !stat.isFile() || !proxy.equals(FileContentsProxy.create(stat));
+      var stat = path.statIfFound(Symlinks.FOLLOW);
+      if (stat == null || !stat.isFile()) {
+        // The file no longer exists or changed type, so it certainly has changed.
+        return true;
+      }
+      var newProxy = FileContentsProxy.create(stat);
+      if (proxy.equals(newProxy)) {
+        // If the proxy is the same, then the file certainly hasn't been modified. This is the
+        // common case, so we check it first.
+        return false;
+      }
+      if (proxy.isModified(newProxy)) {
+        // If the non-ctime information in the proxy changed, the file has certainly been modified
+        // between the time the digest was computed and now.
+        return true;
+      }
+      // At this point the ctime changed, so some of the file's metadata has changed since we
+      // computed the digest. Returning true here would allow us to cautiously report modification
+      // even in complex ABA scenarios (file modified, then modified back with its mtime reset).
+      // However, we would also report modification in case a hardlink to the file was created or
+      // removed, such as by the hermetic Linux sandbox or certain optimized copy actions.
+      // As a compromise, we check whether the current state of the file differs from the previous
+      // one, ignoring any inbetween modifications that may have happened.
+      //
+      // Note that this path is always taken when using the hermetic Linux sandbox, but the
+      // associated cost should amortize over the next build as the digest will be cached under the
+      // new stat.
+      byte[] newDigest = DigestUtils.getDigestWithManualFallback(path, SyscallCache.NO_CACHE, stat);
+      return !Arrays.equals(digest, newDigest);
     }
 
     @Override
@@ -750,7 +781,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     public void setContentsProxy(FileContentsProxy proxy) {
       this.proxy = proxy;
     }
-
 
     @Override
     public boolean equals(Object o) {
@@ -917,6 +947,58 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
           .add("delegate", delegate)
           .add("resolvedPath", resolvedPath)
           .toString();
+    }
+  }
+
+  /**
+   * Codec that serializes the absolute {@link ResolvedSymlinkArtifactValue#resolvedPath} by finding
+   * its root in {@link PackagePathCodecDependencies} and relativizing.
+   */
+  // TODO: b/329460099 - This would not be necessary if we could store a source root relative path.
+  @Keep // Used reflectively.
+  private static final class ResolvedSymlinkArtifactValueCodec
+      implements ObjectCodec<ResolvedSymlinkArtifactValue> {
+
+    @Override
+    public Class<? extends ResolvedSymlinkArtifactValue> getEncodedClass() {
+      return ResolvedSymlinkArtifactValue.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, ResolvedSymlinkArtifactValue obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(obj.delegate, codedOut);
+
+      PathFragment resolvedPath = obj.resolvedPath;
+      ImmutableList<Root> roots =
+          context.getDependency(PackagePathCodecDependencies.class).getPackageRoots();
+      for (int i = 0; i < roots.size(); i++) {
+        Root root = roots.get(i);
+        if (root.contains(resolvedPath)) {
+          PathFragment relativePath = root.relativize(resolvedPath);
+          context.serializeLeaf(relativePath, pathFragmentCodec(), codedOut);
+          codedOut.write((byte) i);
+          return;
+        }
+      }
+      throw new SerializationException(resolvedPath + " is not under any package roots: " + roots);
+    }
+
+    @Override
+    public ResolvedSymlinkArtifactValue deserialize(
+        DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      FileArtifactValue delegate = context.deserialize(codedIn);
+      PathFragment relativePath = context.deserializeLeaf(codedIn, pathFragmentCodec());
+      int rootIndex = codedIn.readRawByte();
+      Root root =
+          context
+              .getDependency(PackagePathCodecDependencies.class)
+              .getPackageRoots()
+              .get(rootIndex);
+      PathFragment resolvedPath = root.getRelative(relativePath).asFragment();
+      return new ResolvedSymlinkArtifactValue(delegate, resolvedPath);
     }
   }
 

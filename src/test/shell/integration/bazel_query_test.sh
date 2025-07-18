@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -60,6 +60,7 @@ esac
 function set_up() {
   add_to_bazelrc "build --package_path=%workspace%"
   add_bazel_skylib "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
 }
 
 function tear_down() {
@@ -72,6 +73,7 @@ function test_does_not_fail_horribly() {
   rm -rf peach
   mkdir -p peach
   cat > peach/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='brighton', deps=[':harken'])
 sh_library(name='harken')
 EOF
@@ -86,6 +88,7 @@ function test_output_to_file() {
   rm -rf peach
   mkdir -p peach
   cat > peach/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='brighton', deps=[':harken'])
 sh_library(name='harken')
 EOF
@@ -109,16 +112,19 @@ function test_visibility_affects_xml_output() {
   mkdir -p kiwi
 
   cat > kiwi/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='kiwi', visibility=['//visibility:private'])
 EOF
   bazel query --output=xml '//kiwi:kiwi' > output_private
 
   cat > kiwi/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='kiwi', visibility=['//visibility:public'])
 EOF
   bazel query --output=xml '//kiwi:kiwi' > output_public
 
   cat > kiwi/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='kiwi')
 EOF
   bazel query --output=xml '//kiwi:kiwi' > output_none
@@ -142,11 +148,13 @@ function test_visibility_affects_proto_output() {
   mkdir -p kiwi
 
   cat > kiwi/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='kiwi', visibility=['//visibility:private'])
 EOF
   bazel query --output=proto '//kiwi:kiwi' > output_private
 
   cat > kiwi/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='kiwi', visibility=['//visibility:public'])
 EOF
   bazel query --output=proto '//kiwi:kiwi' > output_public
@@ -169,6 +177,8 @@ function make_depth_tests() {
   rm -rf depth2
   mkdir -p depth depth2 || die "Could not create test directory"
   cat > "depth/BUILD" <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(name = 'one', srcs = ['one.sh'], deps = [':two'])
 sh_library(name = 'two', srcs = ['two.sh'],
            deps = [':div2', ':three', '//depth2:three'])
@@ -178,7 +188,10 @@ sh_library(name = 'five', srcs = ['five.sh'])
 sh_library(name = 'div2', srcs = ['two.sh'])
 EOF
 
-  echo "sh_library(name = 'three', srcs = ['three.sh'])" > depth2/BUILD
+  cat  > depth2/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = 'three', srcs = ['three.sh'])
+EOF
 
   touch depth/{one,two,three,four,five}.sh depth2/three.sh
   chmod a+x depth/*.sh depth2/*.sh
@@ -226,7 +239,10 @@ function test_depth_query_idempotence_unordered() {
 function test_universe_scope_with_without_star() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't mkdir"
-  echo "sh_library(name = 'foo')" > foo/BUILD || fail "Couldn't write BUILD"
+  cat > foo/BUILD << EOF || fail "Couldn't write BUILD"
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = 'foo')
+EOF
   bazel query --order_output=no \
       --universe_scope=//foo/... '//foo:BUILD' >& $TEST_log ||
       fail "Expected success"
@@ -245,9 +261,12 @@ function test_outside_universe_ok() {
   rm -rf foo
   rm -rf bar
   mkdir -p foo bar || fail "Couldn't mkdir"
-  echo "sh_library(name = 'foo', deps = ['//bar:bar'])" > foo/BUILD ||
-      fail "Couldn't write BUILD"
+  cat > foo/BUILD << EOF || fail "Couldn't write BUILD"
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = 'foo', deps = ['//bar:bar'])
+EOF
   cat <<'EOF' > bar/BUILD || fail "Couldn't write BUILD"
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = 'bar')
 sh_library(name = 'dep')
 sh_library(name = 'top', deps = [':dep'])
@@ -299,7 +318,10 @@ function test_starlark_regular_file_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
-  echo 'sh_library(name = "foo", srcs = ["baz.bzl"])' > foo/BUILD
+  cat > foo/BUILD << EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = "foo", srcs = ["baz.bzl"])
+EOF
   bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
@@ -313,7 +335,11 @@ function test_starlark_symlink_source_not_included_in_rbuildfiles() {
   mkdir -p foo || fail "Couldn't make directories"
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
   ln -s "$PWD/foo/moo" "foo/baz.bzl" && [[ -f foo/baz.bzl ]] || fail "Couldn't create baz.bzl symlink"
-  echo 'sh_library(name = "foo", srcs = ["baz.bzl"])' > foo/BUILD
+  cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = "foo", srcs = ["baz.bzl"])
+EOF
+
   bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
@@ -327,7 +353,10 @@ function test_starlark_symlink_target_not_included_in_rbuildfiles() {
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
   ln -s "$PWD/foo/baz.bzl" "foo/Moo.java" && [[ -f foo/Moo.java ]] || fail "Couldn't create Moo.java symlink"
-  echo 'sh_library(name = "foo", srcs = ["Moo.java"])' > foo/BUILD
+  cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = "foo", srcs = ["Moo.java"])
+EOF
   bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
@@ -340,7 +369,10 @@ function test_starlark_glob_regular_file_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
-  echo 'sh_library(name = "foo", srcs = glob(["*.bzl"]))' > foo/BUILD
+  cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = "foo", srcs = glob(["*.bzl"]))
+EOF
   bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
@@ -354,7 +386,10 @@ function test_starlark_glob_symlink_source_not_included_in_rbuildfiles() {
   mkdir -p foo || fail "Couldn't make directories"
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
   ln -s "$PWD/foo/moo" "foo/baz.bzl" && [[ -f foo/baz.bzl ]] || fail "Couldn't create baz.bzl symlink"
-  echo 'sh_library(name = "foo", srcs = glob(["*.bzl"]))' > foo/BUILD
+  cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = "foo", srcs = glob(["*.bzl"]))
+EOF
   bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
@@ -368,7 +403,10 @@ function test_starlark_glob_symlink_target_not_included_in_rbuildfiles() {
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
   ln -s "$PWD/foo/baz.bzl" "foo/Moo.java" && [[ -f foo/Moo.java ]] || fail "Couldn't create Moo.java symlink"
-  echo 'sh_library(name = "foo", srcs = glob(["*.java"]))' > foo/BUILD
+  cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = "foo", srcs = glob(["*.java"]))
+EOF
   bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
@@ -381,7 +419,10 @@ function test_starlark_recursive_glob_regular_file_not_included_in_rbuildfiles()
   rm -rf foo
   mkdir -p foo/bar || fail "Couldn't make directories"
   echo "baz" > "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl"
-  echo 'sh_library(name = "foo", srcs = glob(["**/*.bzl"]))' > foo/BUILD
+  cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = "foo", srcs = glob(["**/*.bzl"]))
+EOF
   bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
@@ -395,7 +436,10 @@ function test_starlark_recursive_glob_symlink_source_not_included_in_rbuildfiles
   mkdir -p foo/bar || fail "Couldn't make directories"
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
   ln -s "$PWD/foo/moo" "foo/bar/baz.bzl" && [[ -f foo/bar/baz.bzl ]] || fail "Couldn't create baz.bzl symlink"
-  echo 'sh_library(name = "foo", srcs = glob(["**/*.bzl"]))' > foo/BUILD
+  cat > foo/BUILD<<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = "foo", srcs = glob(["**/*.bzl"]))
+EOF
   bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
@@ -409,7 +453,10 @@ function test_starlark_recursive_glob_symlink_target_not_included_in_rbuildfiles
   mkdir -p foo/bar || fail "Couldn't make directories"
   echo "baz" > "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl"
   ln -s "$PWD/foo/bar/baz.bzl" "foo/Moo.java" && [[ -f foo/Moo.java ]] || fail "Couldn't create Moo.java symlink"
-  echo 'sh_library(name = "foo", srcs = glob(["**/*.java"]))' > foo/BUILD
+  cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = "foo", srcs = glob(["**/*.java"]))
+EOF
   bazel query --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
@@ -434,8 +481,10 @@ function test_starlark_subdir_dep_in_sky_query() {
 function test_parent_independent_of_child() {
   rm -rf foo
   mkdir -p foo/subdir || fail "Couldn't make directories"
-  echo 'sh_library(name = "sh", data = glob(["**"]))' > foo/BUILD ||
-      fail "Couldn't write"
+  cat > foo/BUILD <<EOF || fail "Couldn't write"
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = "sh", data = glob(["**"]))
+EOF
   touch foo/subdir/BUILD || fail "Couldn't touch foo/subdir/BUILD"
   bazel query --universe_scope=//foo/...:* --order_output=no \
       'rbuildfiles(foo/subdir/BUILD)' >& $TEST_log || fail "Expected success"
@@ -447,6 +496,7 @@ function test_does_not_fail_horribly_with_file() {
   rm -rf peach
   mkdir -p peach
   cat > peach/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='brighton', deps=[':harken'])
 sh_library(name='harken')
 EOF
@@ -466,6 +516,7 @@ x = 2
 EOF
   cat > foo/BUILD <<EOF
 load('//foo:bzl.bzl', 'x')
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='foo')
 EOF
 
@@ -492,6 +543,7 @@ function test_location_output_relative_locations() {
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='foo')
 EOF
 
@@ -583,9 +635,11 @@ EOF
 function test_subdirectory_named_external() {
   mkdir -p foo/external foo/bar
   cat > foo/external/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = 't1')
 EOF
   cat > foo/bar/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = 't2')
 EOF
 
@@ -605,6 +659,7 @@ x = 2
 EOF
   cat > foo/BUILD.bazel <<EOF
 load('//foo:bzl.bzl', 'x')
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='foo')
 EOF
 
@@ -625,6 +680,7 @@ EOF
   mkdir -p honeydew
   cat > honeydew/BUILD <<EOF
 load('//papaya:papaya.bzl', 'foo')
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name='honeydew', deps=[':pineapple'])
 sh_library(name='pineapple')
 genquery(name='q',
@@ -641,6 +697,7 @@ EOF
 function test_genquery_bad_output_formatter() {
   mkdir -p starfruit
   cat > starfruit/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = 'starfruit')
 genquery(name='q',
          scope=['//starfruit'],
@@ -656,6 +713,7 @@ EOF
 function test_graphless_genquery_somepath_output_in_dependency_order() {
   mkdir -p foo
   cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = "c", deps = [":b"])
 sh_library(name = "b", deps = [":a"])
 sh_library(name = "a")
@@ -730,6 +788,7 @@ function test_graphless_query_resilient_to_cycles() {
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = "a", deps = [":b"])
 sh_library(name = "b", deps = [":c"])
 sh_library(name = "c", deps = [":a"])
@@ -754,6 +813,7 @@ function test_lexicographical_output_does_not_affect_order_output_no() {
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = "b", deps = [":c"])
 sh_library(name = "c", deps = [":a"])
 sh_library(name = "a")
@@ -783,6 +843,7 @@ function test_lexicographical_output_does_not_affect_somepath() {
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = "b", deps = [":c"])
 sh_library(name = "c", deps = [":a"])
 sh_library(name = "a")
@@ -806,6 +867,7 @@ function test_rbuildfiles_can_handle_non_loading_phase_edges() {
   mkdir -p foo
   # When we have a package //foo whose BUILD file
   cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
   # Defines a target //foo:foo, with input file foo/foo.sh,
 sh_library(name = 'foo', srcs = ['foo.sh'])
 EOF
@@ -852,9 +914,18 @@ function test_infer_universe_scope_considers_only_target_patterns() {
   # When we have three targets //a:a, //b:b, //c:c, with //b:b depending
   # directly on //a:a, and //c:c depending directly on //b:b.
   mkdir -p a b c
-  echo "sh_library(name = 'a')" > a/BUILD
-  echo "sh_library(name = 'b', deps = ['//a:a'])" > b/BUILD
-  echo "sh_library(name = 'c', deps = ['//b:b'])" > c/BUILD
+  cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = 'a')
+EOF
+  cat > b/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = 'b', deps = ['//a:a'])
+EOF
+  cat > c/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = 'c', deps = ['//b:b'])
+EOF
 
   # And we run 'bazel query' with both --infer_universe_scope and
   # --order_output=no set (making this invocation eligible for SkyQuery), with
@@ -891,6 +962,7 @@ function test_infer_universe_scope_considers_only_target_patterns() {
 function test_bogus_visibility() {
   mkdir -p foo bar || fail "Couldn't make directories"
   cat <<'EOF' > foo/BUILD || fail "Couldn't write BUILD file"
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = 'a', visibility = ['//bad:visibility', '//bar:__pkg__'])
 sh_library(name = 'b', visibility = ['//visibility:public'])
 sh_library(name = 'c', visibility = ['//bad:visibility'])
@@ -910,8 +982,14 @@ function test_infer_universe_scope_defers_to_universe_scope_value() {
   # When we have two targets, in two different packages, that do not depend on
   # each other,
   mkdir -p a b
-  echo "sh_library(name = 'a')" > a/BUILD
-  echo "sh_library(name = 'b')" > b/BUILD
+  cat  > a/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = 'a')
+EOF
+  cat > b/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name = 'b')
+EOF
 
   # And we run 'bazel query' with a --universe_scope value that covers only one
   # of the targets but a query expression that has target patterns for both
@@ -963,6 +1041,7 @@ function test_query_environment_keep_going_does_not_fail() {
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = "a", deps = [":b", "//other:doesnotexist"])
 sh_library(name = "b")
 EOF
@@ -1050,15 +1129,18 @@ function test_same_pkg_direct_rdeps_loads_only_inputs_packages() {
   mkdir -p "pkg3"
 
   cat > "pkg1/BUILD" <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = "t1", deps = [":t2", "//pkg2:t3"])
 sh_library(name = "t2")
 EOF
 
   cat > "pkg2/BUILD" <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = "t3")
 EOF
 
   cat > "pkg3/BUILD" <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
 sh_library(name = "t4", deps = [":t5"])
 sh_library(name = "t5")
 EOF
@@ -1126,6 +1208,7 @@ EOF
 function test_query_factored_graph_output() {
   mkdir -p foo
   cat > foo/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "a1",
     srcs = [
@@ -1188,9 +1271,89 @@ EOF
   expect_log "\"//foo:c.sh\"$"
 }
 
+function test_query_factored_graph_with_cycles_output() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+sh_binary(
+    name = "a1",
+    srcs = ["a.sh"],
+    deps = [
+        ":b1",
+        ":b2",
+    ],
+)
+
+sh_binary(
+    name = "a2",
+    srcs = ["a.sh"],
+    deps = [
+        ":b1",
+        ":b2",
+    ],
+)
+
+sh_binary(
+    name = "b1",
+    srcs = ["b.sh"],
+    deps = [
+        ":c",
+    ],
+)
+
+sh_binary(
+    name = "b2",
+    srcs = ["b.sh"],
+    deps = [
+        ":c",
+    ],
+)
+
+sh_binary(
+    name = "c",
+    srcs = ["c.sh"],
+    deps = [
+        ":d",
+    ],
+)
+
+sh_binary(
+    name = "d",
+    srcs = ["d.sh"],
+    deps = [
+        ":a1",
+        ":a2",
+    ],
+)
+EOF
+  bazel query --output=graph \
+      --graph:factored \
+      --notool_deps \
+      "allpaths(//foo:d, //foo:c)" > "$TEST_log" \
+      || fail "Expected success"
+
+  # Expected factored graph.
+  #   (a1,a2) <-
+  #      |     |
+  #   (b1,b2)  |
+  #      |     |
+  #     (c)    |
+  #      |     |
+  #     (d) ----
+  expect_log "\"//foo:a[12]\\\\n//foo:a[12]\"$"
+  expect_log "\"//foo:a[12]\\\\n//foo:a[12]\" -> \"//foo:b[12]\\\n//foo:b[12]\"$"
+  expect_log "\"//foo:b[12]\\\\n//foo:b[12]\"$"
+  expect_log "\"//foo:b[12]\\\\n//foo:b[12]\" -> \"//foo:c\"$"
+  expect_log "\"//foo:c\"$"
+  expect_log "\"//foo:c\" -> \"//foo:d\"$"
+  expect_log "\"//foo:d\"$"
+  expect_log "\"//foo:d\" -> \"//foo:a[12]\\\n//foo:a[12]\"$"
+}
+
 function test_query_non_factored_graph_output() {
   mkdir -p foo
   cat > foo/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "a1",
     srcs = [
@@ -1332,6 +1495,22 @@ EOF
   for x in "${items[@]}"; do
     grep -q "$x" $TEST_log || fail "Expected $x in query output for //foo:with_select"
   done
+}
+
+function test_unicode_query() {
+  rm -rf foo
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+filegroup(name = "äöüÄÖÜß🌱")
+EOF
+
+  bazel query --output=label //foo:äöüÄÖÜß🌱 >& $TEST_log || fail "Expected success"
+  expect_log "//foo:äöüÄÖÜß🌱"
+
+  echo "//foo:äöüÄÖÜß🌱" > my_query || fail "Could not write my_query"
+  # Check that the unicode characters are preserved in the output.
+  bazel query --output=proto --query_file=my_query >& $TEST_log || fail "Expected success"
+  expect_log "//foo:äöüÄÖÜß🌱"
 }
 
 run_suite "${PRODUCT_NAME} query tests"

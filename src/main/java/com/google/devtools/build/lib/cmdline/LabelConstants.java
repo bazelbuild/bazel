@@ -62,4 +62,5 @@ public class LabelConstants {
   // As a result, external repository runfiles are symlinked to:
   // $runfiles_root/$workspace_name/../$repo_name/<path>, i.e. $runfiles_root/$repo_name/<path>.
   public static final PathFragment EXTERNAL_RUNFILES_PATH_PREFIX = PathFragment.create("..");
+  public static final String COMMAND_LINE_OPTION_PREFIX = "//command_line_option:";
 }

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -235,7 +235,11 @@ test_symlink_outside_still_checked() {
   mkdir main
   cd main
   setup_module_dot_bazel
-  echo 'sh_test(name = "symlink", srcs = ["symlink.sh"])' > BUILD
+  add_rules_shell "MODULE.bazel"
+  cat > BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+sh_test(name = "symlink", srcs = ["symlink.sh"])
+EOF
 
   mkdir ../foo
   echo 'exit 0' > ../foo/foo.sh

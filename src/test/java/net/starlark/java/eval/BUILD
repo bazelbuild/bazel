@@ -31,6 +31,7 @@ java_test(
         "StarlarkMutableTest.java",
         "StarlarkThreadDebuggingTest.java",
         "StarlarkThreadTest.java",
+        "TypeCheckTest.java",
     ],
     jvm_flags = [
         "-Dfile.encoding=UTF8",
@@ -41,6 +42,7 @@ java_test(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
+        "//src/main/java/net/starlark/java/types",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",

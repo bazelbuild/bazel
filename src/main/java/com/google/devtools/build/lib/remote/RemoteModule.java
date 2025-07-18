@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
-import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -61,6 +60,8 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.CombinedCacheClientFactory.CombinedCacheClient;
 import com.google.devtools.build.lib.remote.LeaseService.LeaseExtension;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier;
+import com.google.devtools.build.lib.remote.Retrier.ResultClassifier.Result;
 import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
@@ -124,7 +125,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Predicate;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -197,7 +197,7 @@ public final class RemoteModule extends BlazeModule {
     return !Strings.isNullOrEmpty(options.remoteOutputService);
   }
 
-  public static final Predicate<? super Exception> RETRIABLE_HTTP_ERRORS =
+  public static final ResultClassifier HTTP_RESULT_CLASSIFIER =
       e -> {
         boolean retry = false;
         if (e instanceof ClosedChannelException) {
@@ -206,6 +206,9 @@ public final class RemoteModule extends BlazeModule {
           retry = true;
         } else if (e instanceof HttpException httpException) {
           int status = httpException.response().status().code();
+          if (status == HttpResponseStatus.NOT_FOUND.code()) {
+            return Result.SUCCESS;
+          }
           retry =
               status == HttpResponseStatus.INTERNAL_SERVER_ERROR.code()
                   || status == HttpResponseStatus.BAD_GATEWAY.code()
@@ -226,7 +229,7 @@ public final class RemoteModule extends BlazeModule {
             retry = true;
           }
         }
-        return retry;
+        return retry ? Result.TRANSIENT_FAILURE : Result.PERMANENT_FAILURE;
       };
 
   private void initHttpAndDiskCache(
@@ -249,7 +252,7 @@ public final class RemoteModule extends BlazeModule {
               digestUtil,
               executorService,
               new RemoteRetrier(
-                  remoteOptions, RETRIABLE_HTTP_ERRORS, retryScheduler, circuitBreaker));
+                  remoteOptions, HTTP_RESULT_CLASSIFIER, retryScheduler, circuitBreaker));
     } catch (IOException e) {
       handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
       return;
@@ -393,16 +396,15 @@ public final class RemoteModule extends BlazeModule {
 
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
     // used without Build without the Bytes.
-    ImmutableList.Builder<Pattern> patternsToDownloadBuilder = ImmutableList.builder();
+    ImmutableList.Builder<Predicate<String>> patternsToDownloadBuilder = ImmutableList.builder();
     if (remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL) {
       for (RegexPatternOption patternOption : remoteOptions.remoteDownloadRegex) {
-        patternsToDownloadBuilder.add(patternOption.regexPattern());
+        patternsToDownloadBuilder.add(patternOption.matcher());
       }
     }
 
     remoteOutputChecker =
         new RemoteOutputChecker(
-            new JavaClock(),
             env.getCommandName(),
             remoteOptions.remoteOutputsMode,
             patternsToDownloadBuilder.build(),
@@ -476,7 +478,10 @@ public final class RemoteModule extends BlazeModule {
         CircuitBreakerFactory.createCircuitBreaker(remoteOptions);
     RemoteRetrier retrier =
         new RemoteRetrier(
-            remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryScheduler, circuitBreaker);
+            remoteOptions,
+            RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER,
+            retryScheduler,
+            circuitBreaker);
 
     if (!Strings.isNullOrEmpty(remoteOptions.remoteOutputService)) {
       var bazelOutputServiceChannel =
@@ -648,7 +653,7 @@ public final class RemoteModule extends BlazeModule {
         RemoteRetrier execRetrier =
             new RemoteRetrier(
                 remoteOptions,
-                RemoteRetrier.RETRIABLE_GRPC_ERRORS, // Handle NOT_FOUND internally
+                RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, // Handle NOT_FOUND internally
                 retryScheduler,
                 circuitBreaker);
         remoteExecutor =
@@ -658,7 +663,7 @@ public final class RemoteModule extends BlazeModule {
         RemoteRetrier execRetrier =
             new RemoteRetrier(
                 remoteOptions,
-                RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
+                RemoteRetrier.GRPC_RESULT_CLASSIFIER,
                 retryScheduler,
                 circuitBreaker);
         remoteExecutor =
@@ -1084,7 +1089,6 @@ public final class RemoteModule extends BlazeModule {
         remoteOutputService.setRemoteOutputChecker(remoteOutputChecker);
         remoteOutputService.setActionInputFetcher(actionInputFetcher);
         remoteOutputService.setLeaseService(leaseService);
-        remoteOutputService.setFileCacheSupplier(env::getFileCache);
         env.getEventBus().register(outputService);
       }
     }

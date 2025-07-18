@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.exec.SingleBuildFileCache;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -58,20 +58,18 @@ public class ExecutableSymlinkActionTest {
     execRoot = scratch.getFileSystem().getPath("/");
     inputRoot =
         ArtifactRoot.asDerivedRoot(
-            execRoot, RootType.Output, inputDir.relativeTo(execRoot).getPathString());
+            execRoot, RootType.OUTPUT, inputDir.relativeTo(execRoot).getPathString());
     String outSegment = "out";
     execRoot.getChild(outSegment).createDirectoryAndParents();
-    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, outSegment);
+    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, outSegment);
     outErr = new TestFileOutErr();
     executor = new DummyExecutor(scratch.getFileSystem(), inputDir);
   }
 
-  private ActionExecutionContext createContext() {
-    Path execRoot = executor.getExecRoot();
+  private ActionExecutionContext createContext(InputMetadataProvider inputMetadataProvider) {
     return new ActionExecutionContext(
         executor,
-        new SingleBuildFileCache(
-            execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
+        inputMetadataProvider,
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         mock(OutputMetadataStore.class),
@@ -95,7 +93,11 @@ public class ExecutableSymlinkActionTest {
     Artifact input = ActionsTestUtil.createArtifact(inputRoot, inputFile);
     Artifact output = ActionsTestUtil.createArtifact(outputRoot, outputFile);
     SymlinkAction action = SymlinkAction.toExecutable(NULL_ACTION_OWNER, input, output, "progress");
-    ActionResult actionResult = action.execute(createContext());
+
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.put(input, FileArtifactValue.createForTesting(input));
+
+    ActionResult actionResult = action.execute(createContext(inputMetadataProvider));
     assertThat(actionResult.spawnResults()).isEmpty();
     assertThat(outputFile.resolveSymbolicLinks()).isEqualTo(inputFile);
   }
@@ -108,8 +110,12 @@ public class ExecutableSymlinkActionTest {
     Artifact output =
         ActionsTestUtil.createArtifact(outputRoot, outputRoot.getRoot().getRelative("some-output"));
     SymlinkAction action = SymlinkAction.toExecutable(NULL_ACTION_OWNER, input, output, "progress");
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.put(input, FileArtifactValue.createForTesting(input));
     ActionExecutionException e =
-        assertThrows(ActionExecutionException.class, () -> action.execute(createContext()));
+        assertThrows(
+            ActionExecutionException.class,
+            () -> action.execute(createContext(inputMetadataProvider)));
     assertThat(e).hasMessageThat().contains("'in/some-dir' is not a file");
   }
 
@@ -122,8 +128,12 @@ public class ExecutableSymlinkActionTest {
     Artifact output =
         ActionsTestUtil.createArtifact(outputRoot, outputRoot.getRoot().getRelative("some-output"));
     SymlinkAction action = SymlinkAction.toExecutable(NULL_ACTION_OWNER, input, output, "progress");
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.put(input, FileArtifactValue.createForTesting(input));
     ActionExecutionException e =
-        assertThrows(ActionExecutionException.class, () -> action.execute(createContext()));
+        assertThrows(
+            ActionExecutionException.class,
+            () -> action.execute(createContext(inputMetadataProvider)));
     String want = "'in/some-file' is not executable";
       String got = e.getMessage();
     assertWithMessage(String.format("got %s, want %s", got, want))

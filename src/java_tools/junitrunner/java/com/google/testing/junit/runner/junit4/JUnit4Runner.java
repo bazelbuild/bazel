@@ -16,7 +16,6 @@ package com.google.testing.junit.runner.junit4;
 
 import com.google.testing.junit.junit4.runner.RegExTestCaseFilter;
 import com.google.testing.junit.junit4.runner.SuiteTrimmingFilter;
-import com.google.testing.junit.runner.internal.Stdout;
 import com.google.testing.junit.runner.internal.SystemExitDetectingShutdownHook;
 import com.google.testing.junit.runner.internal.junit4.CancellableRequestFactory;
 import com.google.testing.junit.runner.model.TestSuiteModel;
@@ -27,7 +26,6 @@ import java.io.PrintStream;
 import java.util.Set;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 import org.junit.internal.runners.ErrorReportingRunner;
 import org.junit.runner.Description;
 import org.junit.runner.JUnitCore;
@@ -52,15 +50,12 @@ public class JUnit4Runner {
   private final Set<RunListener> runListeners;
   private final Set<Initializer> initializers;
 
-  /**
-   * Creates a runner.
-   */
-  @Inject
+  /** Creates a runner. */
   JUnit4Runner(
       Request request,
       CancellableRequestFactory requestFactory,
       Supplier<TestSuiteModel> modelSupplier,
-      @Stdout PrintStream testRunnerOut,
+      PrintStream testRunnerOut,
       JUnit4Config config,
       Set<RunListener> runListeners,
       Set<Initializer> initializers) {

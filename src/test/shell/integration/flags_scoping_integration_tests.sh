@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2024 The Bazel Authors. All rights reserved.
 #
@@ -40,6 +40,8 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+
+write_project_scl_definition
 
 function set_up_flags() {
   local -r pkg="$1"
@@ -178,7 +180,6 @@ sample_flag(
 EOF
 
 # define universal flag that should propagate everywhere
-  #mkdir -p "${universal_flags_pkg}"
   cat > "${universal_flags_pkg}/BUILD" <<EOF
 load("//${pkg}:flag.bzl", "sample_flag")
 
@@ -189,15 +190,13 @@ sample_flag(
 EOF
 
   cat > "${in_scope_flags_pkg}/PROJECT.scl" <<EOF
-project = {
-  "active_directories": { "default": [ "//${pkg}"] }
-}
+load("//third_party/bazel/src/main/protobuf/project:project_proto.scl", "project_pb2")
+project = project_pb2.Project.create(project_directories = [ "//${pkg}"])
 EOF
 
   cat > "${out_of_scope_flags_pkg}/PROJECT.scl" <<EOF
-project = {
-  "active_directories": { "default": [ "//${out_of_scope_flags_pkg}"] }
-}
+load("//third_party/bazel/src/main/protobuf/project:project_proto.scl", "project_pb2")
+project = project_pb2.Project.create(project_directories = [ "//${out_of_scope_flags_pkg}"])
 EOF
 
 # create transitions with project and universal flags and rules that attach transitions
@@ -210,7 +209,6 @@ transition_attached(
     name = "project_target",
 )
 EOF
-  #echo "debugging under the influence of nyquil...wooo"
   bazel build //${pkg}:project_target --experimental_enable_scl_dialect --//${out_of_scope_flags_pkg}:project_flag_baseline=baseline || fail "bazel failed"
 
   for config in $(bazel config | tail -n +2 | cut -d ' ' -f 1); do
@@ -256,9 +254,8 @@ alias(
 EOF
 
   cat > "${out_of_scope_pkg}/PROJECT.scl" <<EOF
-project = {
-  "active_directories": { "default": [ "//${pkg}"] }
-}
+load("//third_party/bazel/src/main/protobuf/project:project_proto.scl", "project_pb2")
+project = project_pb2.Project.create(project_directories = ["//${pkg}"])
 EOF
 
   # set up package with out of scope alias chain and actual target

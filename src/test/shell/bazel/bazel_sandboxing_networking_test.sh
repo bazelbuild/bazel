@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2023 The Bazel Authors. All rights reserved.
 #
@@ -55,7 +55,7 @@ function setup_network_tests() {
   local socket_dir
   socket_dir="$(mktemp -d /tmp/test.XXXXXX)" || fail "mktemp failed"
   local socket="${socket_dir}/socket"
-  python $python_server --unix_socket="${socket}" always file_to_serve &
+  python3 $python_server --unix_socket="${socket}" always file_to_serve &
   local pid="${!}"
 
   trap "kill_nc || true; kill '${pid}' || true; rm -f '${socket}'; rmdir '${socket_dir}'" EXIT
@@ -79,7 +79,7 @@ genrule(
 genrule(
   name = "loopback",
   outs = [ "loopback.txt" ],
-  cmd = "python $python_server always $(pwd)/file_to_serve >port.txt & "
+  cmd = "python3 $python_server always $(pwd)/file_to_serve >port.txt & "
       + "pid=\$\$!; "
       + "while ! grep started port.txt; do sleep 1; done; "
       + "port=\$\$(head -n 1 port.txt); "
@@ -242,6 +242,7 @@ function test_sandbox_network_access_with_block_network() {
 }
 
 function test_sandbox_can_resolve_own_hostname() {
+  add_rules_java "MODULE.bazel"
   setup_javatest_support
   mkdir -p src/test/java/com/example
   cat > src/test/java/com/example/HostNameTest.java <<'EOF'
@@ -262,6 +263,7 @@ public class HostNameTest {
 }
 EOF
   cat > src/test/java/com/example/BUILD <<'EOF'
+load("@rules_java//java:java_test.bzl", "java_test")
 java_test(
   name = "HostNameTest",
   srcs = ["HostNameTest.java"],
@@ -279,6 +281,7 @@ function test_hostname_inside_sandbox_is_localhost_when_using_sandbox_fake_hostn
     return 0
   fi
 
+  add_rules_java "MODULE.bazel"
   setup_javatest_support
   mkdir -p src/test/java/com/example
   cat > src/test/java/com/example/HostNameIsLocalhostTest.java <<'EOF'
@@ -299,6 +302,7 @@ public class HostNameIsLocalhostTest {
 }
 EOF
   cat > src/test/java/com/example/BUILD <<'EOF'
+load("@rules_java//java:java_test.bzl", "java_test")
 java_test(
   name = "HostNameIsLocalhostTest",
   srcs = ["HostNameIsLocalhostTest.java"],

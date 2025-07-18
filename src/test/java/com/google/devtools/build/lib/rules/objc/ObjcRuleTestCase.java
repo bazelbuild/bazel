@@ -397,7 +397,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    )",
         "    return cc_common.create_linking_context(",
         "        linker_inputs = depset([linker_input]),",
-        "        owner = owner,",
         "    )",
         "",
         "def _link_multi_arch_binary(",
@@ -672,7 +671,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         """);
     scratch.file(
         "test_starlark/cc_toolchain_forwarder.bzl",
-        """
+"""
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
 load(":apple_binary_starlark.bzl", "ApplePlatformInfo")
 
@@ -1051,7 +1050,8 @@ cc_toolchain_forwarder = rule(
     return text.stream().map(this::removeConfigFragment).collect(toImmutableList());
   }
 
-  protected static Iterable<String> getArifactPathsOfLibraries(ConfiguredTarget target) {
+  protected static Iterable<String> getArifactPathsOfLibraries(ConfiguredTarget target)
+      throws EvalException {
     return Artifact.toRootRelativePaths(
         target
             .get(CcInfo.PROVIDER)

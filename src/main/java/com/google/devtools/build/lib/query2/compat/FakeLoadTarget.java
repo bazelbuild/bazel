@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -33,10 +34,15 @@ public class FakeLoadTarget implements Target {
   private final Label label;
   private final Packageoid pkg;
 
-  public FakeLoadTarget(Label label, Packageoid pkg) {
+  public FakeLoadTarget(Label label, Package pkg) {
     this.label = Preconditions.checkNotNull(label);
-    // Fake load targets should be in the same package piece as the package's BUILD file.
-    this.pkg = Preconditions.checkNotNull(pkg).getDeclarations().getBuildFile().getPackageoid();
+    this.pkg = Preconditions.checkNotNull(pkg);
+  }
+
+  // Fake load targets should be in the same package piece as the package's BUILD file.
+  public FakeLoadTarget(Label label, PackagePiece.ForBuildFile pkgPiece) {
+    this.label = Preconditions.checkNotNull(label);
+    this.pkg = Preconditions.checkNotNull(pkgPiece);
   }
 
   @Override
@@ -76,7 +82,7 @@ public class FakeLoadTarget implements Target {
 
   @Override
   public Location getLocation() {
-    return getPackageDeclarations().getBuildFile().getLocation();
+    return getPackageMetadata().getBuildFileLocation();
   }
 
   @Override

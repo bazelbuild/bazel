@@ -18,11 +18,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import com.google.auto.value.AutoOneOf;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.MatchResult;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
@@ -194,6 +196,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   public static class ConfigKeyAndValue<T> {
     final Label configKey;
     final T value;
+
     /** If null, this means the default condition (doesn't correspond to a config_setting). */
     @Nullable final ConfigMatchingProvider provider;
 
@@ -297,14 +300,17 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
           }
           conditionLabels.add(selectorKey);
 
-          ConfigMatchingProvider.MatchResult matchResult = curCondition.result();
+          MatchResult matchResult = curCondition.result();
 
-          if (matchResult.getError() != null) {
+          if (matchResult instanceof MatchResult.InError(ImmutableList<String> messages)) {
             // Resolving selects so last chance to actually surface these errors.
-            String message = matchResult.getError();
-            errors.add("config_setting " + selectorKey + " is unresolvable because: " + message);
+            errors.add(
+                "config_setting "
+                    + selectorKey
+                    + " is unresolvable because: "
+                    + String.join(", ", messages));
             // Defer the throw in order to collect all possible config_setting that are in error.
-          } else if (matchResult.equals(ConfigMatchingProvider.MatchResult.MATCH)) {
+          } else if (matchResult instanceof MatchResult.Match) {
             // We keep track of all matches which are more precise than any we have found so
             // far. Therefore, we remove any previous matches which are strictly less precise
             // than this one, and only add this one if none of the previous matches are more

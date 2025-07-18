@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViolationException;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import java.util.OptionalLong;
 import javax.annotation.Nullable;
 
 /**
@@ -36,6 +39,15 @@ import javax.annotation.Nullable;
  * machinery.
  */
 public abstract class Packageoid {
+  /** Sentinel value for package overhead being empty. */
+  protected static final long PACKAGE_OVERHEAD_UNSET = -1;
+
+  // ==== General package metadata fields ====
+
+  protected final Package.Metadata metadata;
+
+  protected final Package.Declarations declarations;
+
   // ==== Common metadata fields ====
 
   /**
@@ -55,6 +67,12 @@ public abstract class Packageoid {
 
   protected long computationSteps = 0;
 
+  /**
+   * A rough approximation of the memory and general accounting costs associated with a loaded
+   * packageoid. A value of -1 means it is unset. Stored as a long to take up less memory per pkg.
+   */
+  protected long packageOverhead = PACKAGE_OVERHEAD_UNSET;
+
   // ==== Common target and macro fields ====
 
   /**
@@ -66,21 +84,12 @@ public abstract class Packageoid {
   @Nullable protected ImmutableSortedMap<String, Target> targets;
 
   /**
-   * The collection of all symbolic macro instances defined in this packageoid, indexed by their
-   * {@link MacroInstance#getId id} (not name). Null until the packageoid is fully initialized by
-   * its builder's {@code finishBuild()}.
-   */
-  // TODO(bazel-team): Consider enforcing that macro namespaces are "exclusive", meaning that target
-  // names may only suffix a macro name when the target is created (transitively) within the macro.
-  // This would be a major change that would break the (common) use case where a BUILD file
-  // declares both "foo" and "foo_test".
-  @Nullable protected ImmutableSortedMap<String, MacroInstance> macros;
-
-  /**
    * Returns the metadata of the package; in other words, information which is known about a package
    * before BUILD file evaluation has started.
    */
-  public abstract Package.Metadata getMetadata();
+  public Package.Metadata getMetadata() {
+    return metadata;
+  }
 
   /**
    * Returns the package's identifier. This is a convenience wrapper for {@link
@@ -94,7 +103,35 @@ public abstract class Packageoid {
    * Returns data about the package which is known after BUILD file evaluation without expanding
    * symbolic macros.
    */
-  public abstract Package.Declarations getDeclarations();
+  public Package.Declarations getDeclarations() {
+    return declarations;
+  }
+
+  /**
+   * Returns the label for the package's BUILD file.
+   *
+   * <p>Typically, <code>getBuildFileLabel().getName().equals("BUILD")</code> -- though not
+   * necessarily: data in a subdirectory of a test package may use a different filename to avoid
+   * inadvertently creating a new package.
+   */
+  public Label getBuildFileLabel() {
+    return getMetadata().buildFileLabel();
+  }
+
+  /**
+   * Returns a short, lower-case description of this packageoid, e.g. for use in logging and error
+   * messages.
+   */
+  public abstract String getShortDescription();
+
+  /**
+   * Returns an (immutable, ordered) view of all the targets belonging to this packageoid. Note that
+   * if this packageoid is a package piece, this method does not search for targets in any other
+   * package pieces.
+   */
+  public ImmutableSortedMap<String, Target> getTargets() {
+    return targets;
+  }
 
   /**
    * Returns true if errors were encountered during evaluation of this packageoid.
@@ -140,6 +177,13 @@ public abstract class Packageoid {
     return computationSteps;
   }
 
+  /** Returns package overhead as configured by the configured {@link PackageOverheadEstimator}. */
+  public OptionalLong getPackageOverhead() {
+    return packageOverhead == PACKAGE_OVERHEAD_UNSET
+        ? OptionalLong.empty()
+        : OptionalLong.of(packageOverhead);
+  }
+
   /**
    * Throws {@link MacroNamespaceViolationException} if the given target (which must be a member of
    * this packageoid) violates macro naming rules.
@@ -159,4 +203,9 @@ public abstract class Packageoid {
    * @throws NoSuchTargetException if the specified target was not found in this packageoid.
    */
   public abstract Target getTarget(String targetName) throws NoSuchTargetException;
+
+  protected Packageoid(Package.Metadata metadata, Package.Declarations declarations) {
+    this.metadata = checkNotNull(metadata);
+    this.declarations = checkNotNull(declarations);
+  }
 }

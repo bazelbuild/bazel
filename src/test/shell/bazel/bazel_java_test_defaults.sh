@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -55,16 +55,16 @@ esac
 # Java source files version shall match --java_language_version_flag version.
 # Output class files shall be created in corresponding version (JDK 8, class version is 52).
 function test_default_java_toolchain_target_version() {
+  add_rules_java "MODULE.bazel"
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+
 java_binary(
     name = 'JavaBinary',
     srcs = ['JavaBinary.java'],
     main_class = 'JavaBinary',
-)
-load(
-    "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
-    "default_java_toolchain",
 )
 default_java_toolchain(
   name = "default_toolchain",
@@ -95,8 +95,10 @@ EOF
 # Java source files version shall match --java_language_version_flag version.
 # Output class files shall be created in corresponding version (JDK 11, class version is 55).
 function test_java_language_version_output_classes() {
+  add_rules_java "MODULE.bazel"
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = 'JavaBinary',
     srcs = ['JavaBinary.java'],
@@ -130,17 +132,18 @@ EOF
 
 # When coverage is requested with no Jacoco configured, an error shall be reported.
 function test_tools_jdk_toolchain_nojacocorunner() {
+  add_rules_java "MODULE.bazel"
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+
 java_binary(
     name = 'JavaBinary',
     srcs = ['JavaBinary.java'],
     main_class = 'JavaBinary',
 )
-load(
-    "@bazel_tools//tools/jdk:default_java_toolchain.bzl",
-    "default_java_toolchain",
-)
+
 default_java_toolchain(
   name = "default_toolchain",
   jacocorunner = None,
@@ -165,8 +168,9 @@ EOF
 
 # Specific toolchain attributes can be overridden.
 function test_default_java_toolchain_manualConfiguration() {
+  add_rules_java "MODULE.bazel"
   cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
 default_java_toolchain(
   name = "vanilla",
   javabuilder = ["//:VanillaJavaBuilder"],
@@ -183,8 +187,9 @@ EOF
 
 # DEFAULT_TOOLCHAIN_CONFIGURATION shall use JavaBuilder and override Java 9+ internal compiler classes.
 function test_default_java_toolchain_javabuilderToolchain() {
+  add_rules_java "MODULE.bazel"
   cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "DEFAULT_TOOLCHAIN_CONFIGURATION")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain", "DEFAULT_TOOLCHAIN_CONFIGURATION")
 default_java_toolchain(
   name = "javabuilder_toolchain",
   configuration = DEFAULT_TOOLCHAIN_CONFIGURATION,
@@ -206,7 +211,7 @@ java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains"
 use_repo(java_toolchains, "local_jdk")
 EOF
   cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "VANILLA_TOOLCHAIN_CONFIGURATION")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain", "VANILLA_TOOLCHAIN_CONFIGURATION")
 default_java_toolchain(
   name = "vanilla_toolchain",
   configuration = VANILLA_TOOLCHAIN_CONFIGURATION,
@@ -223,8 +228,9 @@ EOF
 
 # NONPREBUILT_TOOLCHAIN_CONFIGURATION shall compile ijar and singlejar from sources.
 function test_default_java_toolchain_nonprebuiltToolchain() {
+  add_rules_java "MODULE.bazel"
   cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "NONPREBUILT_TOOLCHAIN_CONFIGURATION")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain", "NONPREBUILT_TOOLCHAIN_CONFIGURATION")
 default_java_toolchain(
   name = "nonprebuilt_toolchain",
   configuration = NONPREBUILT_TOOLCHAIN_CONFIGURATION,
@@ -240,7 +246,8 @@ EOF
   expect_not_log "singlejar/singlejar_local"
 }
 
-function test_executable_java_binary_compiles_for_platform_without_cc_toolchain() {
+# TODO(https://github.com/bazelbuild/rules_java/issues/305): reenable when rules_java is released with bugfix
+function DISABLED_test_executable_java_binary_compiles_for_platform_without_cc_toolchain() {
   cat > MODULE.bazel <<'EOF'
 # This version should always be at most as high as the version in MODULE.tools.
 bazel_dep(name = "rules_java", version = "7.3.2")
@@ -251,11 +258,15 @@ register_toolchains(
   "//pkg:bootstrap_runtime",
 )
 EOF
+  add_rules_cc "MODULE.bazel"
   mkdir -p pkg
 # Choose a platform with a registered JDK, but for which no registered C++ toolchain can compile, to
 # verify that java_binary doesn't have a mandatory dependency on a C++ toolchain. The particular
 # architecture of the fake registered JDK doesn't matter as it won't be executed.
   cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 constraint_setting(
   name = "exotic_constraint",
 )
@@ -307,8 +318,11 @@ EOF
 }
 
 function test_java_library_compiles_for_any_platform_with_local_jdk() {
+  add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+
 platform(name = "exotic_platform")
 java_library(
   name = "foo",
@@ -330,8 +344,11 @@ EOF
 }
 
 function test_java_library_compiles_for_any_platform_with_remote_jdk() {
+  add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+
 platform(name = "exotic_platform")
 java_library(
   name = "foo",
@@ -352,9 +369,12 @@ EOF
     //pkg:foo &>"$TEST_log" || fail "Build should succeed"
 }
 
-function test_non_executable_java_binary_compiles_for_any_platform_with_local_jdk() {
+# TODO(https://github.com/bazelbuild/rules_java/issues/305): reenable when rules_java is released with bugfix
+function DISABLE_test_non_executable_java_binary_compiles_for_any_platform_with_local_jdk() {
+  add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
 platform(name = "exotic_platform")
 java_binary(
   name = "foo",
@@ -378,9 +398,12 @@ EOF
     //pkg:foo_deploy.jar &>"$TEST_log" || fail "Build should succeed"
 }
 
-function test_non_executable_java_binary_compiles_for_any_platform_with_remote_jdk() {
+# TODO(https://github.com/bazelbuild/rules_java/issues/305): reenable when rules_java is released with bugfix
+function DISABLED_test_non_executable_java_binary_compiles_for_any_platform_with_remote_jdk() {
+  add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
 platform(name = "exotic_platform")
 java_binary(
   name = "foo",
@@ -405,9 +428,13 @@ EOF
     //pkg:foo_deploy.jar &>"$TEST_log" || fail "Build should succeed"
 }
 
-function test_executable_java_binary_fails_without_runtime_with_local_jdk() {
+# TODO(https://github.com/bazelbuild/rules_java/issues/305): reenable when rules_java is released with bugfix
+function DISABLED_test_executable_java_binary_fails_without_runtime_with_local_jdk() {
+  add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 platform(name = "exotic_platform")
 java_binary(
   name = "foo",
@@ -436,9 +463,13 @@ EOF
   expect_log "^  @@bazel_tools//tools/jdk:runtime_toolchain_type$"
 }
 
-function test_executable_java_binary_fails_without_runtime_with_remote_jdk() {
+# TODO(https://github.com/bazelbuild/rules_java/issues/305): reenable when rules_java is released with bugfix
+function DISABLED_test_executable_java_binary_fails_without_runtime_with_remote_jdk() {
+  add_rules_java "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 platform(name = "exotic_platform")
 java_binary(
   name = "foo",

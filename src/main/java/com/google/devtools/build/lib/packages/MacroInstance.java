@@ -25,7 +25,9 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.Package.Declarations;
+import com.google.devtools.build.lib.util.HashCodes;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkThread;
@@ -52,10 +54,20 @@ public final class MacroInstance extends RuleOrMacroInstance {
   // Consider removing it and pushing getPackageDeclarations() down to Rule.
   private final Package.Declarations packageDeclarations;
 
+  // TODO(https://github.com/bazelbuild/bazel/issues/26128): replace with a parent identifier. The
+  // existence of a parent pointer prevents change pruning on outer macro instances, forcing an
+  // unconditional re-evaluation of all inner macros when an outer macro is invalidated.
   @Nullable private final MacroInstance parent;
 
-  private final Location buildFileLocation;
+  // Null if this symbolic macro was instantiated as a result of a legacy macro call without a
+  // "name" parameter made at the top level of a BUILD file.
+  @Nullable private final String generatorName;
 
+  // TODO(https://github.com/bazelbuild/bazel/issues/26128): move location and Starlark stack to the
+  // owning PackagePiece to make MacroInstance more change pruning friendly; we don't want the macro
+  // to be invalidated if line numbers in a BUILD file or an ancestor macro's definition .bzl file
+  // change.
+  private final Location buildFileLocation;
   private final CallStack.Node parentCallStack;
 
   private final MacroClass macroClass;
@@ -73,6 +85,7 @@ public final class MacroInstance extends RuleOrMacroInstance {
       Package.Metadata packageMetadata,
       Declarations packageDeclarations,
       @Nullable MacroInstance parent,
+      @Nullable String generatorName,
       Location buildFileLocation,
       CallStack.Node parentCallStack,
       MacroClass macroClass,
@@ -82,6 +95,7 @@ public final class MacroInstance extends RuleOrMacroInstance {
     this.packageMetadata = packageMetadata;
     this.packageDeclarations = packageDeclarations;
     this.parent = parent;
+    this.generatorName = generatorName;
     this.buildFileLocation = buildFileLocation;
     this.parentCallStack = parentCallStack;
     this.macroClass = macroClass;
@@ -89,7 +103,40 @@ public final class MacroInstance extends RuleOrMacroInstance {
     this.sameNameDepth = sameNameDepth;
   }
 
-  /** Returns the Package.Metadata of the package in which this instance was created. */
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    // TODO(https://github.com/bazelbuild/bazel/issues/26128): consider comparing digests instead.
+    return obj instanceof MacroInstance other
+        && super.equalsHelper(other)
+        && Objects.equals(packageMetadata, other.packageMetadata)
+        && Objects.equals(packageDeclarations, other.packageDeclarations)
+        && Objects.equals(parent, other.parent)
+        && Objects.equals(generatorName, other.generatorName)
+        && Objects.equals(buildFileLocation, other.buildFileLocation)
+        && Objects.equals(parentCallStack, other.parentCallStack)
+        && Objects.equals(macroClass, other.macroClass)
+        && sameNameDepth == other.sameNameDepth;
+  }
+
+  @Override
+  public int hashCode() {
+    return super.hashCodeHelper()
+        + HashCodes.MULTIPLIER
+            * HashCodes.hashObjects(
+                packageMetadata,
+                packageDeclarations,
+                parent,
+                generatorName,
+                buildFileLocation,
+                parentCallStack,
+                macroClass,
+                sameNameDepth);
+  }
+
+  @Override
   public Package.Metadata getPackageMetadata() {
     return packageMetadata;
   }
@@ -103,8 +150,21 @@ public final class MacroInstance extends RuleOrMacroInstance {
    * Returns the macro instance that instantiated this one, or null if this was created directly
    * during BUILD evaluation.
    */
+  // TODO(bazel-team): Consider merging into getDeclaringMacro().
+  // TODO(https://github.com/bazelbuild/bazel/issues/26128): Avoid new uses of this method; it is
+  // hostile to change pruning for lazy macro expansion. Replace with a method that either returns
+  // the parent identifier, or takes a context argument that allows retrieving the parent by id.
   @Nullable
   public MacroInstance getParent() {
+    return parent;
+  }
+
+  // TODO(https://github.com/bazelbuild/bazel/issues/26128): Avoid new uses of this method; it is
+  // hostile to change pruning for lazy macro expansion. Replace with a method that either returns
+  // the parent identifier, or takes a context argument that allows retrieving the parent by id.
+  @Override
+  @Nullable
+  public MacroInstance getDeclaringMacro() {
     return parent;
   }
 
@@ -112,9 +172,24 @@ public final class MacroInstance extends RuleOrMacroInstance {
    * Returns the location in the BUILD file at which this macro was created or its outermost
    * enclosing symbolic or legacy macro was called.
    */
-  @VisibleForTesting
   public Location getBuildFileLocation() {
     return buildFileLocation;
+  }
+
+  /**
+   * Returns the value of the "name" parameter of the top-level call in a BUILD file which resulted
+   * in this macro being instantiated.
+   *
+   * <p>This is either the "name" attribute of this macro's outermost symbolic macro ancestor, if it
+   * was defined directly at the top level of a BUILD file; or the "name" parameter of the outermost
+   * legacy macro wrapping it.
+   *
+   * <p>Null if this symbolic macro was instantiated as a result of a legacy macro call without a
+   * "name" parameter made at the top level of a BUILD file.
+   */
+  @Nullable
+  public String getGeneratorName() {
+    return generatorName;
   }
 
   /**
@@ -208,7 +283,6 @@ public final class MacroInstance extends RuleOrMacroInstance {
     List<Label> visibility = (List<Label>) Preconditions.checkNotNull(getAttr("visibility"));
     return ImmutableList.copyOf(visibility);
   }
-
 
   /**
    * Returns the package containing the .bzl file from which this macro instance's macro class was

@@ -121,11 +121,7 @@ public final class ServerDirectories {
    * Parent of all execution roots.
    *
    * <p>By default, this is a folder called {@linkplain #EXECROOT execroot} in {@link
-   * #getOutputBase}. However, some {@link com.google.devtools.build.lib.vfs.FileSystem}
-   * implementations may choose to virtualize the execroot (in other words, it is not a real on-disk
-   * path, but one that the {@link com.google.devtools.build.lib.vfs.FileSystem} recognizes).
-   *
-   * <p>This is virtual if and only if {@link #getVirtualSourceRoot} is present.
+   * #getOutputBase}.
    */
   public Path getExecRootBase() {
     return execRootBase;
@@ -138,8 +134,6 @@ public final class ServerDirectories {
    * <p>If present, the server's {@link com.google.devtools.build.lib.vfs.FileSystem} is responsible
    * for translating paths under this root to the actual requested {@code --package_path} for a
    * given command.
-   *
-   * <p>Present if and only if {@link #getExecRootBase} is virtualized.
    */
   @Nullable
   public Root getVirtualSourceRoot() {

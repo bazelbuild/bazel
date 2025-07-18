@@ -1,3 +1,5 @@
+load("@rules_java//java:java_library.bzl", "java_library")
+
 package(
     default_visibility = [
         ":__subpackages__",
@@ -29,6 +31,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/generatedprojecttest:srcs",
         "//src/test/java/com/google/devtools/build/lib/generatedprojecttest/util:srcs",
         "//src/test/java/com/google/devtools/build/lib/graph:srcs",
+        "//src/test/java/com/google/devtools/build/lib/includescanning:srcs",
         "//src/test/java/com/google/devtools/build/lib/integration/util:srcs",
         "//src/test/java/com/google/devtools/build/lib/io:srcs",
         "//src/test/java/com/google/devtools/build/lib/metrics:srcs",
@@ -44,6 +47,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/query2:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules:srcs",
+        "//src/test/java/com/google/devtools/build/lib/runtime:srcs",
         "//src/test/java/com/google/devtools/build/lib/sandbox:srcs",
         "//src/test/java/com/google/devtools/build/lib/server:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe:srcs",
@@ -51,14 +55,15 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
         "//src/test/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/test/java/com/google/devtools/build/lib/starlark:srcs",
+        "//src/test/java/com/google/devtools/build/lib/starlarkbuildapi/core:srcs",
         "//src/test/java/com/google/devtools/build/lib/starlarkdebug/server:srcs",
+        "//src/test/java/com/google/devtools/build/lib/starlarkdocextract:srcs",
         "//src/test/java/com/google/devtools/build/lib/supplier:srcs",
         "//src/test/java/com/google/devtools/build/lib/testing/common:srcs",
         "//src/test/java/com/google/devtools/build/lib/testutil:srcs",
         "//src/test/java/com/google/devtools/build/lib/unix:srcs",
         "//src/test/java/com/google/devtools/build/lib/unsafe:srcs",
         "//src/test/java/com/google/devtools/build/lib/util:srcs",
-        "//src/test/java/com/google/devtools/build/lib/versioning:srcs",
         "//src/test/java/com/google/devtools/build/lib/vfs:srcs",
         "//src/test/java/com/google/devtools/build/lib/view/cpp:srcs",
         "//src/test/java/com/google/devtools/build/lib/view/java:srcs",

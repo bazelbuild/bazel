@@ -263,7 +263,7 @@ public class TargetPatternTest {
             new TargetPattern.Parser(
                 PathFragment.create("base"),
                 RepositoryName.create("my_repo"),
-                RepositoryMapping.ALWAYS_FALLBACK));
+                RepositoryMapping.EMPTY));
   }
 
   @Test

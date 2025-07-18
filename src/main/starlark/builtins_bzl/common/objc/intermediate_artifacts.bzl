@@ -48,7 +48,7 @@ def _get_module_name(ctx):
             .replace(":", "_")
     )
 
-def _swift_module_map(ctx, generate_umbrella_header):
+def _swift_module_map(ctx):
     module_name = _get_module_name(ctx)
     custom_module_map = getattr(ctx.attr, "module_map", None)
     return cc_common.create_module_map(
@@ -56,10 +56,6 @@ def _swift_module_map(ctx, generate_umbrella_header):
             ctx,
             ".modulemaps/module.modulemap",
         ),
-        umbrella_header = _declare_file_with_extension(
-            ctx,
-            ".modulemaps/umbrella.h",
-        ) if generate_umbrella_header else None,
         name = module_name,
     )
 
@@ -69,13 +65,13 @@ def _internal_module_map(ctx):
         name = str(ctx.label),
     )
 
-def _create_closure_struct(ctx, archive_file_name_suffix, generate_umbrella_header, enforce_always_link):
+def _create_closure_struct(ctx, archive_file_name_suffix, enforce_always_link):
     return struct(
         archive_file_name_suffix = archive_file_name_suffix,
         # TODO(b/331163027): Consider renaming publicly to "create_combined_architecture_archive".
         # Alteratively, consider deleting this method as it is not used anywhere in the repo.
         combined_architecture_archive = lambda: _create_combined_architecture_archive(ctx),
-        swift_module_map = lambda: _swift_module_map(ctx, generate_umbrella_header),
+        swift_module_map = lambda: _swift_module_map(ctx),
         internal_module_map = lambda: _internal_module_map(ctx),
         # TODO(b/331163027): Consider renaming publicly to "create_archive".
         archive = lambda: _create_archive(ctx, enforce_always_link, archive_file_name_suffix),
@@ -85,6 +81,5 @@ def create_intermediate_artifacts(ctx):
     return _create_closure_struct(
         ctx = ctx,
         archive_file_name_suffix = "",
-        generate_umbrella_header = False,
         enforce_always_link = False,
     )

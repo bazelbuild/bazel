@@ -22,11 +22,15 @@ import static com.google.devtools.build.lib.packages.Types.STRING_DICT;
 import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
+import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -38,11 +42,11 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 /**
  * Definitions for rule classes that specify or manipulate configuration settings.
  *
- * <p>These are not "traditional" rule classes in that they can't be requested as top-level
- * targets and don't translate input artifacts into output artifacts. Instead, they affect
- * how *other* rules work. See individual class comments for details.
+ * <p>These are not "traditional" rule classes in that they can't be requested as top-level targets
+ * and don't translate input artifacts into output artifacts. Instead, they affect how *other* rules
+ * work. See individual class comments for details.
  */
-public class ConfigRuleClasses {
+public final class ConfigRuleClasses {
 
   private static final String NONCONFIGURABLE_ATTRIBUTE_REASON =
       "part of a rule class that *triggers* configurable behavior";
@@ -124,19 +128,64 @@ public class ConfigRuleClasses {
    * details.
    */
   public static final class ConfigSettingRule implements RuleDefinition {
-    /**
-     * The name of this rule.
-     */
+    /** The name of this rule. */
     public static final String RULE_NAME = "config_setting";
 
     /** The name of the attribute that declares flag bindings. */
     public static final String SETTINGS_ATTRIBUTE = "values";
+
+    /**
+     * When builds have {@code --flag_alias=foo=//bar}, this attribute records {@code //bar} as a
+     * dependency so Bazel can load its configured target to check its actual value.
+     */
+    public static final String FLAG_ALIAS_SETTINGS_ATTRIBUTE = ":flag_alias_settings";
+
     /** The name of the attribute that declares "--define foo=bar" flag bindings.*/
     public static final String DEFINE_SETTINGS_ATTRIBUTE = "define_values";
     /** The name of the attribute that declares user-defined flag bindings. */
     public static final String FLAG_SETTINGS_ATTRIBUTE = "flag_values";
     /** The name of the attribute that declares constraint_values. */
     public static final String CONSTRAINT_VALUES_ATTRIBUTE = "constraint_values";
+
+    /**
+     * {@code --flag_alias=foo=//bar} means when the user sets {@code --foo=1} at the command line,
+     * Bazel replaces it with {@code --//bar=1}. A {@code config_setting} with {@code values =
+     * {"foo": "1"}} need to match this, which it does in {@link ConfigSetting} by switching {@code
+     * foo} to {@code //bar} and comparing {@code //bar}'s expected value against its actual.
+     *
+     * <p>To find {@code //bar}'s actual value, {@code ConfigSetting} must load {@code //bar} as a
+     * prerequisite configured target. Bazel automatically registers {@code //bar} as a prerequisite
+     * dependency if it's part of {@link FLAG_ALIAS_SETTINGS_ATTRIBUTE}, which maps labels to
+     * values.
+     *
+     * <p>But {@code --flag_alias} means we don't know if {@code --foo} maps to {@code //bar} until
+     * we've examined the configuration's flag aliases. So we can't preregister {@code //bar} as a
+     * dependency in {@code config_setting}'s BUILD definition. That's what this late-bound default
+     * definition is for: it reads flag alias settings and injects them into {@link
+     * FLAG_ALIAS_SETTINGS_ATTRIBUTE} so Bazel registers them as dependencies.
+     *
+     * <p>See {@link ConfigSetting} for implementation details.
+     */
+    @SerializationConstant @VisibleForSerialization
+    public static final LabelListLateBoundDefault<?> FLAG_ALIAS_REFERENCES =
+        LabelListLateBoundDefault.fromTargetConfiguration(
+            BuildConfigurationValue.class,
+            (rule, attributes, configuration) -> {
+              if (attributes.get(SETTINGS_ATTRIBUTE, STRING_DICT) == null) {
+                // Only true for tests.
+                return ImmutableList.of();
+              }
+              ImmutableList.Builder<Label> userDefinedFlags = ImmutableList.builder();
+              ImmutableMap<String, String> commandLineFlagAliases =
+                  configuration.getCommandLineFlagAliases();
+              for (String flagName : attributes.get(SETTINGS_ATTRIBUTE, STRING_DICT).keySet()) {
+                String userDefinedFlag = commandLineFlagAliases.get(flagName);
+                if (userDefinedFlag != null) {
+                  userDefinedFlags.add(Label.parseCanonicalUnchecked(userDefinedFlag));
+                }
+              }
+              return userDefinedFlags.build();
+            });
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -231,17 +280,18 @@ public class ConfigRuleClasses {
 
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
 
-          // Originally this attribute was a map of feature flags targets -> feature flag values,
-          // the latter of which are always strings. Now it also includes starlark build setting
-          // targets -> starlark build setting values. In other places in the starlark configuration
-          // API, starlark setting values are passed as their actual object instead of a string
-          // representation. It would be more consistent to be able to pass starlark setting values
-          // as objects to this attribute as well. But attributes are strongly-typed so
-          // label->object dict is not an option for attribute types right now.
+          // Map of feature flags targets -> feature flag values and Starlark build setting targets
+          // -> starlark build setting values. In other places in the Starlark configuration API,
+          // Starlark setting values are passed as their actual object instead of a string
+          // representation. It would be more consistent to pass Starlark setting values as objects
+          // to this attribute as well. But attributes are strongly-typed so label->object dict is
+          // not an option for attribute types right now.
           .add(
               attr(FLAG_SETTINGS_ATTRIBUTE, LABEL_KEYED_STRING_DICT)
                   .allowedFileTypes()
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .add(attr(FLAG_ALIAS_SETTINGS_ATTRIBUTE, LABEL_LIST).value(FLAG_ALIAS_REFERENCES))
+
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(constraint_values) -->
           The minimum set of <code>constraint_values</code> that the target platform must specify
           in order to match this <code>config_setting</code>. (The execution platform is not
@@ -446,4 +496,6 @@ public class ConfigRuleClasses {
           .build();
     }
   }
+
+  private ConfigRuleClasses() {}
 }

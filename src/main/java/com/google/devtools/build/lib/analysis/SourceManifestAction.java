@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.analysis.Runfiles.ConflictPolicy;
 import com.google.devtools.build.lib.analysis.Runfiles.ConflictType;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
@@ -35,7 +36,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -228,15 +231,21 @@ public final class SourceManifestAction extends AbstractFileWriteAction
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
       throws ExecException {
     StoredEventHandler eventHandler = new StoredEventHandler();
-    BiConsumer<ConflictType, String> eventReceiver =
-        runfiles.eventRunfilesConflictReceiver(eventHandler, getOwner().getLocation());
     boolean[] seenNestedRunfilesTree = new boolean[] {false};
     BiConsumer<ConflictType, String> receiver =
         (conflictType, message) -> {
-          eventReceiver.accept(conflictType, message);
-          if (conflictType == ConflictType.NESTED_RUNFILES_TREE) {
-            seenNestedRunfilesTree[0] = true;
-          }
+          EventKind kind =
+              switch (conflictType) {
+                case NESTED_RUNFILES_TREE -> {
+                  seenNestedRunfilesTree[0] = true;
+                  yield EventKind.ERROR;
+                }
+                case PREFIX_CONFLICT ->
+                    runfiles.getConflictPolicy() == ConflictPolicy.ERROR
+                        ? EventKind.ERROR
+                        : EventKind.WARNING;
+              };
+          eventHandler.handle(Event.of(kind, getOwner().getLocation(), message));
         };
 
     Map<PathFragment, Artifact> runfilesInputs =

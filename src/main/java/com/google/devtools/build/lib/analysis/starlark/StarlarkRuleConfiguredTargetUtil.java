@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -430,29 +429,36 @@ public final class StarlarkRuleConfiguredTargetUtil {
       statelessRunfiles = Runfiles.EMPTY;
     }
 
-    RunfilesProvider runfilesProvider =
-        statelessRunfiles != null
-            ? RunfilesProvider.simple(mergeFiles(statelessRunfiles, executable, ruleContext))
-            : RunfilesProvider.withData(
-                // The executable doesn't get into the default runfiles if we have runfiles states.
-                // This is to keep Starlark genrule consistent with the original genrule.
-                defaultRunfiles != null ? defaultRunfiles : Runfiles.EMPTY,
-                dataRunfiles != null ? dataRunfiles : Runfiles.EMPTY);
+    // This works because we only allowed to call a rule *_test iff it's a test type rule.
+    boolean testRule = TargetUtils.isTestRuleName(ruleContext.getRule().getRuleClass());
+    boolean isExecutableOrTest = executable != null || testRule;
+    RunfilesProvider runfilesProvider;
+    if (statelessRunfiles != null) {
+      runfilesProvider =
+          RunfilesProvider.simple(mergeFiles(statelessRunfiles, executable, ruleContext));
+    } else {
+      var mergedDefaultRunfiles = defaultRunfiles != null ? defaultRunfiles : Runfiles.EMPTY;
+      if (isExecutableOrTest) {
+        // The executable is only merged in if needed when using stateful runfiles to preserve
+        // long-standing behavior.
+        mergedDefaultRunfiles = mergeFiles(mergedDefaultRunfiles, executable, ruleContext);
+      }
+      runfilesProvider =
+          RunfilesProvider.withData(
+              mergedDefaultRunfiles, dataRunfiles != null ? dataRunfiles : Runfiles.EMPTY);
+    }
     builder.addProvider(RunfilesProvider.class, runfilesProvider);
 
     Runfiles computedDefaultRunfiles = runfilesProvider.getDefaultRunfiles();
-    // This works because we only allowed to call a rule *_test iff it's a test type rule.
-    boolean testRule = TargetUtils.isTestRuleName(ruleContext.getRule().getRuleClass());
     if (testRule && computedDefaultRunfiles.isEmpty()) {
       throw Starlark.errorf("Test rules have to define runfiles");
     }
-    if (executable != null || testRule) {
+    if (isExecutableOrTest) {
       RunfilesSupport runfilesSupport = null;
       if (!computedDefaultRunfiles.isEmpty()) {
         Preconditions.checkNotNull(executable, "executable must not be null");
         runfilesSupport =
             RunfilesSupport.withExecutable(ruleContext, computedDefaultRunfiles, executable);
-        assertExecutableSymlinkPresent(runfilesSupport.getRunfiles(), executable);
       }
       builder.setRunfilesSupport(runfilesSupport, executable);
     }
@@ -464,23 +470,12 @@ public final class StarlarkRuleConfiguredTargetUtil {
     }
   }
 
-  private static void assertExecutableSymlinkPresent(Runfiles runfiles, Artifact executable)
-      throws EvalException {
-    // Extracting the map from Runfiles flattens a depset.
-    // TODO(cparsons): Investigate: Avoiding this flattening may be an efficiency win.
-    Map<PathFragment, Artifact> symlinks = runfiles.asMapWithoutRootSymlinks();
-    if (!symlinks.containsValue(executable)) {
-      throw Starlark.errorf("main program %s not included in runfiles", executable);
-    }
-  }
-
   private static Runfiles mergeFiles(
       Runfiles runfiles, Artifact executable, RuleContext ruleContext) {
     if (executable == null) {
       return runfiles;
     }
-    return new Runfiles.Builder(
-            ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
+    return new Runfiles.Builder(ruleContext.getWorkspaceName())
         .addArtifact(executable)
         .merge(runfiles)
         .build();

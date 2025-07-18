@@ -16,14 +16,12 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.rules.java.JavaCompileActionContext;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -31,7 +29,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.TriState;
-import java.io.IOException;
 import java.util.List;
 
 /** Module implementing the rule set of Bazel. */
@@ -42,6 +39,22 @@ public final class BazelRulesModule extends BlazeModule {
    * command go to die.
    */
   public static class BuildGraveyardOptions extends OptionsBase {
+
+    @Option(
+        name = "experimental_starlark_cc_import",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean experimentalStarlarkCcImport;
+
+    @Option(
+        name = "experimental_platform_cc_test",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean experimentalPlatformCcTest;
 
     @Option(
         name = "j2objc_dead_code_removal",
@@ -317,6 +330,16 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op.")
     public boolean useSemaphoreForJobs;
+
+    // TODO(b/410585542): Remove this once there are no more internal users trying to set it.
+    @Option(
+        name = "experimental_skip_ttvs_for_genquery",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "No-op. Will be removed soon.")
+    public boolean skipTtvs;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
@@ -457,6 +480,15 @@ public final class BazelRulesModule extends BlazeModule {
         help = "No-op",
         deprecationWarning = ANDROID_FLAG_DEPRECATION)
     public List<String> fatApkCpus;
+
+    @Option(
+        name = "incompatible_enable_cgo_toolchain_resolution",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op")
+    public boolean incompatibleEnableGoToolchainResolution;
   }
 
   /**
@@ -464,6 +496,39 @@ public final class BazelRulesModule extends BlazeModule {
    * want to graveyard an all-command option specific to Blaze or Bazel, create a subclass.
    */
   public static final class AllCommandGraveyardOptions extends OptionsBase {
+    @Option(
+        name = "incompatible_require_linker_input_cc_api",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean incompatibleRequireLinkerInputCcApi;
+
+    @Option(
+        name = "incompatible_depset_for_libraries_to_link_getter",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean incompatibleDepsetForLibrariesToLinkGetter;
+
+    @Option(
+        name = "legacy_external_runfiles",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean legacyExternalRunfiles;
+
+    @Option(
+        name = "incompatible_disable_target_provider_fields",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "No-op")
+    public boolean incompatibleDisableTargetProviderFields;
+
     @Option(
         name = "incompatible_disallow_struct_provider_syntax",
         defaultValue = "true",
@@ -612,6 +677,14 @@ public final class BazelRulesModule extends BlazeModule {
         help = "No-op.")
     public boolean incompatibleExistingRulesImmutableView;
 
+    @Option(
+        name = "incompatible_disable_native_repo_rules",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean incompatibleDisableNativeRepoRules;
+
     // Safe to delete after July 2025
     @Option(
         name = "incompatible_no_package_distribs",
@@ -637,24 +710,27 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op.")
     public boolean macosSetInstallName;
+
+    @Option(
+        name = "verbose_explanations",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "No-op.")
+    public boolean verboseExplanations;
+
+    @Option(
+        name = "experimental_cc_static_library",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean experimentalCcStaticLibrary;
   }
 
   @Override
   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
     BazelRuleClassProvider.setup(builder);
-
-    try {
-      // Load auto-configuration files, it is made outside of the rule class provider so that it
-      // will not be loaded for our Java tests.
-      builder.addWorkspaceFileSuffix(
-          ResourceFileLoader.loadResource(BazelCppRuleClasses.class, "cc_configure.WORKSPACE"));
-      builder.addWorkspaceFileSuffix(
-          ResourceFileLoader.loadResource(BazelRulesModule.class, "xcode_configure.WORKSPACE"));
-      builder.addWorkspaceFileSuffix(
-          ResourceFileLoader.loadResource(BazelRulesModule.class, "rules_suffix.WORKSPACE"));
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
   }
 
   @Override

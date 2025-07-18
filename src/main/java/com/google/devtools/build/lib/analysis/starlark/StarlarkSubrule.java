@@ -60,6 +60,7 @@ import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
+import net.starlark.java.syntax.Location;
 
 /**
  * Represents a subrule which can be invoked in a Starlark rule's implementation function.
@@ -252,8 +253,10 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     return this.extensionLabel != null && this.exportedName != null;
   }
 
+  // TODO(bazel-team): use exportedLocation as the callable symbol's location.
   @Override
-  public void export(EventHandler handler, Label extensionLabel, String exportedName) {
+  public void export(
+      EventHandler handler, Label extensionLabel, String exportedName, Location exportedLocation) {
     Preconditions.checkState(!isExported());
     this.extensionLabel = extensionLabel;
     this.exportedName = exportedName;
