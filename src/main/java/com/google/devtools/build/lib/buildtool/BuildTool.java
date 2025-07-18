@@ -1399,10 +1399,10 @@ public class BuildTool {
     }
 
     @Override
-    public ObjectCodecs getObjectCodecs() {
+    public ObjectCodecs getObjectCodecs() throws InterruptedException {
       try {
         return objectCodecsFuture.get();
-      } catch (InterruptedException | ExecutionException e) {
+      } catch (ExecutionException e) {
         throw new IllegalStateException("Failed to initialize ObjectCodecs", e);
       }
     }

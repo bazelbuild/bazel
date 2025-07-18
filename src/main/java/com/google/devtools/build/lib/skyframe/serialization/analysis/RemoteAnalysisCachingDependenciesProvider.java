@@ -52,7 +52,7 @@ public interface RemoteAnalysisCachingDependenciesProvider {
    *
    * <p>Calling this can be an expensive process as the codec registry will be initialized.
    */
-  ObjectCodecs getObjectCodecs();
+  ObjectCodecs getObjectCodecs() throws InterruptedException;
 
   /** Returns the {@link FingerprintValueService} implementation. */
   FingerprintValueService getFingerprintValueService() throws InterruptedException;
