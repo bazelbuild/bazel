@@ -741,7 +741,7 @@ def _create_cc_compile_actions(
             additional_compilation_inputs = additional_compilation_inputs,
             additional_include_scanning_roots = additional_include_scanning_roots,
         )
-        cc_internal.create_parse_header_action(
+        header_token_file = cc_internal.create_parse_header_action(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
             cc_toolchain = cc_toolchain,
@@ -760,9 +760,9 @@ def _create_cc_compile_actions(
             cpp_semantics = cpp_semantics,
             source_label = cpp_source.label,
             output_name = output_name,
-            outputs = outputs,
             cpp_compile_action_builder = cpp_compile_action_builder,
         )
+        outputs.add_header_token_file(header_token_file)
 
 def _calculate_output_name_map_by_type(sources, prefix_dir):
     return (

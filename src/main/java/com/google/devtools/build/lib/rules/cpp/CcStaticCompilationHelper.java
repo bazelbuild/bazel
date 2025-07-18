@@ -526,7 +526,7 @@ public final class CcStaticCompilationHelper {
     }
   }
 
-  static void createParseHeaderAction(
+  static Artifact createParseHeaderAction(
       ActionConstructionContext actionConstructionContext,
       CcCompilationContext ccCompilationContext,
       CcToolchainProvider ccToolchain,
@@ -546,7 +546,6 @@ public final class CcStaticCompilationHelper {
       CppSemantics semantics,
       Label sourceLabel,
       String outputName,
-      CcCompilationOutputs.Builder result,
       CppCompileActionBuilder builder)
       throws RuleErrorException, EvalException {
     String outputNameBase =
@@ -589,8 +588,7 @@ public final class CcStaticCompilationHelper {
     semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
     CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleErrorConsumer);
     actionConstructionContext.registerAction(compileAction);
-    Artifact tokenFile = compileAction.getPrimaryOutput();
-    result.addHeaderTokenFile(tokenFile);
+    return compileAction.getPrimaryOutput();
   }
 
   static ImmutableList<Artifact> createModuleAction(

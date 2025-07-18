@@ -1115,10 +1115,9 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "cpp_semantics", positional = false, named = true),
         @Param(name = "source_label", positional = false, named = true),
         @Param(name = "output_name", positional = false, named = true),
-        @Param(name = "outputs", positional = false, named = true),
         @Param(name = "cpp_compile_action_builder", positional = false, named = true)
       })
-  public void createParseHeaderAction(
+  public Artifact createParseHeaderAction(
       StarlarkRuleContext starlarkRuleContext,
       CcCompilationContext ccCompilationContext,
       StarlarkInfo ccToolchain,
@@ -1137,10 +1136,9 @@ public class CcStarlarkInternal implements StarlarkValue {
       CppSemantics semantics,
       Label sourceLabel,
       String outputName,
-      CcCompilationOutputs.Builder outputs,
       CppCompileActionBuilder builder)
       throws RuleErrorException, EvalException {
-    CcStaticCompilationHelper.createParseHeaderAction(
+    return CcStaticCompilationHelper.createParseHeaderAction(
         starlarkRuleContext.getRuleContext(),
         ccCompilationContext,
         CcToolchainProvider.create(ccToolchain),
@@ -1161,7 +1159,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         semantics,
         sourceLabel,
         outputName,
-        outputs,
         builder);
   }
 
