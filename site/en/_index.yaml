@@ -136,21 +136,23 @@ landing_page:
     - description-50
     - large-headings
     classname: bazel-body-light-cards
+    items_across: 4
     items:
-    - heading: What's new?<br><b>—</b>
+    - heading: "What's new?<br><b>—</b>"
+      image_path: /images/new_0.svg
       description: >
         Catch up on the latest documentation, community events, and programs.
-    - heading: Roadmap
+    - heading: "Roadmap"
       path: /about/roadmap
       image_path: /images/new_1.svg
       description: >
         Read our new public roadmap to see what is coming down the pipeline.
-    - heading: Community updates
+    - heading: "Community updates"
       path: /community/update
       image_path: /images/new_3.svg
       description: >
         Tune in for our new monthly community update livestream.
-    - heading: Query quickstart tutorial
+    - heading: "Query quickstart tutorial"
       path: /query/quickstart
       image_path: /images/new_2.svg
       description: >
