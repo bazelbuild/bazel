@@ -120,7 +120,7 @@ public class SelectionTest {
                 .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                 .buildEntry(),
             InterimModuleBuilder.create("bbb", "1.0")
-                .addDep("ddd_from_bbb", createModuleKey("ddd", "2.0"))
+                .addDep("ddd_from_bbb", createDepSpec("ddd", "2.0", 3))
                 .addOriginalDep("ddd_from_bbb", createDepSpec("ddd", "1.0", 3))
                 .buildEntry(),
             InterimModuleBuilder.create("ccc", "2.0")
@@ -137,7 +137,7 @@ public class SelectionTest {
                 .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                 .buildEntry(),
             InterimModuleBuilder.create("bbb", "1.0")
-                .addDep("ddd_from_bbb", createModuleKey("ddd", "2.0"))
+                .addDep("ddd_from_bbb", createDepSpec("ddd", "2.0", 3))
                 .addOriginalDep("ddd_from_bbb", createDepSpec("ddd", "1.0", 3))
                 .buildEntry(),
             InterimModuleBuilder.create("ccc", "2.0")
@@ -182,7 +182,7 @@ public class SelectionTest {
                 .addOriginalDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
                 .buildEntry(),
             InterimModuleBuilder.create("ccc", "2.0")
-                .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
+                .addDep("ddd_from_ccc", createDepSpec("ddd", "2.0", 4))
                 .addOriginalDep("ddd_from_ccc", createDepSpec("ddd", "2.0", 4))
                 .buildEntry(),
             InterimModuleBuilder.create("ddd", "2.0", 1).buildEntry())
@@ -200,7 +200,7 @@ public class SelectionTest {
                 .addOriginalDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
                 .buildEntry(),
             InterimModuleBuilder.create("ccc", "2.0")
-                .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
+                .addDep("ddd_from_ccc", createDepSpec("ddd", "2.0", 4))
                 .addOriginalDep("ddd_from_ccc", createDepSpec("ddd", "2.0", 4))
                 .buildEntry(),
             InterimModuleBuilder.create("ddd", "1.0", 1).buildEntry(),
@@ -429,7 +429,7 @@ public class SelectionTest {
                 .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                 .buildEntry(),
             InterimModuleBuilder.create("bbb", "1.0")
-                .addDep("ddd_from_bbb", createModuleKey("ddd", "2.0"))
+                .addDep("ddd_from_bbb", createDepSpec("ddd", "2.0", 2))
                 .addOriginalDep("ddd_from_bbb", createDepSpec("ddd", "1.0", 2))
                 .buildEntry(),
             InterimModuleBuilder.create("ccc", "2.0")
@@ -446,7 +446,7 @@ public class SelectionTest {
                 .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                 .buildEntry(),
             InterimModuleBuilder.create("bbb", "1.0")
-                .addDep("ddd_from_bbb", createModuleKey("ddd", "2.0"))
+                .addDep("ddd_from_bbb", createDepSpec("ddd", "2.0", 2))
                 .addOriginalDep("ddd_from_bbb", createDepSpec("ddd", "1.0", 2))
                 .buildEntry(),
             InterimModuleBuilder.create("ccc", "2.0")
@@ -486,7 +486,7 @@ public class SelectionTest {
                 .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                 .buildEntry(),
             InterimModuleBuilder.create("bbb", "1.0")
-                .addDep("ddd_from_bbb", createModuleKey("ddd", "2.0"))
+                .addDep("ddd_from_bbb", createDepSpec("ddd", "2.0", 3))
                 .addOriginalDep("ddd_from_bbb", createDepSpec("ddd", "2.0", 3))
                 .buildEntry(),
             InterimModuleBuilder.create("ccc", "2.0")
@@ -503,7 +503,7 @@ public class SelectionTest {
                 .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                 .buildEntry(),
             InterimModuleBuilder.create("bbb", "1.0")
-                .addDep("ddd_from_bbb", createModuleKey("ddd", "2.0"))
+                .addDep("ddd_from_bbb", createDepSpec("ddd", "2.0", 3))
                 .addOriginalDep("ddd_from_bbb", createDepSpec("ddd", "2.0", 3))
                 .buildEntry(),
             InterimModuleBuilder.create("ccc", "2.0")
@@ -591,7 +591,7 @@ public class SelectionTest {
                 .setKey(ModuleKey.ROOT)
                 .addDep("bbb", createModuleKey("bbb", "1.1"))
                 .addOriginalDep("bbb", createModuleKey("bbb", "1.0"))
-                .addDep("ccc", createModuleKey("ccc", "1.1"))
+                .addDep("ccc", createDepSpec("ccc", "1.1", 2))
                 .addOriginalDep("ccc", createDepSpec("ccc", "1.0", 2))
                 .addDep("ddd", createModuleKey("ddd", "1.0"))
                 .addDep("eee", createModuleKey("eee", "1.0"))
@@ -612,7 +612,7 @@ public class SelectionTest {
                 .setKey(ModuleKey.ROOT)
                 .addDep("bbb", createModuleKey("bbb", "1.1"))
                 .addOriginalDep("bbb", createModuleKey("bbb", "1.0"))
-                .addDep("ccc", createModuleKey("ccc", "1.1"))
+                .addDep("ccc", createDepSpec("ccc", "1.1", 2))
                 .addOriginalDep("ccc", createDepSpec("ccc", "1.0", 2))
                 .addDep("ddd", createModuleKey("ddd", "1.0"))
                 .addDep("eee", createModuleKey("eee", "1.0"))
