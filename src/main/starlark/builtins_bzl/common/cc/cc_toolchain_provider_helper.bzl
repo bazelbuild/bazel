@@ -15,7 +15,7 @@
 """A helper for creating CcToolchainProvider."""
 
 load(":common/cc/cc_common.bzl", "cc_common")
-load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_helper.bzl", "TOOL_NAMES", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_toolchain_info.bzl", "CcToolchainInfo")
 load(":common/cc/fdo/fdo_context.bzl", "create_fdo_context")
@@ -24,20 +24,20 @@ load(":common/paths.bzl", "paths")
 cc_internal = _builtins.internal.cc_internal
 
 _TOOL_PATH_ONLY_TOOLS = [
-    "gcov-tool",
-    "gcov",
-    "llvm-profdata",
-    "llvm-cov",
+    TOOL_NAMES.gcov_tool,
+    TOOL_NAMES.gcov,
+    TOOL_NAMES.llvm_profdata,
+    TOOL_NAMES.llvm_cov,
 ]
 
 _REQUIRED_TOOLS = [
-    "ar",
-    "cpp",
-    "gcc",
-    "ld",
-    "nm",
-    "objdump",
-    "strip",
+    TOOL_NAMES.ar,
+    TOOL_NAMES.cpp,
+    TOOL_NAMES.gcc,
+    TOOL_NAMES.ld,
+    TOOL_NAMES.nm,
+    TOOL_NAMES.objdump,
+    TOOL_NAMES.strip,
 ]
 
 _SYSROOT_START = "%sysroot%/"

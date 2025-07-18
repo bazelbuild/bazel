@@ -153,7 +153,7 @@ def _cc_import_impl(ctx):
             linker_inputs = depset([linker_input]),
         )
 
-    additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(cc_toolchain)
+    additional_make_variable_substitutions = cc_helper.get_toolchain_global_make_variables(feature_configuration, cc_toolchain)
     additional_make_variable_substitutions.update(cc_helper.get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain))
 
     runtimes_deps = semantics.get_cc_runtimes(ctx, True)
