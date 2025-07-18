@@ -165,7 +165,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_java_header_compilation_direct_deps",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
