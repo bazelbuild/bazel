@@ -451,7 +451,7 @@ final class Selection {
               depSpec.toModuleKey(),
               repoName,
               previousRepoName,
-              key.name());
+              depSpec.name());
         }
       }
     }

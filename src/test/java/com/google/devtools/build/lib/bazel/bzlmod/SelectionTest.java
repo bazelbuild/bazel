@@ -811,6 +811,9 @@ public class SelectionTest {
         .containsMatch(
             "aaa@_ depends on bbb@1.5 at least twice \\(with repo names (bbb2 and bbb3)|(bbb3 and"
                 + " bbb2)\\)");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("if you want to depend on multiple versions of bbb simultaneously");
   }
 
   @Test
