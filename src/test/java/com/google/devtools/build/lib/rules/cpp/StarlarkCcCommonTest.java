@@ -1400,11 +1400,11 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     List<String> mergedSystemIncludes =
         ((Depset) myInfo.getValue("merged_system_includes")).getSet(String.class).toList();
-    assertThat(mergedSystemIncludes).containsAtLeast("foo/bar", "a/dep1/baz", "a/dep2/qux");
+    assertThat(mergedSystemIncludes).contains("foo/bar");
 
     List<String> mergedIncludes =
         ((Depset) myInfo.getValue("merged_includes")).getSet(String.class).toList();
-    assertThat(mergedIncludes).contains("baz/qux");
+    assertThat(mergedIncludes).containsAtLeast("baz/qux", "a/dep1/baz", "a/dep2/qux");
 
     List<String> mergedQuoteIncludes =
         ((Depset) myInfo.getValue("merged_quote_includes")).getSet(String.class).toList();

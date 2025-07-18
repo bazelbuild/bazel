@@ -369,7 +369,10 @@ def _init_cc_compilation_context(
     external_include_dirs = []
     declared_include_srcs = []
 
-    if not external:
+    if not external and feature_configuration.is_requested("system_include_paths"):
+        system_include_dirs_for_context = system_include_dirs + include_dirs
+        include_dirs_for_context = []
+    elif not external:
         system_include_dirs_for_context = list(system_include_dirs)
         include_dirs_for_context = list(include_dirs)
     else:

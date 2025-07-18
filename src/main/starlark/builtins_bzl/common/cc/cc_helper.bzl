@@ -993,7 +993,7 @@ def _report_invalid_options(cc_toolchain, cpp_config):
 def _package_exec_path(ctx, package, sibling_repository_layout):
     return paths.get_relative(_repository_exec_path(ctx.label.workspace_name, sibling_repository_layout), package)
 
-def _system_include_dirs(ctx, additional_make_variable_substitutions):
+def _include_dirs(ctx, additional_make_variable_substitutions):
     result = []
     sibling_repository_layout = ctx.configuration.is_sibling_repository_layout()
     package = ctx.label.package
@@ -1195,7 +1195,8 @@ cc_helper = struct(
     get_private_hdrs = _get_private_hdrs,
     get_public_hdrs = _get_public_hdrs,
     report_invalid_options = _report_invalid_options,
-    system_include_dirs = _system_include_dirs,
+    include_dirs = _include_dirs,
+    system_include_dirs = _include_dirs,  # TODO: Remove uses of old name
     get_coverage_environment = _get_coverage_environment,
     create_cc_instrumented_files_info = _create_cc_instrumented_files_info,
     linkopts = _linkopts,
