@@ -741,6 +741,11 @@ def _create_cc_compile_actions(
             additional_compilation_inputs = additional_compilation_inputs,
             additional_include_scanning_roots = additional_include_scanning_roots,
         )
+        output_name_base = cc_internal.get_artifact_name_for_category(
+            cc_toolchain = cc_toolchain,
+            category = artifact_category.GENERATED_HEADER,
+            output_name = output_name,
+        )
         header_token_file = cc_internal.create_parse_header_action(
             action_construction_context = action_construction_context,
             cc_compilation_context = cc_compilation_context,
@@ -759,7 +764,7 @@ def _create_cc_compile_actions(
             fdo_build_variables = fdo_build_variables,
             cpp_semantics = cpp_semantics,
             source_label = cpp_source.label,
-            output_name = output_name,
+            output_name_base = output_name_base,
             cpp_compile_action_builder = cpp_compile_action_builder,
         )
         outputs.add_header_token_file(header_token_file)

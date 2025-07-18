@@ -1114,7 +1114,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "fdo_build_variables", positional = false, named = true),
         @Param(name = "cpp_semantics", positional = false, named = true),
         @Param(name = "source_label", positional = false, named = true),
-        @Param(name = "output_name", positional = false, named = true),
+        @Param(name = "output_name_base", positional = false, named = true),
         @Param(name = "cpp_compile_action_builder", positional = false, named = true)
       })
   public Artifact createParseHeaderAction(
@@ -1135,7 +1135,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       Dict<?, ?> fdoBuildVariables,
       CppSemantics semantics,
       Label sourceLabel,
-      String outputName,
+      String outputNameBase,
       CppCompileActionBuilder builder)
       throws RuleErrorException, EvalException {
     return CcStaticCompilationHelper.createParseHeaderAction(
@@ -1158,7 +1158,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         starlarkRuleContext.getRuleContext().getRuleErrorConsumer(),
         semantics,
         sourceLabel,
-        outputName,
+        outputNameBase,
         builder);
   }
 

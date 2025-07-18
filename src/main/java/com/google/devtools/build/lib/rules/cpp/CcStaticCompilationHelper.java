@@ -545,13 +545,9 @@ public final class CcStaticCompilationHelper {
       RuleErrorConsumer ruleErrorConsumer,
       CppSemantics semantics,
       Label sourceLabel,
-      String outputName,
+      String outputNameBase,
       CppCompileActionBuilder builder)
       throws RuleErrorException, EvalException {
-    String outputNameBase =
-        CppHelper.getArtifactNameForCategory(
-            ccToolchain, ArtifactCategory.GENERATED_HEADER, outputName);
-
     builder
         .setOutputs(
             actionConstructionContext,
