@@ -118,6 +118,9 @@ fi
 # JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE Exec path of a file that contains the
 #                                     relative paths of the jars on the runtime
 #                                     classpath delimited by newline.
+
+TEST_STATUS=0
+
 if [[ ! -z "${JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE}" ]]; then
   JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE="${PWD}/${JAVA_RUNTIME_CLASSPATH_FOR_COVERAGE}"
   SINGLE_JAR_TOOL="${PWD}/${SINGLE_JAR_TOOL}"
@@ -158,10 +161,9 @@ if [[ "$IS_COVERAGE_SPAWN" == "0" ]]; then
 
   if [[ $TEST_STATUS -ne 0 ]]; then
     echo --
-    echo Coverage runner: Not collecting coverage for failed test.
-    echo The following commands failed with status $TEST_STATUS
+    echo Coverage runner: Collected coverage may be off due to the
+    echo following test command failing with status $TEST_STATUS:
     echo "$@"
-    exit $TEST_STATUS
   fi
 fi
 
@@ -254,4 +256,10 @@ fi
 # JAVA_RUNFILES is set to the runfiles of the test, which does not necessarily
 # contain a JVM (it does only if the test has a Java binary somewhere). So let
 # the LCOV merger discover where its own runfiles tree is.
-JAVA_RUNFILES= exec $LCOV_MERGER_CMD
+JAVA_RUNFILES= $LCOV_MERGER_CMD
+LCOV_MERGER_CMD_STATUS=$?
+
+if [[ $TEST_STATUS -ne 0 ]]; then
+  exit $TEST_STATUS
+fi
+exit $LCOV_MERGER_CMD_STATUS
