@@ -7,9 +7,7 @@ package(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["*"]) + [
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/proto:srcs",
-    ],
+    srcs = glob(["*"]),
     visibility = ["//src:__subpackages__"],
 )
 
