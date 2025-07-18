@@ -102,7 +102,7 @@ def _compute_public_headers(
     if include_prefix and include_prefix.startswith("/"):
         include_prefix = include_prefix[1:]
 
-    if not strip_prefix and not include_prefix:
+    if strip_prefix == None and include_prefix == None:
         return struct(
             headers = public_headers_artifacts + non_module_map_headers,
             module_map_headers = public_headers_artifacts,
@@ -125,17 +125,16 @@ def _compute_public_headers(
         if include_prefix != None:
             include_path = paths.get_relative(include_prefix, include_path)
 
-        if not original_header.path == include_path:
-            virtual_header = actions.declare_shareable_artifact(paths.join(virtual_include_dir, include_path))
-            actions.symlink(
-                output = virtual_header,
-                target_file = original_header,
-                progress_message = "Symlinking virtual headers for %{label}",
-                use_exec_root_for_source = USE_EXEC_ROOT_FOR_VIRTUAL_INCLUDES_SYMLINKS,
-            )
-            module_map_headers.append(virtual_header)
-            if config.coverage_enabled:
-                virtual_to_original_headers_list.append((virtual_header.path, original_header.path))
+        virtual_header = actions.declare_shareable_artifact(paths.join(virtual_include_dir, include_path))
+        actions.symlink(
+            output = virtual_header,
+            target_file = original_header,
+            progress_message = "Symlinking virtual headers for %{label}",
+            use_exec_root_for_source = USE_EXEC_ROOT_FOR_VIRTUAL_INCLUDES_SYMLINKS,
+        )
+        module_map_headers.append(virtual_header)
+        if config.coverage_enabled:
+            virtual_to_original_headers_list.append((virtual_header.path, original_header.path))
 
         module_map_headers.append(original_header)
 
