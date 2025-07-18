@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -35,13 +35,13 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
   public static final Provider PROVIDER = new Provider();
 
   private final CcCompilationContext ccCompilationContext;
-  private final CcLinkingContext ccLinkingContext;
+  private final StarlarkInfo ccLinkingContext;
   private final CcDebugInfoContext ccDebugInfoContext;
   private final StarlarkInfo ccNativeLibraryInfo;
 
   public CcInfo(
       CcCompilationContext ccCompilationContext,
-      CcLinkingContext ccLinkingContext,
+      StarlarkInfo ccLinkingContext,
       CcDebugInfoContext ccDebugInfoContext,
       StarlarkInfo ccNativeLibraryInfo) {
     this.ccCompilationContext = ccCompilationContext;
@@ -60,8 +60,20 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
     return ccCompilationContext;
   }
 
-  @Override
+  /**
+   * @deprecated Only use in tests.
+   */
+  @Deprecated
   public CcLinkingContext getCcLinkingContext() {
+    return CcLinkingContext.of(ccLinkingContext);
+  }
+
+  @Override
+  public StarlarkInfo getCcLinkingContextForStarlark() {
+    return ccLinkingContext;
+  }
+
+  public StarlarkInfo getCcLinkingContextStruct() {
     return ccLinkingContext;
   }
 
@@ -107,7 +119,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(ccCompilationContext, ccLinkingContext, ccDebugInfoContext);
+    return Objects.hash(ccCompilationContext, ccLinkingContext, ccDebugInfoContext);
   }
 
   public static Builder builder() {
@@ -118,7 +130,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
   /** A Builder for {@link CcInfo}. */
   public static class Builder {
     private CcCompilationContext ccCompilationContext;
-    private CcLinkingContext ccLinkingContext;
+    private StarlarkInfo ccLinkingContext;
     private CcDebugInfoContext ccDebugInfoContext;
     private StarlarkInfo ccNativeLibraryInfo;
 
@@ -132,7 +144,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
     }
 
     @CanIgnoreReturnValue
-    public CcInfo.Builder setCcLinkingContext(CcLinkingContext ccLinkingContext) {
+    public CcInfo.Builder setCcLinkingContext(StarlarkInfo ccLinkingContext) {
       Preconditions.checkState(this.ccLinkingContext == null);
       this.ccLinkingContext = ccLinkingContext;
       return this;
@@ -187,7 +199,7 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
         throws EvalException {
       CcCompilationContext ccCompilationContext =
           nullIfNone(starlarkCcCompilationContext, CcCompilationContext.class);
-      CcLinkingContext ccLinkingContext = nullIfNone(starlarkCcLinkingInfo, CcLinkingContext.class);
+      StarlarkInfo ccLinkingContext = nullIfNone(starlarkCcLinkingInfo, StarlarkInfo.class);
       CcDebugInfoContext ccDebugInfoContext =
           nullIfNone(starlarkCcDebugInfo, CcDebugInfoContext.class);
       StarlarkInfo ccNativeLibraryInfo =

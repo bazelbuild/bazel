@@ -51,7 +51,7 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
       name = "linking_context",
       doc = "Returns the <code>LinkingContext</code>",
       structField = true)
-  CcLinkingContextApi<?> getCcLinkingContext();
+  StarlarkInfo /* CcLinkingContextApi */ getCcLinkingContextForStarlark();
 
   @StarlarkMethod(
       name = "debug_context",
@@ -99,7 +99,7 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
               named = true,
               defaultValue = "None",
               allowedTypes = {
-                @ParamType(type = CcLinkingContextApi.class),
+                @ParamType(type = StarlarkInfo.class), /* CcLinkingContextApi */
                 @ParamType(type = NoneType.class)
               }),
           @Param(

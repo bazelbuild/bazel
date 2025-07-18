@@ -14,29 +14,54 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
-import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.syntax.Location;
 
-/** Structure of CcLinkingContext. */
-public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
-  public static final CcLinkingContext EMPTY =
-      builder().setExtraLinkTimeLibraries(ExtraLinkTimeLibraries.EMPTY).build();
+/** Helper class for accessing information from the CcLinkingContext provider. */
+public class CcLinkingContext implements CcLinkingContextApi {
+  private static final StarlarkProvider.Key KEY =
+      new StarlarkProvider.Key(
+          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_info.bzl")),
+          "CcLinkingContextInfo");
+  private static final StarlarkProvider PROVIDER =
+      StarlarkProvider.builder(Location.BUILTIN).buildExported(KEY);
+  public static final StarlarkInfo EMPTY =
+      StarlarkInfo.create(
+          PROVIDER,
+          ImmutableMap.of(
+              "linker_inputs",
+              Depset.of(StarlarkInfo.class, NestedSetBuilder.emptySet(Order.LINK_ORDER)),
+              "_extra_link_time_libraries",
+              // None is not completely accurate. It used when calling CcInfo(), without args.
+              // The difference will be gone when CcInfo is moved to Starlark.
+              Starlark.NONE),
+          Location.BUILTIN);
+
+  private final StarlarkInfo ccLinkingContext;
+
+  private CcLinkingContext(StarlarkInfo ccLinkingContext) {
+    this.ccLinkingContext = ccLinkingContext;
+  }
+
+  public static CcLinkingContext of(StarlarkInfo ccLinkingContext) {
+    return new CcLinkingContext(ccLinkingContext);
+  }
 
   /**
    * Wraps any input to the linker, be it libraries, linker scripts, linkstamps or linking options.
@@ -99,44 +124,6 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
   }
 
-  private final NestedSet<StarlarkInfo> linkerInputs;
-  @Nullable private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
-
-  @Override
-  public void debugPrint(Printer printer, StarlarkThread thread) {
-    printer.append("<CcLinkingContext([");
-    for (StarlarkInfo linkerInput : linkerInputs.toList()) {
-      linkerInput.debugPrint(printer, thread);
-      printer.append(", ");
-    }
-    printer.append("])>");
-  }
-
-  public CcLinkingContext(
-      NestedSet<StarlarkInfo> linkerInputs,
-      @Nullable ExtraLinkTimeLibraries extraLinkTimeLibraries) {
-    this.linkerInputs = linkerInputs;
-    this.extraLinkTimeLibraries = extraLinkTimeLibraries;
-  }
-
-  public static CcLinkingContext merge(List<CcLinkingContext> ccLinkingContexts) {
-    if (ccLinkingContexts.isEmpty()) {
-      return EMPTY;
-    }
-    Builder mergedCcLinkingContext = CcLinkingContext.builder();
-    ImmutableList.Builder<ExtraLinkTimeLibraries> extraLinkTimeLibrariesBuilder =
-        ImmutableList.builder();
-    for (CcLinkingContext ccLinkingContext : ccLinkingContexts) {
-      mergedCcLinkingContext.addTransitiveLinkerInputs(ccLinkingContext.getLinkerInputs());
-      if (ccLinkingContext.getExtraLinkTimeLibraries() != null) {
-        extraLinkTimeLibrariesBuilder.add(ccLinkingContext.getExtraLinkTimeLibraries());
-      }
-    }
-    mergedCcLinkingContext.setExtraLinkTimeLibraries(
-        ExtraLinkTimeLibraries.merge(extraLinkTimeLibrariesBuilder.build()));
-    return mergedCcLinkingContext.build();
-  }
-
   /**
    * @deprecated Only use in tests
    */
@@ -192,19 +179,23 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Deprecated
   public NestedSet<LibraryToLink> getLibraries() throws EvalException {
     NestedSetBuilder<LibraryToLink> libraries = NestedSetBuilder.linkOrder();
-    for (StarlarkInfo linkerInput : linkerInputs.toList()) {
+    for (StarlarkInfo linkerInput : getLinkerInputs().toList()) {
       libraries.addAll(LinkerInput.getLibraries(linkerInput));
     }
     return libraries.build();
   }
 
+  /**
+   * @deprecated Use only in tests
+   */
+  @Deprecated
   public NestedSet<StarlarkInfo> getLinkerInputs() {
-    return linkerInputs;
-  }
-
-  @Override
-  public Depset getStarlarkLinkerInputs() {
-    return Depset.of(StarlarkInfo.class, linkerInputs);
+    try {
+      return Depset.cast(
+          ccLinkingContext.getValue("linker_inputs"), StarlarkInfo.class, "linker_inputs");
+    } catch (EvalException e) {
+      throw new VerifyException(e);
+    }
   }
 
   /**
@@ -223,69 +214,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Deprecated
   public NestedSet<Artifact> getNonCodeInputs() throws EvalException {
     NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.linkOrder();
-    for (StarlarkInfo linkerInput : linkerInputs.toList()) {
+    for (StarlarkInfo linkerInput : getLinkerInputs().toList()) {
       nonCodeInputs.addAll(LinkerInput.getNonCodeInputs(linkerInput));
     }
     return nonCodeInputs.build();
-  }
-
-  public ExtraLinkTimeLibraries getExtraLinkTimeLibraries() {
-    return extraLinkTimeLibraries;
-  }
-
-  @Override
-  public ExtraLinkTimeLibraries getExtraLinkTimeLibrariesForStarlark(StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return getExtraLinkTimeLibraries();
-  }
-
-  public static Builder builder() {
-    // private to avoid class initialization deadlock between this class and its outer class
-    return new Builder();
-  }
-
-  /** Builder for {@link CcLinkingContext}. */
-  public static class Builder {
-    private final NestedSetBuilder<StarlarkInfo> linkerInputs = NestedSetBuilder.linkOrder();
-    private ExtraLinkTimeLibraries extraLinkTimeLibraries = null;
-
-    @CanIgnoreReturnValue
-    public Builder addTransitiveLinkerInputs(NestedSet<StarlarkInfo> linkerInputs) {
-      this.linkerInputs.addTransitive(linkerInputs);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setExtraLinkTimeLibraries(ExtraLinkTimeLibraries extraLinkTimeLibraries) {
-      Preconditions.checkState(this.extraLinkTimeLibraries == null);
-      this.extraLinkTimeLibraries = extraLinkTimeLibraries;
-      return this;
-    }
-
-    public CcLinkingContext build() {
-      return new CcLinkingContext(linkerInputs.build(), extraLinkTimeLibraries);
-    }
-  }
-
-  @Override
-  public boolean equals(Object otherObject) {
-    if (!(otherObject instanceof CcLinkingContext other)) {
-      return false;
-    }
-    if (this == other) {
-      return true;
-    }
-    return this.linkerInputs.shallowEquals(other.linkerInputs);
-  }
-
-  @Override
-  public int hashCode() {
-    return linkerInputs.shallowHashCode();
-  }
-
-  @Override
-  public String toString() {
-    return MoreObjects.toStringHelper(this).add("linkerInputs", linkerInputs).toString();
   }
 }

@@ -8297,34 +8297,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testExtendedCcLinkingContextApiBlocked() throws Exception {
-    scratch.file(
-        "foo/BUILD",
-        """
-        load(":custom_rule.bzl", "cc_linking_context_rule")
-
-        cc_linking_context_rule(name = "custom")
-        """);
-    scratch.file(
-        "foo/custom_rule.bzl",
-        """
-        def _impl(ctx):
-            cc_common.create_linking_context(linker_inputs = depset()).extra_link_time_libraries()
-            return []
-
-        cc_linking_context_rule = rule(
-            implementation = _impl,
-        )
-        """);
-    invalidatePackages();
-
-    AssertionError e =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
-
-    assertThat(e).hasMessageThat().contains("cannot use private API");
-  }
-
-  @Test
   public void testExtendedCcLinkingOutputsApiBlocked() throws Exception {
     scratch.file(
         "foo/BUILD",

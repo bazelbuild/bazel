@@ -18,10 +18,10 @@ load(
     _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = "CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES",
     _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST",
 )
-load(":common/cc/cc_info.bzl", "CcInfo", "CcNativeLibraryInfo")
+load(":common/cc/cc_info.bzl", "CcInfo", "CcNativeLibraryInfo", "create_linking_context", "merge_linking_contexts")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/compile/compile.bzl", "compile")
-load(":common/cc/link/create_extra_link_time_library.bzl", "create_extra_link_time_library")
+load(":common/cc/link/create_extra_link_time_library.bzl", "build_libraries", "create_extra_link_time_library")
 load(":common/cc/link/create_library_to_link.bzl", "create_library_to_link")
 load(":common/cc/link/create_linker_input.bzl", "create_linker_input")
 load(":common/cc/link/create_linking_context_from_compilation_outputs.bzl", "create_linking_context_from_compilation_outputs")
@@ -318,7 +318,7 @@ def _create_linking_context(
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     else:  # extra_link_time_library == _UNBOUND:
         extra_link_time_library = None
-    return cc_common_internal.create_linking_context(
+    return create_linking_context(
         linker_inputs = linker_inputs,
         extra_link_time_library = extra_link_time_library,
     )
@@ -344,7 +344,7 @@ def _merge_cc_infos(*, direct_cc_infos = [], cc_infos = []):
 
     return CcInfo(
         compilation_context = cc_common_internal.merge_compilation_contexts(compilation_contexts = direct_cc_compilation_contexts, non_exported_compilation_contexts = cc_compilation_contexts),
-        linking_context = cc_common_internal.merge_linking_contexts(linking_contexts = cc_linking_contexts),
+        linking_context = merge_linking_contexts(linking_contexts = cc_linking_contexts),
         debug_context = cc_common_internal.merge_debug_context(cc_debug_info_contexts),
         cc_native_library_info = CcNativeLibraryInfo(libraries_to_link = depset(order = "topological", transitive = transitive_native_cc_libraries)),
     )
@@ -557,9 +557,6 @@ def _create_linking_context_from_compilation_outputs(
 
 def _merge_compilation_contexts(*, compilation_contexts = []):
     return cc_common_internal.merge_compilation_contexts(compilation_contexts = compilation_contexts)
-
-def _merge_linking_contexts(*, linking_contexts = []):
-    return cc_common_internal.merge_linking_contexts(linking_contexts = linking_contexts)
 
 def _check_experimental_cc_shared_library():
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
@@ -855,7 +852,7 @@ cc_common = struct(
     create_cc_toolchain_config_info = _create_cc_toolchain_config_info,
     create_linking_context_from_compilation_outputs = _create_linking_context_from_compilation_outputs,
     merge_compilation_contexts = _merge_compilation_contexts,
-    merge_linking_contexts = _merge_linking_contexts,
+    merge_linking_contexts = merge_linking_contexts,
     check_experimental_cc_shared_library = _check_experimental_cc_shared_library,
     create_module_map = _create_module_map,
     create_debug_context = _create_debug_context,
@@ -875,4 +872,5 @@ cc_common = struct(
     create_compile_action = _create_compile_action,
     implementation_deps_allowed_by_allowlist = _implementation_deps_allowed_by_allowlist,
     CcSharedLibraryHintInfo = CcSharedLibraryHintInfo,
+    build_extra_link_time_libraries = build_libraries,
 )

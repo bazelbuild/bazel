@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -30,13 +29,18 @@ import net.starlark.java.eval.StarlarkValue;
     doc =
         "Immutable store of information needed for C++ linking that is aggregated across "
             + "dependencies.")
-public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValue {
+public interface CcLinkingContextApi extends StarlarkValue {
   @StarlarkMethod(
       name = "linker_inputs",
       doc = "Returns the depset of linker inputs.",
       structField = true)
-  Depset getStarlarkLinkerInputs();
+  public default Depset getStarlarkLinkerInputs() {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(name = "extra_link_time_libraries", documented = false, useStarlarkThread = true)
-  public Object getExtraLinkTimeLibrariesForStarlark(StarlarkThread thread) throws EvalException;
+  public default Object getExtraLinkTimeLibrariesForStarlark(StarlarkThread thread)
+      throws EvalException {
+    throw new UnsupportedOperationException();
+  }
 }

@@ -612,11 +612,11 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         linkmap = ctx.actions.declare_file(binary.basename + ".map", sibling = binary)
         additional_linker_outputs.append(linkmap)
 
-    extra_link_time_libraries = deps_cc_linking_context.extra_link_time_libraries()
+    extra_link_time_libraries = deps_cc_linking_context._extra_link_time_libraries.libraries
     linker_inputs_extra = depset()
     runtime_libraries_extra = depset()
     if extra_link_time_libraries != None:
-        linker_inputs_extra, runtime_libraries_extra = extra_link_time_libraries.build_libraries(ctx = ctx, static_mode = linking_mode != linker_mode.LINKING_DYNAMIC, for_dynamic_library = _is_link_shared(ctx))
+        linker_inputs_extra, runtime_libraries_extra = cc_common.build_extra_link_time_libraries(extra_libraries = extra_link_time_libraries, ctx = ctx, static_mode = linking_mode != linker_mode.LINKING_DYNAMIC, for_dynamic_library = _is_link_shared(ctx))
 
     cc_linking_outputs_binary, cc_launcher_info, deps_cc_linking_context = _create_transitive_linking_actions(
         ctx,

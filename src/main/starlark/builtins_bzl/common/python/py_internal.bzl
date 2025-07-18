@@ -90,7 +90,7 @@ def _expand_location_and_make_variables(*args, **kwargs):
     return _py_builtins.expand_location_and_make_variables(*args, **kwargs)
 
 def _extra_libraries_build_libraries(extra_libraries, *args, **kwargs):
-    return extra_libraries.build_libraries(*args, **kwargs)
+    return cc_common.build_extra_link_time_libraries(extra_libraries.libraries, *args, **kwargs)
 
 def _get_current_os_name(*args, **kwargs):
     return _py_builtins.get_current_os_name(*args, **kwargs)
@@ -126,7 +126,7 @@ def _link(*args, **kwargs):
     return cc_common.link(*args, **kwargs)
 
 def _linking_context_extra_link_time_libraries(linking_context, *args, **kwargs):
-    return linking_context.extra_link_time_libraries(*args, **kwargs)
+    return linking_context._extra_link_time_libraries
 
 def _linking_context_linkstamps(linking_context, *args, **kwargs):
     return linking_context.linkstamps(*args, **kwargs)

@@ -113,7 +113,6 @@ public abstract class CcModule
         FeatureConfigurationForStarlark,
         CcCompilationContext,
         LtoBackendArtifacts,
-        CcLinkingContext,
         CcToolchainVariables,
         ConstraintValueInfo,
         StarlarkRuleContext,
@@ -554,27 +553,6 @@ public abstract class CcModule
         .build();
   }
 
-  @StarlarkMethod(
-      name = "merge_linking_contexts",
-      documented = false,
-      useStarlarkThread = true,
-      parameters = {
-        @Param(
-            name = "linking_contexts",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "[]"),
-      })
-  public CcLinkingContext mergeLinkingContexts(
-      Sequence<?> linkingContexts, // <CcLinkingContext> expected
-      StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return CcLinkingContext.merge(
-        Sequence.cast(linkingContexts, CcLinkingContext.class, "linking_contexts"));
-  }
-
   private static NestedSet<Artifact> toNestedSetOfArtifacts(Object obj, String fieldName)
       throws EvalException {
     if (obj == Starlark.UNBOUND) {
@@ -697,22 +675,7 @@ public abstract class CcModule
     return thread.getSemantics().getBool(BuildLanguageOptions.ADD_GO_EXEC_GROUPS_TO_BINARY_RULES);
   }
 
-  @Override
-  public CcLinkingContext createCcLinkingInfo(
-      Depset linkerInputs, Object extraLinkTimeLibraryObject, StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    CcLinkingContext.Builder ccLinkingContextBuilder = CcLinkingContext.builder();
-    ccLinkingContextBuilder.addTransitiveLinkerInputs(
-        Depset.noneableCast(linkerInputs, StarlarkInfo.class, "linker_inputs"));
-    StarlarkInfo extraLinkTimeLibrary =
-        convertFromNoneable(extraLinkTimeLibraryObject, /* defaultValue= */ null);
-    if (extraLinkTimeLibrary != null) {
-      ccLinkingContextBuilder.setExtraLinkTimeLibraries(
-          ExtraLinkTimeLibraries.of(extraLinkTimeLibrary));
-    }
-    return ccLinkingContextBuilder.build();
-  }
+
 
   // TODO(b/65151735): Remove when cc_flags is entirely from features.
   @Override

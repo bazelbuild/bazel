@@ -41,7 +41,7 @@ public record JavaCcInfoProvider(CcInfo ccInfo) implements JavaInfoInternalProvi
   public static JavaCcInfoProvider create(CcInfo ccInfo) {
     return new JavaCcInfoProvider(
         CcInfo.builder()
-            .setCcLinkingContext(ccInfo.getCcLinkingContext())
+            .setCcLinkingContext(ccInfo.getCcLinkingContextStruct())
             .setCcNativeLibraryInfo(ccInfo.getCcNativeLibraryInfo())
             .setCcDebugInfoContext(ccInfo.getCcDebugInfoContext())
             .build());

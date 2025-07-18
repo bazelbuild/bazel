@@ -51,7 +51,6 @@ public interface CcModuleApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT, CppModuleMapT>,
         LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
-        LinkingContextT extends CcLinkingContextApi<?>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
@@ -645,7 +644,7 @@ public interface CcModuleApi<
       String outputType,
       boolean linkDepsStatically,
       Object compilationOutputs,
-      Sequence<?> linkingContexts, // <LinkingContextT> expected
+      Sequence<?> linkingContexts, // <CcLinkingContextApi> expected
       Sequence<?> userLinkFlags, // <String> expected
       StarlarkInt stamp,
       Object additionalInputs, // <FileT> expected
@@ -1479,7 +1478,6 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "create_linking_context",
       doc = "Creates a <code>LinkingContext</code>.",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "linker_inputs",
@@ -1498,9 +1496,10 @@ public interface CcModuleApi<
               @ParamType(type = NoneType.class)
             }),
       })
-  LinkingContextT createCcLinkingInfo(
-      Depset linkerInputs, Object extraLinkTimeLibraryObject, StarlarkThread thread)
-      throws EvalException, InterruptedException;
+  default CcLinkingContextApi createCcLinkingInfo(
+      Depset linkerInputs, Object extraLinkTimeLibraryObject) throws EvalException {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "create_compilation_context",
@@ -2078,7 +2077,7 @@ public interface CcModuleApi<
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       CompilationOutputsT compilationOutputs,
-      Sequence<?> linkingContexts, // <LinkingContextT> expected
+      Sequence<?> linkingContexts, // <CcLinkingContextApi> expected
       Sequence<?> userLinkFlags, // <String> expected
       boolean alwayslink,
       Sequence<?> additionalInputs, // <FileT> expected
