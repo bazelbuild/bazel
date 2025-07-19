@@ -32,7 +32,6 @@ import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeSet;
@@ -278,7 +277,7 @@ final class Selection {
                           depSpec.maxCompatibilityLevel() < 0
                               ? minCompatibilityLevel
                               : depSpec.maxCompatibilityLevel();
-                      var allowedSelectionGroups =
+                      var resolvedGroup =
                           selectionGroupsByName.get(depSpec.name()).stream()
                               .filter(
                                   group ->
@@ -287,13 +286,10 @@ final class Selection {
                                           && group
                                                   .targetAllowedVersion()
                                                   .compareTo(depSpec.version())
-                                              > 0);
-                      Optional<SelectionGroup> resolvedGroup;
-                      if (overrides.get(depSpec.name()) instanceof MultipleVersionOverride) {
-                        resolvedGroup = allowedSelectionGroups.findFirst();
-                      } else {
-                        resolvedGroup = allowedSelectionGroups.reduce((a, b) -> b);
-                      }
+                                              >= 0)
+                              .reduce(overrides.get(depSpec.name()) instanceof MultipleVersionOverride ?
+                                  (a, b) -> a : (a, b) -> b
+                              );
                       return depSpec.withVersion(
                           resolvedGroup.map(selectedVersions::get).orElse(depSpec.version()));
                     })));
