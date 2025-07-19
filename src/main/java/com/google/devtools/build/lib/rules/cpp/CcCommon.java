@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
@@ -29,11 +30,8 @@ import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -59,9 +57,6 @@ public final class CcCommon implements StarlarkValue {
 
   /** Name of the build variable for the sysroot path variable name. */
   public static final String SYSROOT_VARIABLE_NAME = "sysroot";
-
-  /** Name of the build variable for the path to the input file being processed. */
-  public static final String INPUT_FILE_VARIABLE_NAME = "input_file";
 
   /** Name of the build variable for the minimum_os_version being targeted. */
   public static final String MINIMUM_OS_VERSION_VARIABLE_NAME = "minimum_os_version";
@@ -361,34 +356,16 @@ public final class CcCommon implements StarlarkValue {
    * @param toolchain C++ toolchain provider.
    * @return the feature configuration for the given {@code ruleContext}.
    */
+  @VisibleForTesting
   public static FeatureConfiguration configureFeaturesOrReportRuleError(
       RuleContext ruleContext,
       Language language,
       CcToolchainProvider toolchain,
       CppSemantics semantics) {
-    return configureFeaturesOrReportRuleError(
-        ruleContext,
-        /* requestedFeatures= */ ruleContext.getFeatures(),
-        /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
-        language,
-        toolchain,
-        semantics);
-  }
-
-  /**
-   * Creates the feature configuration for a given rule.
-   *
-   * @return the feature configuration for the given {@code ruleContext}.
-   */
-  public static FeatureConfiguration configureFeaturesOrReportRuleError(
-      RuleContext ruleContext,
-      ImmutableSet<String> requestedFeatures,
-      ImmutableSet<String> unsupportedFeatures,
-      Language language,
-      CcToolchainProvider toolchain,
-      CppSemantics cppSemantics) {
+    ImmutableSet<String> requestedFeatures = ruleContext.getFeatures();
+    ImmutableSet<String> unsupportedFeatures = ruleContext.getDisabledFeatures();
     try {
-      cppSemantics.validateLayeringCheckFeatures(
+      semantics.validateLayeringCheckFeatures(
           ruleContext, /* aspectDescriptor= */ null, toolchain, ImmutableSet.of());
       return configureFeaturesOrThrowEvalException(
           requestedFeatures,
@@ -630,31 +607,16 @@ public final class CcCommon implements StarlarkValue {
     if (featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
       try {
         CcToolchainVariables buildVariables = toolchainProvider.getBuildVars();
-      return CppHelper.getCommandLine(
-          ruleContext, featureConfiguration, buildVariables, CppActionNames.CC_FLAGS_MAKE_VARIABLE);
+        return CppHelper.getCommandLine(
+            ruleContext,
+            featureConfiguration,
+            buildVariables,
+            CppActionNames.CC_FLAGS_MAKE_VARIABLE);
 
       } catch (EvalException e) {
         throw new RuleErrorException(e.getMessage());
       }
     }
     return ImmutableList.of();
-  }
-
-  public static boolean isOldStarlarkApiWhiteListed(
-      StarlarkRuleContext starlarkRuleContext, List<String> whitelistedPackages) {
-    RuleContext context = starlarkRuleContext.getRuleContext();
-    Rule rule = context.getRule();
-
-    RuleClass ruleClass = rule.getRuleClassObject();
-    Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
-    if (label.getRepository().getName().equals("_builtins")) {
-      // always permit builtins
-      return true;
-    }
-    if (label != null) {
-      return whitelistedPackages.stream()
-          .anyMatch(path -> label.getPackageFragment().toString().startsWith(path));
-    }
-    return false;
   }
 }
