@@ -15,10 +15,10 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
-import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -34,7 +34,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
 
 /**
@@ -242,9 +242,7 @@ final class Selection {
             .walk(/* validate= */ true);
 
     // Return the result containing both the pruned and un-pruned dep graphs
-    return new Result(
-        prunedDepGraph,
-        unifyDepSpecs(unprunedNonUnifiedDepGraph, overrides, selectionGroups, selectedVersions));
+    return new Result(prunedDepGraph, unprunedNonUnifiedDepGraph);
   }
 
   private static ImmutableMap<ModuleKey, InterimModule> unifyDepSpecs(
@@ -260,39 +258,33 @@ final class Selection {
                     entry -> entry.getKey().name(),
                     mapping(
                         Map.Entry::getValue,
-                        toCollection(
-                            () ->
-                                new TreeSet<>(
-                                    comparing(SelectionGroup::compatibilityLevel)
-                                        .thenComparing(SelectionGroup::targetAllowedVersion))))));
+                        toImmutableSortedSet(
+                            comparing(SelectionGroup::compatibilityLevel)
+                                .thenComparing(SelectionGroup::targetAllowedVersion)))));
+    UnaryOperator<DepSpec> unifyDepSpec =
+        depSpec -> {
+          int minCompatibilityLevel =
+              selectionGroups.get(depSpec.toModuleKey()).compatibilityLevel();
+          int maxCompatibilityLevel =
+              depSpec.maxCompatibilityLevel() < 0
+                  ? minCompatibilityLevel
+                  : depSpec.maxCompatibilityLevel();
+          var resolvedGroup =
+              selectionGroupsByName.get(depSpec.name()).stream()
+                  .filter(
+                      group ->
+                          group.compatibilityLevel() >= minCompatibilityLevel
+                              && group.compatibilityLevel() <= maxCompatibilityLevel
+                              && group.targetAllowedVersion().compareTo(depSpec.version()) >= 0)
+                  .reduce(
+                      overrides.get(depSpec.name()) instanceof MultipleVersionOverride
+                          ? (a, b) -> a
+                          : (a, b) -> b);
+          return depSpec.withVersion(
+              resolvedGroup.map(selectedVersions::get).orElse(depSpec.version()));
+        };
     return ImmutableMap.copyOf(
-        Maps.transformValues(
-            graph,
-            module ->
-                module.withDepsTransformed(
-                    depSpec -> {
-                      int minCompatibilityLevel =
-                          selectionGroups.get(depSpec.toModuleKey()).compatibilityLevel();
-                      int maxCompatibilityLevel =
-                          depSpec.maxCompatibilityLevel() < 0
-                              ? minCompatibilityLevel
-                              : depSpec.maxCompatibilityLevel();
-                      var resolvedGroup =
-                          selectionGroupsByName.get(depSpec.name()).stream()
-                              .filter(
-                                  group ->
-                                      group.compatibilityLevel() >= minCompatibilityLevel
-                                          && group.compatibilityLevel() <= maxCompatibilityLevel
-                                          && group
-                                                  .targetAllowedVersion()
-                                                  .compareTo(depSpec.version())
-                                              >= 0)
-                              .reduce(overrides.get(depSpec.name()) instanceof MultipleVersionOverride ?
-                                  (a, b) -> a : (a, b) -> b
-                              );
-                      return depSpec.withVersion(
-                          resolvedGroup.map(selectedVersions::get).orElse(depSpec.version()));
-                    })));
+        Maps.transformValues(graph, module -> module.withDepsTransformed(unifyDepSpec)));
   }
 
   /**

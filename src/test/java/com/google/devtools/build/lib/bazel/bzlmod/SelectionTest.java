@@ -446,7 +446,7 @@ public class SelectionTest {
                 .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                 .buildEntry(),
             InterimModuleBuilder.create("bbb", "1.0")
-                .addDep("ddd_from_bbb", createDepSpec("ddd", "2.0", 2))
+                .addDep("ddd_from_bbb", createDepSpec("ddd", "1.0", 2))
                 .addOriginalDep("ddd_from_bbb", createDepSpec("ddd", "1.0", 2))
                 .buildEntry(),
             InterimModuleBuilder.create("ccc", "2.0")
