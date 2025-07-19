@@ -92,7 +92,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testSymlink() throws Exception {
-    Executor executor = new TestExecutorBuilder(fileSystem, directories, null).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories).build();
     ActionResult actionResult =
         action.execute(
             new ActionExecutionContext(
@@ -106,10 +106,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
                 /* fileOutErr= */ null,
                 new StoredEventHandler(),
                 /* clientEnv= */ ImmutableMap.of(),
-                /* topLevelFilesets= */ ImmutableMap.of(),
-                /* artifactExpander= */ null,
                 /* actionFileSystem= */ null,
-                /* skyframeDepsResult= */ null,
                 DiscoveredModulesPruner.DEFAULT,
                 SyscallCache.NO_CACHE,
                 ThreadStateReceiver.NULL_INSTANCE));

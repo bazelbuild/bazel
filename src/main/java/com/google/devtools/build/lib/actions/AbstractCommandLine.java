@@ -30,21 +30,22 @@ public abstract class AbstractCommandLine extends CommandLine {
   }
 
   @Override
-  public final ArgChunk expand(ArtifactExpander artifactExpander, PathMapper pathMapper)
+  public final ArgChunk expand(InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
-    return new SimpleArgChunk(arguments(artifactExpander, pathMapper));
+    return new SimpleArgChunk(arguments(inputMetadataProvider, pathMapper));
   }
 
   /**
-   * Returns the expanded command line with enclosed artifacts expanded by {@code artifactExpander}
-   * at execution time.
+   * Returns the expanded command line with enclosed artifacts expanded by an {@code
+   * InputMetadataProvider} at execution time.
    *
    * <p>By default, this method just delegates to {@link #arguments()}, without performing any
    * artifact expansion. Subclasses should override this method if they contain tree artifacts and
    * need to expand them for proper argument evaluation.
    */
   @Override
-  public Iterable<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
+  public Iterable<String> arguments(
+      InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
     return arguments();
   }
@@ -52,11 +53,13 @@ public abstract class AbstractCommandLine extends CommandLine {
   @Override
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
-      CoreOptions.OutputPathsMode outputPathsMode,
+      @Nullable InputMetadataProvider inputMetadataProvider,
+      CoreOptions.OutputPathsMode effectiveOutputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
-    for (String s : arguments()) {
+    for (String s :
+        arguments(
+            /* inputMetadataProvider= */ null, PathMapper.forActionKey(effectiveOutputPathsMode))) {
       fingerprint.addString(s);
     }
   }

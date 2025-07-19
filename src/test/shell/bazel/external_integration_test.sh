@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -26,8 +26,10 @@ source "${CURRENT_DIR}/remote_helpers.sh" \
 
 set_up() {
   bazel clean --expunge >& $TEST_log
+  add_rules_java "MODULE.bazel"
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = "ball-pit",
     srcs = ["BallPit.java"],
@@ -133,8 +135,10 @@ http_archive(
     sha256 = '$sha256'
 )
 EOF
+    add_rules_shell "MODULE.bazel"
 
     cat > zoo/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
@@ -144,7 +148,7 @@ EOF
 
     cat > zoo/female.sh <<EOF
 #!/bin/sh
-../+_repo_rules+endangered/fox/male
+../+http_archive+endangered/fox/male
 EOF
     chmod +x zoo/female.sh
 fi
@@ -154,7 +158,7 @@ fi
   kill_nc
   expect_log $what_does_the_fox_say
 
-  base_external_path=bazel-out/../external/+_repo_rules+endangered/fox
+  base_external_path=bazel-out/../external/+http_archive+endangered/fox
   assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
   assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
   case "${PLATFORM}" in
@@ -193,6 +197,7 @@ http_archive(
     type = 'zip',
 )
 EOF
+  add_rules_shell "MODULE.bazel"
   bazel run //zoo:breeding-program >& $TEST_log \
     || echo "Expected build/run to succeed"
   kill_nc
@@ -221,7 +226,7 @@ http_archive(
 EOF
   bazel build @test_zstd_repo//...
 
-  base_external_path=bazel-out/../external/+_repo_rules+test_zstd_repo
+  base_external_path=bazel-out/../external/+http_archive+test_zstd_repo
   assert_contains "test content" "${base_external_path}/test_dir/test_file"
 }
 
@@ -237,7 +242,7 @@ http_archive(
 EOF
   bazel build @test_zstd_repo//...
 
-  base_external_path=bazel-out/../external/+_repo_rules+test_zstd_repo
+  base_external_path=bazel-out/../external/+http_archive+test_zstd_repo
   assert_contains "test content" "${base_external_path}/test_dir/test_file"
 }
 
@@ -247,8 +252,10 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 http_archive(name = 'endangered', url = 'http://bad.example/repo.zip',
     sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826')
 EOF
-
+  add_rules_shell "MODULE.bazel"
   cat > zoo/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
@@ -287,8 +294,11 @@ http_archive(
     sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826',
 )
 EOF
+  add_rules_shell "MODULE.bazel"
 
   cat > zoo/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
@@ -326,7 +336,8 @@ function test_sha256_caching() {
 
 function test_cached_across_server_restart() {
   http_archive_helper zip_up
-  local marker_file=$(bazel info output_base)/external/\@+_repo_rules+endangered.marker
+  local repo_path="$(bazel info output_base)/external/+http_archive+endangered"
+  local marker_file="$(realpath $repo_path).recorded_inputs"
   echo "<MARKER>"
   cat "${marker_file}"
   echo "</MARKER>"
@@ -349,9 +360,11 @@ http_jar = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_j
 http_jar(name = 'endangered', url = 'http://127.0.0.1:$nc_port/lib.jar',
          sha256='$sha256', downloaded_file_name="foo.jar")
 EOF
+  add_rules_java "MODULE.bazel"
 
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = "ball-pit",
     srcs = ["BallPit.java"],
@@ -374,7 +387,7 @@ EOF
   kill_nc
   expect_log "Tra-la!"
   output_base=$(bazel info output_base)
-  jar_dir=$output_base/external/+_repo_rules+endangered/jar
+  jar_dir=$output_base/external/+http_jar+endangered/jar
   [[ -f ${jar_dir}/foo.jar ]] || fail "${jar_dir}/foo.jar not found"
 }
 
@@ -608,9 +621,11 @@ http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_
 http_file(name = 'toto', urls = ['http://127.0.0.1:$nc_port/toto'],
     sha256 = '$sha256', executable = True)
 EOF
-
+  add_rules_shell "MODULE.bazel"
   mkdir -p test
   cat > test/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "test",
     srcs = ["test.sh"],
@@ -666,9 +681,11 @@ http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_
 http_file(name = 'toto', urls = ['http://127.0.0.1:$redirect_port/toto'],
     sha256 = '$sha256')
 EOF
-
+  add_rules_shell "MODULE.bazel"
   mkdir -p test
   cat > test/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "test",
     srcs = ["test.sh"],
@@ -732,14 +749,6 @@ function test_new_remote_repo_with_build_file_content() {
   do_new_remote_repo_test "build_file_content"
 }
 
-function test_new_remote_repo_with_workspace_file() {
-  do_new_remote_repo_test "workspace_file"
-}
-
-function test_new_remote_repo_with_workspace_file_content() {
-  do_new_remote_repo_test "workspace_file_content"
-}
-
 function do_new_remote_repo_test() {
   # Create a zipped-up repository HTTP response.
   local repo2=$TEST_TMPDIR/repo2
@@ -776,16 +785,6 @@ filegroup(
     build_file_attr="build_file_content=\"\"\"${build_file_content}\"\"\""
   fi
 
-  if [ "$1" = "workspace_file" ]; then
-    touch BUILD
-    cat > fox.WORKSPACE <<EOF
-workspace(name="endangered-fox")
-EOF
-    workspace_file_attr="workspace_file = '@//:fox.WORKSPACE'"
-  elif [ "$1" = "workspace_file_content" ]; then
-    workspace_file_attr="workspace_file_content = 'workspace(name=\"endangered-fox\")'"
-  fi
-
   cat > $(setup_module_dot_bazel) <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
@@ -796,9 +795,10 @@ http_archive(
     ${workspace_file_attr}
 )
 EOF
-
+  add_rules_shell "MODULE.bazel"
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "breeding-program",
     srcs = ["female.sh"],
@@ -808,7 +808,7 @@ EOF
 
   cat > zoo/female.sh <<EOF
 #!/bin/sh
-cat ../+_repo_rules+endangered/fox/male
+cat ../+http_archive+endangered/fox/male
 EOF
   chmod +x zoo/female.sh
 
@@ -816,55 +816,6 @@ EOF
     || echo "Expected build/run to succeed"
   kill_nc
   expect_log $what_does_the_fox_say
-}
-
-function test_fetch() {
-  serve_jar
-
-  cat > $(setup_module_dot_bazel) <<EOF
-ext = use_extension("//:ext.bzl", "ext")
-use_repo(ext, "endangered")
-EOF
-
-  touch BUILD
-  cat > ext.bzl <<EOF
-load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_maven_import_external")
-
-def repo():
-  jvm_maven_import_external(
-      name = 'endangered',
-      artifact = "com.example.carnivore:carnivore:1.23",
-      server_urls = ['http://127.0.0.1:$nc_port/'],
-      artifact_sha256 = '$sha256',
-  )
-
-ext = module_extension(implementation = lambda ctx: repo())
-EOF
-
-  output_base=$(bazel info output_base)
-  external_dir=$output_base/external
-  needle=endangered
-  [[ -d $external_dir/$needle ]] \
-      && fail "$needle already exists in $external_dir" || true
-  bazel fetch //zoo:ball-pit >& $TEST_log || fail "Fetch failed"
-  [[ $(ls $external_dir | grep $needle) ]] || fail "$needle not added to $external_dir"
-
-  bazel query --output=build --nohost_deps --noimplicit_deps 'deps(//zoo:ball-pit)' >& $TEST_log \
-    || fail "bazel query failed"
-  expect_log "maven_coordinates=com.example.carnivore:carnivore:1.23"
-
-  # Rerun fetch while nc isn't serving anything to make sure the fetched result
-  # is cached.
-  bazel fetch //zoo:ball-pit >& $TEST_log || fail "Incremental fetch failed"
-
-  # Make sure fetch isn't needed after a bazel restart.
-  bazel shutdown
-  bazel build //zoo:ball-pit >& $TEST_log || fail "Fetch shouldn't be required"
-
-  # But it is required after a clean.
-  bazel clean --expunge || fail "Clean failed"
-  bazel build --fetch=false //zoo:ball-pit >& $TEST_log && fail "Expected build to fail"
-  expect_log "fetching repositories is disabled"
 }
 
 function test_prefix_stripping_tar_gz() {
@@ -895,7 +846,7 @@ EOF
   touch BUILD
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_prefix_stripping_zip() {
@@ -926,7 +877,7 @@ EOF
   touch BUILD
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_prefix_stripping_existing_repo() {
@@ -956,7 +907,7 @@ http_archive(
 EOF
 
   bazel build @x//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_adding_prefix_zip() {
@@ -987,7 +938,7 @@ EOF
   touch BUILD
 
   bazel build @ws//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+ws/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+ws/catter.out
 }
 
 function test_adding_and_stripping_prefix_zip() {
@@ -1019,7 +970,7 @@ EOF
   touch BUILD
 
   bazel build @ws//:catter &> $TEST_log || fail "Build failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+ws/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+ws/catter.out
 }
 
 function test_moving_build_file() {
@@ -1048,13 +999,13 @@ genrule(
 EOF
 
   bazel build @x//:catter &> $TEST_log || fail "Build 1 failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
   mv x.BUILD x.BUILD.new || fail "Moving x.BUILD failed"
   sed 's/x.BUILD/x.BUILD.new/g' MODULE.bazel > MODULE.bazel.tmp || \
     fail "Editing MODULE.bazel failed"
   mv MODULE.bazel.tmp MODULE.bazel
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_changing_build_file() {
@@ -1093,12 +1044,12 @@ genrule(
 EOF
 
   bazel build @x//:catter || fail "Build 1 failed"
-  assert_contains "abc" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "abc" bazel-genfiles/external/+http_archive+x/catter.out
   sed 's/x.BUILD/x.BUILD.new/g' MODULE.bazel > MODULE.bazel.tmp || \
     fail "Editing MODULE.bazel failed"
   mv MODULE.bazel.tmp MODULE.bazel
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
-  assert_contains "def" bazel-genfiles/external/+_repo_rules+x/catter.out
+  assert_contains "def" bazel-genfiles/external/+http_archive+x/catter.out
 }
 
 function test_flip_flopping() {
@@ -1134,12 +1085,12 @@ EOF
   for i in $(seq 1 3); do
     cp local_ws MODULE.bazel
     bazel build @repo//:all &> $TEST_log || fail "Build failed"
-    test -L "$external_dir/+_repo_rules+repo" || fail "creating local symlink failed"
-    test -a "$external_dir/+_repo_rules+repo/bar" || fail "bar not found"
+    test -L "$external_dir/+local_repository+repo" || fail "creating local symlink failed"
+    test -a "$external_dir/+local_repository+repo/bar" || fail "bar not found"
     cp remote_ws MODULE.bazel
     bazel build @repo//:all &> $TEST_log || fail "Build failed"
-    test -d "$external_dir/+_repo_rules+repo" || fail "creating remote repo failed"
-    test -a "$external_dir/+_repo_rules+repo/foo" || fail "foo not found"
+    test -d "$external_dir/+http_archive+repo" || fail "creating remote repo failed"
+    test -a "$external_dir/+http_archive+repo/foo" || fail "foo not found"
   done
 
   shutdown_server
@@ -2408,7 +2359,7 @@ EOF
 
   bazel build //:it > "${TEST_log}" 2>&1 && fail "Expected failure" || :
 
-  expect_log '@@+_repo_rules+ext.*badargument'
+  expect_log '@@+http_archive+ext.*badargument'
 }
 
 function test_prefix_suggestions() {
@@ -2561,13 +2512,12 @@ function test_overwrite_existing_workspace_build() {
   do
     rm -rf ext ext.tar
     mkdir ext
-    sh -c "${bad_file}" -- ext/WORKSPACE
     sh -c "${bad_file}" -- ext/BUILD.bazel
     echo hello world > ext/data
     tar cvf ext.tar ext
 
     for BUILD_FILE in \
-      'build_file_content = '\''exports_files(["data", "WORKSPACE"])'\' \
+      'build_file_content = '\''exports_files(["data"])'\' \
       'build_file = "@//:external_build_file"'
     do
       rm -rf main
@@ -2590,7 +2540,7 @@ EOF
       echo
 
       cat > external_build_file <<'EOF'
-exports_files(["data", "WORKSPACE"])
+exports_files(["data"])
 EOF
 
       cat > BUILD <<'EOF'
@@ -2600,21 +2550,11 @@ genrule(
   srcs = ["@ext//:data"],
   outs = ["it.txt"],
 )
-
-genrule(
-  name = "ws",
-  cmd = "cp $< $@",
-  srcs = ["@ext//:WORKSPACE"],
-  outs = ["ws.txt"],
-)
 EOF
 
       bazel build //:it || fail "Expected success"
       grep 'world' `bazel info bazel-genfiles`/it.txt \
           || fail "Wrong content of data file"
-      bazel build //:ws || fail "Expected success"
-      grep 'BAD' `bazel info bazel-genfiles`/ws.txt \
-          && fail "WORKSPACE file not overwritten" || :
 
       cd ..
     done
@@ -2633,7 +2573,10 @@ local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl"
 local_repository(name = 'repo1', path='$test_repo1')
 local_repository(name = 'repo2', path='$test_repo2')
 EOF
+  add_rules_java "MODULE.bazel"
   cat > BUILD <<'EOF'
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "a_bin",
     runtime_deps = ["@repo1//a:a"],
@@ -2835,7 +2778,7 @@ EOF
   bazel build --experimental_merged_skyframe_analysis_execution //:foo \
     || fail 'Expected build to succeed with Skymeld'
 
-  test -h "$execroot/external/+_repo_rules+ext" || fail "Expected symlink to external repo."
+  test -h "$execroot/external/+http_archive+ext" || fail "Expected symlink to external repo."
 }
 
 function test_default_canonical_id_enabled() {
@@ -2947,6 +2890,45 @@ EOF
   # Ditto, but with --repo_env overriding environment.
   LAZYEVAL_KEY=xal2 bazel query --repo_env=LAZYEVAL_KEY=xal3 @foo//:BUILD 2>$TEST_log || fail 'Expected no-op build to succeed'
   expect_log "LAZYEVAL_KEY=xal3"
+}
+
+function test_environ_build_query_build() {
+  # Set up workspace with a repository rule that depends on env vars.
+  # Assert that the repo rule doesn't rerun when performing a sequence of
+  # build/query/build.
+  cat > repo.bzl <<EOF
+def _impl(rctx):
+  rctx.symlink(rctx.attr.build_file, 'BUILD')
+  print('UNTRACKED=%s' % rctx.os.environ.get('UNTRACKED'))
+  print('TRACKED=%s' % rctx.getenv('TRACKED'))
+
+dummy_repository = repository_rule(
+  implementation = _impl,
+  attrs = {'build_file': attr.label()},
+)
+EOF
+  cat > BUILD.dummy <<EOF
+filegroup(name='dummy', srcs=['BUILD'])
+EOF
+  touch BUILD
+  cat > $(setup_module_dot_bazel) <<EOF
+dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
+dummy_repository(name = 'foo', build_file = '@@//:BUILD.dummy')
+EOF
+  add_to_bazelrc "common --repo_env=TRACKED=tracked"
+  add_to_bazelrc "common --repo_env=UNTRACKED=untracked"
+
+  bazel build @foo//:BUILD 2>$TEST_log || fail 'Expected build to succeed'
+  expect_log "TRACKED=tracked"
+  expect_log "UNTRACKED=untracked"
+
+  bazel query @foo//:BUILD 2>$TEST_log || fail 'Expected query to succeed'
+  expect_not_log "TRACKED"
+  expect_not_log "UNTRACKED"
+
+  bazel build @foo//:BUILD 2>$TEST_log || fail 'Expected build to succeed'
+  expect_not_log "TRACKED"
+  expect_not_log "UNTRACKED"
 }
 
 function test_external_package_in_other_repo() {

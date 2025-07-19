@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.filegroup;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 
 import com.google.devtools.build.lib.actions.ActionConflictException;
@@ -28,7 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -40,9 +39,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * ConfiguredTarget for "filegroup".
- */
+/** ConfiguredTarget for "filegroup". */
 public class Filegroup implements RuleConfiguredTargetFactory {
 
   /** Error message for output groups that are explicitly forbidden from filegroup reference. */
@@ -53,7 +50,6 @@ public class Filegroup implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     String outputGroupName = ruleContext.attributes().get("output_group", Type.STRING);
-    BuildConfigurationValue configuration = checkNotNull(ruleContext.getConfiguration());
     if (outputGroupName.endsWith(INTERNAL_SUFFIX)) {
       ruleContext.throwWithAttributeError(
           "output_group", String.format(ILLEGAL_OUTPUT_GROUP_ERROR, outputGroupName));
@@ -84,18 +80,25 @@ public class Filegroup implements RuleConfiguredTargetFactory {
             new InstrumentationSpec(FileTypeSet.ANY_FILE).withDependencyAttributes("srcs", "data"),
             /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
 
+    // If you're visiting a filegroup as data, then we also visit its data as data.
+    var dataRunfilesBuilder =
+        new Runfiles.Builder(ruleContext.getWorkspaceName()).addTransitiveArtifacts(filesToBuild);
+    if (ruleContext
+        .getConfiguration()
+        .getOptions()
+        .get(CoreOptions.class)
+        .filegroupRunfilesForData) {
+      // If you're visiting a filegroup as data, then we also visit its data as data.
+      dataRunfilesBuilder.addRunfiles(ruleContext, RunfilesProvider.DATA_RUNFILES);
+    } else {
+      dataRunfilesBuilder.addDataDeps(ruleContext);
+    }
     RunfilesProvider runfilesProvider =
         RunfilesProvider.withData(
-            new Runfiles.Builder(
-                    ruleContext.getWorkspaceName(), configuration.legacyExternalRunfiles())
+            new Runfiles.Builder(ruleContext.getWorkspaceName())
                 .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
                 .build(),
-            // If you're visiting a filegroup as data, then we also visit its data as data.
-            new Runfiles.Builder(
-                    ruleContext.getWorkspaceName(), configuration.legacyExternalRunfiles())
-                .addTransitiveArtifacts(filesToBuild)
-                .addDataDeps(ruleContext)
-                .build());
+            dataRunfilesBuilder.build());
 
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)

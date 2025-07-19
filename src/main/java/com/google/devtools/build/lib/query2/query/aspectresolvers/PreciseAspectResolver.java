@@ -106,7 +106,7 @@ public class PreciseAspectResolver implements AspectResolver {
   @Override
   public Set<Label> computeBuildFileDependencies(Package pkg) throws InterruptedException {
     Set<Label> result = new LinkedHashSet<>();
-    pkg.visitLoadGraph(result::add);
+    pkg.getDeclarations().visitLoadGraph(result::add);
 
     Set<PackageIdentifier> dependentPackages = new LinkedHashSet<>();
     // First compute with packages can possibly affect the aspect attributes of this package:
@@ -141,7 +141,7 @@ public class PreciseAspectResolver implements AspectResolver {
       try {
         result.add(Label.create(packageIdentifier, "BUILD"));
         Package dependentPackage = packageProvider.getPackage(eventHandler, packageIdentifier);
-        dependentPackage.visitLoadGraph(result::add);
+        dependentPackage.getDeclarations().visitLoadGraph(result::add);
       } catch (NoSuchPackageException e) {
         // If the package is not found, just add its BUILD file, which is already done above.
         // Hopefully this error is not raised when there is a syntax error in a subincluded file

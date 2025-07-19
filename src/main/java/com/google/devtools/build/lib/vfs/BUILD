@@ -33,8 +33,7 @@ java_library(
     srcs = OS_PATH_POLICY_SOURCES,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/windows:file",
-        "//src/main/java/com/google/devtools/build/lib/windows:windows_short_path",
+        "//src/main/java/com/google/devtools/build/lib/windows:windows_path_operations",
         "//third_party:guava",
     ],
 )
@@ -69,6 +68,8 @@ java_library(
         ":pathfragment",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_exception",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",

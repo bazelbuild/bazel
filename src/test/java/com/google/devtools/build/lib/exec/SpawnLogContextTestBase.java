@@ -20,6 +20,8 @@ import static com.google.devtools.build.lib.testutil.TestConstants.PRODUCT_NAME;
 import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAME;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableList;
@@ -32,11 +34,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -99,6 +99,7 @@ import java.util.TreeMap;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mockito;
 
 /** Base class for {@link SpawnLogContext} tests. */
 @RunWith(TestParameterInjector.class)
@@ -126,7 +127,6 @@ public abstract class SpawnLogContextTestBase {
         BuildConfigurationValue.createForTesting(
             defaultBuildOptions,
             "k8-fastbuild",
-            WORKSPACE_NAME,
             siblingRepositoryLayout,
             new BlazeDirectories(
                 new ServerDirectories(outputBase, outputBase, outputBase),
@@ -148,6 +148,11 @@ public abstract class SpawnLogContextTestBase {
               @Override
               public ImmutableSet<String> getReservedActionMnemonics() {
                 return ImmutableSet.of();
+              }
+
+              @Override
+              public String getRunfilesPrefix() {
+                return WORKSPACE_NAME;
               }
             },
             new FragmentFactory());
@@ -672,8 +677,7 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
-  public void testRunfilesMixedRoots(@TestParameter boolean legacyExternalRunfiles)
-      throws Exception {
+  public void testRunfilesMixedRoots() throws Exception {
     Artifact sourceArtifact = ActionsTestUtil.createArtifact(rootDir, "pkg/source.txt");
     writeFile(sourceArtifact, "source");
     Artifact genArtifact = ActionsTestUtil.createArtifact(outputDir, "other/pkg/gen.txt");
@@ -723,7 +727,6 @@ public abstract class SpawnLogContextTestBase {
             ImmutableMap.of(
                 "root/symlink", rootSymlinkSourceTarget,
                 "root/other/symlink", rootSymlinkGenTarget),
-            legacyExternalRunfiles,
             sourceArtifact,
             genArtifact,
             externalSourceArtifact,
@@ -752,25 +755,6 @@ public abstract class SpawnLogContextTestBase {
         defaultSpawnResult());
 
     var builder = defaultSpawnExecBuilder();
-    if (legacyExternalRunfiles) {
-      builder
-          .addInputs(
-              File.newBuilder()
-                  .setPath(
-                      PRODUCT_NAME
-                          + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                          + WORKSPACE_NAME
-                          + "/external/some_repo/other/pkg/gen.txt")
-                  .setDigest(getDigest("external_gen")))
-          .addInputs(
-              File.newBuilder()
-                  .setPath(
-                      PRODUCT_NAME
-                          + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                          + WORKSPACE_NAME
-                          + "/external/some_repo/pkg/source.txt")
-                  .setDigest(getDigest("external_source")));
-    }
     builder
         .addInputs(
             File.newBuilder()
@@ -830,7 +814,6 @@ public abstract class SpawnLogContextTestBase {
 
   @Test
   public void testRunfilesExternalOnly(
-      @TestParameter boolean legacyExternalRunfiles,
       @TestParameter boolean symlinkUnderMain,
       @TestParameter boolean rootSymlinkUnderMain)
       throws Exception {
@@ -871,7 +854,6 @@ public abstract class SpawnLogContextTestBase {
             ImmutableMap.of(
                 (rootSymlinkUnderMain ? WORKSPACE_NAME + "/" : "some_repo/") + "root_symlink",
                 rootSymlinkTarget),
-            legacyExternalRunfiles,
             externalSourceArtifact,
             externalGenArtifact);
 
@@ -923,38 +905,7 @@ public abstract class SpawnLogContextTestBase {
                 PRODUCT_NAME + "-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/pkg/source.txt")
             .setDigest(getDigest("external_source"))
             .build());
-    if (legacyExternalRunfiles) {
-      files.add(
-          File.newBuilder()
-              .setPath(
-                  PRODUCT_NAME
-                      + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                      + WORKSPACE_NAME
-                      + "/external/some_repo/other/pkg/gen.txt")
-              .setDigest(getDigest("external_gen"))
-              .build());
-      files.add(
-          File.newBuilder()
-              .setPath(
-                  PRODUCT_NAME
-                      + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                      + WORKSPACE_NAME
-                      + "/external/some_repo/pkg/source.txt")
-              .setDigest(getDigest("external_source"))
-              .build());
-      if (!symlinkUnderMain) {
-        files.add(
-            File.newBuilder()
-                .setPath(
-                    PRODUCT_NAME
-                        + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                        + ""
-                        + WORKSPACE_NAME
-                        + "/external/some_repo/symlink")
-                .setDigest(getDigest("symlink_target"))
-                .build());
-      }
-    } else if (!symlinkUnderMain && !rootSymlinkUnderMain) {
+    if (!symlinkUnderMain && !rootSymlinkUnderMain) {
       files.add(
           File.newBuilder()
               .setPath(
@@ -972,8 +923,7 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
-  public void testRunfilesFilesCollide(@TestParameter boolean legacyExternalRunfiles)
-      throws Exception {
+  public void testRunfilesFilesCollide() throws Exception {
     Artifact sourceArtifact = ActionsTestUtil.createArtifact(rootDir, "pkg/file.txt");
     writeFile(sourceArtifact, "source");
     Artifact genArtifact = ActionsTestUtil.createArtifact(outputDir, "pkg/file.txt");
@@ -1003,7 +953,6 @@ public abstract class SpawnLogContextTestBase {
             runfilesRoot,
             ImmutableMap.of(),
             ImmutableMap.of(),
-            legacyExternalRunfiles,
             sourceArtifact,
             genArtifact,
             externalSourceArtifact,
@@ -1028,16 +977,6 @@ public abstract class SpawnLogContextTestBase {
         defaultSpawnResult());
 
     var builder = defaultSpawnExecBuilder();
-    if (legacyExternalRunfiles) {
-      builder.addInputs(
-          File.newBuilder()
-              .setPath(
-                  PRODUCT_NAME
-                      + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                      + WORKSPACE_NAME
-                      + "/external/some_repo/pkg/file.txt")
-              .setDigest(getDigest("external_gen")));
-    }
     builder
         .addInputs(
             File.newBuilder()
@@ -1057,8 +996,7 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
-  public void testRunfilesFilesAndSymlinksCollide(@TestParameter boolean legacyExternalRunfiles)
-      throws Exception {
+  public void testRunfilesFilesAndSymlinksCollide() throws Exception {
     Artifact sourceArtifact = ActionsTestUtil.createArtifact(rootDir, "pkg/source.txt");
     writeFile(sourceArtifact, "source");
     Artifact genArtifact = ActionsTestUtil.createArtifact(outputDir, "other/pkg/gen.txt");
@@ -1110,7 +1048,6 @@ public abstract class SpawnLogContextTestBase {
                 "../some_repo/pkg/source.txt", symlinkExternalSourceArtifact,
                 "../some_repo/other/pkg/gen.txt", symlinkExternalGenArtifact),
             ImmutableMap.of(),
-            legacyExternalRunfiles,
             sourceArtifact,
             genArtifact,
             externalSourceArtifact,
@@ -1139,25 +1076,6 @@ public abstract class SpawnLogContextTestBase {
         defaultSpawnResult());
 
     var builder = defaultSpawnExecBuilder();
-    if (legacyExternalRunfiles) {
-      builder
-          .addInputs(
-              File.newBuilder()
-                  .setPath(
-                      PRODUCT_NAME
-                          + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                          + WORKSPACE_NAME
-                          + "/external/some_repo/other/pkg/gen.txt")
-                  .setDigest(getDigest("external_gen")))
-          .addInputs(
-              File.newBuilder()
-                  .setPath(
-                      PRODUCT_NAME
-                          + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
-                          + WORKSPACE_NAME
-                          + "/external/some_repo/pkg/source.txt")
-                  .setDigest(getDigest("external_source")));
-    }
     builder
         .addInputs(
             File.newBuilder()
@@ -1207,7 +1125,6 @@ public abstract class SpawnLogContextTestBase {
             runfilesRoot,
             ImmutableMap.of(),
             ImmutableMap.of(WORKSPACE_NAME + "/pkg/source.txt", symlinkSourceArtifact),
-            /* legacyExternalRunfiles= */ false,
             sourceArtifact);
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesArtifact).build();
@@ -1256,7 +1173,6 @@ public abstract class SpawnLogContextTestBase {
             runfilesRoot,
             ImmutableMap.of(),
             ImmutableMap.of(),
-            /* legacyExternalRunfiles= */ false,
             NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesArtifact).build();
@@ -1333,7 +1249,6 @@ public abstract class SpawnLogContextTestBase {
             runfilesRoot,
             ImmutableMap.of(),
             ImmutableMap.of(),
-            /* legacyExternalRunfiles= */ false,
             artifacts);
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesArtifact).build();
@@ -1397,7 +1312,6 @@ public abstract class SpawnLogContextTestBase {
             runfilesRoot,
             ImmutableMap.of(),
             ImmutableMap.of(),
-            /* legacyExternalRunfiles= */ false,
             artifacts);
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesTreeArtifact).build();
@@ -1438,11 +1352,10 @@ public abstract class SpawnLogContextTestBase {
         ActionsTestUtil.createRunfilesArtifact(outputDir, "tools/foo.runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
-    Runfiles.Builder runfiles =
-        new Runfiles.Builder(WORKSPACE_NAME, /* legacyExternalRunfiles= */ false);
+    Runfiles.Builder runfiles = new Runfiles.Builder(WORKSPACE_NAME);
     if (rootSymlink) {
       Runfiles transitiveRunfiles =
-          new Runfiles.Builder(WORKSPACE_NAME, /* legacyExternalRunfiles= */ false)
+          new Runfiles.Builder(WORKSPACE_NAME)
               .addRootSymlink(PathFragment.create(WORKSPACE_NAME + "/pkg/file.txt"), sourceFile)
               .addRootSymlink(PathFragment.create(WORKSPACE_NAME + "/pkg/file.txt"), genFile)
               .build();
@@ -1450,7 +1363,7 @@ public abstract class SpawnLogContextTestBase {
       runfiles.addRootSymlinks(transitiveRunfiles.getRootSymlinks());
     } else {
       Runfiles transitiveRunfiles =
-          new Runfiles.Builder(WORKSPACE_NAME, /* legacyExternalRunfiles= */ false)
+          new Runfiles.Builder(WORKSPACE_NAME)
               .addSymlink(PathFragment.create("pkg/file.txt"), sourceFile)
               .addSymlink(PathFragment.create("pkg/file.txt"), genFile)
               .build();
@@ -1498,13 +1411,12 @@ public abstract class SpawnLogContextTestBase {
         ActionsTestUtil.createRunfilesArtifact(outputDir, "tools/foo.runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
-    Runfiles.Builder runfiles =
-        new Runfiles.Builder(WORKSPACE_NAME, /* legacyExternalRunfiles= */ false);
+    Runfiles.Builder runfiles = new Runfiles.Builder(WORKSPACE_NAME);
     // Arrange for (reference) equal SymlinkEntry instances to appear twice in the runfiles, both
     // first and last in compile order.
     if (rootSymlink) {
       Runfiles transitiveRunfiles =
-          new Runfiles.Builder(WORKSPACE_NAME, /* legacyExternalRunfiles= */ false)
+          new Runfiles.Builder(WORKSPACE_NAME)
               .addRootSymlink(PathFragment.create(WORKSPACE_NAME + "/pkg/file.txt"), sourceFile)
               .addRootSymlink(PathFragment.create(WORKSPACE_NAME + "/pkg/file.txt"), genFile)
               .build();
@@ -1514,7 +1426,7 @@ public abstract class SpawnLogContextTestBase {
       runfiles.addRootSymlinks(transitiveRunfiles.getRootSymlinks());
     } else {
       Runfiles transitiveRunfiles =
-          new Runfiles.Builder(WORKSPACE_NAME, /* legacyExternalRunfiles= */ false)
+          new Runfiles.Builder(WORKSPACE_NAME)
               .addSymlink(PathFragment.create("pkg/file.txt"), sourceFile)
               .addSymlink(PathFragment.create("pkg/file.txt"), genFile)
               .build();
@@ -1595,8 +1507,7 @@ public abstract class SpawnLogContextTestBase {
                     WORKSPACE_NAME + "/source_dir", sourceDir,
                     WORKSPACE_NAME + "/gen_dir", genDir,
                     WORKSPACE_NAME + "/symlink", symlink)
-                : ImmutableMap.of(),
-            /* legacyExternalRunfiles= */ false);
+                : ImmutableMap.of());
 
     var spawnBuilder = defaultSpawnBuilder().withInput(runfilesArtifact);
     if (inputsMode.isTool()) {
@@ -1673,8 +1584,7 @@ public abstract class SpawnLogContextTestBase {
             rootSymlink ? ImmutableMap.of() : ImmutableMap.of("pkg/symlink", sourceFile),
             rootSymlink
                 ? ImmutableMap.of(WORKSPACE_NAME + "/pkg/symlink", sourceFile)
-                : ImmutableMap.of(),
-            /* legacyExternalRunfiles= */ false);
+                : ImmutableMap.of());
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesArtifact).build();
 
@@ -1723,8 +1633,6 @@ public abstract class SpawnLogContextTestBase {
     Spawn spawn =
         defaultSpawnBuilder()
             .withInput(filesetInput)
-            // The implementation only relies on the map keys, so the value can be empty.
-            .withFilesetMapping(filesetInput, FilesetOutputTree.EMPTY)
             .build();
 
     SpawnLogContext context = createSpawnLogContext();
@@ -2266,17 +2174,15 @@ public abstract class SpawnLogContextTestBase {
   }
 
   protected static RunfilesTree createRunfilesTree(PathFragment root, Artifact... artifacts) {
-    return createRunfilesTree(
-        root, ImmutableMap.of(), ImmutableMap.of(), /* legacyExternalRunfiles= */ false, artifacts);
+    return createRunfilesTree(root, ImmutableMap.of(), ImmutableMap.of(), artifacts);
   }
 
   protected static RunfilesTree createRunfilesTree(
       PathFragment root,
       Map<String, Artifact> symlinks,
       Map<String, Artifact> rootSymlinks,
-      boolean legacyExternalRunfiles,
       NestedSet<Artifact> artifacts) {
-    Runfiles.Builder runfiles = new Runfiles.Builder(WORKSPACE_NAME, legacyExternalRunfiles);
+    Runfiles.Builder runfiles = new Runfiles.Builder(WORKSPACE_NAME);
     runfiles.addTransitiveArtifacts(artifacts);
     for (Map.Entry<String, Artifact> entry : symlinks.entrySet()) {
       runfiles.addSymlink(PathFragment.create(entry.getKey()), entry.getValue());
@@ -2292,13 +2198,11 @@ public abstract class SpawnLogContextTestBase {
       PathFragment root,
       Map<String, Artifact> symlinks,
       Map<String, Artifact> rootSymlinks,
-      boolean legacyExternalRunfiles,
       Artifact... artifacts) {
     return createRunfilesTree(
         root,
         symlinks,
         rootSymlinks,
-        legacyExternalRunfiles,
         NestedSetBuilder.wrap(Order.COMPILE_ORDER, Arrays.asList(artifacts)));
   }
 
@@ -2339,18 +2243,20 @@ public abstract class SpawnLogContextTestBase {
       RunfilesTree runfilesTree, ActionInput... actionInputs) throws Exception {
     TreeMap<PathFragment, ActionInput> builder = new TreeMap<>();
 
+    InputMetadataProvider inputMetadataProvider = Mockito.mock(InputMetadataProvider.class);
+    when(inputMetadataProvider.getTreeMetadata(any()))
+        .thenAnswer(
+            invocation -> {
+              SpecialArtifact treeArtifact = invocation.getArgument(0);
+              return createTreeArtifactValue(treeArtifact);
+            });
+
     if (runfilesTree != null) {
-      new SpawnInputExpander(/* execRoot= */ null)
+      new SpawnInputExpander()
           .addSingleRunfilesTreeToInputs(
               runfilesTree,
               builder,
-              treeArtifact -> {
-                try {
-                  return createTreeArtifactValue(treeArtifact).getChildren();
-                } catch (Exception e) {
-                  throw new ArtifactExpander.MissingExpansionException(e.getMessage());
-                }
-              },
+              inputMetadataProvider,
               PathMapper.NOOP,
               PathFragment.EMPTY_FRAGMENT);
     }

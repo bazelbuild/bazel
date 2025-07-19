@@ -20,6 +20,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.escape.Escaper;
+import com.google.devtools.build.lib.util.Markdown;
 import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -197,11 +198,18 @@ class OptionsUsage {
       StringBuilder usage,
       Escaper escaper,
       OptionsData optionsData,
-      boolean includeTags) {
+      boolean includeTags,
+      String commandName) {
     String plainFlagName = optionDefinition.getOptionName();
     String flagName = getFlagName(optionDefinition);
     String valueDescription = optionDefinition.getValueTypeHelpText();
     String typeDescription = getTypeDescription(optionDefinition);
+
+    StringBuilder anchorId = new StringBuilder();
+    if (commandName != null) {
+      anchorId.append(commandName).append("-");
+    }
+    anchorId.append("flag--").append(plainFlagName);
 
     // String.format is a lot slower, sometimes up to 10x.
     // https://stackoverflow.com/questions/925423/is-it-better-practice-to-use-string-format-over-string-concatenation-in-java
@@ -209,13 +217,23 @@ class OptionsUsage {
     // Considering that this runs for every flag in the CLI reference, it's better to use regular
     // appends here.
     usage
+        .append("<dt id=\"")
         // Add the id of the flag to point anchor hrefs to it
-        .append("<dt id=\"flag--")
-        .append(plainFlagName)
+        .append(anchorId)
         .append("\">")
         // Add the href to the id hash
-        .append("<code><a href=\"#flag--")
-        .append(plainFlagName)
+        .append("<code");
+    // Historically, we used `flag--${plainFlagName}` as the anchor id, but this is not unique
+    // across commands. We now use the per-command `anchorId` defined above, but we moved the old
+    // `flag--${plainFlagName}` to be an id on the code block for backwards compatibility with
+    // old links.
+    if (commandName != null) {
+      usage.append(" id=\"").append(plainFlagName).append("\"");
+    }
+    usage
+        .append(">")
+        .append("<a href=\"#")
+        .append(anchorId)
         .append("\">")
         .append("--")
         .append(flagName)
@@ -227,7 +245,7 @@ class OptionsUsage {
       usage.append("=").append(escaper.escape(valueDescription));
     } else if (!typeDescription.isEmpty()) {
       // Generic fallback, which isn't very good.
-      usage.append("=&lt;").append(escaper.escape(typeDescription)).append("&gt");
+      usage.append("=&lt;").append(escaper.escape(typeDescription)).append("&gt;");
     }
     usage.append("</code>");
     if (optionDefinition.getAbbreviation() != '\0') {
@@ -250,21 +268,20 @@ class OptionsUsage {
     usage.append("</dt>\n");
     usage.append("<dd>\n");
     if (!optionDefinition.getHelpText().isEmpty()) {
-      usage.append(escaper.escape(optionDefinition.getHelpText()));
+      usage.append(Markdown.renderToHtml(escaper.escape(optionDefinition.getHelpText())));
       usage.append('\n');
     }
 
     if (!optionsData.getEvaluatedExpansion(optionDefinition).isEmpty()) {
       // If this is an expansion option, list the expansion if known, or at least specify that we
       // don't know.
-      usage.append("<br/>\n");
       ImmutableList<String> expansion = getExpansionIfKnown(optionDefinition, optionsData);
       StringBuilder expandsMsg;
       if (expansion == null) {
-        expandsMsg = new StringBuilder("Expands to unknown options.<br/>\n");
+        expandsMsg = new StringBuilder("<p>Expands to unknown options.</p>\n");
       } else {
         Preconditions.checkArgument(!expansion.isEmpty());
-        expandsMsg = new StringBuilder("Expands to:<br/>\n");
+        expandsMsg = new StringBuilder("<p>Expands to:\n");
         for (String exp : expansion) {
           // TODO(jingwen): We link to the expanded flags here, but unfortunately we don't
           // currently guarantee that all flags are only printed once. A flag in an OptionBase that
@@ -272,7 +289,7 @@ class OptionsUsage {
           // be printed multiple times. Clicking on the flag will bring the user to its first
           // definition.
           expandsMsg
-              .append("&nbsp;&nbsp;")
+              .append("<br/>&nbsp;&nbsp;")
               .append("<code><a href=\"#flag")
               // Link to the '#flag--flag_name' hash.
               // Some expansions are in the form of '--flag_name=value', so we drop everything from
@@ -280,8 +297,9 @@ class OptionsUsage {
               .append(Iterables.get(Splitter.on('=').split(escaper.escape(exp)), 0))
               .append("\">")
               .append(escaper.escape(exp))
-              .append("</a></code><br/>\n");
+              .append("</a></code>\n");
         }
+        expandsMsg.append("</p>");
       }
       usage.append(expandsMsg);
     }
@@ -308,7 +326,7 @@ class OptionsUsage {
                               tag, Ascii.toLowerCase(tag.name()))))
               .collect(Collectors.joining(", "));
       if (!tagList.isEmpty()) {
-        usage.append("<br>Tags:\n").append(tagList);
+        usage.append("<p>Tags:\n").append(tagList).append("\n</p>");
       }
     }
 

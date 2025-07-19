@@ -18,9 +18,11 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactCodecs;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapImpl;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.OutputDirectory;
 import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
@@ -36,12 +38,12 @@ import com.google.devtools.build.lib.collect.nestedset.DeferredNestedSetCodec;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RemoteConfiguredTargetValue;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.reflect.Constructor;
-import java.util.function.Supplier;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.syntax.Location;
 
@@ -124,7 +126,7 @@ public final class SerializationRegistrySetupHelpers {
         .addReferenceConstants(
             ImmutableSortedMap.copyOf(starlarkEnv.getUninjectedBuildBzlNativeBindings()).values())
         .addReferenceConstants(
-            ImmutableSortedMap.copyOf(starlarkEnv.getWorkspaceBzlNativeBindings()).values());
+            ImmutableSortedMap.copyOf(starlarkEnv.getUninjectedModuleBzlNativeBindings()).values());
 
     return builder;
   }
@@ -143,7 +145,7 @@ public final class SerializationRegistrySetupHelpers {
    * demand idiom</a>.
    */
   private static class AnalysisCachingCodecsHolder {
-    private static final ImmutableList<Class<?>> CONFIGURED_TARGET_CLASSES =
+    private static final ImmutableList<Class<?>> AUTOCODEC_CLASSES_FOR_VALUE_SHARING =
         ImmutableList.of(
             EnvironmentGroupConfiguredTarget.class,
             InputFileConfiguredTarget.class,
@@ -151,7 +153,10 @@ public final class SerializationRegistrySetupHelpers {
             OutputFileConfiguredTarget.class,
             PackageGroupConfiguredTarget.class,
             RuleConfiguredTarget.class,
-            AliasConfiguredTarget.class);
+            FeatureConfiguration.class,
+            RunfilesArtifactValue.class,
+            AliasConfiguredTarget.class,
+            BuildConfigurationValue.class);
 
     private static final ImmutableList<ObjectCodec<?>> INSTANCE;
 
@@ -169,15 +174,17 @@ public final class SerializationRegistrySetupHelpers {
               .add(BuildOptions.valueSharingCodec())
               .addAll(ArtifactCodecs.VALUE_SHARING_CODECS);
 
-      for (Class<?> configuredTargetClass : CONFIGURED_TARGET_CLASSES) {
+      for (Class<?> classForValueSharing : AUTOCODEC_CLASSES_FOR_VALUE_SHARING) {
         try {
           // Looks up the AutoCodec implementations with reflection. Since the autocodec-plugin is
           // not marked with generates_api = True (to avoid build time impact) the actual AutoCodec
-          // classes are not visible as imports. The dependency on the respective ConfiguredTarget
-          // class ensures that the required target dependency exists. The corresponding AutoCodec
-          // class will be in the same jar file.
+          // classes are not visible as imports. The dependency on the respective class ensures that
+          // the required target dependency exists. The corresponding AutoCodec class will be in the
+          // same jar file.
           Constructor<?> autoCodecConstructor =
-              Class.forName(configuredTargetClass.getName() + "_AutoCodec")
+              // AutoCodec generated codecs for inner classes use '_' as a separator in the
+              // generated class name.
+              Class.forName(classForValueSharing.getName().replace('$', '_') + "_AutoCodec")
                   .getDeclaredConstructor();
           autoCodecConstructor.setAccessible(true);
           builder.add(
@@ -191,19 +198,21 @@ public final class SerializationRegistrySetupHelpers {
     }
   }
 
-  /** Initializes an {@link ObjectCodecRegistry} for analysis serialization. */
-  public static Supplier<ObjectCodecRegistry> createAnalysisCodecRegistrySupplier(
+  /**
+   * Initializes an {@link ObjectCodecRegistry.Builder} for analysis serialization.
+   *
+   * <p>This may be an expensive operation because it can trigger codec scanning.
+   */
+  public static ObjectCodecRegistry.Builder initializeAnalysisCodecRegistryBuilder(
       ConfiguredRuleClassProvider ruleClassProvider,
       ImmutableList<Object> additionalReferenceConstants) {
-    return () -> {
-      ObjectCodecRegistry.Builder builder =
-          AutoRegistry.get()
-              .getBuilder()
-              .addReferenceConstants(additionalReferenceConstants)
-              .computeChecksum(false);
-      builder = addStarlarkFunctionality(builder, ruleClassProvider);
-      analysisCachingCodecs().forEach(builder::add);
-      return builder.build();
-    };
+    ObjectCodecRegistry.Builder builder =
+        AutoRegistry.get()
+            .getBuilder()
+            .addReferenceConstants(additionalReferenceConstants)
+            .computeChecksum(false);
+    builder = addStarlarkFunctionality(builder, ruleClassProvider);
+    analysisCachingCodecs().forEach(builder::add);
+    return builder;
   }
 }

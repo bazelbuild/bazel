@@ -693,7 +693,12 @@ final class Lexer {
           setToken(TokenKind.PLUS, pos - 1, pos);
           break;
         case '-':
-          setToken(TokenKind.MINUS, pos - 1, pos);
+          if (peek(0) == '>') {
+            setToken(TokenKind.RARROW, pos - 1, pos + 1);
+            pos += 1;
+          } else {
+            setToken(TokenKind.MINUS, pos - 1, pos);
+          }
           break;
         case '|':
           setToken(TokenKind.PIPE, pos - 1, pos);
@@ -945,7 +950,7 @@ final class Lexer {
     return c == '0' || c == '1';
   }
 
-  /*
+  /**
    * Returns a string containing the part of the source buffer beginning at offset {@code start} and
    * ending immediately before offset {@code end} (so the length of the resulting string is {@code
    * end - start}).

@@ -13,12 +13,13 @@
 // limitations under the License.
 
 syntax = "proto3";
+
 package command_line;
+
+import "src/main/protobuf/option_filters.proto";
 
 // option java_api_version = 2;
 option java_package = "com.google.devtools.build.lib.runtime.proto";
-
-import "src/main/protobuf/option_filters.proto";
 
 // Representation of a Bazel command line.
 message CommandLine {
@@ -99,4 +100,8 @@ message Option {
   // Metadata about the flag. See OptionMetadataTag's java documentation for
   // details.
   repeated options.OptionMetadataTag metadata_tags = 5;
+
+  // The source of the flag (i.e. whether is was explicitly passed by the user,
+  // from which .{bazel,blaze}rc it comes, etc).
+  string source = 6;
 }

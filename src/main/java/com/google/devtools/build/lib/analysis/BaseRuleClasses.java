@@ -14,10 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.analysis.test.ExecutionInfo.DEFAULT_TEST_RUNNER_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
@@ -45,8 +42,6 @@ import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefaul
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolver;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -58,11 +53,8 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkInt;
 
-/**
- * Rule class definitions used by (almost) every rule.
- */
+/** Rule class definitions used by (almost) every rule. */
 public class BaseRuleClasses {
 
   private BaseRuleClasses() {}
@@ -153,15 +145,6 @@ public class BaseRuleClasses {
         COVERAGE_REPORT_GENERATOR_CONFIGURATION_RESOLVER);
   }
 
-  public static LabelLateBoundDefault<CoverageConfiguration> getCoverageOutputGeneratorLabel() {
-    return LabelLateBoundDefault.fromTargetConfiguration(
-        CoverageConfiguration.class, null, COVERAGE_OUTPUT_GENERATOR_RESOLVER);
-  }
-
-  @SerializationConstant @VisibleForSerialization
-  static final Resolver<CoverageConfiguration, Label> COVERAGE_OUTPUT_GENERATOR_RESOLVER =
-      (rule, attributes, configuration) -> configuration.outputGenerator();
-
   // TODO(b/65746853): provide a way to do this without passing the entire configuration
   /**
    * Resolves the latebound exec-configured :run_under label. This only exists if --run_under is set
@@ -206,129 +189,6 @@ public class BaseRuleClasses {
             }
             return config.getRunUnder() instanceof LabelRunUnder runUnder ? runUnder.label() : null;
           });
-
-  /**
-   * A base rule for all test rules.
-   */
-  public static final class TestBaseRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      builder
-          .addExecGroup(DEFAULT_TEST_RUNNER_EXEC_GROUP)
-          .requiresConfigurationFragments(TestConfiguration.class)
-          // TestConfiguration only needed to create TestAction and TestProvider
-          // Only necessary at top-level and can be skipped if trimmed.
-          .setMissingFragmentPolicy(TestConfiguration.class, MissingFragmentPolicy.IGNORE)
-          .add(
-              attr("size", STRING)
-                  .value("medium")
-                  .taggable()
-                  .nonconfigurable("policy decision: should be consistent across configurations"))
-          .add(
-              attr("timeout", STRING)
-                  .taggable()
-                  .nonconfigurable("policy decision: should be consistent across configurations")
-                  .value(TIMEOUT_DEFAULT))
-          .add(
-              attr("flaky", BOOLEAN)
-                  .value(false)
-                  .taggable()
-                  .nonconfigurable("policy decision: should be consistent across configurations"))
-          .add(attr("shard_count", INTEGER).value(StarlarkInt.of(-1)))
-          .add(
-              attr("local", BOOLEAN)
-                  .value(false)
-                  .taggable()
-                  .nonconfigurable("policy decision: should be consistent across configurations"))
-          .add(attr("args", STRING_LIST))
-          .add(attr("env", STRING_DICT))
-          .add(attr("env_inherit", STRING_LIST))
-          .add(
-              attr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, BOOLEAN)
-                  .value(true)
-                  .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
-          // Input files for every test action
-          .add(
-              attr("$test_wrapper", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .singleArtifact()
-                  .value(env.getToolsLabel("//tools/test:test_wrapper")))
-          .add(
-              attr("$xml_writer", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .singleArtifact()
-                  .value(env.getToolsLabel("//tools/test:xml_writer")))
-          .add(
-              attr("$test_runtime", LABEL_LIST)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .value(getTestRuntimeLabelList(env)))
-          .add(
-              attr("$test_setup_script", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .singleArtifact()
-                  .value(env.getToolsLabel("//tools/test:test_setup")))
-          .add(
-              attr("$xml_generator_script", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .singleArtifact()
-                  .value(env.getToolsLabel("//tools/test:test_xml_generator")))
-          .add(
-              attr("$collect_coverage_script", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .singleArtifact()
-                  .value(env.getToolsLabel("//tools/test:collect_coverage")))
-          // Input files for test actions collecting code coverage
-          .add(
-              attr(":coverage_support", LABEL)
-                  .value(
-                      coverageSupportAttribute(env.getToolsLabel(DEFAULT_COVERAGE_SUPPORT_VALUE))))
-          // Used in the one-per-build coverage report generation action.
-          .add(
-              attr(":coverage_report_generator", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .value(
-                      coverageReportGeneratorAttribute(
-                          env.getToolsLabel(DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
-          // Bazel runs --run_under targets on exec machines:
-          //   * For "$ bazel run", they run directly on the machine running bazel.
-          //   * For "$ bazel test", they run on the build machine that executes tests.
-          //
-          // This means they should be configured for the exec configuration.
-          // --incompatible_bazel_test_exec_run_under supports this. But we still need to support
-          // legacy invocations that incorrectly configure it with the target configuration. To
-          // support both modes, we define both an exec-configured and target-configured --run_under
-          // dep and have consuming logic choose the right one based on the flag.
-          //
-          // TODO: https://github.com/bazelbuild/bazel/discussions/21805 this works for
-          // "$ bazel test" but not "$ bazel run". Make this work for "$ bazel run" by updating
-          // RunCommand.java to self-transition --run_under to the exec configuration.
-          .add(
-              attr(":run_under_exec_config", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .value(RUN_UNDER_EXEC_CONFIG)
-                  .skipPrereqValidatorCheck())
-          .add(
-              attr(":run_under_target_config", LABEL)
-                  .value(RUN_UNDER_TARGET_CONFIG)
-                  .skipPrereqValidatorCheck());
-      env.getNetworkAllowlistForTests()
-          .ifPresent(
-              label ->
-                  builder.add(
-                      Allowlist.getAttributeFromAllowlistName("external_network").value(label)));
-
-      return builder.build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$test_base_rule")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(MakeVariableExpandingRule.class)
-          .build();
-    }
-  }
 
   private static final String TOOLS_TEST_RUNTIME_TARGET_PATTERN = "//tools/test:runtime";
   private static ImmutableList<Label> testRuntimeLabelList = null;
@@ -430,10 +290,7 @@ public class BaseRuleClasses {
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .dontCheckConstraints()
                 .nonconfigurable("applicable_metadata is not configurable"))
-        .add(
-            attr("aspect_hints", LABEL_LIST)
-                .allowedFileTypes(FileTypeSet.NO_FILE)
-                .undocumented("experimental attribute"));
+        .add(attr("aspect_hints", LABEL_LIST).allowedFileTypes(FileTypeSet.NO_FILE));
   }
 
   public static RuleClass.Builder execPropertiesAttribute(RuleClass.Builder builder)
@@ -461,8 +318,8 @@ public class BaseRuleClasses {
               attr("licenses", LICENSE)
                   .nonconfigurable("Used in core loading phase logic with no access to configs"))
           .add(
-              attr("distribs", DISTRIBUTIONS)
-                  .nonconfigurable("Used in core loading phase logic with no access to configs"))
+              // TODO: b/148549967 - Remove for Bazel 9.0
+              attr("distribs", STRING_LIST).nonconfigurable("deprecated - no op"))
           // Any rule that provides its own meaning for the "target_compatible_with" attribute
           // has to be excluded in `IncompatibleTargetChecker`.
           .add(
@@ -485,9 +342,7 @@ public class BaseRuleClasses {
     }
   }
 
-  /**
-   * A rule that contains a {@code variables=} attribute to allow referencing Make variables.
-   */
+  /** A rule that contains a {@code variables=} attribute to allow referencing Make variables. */
   public static final class MakeVariableExpandingRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -536,6 +391,14 @@ public class BaseRuleClasses {
                       "exec_compatible_with exists for constraint checking, not to create an"
                           + " actual dependency")
                   .value(ImmutableList.of()))
+          .add(
+              attr(RuleClass.EXEC_GROUP_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST_DICT)
+                  .allowedFileTypes()
+                  .nonconfigurable("Used in toolchain resolution")
+                  .tool(
+                      "exec_group_compatible_with exists for constraint checking, not to create an"
+                          + " actual dependency")
+                  .value(ImmutableMap.of()))
           .build();
     }
 
@@ -545,31 +408,6 @@ public class BaseRuleClasses {
           .name("$native_buildable_rule")
           .type(RuleClassType.ABSTRACT)
           .ancestors(BaseRuleClasses.NativeBuildRule.class)
-          .build();
-    }
-  }
-
-  /** A base rule for all binary rules. */
-  public static final class BinaryBaseRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(attr("args", STRING_LIST))
-          .add(attr("env", STRING_DICT))
-          .add(attr("output_licenses", LICENSE))
-          .add(
-              attr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, BOOLEAN)
-                  .value(true)
-                  .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$binary_base_rule")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(MakeVariableExpandingRule.class)
           .build();
     }
   }
@@ -597,6 +435,18 @@ public class BaseRuleClasses {
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
+      if (builder.getType() == RuleClassType.TEST) {
+        builder
+            .add(
+                attr("size", STRING)
+                    .nonconfigurable("policy decision: should be consistent across configurations"))
+            .add(
+                attr("timeout", STRING)
+                    .nonconfigurable("policy decision: should be consistent across configurations"))
+            .add(attr("flaky", BOOLEAN))
+            .add(attr("shard_count", INTEGER))
+            .add(attr("local", BOOLEAN));
+      }
       return builder
           .removeAttribute("deps")
           .removeAttribute("data")
@@ -612,10 +462,6 @@ public class BaseRuleClasses {
               .type(TargetUtils.isTestRuleName(name) ? RuleClassType.TEST : RuleClassType.NORMAL)
               .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
               .factoryClass(EmptyRuleConfiguredTargetFactory.class);
-      if (TargetUtils.isTestRuleName(name)) {
-        metadata.ancestors(
-            BaseRuleClasses.TestBaseRule.class, BaseRuleClasses.NativeActionCreatingRule.class);
-      }
       return metadata.build();
     }
   }
@@ -641,7 +487,7 @@ public class BaseRuleClasses {
             """
                 .formatted(ruleName, bzlLoadLabel, ruleName));
       } else {
-        ruleContext.ruleError("Rule is unimplemented.");
+        ruleContext.ruleError("Rule '" + ruleName + "' is unimplemented.");
       }
       return null;
     }

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -43,7 +43,13 @@ function is_gcov_missing_or_wrong_version() {
 }
 
 function set_up_py_test_coverage() {
+  add_rules_python "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
+
   cat <<EOF > BUILD
+load("@rules_python//python:py_test.bzl", "py_test")
+load("@rules_python//python:py_library.bzl", "py_library")
+
 py_test(
     name = "orange_test",
     srcs = ["orange_test.py"],
@@ -70,6 +76,9 @@ EOF
   mkdir -p java/com/google/orange
 
   cat <<EOF > java/com/google/orange/BUILD
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 package(default_visibility = ["//visibility:public"])
 
 java_binary(
@@ -159,8 +168,13 @@ function test_py_test_coverage_cc_binary() {
     echo "Skipping test." && return
   fi
 
+  add_rules_python "MODULE.bazel"
+  add_rules_cc "MODULE.bazel"
+
   ########### Setup source files and BUILD file ###########
   cat <<EOF > BUILD
+load("@rules_python//python:py_test.bzl", "py_test")
+
 py_test(
     name = "num_test",
     srcs = ["num_test.py"],
@@ -175,6 +189,9 @@ EOF
   mkdir -p examples/cpp
 
   cat <<EOF > examples/cpp/BUILD
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_binary(
@@ -294,8 +311,14 @@ function test_py_test_coverage_cc_binary_and_java_binary() {
     echo "Skipping test." && return
   fi
 
+  add_rules_python "MODULE.bazel"
+  add_rules_cc "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
+
   ########### Setup source files and BUILD file ###########
   cat <<EOF > BUILD
+load("@rules_python//python:py_test.bzl", "py_test")
+
 py_test(
     name = "num_test",
     srcs = ["num_test.py"],
@@ -314,6 +337,9 @@ EOF
   mkdir -p examples/cpp
 
   cat <<EOF > examples/cpp/BUILD
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_binary(
@@ -385,6 +411,9 @@ EOF
   mkdir -p java/com/google/orange
 
   cat <<EOF > java/com/google/orange/BUILD
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_java//java:java_library.bzl", "java_library")
+
 package(default_visibility = ["//visibility:public"])
 java_binary(
     name = "orange-bin",

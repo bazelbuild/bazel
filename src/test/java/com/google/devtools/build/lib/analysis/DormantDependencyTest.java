@@ -424,7 +424,8 @@ public class DormantDependencyTest extends AnalysisTestCase {
 
     update("//x");
     Rule xRule = (Rule) getConfiguredTargetAndTarget("//x").getTargetForTesting();
-    Attribute depAttribute = xRule.getRuleClassObject().getAttributeByName("dep");
+    Attribute depAttribute =
+        xRule.getRuleClassObject().getAttributeProvider().getAttributeByName("dep");
     assertThat(depAttribute.isConfigurable()).isFalse();
     assertThat(depAttribute.isForDependencyResolution()).isTrue();
 
@@ -651,6 +652,7 @@ public class DormantDependencyTest extends AnalysisTestCase {
 
         marked = rule(
           implementation = _impl,
+          dependency_resolution_rule = True,
           parent = p,
           attrs = {})
         """);

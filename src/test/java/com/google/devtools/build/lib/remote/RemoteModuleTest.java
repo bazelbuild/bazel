@@ -188,10 +188,12 @@ public final class RemoteModuleTest {
         /* warnings= */ new ArrayList<>(),
         /* waitTimeInMs= */ 0,
         /* commandStartTime= */ 0,
-        /* commandExtensions= */ ImmutableList.of(),
+        /* idleTaskResultsFromPreviousIdlePeriod= */ ImmutableList.of(),
         /* shutdownReasonConsumer= */ s -> {},
+        /* commandExtensions= */ ImmutableList.of(),
         NO_OP_COMMAND_EXTENSION_REPORTER,
         /* attemptNumber= */ 1,
+        /* buildRequestIdOverride= */ null,
         ConfigFlagDefinitions.NONE);
   }
 

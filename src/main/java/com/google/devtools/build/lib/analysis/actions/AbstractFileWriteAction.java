@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -36,6 +37,9 @@ import javax.annotation.Nullable;
  * Abstract Action to write to a file.
  */
 public abstract class AbstractFileWriteAction extends AbstractAction {
+  /** The default mnemonic for a file write action. */
+  public static final String MNEMONIC = "FileWrite";
+
   /**
    * Creates a new AbstractFileWriteAction instance.
    *
@@ -90,7 +94,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
 
   @Override
   public String getMnemonic() {
-    return "FileWrite";
+    return MNEMONIC;
   }
 
   @Override

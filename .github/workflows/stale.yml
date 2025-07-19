@@ -23,12 +23,12 @@ jobs:
 
     steps:
     - name: Harden Runner
-      uses: step-security/harden-runner@0080882f6c36860b6ba35c610c98ce87d4e2f26f # v2.10.2
+      uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
       with:
         egress-policy: audit
 
     - name: Track and close stale issues/PRs
-      uses: actions/stale@28ca1036281a5e5922ead5184a1bbf96e5fc984e # v9.0.0
+      uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9.1.0
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         days-before-issue-stale: 430
@@ -52,6 +52,6 @@ jobs:
         close-issue-reason: "not_planned"
         stale-pr-label: 'stale'
         exempt-pr-labels: 'not stale,awaiting-review,awaiting-PR-merge,P0,P1,P2'
-        exempt-draft-pr: true
+        exempt-draft-pr: false
         operations-per-run: 500
         ascending: true

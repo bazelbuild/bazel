@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.remote.zstd;
 
 import com.github.luben.zstd.ZstdInputStreamNoFinalizer;
-import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -57,8 +56,7 @@ public final class ZstdDecompressingOutputStream extends OutputStream {
   @Override
   public void write(byte[] b, int off, int len) throws IOException {
     inner = new ByteArrayInputStream(b, off, len);
-    byte[] data = ByteString.readFrom(zis).toByteArray();
-    out.write(data, 0, data.length);
+    zis.transferTo(out);
   }
 
   @Override

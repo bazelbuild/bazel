@@ -156,18 +156,23 @@ class LcovParser {
     return true;
   }
 
-  // FN:<line number of function start>,<function name>
+  // FN:<line number of function start>,[<line number of function end>,]<function name>
   private boolean parseFNLine(String line) {
     String lineContent = line.substring(FN_MARKER.length());
     String[] funcData = lineContent.split(DELIMITER, -1);
-    if (funcData.length != 2 || funcData[0].isEmpty() || funcData[1].isEmpty()) {
+    if (funcData.length < 2
+        || funcData.length > 3
+        || (funcData.length == 3 && funcData[2].isEmpty())
+        || funcData[0].isEmpty()
+        || funcData[1].isEmpty()) {
       logger.log(Level.WARNING, "Tracefile contains invalid FN line " + line);
       return false;
     }
     try {
       int lineNrFunctionStart = Integer.parseInt(funcData[0]);
-      String functionName = funcData[1];
-      currentSourceFileCoverage.addLineNumber(functionName, lineNrFunctionStart);
+      // Line number of function end is optional and not used.
+      String functionName = funcData[funcData.length - 1];
+      currentSourceFileCoverage.addFunctionLineNumber(functionName, lineNrFunctionStart);
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "Tracefile contains invalid line number on FN line " + line);
       return false;
@@ -246,17 +251,36 @@ class LcovParser {
     }
     try {
       int lineNumber = Integer.parseInt(lineData[0]);
-      int taken = Integer.parseInt(lineData[1]);
-      if (taken < 0 || taken > 2) {
-        logger.log(
-            Level.WARNING,
-            "Tracefile contains invalid BA " + line + " - value not one of {0, 1, 2}");
-        return false;
+      int execValue = Integer.parseInt(lineData[1]);
+      boolean evaluated = false;
+      long execCount = 0;
+      switch (execValue) {
+        case 0:
+          // Branch was never evaluated.
+          evaluated = false;
+          execCount = 0;
+          break;
+        case 1:
+          // Branch was evaluated, but not taken.
+          evaluated = true;
+          execCount = 0;
+          break;
+        case 2:
+          // Branch was taken. We don't know how often, so simply record "1".
+          evaluated = true;
+          execCount = 1;
+          break;
+        default:
+          logger.log(
+              Level.WARNING,
+              "Tracefile contains invalid BA " + line + " - value not one of {0, 1, 2}");
+          return false;
       }
-
-      BranchCoverage branchCoverage = BranchCoverage.create(lineNumber, taken);
-
-      currentSourceFileCoverage.addBranch(lineNumber, branchCoverage);
+      int branchNumber = currentSourceFileCoverage.getBranches(lineNumber).size();
+      currentSourceFileCoverage.addBranch(
+          lineNumber,
+          BranchCoverage.create(
+              lineNumber, "0", Integer.toString(branchNumber), evaluated, execCount));
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "Tracefile contains an invalid number BA line " + line);
       return false;
@@ -291,7 +315,7 @@ class LcovParser {
         wasEvaluated = true;
       }
       BranchCoverage branchCoverage =
-          BranchCoverage.createWithBlockAndBranch(
+          BranchCoverage.create(
               lineNumber, blockNumber, branchNumber, wasEvaluated, executionCount);
 
       currentSourceFileCoverage.addBranch(lineNumber, branchCoverage);
@@ -355,12 +379,8 @@ class LcovParser {
     try {
       int lineNumber = Integer.parseInt(lineData[0]);
       long executionCount = Long.parseLong(lineData[1]);
-      String checkSum = null;
-      if (lineData.length == 3) {
-        checkSum = lineData[2];
-      }
-      LineCoverage lineCoverage = LineCoverage.create(lineNumber, executionCount, checkSum);
-      currentSourceFileCoverage.addLine(lineNumber, lineCoverage);
+      // Ignore the optional checksum
+      currentSourceFileCoverage.addLine(lineNumber, executionCount);
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "Tracefile contains an invalid number on DA line " + line);
       return false;

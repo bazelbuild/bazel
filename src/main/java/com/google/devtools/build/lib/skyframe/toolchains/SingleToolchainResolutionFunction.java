@@ -160,17 +160,22 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
             .collect(toImmutableList());
 
     for (DeclaredToolchainInfo toolchain : filteredToolchains) {
-      // Make sure the target platform matches.
-      if (!checkConstraints(
-          debugPrinter,
-          toolchain.targetConstraints(),
-          /* isTargetPlatform= */ true,
-          targetPlatform,
-          toolchain.toolchainLabel())) {
+      // Make sure the target platform matches. A toolchain with use_target_platform_constraints
+      // matches
+      // any target platform.
+      if (!toolchain.hasTargetToExecConstraints()
+          && !checkConstraints(
+              debugPrinter,
+              toolchain.targetConstraints(),
+              /* isTargetPlatform= */ true,
+              targetPlatform,
+              toolchain.targetLabel(),
+              toolchain.resolvedToolchainLabel())) {
         continue;
       }
 
-      debugPrinter.reportCompatibleTargetPlatform(toolchain.toolchainLabel());
+      debugPrinter.reportCompatibleTargetPlatform(
+          toolchain.targetLabel(), toolchain.resolvedToolchainLabel());
 
       boolean done = true;
 
@@ -198,17 +203,20 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         // Check if the execution constraints match.
         if (!checkConstraints(
             debugPrinter,
-            toolchain.execConstraints(),
+            toolchain.hasTargetToExecConstraints()
+                ? targetPlatform.constraints()
+                : toolchain.execConstraints(),
             /* isTargetPlatform= */ false,
             executionPlatform,
-            toolchain.toolchainLabel())) {
+            toolchain.targetLabel(),
+            toolchain.resolvedToolchainLabel())) {
           // Keep looking for a valid toolchain for this exec platform
           done = false;
           continue;
         }
 
         debugPrinter.reportCompatibleExecutionPlatform(executionPlatformKey.getLabel());
-        builder.put(executionPlatformKey, toolchain.toolchainLabel());
+        builder.put(executionPlatformKey, toolchain.resolvedToolchainLabel());
         platformKeysSeen.add(executionPlatformKey);
       }
 
@@ -234,7 +242,8 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       ConstraintCollection toolchainConstraints,
       boolean isTargetPlatform,
       PlatformInfo platform,
-      Label toolchainLabel) {
+      Label targetLabel,
+      Label resolvedToolchainLabel) {
 
     // Check every constraint_setting in either the toolchain or the platform.
     ImmutableSet<ConstraintSettingInfo> mismatchSettings =
@@ -257,7 +266,8 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         toolchainConstraints,
         isTargetPlatform,
         platform,
-        toolchainLabel,
+        targetLabel,
+        resolvedToolchainLabel,
         mismatchSettingsWithDefault);
 
     return mismatchSettingsWithDefault.isEmpty();

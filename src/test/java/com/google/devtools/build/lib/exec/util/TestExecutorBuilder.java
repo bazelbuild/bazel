@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
@@ -61,19 +60,16 @@ public class TestExecutorBuilder {
   private final SpawnStrategyRegistry.Builder strategyRegistryBuilder =
       SpawnStrategyRegistry.builder();
 
-  public TestExecutorBuilder(
-      FileSystem fileSystem, BlazeDirectories directories, BinTools binTools) {
-    this(fileSystem, directories.getExecRoot(TestConstants.WORKSPACE_NAME), binTools);
+  public TestExecutorBuilder(FileSystem fileSystem, BlazeDirectories directories) {
+    this(fileSystem, directories.getExecRoot(TestConstants.WORKSPACE_NAME));
   }
 
-  public TestExecutorBuilder(FileSystem fileSystem, Path execRoot, BinTools binTools) {
+  public TestExecutorBuilder(FileSystem fileSystem, Path execRoot) {
     this.fileSystem = fileSystem;
     this.execRoot = execRoot;
     addContext(FileWriteActionContext.class, new FileWriteStrategy());
     addContext(TemplateExpansionContext.class, new LocalTemplateExpansionStrategy());
-    addContext(
-        SymlinkTreeActionContext.class,
-        new SymlinkTreeStrategy(null, execRoot, binTools, "__main__"));
+    addContext(SymlinkTreeActionContext.class, new SymlinkTreeStrategy(null, "__main__"));
     addContext(SpawnStrategyResolver.class, new SpawnStrategyResolver());
   }
 

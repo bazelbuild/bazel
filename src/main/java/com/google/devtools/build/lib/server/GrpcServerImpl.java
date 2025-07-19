@@ -108,7 +108,7 @@ import javax.annotation.Nullable;
  * to cancel it. Cancellation is done by the client sending the server a {@code cancel()} RPC call
  * which results in the main thread of the command being interrupted.
  */
-public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase implements RPCServer {
+public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   public static GrpcServerImpl create(
@@ -399,13 +399,12 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
    * It also disables the "die when the PID file changes" handler so that it doesn't kill the server
    * while the "clean --expunge" command is running.
    */
-  @Override
   public void prepareForAbruptShutdown() {
     shutdownHooks.disable();
     pidFileWatcher.signalShutdown();
   }
 
-  @Override
+  /** Interrupts (cancels) in-flight commands. */
   public void interrupt() {
     commandManager.interruptInflightCommands();
   }
@@ -430,10 +429,10 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     return server;
   }
 
+  /** Starts serving and block until the shutdown command is received. */
   // Suppress ErrorProne warnings for hardcoding "[::1]" and "127.0.0.1" instead of
   // InetAddress.getLoopbackAddress().
   @SuppressWarnings("AddressSelection")
-  @Override
   public void serve() throws AbruptExitException {
     Preconditions.checkState(!serving);
 
@@ -613,6 +612,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                 request.getClientDescription(),
                 clock.currentTimeMillis(),
                 Optional.of(startupOptions.build()),
+                commandManager::getIdleTaskResults,
                 request.getCommandExtensionsList(),
                 new RpcCommandExtensionReporter(command.getId(), responseCookie, observer));
       } catch (OptionsParsingException e) {
@@ -630,7 +630,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
 
       // Record tasks to be run by IdleTaskManager. This is triggered in RunningCommand#close()
       // (as a Closeable), as we go out of scope immediately after this.
-      command.setIdleTasks(result.getIdleTasks(), result.stateKeptAfterBuild());
+      command.setIdleTasks(result.getIdleTasks());
     } catch (InterruptedException e) {
       result =
           BlazeCommandResult.detailedExitCode(

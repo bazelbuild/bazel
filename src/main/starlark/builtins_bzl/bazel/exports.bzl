@@ -20,8 +20,6 @@ load(":common/java/java_common.bzl", "java_common_export_for_bazel")
 exported_toplevels = {
     "py_internal": py_internal,
     "java_common": java_common_export_for_bazel,
-    "JavaInfo": java_common_export_for_bazel.provider,
-    "JavaPluginInfo": java_common_export_for_bazel.JavaPluginInfo,
 }
 exported_rules = {}
 exported_to_java = {}

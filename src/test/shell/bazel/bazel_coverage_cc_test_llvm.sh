@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -28,6 +28,10 @@ if [[ "${COVERAGE_GENERATOR_DIR}" != "released" ]]; then
   COVERAGE_GENERATOR_DIR="$(rlocation io_bazel/$COVERAGE_GENERATOR_DIR)"
   add_to_bazelrc "build --override_repository=remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
 fi
+
+function set_up() {
+  add_rules_cc "MODULE.bazel"
+}
 
 # Configures Bazel to emit coverage using LLVM tools, returning a non-zero exit
 # code if the tools are not available.
@@ -60,7 +64,6 @@ function setup_llvm_coverage_tools_for_lcov() {
   add_to_bazelrc "common --repo_env=BAZEL_LLVM_PROFDATA=${llvm_profdata}"
   add_to_bazelrc "common --repo_env=BAZEL_USE_LLVM_NATIVE_COVERAGE=1"
   add_to_bazelrc "common --repo_env=CC=${clang}"
-  add_to_bazelrc "common --repo_env=GCOV=${llvm_profdata}"
   add_to_bazelrc "common --experimental_generate_llvm_lcov"
 }
 
@@ -68,6 +71,9 @@ function setup_llvm_coverage_tools_for_lcov() {
 # collect code coverage. The sources are a.cc, a.h and t.cc.
 function setup_a_cc_lib_and_t_cc_test() {
   cat << EOF > BUILD
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "a",
     srcs = ["a.cc"],
@@ -124,7 +130,7 @@ function test_cc_test_llvm_coverage_doesnt_fail() {
 
   # Only test that bazel coverage doesn't crash when invoked for llvm native
   # coverage.
-  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=$llvmprofdata CC=$clang_tool \
+  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 BAZEL_LLVM_PROFDATA=$llvmprofdata CC=$clang_tool \
       bazel coverage --test_output=all //:t &>$TEST_log \
       || fail "Coverage for //:t failed"
 
@@ -202,8 +208,13 @@ end_of_record"
 
 function test_cc_test_with_runtime_objects_not_in_runfiles() {
   setup_llvm_coverage_tools_for_lcov || return 0
+  add_rules_java "MODULE.bazel"
 
   cat << EOF > BUILD
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_test(
     name = "main",
     srcs = ["main.cpp"],
@@ -266,8 +277,11 @@ local_repository(
     path = "other_repo",
 )
 EOF
+  add_rules_cc "MODULE.bazel"
 
   cat > BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "b",
     srcs = ["b.cc"],
@@ -363,7 +377,7 @@ LH:5
 LF:7
 end_of_record'
 
-  local expected_a_cc='SF:external/+_repo_rules+other_repo/a.cc
+  local expected_a_cc='SF:external/+local_repository+other_repo/a.cc
 FN:4,_Z1ab
 FNDA:1,_Z1ab
 FNF:1
@@ -425,6 +439,9 @@ function test_coverage_with_tmp_in_path() {
 
   mkdir -p foo/tmp
   cat > foo/tmp/BUILD <<'EOF'
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "a",
     srcs = ["a.cc"],
@@ -495,6 +512,9 @@ function test_coverage_for_header() {
   setup_llvm_coverage_tools_for_lcov || return 0
 
   cat << EOF > BUILD
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
   name = "foo",
   srcs = ["foo.cc"],

@@ -120,6 +120,7 @@ final class PathLabelVisitor {
       ExtendedEventHandler eventHandler, Iterable<Target> from) throws InterruptedException {
     Visitor visitor = new Visitor(eventHandler, VisitorMode.SAME_PKG_DIRECT_RDEPS);
     for (Target t : from) {
+      // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
       visitor.visitTargets(t.getPackage().getTargets().values());
     }
     Set<Target> result = new HashSet<>();

@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.Options;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -110,6 +110,75 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     assertThat(create().getMakeEnvironment()).containsEntry("COMPILATION_MODE", "fastbuild");
     BuildConfigurationValue config = create("--define", "COMPILATION_MODE=fluttershy");
     assertThat(config.getMakeEnvironment()).containsEntry("COMPILATION_MODE", "fluttershy");
+  }
+
+  @Test
+  public void testTargetCpuFromCpuFlag() throws Exception {
+    BuildConfigurationValue config =
+        create("--cpu=piii", "--platforms=" + TestConstants.PLATFORM_LABEL);
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "piii");
+  }
+
+  @Test
+  public void testTargetCpuFromPlatform() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--cpu=piii",
+            "--platforms=" + TestConstants.PLATFORM_LABEL,
+            "--incompatible_target_cpu_from_platform");
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "x86_64");
+  }
+
+  @Test
+  public void testTargetCpuFromPlatformWithCpuMapping() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--cpu=piii",
+            "--platforms=" + TestConstants.PLATFORM_LABEL,
+            "--incompatible_target_cpu_from_platform",
+            "--experimental_override_platform_cpu_name="
+                + TestConstants.PLATFORM_LABEL
+                + "=new_cpu");
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu");
+  }
+
+  @Test
+  public void testTargetCpuFromPlatform_multipleCpuMappings_lastOneWins() throws Exception {
+    BuildConfigurationValue config =
+        create(
+            "--cpu=piii",
+            "--platforms=" + TestConstants.PLATFORM_LABEL,
+            "--incompatible_target_cpu_from_platform",
+            "--experimental_override_platform_cpu_name="
+                + TestConstants.PLATFORM_LABEL
+                + "=new_cpu_1",
+            "--experimental_override_platform_cpu_name="
+                + TestConstants.PLATFORM_LABEL
+                + "=new_cpu_2");
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu_2");
+  }
+
+  @Test
+  public void testExecConfigTargetCpuFromPlatform() throws Exception {
+    BuildConfigurationValue config =
+        createExec(
+            "--cpu=x86_64",
+            "--host_platform=" + TestConstants.PIII_PLATFORM_LABEL,
+            "--incompatible_target_cpu_from_platform");
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "x86_32");
+  }
+
+  @Test
+  public void testExecConfigTargetCpuFromPlatformWithCpuMapping() throws Exception {
+    BuildConfigurationValue config =
+        createExec(
+            "--cpu=x86_64",
+            "--host_platform=" + TestConstants.PIII_PLATFORM_LABEL,
+            "--incompatible_target_cpu_from_platform",
+            "--experimental_override_platform_cpu_name="
+                + TestConstants.PIII_PLATFORM_LABEL
+                + "=new_cpu");
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "new_cpu");
   }
 
   @Test
@@ -325,7 +394,9 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
                 "//my_starlark_flag:other_starlark_flag",
                 "true"),
             "--experimental_exclude_starlark_flags_from_exec_config=true",
-            "--experimental_propagate_custom_flag=//my_starlark_flag:starlark_flag");
+            // Verify that labels are parsed rather than compared as strings by specifying the
+            // label in non-canonical form.
+            "--experimental_propagate_custom_flag=@//my_starlark_flag:starlark_flag");
     assertThat(
             cfg.getOptions()
                 .getStarlarkOptions()
@@ -339,10 +410,8 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
   }
 
   @Test
-  // TODO: b/377959266 - fix test setup bug that fails Bazel CI. This test's logic doesn't cause the
-  //   bug: it's somehow caused by test naming. See bug for details.
-  @Ignore("b/377959266")
   public void testExecStarlarkFlag_isPropagatedByTargetPattern() throws Exception {
+    scratch.file("my_starlark_flag/BUILD");
     scratch.file(
         "my_starlark_flag/rule_defs.bzl",
         """
@@ -357,7 +426,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         load("//my_starlark_flag:rule_defs.bzl", "bool_flag")
         bool_flag(
             name = "include_me",
-            build_setting_default = "False",
+            build_setting_default = False,
         )
         """);
     scratch.file(
@@ -366,7 +435,7 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
         load("//my_starlark_flag:rule_defs.bzl", "bool_flag")
         bool_flag(
             name = "exclude_me",
-            build_setting_default = "False",
+            build_setting_default = False,
         )
         """);
 
@@ -538,20 +607,17 @@ public final class BuildConfigurationValueTest extends ConfigurationTestCase {
     // these configurations are never trimmed nor even used to build targets so not an issue.
     new EqualsTester()
         .addEqualityGroup(
-            createRaw(parseBuildOptions("--test_arg=1a"), "k8", "testrepo", false),
-            createRaw(parseBuildOptions("--test_arg=1a"), "k8", "testrepo", false))
+            createRaw(parseBuildOptions("--test_arg=1a"), "k8", false),
+            createRaw(parseBuildOptions("--test_arg=1a"), "k8", false))
         // Different BuildOptions means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "k8", "testrepo", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=1b"), "k8", false))
         // Different --experimental_sibling_repository_layout means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", "testrepo", true))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", "testrepo", false))
-        // Different repositoryName means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", "testrepo1", false))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", "testrepo2", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", true))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=2"), "k8", false))
         // Different transitionDirectoryNameFragment means non-equal
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", "testrepo", false))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "arm", "testrepo", false))
-        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "risc", "testrepo", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "k8", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "arm", false))
+        .addEqualityGroup(createRaw(parseBuildOptions("--test_arg=3"), "risc", false))
         .testEquals();
   }
 

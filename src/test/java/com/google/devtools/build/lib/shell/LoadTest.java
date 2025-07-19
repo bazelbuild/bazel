@@ -30,16 +30,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests {@link Command} execution under load.
- */
+/** Tests {@link Command} execution under load. */
 @RunWith(JUnit4.class)
 public class LoadTest {
 
   private File tempFile;
 
   @Before
-  public final void createTempFile() throws Exception  {
+  public final void createTempFile() throws Exception {
     // enable all log statements to ensure there are no problems with
     // logging code
     Logger.getLogger("com.google.devtools.build.lib.shell.Command").setLevel(Level.FINEST);
@@ -61,7 +59,7 @@ public class LoadTest {
   }
 
   @After
-  public final void deleteTempFile() throws Exception  {
+  public final void deleteTempFile() throws Exception {
     tempFile.delete();
   }
 
@@ -75,7 +73,8 @@ public class LoadTest {
     }
     catBin = runfiles.rlocation(catBin);
 
-    final Command command = new Command(new String[] {catBin, tempFile.getAbsolutePath()});
+    final Command command =
+        new Command(new String[] {catBin, tempFile.getAbsolutePath()}, System.getenv());
     Thread[] threads = new Thread[10];
     List<Throwable> exceptions = Collections.synchronizedList(new ArrayList<Throwable>());
     for (int i = 0; i < threads.length; i++) {

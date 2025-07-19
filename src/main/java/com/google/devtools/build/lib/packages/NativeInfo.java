@@ -15,24 +15,28 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 
-import com.google.common.collect.ImmutableCollection;
+import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.BuiltinFunction;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.syntax.Location;
 
 /**
- * Abstract base class for implementations of {@link StructImpl} that expose
- * StarlarkCallable-annotated fields (not just methods) to Starlark code. Subclasses must be
- * immutable.
+ * Abstract base class for implementations of {@link Info} that expose StarlarkCallable-annotated
+ * fields (not just methods) to Starlark code. Subclasses must be immutable.
  */
 // TODO(adonovan): ensure that all subclasses are named *Info and not *Provider.
 // (Info is to object as Provider is to class.)
 @Immutable
-public abstract class NativeInfo extends StructImpl {
-
+public abstract class NativeInfo implements Info {
   private final Location location;
 
   protected NativeInfo() {
@@ -55,28 +59,27 @@ public abstract class NativeInfo extends StructImpl {
     return true; // immutable and Starlark-hashable
   }
 
-  // TODO(adonovan): logically this should be a parameter of getValue
-  // and getFieldNames or an instance field of this object.
-  private static final StarlarkSemantics SEMANTICS = StarlarkSemantics.DEFAULT;
+  // TODO(b/408391489) repr, hash, equals for native providers are inefficient; implement them
+  //  directly and remove getLegacyStarlarkMethodNames getLegacyFields
+  private List<String> getLegacyStarlarkMethodNames() {
+    return Ordering.natural()
+        .sortedCopy(Starlark.dir(Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, this));
+  }
 
-  @Nullable
-  @Override
-  public Object getValue(String name) throws EvalException {
-    // TODO(adonovan): this seems unnecessarily complicated:
-    // Starlark's x.name and getattr(x, name) already check the
-    // annotated fields/methods first, so there's no need to handle them here.
-    // Similarly, Starlark.dir checks annotated fields/methods first, so
-    // there's no need for getFieldNames to report them.
-    // The only code that would notice any difference is direct Java
-    // calls to getValue/getField names; they should instead
-    // use getattr and dir. However, dir does report methods,
-    // not just fields.
-
-    // @StarlarkMethod(structField=true) -- Java field
-    if (getFieldNames().contains(name)) {
+  private ImmutableMap<String, Object> getLegacyFields() {
+    ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
+    for (String fieldName : getLegacyStarlarkMethodNames()) {
       try {
-        return Starlark.getAnnotatedField(SEMANTICS, this, name);
-      } catch (InterruptedException exception) {
+        Object value =
+            Starlark.getattr(
+                Mutability.IMMUTABLE, StarlarkSemantics.DEFAULT, this, fieldName, null);
+        if (value instanceof BuiltinFunction) {
+          continue;
+        }
+        fields.put(fieldName, value);
+      } catch (EvalException e) {
+        fields.put(fieldName, Starlark.NONE);
+      } catch (InterruptedException e) {
         // Struct fields on NativeInfo objects are supposed to behave well and not throw
         // exceptions, as they should be logicless field accessors. If this occurs, it's
         // indicative of a bad NativeInfo implementation.
@@ -84,14 +87,58 @@ public abstract class NativeInfo extends StructImpl {
             String.format(
                 "Access of field %s was unexpectedly interrupted, but should be "
                     + "uninterruptible. This is indicative of a bad provider implementation.",
-                name));
+                fieldName),
+            e);
       }
     }
-    return null;
+    return fields.buildOrThrow();
   }
 
   @Override
-  public ImmutableCollection<String> getFieldNames() {
-    return Starlark.getAnnotatedFieldNames(SEMANTICS, this);
+  public boolean equals(Object otherObject) {
+    if (!(otherObject instanceof NativeInfo other)) {
+      return false;
+    }
+    if (this == other) {
+      return true;
+    }
+    if (!this.getProvider().equals(other.getProvider())) {
+      return false;
+    }
+    // Compare objects' fields and their values
+    if (!Objects.equal(getLegacyStarlarkMethodNames(), other.getLegacyStarlarkMethodNames())) {
+      return false;
+    }
+    return Objects.equal(getLegacyFields(), other.getLegacyFields());
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(getProvider(), getLegacyFields());
+  }
+
+  /**
+   * Convert the object to string using Starlark syntax. The output tries to be reversible (but
+   * there is no guarantee, it depends on the actual values).
+   */
+  @Override
+  public void repr(Printer printer) {
+    boolean first = true;
+    printer.append("struct(");
+    for (var field : getLegacyFields().entrySet()) {
+      if (!first) {
+        printer.append(", ");
+      }
+      first = false;
+      printer.append(field.getKey());
+      printer.append(" = ");
+      printer.repr(field.getValue());
+    }
+    printer.append(")");
+  }
+
+  @Override
+  public String toString() {
+    return Starlark.repr(this);
   }
 }

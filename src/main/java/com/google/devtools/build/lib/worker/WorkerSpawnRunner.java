@@ -22,11 +22,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
@@ -90,18 +88,23 @@ final class WorkerSpawnRunner implements SpawnRunner {
    */
   private static final int VERBOSE_LEVEL = 10;
 
-  private final SandboxHelpers helpers;
+  /**
+   * The next work request ID to use. This field is static so we don't reuse work request IDs across
+   * Bazel invocations. Although that shouldn't happen under normal circumstances because we wait
+   * until a request finishes before exiting, it can happen if dynamic execution is enabled and one
+   * branch beats the other in the race.
+   */
+  private static final AtomicInteger requestIdCounter = new AtomicInteger(1);
+
   private final Path execRoot;
   private final ExtendedEventHandler reporter;
   private final ResourceManager resourceManager;
   private final RunfilesTreeUpdater runfilesTreeUpdater;
   private final WorkerOptions workerOptions;
   private final WorkerParser workerParser;
-  private final AtomicInteger requestIdCounter = new AtomicInteger(1);
   private final WorkerProcessMetricsCollector metricsCollector;
 
   public WorkerSpawnRunner(
-      SandboxHelpers helpers,
       Path execRoot,
       WorkerPool workers,
       ExtendedEventHandler reporter,
@@ -112,7 +115,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
       WorkerOptions workerOptions,
       WorkerProcessMetricsCollector workerProcessMetricsCollector,
       Clock clock) {
-    this.helpers = helpers;
     this.execRoot = execRoot;
     this.reporter = reporter;
     this.resourceManager = resourceManager;
@@ -153,7 +155,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, IOException, InterruptedException, ForbiddenActionInputException {
+      throws ExecException, IOException, InterruptedException {
     context.report(
         SpawnSchedulingEvent.create(
             WorkerKey.makeWorkerTypeName(
@@ -183,8 +185,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 context.getInputMetadataProvider().getRunfilesMetadata(toolFile).getRunfilesTree());
           }
         }
-        runfilesTreeUpdater.updateRunfiles(
-            runfilesTrees, spawn.getEnvironment(), context.getFileOutErr());
+        runfilesTreeUpdater.updateRunfiles(runfilesTrees);
       }
 
       InputMetadataProvider inputFileCache = context.getInputMetadataProvider();
@@ -193,12 +194,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
       try (SilentCloseable c1 =
           Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Setting up inputs")) {
         inputFiles =
-            helpers.processInputFiles(
+            SandboxHelpers.processInputFiles(
                 context.getInputMapping(
                     PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
                 execRoot);
       }
-      SandboxOutputs outputs = helpers.getOutputs(spawn);
+      SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
       WorkerParser.WorkerConfig workerConfig = workerParser.compute(spawn, context);
       WorkerKey key = workerConfig.getWorkerKey();
@@ -223,7 +224,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
             .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
             .setStartTime(startTime)
             .setWallTimeInMs((int) wallTime.toMillis())
-            .setSpawnMetrics(spawnMetrics.setTotalTimeInMs((int) wallTime.toMillis()).build());
+            .setSpawnMetrics(spawnMetrics.setTotalTime(wallTime).build());
     if (exitCode != 0) {
       builder.setFailureDetail(
           FailureDetail.newBuilder()
@@ -252,11 +253,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
     }
 
     List<ActionInput> inputs =
-        ActionInputHelper.expandArtifacts(
+        InputMetadataProvider.expandArtifacts(
+            context.getInputMetadataProvider(),
             spawn.getInputFiles(),
-            context.getArtifactExpander(),
             /* keepEmptyTreeArtifacts= */ false,
-            /* keepRunfilesTreeArtifacts= */ false);
+            /* keepRunfilesTrees= */ false);
 
     for (ActionInput input : inputs) {
       byte[] digestBytes;
@@ -376,7 +377,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       List<String> flagFiles,
       InputMetadataProvider inputFileCache,
       SpawnMetrics.Builder spawnMetrics)
-      throws ExecException, ForbiddenActionInputException, IOException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     WorkerOwner workerOwner = null;
     WorkResponse response;
     WorkRequest request;
@@ -392,7 +393,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       context.prefetchInputsAndWait();
     }
     Duration setupInputsTime = setupInputsStopwatch.elapsed();
-    spawnMetrics.setSetupTimeInMs((int) setupInputsTime.toMillis());
+    spawnMetrics.setSetupTime(setupInputsTime);
 
     Stopwatch queueStopwatch = Stopwatch.createStarted();
     ResourceSet resourceSet =
@@ -416,7 +417,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
               spawn, context, inputFiles, flagFiles, virtualInputDigests, inputFileCache, key);
 
       // We acquired a worker and resources -- mark that as queuing time.
-      spawnMetrics.setQueueTimeInMs((int) queueStopwatch.elapsed().toMillis());
+      spawnMetrics.setQueueTime(queueStopwatch.elapsed());
       response =
           executeRequest(
               spawn, context, inputFiles, outputs, workerOwner, key, request, spawnMetrics, handle);
@@ -444,8 +445,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           workerOwner.getWorker().finishExecution(execRoot, outputs);
           WorkerProcessMetricsCollector.instance()
               .onWorkerFinishExecution(workerOwner.getWorker().getProcessId());
-          spawnMetrics.setProcessOutputsTimeInMs(
-              (int) processOutputsStopwatch.elapsed().toMillis());
+          spawnMetrics.setProcessOutputsTime(processOutputsStopwatch.elapsed());
         } else {
           throw createUserExecException(
               "The response finished successfully, but worker is taken by finishAsync",
@@ -534,9 +534,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 String.format("Worker #%d preparing execution", worker.getWorkerId()))) {
       // We consider `prepareExecution` to be also part of setup.
       Stopwatch prepareExecutionStopwatch = Stopwatch.createStarted();
-      worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithDigests().keySet());
+      worker.prepareExecution(
+          inputFiles, outputs, key.getWorkerFilesWithDigests().keySet(), context.getClientEnv());
       initializeMetrics(key, worker);
-      spawnMetrics.addSetupTimeInMs((int) prepareExecutionStopwatch.elapsed().toMillis());
+      spawnMetrics.addSetupTime(prepareExecutionStopwatch.elapsed());
     } catch (IOException e) {
       restoreInterrupt(e);
       String message =
@@ -598,7 +599,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
     }
 
-    spawnMetrics.setExecutionWallTimeInMs((int) executionStopwatch.elapsed().toMillis());
+    spawnMetrics.setExecutionWallTime(executionStopwatch.elapsed());
 
     return response;
   }
@@ -651,15 +652,18 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
                   w = null;
 
-                } catch (IOException | InterruptedException e2) {
+                } catch (IOException | InterruptedException | UserExecException e2) {
                   // The reaper thread can't do anything useful about this.
                 }
               } finally {
                 if (w != null) {
                   try {
                     resourceHandle.close();
-                  } catch (IOException | InterruptedException | IllegalStateException e) {
-                    // Error while returning worker to the pool. Could not do anythinng.
+                  } catch (IOException
+                      | InterruptedException
+                      | IllegalStateException
+                      | UserExecException e) {
+                    // Error while returning worker to the pool. Could not do anything.
                   }
                 }
               }

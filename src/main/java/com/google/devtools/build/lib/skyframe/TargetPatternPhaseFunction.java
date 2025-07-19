@@ -59,6 +59,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -73,7 +74,6 @@ final class TargetPatternPhaseFunction implements SkyFunction {
   @Nullable
   public TargetPatternPhaseValue compute(SkyKey key, Environment env) throws InterruptedException {
     TargetPatternPhaseKey options = (TargetPatternPhaseKey) key.argument();
-    WorkspaceNameValue workspaceName = (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     if (repositoryMappingValue == null) {
@@ -184,10 +184,12 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     maybeReportDeprecation(env.getListener(), targets.getTargets());
 
     ResolvedTargets.Builder<Label> expandedLabelsBuilder = ResolvedTargets.builder();
+    ImmutableSet.Builder<Label> nonExpandedLabelsBuilder = ImmutableSet.builder();
     ImmutableMap.Builder<Label, ImmutableSet<Label>> testSuiteExpansions =
         ImmutableMap.builderWithExpectedSize(testExpansionKeys.size());
     for (Target target : targets.getTargets()) {
       Label label = target.getLabel();
+      nonExpandedLabelsBuilder.add(label);
       if (TargetUtils.isTestSuiteRule(target) && options.isExpandTestSuites()) {
         SkyKey expansionKey = Preconditions.checkNotNull(testExpansionKeys.get(label));
         var value = (TestsForTargetPatternValue) expandedTests.get(expansionKey);
@@ -215,13 +217,16 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     ImmutableSet<Label> removedTargetLabels =
         testSuiteTargets.stream().map(Target::getLabel).collect(ImmutableSet.toImmutableSet());
 
+    ImmutableSet<Label> nonExpandedLabels = nonExpandedLabelsBuilder.build();
     TargetPatternPhaseValue result =
         new TargetPatternPhaseValue(
             targetLabels.getTargets(),
             testsToRunLabels,
+            Objects.equals(nonExpandedLabels, targetLabels.getTargets())
+                ? targetLabels.getTargets()
+                : nonExpandedLabels,
             targets.hasError(),
-            expandedTargets.hasError(),
-            workspaceName.getName());
+            expandedTargets.hasError());
 
     env.getListener()
         .post(

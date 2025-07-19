@@ -36,7 +36,7 @@ public class InputFileTest extends PackageLoadingTestCase {
   @Before
   public final void writeFiles() throws Exception  {
     scratch.file("pkg/BUILD", "genrule(name='dummy', cmd='', outs=[], srcs=['x', 'subdir/y'])");
-    pkg = getTarget("//pkg:BUILD").getPackage();
+    pkg = getPackage("pkg");
     assertNoEvents();
 
     this.pathX = scratch.file("pkg/x", "blah");

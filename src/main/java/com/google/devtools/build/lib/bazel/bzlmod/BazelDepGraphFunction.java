@@ -106,7 +106,7 @@ public class BazelDepGraphFunction implements SkyFunction {
           module.getRepoMappingWithBazelDepsOnly(moduleKeyToRepositoryNames);
       LabelConverter labelConverter =
           new LabelConverter(
-              PackageIdentifier.create(repoMapping.ownerRepo(), PathFragment.EMPTY_FRAGMENT),
+              PackageIdentifier.create(repoMapping.contextRepo(), PathFragment.EMPTY_FRAGMENT),
               module.getRepoMappingWithBazelDepsOnly(moduleKeyToRepositoryNames));
       for (ModuleExtensionUsage usage : module.getExtensionUsages()) {
         ModuleExtensionId moduleExtensionId;
@@ -187,9 +187,12 @@ public class BazelDepGraphFunction implements SkyFunction {
   private static String makeUniqueNameCandidate(ModuleExtensionId id, int attempt) {
     Preconditions.checkArgument(attempt >= 1);
     String extensionNameDisambiguator = attempt == 1 ? "" : String.valueOf(attempt);
-    // An innate extension name is of the form @repo//path/to/defs.bzl%repo_rule_name, which cannot
-    // be part of a valid repo name.
-    String extensionName = id.isInnate() ? "_repo_rules" : id.extensionName();
+    // An innate extension name is of the form "@repo//path/to/defs.bzl repo_rule_name", which
+    // cannot be part of a valid repo name.
+    String extensionName =
+        id.isInnate()
+            ? id.extensionName().substring(id.extensionName().indexOf(' ') + 1)
+            : id.extensionName();
     return id.isolationKey()
         .map(
             isolationKey ->

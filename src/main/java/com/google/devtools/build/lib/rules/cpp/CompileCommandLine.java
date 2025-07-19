@@ -212,7 +212,7 @@ public final class CompileCommandLine {
     private final Artifact sourceFile;
     private CoptsFilter coptsFilter;
     private FeatureConfiguration featureConfiguration;
-    private CcToolchainVariables variables = CcToolchainVariables.EMPTY;
+    private CcToolchainVariables variables = CcToolchainVariables.empty();
     private final String actionName;
     @Nullable private final Artifact dotdFile;
 

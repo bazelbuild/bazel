@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -85,6 +85,7 @@ EOF
   add_rules_java "MODULE.bazel"
   add_protobuf "MODULE.bazel"
   add_rules_license "MODULE.bazel"
+  add_zlib "MODULE.bazel"
 }
 
 function expect_path_in_java_tools() {
@@ -101,6 +102,9 @@ function expect_path_in_java_tools_prebuilt() {
   [[ "$count" -gt 0 ]] || fail "Path $path not found in java_tools_prebuilt.zip"
 }
 
+function test_java_tools_has_import_deps_checker() {
+  expect_path_in_java_tools "java_tools/ImportDepsChecker_deploy.jar"
+}
 
 function test_java_tools_has_ijar() {
   expect_path_in_java_tools "java_tools/ijar"
@@ -109,10 +113,6 @@ function test_java_tools_has_ijar() {
 
 function test_java_tools_has_ijar_binary() {
   expect_path_in_java_tools_prebuilt "java_tools/ijar/ijar"
-}
-
-function test_java_tools_has_zlib() {
-  expect_path_in_java_tools "java_tools/zlib"
 }
 
 function test_java_tools_has_native_windows() {

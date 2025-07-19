@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
@@ -122,7 +122,7 @@ public final class SolibSymlinkAction extends AbstractAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp) {
     fp.addPath(symlink.getExecPath());
     fp.addPath(getPrimaryInput().getExecPath());
@@ -321,10 +321,8 @@ public final class SolibSymlinkAction extends AbstractAction {
   }
 
   @Override
-  @Nullable
   public PlatformInfo getExecutionPlatform() {
-    // SolibSymlinkAction is platform agnostic.
-    return null;
+    return PlatformInfo.EMPTY_PLATFORM_INFO;
   }
 
   @Override

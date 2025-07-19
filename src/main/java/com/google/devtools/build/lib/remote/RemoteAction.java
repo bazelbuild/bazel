@@ -17,7 +17,6 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.common.NetworkTime;
@@ -134,8 +133,7 @@ public class RemoteAction {
    * Returns a {@link SortedMap} which maps from input paths for remote action to {@link
    * ActionInput}.
    */
-  public SortedMap<PathFragment, ActionInput> getInputMap(boolean willAccessRepeatedly)
-      throws ForbiddenActionInputException {
+  public SortedMap<PathFragment, ActionInput> getInputMap(boolean willAccessRepeatedly) {
     return remotePathResolver.getInputMapping(spawnExecutionContext, willAccessRepeatedly);
   }
 

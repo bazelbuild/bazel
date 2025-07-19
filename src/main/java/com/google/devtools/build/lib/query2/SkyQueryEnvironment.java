@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.LabelPrinter;
@@ -327,7 +328,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return packageSemaphore;
   }
 
-  boolean hasDependencyFilter() {
+  /** Returns true if this environment has a dependency filter on any edges. */
+  public boolean hasDependencyFilter() {
     return dependencyFilter != DependencyFilter.ALL_DEPS;
   }
 
@@ -359,7 +361,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         universeScopeList,
         result);
     QueryTransitivePackagePreloader.maybeThrowQueryExceptionForResultWithError(
-        result, roots, exprForError, /*operation=*/ "Building universe scope");
+        result, roots, exprForError, /* operation= */ "Building universe scope");
   }
 
   private static final Duration MIN_LOGGING = Duration.ofMillis(50);
@@ -781,7 +783,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   /** Targetify SkyKeys of reverse deps and filter out targets whose deps are not allowed. */
-  Collection<Target> filterRawReverseDepsOfTransitiveTraversalKeys(
+  protected Collection<Target> filterRawReverseDepsOfTransitiveTraversalKeys(
       Map<SkyKey, ? extends Iterable<SkyKey>> rawReverseDeps,
       Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap)
       throws InterruptedException {
@@ -987,6 +989,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @ThreadSafe
   @Override
   public Collection<Target> getSiblingTargetsInPackage(Target target) {
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
     return target.getPackage().getTargets().values();
   }
 
@@ -1023,7 +1026,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
                   Iterables.filter(
                       targets,
                       target ->
-                          targetPatternKey.getPolicy().shouldRetain(target, /*explicit=*/ false)));
+                          targetPatternKey
+                              .getPolicy()
+                              .shouldRetain(target, /* explicit= */ false)));
     }
     ListenableFuture<Void> evalFuture =
         patternToEval.evalAsync(
@@ -1053,6 +1058,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return new TransitiveLoadFilesHelperForTargets() {
       @Override
       public Target getLoadFileTarget(Target originalTarget, Label bzlLabel) {
+        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
         return new FakeLoadTarget(bzlLabel, originalTarget.getPackage());
       }
 
@@ -1078,6 +1084,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
                           .build())
                   .build());
         }
+        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
         return new FakeLoadTarget(
             Label.createUnvalidated(
                 packageIdentifier,
@@ -1144,10 +1151,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
     Multimap<PackageIdentifier, Label> packageIdToLabelMap = ArrayListMultimap.create();
     labels.forEach(label -> packageIdToLabelMap.put(label.getPackageIdentifier(), label));
+
+    packageSemaphore.acquireAll(packageIdToLabelMap.keySet());
     Map<PackageIdentifier, Package> packageIdToPackageMap =
         bulkGetPackages(packageIdToLabelMap.keySet());
     ImmutableMap.Builder<Label, Target> resultBuilder = ImmutableMap.builder();
-    packageSemaphore.acquireAll(packageIdToLabelMap.keySet());
     try {
       for (PackageIdentifier pkgId : packageIdToLabelMap.keySet()) {
         Package pkg = packageIdToPackageMap.get(pkgId);
@@ -1181,6 +1189,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       pkgResults.put(pkgId, Preconditions.checkNotNull(pkgValue.getPackage(), pkgId));
     }
     return pkgResults.buildOrThrow();
+  }
+
+  public ImmutableSet<PackageIdentifier> bulkIsPackage(Iterable<PackageIdentifier> pkgIds)
+      throws InconsistentFilesystemException, InterruptedException {
+    return graphBackedRecursivePackageProvider.bulkIsPackage(eventHandler, pkgIds);
   }
 
   @Override
@@ -1386,7 +1399,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
   }
 
-  static final Function<Target, SkyKey> TARGET_TO_SKY_KEY =
+  protected static final Function<Target, SkyKey> TARGET_TO_SKY_KEY =
       target -> TransitiveTraversalValue.key(target.getLabel());
 
   /** A strict (i.e. non-lazy) variant of {@link #makeLabels}. */
@@ -1591,7 +1604,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         expression,
         context,
         callback,
-        /*depsNeedFiltering=*/ !dependencyFilter.equals(DependencyFilter.ALL_DEPS),
+        /* depsNeedFiltering= */ !dependencyFilter.equals(DependencyFilter.ALL_DEPS),
         caller);
   }
 

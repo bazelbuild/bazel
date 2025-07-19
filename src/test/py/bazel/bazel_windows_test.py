@@ -237,29 +237,43 @@ class BazelWindowsTest(test_base.TestBase):
     )
 
   def testBuildNonCcRuleWithoutVCInstalled(self):
-    self.ScratchFile('BUILD', [
-        'genrule(',
-        '  name="gen",',
-        '  outs = ["hello"],',
-        '  cmd = "touch $@",',
-        ')',
-        '',
-        'java_binary(',
-        '  name = "bin_java",',
-        '  srcs = ["Main.java"],',
-        '  main_class = "Main",',
-        ')',
-        '',
-        'py_binary(',
-        '  name = "bin_py",',
-        '  srcs = ["bin_py.py"],',
-        ')',
-        '',
-        'sh_binary(',
-        '  name = "bin_sh",',
-        '  srcs = ["main.sh"],',
-        ')',
-    ])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "rules_java", version = "8.12.0")',
+            'bazel_dep(name = "rules_python", version = "0.40.0")',
+            'bazel_dep(name = "rules_shell", version = "0.3.0")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_java//java:java_binary.bzl", "java_binary")',
+            'load("@rules_python//python:py_binary.bzl", "py_binary")',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'genrule(',
+            '  name="gen",',
+            '  outs = ["hello"],',
+            '  cmd = "touch $@",',
+            ')',
+            '',
+            'java_binary(',
+            '  name = "bin_java",',
+            '  srcs = ["Main.java"],',
+            '  main_class = "Main",',
+            ')',
+            '',
+            'py_binary(',
+            '  name = "bin_py",',
+            '  srcs = ["bin_py.py"],',
+            ')',
+            '',
+            'sh_binary(',
+            '  name = "bin_sh",',
+            '  srcs = ["main.sh"],',
+            ')',
+        ],
+    )
     self.ScratchFile('Main.java', [
         'public class Main {',
         '  public static void main(String[] args) {',
@@ -334,32 +348,40 @@ class BazelWindowsTest(test_base.TestBase):
     self.RunBazel(['clean'])
 
   def testBuildJavaTargetWithClasspathJar(self):
-    self.ScratchFile('BUILD', [
-        'java_binary(',
-        '  name = "java_bin",',
-        '  srcs = ["Main.java"],',
-        '  main_class = "Main",',
-        '  deps = ["java_lib"],',
-        ')',
-        '',
-        'java_library(',
-        '  name = "java_lib",',
-        '  srcs = ["Greeting.java"],',
-        ')',
-        '',
-        'java_binary(',
-        '  name = "special_java_bin",',
-        '  srcs = ["Main.java"],',
-        '  main_class = "Main",',
-        '  deps = [":special%java%lib"],',
-        ')',
-        '',
-        'java_library(',
-        '  name = "special%java%lib",',
-        '  srcs = ["Greeting.java"],',
-        ')',
-        '',
-    ])
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "rules_java", version = "8.12.0")']
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_java//java:java_binary.bzl", "java_binary")',
+            'load("@rules_java//java:java_library.bzl", "java_library")',
+            'java_binary(',
+            '  name = "java_bin",',
+            '  srcs = ["Main.java"],',
+            '  main_class = "Main",',
+            '  deps = ["java_lib"],',
+            ')',
+            '',
+            'java_library(',
+            '  name = "java_lib",',
+            '  srcs = ["Greeting.java"],',
+            ')',
+            '',
+            'java_binary(',
+            '  name = "special_java_bin",',
+            '  srcs = ["Main.java"],',
+            '  main_class = "Main",',
+            '  deps = [":special%java%lib"],',
+            ')',
+            '',
+            'java_library(',
+            '  name = "special%java%lib",',
+            '  srcs = ["Greeting.java"],',
+            ')',
+            '',
+        ],
+    )
     self.ScratchFile('Main.java', [
         'public class Main {',
         '  public static void main(String[] args) {',
@@ -395,18 +417,26 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertIn('Hello World!', '\n'.join(stdout))
 
   def testRunWithScriptPath(self):
-    self.ScratchFile('BUILD', [
-        'sh_binary(',
-        '  name = "foo_bin",',
-        '  srcs = ["foo.sh"],',
-        ')',
-        '',
-        'sh_test(',
-        '  name = "foo_test",',
-        '  srcs = ["foo.sh"],',
-        ')',
-        '',
-    ])
+    self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.3.0")']
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@rules_shell//shell:sh_test.bzl", "sh_test")',
+            'load("@rules_shell//shell:sh_binary.bzl", "sh_binary")',
+            'sh_binary(',
+            '  name = "foo_bin",',
+            '  srcs = ["foo.sh"],',
+            ')',
+            '',
+            'sh_test(',
+            '  name = "foo_test",',
+            '  srcs = ["foo.sh"],',
+            ')',
+            '',
+        ],
+    )
     self.ScratchFile('foo.sh', [
         'echo "Hello from $1!"',
     ])
@@ -442,8 +472,12 @@ class BazelWindowsTest(test_base.TestBase):
 
   def testZipUndeclaredTestOutputs(self):
     self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.3.0")']
+    )
+    self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_shell//shell:sh_test.bzl", "sh_test")',
             'sh_test(',
             '  name = "foo_test",',
             '  srcs = ["foo.sh"],',
@@ -490,8 +524,12 @@ class BazelWindowsTest(test_base.TestBase):
 
   def testBazelForwardsRequiredEnvVariable(self):
     self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.3.0")']
+    )
+    self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_shell//shell:sh_test.bzl", "sh_test")',
             'sh_test(',
             '  name = "foo_test",',
             '  srcs = ["foo.sh"],',
@@ -523,8 +561,12 @@ class BazelWindowsTest(test_base.TestBase):
 
   def testTestShardStatusFile(self):
     self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.3.0")']
+    )
+    self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_shell//shell:sh_test.bzl", "sh_test")',
             'sh_test(',
             '  name = "foo_test",',
             '  srcs = ["foo.sh"],',
@@ -557,8 +599,12 @@ class BazelWindowsTest(test_base.TestBase):
 
   def testTestPrematureExitFile(self):
     self.ScratchFile(
+        'MODULE.bazel', ['bazel_dep(name = "rules_shell", version = "0.3.0")']
+    )
+    self.ScratchFile(
         'BUILD',
         [
+            'load("@rules_shell//shell:sh_test.bzl", "sh_test")',
             'sh_test(',
             '  name = "foo_test",',
             '  srcs = ["foo.sh"],',

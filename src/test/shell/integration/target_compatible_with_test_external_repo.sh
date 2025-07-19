@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -48,19 +48,25 @@ esac
 function set_up() {
   mkdir -p target_skipping || fail "couldn't create directory"
   touch target_skipping/MODULE.bazel
+  add_rules_shell "target_skipping/MODULE.bazel"
+  add_rules_cc "target_skipping/MODULE.bazel"
+  add_platforms "target_skipping/MODULE.bazel"
   cat > target_skipping/pass.sh <<EOF || fail "couldn't create pass.sh"
-#!/bin/bash
+#!/usr/bin/env bash
 exit 0
 EOF
   chmod +x target_skipping/pass.sh
 
   cat > target_skipping/fail.sh <<EOF || fail "couldn't create fail.sh"
-#!/bin/bash
+#!/usr/bin/env bash
 exit 1
 EOF
   chmod +x target_skipping/fail.sh
 
   cat > target_skipping/BUILD <<EOF || fail "couldn't create BUILD file"
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 # We're not validating visibility here. Let everything access these targets.
 package(default_visibility = ["//visibility:public"])
 
@@ -95,7 +101,7 @@ constraint_value(
 
 platform(
     name = "foo1_bar1_platform",
-    parents = ["@local_config_platform//:host"],
+    parents = ["@platforms//host"],
     constraint_values = [
         ":foo1",
         ":bar1",
@@ -104,7 +110,7 @@ platform(
 
 platform(
     name = "foo2_bar1_platform",
-    parents = ["@local_config_platform//:host"],
+    parents = ["@platforms//host"],
     constraint_values = [
         ":foo2",
         ":bar1",
@@ -113,7 +119,7 @@ platform(
 
 platform(
     name = "foo1_bar2_platform",
-    parents = ["@local_config_platform//:host"],
+    parents = ["@platforms//host"],
     constraint_values = [
         ":foo1",
         ":bar2",
@@ -122,7 +128,7 @@ platform(
 
 platform(
     name = "foo3_platform",
-    parents = ["@local_config_platform//:host"],
+    parents = ["@platforms//host"],
     constraint_values = [
         ":foo3",
     ],
@@ -174,9 +180,14 @@ local_repository(
     path = "third_party/test_repo",
 )
 EOF
+  add_rules_cc "target_skipping/MODULE.bazel"
+  add_rules_shell "target_skipping/MODULE.bazel"
+  add_platforms "target_skipping/MODULE.bazel"
   mkdir -p target_skipping/third_party/test_repo/
   touch target_skipping/third_party/test_repo/REPO.bazel
   cat > target_skipping/third_party/test_repo/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
     name = "bin",
     srcs = ["bin.cc"],
@@ -197,22 +208,22 @@ EOF
     --platforms=@//:foo3_platform \
     --build_event_text_file="${TEST_log}".build.json \
     @test_repo//:bin &> "${TEST_log}" && fail "Bazel passed unexpectedly."
-  expect_log 'ERROR:.*Target @@+_repo_rules+test_repo//:bin is incompatible and cannot be built'
+  expect_log 'ERROR:.*Target @@+local_repository+test_repo//:bin is incompatible and cannot be built'
   expect_log '^ERROR: Build did NOT complete successfully'
   # Now look at the build event log.
   mv "${TEST_log}".build.json "${TEST_log}"
   expect_log '^    name: "PARSING_FAILURE"$'
-  expect_log 'Target @@+_repo_rules+test_repo//:bin is incompatible and cannot be built.'
+  expect_log 'Target @@+local_repository+test_repo//:bin is incompatible and cannot be built.'
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/12374
 function test_repository_defines_target_compatible_with() {
   cat > repo.bzl <<EOF
-def _repo_rule_impl(repo_ctx):
+def impl(repo_ctx):
     pass
 
 repo_rule = repository_rule(
-    implementation = _repo_rule_impl,
+    implementation = impl,
     attrs = {
         "target_compatible_with": attr.label_list(),
     },

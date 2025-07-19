@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -146,9 +146,10 @@ function test_aspect_and_configured_target_cleared() {
   export DONT_SANITY_CHECK_SERIALIZATION=1
   mkdir -p "foo" || fail "Couldn't make directory"
   cat > foo/simpleaspect.bzl <<'EOF' || fail "Couldn't write bzl file"
+AspectInfo = provider()
 def _simple_aspect_impl(target, ctx):
   result=[]
-  for orig_out in target.files.to_list():
+  for orig_out in target[DefaultInfo].files.to_list():
     aspect_out = ctx.actions.declare_file(orig_out.basename + ".aspect")
     ctx.actions.write(
         output=aspect_out,
@@ -156,10 +157,12 @@ def _simple_aspect_impl(target, ctx):
     result += [aspect_out]
 
   result = depset(result,
-      transitive = [src.aspectouts for src in ctx.rule.attr.srcs])
+      transitive = [src[AspectInfo].aspectouts for src in ctx.rule.attr.srcs])
 
-  return struct(output_groups={
-      "aspect-out" : result }, aspectouts = result)
+  return [
+      OutputGroupInfo(**{"aspect-out" : result}),
+      AspectInfo(aspectouts = result),
+  ]
 
 simple_aspect = aspect(implementation=_simple_aspect_impl,
                        attr_aspects = ["srcs"])

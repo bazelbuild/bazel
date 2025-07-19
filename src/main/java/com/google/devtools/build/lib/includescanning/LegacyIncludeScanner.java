@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.MissingDepExecException;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
@@ -37,12 +38,12 @@ import com.google.devtools.build.lib.includescanning.IncludeParser.Inclusion.Kin
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner;
-import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -443,6 +444,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
   private final PathExistenceCache pathCache;
 
   private final ExecutorService includePool;
+  private final boolean shouldShuffle;
 
   // We are using this Random just for shuffling, so keep the order deterministic by hardcoding
   // the seed.
@@ -460,6 +462,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
   LegacyIncludeScanner(
       IncludeParser parser,
       ExecutorService includePool,
+      boolean shouldShuffle,
       ConcurrentMap<Artifact, ListenableFuture<Collection<Inclusion>>> cache,
       PathExistenceCache pathCache,
       List<PathFragment> quoteIncludePaths,
@@ -471,6 +474,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
       Supplier<SpawnIncludeScanner> spawnIncludeScannerSupplier) {
     this.parser = parser;
     this.includePool = includePool;
+    this.shouldShuffle = shouldShuffle;
     this.fileParseCache = cache;
     this.pathCache = pathCache;
     this.artifactFactory = Preconditions.checkNotNull(artifactFactory);
@@ -587,7 +591,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
       Set<Artifact> includes,
       ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
-      Artifact grepIncludes)
+      Artifact grepIncludes,
+      @Nullable PlatformInfo grepIncludesExecutionPlatform)
       throws IOException, NoSuchPackageException, ExecException, InterruptedException {
     SkyFunction.Environment env = actionExecutionContext.getEnvironmentForDiscoveringInputs();
     ImmutableSet<Artifact> pathHints;
@@ -606,6 +611,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
             actionExecutionMetadata,
             actionExecutionContext,
             grepIncludes,
+            grepIncludesExecutionPlatform,
             includeScanningHeaderData);
 
     try {
@@ -649,10 +655,16 @@ public class LegacyIncludeScanner implements IncludeScanner {
       new ErrorClassifier() {
         @Override
         protected ErrorClassification classifyException(Exception e) {
-          return e instanceof ExecRuntimeException
-                  && e.getCause() instanceof LostInputsExecException
-              ? ErrorClassification.NOT_CRITICAL_HIGHER_PRIORITY
-              : ErrorClassification.NOT_CRITICAL;
+          return switch (e) {
+            case ExecRuntimeException exec ->
+                e.getCause() instanceof LostInputsExecException
+                    ? ErrorClassification.NOT_CRITICAL_HIGHER_PRIORITY
+                    : ErrorClassification.NOT_CRITICAL;
+            case UncheckedIOException io -> ErrorClassification.NOT_CRITICAL;
+            case InterruptedRuntimeException interrupt -> ErrorClassification.NOT_CRITICAL;
+            case RuntimeException runtime -> ErrorClassification.CRITICAL; // Probably a crash.
+            default -> ErrorClassification.NOT_CRITICAL;
+          };
         }
       };
 
@@ -664,6 +676,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
     private final ActionExecutionMetadata actionExecutionMetadata;
     private final ActionExecutionContext actionExecutionContext;
     private final Artifact grepIncludes;
+    @Nullable private final PlatformInfo grepIncludesExecutionPlatform;
     private final IncludeScanningHeaderData headerData;
 
     /** The set of all processed inclusions, to avoid processing duplicate inclusions. */
@@ -673,6 +686,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
         ActionExecutionMetadata actionExecutionMetadata,
         ActionExecutionContext actionExecutionContext,
         Artifact grepIncludes,
+        @Nullable PlatformInfo grepIncludesExecutionPlatform,
         IncludeScanningHeaderData headerData) {
       super(
           includePool,
@@ -682,6 +696,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
       this.actionExecutionMetadata = actionExecutionMetadata;
       this.actionExecutionContext = actionExecutionContext;
       this.grepIncludes = grepIncludes;
+      this.grepIncludesExecutionPlatform = grepIncludesExecutionPlatform;
       this.headerData = headerData;
     }
 
@@ -744,8 +759,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
         super.awaitQuiescence(true);
       } catch (InterruptedException e) {
         throw new InterruptedException("Interrupted during include visitation");
-      } catch (IORuntimeException e) {
-        throw e.getCauseIOException();
+      } catch (UncheckedIOException e) {
+        throw e.getCause();
       } catch (ExecRuntimeException e) {
         throw e.getRealCause();
       } catch (InterruptedRuntimeException e) {
@@ -781,6 +796,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
                     actionExecutionMetadata,
                     actionExecutionContext,
                     grepIncludes,
+                    grepIncludesExecutionPlatform,
                     spawnIncludeScannerSupplier.get(),
                     isOutputFile(source.getExecPath())));
           } catch (Throwable t) {
@@ -800,15 +816,21 @@ public class LegacyIncludeScanner implements IncludeScanner {
         }
       }
 
-      // Shuffle the inclusions to get better parallelism. See b/62200470.
-      List<Inclusion> shuffledInclusions = new ArrayList<>(inclusions);
-      Collections.shuffle(shuffledInclusions, CONSTANT_SEED_RANDOM);
+      Collection<Inclusion> maybeShuffledInclusions;
+      if (shouldShuffle) {
+        // Shuffle the inclusions to get better parallelism. See b/62200470.
+        List<Inclusion> shuffledInclusions = new ArrayList<>(inclusions);
+        Collections.shuffle(shuffledInclusions, CONSTANT_SEED_RANDOM);
+        maybeShuffledInclusions = shuffledInclusions;
+      } else {
+        maybeShuffledInclusions = inclusions;
+      }
 
       // For each inclusion: get or locate its target file & recursively process
       IncludeScannerHelper helper =
           new IncludeScannerHelper(includePaths, quoteIncludePaths, source);
       PathFragment parent = source.getExecPath().getParentDirectory();
-      for (Inclusion inclusion : shuffledInclusions) {
+      for (Inclusion inclusion : maybeShuffledInclusions) {
         findAndProcess(
             helper.createInclusionWithContext(inclusion, contextPathPos, contextKind),
             source,
@@ -828,7 +850,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
         final Artifact source, int contextPathPos, Kind contextKind, Set<Artifact> visited)
         throws IOException, ExecException, InterruptedException {
       ListenableFuture<Collection<Inclusion>> cacheResult = fileParseCache.get(source);
-      if (cacheResult != null) {
+      if (cacheResult != null && cacheResult.isDone()) {
         process(source, contextPathPos, contextKind, visited);
       } else {
         super.execute(
@@ -837,7 +859,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
                   actionExecutionContext.getThreadStateReceiverForMetrics().started()) {
                 process(source, contextPathPos, contextKind, visited);
               } catch (IOException e) {
-                throw new IORuntimeException(e);
+                throw new UncheckedIOException(e);
               } catch (ExecException e) {
                 throw new ExecRuntimeException(e);
               } catch (InterruptedException e) {
@@ -933,7 +955,7 @@ public class LegacyIncludeScanner implements IncludeScanner {
                 actionExecutionContext.getThreadStateReceiverForMetrics().started()) {
               processBulkAsync(sources, alsoVisited);
             } catch (IOException e) {
-              throw new IORuntimeException(e);
+              throw new UncheckedIOException(e);
             } catch (ExecException e) {
               throw new ExecRuntimeException(e);
             } catch (InterruptedException e) {

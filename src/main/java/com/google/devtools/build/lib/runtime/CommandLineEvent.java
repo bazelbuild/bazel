@@ -19,12 +19,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
-import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.ReplaceableBuildEvent;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.ChunkList;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.CommandLine;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.CommandLineSection;
@@ -44,6 +44,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -67,17 +68,20 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     protected final String productName;
     protected final OptionsParsingResult activeStartupOptions;
     protected final String commandName;
-    protected final OptionsParsingResult commandOptions;
+    protected final List<String> residue;
+    protected final boolean includeResidueInRunBepEvent;
 
     BazelCommandLineEvent(
         String productName,
         OptionsParsingResult activeStartupOptions,
         String commandName,
-        OptionsParsingResult commandOptions) {
+        List<String> residue,
+        boolean includeResidueInRunBepEvent) {
       this.productName = productName;
       this.activeStartupOptions = activeStartupOptions;
       this.commandName = commandName;
-      this.commandOptions = commandOptions;
+      this.residue = residue;
+      this.includeResidueInRunBepEvent = includeResidueInRunBepEvent;
     }
 
     CommandLineSection getExecutableSection() {
@@ -130,6 +134,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
         options.add(
             createOption(
                 parsedOption.getOptionDefinition(),
+                parsedOption.getSource(),
                 parsedOption.getCommandLineForm(),
                 parsedOption.getUnconvertedValue()));
       }
@@ -137,7 +142,10 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
     }
 
     private Option createOption(
-        OptionDefinition optionDefinition, String combinedForm, @Nullable String value) {
+        OptionDefinition optionDefinition,
+        @Nullable String source,
+        String combinedForm,
+        @Nullable String value) {
       Option.Builder option = Option.newBuilder();
       option.setCombinedForm(combinedForm);
       option.setOptionName(optionDefinition.getOptionName());
@@ -146,6 +154,9 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
       }
       option.addAllEffectTags(getProtoEffectTags(optionDefinition.getOptionEffectTags()));
       option.addAllMetadataTags(getProtoMetadataTags(optionDefinition.getOptionMetadataTags()));
+      if (source != null) {
+        option.setSource(source);
+      }
       return option.build();
     }
 
@@ -189,17 +200,15 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
       // as a default in this case.
       CommandLineSection.Builder builder =
           CommandLineSection.newBuilder().setSectionLabel("residual");
-      if (commandName.equals("run")
-          && !commandOptions.getOptions(BuildEventProtocolOptions.class).includeResidueInRunBepEvent
-          && !commandOptions.getResidue().isEmpty()) {
-        String target = commandOptions.getResidue().get(0);
+      if (commandName.equals("run") && !includeResidueInRunBepEvent && !residue.isEmpty()) {
+        String target = residue.get(0);
         ChunkList.Builder residual = ChunkList.newBuilder().addChunk(target);
-        if (commandOptions.getResidue().size() > 1) {
+        if (residue.size() > 1) {
           residual.addChunk("REDACTED");
         }
         builder.setChunkList(residual);
       } else {
-        builder.setChunkList(ChunkList.newBuilder().addAllChunk(commandOptions.getResidue()));
+        builder.setChunkList(ChunkList.newBuilder().addAllChunk(residue));
       }
       return builder.build();
     }
@@ -208,18 +217,26 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
   /** This reports a reassembled version of the command line as Bazel received it. */
   public static class OriginalCommandLineEvent extends BazelCommandLineEvent {
     public static final String LABEL = "original";
+    protected final List<ParsedOptionDescription> explicitOptions;
+    private final Map<String, Object> explicitStarlarkOptions;
     private final Optional<List<Pair<String, String>>> originalStartupOptions;
 
     public OriginalCommandLineEvent(
         BlazeRuntime runtime,
         String commandName,
-        OptionsParsingResult commandOptions,
+        List<String> residue,
+        boolean includeResidueInRunBepEvent,
+        List<ParsedOptionDescription> explicitOptions,
+        Map<String, Object> explicitStarlarkOptions,
         Optional<List<Pair<String, String>>> originalStartupOptions) {
       this(
           runtime.getProductName(),
           runtime.getStartupOptionsProvider(),
           commandName,
-          commandOptions,
+          residue,
+          includeResidueInRunBepEvent,
+          explicitOptions,
+          explicitStarlarkOptions,
           originalStartupOptions);
     }
 
@@ -228,9 +245,14 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
         String productName,
         OptionsParsingResult activeStartupOptions,
         String commandName,
-        OptionsParsingResult commandOptions,
+        List<String> residue,
+        boolean includeResidueInRunBepEvent,
+        List<ParsedOptionDescription> explicitOptions,
+        Map<String, Object> explicitStarlarkOptions,
         Optional<List<Pair<String, String>>> originalStartupOptions) {
-      super(productName, activeStartupOptions, commandName, commandOptions);
+      super(productName, activeStartupOptions, commandName, residue, includeResidueInRunBepEvent);
+      this.explicitOptions = explicitOptions;
+      this.explicitStarlarkOptions = explicitStarlarkOptions;
       this.originalStartupOptions = originalStartupOptions;
     }
 
@@ -267,28 +289,26 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
       }
     }
 
-    private static boolean commandLinePriority(ParsedOptionDescription parsedOptionDescription) {
+    public static boolean commandLinePriority(ParsedOptionDescription parsedOptionDescription) {
       return parsedOptionDescription.getPriority().getPriorityCategory()
           == OptionPriority.PriorityCategory.COMMAND_LINE;
     }
 
     private CommandLineSection getExplicitCommandOptions() {
-      List<ParsedOptionDescription> explicitOptions =
-          commandOptions.asListOfExplicitOptions().stream()
+      List<ParsedOptionDescription> explicitOptionsCommandLinePriority =
+          explicitOptions.stream()
               .filter(OriginalCommandLineEvent::commandLinePriority)
               .collect(Collectors.toList());
       List<Option> starlarkOptions =
-          commandOptions
-              .getExplicitStarlarkOptions(OriginalCommandLineEvent::commandLinePriority)
-              .entrySet()
-              .stream()
+          explicitStarlarkOptions.entrySet().stream()
               .map(e -> createStarlarkOption(e.getKey(), e.getValue()))
               .collect(Collectors.toList());
       return CommandLineSection.newBuilder()
           .setSectionLabel("command options")
           .setOptionList(
               OptionList.newBuilder()
-                  .addAllOption(getOptionListFromParsedOptionDescriptions(explicitOptions))
+                  .addAllOption(
+                      getOptionListFromParsedOptionDescriptions(explicitOptionsCommandLinePriority))
                   .addAllOption(starlarkOptions))
           .build();
     }
@@ -310,16 +330,33 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
   }
 
   /** This reports the canonical form of the command line. */
-  public static class CanonicalCommandLineEvent extends BazelCommandLineEvent {
+  public static class CanonicalCommandLineEvent extends BazelCommandLineEvent
+      implements ReplaceableBuildEvent {
     public static final String LABEL = "canonical";
+    protected final Map<String, Object> explicitStarlarkOptions;
+    protected final Map<String, Object> starlarkOptions;
+    protected final List<ParsedOptionDescription> canonicalOptions;
+    private final boolean replaceable;
 
     public CanonicalCommandLineEvent(
-        BlazeRuntime runtime, String commandName, OptionsParsingResult commandOptions) {
+        BlazeRuntime runtime,
+        String commandName,
+        List<String> residue,
+        boolean includeResidueInRunBepEvent,
+        Map<String, Object> explicitStarlarkOptions,
+        Map<String, Object> starlarkOptions,
+        List<ParsedOptionDescription> canonicalOptions,
+        boolean replaceable) {
       this(
           runtime.getProductName(),
           runtime.getStartupOptionsProvider(),
           commandName,
-          commandOptions);
+          residue,
+          includeResidueInRunBepEvent,
+          explicitStarlarkOptions,
+          starlarkOptions,
+          canonicalOptions,
+          replaceable);
     }
 
     @VisibleForTesting
@@ -327,13 +364,27 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
         String productName,
         OptionsParsingResult activeStartupOptions,
         String commandName,
-        OptionsParsingResult commandOptions) {
-      super(productName, activeStartupOptions, commandName, commandOptions);
+        List<String> residue,
+        boolean includeResidueInRunBepEvent,
+        Map<String, Object> explicitStarlarkOptions,
+        Map<String, Object> starlarkOptions,
+        List<ParsedOptionDescription> canonicalOptions,
+        boolean replaceable) {
+      super(productName, activeStartupOptions, commandName, residue, includeResidueInRunBepEvent);
+      this.explicitStarlarkOptions = explicitStarlarkOptions;
+      this.starlarkOptions = starlarkOptions;
+      this.canonicalOptions = canonicalOptions;
+      this.replaceable = replaceable;
     }
 
     @Override
     public BuildEventId getEventId() {
       return BuildEventIdUtil.structuredCommandlineId(LABEL);
+    }
+
+    @Override
+    public boolean replaceable() {
+      return replaceable;
     }
 
     /**
@@ -386,18 +437,16 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
 
     /** Returns the canonical command options, overridden and default values are not listed. */
     private CommandLineSection getCanonicalCommandOptions() {
-      List<Option> starlarkOptions =
-          commandOptions.getStarlarkOptions().entrySet().stream()
+      List<Option> starlarkOptionsAsList =
+          starlarkOptions.entrySet().stream()
               .map(e -> createStarlarkOption(e.getKey(), e.getValue()))
               .collect(Collectors.toList());
       return CommandLineSection.newBuilder()
           .setSectionLabel("command options")
           .setOptionList(
               OptionList.newBuilder()
-                  .addAllOption(
-                      getOptionListFromParsedOptionDescriptions(
-                          commandOptions.asListOfCanonicalOptions()))
-                  .addAllOption(starlarkOptions))
+                  .addAllOption(getOptionListFromParsedOptionDescriptions(canonicalOptions))
+                  .addAllOption(starlarkOptionsAsList))
           .build();
     }
 
@@ -406,11 +455,10 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
      */
     public long getExplicitCommandLineHash() {
       long hash = 0;
-      for (Entry<String, Object> starlarkOption : commandOptions.getStarlarkOptions().entrySet()) {
+      for (Entry<String, Object> starlarkOption : starlarkOptions.entrySet()) {
         hash = hash * 31 + starlarkOption.toString().hashCode();
       }
-      for (ParsedOptionDescription canonicalOptionDesc :
-          commandOptions.asListOfCanonicalOptions()) {
+      for (ParsedOptionDescription canonicalOptionDesc : canonicalOptions) {
         if (canonicalOptionDesc == null
             || canonicalOptionDesc.isHidden()
             || !"command line options".equals(canonicalOptionDesc.getSource())) {
@@ -418,7 +466,7 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
         }
         hash = hash * 31 + canonicalOptionDesc.getCanonicalForm().hashCode();
       }
-      for (String r : commandOptions.getResidue()) {
+      for (String r : residue) {
         hash = hash * 31 + r.hashCode();
       }
       return hash;

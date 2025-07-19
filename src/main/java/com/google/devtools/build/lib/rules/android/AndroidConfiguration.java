@@ -156,7 +156,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   /** Types of android manifest mergers. */
-  public enum AndroidManifestMerger {
+  public enum AndroidManifestMerger implements StarlarkValue {
     LEGACY,
     ANDROID,
     FORCE_ANDROID;
@@ -185,7 +185,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   /** Orders for merging android manifests. */
-  public enum ManifestMergerOrder {
+  public enum ManifestMergerOrder implements StarlarkValue {
     /** Manifests are sorted alphabetically by exec path. */
     ALPHABETICAL,
     /** Manifests are sorted alphabetically by configuration-relative path. */
@@ -546,7 +546,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           OptionEffectTag.LOSES_INCREMENTAL_STATE,
         },
         help =
-            "Selects the manifest merger to use for android_binary rules. Flag to help the"
+            "Selects the manifest merger to use for android_binary rules. Flag to help the "
                 + "transition to the Android manifest merger from the legacy merger.")
     public AndroidManifestMerger manifestMerger;
 

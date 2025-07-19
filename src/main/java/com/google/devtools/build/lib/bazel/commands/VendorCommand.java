@@ -36,8 +36,9 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
@@ -148,7 +149,7 @@ public final class VendorCommand implements BlazeCommand {
     env.getSkyframeExecutor()
         .injectExtraPrecomputedValues(
             ImmutableList.of(
-                PrecomputedValue.injected(RepositoryDelegatorFunction.IS_VENDOR_COMMAND, true)));
+                PrecomputedValue.injected(RepositoryDirectoryValue.IS_VENDOR_COMMAND, true)));
 
     BlazeCommandResult result;
     VendorOptions vendorOptions = options.getOptions(VendorOptions.class);
@@ -251,12 +252,13 @@ public final class VendorCommand implements BlazeCommand {
     List<String> notFoundRepoErrors = new ArrayList<>();
     for (Entry<RepositoryName, RepositoryDirectoryValue> entry :
         repositoryNamesAndValues.entrySet()) {
-      if (entry.getValue().repositoryExists()) {
-        if (!entry.getValue().excludeFromVendoring()) {
-          reposToVendor.add(entry.getKey());
+      switch (entry.getValue()) {
+        case Success s -> {
+          if (!s.excludeFromVendoring()) {
+            reposToVendor.add(entry.getKey());
+          }
         }
-      } else {
-        notFoundRepoErrors.add(entry.getValue().getErrorMsg());
+        case Failure f -> notFoundRepoErrors.add(f.getErrorMsg());
       }
     }
 
@@ -308,8 +310,7 @@ public final class VendorCommand implements BlazeCommand {
       SkyKey key = nodes.remove();
       visited.add(key);
       NodeEntry nodeEntry = inMemoryGraph.get(null, Reason.VENDOR_EXTERNAL_REPOS, key);
-      if (nodeEntry.getValue() instanceof RepositoryDirectoryValue repoDirValue
-          && repoDirValue.repositoryExists()
+      if (nodeEntry.getValue() instanceof RepositoryDirectoryValue.Success repoDirValue
           && !repoDirValue.excludeFromVendoring()) {
         repos.add((RepositoryName) key.argument());
       }

@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.runtime.ExecutionGraphModule.ActionDumpWriter;
 import com.google.devtools.build.lib.runtime.ExecutionGraphModule.DependencyInfo;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -99,7 +100,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
 
   @Before
   public final void initializeRoots() throws Exception {
-    artifactRoot = ArtifactRoot.asDerivedRoot(scratch.resolve("/"), RootType.Output, "output");
+    artifactRoot = ArtifactRoot.asDerivedRoot(scratch.resolve("/"), RootType.OUTPUT, "output");
   }
 
   private static ImmutableList<ExecutionGraph.Node> parse(ByteArrayOutputStream buffer)
@@ -147,6 +148,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             result,
             startTimeInstant,
             /* spawnIdentifier= */ "foo"));
@@ -205,6 +208,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             result,
             startTimeInstant,
             /* spawnIdentifier= */ "foo"));
@@ -279,6 +284,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawnOut1,
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             result,
             startTimeInstant,
             /* spawnIdentifier= */ "out1"));
@@ -286,6 +293,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawnOut2,
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             result,
             startTimeInstant,
             /* spawnIdentifier= */ "out2"));
@@ -293,6 +302,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawnTop,
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             result,
             startTimeInstant,
             /* spawnIdentifier= */ "top"));
@@ -430,6 +441,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawnOut1,
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             result,
             startTimeInstant,
             /* spawnIdentifier= */ "out1"));
@@ -442,6 +455,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawnOut3,
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             result,
             startTimeInstant,
             /* spawnIdentifier= */ "out3"));
@@ -567,7 +582,14 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
                 "Mnemonic", "Progress message", "//unused:label", "output/foo/out") {
               @Override
               public ActionOwner getOwner() {
-                return ActionOwner.SYSTEM_ACTION_OWNER;
+                return ActionOwner.create(
+                    /* label= */ null,
+                    ActionsTestUtil.NULL_ACTION_OWNER.getLocation(),
+                    ActionsTestUtil.NULL_ACTION_OWNER.getTargetKind(),
+                    ActionsTestUtil.NULL_ACTION_OWNER.getBuildConfigurationInfo(),
+                    ActionsTestUtil.NULL_ACTION_OWNER.getExecutionPlatform(),
+                    ActionsTestUtil.NULL_ACTION_OWNER.getAspectDescriptors(),
+                    ActionsTestUtil.NULL_ACTION_OWNER.getExecProperties());
               }
             },
             ImmutableList.of("cmd"),
@@ -594,6 +616,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             result,
             startTimeInstant,
             /* spawnIdentifier= */ "foo"));
@@ -614,6 +638,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build(),
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             createRemoteSpawnResult(200),
             Instant.ofEpochMilli(100),
             /* spawnIdentifier= */ "foo"));
@@ -652,6 +678,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build(),
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             createRemoteSpawnResult(200),
             Instant.ofEpochMilli(100),
             /* spawnIdentifier= */ "foo"));
@@ -719,6 +747,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             localResult,
             Instant.EPOCH,
             /* spawnIdentifier= */ "foo1"));
@@ -726,6 +756,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             remoteResult,
             Instant.ofEpochMilli(100),
             /* spawnIdentifier= */ "foo2"));
@@ -807,6 +839,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             localResult,
             Instant.EPOCH,
             /* spawnIdentifier= */ "foo1"));
@@ -814,6 +848,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             remoteResult,
             Instant.ofEpochMilli(10),
             /* spawnIdentifier= */ "foo2"));
@@ -873,6 +909,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             localResult,
             Instant.EPOCH,
             /* spawnIdentifier= */ "foo1"));
@@ -880,6 +918,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             spawn,
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             remoteResult,
             Instant.ofEpochMilli(10),
             /* spawnIdentifier= */ "foo2"));
@@ -887,6 +927,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         new SpawnExecutedEvent(
             dependentSpawn,
             new FakeActionInputFileCache(),
+            null,
+            new TestFileOutErr(),
             dependentResult,
             Instant.ofEpochMilli(300),
             /* spawnIdentifier= */ "foo3"));

@@ -23,8 +23,8 @@ import com.google.common.collect.Iterators;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.SkyframeAwareAction;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -70,7 +70,7 @@ public final class Actions {
     if (action instanceof NotifyOnActionCacheHit) {
       return true;
     }
-    return ((Action) action).isVolatile() && !(action instanceof SkyframeAwareAction);
+    return ((Action) action).isVolatile();
   }
 
   /**
@@ -91,8 +91,8 @@ public final class Actions {
         // Non-Actions cannot be shared.
         && a instanceof Action
         && b instanceof Action
-        && a.getKey(actionKeyContext, /* artifactExpander= */ null)
-            .equals(b.getKey(actionKeyContext, /* artifactExpander= */ null))
+        && a.getKey(actionKeyContext, /* inputMetadataProvider= */ null)
+            .equals(b.getKey(actionKeyContext, /* inputMetadataProvider= */ null))
         && artifactsEqualWithoutOwner(
             a.getMandatoryInputs().toList(), b.getMandatoryInputs().toList())
         && artifactsEqualWithoutOwner(a.getOutputs(), b.getOutputs());
@@ -182,7 +182,7 @@ public final class Actions {
   }
 
   private static void verifyGeneratingActionKeys(
-      Artifact.DerivedArtifact output,
+      DerivedArtifact output,
       ActionLookupData otherKey,
       boolean allowSharedAction,
       ActionKeyContext actionKeyContext,
@@ -219,12 +219,15 @@ public final class Actions {
       ActionLookupKey actionLookupKey,
       boolean allowSharedAction)
       throws ActionConflictException, InterruptedException, ArtifactGeneratedByOtherRuleException {
-    Map<PathFragment, Artifact.DerivedArtifact> seenArtifacts = new HashMap<>();
+    Map<PathFragment, DerivedArtifact> seenArtifacts = new HashMap<>();
     // Loop over the actions, looking at all outputs for conflicts.
     int actionIndex = 0;
     for (ActionAnalysisMetadata action : actions) {
       ActionLookupData generatingActionKey =
-          dependsOnBuildId(action)
+          // Runfiles tree actions have the unfortunate property that their RichArtifactData
+          // contains a NestedSet of Artifacts, which we currently deem to be not worth serializing.
+          // TODO: b/401575099 - See if we can factor out the NestedSet and remove this exclusion.
+          dependsOnBuildId(action) || action instanceof RunfilesTreeAction
               ? ActionLookupData.createUnshareable(actionLookupKey, actionIndex)
               : ActionLookupData.create(actionLookupKey, actionIndex);
       for (Artifact artifact : action.getOutputs()) {
@@ -234,10 +237,9 @@ public final class Actions {
             artifact,
             generatingActionKey,
             action);
-        Artifact.DerivedArtifact output = (Artifact.DerivedArtifact) artifact;
+        DerivedArtifact output = (DerivedArtifact) artifact;
         // Has an artifact with this execPath been seen before?
-        Artifact.DerivedArtifact equalOutput =
-            seenArtifacts.putIfAbsent(output.getExecPath(), output);
+        DerivedArtifact equalOutput = seenArtifacts.putIfAbsent(output.getExecPath(), output);
         if (equalOutput != null) {
           // Yes: assert that its generating action and this artifact's are compatible.
           verifyGeneratingActionKeys(
@@ -410,28 +412,19 @@ public final class Actions {
       return null;
     }
 
-    return getAction(graph, ((Artifact.DerivedArtifact) artifact).getGeneratingActionKey());
+    return getGeneratingAction(graph, (DerivedArtifact) artifact);
+  }
+
+  @Nullable
+  public static ActionAnalysisMetadata getGeneratingAction(
+      WalkableGraph graph, DerivedArtifact artifact) throws InterruptedException {
+    return getAction(graph, artifact.getGeneratingActionKey());
   }
 
   public static ActionAnalysisMetadata getAction(
       WalkableGraph graph, ActionLookupData actionLookupData) throws InterruptedException {
     var actionLookupKey = actionLookupData.getActionLookupKey();
-
-    // In analysis caching build with cache hits, deserialized ActionLookupValues do not contain
-    // actions, so the generating action for the artifact does not exist in the graph. It would
-    // require a reanalysis of the entire configured target subgraph to produce the action,
-    // nullifying the benefits of analysis caching.
-    //
-    // In practice this should be fine for critical path computation and execution graph log,
-    // because this represents a pruned subgraph for the action and there was no work done other
-    // than deserialization.
-    if (graph.getValue(actionLookupKey) instanceof ActionLookupValue actionLookupValue) {
-      // Not all ActionLookupKeys resolve to an ActionLookupValue, e.g. RemoteConfiguredTargetValue.
-      if (actionLookupValue.getNumActions() > 0) {
-        return actionLookupValue.getActions().get(actionLookupData.getActionIndex());
-      }
-    }
-
-    return null;
+    var actionLookupValue = (ActionLookupValue) graph.getValue(actionLookupKey);
+    return actionLookupValue.getActions().get(actionLookupData.getActionIndex());
   }
 }

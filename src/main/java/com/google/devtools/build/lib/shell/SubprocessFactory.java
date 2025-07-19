@@ -15,9 +15,7 @@ package com.google.devtools.build.lib.shell;
 
 import java.io.IOException;
 
-/**
- * Something that can create subprocesses.
- */
+/** Something that can create subprocesses. */
 public interface SubprocessFactory {
   /**
    * Create a subprocess according to the specified parameters.

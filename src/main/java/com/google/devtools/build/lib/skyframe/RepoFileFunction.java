@@ -25,7 +25,10 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.DotBazelFileSyntaxChecker;
 import com.google.devtools.build.lib.packages.RepoThreadContext;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Failure;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.Success;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -75,11 +78,12 @@ public class RepoFileFunction implements SkyFunction {
       if (repoDirValue == null) {
         return null;
       }
-      if (!repoDirValue.repositoryExists()) {
-        throw new RepoFileFunctionException(
-            new IOException(repoDirValue.getErrorMsg()), Transience.PERSISTENT);
+      switch (repoDirValue) {
+        case Success s -> repoRoot = s.getPath();
+        case Failure f ->
+            throw new RepoFileFunctionException(
+                new IOException(f.getErrorMsg()), Transience.PERSISTENT);
       }
-      repoRoot = repoDirValue.getPath();
     }
     RootedPath repoFilePath =
         RootedPath.toRootedPath(Root.fromPath(repoRoot), LabelConstants.REPO_FILE_NAME);
@@ -98,11 +102,12 @@ public class RepoFileFunction implements SkyFunction {
       return null;
     }
 
-    StarlarkFile repoFile = readAndParseRepoFile(repoFilePath.asPath(), env);
+    StarlarkFile repoFile = readAndParseRepoFile(repoFilePath.asPath(), env, starlarkSemantics);
     return evalRepoFile(repoFile, repoName, starlarkSemantics, env.getListener());
   }
 
-  private static StarlarkFile readAndParseRepoFile(Path path, Environment env)
+  private static StarlarkFile readAndParseRepoFile(
+      Path path, Environment env, StarlarkSemantics starlarkSemantics)
       throws RepoFileFunctionException {
     byte[] contents;
     try {
@@ -111,8 +116,21 @@ public class RepoFileFunction implements SkyFunction {
       throw new RepoFileFunctionException(
           new IOException("error reading REPO.bazel file at " + path, e), Transience.TRANSIENT);
     }
-    StarlarkFile starlarkFile =
-        StarlarkFile.parse(ParserInput.fromLatin1(contents, path.getPathString()));
+    ParserInput parserInput;
+    try {
+      parserInput =
+          StarlarkUtil.createParserInput(
+              contents,
+              path.getPathString(),
+              starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+              env.getListener());
+    } catch (
+        @SuppressWarnings("UnusedException") // createParserInput() reports its own error message
+        StarlarkUtil.InvalidUtf8Exception e) {
+      throw new RepoFileFunctionException(
+          new BadRepoFileException("error reading REPO.bazel file at " + path));
+    }
+    StarlarkFile starlarkFile = StarlarkFile.parse(parserInput);
     if (!starlarkFile.ok()) {
       Event.replayEventsOn(env.getListener(), starlarkFile.errors());
       throw new RepoFileFunctionException(

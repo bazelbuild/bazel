@@ -15,6 +15,9 @@ java_test(
     name = "BuildOutputFormatterCallbackTest",
     size = "medium",
     srcs = ["BuildOutputFormatterCallbackTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 4,
     deps = [
         ":configured_target_query_helper",
@@ -38,6 +41,9 @@ java_test(
     name = "GraphOutputFormatterCallbackTest",
     size = "medium",
     srcs = ["GraphOutputFormatterCallbackTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 4,
     deps = [
         ":configured_target_query_helper",
@@ -58,17 +64,20 @@ java_test(
     size = "medium",
     timeout = "long",
     srcs = ["ConfiguredTargetQuerySemanticsTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 2,
     deps = [
         ":configured_target_query_test",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/execution_transition_factory",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/patch_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:execution_transition_factory",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:patch_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:transition_factory",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -91,7 +100,7 @@ java_library(
     testonly = 1,
     srcs = ["ConfiguredTargetQueryHelper.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/packages:label_printer",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2/common:cquery-node",
@@ -109,7 +118,7 @@ java_library(
     srcs = ["ConfiguredTargetQueryTest.java"],
     deps = [
         ":configured_target_query_helper",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2/common:cquery-node",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
@@ -124,12 +133,15 @@ java_test(
     name = "ProtoOutputFormatterCallbackTest",
     size = "medium",
     srcs = ["ProtoOutputFormatterCallbackTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 4,
     deps = [
         ":configured_target_query_helper",
         ":configured_target_query_test",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/execution_transition_factory",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:execution_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:label_printer",
@@ -153,14 +165,17 @@ java_test(
     name = "TransitionsOutputFormatterTest",
     size = "medium",
     srcs = ["TransitionsOutputFormatterTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 4,
     deps = [
         ":configured_target_query_helper",
         ":configured_target_query_test",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/transition_factory",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:configuration_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:no_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config/transitions:transition_factory",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:label_printer",
@@ -179,6 +194,9 @@ java_test(
 java_test(
     name = "FilesOutputFormatterCallbackTest",
     srcs = ["FilesOutputFormatterCallbackTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     shard_count = 4,
     deps = [
         ":configured_target_query_helper",

@@ -24,5 +24,6 @@ public interface ResourceSetOrBuilder {
    * will flatten NestedSet. This action could create a lot of garbagge, so use it as close as
    * possible to the execution phase,
    */
-  public ResourceSet buildResourceSet(OS os, int inputsSize) throws ExecException;
+  public ResourceSet buildResourceSet(OS os, int inputsSize)
+      throws ExecException, InterruptedException;
 }

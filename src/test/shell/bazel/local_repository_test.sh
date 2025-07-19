@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -90,8 +90,11 @@ EOF
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'pandas', path = '${repo2}')
 EOF
+  add_rules_shell "MODULE.bazel"
 
   cat > zoo/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "dumper",
     srcs = ["dumper.sh"],
@@ -101,7 +104,7 @@ EOF
 
   cat > zoo/dumper.sh <<EOF
 #!/bin/sh
-cat ../+_repo_rules+pandas/red/baby-panda
+cat ../+local_repository+pandas/red/baby-panda
 cat red/day-keeper
 EOF
   chmod +x zoo/dumper.sh
@@ -130,6 +133,8 @@ function test_local_repository_java() {
 
   mkdir -p carnivore
   cat > carnivore/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "mongoose",
     srcs = ["Mongoose.java"],
@@ -150,9 +155,11 @@ EOF
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'endangered', path = '$repo2')
 EOF
-
+  add_rules_java "MODULE.bazel"
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "ball-pit",
     srcs = ["BallPit.java"],
@@ -178,9 +185,12 @@ EOF
 }
 
 function test_non_existent_external_ref() {
+  add_rules_java "MODULE.bazel"
   mkdir -p zoo
   touch zoo/BallPit.java
   cat > zoo/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "ball-pit",
     srcs = ["BallPit.java"],
@@ -236,8 +246,11 @@ new_local_repository(
     build_file = '//:BUILD.carnivore',
 )
 EOF
+    add_rules_java "MODULE.bazel"
 
     cat > BUILD.carnivore <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "mongoose",
     srcs = ["carnivore/Mongoose.java"],
@@ -251,6 +264,8 @@ new_local_repository(
     name = 'endangered',
     path = '$project_dir',
     build_file_content = """
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "mongoose",
     srcs = ["carnivore/Mongoose.java"],
@@ -258,10 +273,13 @@ java_library(
 )""",
 )
 EOF
+    add_rules_java "MODULE.bazel"
   fi
 
    mkdir -p zoo
    cat > zoo/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
+
 java_binary(
     name = "ball-pit",
     srcs = ["BallPit.java"],
@@ -314,6 +332,8 @@ void greet() {
 }
 EOF
   cat > $external_ws/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "greet_lib",
     srcs = ["greet_lib.cc"],
@@ -334,6 +354,8 @@ int main() {
 }
 EOF
   cat > BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
     name = "greeter",
     srcs = ["greeter.cc"],
@@ -347,6 +369,7 @@ local_repository(
     path = "$external_ws",
 )
 EOF
+  add_rules_cc "MODULE.bazel"
 
   bazel fetch //:greeter || fail "Fetch failed"
   bazel run //:greeter >& $TEST_log || fail "Failed to run greeter"
@@ -367,6 +390,8 @@ int x() {
 }
 EOF
   cat > $clib/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "clib",
     srcs = ["clib.cc"],
@@ -383,7 +408,10 @@ local_repository(
     path = "$clib",
 )
 EOF
+  add_rules_cc "MODULE.bazel"
   cat > BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
     name = "printer",
     srcs = ["printer.cc"],
@@ -414,9 +442,16 @@ function test_repository_package_query() {
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name='b', path='b')
 EOF
-  echo "sh_library(name='a', deps=['@b//b'])" > a/BUILD
+  add_rules_shell "MODULE.bazel"
+  cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name='a', deps=['@b//b'])
+EOF
   touch b/REPO.bazel
-  echo "sh_library(name='b')" > b/b/BUILD
+  cat > b/b/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+sh_library(name='b')
+EOF
   bazel query --output package "deps(//a)" >& $TEST_log || fail "query failed"
   expect_log "a"
   expect_log "@b//b"
@@ -428,10 +463,17 @@ function test_repository_buildfiles_package_query() {
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name='b', path='b')
 EOF
-  echo "sh_library(name='a', deps=['@b//b'])" > a/BUILD
+  add_rules_shell "MODULE.bazel"
+  cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+
+sh_library(name='a', deps=['@b//b'])
+EOF
   touch b/REPO.bazel b/c/BUILD
   cat > b/b/BUILD <<EOF
 load('//c:lib.bzl', 'x')
+load("@rules_shell//shell:sh_library.bzl", "sh_library")
+
 sh_library(
     name = "b"
 )
@@ -488,7 +530,7 @@ genrule(
 EOF
   bazel fetch @mutant//:turtle || fail "Fetch failed"
   bazel build @mutant//:turtle &> $TEST_log || fail "First build failed"
-  assert_contains "Leonardo" bazel-genfiles/external/+_repo_rules+mutant/tmnt
+  assert_contains "Leonardo" bazel-genfiles/external/+new_local_repository+mutant/tmnt
 
   cat > mutant.BUILD <<EOF
 genrule(
@@ -499,7 +541,7 @@ genrule(
 )
 EOF
   bazel build @mutant//:turtle &> $TEST_log || fail "Second build failed"
-  assert_contains "Donatello" bazel-genfiles/external/+_repo_rules+mutant/tmnt
+  assert_contains "Donatello" bazel-genfiles/external/+new_local_repository+mutant/tmnt
 }
 
 function test_external_deps_in_remote_repo() {
@@ -533,7 +575,7 @@ genrule(
 EOF
 
  bazel build @r//:r || fail "build failed"
- assert_contains "GOLF" bazel-genfiles/external/+_repo_rules+r/r.out
+ assert_contains "GOLF" bazel-genfiles/external/+local_repository+r/r.out
 }
 
 function test_local_deps() {
@@ -737,9 +779,11 @@ EOF
 function test_python_in_remote_repository() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
+  add_rules_python "MODULE.bazel"
   mkdir -p $r/bin
   touch $r/REPO.bazel
   cat > $r/bin/BUILD <<EOF
+load("@rules_python//python:py_binary.bzl", "py_binary")
 package(default_visibility=["//visibility:public"])
 py_binary(name="bin", srcs=["bin.py"], deps=["//lib:lib"])
 EOF
@@ -754,6 +798,7 @@ EOF
 
   mkdir -p $r/lib
   cat > $r/lib/BUILD <<EOF
+load("@rules_python//python:py_library.bzl", "py_library")
 package(default_visibility=["//visibility:public"])
 py_library(name="lib", srcs=["lib.py"])
 EOF
@@ -844,17 +889,20 @@ local_repository(name='r', path='$r')
 EOF
 
   bazel build @r//a:b || fail "build failed"
-  cat bazel-genfiles/external/+_repo_rules+r/a/bo > $TEST_log
-  expect_log "@+_repo_rules+r a"
+  cat bazel-genfiles/external/+local_repository+r/a/bo > $TEST_log
+  expect_log "@+local_repository+r a"
 }
 
 function test_slash_in_repo_name() {
+  add_rules_cc "MODULE.bazel"
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r/a
 
   touch $r/a/REPO.bazel
   cat > $r/a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
     name = "bin",
     srcs = ["bin.cc"],
@@ -876,13 +924,46 @@ EOF
   expect_log "valid names may contain only A-Z, a-z, 0-9, '-', '_', '.', and must start with a letter"
 }
 
+function test_starting_with_number_in_repo_name() {
+  local r=$TEST_TMPDIR/r
+  rm -fr $r
+  mkdir -p $r/a
+
+  touch $r/a/REPO.bazel
+  cat > $r/a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+cc_binary(
+    name = "bin",
+    srcs = ["bin.cc"],
+)
+EOF
+  cat > $r/a/bin.cc <<EOF
+int main() { return 0; };
+EOF
+
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+    name = "1name",
+    path = "$r/a",
+)
+EOF
+  add_rules_cc "MODULE.bazel"
+
+  bazel build @1name//:bin &> $TEST_log || fail "Build failed unexpectedly"
+}
+
 function test_remote_includes() {
   local remote=$TEST_TMPDIR/r
   rm -fr $remote
   mkdir -p $remote/inc
 
+  add_rules_cc "MODULE.bazel"
   touch $remote/REPO.bazel
   cat > $remote/BUILD <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "bar",
     srcs = ["bar.cc"],
@@ -908,6 +989,8 @@ local_repository(
 )
 EOF
 cat > BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
     name = "foo",
     srcs = ["foo.cc"],
@@ -944,15 +1027,20 @@ new_local_repository(
     build_file="//:BUILD.r"
 )
 EOF
+  add_rules_cc "MODULE.bazel"
 
   touch BUILD
   cat > BUILD.r <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(name = "a", srcs = ["a.cc"])
 EOF
 
   bazel build @r//:a || fail "build failed"
 
   cat > BUILD.r <<EOF
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(name = "a", srcs = ["a.cc", "b.cc"])
 EOF
 
@@ -1004,6 +1092,28 @@ local_repository(
 )
 EOF
   bazel build @r//... &> $TEST_log && fail "Build succeeded unexpectedly"
+  expect_log "(absolute: \"$TEST_TMPDIR/r\") but it does not exist"
+}
+
+function test_local_repository_path_exists_then_doesnt_exist() {
+  local r=$TEST_TMPDIR/r
+  rm -rf $r
+  mkdir -p $r
+  touch $r/REPO.bazel
+  cat > $r/BUILD <<'EOF'
+filegroup(name='r')
+EOF
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+    name = "r",
+    path = "$TEST_TMPDIR/r",
+)
+EOF
+  bazel build @r &> $TEST_log || fail "Build failed unexpectedly"
+
+  rm -rf $r
+  bazel build @r &> $TEST_log && fail "Build succeeded unexpectedly"
   expect_log "(absolute: \"$TEST_TMPDIR/r\") but it does not exist"
 }
 
@@ -1166,6 +1276,7 @@ EOF
 # Creates an indirect dependency on X from A and make sure the error message
 # refers to the correct label, both in an external repository and not.
 function test_indirect_dep_message() {
+  add_rules_java "MODULE.bazel"
   local external_dir=$TEST_TMPDIR/ext-dir
   mkdir -p a b $external_dir/x
   cat > a/A.java <<EOF
@@ -1180,6 +1291,8 @@ public class A {
 }
 EOF
   cat > a/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_binary(
     name = "a",
     main_class = "a.A",
@@ -1199,6 +1312,8 @@ public class B {
 }
 EOF
   cat > b/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "b",
     srcs = ["B.java"],
@@ -1220,6 +1335,8 @@ public class X {
 }
 EOF
   cat > $external_dir/x/BUILD <<EOF
+load("@rules_java//java:java_library.bzl", "java_library")
+
 java_library(
     name = "x",
     srcs = ["X.java"],
@@ -1284,7 +1401,10 @@ EOF
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'blue', path = "${repo2}")
 EOF
+  add_rules_shell "MODULE.bazel"
   cat > green/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "run-the-thing",
     srcs = ["@blue//blue:do-the-thing"],
@@ -1304,6 +1424,8 @@ function test_public_includes_main_repo_from_external_dep() {
   repo2=${new_workspace_dir}
   mkdir -p blue
   cat > blue/BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "run-the-thing",
     srcs = ["@//green:do-the-thing"],
@@ -1316,6 +1438,7 @@ EOF
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'blue', path = "${repo2}")
 EOF
+  add_rules_shell "MODULE.bazel"
   cat > green/BUILD <<EOF
 package_group(
     name = "everyone",

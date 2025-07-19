@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -173,7 +173,7 @@ EOF
   }
 EOF
 
-  bazel test --incompatible_macos_set_install_name //cpp:test || \
+  bazel test //cpp:test || \
       fail "bazel test //cpp:test failed"
   # Ensure @rpath is correctly set in the binary.
   ./bazel-bin/cpp/test || \
@@ -185,7 +185,7 @@ EOF
 
 function test_cc_test_with_explicit_install_name_apple_support() {
   cat > MODULE.bazel <<EOF
-bazel_dep(name = "apple_support", version = "1.16.0")
+bazel_dep(name = "apple_support", version = "1.21.0")
 EOF
 
   mkdir -p cpp
@@ -219,7 +219,7 @@ EOF
   }
 EOF
 
-  bazel test --incompatible_macos_set_install_name //cpp:test || \
+  bazel test //cpp:test || \
       fail "bazel test //cpp:test failed"
   # Ensure @rpath is correctly set in the binary.
   ./bazel-bin/cpp/test || \

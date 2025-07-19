@@ -42,13 +42,11 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -60,11 +58,13 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.Tuple;
 
+// LINT.IfChange()
 /**
  * A class to create C/C++ compile actions in a way that is consistent with cc_library. Rules that
  * generate source files and emulate cc_library on top of that should use this class instead of the
@@ -193,7 +193,7 @@ public final class CcCompilationHelper {
    * Determines what file types CcCompilationHelper considers sources and what action configs are
    * configured in the CROSSTOOL.
    */
-  public enum SourceCategory {
+  enum SourceCategory {
     CC(
         FileTypeSet.of(
             CppFileTypes.CPP_SOURCE,
@@ -341,63 +341,24 @@ public final class CcCompilationHelper {
     this.shouldProcessHeaders = shouldProcessHeaders;
   }
 
-  /** Creates a CcCompilationHelper for cpp source files. */
-  public CcCompilationHelper(
-      ActionConstructionContext actionConstructionContext,
-      Label label,
-      CppSemantics semantics,
-      FeatureConfiguration featureConfiguration,
-      CcToolchainProvider ccToolchain,
-      FdoContext fdoContext,
-      ImmutableMap<String, String> executionInfo,
-      boolean shouldProcessHeaders)
-      throws EvalException {
-    this(
-        actionConstructionContext,
-        label,
-        semantics,
-        featureConfiguration,
-        SourceCategory.CC,
-        ccToolchain,
-        fdoContext,
-        actionConstructionContext.getConfiguration(),
-        executionInfo,
-        shouldProcessHeaders);
-  }
-
   /**
    * Adds {@code headers} as public header files. These files will be made visible to dependent
    * rules. They may be parsed/preprocessed or compiled into a header module depending on the
    * configuration.
+   *
+   * <p>The option to pass in a Sequence of (Artifact, Label) Tuples is created for the method
+   * collectPerFileCopts() which in turn supports the --per_file_copt flag.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addPublicHeaders(Collection<Artifact> headers) {
-    for (Artifact header : headers) {
-      addHeader(header, label);
-    }
-    return this;
-  }
-
-  /**
-   * Adds {@code headers} as public header files. These files will be made visible to dependent
-   * rules. They may be parsed/preprocessed or compiled into a header module depending on the
-   * configuration.
-   */
-  @CanIgnoreReturnValue
-  public CcCompilationHelper addPublicHeaders(Artifact... headers) {
-    addPublicHeaders(Arrays.asList(headers));
-    return this;
-  }
-
-  /**
-   * Adds {@code headers} as public header files. These files will be made visible to dependent
-   * rules. They may be parsed/preprocessed or compiled into a header module depending on the
-   * configuration.
-   */
-  @CanIgnoreReturnValue
-  public CcCompilationHelper addPublicHeaders(Iterable<Pair<Artifact, Label>> headers) {
-    for (Pair<Artifact, Label> header : headers) {
-      addHeader(header.first, header.second);
+  public CcCompilationHelper addPublicHeaders(Sequence<?> headers) throws EvalException {
+    for (Object header : headers) {
+      if (header instanceof Artifact headerArtifact) {
+        addHeader(headerArtifact, label);
+      } else if (header instanceof Tuple headerTuple) {
+        addHeader((Artifact) headerTuple.get(0), (Label) headerTuple.get(1));
+      } else {
+        throw new EvalException("Unsupported public header type: " + header.getClass());
+      }
     }
     return this;
   }
@@ -434,15 +395,6 @@ public final class CcCompilationHelper {
    * into a target's header module, but will be made visible as textual includes to dependent rules.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addPublicTextualHeaders(NestedSet<Artifact> textualHeaders) {
-    return addPublicTextualHeaders(textualHeaders.toList());
-  }
-
-  /**
-   * Add the corresponding files as public textual header files. These files will not be compiled
-   * into a target's header module, but will be made visible as textual includes to dependent rules.
-   */
-  @CanIgnoreReturnValue
   public CcCompilationHelper addPublicTextualHeaders(List<Artifact> textualHeaders) {
     Iterables.addAll(this.publicTextualHeaders, textualHeaders);
     for (Artifact header : textualHeaders) {
@@ -451,18 +403,24 @@ public final class CcCompilationHelper {
     return this;
   }
 
+  /**
+   * Adds {@code headers} as private header files. These files will be made visible to dependent
+   * rules. They may be parsed/preprocessed or compiled into a header module depending on the
+   * configuration.
+   *
+   * <p>The option to pass in a Sequence of (Artifact, Label) Tuples is created for the method
+   * collectPerFileCopts() which in turn supports the --per_file_copt flag.
+   */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addPrivateHeaders(Collection<Artifact> privateHeaders) {
-    for (Artifact privateHeader : privateHeaders) {
-      addPrivateHeader(privateHeader, label);
-    }
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public CcCompilationHelper addPrivateHeaders(Iterable<Pair<Artifact, Label>> privateHeaders) {
-    for (Pair<Artifact, Label> headerLabelPair : privateHeaders) {
-      addPrivateHeader(headerLabelPair.first, headerLabelPair.second);
+  public CcCompilationHelper addPrivateHeaders(Sequence<?> headers) throws EvalException {
+    for (Object header : headers) {
+      if (header instanceof Artifact headerArtifact) {
+        addPrivateHeader(headerArtifact, label);
+      } else if (header instanceof Tuple headerTuple) {
+        addPrivateHeader((Artifact) headerTuple.get(0), (Label) headerTuple.get(1));
+      } else {
+        throw new EvalException("Unsupported private header type: " + header.getClass());
+      }
     }
     return this;
   }
@@ -478,7 +436,7 @@ public final class CcCompilationHelper {
 
     if (shouldProcessHeaders
         && CcToolchainProvider.shouldProcessHeaders(featureConfiguration, cppConfiguration)
-        && !shouldProvideHeaderModules()
+        && !isHeaderModulesEnabled()
         && !isTextualInclude) {
       compilationUnitSources.put(
           privateHeader, CppSource.create(privateHeader, label, CppSource.Type.HEADER));
@@ -489,50 +447,41 @@ public final class CcCompilationHelper {
 
   /**
    * Add the corresponding files as source files. These may also be header files, in which case they
-   * will not be compiled, but also not made visible as includes to dependent rules. The given build
-   * variables will be added to those used for compiling this source.
+   * will not be compiled, but also not made visible as includes to dependent rules.
+   *
+   * <p>The option to pass in a Sequence of (Artifact, Label) Tuples is created for the method
+   * collectPerFileCopts() which in turn supports the --per_file_copt flag.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addSources(Collection<Artifact> sources) {
-    for (Artifact source : sources) {
-      addSource(source, label);
+  public CcCompilationHelper addSources(Sequence<?> sources) throws EvalException {
+    for (Object source : sources) {
+      if (source instanceof Artifact sourceArtifact) {
+        addSource(sourceArtifact, label);
+      } else if (source instanceof Tuple sourceTuple) {
+        addSource((Artifact) sourceTuple.get(0), (Label) sourceTuple.get(1));
+      } else {
+        throw new EvalException("Unsupported source type: " + source.getClass());
+      }
     }
     return this;
   }
 
   /**
-   * Add the corresponding files as source files. These may also be header files, in which case they
-   * will not be compiled, but also not made visible as includes to dependent rules.
+   * Add the corresponding files as module interface source files.
+   *
+   * <p>The option to pass in a Sequence of (Artifact, Label) Tuples is created for the method
+   * collectPerFileCopts() which in turn supports the --per_file_copt flag.
    */
   @CanIgnoreReturnValue
-  public CcCompilationHelper addSources(Iterable<Pair<Artifact, Label>> sources) {
-    for (Pair<Artifact, Label> source : sources) {
-      addSource(source.first, source.second);
-    }
-    return this;
-  }
-
-  /**
-   * Add the corresponding files as source files. These may also be header files, in which case they
-   * will not be compiled, but also not made visible as includes to dependent rules.
-   */
-  @CanIgnoreReturnValue
-  public CcCompilationHelper addSources(Artifact... sources) {
-    return addSources(Arrays.asList(sources));
-  }
-
-  @CanIgnoreReturnValue
-  public CcCompilationHelper addModuleInterfaceSources(Collection<Artifact> sources) {
-    for (Artifact source : sources) {
-      addModuleInterfaceSource(source, label);
-    }
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public CcCompilationHelper addModuleInterfaceSources(Iterable<Pair<Artifact, Label>> sources) {
-    for (Pair<Artifact, Label> source : sources) {
-      addModuleInterfaceSource(source.first, source.second);
+  public CcCompilationHelper addModuleInterfaceSources(Sequence<?> sources) throws EvalException {
+    for (Object source : sources) {
+      if (source instanceof Artifact sourceArtifact) {
+        addModuleInterfaceSource(sourceArtifact, label);
+      } else if (source instanceof Tuple sourceTuple) {
+        addModuleInterfaceSource((Artifact) sourceTuple.get(0), (Label) sourceTuple.get(1));
+      } else {
+        throw new EvalException("Unsupported module interface source type: " + source.getClass());
+      }
     }
     return this;
   }
@@ -563,7 +512,7 @@ public final class CcCompilationHelper {
         || isTextualInclude
         || !isHeader
         || !CcToolchainProvider.shouldProcessHeaders(featureConfiguration, cppConfiguration)
-        || shouldProvideHeaderModules()) {
+        || isHeaderModulesEnabled()) {
       return;
     }
 
@@ -580,9 +529,9 @@ public final class CcCompilationHelper {
     // We assume TreeArtifacts passed in are directories containing proper sources for compilation.
     if (!sourceCategory.getSourceTypes().matches(source.getExecPathString())
         && !source.isTreeArtifact()) {
-      // TODO(plf): If it's a non-source file we ignore it. This is only the case for precompiled
-      // files which should be forbidden in srcs of cc_library|binary and instead be migrated to
-      // cc_import rules.
+      // TODO(b/413333884): If it's a non-source file we ignore it. This is only the case for
+      // precompiled files which should be forbidden in srcs of cc_library|binary and instead be
+      // migrated to cc_import rules.
       return;
     }
 
@@ -913,7 +862,18 @@ public final class CcCompilationHelper {
     return this;
   }
 
-  /** @return whether we want to provide header modules for the current target. */
+  /**
+   * @return whether providing header modules is enabled.
+   */
+  private boolean isHeaderModulesEnabled() {
+    return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
+  }
+
+  /**
+   * @return whether we want to provide header modules for the current target.
+   *     <p>This is the case if a) header modules are enabled and b) there are public or private
+   *     headers so the header module would not be empty.
+   */
   private boolean shouldProvideHeaderModules() {
     return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
         && (!publicHeaders.isEmpty() || !privateHeaders.isEmpty());
@@ -1226,7 +1186,8 @@ public final class CcCompilationHelper {
     ActionOwner actionOwner = null;
     if (actionConstructionContext instanceof RuleContext ruleContext
         && ruleContext.useAutoExecGroups()) {
-      actionOwner = actionConstructionContext.getActionOwner(semantics.getCppToolchainType());
+      actionOwner =
+          actionConstructionContext.getActionOwner(semantics.getCppToolchainType().toString());
     }
     try {
       CppCompileActionTemplate actionTemplate =
@@ -1360,18 +1321,17 @@ public final class CcCompilationHelper {
           buildVariables,
           featureConfiguration,
           ImmutableList.of(),
-          cppModuleMap,
           CppHelper.getFdoBuildStamp(cppConfiguration, fdoContext, featureConfiguration),
           isUsingMemProf,
           variablesExtensions,
           genericAdditionalBuildVariables,
-          ccCompilationContext.getDirectModuleMaps(),
           ccCompilationContext.getIncludeDirs(),
           ccCompilationContext.getQuoteIncludeDirs(),
           ccCompilationContext.getSystemIncludeDirs(),
           ccCompilationContext.getFrameworkIncludeDirs(),
           ccCompilationContext.getDefines(),
-          ccCompilationContext.getNonTransitiveDefines());
+          ccCompilationContext.getNonTransitiveDefines(),
+          ccCompilationContext.getExternalIncludeDirs());
 
       if (usePrebuiltParent) {
         parent = buildVariables.build();
@@ -1402,7 +1362,9 @@ public final class CcCompilationHelper {
         builder.getDotdFile(),
         builder.getDiagnosticsFile(),
         usePic,
-        ccCompilationContext.getExternalIncludeDirs(),
+        featureConfiguration,
+        cppModuleMap,
+        ccCompilationContext.getDirectModuleMaps(),
         additionalBuildVariables);
     return buildVariables.build();
   }
@@ -1857,3 +1819,4 @@ public final class CcCompilationHelper {
     return ImmutableList.of(dAction.getPrimaryOutput(), sdAction.getPrimaryOutput());
   }
 }
+// LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/cpp/CcStaticCompilationHelper.java)

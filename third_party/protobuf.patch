@@ -1,0 +1,49 @@
+diff --git a/java/core/BUILD.bazel b/java/core/BUILD.bazel
+index 5591a8c057..e88767ba05 100755
+--- a/java/core/BUILD.bazel
++++ b/java/core/BUILD.bazel
+@@ -182,7 +182,7 @@ protobuf_java_export(
+ protobuf_java_library(
+     name = "lite_runtime_only",
+     srcs = LITE_SRCS,
+-    visibility = ["//java/kotlin:__pkg__"],
++    visibility = ["//visibility:public"],
+ )
+
+ proto_library(
+diff --git a/MODULE.bazel b/MODULE.bazel
+index b1e4a5440..9596607bc 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -178,7 +178,7 @@ PROTOBUF_MAVEN_ARTIFACTS = [
+
+ protobuf_maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+ protobuf_maven.install(
+-    name = "protobuf_maven",
++    name = "maven",
+     artifacts = PROTOBUF_MAVEN_ARTIFACTS,
+     lock_file = "//:maven_install.json",
+     repositories = [
+@@ -186,7 +186,7 @@ protobuf_maven.install(
+         "https://repo.maven.apache.org/maven2",
+     ],
+ )
+-use_repo(protobuf_maven, "protobuf_maven")
++use_repo(protobuf_maven, protobuf_maven="maven")
+
+ # Temporarily pin transitive dependency for https://github.com/bazelbuild/bazel/issues/24426
+ bazel_dep(name = "re2", version = "2024-07-02.bcr.1")
+diff --git a/upb/hash/common.c b/upb/hash/common.c
+index c17a004e62..ca0e488689 100644
+--- a/upb/hash/common.c
++++ b/upb/hash/common.c
+@@ -42,7 +42,8 @@ static const double MIN_DENSITY = 0.1;
+ #endif
+ #elif defined(__GNUC__)
+ #define UPB_FAST_POPCOUNT32(i) __builtin_popcount(i)
+-#elif defined(_MSC_VER)
++#elif defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
++// Only use __popcnt on x86/x64 architectures for MSVC
+ #define UPB_FAST_POPCOUNT32(i) __popcnt(i)
+ #endif
+

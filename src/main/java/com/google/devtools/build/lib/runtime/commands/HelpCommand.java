@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.CaseFormat;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
@@ -45,7 +48,9 @@ import com.google.devtools.build.lib.server.FailureDetails.HelpCommand.Code;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -57,6 +62,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParser.HelpVerbosity;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -70,6 +76,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** The 'blaze help' command, which prints all available commands as well as specific help pages. */
 @Command(
@@ -133,6 +140,15 @@ public final class HelpCommand implements BlazeCommand {
       emitGenericHelp(outErr, runtime);
       return BlazeCommandResult.success();
     }
+    if (options.getResidue().getFirst().equals("completion")) {
+      if (options.getResidue().size() > 2) {
+        String message = "The completion command takes at most one argument";
+        env.getReporter().handle(Event.error(message));
+        return createFailureResult(message, Code.MISSING_ARGUMENT);
+      }
+      String shell = options.getResidue().size() > 1 ? options.getResidue().get(1) : null;
+      return emitCompletionHelp(shell, runtime, env.getReporter());
+    }
     if (options.getResidue().size() != 1) {
       String message = "You must specify exactly one command";
       env.getReporter().handle(Event.error(message));
@@ -153,9 +169,6 @@ public final class HelpCommand implements BlazeCommand {
         return BlazeCommandResult.success();
       case "info-keys":
         emitInfoKeysHelp(env, outErr);
-        return BlazeCommandResult.success();
-      case "completion":
-        emitCompletionHelp(runtime, outErr);
         return BlazeCommandResult.success();
       case "flags-as-proto":
         emitFlagsAsProtoHelp(runtime, outErr);
@@ -202,7 +215,47 @@ public final class HelpCommand implements BlazeCommand {
             runtime.getProductName()));
   }
 
-  private static void emitCompletionHelp(BlazeRuntime runtime, OutErr outErr) {
+  private static BlazeCommandResult emitCompletionHelp(
+      @Nullable String shell, BlazeRuntime runtime, Reporter reporter) {
+    OutErr outErr = reporter.getOutErr();
+    return switch (shell) {
+      case "bash" -> {
+        outErr.printOutLn(loadCompletionScript("bazel-complete-header.bash"));
+        emitCompletionVariables(runtime, outErr);
+        outErr.printOutLn(loadCompletionScript("bazel-complete-template.bash"));
+        yield BlazeCommandResult.success();
+      }
+      case null -> {
+        // Preserved for backwards compatibility: print only the variables part of the bash
+        // completion script.
+        emitCompletionVariables(runtime, outErr);
+        yield BlazeCommandResult.success();
+      }
+      default -> {
+        String message =
+            "The completion command only supports 'bash' as an argument, got '%s'".formatted(shell);
+        reporter.handle(Event.error(message));
+        yield createFailureResult(message, Code.MISSING_ARGUMENT);
+      }
+    };
+  }
+
+  private static String loadCompletionScript(String basename) {
+    try {
+      String resourceName = "/scripts/" + basename;
+      try (var stream = HelpCommand.class.getResourceAsStream(resourceName)) {
+        if (stream == null) {
+          throw new IOException(resourceName + " not found.");
+        }
+        return new String(stream.readAllBytes(), ISO_8859_1);
+      }
+    } catch (IOException e) {
+      throw new IllegalStateException(
+          "Failed to read built-in resource %s: %s".formatted(basename, e.getMessage()), e);
+    }
+  }
+
+  private static void emitCompletionVariables(BlazeRuntime runtime, OutErr outErr) {
     Map<String, BlazeCommand> commandsByName = getSortedCommands(runtime);
 
     outErr.printOutLn("BAZEL_COMMAND_LIST=\"" + SPACE_JOINER.join(commandsByName.keySet()) + "\"");
@@ -276,6 +329,13 @@ public final class HelpCommand implements BlazeCommand {
     flagBuilder.setAllowsMultiple(option.allowsMultiple());
     flagBuilder.setRequiresValue(option.requiresValue());
 
+    if (option.getAbbreviation() != '\0') {
+      flagBuilder.setAbbreviation(String.valueOf(option.getAbbreviation()));
+    }
+    if (!option.getOldOptionName().isEmpty()) {
+      flagBuilder.setOldName(option.getOldOptionName());
+    }
+
     List<String> optionEffectTags =
         Arrays.stream(option.getOptionEffectTags())
             .map(Enum::toString)
@@ -292,9 +352,34 @@ public final class HelpCommand implements BlazeCommand {
       flagBuilder.setDocumentationCategory(option.getDocumentationCategory().toString());
     }
 
-    if (option.getAbbreviation() != '\0') {
-      flagBuilder.setAbbreviation(String.valueOf(option.getAbbreviation()));
+    if (!option.isSpecialNullDefault()) {
+      flagBuilder.setDefaultValue(option.getUnparsedDefaultValue());
     }
+
+    if (!option.getDeprecationWarning().isEmpty()) {
+      flagBuilder.setDeprecationWarning(option.getDeprecationWarning());
+    }
+
+    if (option.getOptionExpansion().length > 0) {
+      flagBuilder.addAllOptionExpansions(Arrays.asList(option.getOptionExpansion()));
+    }
+
+    Converter<?> converter = option.getConverter();
+    String converterClassName = converter.getClass().getSimpleName();
+    if (converterClassName.endsWith("Converter")) {
+      String shortName =
+          converterClassName.substring(0, converterClassName.length() - "Converter".length());
+      flagBuilder.setTypeConverter(shortName);
+    }
+    if (converter instanceof EnumConverter) {
+      EnumConverter<?> enumConverter = (EnumConverter) converter;
+      List<String> enumValues =
+          Arrays.stream(enumConverter.getEnumType().getEnumConstants())
+              .map(Object::toString)
+              .collect(toImmutableList());
+      flagBuilder.addAllEnumValues(enumValues);
+    }
+
     return flagBuilder;
   }
 
@@ -409,11 +494,19 @@ public final class HelpCommand implements BlazeCommand {
       result.append("\n");
 
       result.append("<h2>Startup Options</h2>\n");
-      appendOptionsHtml(result, BlazeCommandUtils.getStartupOptions(runtime.getBlazeModules()));
+      appendOptionsHtml(
+          result,
+          BlazeCommandUtils.getStartupOptions(runtime.getBlazeModules()),
+          ImmutableList.of(),
+          "startup_options");
       result.append("\n");
 
       result.append("<h2><a name=\"common_options\">Options Common to all Commands</a></h2>\n");
-      appendOptionsHtml(result, BlazeCommandUtils.getCommonOptions(runtime.getBlazeModules()));
+      appendOptionsHtml(
+          result,
+          BlazeCommandUtils.getCommonOptions(runtime.getBlazeModules()),
+          ImmutableList.of(),
+          "common_options");
       result.append("\n");
 
       for (Map.Entry<String, BlazeCommand> e : commandsByName.entrySet()) {
@@ -441,7 +534,8 @@ public final class HelpCommand implements BlazeCommand {
         for (BlazeModule blazeModule : runtime.getBlazeModules()) {
           Iterables.addAll(options, blazeModule.getCommandOptions(annotation));
         }
-        List<String> optionsToIgnore = appendOptionsHtml(result, options);
+        List<String> optionsToIgnore =
+            appendOptionsHtml(result, options, ImmutableList.of(), e.getKey());
         result.append("\n");
 
         // For now, we print all the configuration options in a list after all the non-configuration
@@ -450,7 +544,7 @@ public final class HelpCommand implements BlazeCommand {
           options.clear();
           Collections.addAll(options, annotation.options());
           options.addAll(runtime.getRuleClassProvider().getFragmentRegistry().getOptionsClasses());
-          appendOptionsHtml(result, options, optionsToIgnore);
+          appendOptionsHtml(result, options, optionsToIgnore, null);
           result.append("\n");
         }
       }
@@ -500,21 +594,15 @@ public final class HelpCommand implements BlazeCommand {
     // Returns the list of appended option names.
     @CanIgnoreReturnValue
     private List<String> appendOptionsHtml(
-        StringBuilder result, Iterable<Class<? extends OptionsBase>> optionsClasses) {
-      return appendOptionsHtml(result, optionsClasses, ImmutableList.of());
-    }
-
-    // Returns the list of appended option names.
-    @CanIgnoreReturnValue
-    private List<String> appendOptionsHtml(
         StringBuilder result,
         Iterable<Class<? extends OptionsBase>> optionsClasses,
-        List<String> optionsToIgnore) {
+        List<String> optionsToIgnore,
+        @Nullable String commandName) {
       OptionsParser parser = OptionsParser.builder().optionsClasses(optionsClasses).build();
       String productName = runtime.getProductName();
       result.append(
           parser
-              .describeOptionsHtml(HTML_ESCAPER, productName, optionsToIgnore)
+              .describeOptionsHtml(HTML_ESCAPER, productName, optionsToIgnore, commandName)
               .replace("%{product}", productName));
 
       List<String> optionNames = new ArrayList<>();

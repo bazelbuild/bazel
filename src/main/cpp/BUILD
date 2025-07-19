@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 # Description:
 #   The Bazel launcher.
 package(
@@ -128,6 +131,7 @@ cc_binary(
         ":bazel_startup_options",
         ":blaze_util",
         ":option_processor",
+        ":startup_interceptor",
         ":startup_options",
         ":workspace_layout",
         "//src/main/cpp/util",
@@ -256,6 +260,15 @@ cc_library(
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/strings:string_view",
         "@abseil-cpp//absl/types:span",
+    ],
+)
+
+cc_library(
+    name = "startup_interceptor",
+    hdrs = ["startup_interceptor.h"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/test/cpp:__pkg__",
     ],
 )
 

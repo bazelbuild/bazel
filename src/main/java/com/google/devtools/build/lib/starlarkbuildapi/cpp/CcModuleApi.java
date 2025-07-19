@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
@@ -51,17 +51,13 @@ public interface CcModuleApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT, CppModuleMapT>,
         LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
-        LinkerInputT extends LinkerInputApi<LibraryToLinkT, LtoBackendArtifactsT, FileT>,
-        LinkingContextT extends CcLinkingContextApi<?>,
-        LibraryToLinkT extends LibraryToLinkApi<FileT, LtoBackendArtifactsT>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
         DebugInfoT extends CcDebugInfoContextApi,
-        CppModuleMapT extends CppModuleMapApi<FileT>,
-        LinkingOutputsT extends CcLinkingOutputsApi<FileT, LtoBackendArtifactsT>>
+        CppModuleMapT extends CppModuleMapApi<FileT>>
     extends StarlarkValue {
 
   @StarlarkMethod(
@@ -82,6 +78,7 @@ public interface CcModuleApi<
       structField = true)
   default void compilerFlagExists() {}
 
+  // LINT.IfChange(compile_api)
   @StarlarkMethod(
       name = "compile",
       doc =
@@ -432,6 +429,8 @@ public interface CcModuleApi<
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/compile/compile.bzl:compile_api)
+
   @StarlarkMethod(
       name = "link",
       doc = "Should be used for C++ transitive linking.",
@@ -586,13 +585,6 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
         @Param(
-            name = "only_for_dynamic_libs",
-            positional = false,
-            named = true,
-            documented = false,
-            allowedTypes = {@ParamType(type = Boolean.class)},
-            defaultValue = "unbound"),
-        @Param(
             name = "link_artifact_name_suffix",
             positional = false,
             named = true,
@@ -643,7 +635,7 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
       })
-  LinkingOutputsT link(
+  default CcLinkingOutputsApi<FileT, LtoBackendArtifactsT> link(
       StarlarkActionFactoryT starlarkActionFactoryApi,
       String name,
       FeatureConfigurationT starlarkFeatureConfiguration,
@@ -652,7 +644,7 @@ public interface CcModuleApi<
       String outputType,
       boolean linkDepsStatically,
       Object compilationOutputs,
-      Sequence<?> linkingContexts, // <LinkingContextT> expected
+      Sequence<?> linkingContexts, // <CcLinkingContextApi> expected
       Sequence<?> userLinkFlags, // <String> expected
       StarlarkInt stamp,
       Object additionalInputs, // <FileT> expected
@@ -665,14 +657,15 @@ public interface CcModuleApi<
       Object wholeArchive,
       Object additionalLinkstampDefines,
       Object alwaysLink,
-      Object onlyForDynamicLibs,
       Object linkArtifactNameSuffix,
       Object mainOutput,
       Object useShareableArtifactFactory,
       Object buildConfig,
       Object emitInterfaceSharedLibrary,
       StarlarkThread thread)
-      throws InterruptedException, EvalException;
+      throws InterruptedException, EvalException {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "configure_features",
@@ -1276,7 +1269,6 @@ public interface CcModuleApi<
   @StarlarkMethod(
       name = "create_library_to_link",
       doc = "Creates <code>LibraryToLink</code>",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "actions",
@@ -1389,7 +1381,7 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound"),
       })
-  LibraryToLinkT createLibraryLinkerInput(
+  default LibraryToLinkApi createLibraryLinkerInput(
       Object actions,
       Object featureConfiguration,
       Object ccToolchainProvider,
@@ -1403,14 +1395,14 @@ public interface CcModuleApi<
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
-      Object mustKeepDebug,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      Object mustKeepDebug)
+      throws EvalException, InterruptedException {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "create_linker_input",
       doc = "Creates a <code>LinkerInput</code>.",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "owner",
@@ -1455,14 +1447,14 @@ public interface CcModuleApi<
             defaultValue = "unbound",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
       })
-  LinkerInputT createLinkerInput(
+  default LinkerInputApi<FileT> createLinkerInput(
       Label owner,
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs,
-      Object linkstamps,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      Object linkstamps) {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "check_experimental_cc_shared_library",
@@ -1472,57 +1464,27 @@ public interface CcModuleApi<
   boolean checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
-      name = "check_experimental_cc_static_library",
-      doc = "DO NOT USE. This is to guard use of cc_static_library.",
-      useStarlarkThread = true,
-      documented = false)
-  boolean checkExperimentalCcStaticLibrary(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
       name = "incompatible_disable_objc_library_transition",
       useStarlarkThread = true,
       documented = false)
   boolean getIncompatibleDisableObjcLibraryTransition(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
+      name = "add_go_exec_groups_to_binary_rules",
+      useStarlarkThread = true,
+      documented = false)
+  boolean addGoExecGroupsToBinaryRules(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "create_linking_context",
       doc = "Creates a <code>LinkingContext</code>.",
-      useStarlarkThread = true,
       parameters = {
         @Param(
             name = "linker_inputs",
             doc = "Depset of <code>LinkerInput</code>.",
             positional = false,
             named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
-        @Param(
-            name = "libraries_to_link",
-            doc = "List of <code>LibraryToLink</code>.",
-            positional = false,
-            named = true,
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
-            defaultValue = "None",
-            valueWhenDisabled = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
-        @Param(
-            name = "user_link_flags",
-            doc = "List of user link flags passed as strings.",
-            positional = false,
-            named = true,
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
-            defaultValue = "None",
-            valueWhenDisabled = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
-        @Param(
-            name = "additional_inputs",
-            doc = "For additional inputs to the linking action, e.g.: linking scripts.",
-            positional = false,
-            named = true,
-            disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
-            defaultValue = "None",
-            valueWhenDisabled = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
+            allowedTypes = {@ParamType(type = Depset.class)}),
         @Param(
             name = "extra_link_time_library",
             documented = false,
@@ -1530,26 +1492,14 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound",
             allowedTypes = {
-              @ParamType(type = ExtraLinkTimeLibraryApi.class),
+              @ParamType(type = StarlarkInfo.class),
               @ParamType(type = NoneType.class)
             }),
-        @Param(
-            name = "owner",
-            documented = false,
-            positional = false,
-            named = true,
-            defaultValue = "unbound",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Label.class)})
       })
-  LinkingContextT createCcLinkingInfo(
-      Object linkerInputs,
-      Object librariesToLinkObject,
-      Object userLinkFlagsObject,
-      Object nonCodeInputs, // <FileT> expected
-      Object extraLinkTimeLibraryObject,
-      Object ownerObject,
-      StarlarkThread thread)
-      throws EvalException, InterruptedException;
+  default CcLinkingContextApi createCcLinkingInfo(
+      Depset linkerInputs, Object extraLinkTimeLibraryObject) throws EvalException {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "create_compilation_context",
@@ -1776,16 +1726,10 @@ public interface CcModuleApi<
       useStarlarkThread = true,
       parameters = {
         @Param(name = "file", positional = false, named = true),
-        @Param(
-            name = "umbrella_header",
-            positional = false,
-            named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
         @Param(name = "name", positional = false, named = true),
       })
-  CppModuleMapT createCppModuleMap(
-      FileT file, Object umbrellaHeader, String name, StarlarkThread thread) throws EvalException;
+  CppModuleMapT createCppModuleMap(FileT file, String name, StarlarkThread thread)
+      throws EvalException;
 
   // TODO(b/65151735): Remove when cc_flags is entirely set from features.
   // This should only be called from the cc_flags_supplier rule.
@@ -2124,7 +2068,7 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Boolean.class)},
             defaultValue = "unbound"),
       })
-  Tuple createLinkingContextFromCompilationOutputs(
+  default Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactoryT starlarkActionFactoryApi,
       String name,
       FeatureConfigurationT starlarkFeatureConfiguration,
@@ -2133,7 +2077,7 @@ public interface CcModuleApi<
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       CompilationOutputsT compilationOutputs,
-      Sequence<?> linkingContexts, // <LinkingContextT> expected
+      Sequence<?> linkingContexts, // <CcLinkingContextApi> expected
       Sequence<?> userLinkFlags, // <String> expected
       boolean alwayslink,
       Sequence<?> additionalInputs, // <FileT> expected
@@ -2142,7 +2086,9 @@ public interface CcModuleApi<
       Object linkedDllNameSuffix,
       Object testOnlyTarget,
       StarlarkThread thread)
-      throws InterruptedException, EvalException;
+      throws InterruptedException, EvalException {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(
       name = "create_debug_context",
@@ -2173,7 +2119,18 @@ public interface CcModuleApi<
       documented = false,
       useStarlarkThread = true,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, documented = false),
+        @Param(
+            name = "ctx",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "None"),
+        @Param(
+            name = "actions",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "None"),
         @Param(
             name = "lto_output_root_prefix",
             positional = false,
@@ -2181,6 +2138,12 @@ public interface CcModuleApi<
             documented = false),
         @Param(name = "lto_obj_root_prefix", positional = false, named = true, documented = false),
         @Param(name = "bitcode_file", positional = false, named = true, documented = false),
+        @Param(
+            name = "all_bitcode_files",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "None"),
         @Param(
             name = "feature_configuration",
             positional = false,
@@ -2194,18 +2157,27 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             documented = false),
+        @Param(
+            name = "create_shared_non_lto",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "False"),
         @Param(name = "argv", positional = false, named = true, documented = false),
       })
   LtoBackendArtifactsT createLtoBackendArtifacts(
-      StarlarkRuleContextT starlarkRuleContext,
+      Object starlarkRuleContextObj,
+      Object actionsObj,
       String ltoOutputRootPrefixString,
       String ltoObjRootPrefixString,
       FileT bitcodeFile,
+      Object allBitcodeFilesObj,
       FeatureConfigurationT featureConfigurationForStarlark,
       Info ccToolchain,
       StructImpl fdoContextStruct,
       boolean usePic,
       boolean shouldCreatePerObjectDebugInfo,
+      boolean createSharedNonLto,
       Sequence<?> argv,
       StarlarkThread thread)
       throws EvalException, InterruptedException, RuleErrorException;

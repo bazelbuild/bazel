@@ -27,9 +27,9 @@ import com.google.devtools.build.lib.actions.CommandLine.SimpleArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
-import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.HashMap;
@@ -145,7 +145,7 @@ public final class StrippingPathMapper implements PathMapper {
 
   @Override
   public String getMappedExecPathString(ActionInput artifact) {
-    if (isSupportedInputType(artifact) && isOutputPath(artifact, outputRoot)) {
+    if (isSupported(artifact)) {
       return strip(artifact.getExecPath()).getPathString();
     } else {
       return artifact.getExecPathString();
@@ -155,6 +155,15 @@ public final class StrippingPathMapper implements PathMapper {
   @Override
   public PathFragment map(PathFragment execPath) {
     return isOutputPath(execPath, outputRoot) ? strip(execPath) : execPath;
+  }
+
+  @Override
+  public int computeExecPathLengthDiff(DerivedArtifact artifact) {
+    String unmappedPath = artifact.getExecPathString();
+    // bazel-out/k8-fastbuild/... is mapped to bazel-out/${FIXED_CONFIG_SEGMENT}/...
+    int firstSlash = outputRoot.getPathString().length() + 1;
+    int secondSlash = unmappedPath.indexOf('/', firstSlash + 1);
+    return (secondSlash - firstSlash) - FIXED_CONFIG_SEGMENT.length();
   }
 
   @Override
@@ -174,7 +183,7 @@ public final class StrippingPathMapper implements PathMapper {
 
     // TODO: b/327187486 - This materializes strings when totalArgLength() is called. Can it
     //  compute the total arg length without creating garbage strings?
-    Iterable<String> args = chunk.arguments();
+    Iterable<String> args = chunk.arguments(this);
     return new SimpleArgChunk(() -> new CustomStarlarkArgsIterator(args.iterator(), argStripper));
   }
 
@@ -204,10 +213,14 @@ public final class StrippingPathMapper implements PathMapper {
     return PathMapper.super.mapRoot(artifact);
   }
 
-  private boolean isSupportedInputType(ActionInput artifact) {
-    return artifact instanceof DerivedArtifact
-        || artifact instanceof ParamFileActionInput
-        || artifact instanceof BasicActionInput;
+  private boolean isSupported(ActionInput artifact) {
+    if (artifact instanceof DerivedArtifact) {
+      return true;
+    }
+    if (artifact instanceof BasicActionInput || artifact instanceof VirtualActionInput) {
+      return isOutputPath(artifact, outputRoot);
+    }
+    return false;
   }
 
   private static final class CustomStarlarkArgsIterator implements Iterator<String> {
@@ -339,12 +352,6 @@ public final class StrippingPathMapper implements PathMapper {
    * Strips the configuration prefix from an output artifact's exec path.
    */
   private static PathFragment strip(PathFragment execPath) {
-    if (execPath.subFragment(1, 2).getPathString().equals("tmp")) {
-      return execPath
-          .subFragment(0, 2)
-          .getRelative(FIXED_CONFIG_SEGMENT)
-          .getRelative(execPath.subFragment(3));
-    }
     return execPath
         .subFragment(0, 1)
         // Keep the config segment, but replace it with a fixed string to improve cacheability while

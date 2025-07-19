@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -200,6 +201,7 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
    * <p>Of course, when the path is outside the current Bazel workspace, we just store the absolute
    * path.
    */
+  @AutoCodec
   public record RepoCacheFriendlyPath(Optional<RepositoryName> repoName, PathFragment path) {
     public RepoCacheFriendlyPath {
       requireNonNull(repoName, "repoName");
@@ -666,12 +668,7 @@ public abstract sealed class RepoRecordedInput implements Comparable<RepoRecorde
 
     @Override
     public SkyKey getSkyKey(BlazeDirectories directories) {
-      // Since we only record repo mapping entries for repos defined in Bzlmod, we can request the
-      // WORKSPACE-less version of the main repo mapping (as no repos defined in Bzlmod can see
-      // stuff from WORKSPACE).
-      return sourceRepo.isMain()
-          ? RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS
-          : RepositoryMappingValue.key(sourceRepo);
+      return RepositoryMappingValue.key(sourceRepo);
     }
 
     @Override

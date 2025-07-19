@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -65,8 +65,10 @@ add_to_bazelrc "build --spawn_strategy=local"
 function set_up() {
   mkdir -p pkg
 
+  add_rules_shell "MODULE.bazel"
   cat > pkg/BUILD << 'EOF'
 load(":build.bzl", "build_rule")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 filegroup(
     name = "all_inputs",

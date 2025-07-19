@@ -72,7 +72,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   /** A set of this target's implicitDeps. */
   private final ImmutableSet<ConfiguredTargetKey> implicitDeps;
 
-  /*
+  /**
    * An interner for the implicitDeps set. {@link Util.findImplicitDeps} is called upon every
    * construction of a RuleConfiguredTarget and we expect many of these targets to contain the same
    * set of implicit deps so this reduces the memory load per build.
@@ -84,16 +84,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final RuleClassId ruleClassId;
 
-  /**
-   * Operations accessing actions (for example, executing them or looking up metadata in them)
-   * should be performed in the same Bazel instance that constructs the {@code RuleConfiguredTarget}
-   * instance and not on a Bazel instance that retrieves the {@code RuleConfiguredTarget} remotely
-   * using deserialization, because actions will be null then.
-   *
-   * <p>Prefer using {@link #getActions()} which guards against null actions with a clear error.
-   */
-  @Nullable // Null if deserialized.
-  private final transient ImmutableList<ActionAnalysisMetadata> actions;
+  private final ImmutableList<ActionAnalysisMetadata> actions;
 
   private RuleConfiguredTarget(
       ActionLookupKey actionLookupKey,
@@ -189,13 +180,14 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       ImmutableSet<ConfiguredTargetKey> implicitDeps,
-      RuleClassId ruleClassId) {
+      RuleClassId ruleClassId,
+      ImmutableList<ActionAnalysisMetadata> actions) {
     super(lookupKey, visibility);
     this.providers = providers;
     this.configConditions = configConditions;
     this.implicitDeps = implicitDeps;
     this.ruleClassId = ruleClassId;
-    this.actions = null; // not currently serialized
+    this.actions = actions;
   }
 
   /**

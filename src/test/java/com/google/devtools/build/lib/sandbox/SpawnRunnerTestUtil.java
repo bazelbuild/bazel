@@ -17,12 +17,11 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.Protos.Digest;
@@ -63,8 +62,6 @@ public final class SpawnRunnerTestUtil {
     private final Spawn spawn;
     private final Duration timeout;
     private final FileOutErr fileOutErr;
-
-    private final ArtifactExpander artifactExpander = treeArtifact -> ImmutableSortedSet.of();
 
     /**
      * Creates a new spawn execution policy for testing purposes.
@@ -119,11 +116,6 @@ public final class SpawnRunnerTestUtil {
     }
 
     @Override
-    public ArtifactExpander getArtifactExpander() {
-      return artifactExpander;
-    }
-
-    @Override
     public SpawnInputExpander getSpawnInputExpander() {
       throw new UnsupportedOperationException();
     }
@@ -170,6 +162,11 @@ public final class SpawnRunnerTestUtil {
     @Override
     public FileSystem getActionFileSystem() {
       return null;
+    }
+
+    @Override
+    public ImmutableMap<String, String> getClientEnv() {
+      return ImmutableMap.of();
     }
   }
 

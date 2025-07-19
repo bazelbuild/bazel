@@ -55,7 +55,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
-import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -69,7 +68,6 @@ import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.NullEventHandler;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
@@ -188,7 +186,7 @@ public class GrpcCacheClientTest {
 
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
-            backoffSupplier, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService);
+            backoffSupplier, RemoteRetrier.EXPERIMENTAL_GRPC_RESULT_CLASSIFIER, retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
             new ChannelConnectionWithServerCapabilitiesFactory() {
@@ -345,7 +343,7 @@ public class GrpcCacheClientTest {
 
     // Upload all missing inputs (that is, the virtual action input from above)
     client.ensureInputsPresent(
-        context, merkleTree, ImmutableMap.of(), /* force= */ true, new Reporter(new EventBus()));
+        context, merkleTree, ImmutableMap.of(), /* force= */ true, remotePathResolver);
   }
 
   @Test
@@ -692,7 +690,6 @@ public class GrpcCacheClientTest {
       throws Exception {
     UploadManifest uploadManifest =
         UploadManifest.create(
-            combinedCache.options,
             combinedCache.getRemoteCacheCapabilities(),
             combinedCache.digestUtil,
             remotePathResolver,

@@ -43,6 +43,7 @@ bool Options::ParseToken(ArgTokenStream *tokens) {
       tokens->MatchAndSet("--resources", &resources) ||
       tokens->MatchAndSet("--classpath_resources", &classpath_resources) ||
       tokens->MatchAndSet("--include_prefixes", &include_prefixes) ||
+      tokens->MatchAndSet("--exclude_zip_entries", &exclude_zip_entries) ||
       tokens->MatchAndSet("--exclude_build_data", &exclude_build_data) ||
       tokens->MatchAndSet("--build_target", &build_target) ||
       tokens->MatchAndSet("--compression", &force_compression) ||

@@ -58,18 +58,22 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.Collection;
 import java.util.List;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-/**
- * Test case for objc_library.
- *
- * <p>TODO(b/322845822): remove uses of `--cpu=k8` in tests.
- */
-@RunWith(JUnit4.class)
+/** Test case for objc_library. */
+@RunWith(TestParameterInjector.class)
 public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   private static final RuleType RULE_TYPE = new OnlyNeedsSourcesRuleType("objc_library");
@@ -124,12 +128,12 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         """);
 
     setBuildLanguageOptions("--incompatible_disable_objc_library_transition");
-    useConfiguration("--macos_cpus=arm64,x86_64", "--cpu=k8");
-    ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
-    Artifact objcObject =
-        ActionsTestUtil.getFirstArtifactEndingWith(
-            actionsTestUtil().artifactClosureOf(getFilesToBuild(cc)), "objc.o");
-    assertThat(objcObject.getExecPathString()).contains("k8-fastbuild");
+    useConfiguration("--macos_cpus=arm64,x86_64", "--platforms=" + TestConstants.PLATFORM_LABEL);
+
+    // fails to find appropriate toolchain for `objc_library` given the default platform with
+    // transition disabled
+    assertThrows(AssertionError.class, () -> getConfiguredTarget("//bin:cc"));
+    assertContainsEvent("objc_library rule //bin:objc");
   }
 
   @Test
@@ -243,12 +247,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testObjcPlusPlusCompileDarwin() throws Exception {
-    useConfiguration(
-        "--cpu=darwin_x86_64",
-        // TODO(b/36126423): Darwin should imply macos, so the
-        // following line should not be necessary.
-        "--apple_platform_type=macos",
-        "--platforms=" + MockObjcSupport.DARWIN_X86_64);
+    useConfiguration("--platforms=" + MockObjcSupport.DARWIN_X86_64);
     createLibraryTargetWriter("//objc:lib").setList("srcs", "a.mm").write();
     CommandAction compileAction = compileAction("//objc:lib", "a.o");
     assertThat(compileAction.getArguments()).containsAtLeast("-stdlib=libc++", "-std=gnu++11");
@@ -1101,8 +1100,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--compilation_mode=dbg",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags",
-        "--cpu=k8");
+        "--incompatible_avoid_hardcoded_objc_compilation_flags");
     scratch.file("x/a.m");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -1116,8 +1114,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--compilation_mode=dbg",
         "--objc_debug_with_GLIBCXX=false",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags",
-        "--cpu=k8");
+        "--incompatible_avoid_hardcoded_objc_compilation_flags");
     scratch.file("x/a.m");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -1136,8 +1133,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--compilation_mode=opt",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags",
-        "--cpu=k8");
+        "--incompatible_avoid_hardcoded_objc_compilation_flags");
     scratch.file("x/a.m");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -1242,8 +1238,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsWithPch() throws Exception {
-    useConfiguration(
-        "--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64, "--cpu=k8");
+    useConfiguration("--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64);
     scratch.file("objc/foo.pch");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -1581,8 +1576,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAppleSdkDefaultPlatformEnv() throws Exception {
-    useConfiguration(
-        "--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64, "--cpu=k8");
+    useConfiguration("--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64);
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -2087,9 +2081,25 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(archiveAction.getMnemonic()).isEqualTo("CppArchive");
   }
 
-  private static List<String> linkstampExecPaths(NestedSet<CcLinkingContext.Linkstamp> linkstamps) {
-    return ActionsTestUtil.execPaths(
-        ActionsTestUtil.transform(linkstamps.toList(), CcLinkingContext.Linkstamp::getArtifact));
+  private static List<StarlarkInfo> getLinkstamps(StarlarkInfo linkerInput) {
+    try {
+      @SuppressWarnings("unchecked")
+      List<StarlarkInfo> linkstamps =
+          (List<StarlarkInfo>) linkerInput.getValue("linkstamps", List.class);
+      return linkstamps;
+    } catch (EvalException e) {
+      return ImmutableList.of();
+    }
+  }
+
+  private static Artifact getLinkstampFile(StarlarkInfo linkstamp) {
+    try (Mutability mu = Mutability.create()) {
+      StarlarkFunction func = linkstamp.getValue("file", StarlarkFunction.class);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
+      return (Artifact) Starlark.positionalOnlyCall(thread, func);
+    } catch (EvalException | InterruptedException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Test
@@ -2108,12 +2118,13 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         )
         """);
 
+    CcLinkingContext ccLinkingContext =
+        getConfiguredTarget("//x:foo").get(CcInfo.PROVIDER).getCcLinkingContext();
     assertThat(
-            linkstampExecPaths(
-                getConfiguredTarget("//x:foo")
-                    .get(CcInfo.PROVIDER)
-                    .getCcLinkingContext()
-                    .getLinkstamps()))
+            ccLinkingContext.getLinkerInputs().toList().stream()
+                .flatMap(linkerInput -> getLinkstamps(linkerInput).stream())
+                .map(ObjcLibraryTest::getLinkstampFile)
+                .map(Artifact::getExecPathString))
         .containsExactly("x/bar.cc");
   }
 
@@ -2251,11 +2262,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             deps = [":foo"],
         )
         """);
-    useConfiguration(
-        "--proto_toolchain_for_java=//tools/proto/toolchains:java",
-        "--platforms=" + MockObjcSupport.DARWIN_X86_64,
-        "--apple_platform_type=macos",
-        "--cpu=darwin_x86_64");
+    useConfiguration("--platforms=" + MockObjcSupport.DARWIN_X86_64);
 
     CcInfo ccInfo = getConfiguredTarget("//x:bar").get(CcInfo.PROVIDER);
 
@@ -2514,11 +2521,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     return getConfiguredTarget(target)
         .get(CcInfo.PROVIDER)
         .getCcLinkingContext()
-        .getUserLinkFlags()
+        .getLinkerInputs()
         .toList()
         .stream()
-        .map(CcLinkingContext.LinkOptions::get)
-        .flatMap(List::stream)
+        .flatMap(linkerInput -> LinkerInput.getUserLinkFlags(linkerInput).stream())
         .collect(toImmutableList());
   }
 
@@ -2619,5 +2625,42 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     getConfiguredTarget("//bar:lib");
 
     assertNoEvents();
+  }
+
+  @Test
+  public void testObjcTransitionWithTopLevelApplePlatforms(
+      @TestParameter boolean usePlatformsInAppleCrosstoolTransition) throws Exception {
+    scratch.file(
+        "bin/BUILD",
+        """
+        objc_library(
+            name = "objc",
+            srcs = ["objc.m"],
+        )
+
+        cc_binary(
+            name = "cc",
+            srcs = ["cc.cc"],
+            deps = [":objc"],
+        )
+        """);
+
+    setBuildLanguageOptions("--noincompatible_disable_objc_library_transition");
+    ImmutableList.Builder<String> args = ImmutableList.builder();
+    args.add(
+        "--apple_platform_type=ios",
+        "--platforms=" + MockObjcSupport.IOS_ARM64,
+        "--experimental_platform_in_output_dir",
+        "--use_platforms_in_apple_crosstool_transition=" + usePlatformsInAppleCrosstoolTransition);
+    if (!usePlatformsInAppleCrosstoolTransition) {
+      args.add("--cpu=ios_arm64");
+    }
+    useConfiguration(args.build().toArray(new String[0]));
+
+    ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
+    Artifact objcObject =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(cc)), "objc.o");
+    assertThat(objcObject.getExecPathString()).contains("ios_arm64");
   }
 }

@@ -186,6 +186,7 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
             getTarget("//a:gen")
                 .getAssociatedRule()
                 .getRuleClassObject()
+                .getAttributeProvider()
                 .getAttributeByName("tools")
                 .getTransitionFactory()
                 .isTool())

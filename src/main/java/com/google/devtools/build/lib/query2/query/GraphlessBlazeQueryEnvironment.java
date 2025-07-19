@@ -172,6 +172,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
 
   @Override
   public Collection<Target> getSiblingTargetsInPackage(Target target) {
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
     return target.getPackage().getTargets().values();
   }
 
@@ -416,6 +417,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     return new TransitiveLoadFilesHelperForTargets() {
       @Override
       public Target getLoadFileTarget(Target originalTarget, Label bzlLabel) {
+        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
         return new FakeLoadTarget(bzlLabel, originalTarget.getPackage());
       }
 
@@ -428,6 +430,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
         if (baseName == null) {
           return null;
         }
+        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
         return new FakeLoadTarget(
             Label.createUnvalidated(pkgIdOfBzlLabel, baseName), originalTarget.getPackage());
       }

@@ -52,7 +52,7 @@ message ModuleInfo {
 
 // Representation of a Starlark rule attribute type. These generally
 // have a one-to-one correspondence with functions defined at
-// https://bazel.build/rules/lib/attr.
+// https://bazel.build/rules/lib/toplevel/attr.
 enum AttributeType {
   UNKNOWN = 0;
   // A special case of STRING; all rules have exactly one implicit
@@ -71,6 +71,7 @@ enum AttributeType {
   OUTPUT = 12;
   OUTPUT_LIST = 13;
   LABEL_DICT_UNARY = 14;
+  LABEL_LIST_DICT = 15;
 }
 
 // Representation of a Starlark rule definition.
@@ -134,7 +135,7 @@ message MacroInfo {
 // Representation of a Starlark rule, repository rule, or module extension tag
 // attribute definition, comprised of an attribute name, and a schema defined by
 // a call to one of the 'attr' module methods enumerated at
-// https://bazel.build/rules/lib/attr
+// https://bazel.build/rules/lib/toplevel/attr.
 message AttributeInfo {
   // The name of the attribute.
   string name = 1;

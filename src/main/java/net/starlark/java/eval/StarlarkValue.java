@@ -14,8 +14,29 @@
 
 package net.starlark.java.eval;
 
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
+
 /** Base interface for all Starlark values besides boxed Java primitives. */
 public interface StarlarkValue {
+  default StarlarkType getStarlarkType() {
+    return Types.ANY;
+  }
+
+  /**
+   * Prints an official representation of object x.
+   *
+   * <p>Convention is that the string should be parseable back to the value x. If this isn't
+   * feasible then it should be a short human-readable description enclosed in angled brackets, e.g.
+   * {@code "<foo object>"}.
+   *
+   * @param printer a printer to be used for formatting nested values.
+   * @deprecated use {@link #repr(Printer, StarlarkSemantics)} instead
+   */
+  @Deprecated
+  default void repr(Printer printer) {
+    repr(printer, StarlarkSemantics.DEFAULT);
+  }
 
   /**
    * Prints an official representation of object x.
@@ -26,11 +47,7 @@ public interface StarlarkValue {
    *
    * @param printer a printer to be used for formatting nested values.
    */
-  // TODO(brandjon): We can consider adding a StarlarkSemantics param to repr(), to match str() and
-  // debugPrint(). Counterargument is that it's nice to have a supported way of stringifying a
-  // Starlark value independently of a Starlark evaluation environment. If necessary we could use
-  // toString for that purpose, or even define a separate semantics-independent repr-like method.
-  default void repr(Printer printer) {
+  default void repr(Printer printer, StarlarkSemantics semantics) {
     printer.append("<unknown object ").append(getClass().getName()).append(">");
   }
 

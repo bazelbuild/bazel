@@ -23,8 +23,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.DotBazelFileSyntaxChecker;
 import com.google.devtools.build.lib.packages.VendorThreadContext;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.StarlarkUtil;
 import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -56,7 +58,7 @@ public class VendorFileFunction implements SkyFunction {
 
   private static final String VENDOR_FILE_HEADER =
       StringEncoding.unicodeToInternal(
-          """
+"""
 ###############################################################################
 # This file is used to configure how external repositories are handled in vendor mode.
 # ONLY the two following functions can be used:
@@ -81,7 +83,7 @@ public class VendorFileFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-    if (RepositoryDelegatorFunction.VENDOR_DIRECTORY.get(env).isEmpty()) {
+    if (RepositoryDirectoryValue.VENDOR_DIRECTORY.get(env).isEmpty()) {
       throw new VendorFileFunctionException(
           new IllegalStateException(
               "VENDOR.bazel file is not accessible with vendor mode off (without --vendor_dir"
@@ -89,7 +91,7 @@ public class VendorFileFunction implements SkyFunction {
           Transience.PERSISTENT);
     }
 
-    Path vendorPath = RepositoryDelegatorFunction.VENDOR_DIRECTORY.get(env).get();
+    Path vendorPath = RepositoryDirectoryValue.VENDOR_DIRECTORY.get(env).get();
     RootedPath vendorFilePath =
         RootedPath.toRootedPath(Root.fromPath(vendorPath), LabelConstants.VENDOR_FILE_NAME);
 
@@ -115,7 +117,7 @@ public class VendorFileFunction implements SkyFunction {
       Environment env, SkyKey skyKey, Path vendorFilePath, StarlarkSemantics starlarkSemantics)
       throws VendorFileFunctionException, InterruptedException {
     try (Mutability mu = Mutability.create("vendor file")) {
-      StarlarkFile vendorFile = readAndParseVendorFile(vendorFilePath, env);
+      StarlarkFile vendorFile = readAndParseVendorFile(vendorFilePath, env, starlarkSemantics);
       new DotBazelFileSyntaxChecker("VENDOR.bazel files", /* canLoadBzl= */ false)
           .check(vendorFile);
       net.starlark.java.eval.Module predeclaredEnv =
@@ -147,7 +149,8 @@ public class VendorFileFunction implements SkyFunction {
     }
   }
 
-  private static StarlarkFile readAndParseVendorFile(Path path, Environment env)
+  private static StarlarkFile readAndParseVendorFile(
+      Path path, Environment env, StarlarkSemantics starlarkSemantics)
       throws VendorFileFunctionException {
     byte[] contents;
     try {
@@ -156,8 +159,21 @@ public class VendorFileFunction implements SkyFunction {
       throw new VendorFileFunctionException(
           new IOException("error reading VENDOR.bazel file", e), Transience.TRANSIENT);
     }
-    StarlarkFile starlarkFile =
-        StarlarkFile.parse(ParserInput.fromLatin1(contents, path.getPathString()));
+    ParserInput parserInput;
+    try {
+      parserInput =
+          StarlarkUtil.createParserInput(
+              contents,
+              path.getPathString(),
+              starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+              env.getListener());
+    } catch (
+        @SuppressWarnings("UnusedException") // createParserInput() reports its own error message
+        StarlarkUtil.InvalidUtf8Exception e) {
+      throw new VendorFileFunctionException(
+          new BadVendorFileException("error reading VENDOR.bazel file"), Transience.PERSISTENT);
+    }
+    StarlarkFile starlarkFile = StarlarkFile.parse(parserInput);
     if (!starlarkFile.ok()) {
       Event.replayEventsOn(env.getListener(), starlarkFile.errors());
       throw new VendorFileFunctionException(

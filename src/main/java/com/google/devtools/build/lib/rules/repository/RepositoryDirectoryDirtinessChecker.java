@@ -54,15 +54,9 @@ public class RepositoryDirectoryDirtinessChecker extends SkyValueDirtinessChecke
       @Nullable Version oldMtsv,
       SyscallCache syscallCache,
       @Nullable TimestampGranularityMonitor tsgm) {
-    RepositoryDirectoryValue repositoryValue = (RepositoryDirectoryValue) skyValue;
-
-    if (!repositoryValue.repositoryExists()) {
-      return DirtyResult.notDirty();
-    }
-    if (repositoryValue.isFetchingDelayed()) {
-      return DirtyResult.dirty();
-    }
-
-    return DirtyResult.notDirty();
+    return skyValue instanceof RepositoryDirectoryValue.Success success
+            && success.isFetchingDelayed()
+        ? DirtyResult.dirty()
+        : DirtyResult.notDirty();
   }
 }

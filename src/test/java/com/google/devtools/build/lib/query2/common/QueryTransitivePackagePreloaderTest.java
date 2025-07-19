@@ -74,7 +74,7 @@ public class QueryTransitivePackagePreloaderTest {
                   new UndetailedException("bork"), SkyFunctionException.Transience.PERSISTENT) {}),
           /*isTransitivelyTransient=*/ false);
   private static final ErrorInfo CYCLE_ERROR =
-      ErrorInfo.fromCycle(new CycleInfo(ImmutableList.of(KEY)));
+      ErrorInfo.fromCycle(CycleInfo.createCycleInfo(ImmutableList.of(KEY)));
 
   @Mock MemoizingEvaluator memoizingEvaluator;
   @Mock EvaluationContext.Builder contextBuilder;
@@ -92,6 +92,7 @@ public class QueryTransitivePackagePreloaderTest {
     when(contextBuilder.setKeepGoing(ArgumentMatchers.anyBoolean())).thenReturn(contextBuilder);
     when(contextBuilder.setParallelism(ArgumentMatchers.anyInt())).thenReturn(contextBuilder);
     when(contextBuilder.setEventHandler(ArgumentMatchers.any())).thenReturn(contextBuilder);
+    when(contextBuilder.setDetectCycles(ArgumentMatchers.anyBoolean())).thenReturn(contextBuilder);
     when(contextBuilder.build()).thenReturn(context);
   }
 

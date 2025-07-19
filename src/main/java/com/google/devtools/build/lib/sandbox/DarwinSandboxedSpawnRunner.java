@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.exec.TreeDeleter;
@@ -76,12 +75,13 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return false;
     }
     if (isSupported == null) {
-      isSupported = computeIsSupported();
+      isSupported = computeIsSupported(cmdEnv.getClientEnv());
     }
     return isSupported;
   }
 
-  private static boolean computeIsSupported() throws InterruptedException {
+  private static boolean computeIsSupported(ImmutableMap<String, String> clientEnv)
+      throws InterruptedException {
     List<String> args = new ArrayList<>();
     args.add(sandboxExecBinary);
     args.add("-p");
@@ -91,7 +91,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     ImmutableMap<String, String> env = ImmutableMap.of();
     File cwd = new File("/usr/bin");
 
-    Command cmd = new Command(args.toArray(new String[0]), env, cwd);
+    Command cmd = new Command(args.toArray(new String[0]), env, cwd, clientEnv);
     try {
       cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
     } catch (CommandException e) {
@@ -101,7 +101,6 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return true;
   }
 
-  private final SandboxHelpers helpers;
   private final Path execRoot;
   private final boolean allowNetwork;
   private final ProcessWrapper processWrapper;
@@ -114,26 +113,21 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * <p>We cache this, because creating it involves executing {@code getconf}, which is expensive.
    */
   private final ImmutableSet<Path> alwaysWritableDirs;
+
   private final LocalEnvProvider localEnvProvider;
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code process-wrapper} tool and the MacOS
    * {@code sandbox-exec} binary.
    *
-   * @param helpers common tools and state across all spawns during sandboxed execution
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
    */
-  DarwinSandboxedSpawnRunner(
-      SandboxHelpers helpers,
-      CommandEnvironment cmdEnv,
-      Path sandboxBase,
-      TreeDeleter treeDeleter)
+  DarwinSandboxedSpawnRunner(CommandEnvironment cmdEnv, Path sandboxBase, TreeDeleter treeDeleter)
       throws IOException, InterruptedException {
     super(cmdEnv);
-    this.helpers = helpers;
     this.execRoot = cmdEnv.getExecRoot();
-    this.allowNetwork = helpers.shouldAllowNetwork(cmdEnv.getOptions());
+    this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.alwaysWritableDirs = getAlwaysWritableDirs(cmdEnv.getRuntime().getFileSystem());
     this.processWrapper = ProcessWrapper.fromCommandEnvironment(cmdEnv);
     this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
@@ -154,7 +148,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
   }
 
-  private static ImmutableSet<Path> getAlwaysWritableDirs(FileSystem fs)
+  private ImmutableSet<Path> getAlwaysWritableDirs(FileSystem fs)
       throws IOException, InterruptedException {
     HashSet<Path> writableDirs = new HashSet<>();
 
@@ -183,11 +177,11 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   /** Returns the value of a POSIX or X/Open system configuration variable. */
-  private static String getConfStr(String confVar) throws IOException, InterruptedException {
+  private String getConfStr(String confVar) throws IOException, InterruptedException {
     String[] commandArr = new String[2];
     commandArr[0] = getconfBinary;
     commandArr[1] = confVar;
-    Command cmd = new Command(commandArr);
+    Command cmd = new Command(commandArr, clientEnv);
     CommandResult res;
     try {
       res = cmd.execute();
@@ -199,7 +193,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ForbiddenActionInputException, InterruptedException {
+      throws IOException, InterruptedException {
     // Each invocation of "exec" gets its own sandbox base.
     // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
     // so we have to prefix our name to turn it into a globally unique value.
@@ -223,10 +217,10 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     writableDirs.addAll(extraWritableDirs);
 
     SandboxInputs inputs =
-        helpers.processInputFiles(
+        SandboxHelpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
             execRoot);
-    SandboxOutputs outputs = helpers.getOutputs(spawn);
+    SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
 
     final Path sandboxConfigPath = sandboxPath.getRelative("sandbox.sb");
     Duration timeout = context.getTimeout();
@@ -237,8 +231,8 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .addExecutionInfo(spawn.getExecutionInfo())
             .setTimeout(timeout);
 
-    final Path statisticsPath = sandboxPath.getRelative("stats.out");
-    processWrapperCommandLineBuilder.setStatisticsPath(statisticsPath);
+    Path statisticsPath = sandboxPath.getRelative("stats.out");
+    processWrapperCommandLineBuilder.setStatisticsPath(statisticsPath.asFragment());
 
     ImmutableList<String> commandLine =
         ImmutableList.<String>builder()
@@ -279,7 +273,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     };
   }
 
-  private void writeConfig(
+  private static void writeConfig(
       Path sandboxConfigPath,
       Set<Path> writableDirs,
       Set<Path> inaccessiblePaths,

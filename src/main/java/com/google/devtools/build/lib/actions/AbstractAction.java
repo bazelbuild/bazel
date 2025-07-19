@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
@@ -87,13 +88,19 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
    * To save memory, this is either an {@link Artifact} for actions with a single output, or a
    * duplicate-free {@code Artifact[]} for actions with multiple outputs.
    */
-  private final Object outputs;
+  // AutoCodec cannot see private fields in superclasses due to b/32473060.
+  @VisibleForSerialization protected final Object rawOutputs;
 
   protected AbstractAction(
       ActionOwner owner, NestedSet<Artifact> inputs, Iterable<? extends Artifact> outputs) {
+    this(owner, inputs, singletonOrArray(outputs));
+  }
+
+  /** Constructor for serialization. */
+  protected AbstractAction(ActionOwner owner, NestedSet<Artifact> inputs, Object rawOutputs) {
     this.owner = checkNotNull(owner);
     this.inputs = checkNotNull(inputs);
-    this.outputs = singletonOrArray(outputs);
+    this.rawOutputs = checkNotNull(rawOutputs);
   }
 
   private static Object singletonOrArray(Iterable<? extends Artifact> outputs) {
@@ -242,9 +249,9 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
 
   @Override
   public Collection<Artifact> getOutputs() {
-    return outputs instanceof Artifact artifact
+    return rawOutputs instanceof Artifact artifact
         ? ImmutableSet.of(artifact)
-        : new OutputSet((Artifact[]) outputs);
+        : new OutputSet((Artifact[]) rawOutputs);
   }
 
   /**
@@ -302,7 +309,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
 
   @Override
   public final Artifact getPrimaryOutput() {
-    return outputs instanceof Artifact ? (Artifact) outputs : ((Artifact[]) outputs)[0];
+    return rawOutputs instanceof Artifact artifact ? artifact : ((Artifact[]) rawOutputs)[0];
   }
 
   @Override
@@ -558,7 +565,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
     ExtraActionInfo.Builder result =
         ExtraActionInfo.newBuilder()
             .setOwner(owner.getLabel().toString())
-            .setId(getKey(actionKeyContext, /* artifactExpander= */ null))
+            .setId(getKey(actionKeyContext, /* inputMetadataProvider= */ null))
             .setMnemonic(getMnemonic());
     ImmutableList<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();
     AspectDescriptor lastAspect =

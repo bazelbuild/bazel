@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -165,11 +166,25 @@ public class BzlCompileFunction implements SkyFunction {
       if (autoloadSymbols == null) {
         return null;
       }
-      predeclared = autoloadSymbols.getUninjectedBuildBzlEnv(key.getLabel());
+      predeclared =
+          autoloadSymbols.getUninjectedBuildBzlEnv(
+              key.getLabel() == null ? null : key.getLabel().getRepository());
     }
 
     // We have all deps. Parse, resolve, and return.
-    ParserInput input = ParserInput.fromLatin1(bytes, inputName);
+    ParserInput input;
+    try {
+      input =
+          StarlarkUtil.createParserInput(
+              bytes,
+              inputName,
+              semantics.get(BuildLanguageOptions.INCOMPATIBLE_ENFORCE_STARLARK_UTF8),
+              env.getListener());
+    } catch (
+        @SuppressWarnings("UnusedException") // createParserInput() reports its own error message
+        StarlarkUtil.InvalidUtf8Exception e) {
+      return BzlCompileValue.noFile("compilation of '%s' failed", inputName);
+    }
     FileOptions options =
         FileOptions.builder()
             // By default, Starlark load statements create file-local bindings.
@@ -184,6 +199,16 @@ public class BzlCompileFunction implements SkyFunction {
             // matching the error message or reworking the interpreter API to put more structured
             // detail in errors (i.e. new fields or error subclasses).
             .stringLiteralsAreAsciiOnly(key.isSclDialect())
+            .allowTypeAnnotations(
+                semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES)
+                    && !key.isBuildPrelude() // annotations in prelude not allowed
+                    && (semantics
+                            .get(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS)
+                            .isEmpty()
+                        || semantics
+                            .get(BuildLanguageOptions.EXPERIMENTAL_STARLARK_TYPES_ALLOWED_PATHS)
+                            .stream()
+                            .anyMatch(s -> key.label.getCanonicalForm().startsWith(s))))
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
 

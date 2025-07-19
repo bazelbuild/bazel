@@ -39,8 +39,8 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
-import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -223,7 +223,7 @@ public final class DependencyResolutionHelpers {
     if (!(transitionFactory instanceof ExecutionTransitionFactory)) {
       return ExecutionPlatformResult.ofLabel(
           toolchainContexts
-              .getToolchainContext(ExecGroup.DEFAULT_EXEC_GROUP_NAME)
+              .getToolchainContext(DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME)
               .executionPlatform()
               .label());
     }
@@ -317,14 +317,14 @@ public final class DependencyResolutionHelpers {
           outgoingLabels,
           rule,
           RuleClass.COMPATIBLE_ENVIRONMENT_ATTR,
-          rule.getPackage().getPackageArgs().defaultCompatibleWith());
+          rule.getPackageDeclarations().getPackageArgs().defaultCompatibleWith());
     }
     if (!rule.isAttributeValueExplicitlySpecified(RuleClass.RESTRICTED_ENVIRONMENT_ATTR)) {
       addExplicitDeps(
           outgoingLabels,
           rule,
           RuleClass.RESTRICTED_ENVIRONMENT_ATTR,
-          rule.getPackage().getPackageArgs().defaultRestrictedTo());
+          rule.getPackageDeclarations().getPackageArgs().defaultRestrictedTo());
     }
 
     addToolchainDeps(toolchainContexts, outgoingLabels);
@@ -510,7 +510,8 @@ public final class DependencyResolutionHelpers {
         && !rule.isAttrDefined(attrName, BuildType.NODEP_LABEL_LIST)) {
       return;
     }
-    Attribute attribute = rule.getRuleClassObject().getAttributeByName(attrName);
+    Attribute attribute =
+        rule.getRuleClassObject().getAttributeProvider().getAttributeByName(attrName);
     outgoingLabels.putAll(AttributeDependencyKind.forRule(attribute), labels);
   }
 
@@ -528,7 +529,8 @@ public final class DependencyResolutionHelpers {
     // `ctx.rule.attr` with rule attributes taking precedence then aspects' attributes based on the
     // aspect order in the aspects path (lowest order to highest).
 
-    List<Attribute> ruleAttributes = rule.getRuleClassObject().getAttributes();
+    List<Attribute> ruleAttributes =
+        rule.getRuleClassObject().getAttributeProvider().getAttributes();
     for (Attribute attribute : ruleAttributes) {
         result.add(AttributeDependencyKind.forRule(attribute));
       ruleAndBaseAspectsProcessedAttributes.add(attribute.getName());

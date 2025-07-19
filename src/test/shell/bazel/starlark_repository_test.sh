@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -185,7 +185,7 @@ EOF
 
   bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "foo"
-  cat bazel-bin/external/+_repo_rules+foo/bar.txt >$TEST_log
+  cat bazel-bin/external/+repo+foo/bar.txt >$TEST_log
   expect_log "foo"
 }
 
@@ -386,9 +386,9 @@ EOF
   bazel build "--repo_env=INPUT_$unicode=${input_file}" @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "UNICODE = $unicode"
   output_base="$(bazel info output_base)"
-  assert_contains "$unicode" "$output_base/external/+_repo_rules+foo/direct${unicode}.txt"
-  assert_contains "$unicode" "$output_base/external/+_repo_rules+foo/indirect${unicode}.txt"
-  assert_contains "${unicode}_replaced_${unicode}" "$output_base/external/+_repo_rules+foo/template${unicode}.txt"
+  assert_contains "$unicode" "$output_base/external/+repo+foo/direct${unicode}.txt"
+  assert_contains "$unicode" "$output_base/external/+repo+foo/indirect${unicode}.txt"
+  assert_contains "${unicode}_replaced_${unicode}" "$output_base/external/+repo+foo/template${unicode}.txt"
 
   # The repo rule should not be re-run on server restart
   bazel shutdown
@@ -426,18 +426,18 @@ EOF
   FOO=BEZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_not_log "BEZ"
 
-  # Test that --action_env value is taken
+  # Test that --repo_env value is taken
   # TODO(dmarting): The current implemnentation cannot invalidate on environment
   # but the incoming change can declare environment dependency, once this is
   # done, maybe we should update this test to remove clean --expunge and use the
   # invalidation mechanism instead?
   bazel clean --expunge
-  FOO=BAZ bazel build --action_env=FOO=BAZINGA @foo//:bar >& $TEST_log \
+  FOO=BAZ bazel build --repo_env=FOO=BAZINGA @foo//:bar >& $TEST_log \
       || fail "Failed to build"
   expect_log "BAZINGA"
 
   bazel clean --expunge
-  FOO=BAZ bazel build --action_env=FOO @foo//:bar >& $TEST_log \
+  FOO=BAZ bazel build --repo_env=FOO @foo//:bar >& $TEST_log \
       || fail "Failed to build"
   expect_log "BAZ"
   expect_not_log "BAZINGA"
@@ -498,7 +498,7 @@ function setup_invalidation_test() {
   setup_starlark_repository
 
   # We use a counter to avoid other invalidation to hide repository
-  # invalidation (e.g., --action_env will cause all action to re-run).
+  # invalidation (e.g., --repo_env will cause all repositories to re-run).
   local execution_file="${TEST_TMPDIR}/execution"
 
   # Our custom repository rule
@@ -596,28 +596,29 @@ function environ_invalidation_test_template() {
 
 function environ_invalidation_action_env_test_template() {
   local startup_flag="${1-}"
+  local command_flag="--noincompatible_repo_env_ignores_action_env"
   setup_starlark_repository
 
   # We use a counter to avoid other invalidation to hide repository
-  # invalidation (e.g., --action_env will cause all action to re-run).
+  # invalidation (e.g., --action_env=K=V will cause all repositories to re-run).
   local execution_file="$(setup_invalidation_test)"
 
   # Set to FOO=BAZ BAR=FOO
-  FOO=BAZ BAR=FOO bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+  FOO=BAZ BAR=FOO bazel ${startup_flag} build "${command_flag}" @foo//:bar >& $TEST_log \
       || fail "Failed to build"
   expect_log "<1> FOO=BAZ BAR=FOO BAZ=undefined"
   assert_equals 1 $(cat "${execution_file}")
 
   # Test with changing using --action_env
-  bazel ${startup_flag} build \
+  bazel ${startup_flag} build "${command_flag}" \
       --action_env FOO=BAZ --action_env BAR=FOO  --action_env BEZ=BAR \
       @foo//:bar >& $TEST_log || fail "Failed to build"
   assert_equals 1 $(cat "${execution_file}")
-  bazel ${startup_flag} build \
+  bazel ${startup_flag} build "${command_flag}" \
       --action_env FOO=BAZ --action_env BAR=FOO --action_env BAZ=BAR \
       @foo//:bar >& $TEST_log || fail "Failed to build"
   assert_equals 1 $(cat "${execution_file}")
-  bazel ${startup_flag} build \
+  bazel ${startup_flag} build "${command_flag}" \
       --action_env FOO=BAR --action_env BAR=FOO --action_env BAZ=BAR \
       @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "<2> FOO=BAR BAR=FOO BAZ=BAR"
@@ -645,7 +646,7 @@ function test_starlark_repository_environ_invalidation_action_env_batch() {
 function bzl_invalidation_test_template() {
   local startup_flag="${1-}"
   local execution_file="$(setup_invalidation_test)"
-  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+  local flags="--repo_env FOO=BAR --repo_env BAR=BAZ --repo_env BAZ=FOO"
 
   local bazel_build="bazel ${startup_flag} build ${flags}"
 
@@ -724,7 +725,7 @@ EOF
 function file_invalidation_test_template() {
   local startup_flag="${1-}"
   local execution_file="$(setup_invalidation_test)"
-  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+  local flags="--repo_env FOO=BAR --repo_env BAR=BAZ --repo_env BAZ=FOO"
 
   local bazel_build="bazel ${startup_flag} build ${flags}"
 
@@ -758,7 +759,7 @@ function test_starlark_repository_file_invalidation_batch() {
 function starlark_invalidation_test_template() {
   local startup_flag="${1-}"
   local execution_file="$(setup_invalidation_test)"
-  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+  local flags="--repo_env FOO=BAR --repo_env BAR=BAZ --repo_env BAZ=FOO"
   local bazel_build="bazel ${startup_flag} build ${flags}"
 
   ${bazel_build} --noincompatible_run_shell_command_string @foo//:bar \
@@ -995,10 +996,10 @@ EOF
 
   bazel run @foo//:bar >& $TEST_log || fail "Execution of @foo//:bar failed"
   output_base=$(bazel info output_base)
-  test -x "${output_base}/external/+_repo_rules+foo/test.sh" || fail "test.sh is not executable"
-  test -x "${output_base}/external/+_repo_rules+foo/test2.sh" || fail "test2.sh is not executable"
-  test ! -x "${output_base}/external/+_repo_rules+foo/BUILD" || fail "BUILD is executable"
-  test ! -x "${output_base}/external/+_repo_rules+foo/test2" || fail "test2 is executable"
+  test -x "${output_base}/external/+repo+foo/test.sh" || fail "test.sh is not executable"
+  test -x "${output_base}/external/+repo+foo/test2.sh" || fail "test2.sh is not executable"
+  test ! -x "${output_base}/external/+repo+foo/BUILD" || fail "BUILD is executable"
+  test ! -x "${output_base}/external/+repo+foo/test2" || fail "test2 is executable"
 }
 
 function test_starlark_repository_download() {
@@ -1034,15 +1035,15 @@ EOF
 
   output_base="$(bazel info output_base)"
   # Test download
-  test -e "${output_base}/external/+_repo_rules+foo/download_with_sha256.txt" \
+  test -e "${output_base}/external/+repo+foo/download_with_sha256.txt" \
     || fail "download_with_sha256.txt is not downloaded"
-  test -e "${output_base}/external/+_repo_rules+foo/download_executable_file.sh" \
+  test -e "${output_base}/external/+repo+foo/download_executable_file.sh" \
     || fail "download_executable_file.sh is not downloaded"
   # Test download
-  diff "${output_base}/external/+_repo_rules+foo/download_with_sha256.txt" \
+  diff "${output_base}/external/+repo+foo/download_with_sha256.txt" \
     "${download_with_sha256}" >/dev/null \
     || fail "download_with_sha256.txt is not downloaded successfully"
-  diff "${output_base}/external/+_repo_rules+foo/download_executable_file.sh" \
+  diff "${output_base}/external/+repo+foo/download_executable_file.sh" \
     "${download_executable_file}" >/dev/null \
     || fail "download_executable_file.sh is not downloaded successfully"
 
@@ -1052,9 +1053,9 @@ EOF
   fi
 
   # Test executable
-  test ! -x "${output_base}/external/+_repo_rules+foo/download_with_sha256.txt" \
+  test ! -x "${output_base}/external/+repo+foo/download_with_sha256.txt" \
     || fail "download_with_sha256.txt is executable"
-  test -x "${output_base}/external/+_repo_rules+foo/download_executable_file.sh" \
+  test -x "${output_base}/external/+repo+foo/download_executable_file.sh" \
     || fail "download_executable_file.sh is not executable"
 }
 
@@ -1123,13 +1124,13 @@ EOF
         >& $TEST_log && shutdown_server || fail "Execution of @foo//:all failed"
 
   output_base="$(bazel info output_base)"
-  grep "no_sha_return $not_provided_sha256" $output_base/external/+_repo_rules+foo/returned_shas.txt \
+  grep "no_sha_return $not_provided_sha256" $output_base/external/+repo+foo/returned_shas.txt \
       || fail "expected calculated sha256 $not_provided_sha256"
-  grep "with_sha_return $provided_sha256" $output_base/external/+_repo_rules+foo/returned_shas.txt \
+  grep "with_sha_return $provided_sha256" $output_base/external/+repo+foo/returned_shas.txt \
       || fail "expected provided sha256 $provided_sha256"
-  grep "compressed_with_sha_return $compressed_provided_sha256" $output_base/external/+_repo_rules+foo/returned_shas.txt \
+  grep "compressed_with_sha_return $compressed_provided_sha256" $output_base/external/+repo+foo/returned_shas.txt \
       || fail "expected provided sha256 $compressed_provided_sha256"
-  grep "compressed_no_sha_return $compressed_not_provided_sha256" $output_base/external/+_repo_rules+foo/returned_shas.txt \
+  grep "compressed_no_sha_return $compressed_not_provided_sha256" $output_base/external/+repo+foo/returned_shas.txt \
       || fail "expected compressed calculated sha256 $compressed_not_provided_sha256"
 }
 
@@ -1189,7 +1190,7 @@ EOF
 
   output_base="$(bazel info output_base)"
   # Test download
-  test -e "${output_base}/external/+_repo_rules+foo/whatever.txt" \
+  test -e "${output_base}/external/+repo+foo/whatever.txt" \
     || fail "whatever.txt is not downloaded"
 }
 
@@ -1242,26 +1243,26 @@ EOF
 
   output_base="$(bazel info output_base)"
   # Test cleanup
-  test -e "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract1.tar.gz" \
+  test -e "${output_base}/external/+repo+foo/server_dir/download_and_extract1.tar.gz" \
     && fail "temp file was not deleted successfully" || true
-  test -e "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract2.zip" \
+  test -e "${output_base}/external/+repo+foo/server_dir/download_and_extract2.zip" \
     && fail "temp file was not deleted successfully" || true
-  test -e "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract3.zip" \
+  test -e "${output_base}/external/+repo+foo/server_dir/download_and_extract3.zip" \
     && fail "temp file was not deleted successfully" || true
   # Test download_and_extract
-  diff "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract1.txt" \
+  diff "${output_base}/external/+repo+foo/server_dir/download_and_extract1.txt" \
     "${file_prefix}1.txt" >/dev/null \
     || fail "download_and_extract1.tar.gz was not extracted successfully"
-  diff "${output_base}/external/+_repo_rules+foo/some/path/server_dir/download_and_extract1.txt" \
+  diff "${output_base}/external/+repo+foo/some/path/server_dir/download_and_extract1.txt" \
     "${file_prefix}1.txt" >/dev/null \
     || fail "download_and_extract1.tar.gz was not extracted successfully in some/path"
-  diff "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract2.txt" \
+  diff "${output_base}/external/+repo+foo/server_dir/download_and_extract2.txt" \
     "${file_prefix}2.txt" >/dev/null \
     || fail "download_and_extract2.zip was not extracted successfully"
-  diff "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract3.txt" \
+  diff "${output_base}/external/+repo+foo/server_dir/download_and_extract3.txt" \
     "${file_prefix}3.txt" >/dev/null \
     || fail "download_and_extract3.zip was not extracted successfully"
-  diff "${output_base}/external/+_repo_rules+foo/other/path/server_dir/download_and_extract3.txt" \
+  diff "${output_base}/external/+repo+foo/other/path/server_dir/download_and_extract3.txt" \
     "${file_prefix}3.txt" >/dev/null \
     || fail "download_and_extract3.tar.gz was not extracted successfully"
 }
@@ -1512,6 +1513,12 @@ password passbar🌱
 # following lines mix tabs and spaces
 machine	  oauthlife.com
 	password	TOKEN
+
+# Password-only auth credentials, will not be passed into `patterns` like oauthlife.com.
+machine baz.example.org password ABCDEFG
+
+# Test for warning mechanism.
+machine qux.example.org
 EOF
   # Read a given .netrc file and combine it with a list of URL,
   # and write the obtained authentication dictionary to disk; this
@@ -1552,6 +1559,8 @@ authrepo(
     "https://bar.example.org/file3.tar",
     "https://evil.com/bar.example.org/file4.tar",
     "https://oauthlife.com/fizz/buzz/file5.tar",
+    "https://baz.example.org/file6.tar",
+    "http://qux.example.org/file7.tar",
   ],
 )
 EOF
@@ -1579,6 +1588,11 @@ expected = {
       "pattern" : "Bearer <password>",
       "password" : "TOKEN",
     },
+    "https://baz.example.org/file6.tar": {
+      "type" : "pattern",
+      "pattern" : "Bearer <password>",
+      "password" : "ABCDEFG",
+    },
 }
 EOF
   cat > verify.bzl <<'EOF'
@@ -1605,6 +1619,7 @@ EOF
   grep 'OK' `bazel info bazel-bin`/check_expected.txt \
        || fail "Authentication merged incorrectly"
   expect_log "authrepo is being evaluated"
+  expect_log "WARNING: Found machine in \.netrc for URL .*qux\.example\.org.*, but no password\."
 
   echo "modified" > .netrc
   bazel build //:check_expected &> $TEST_log || fail "Expected success"
@@ -1888,7 +1903,7 @@ EOF
   expect_log "Failed to download repository @.*: download is disabled"
 }
 
-function test_no_restarts_fetching_with_worker_thread() {
+function test_no_restarts() {
   setup_starlark_repository
 
   echo foo > file1
@@ -1904,21 +1919,7 @@ def _impl(rctx):
 repo = repository_rule(implementation=_impl, local=True)
 EOF
 
-  # no worker thread, restarts twice
-  bazel build @foo//:bar --experimental_worker_for_repo_fetching=off >& $TEST_log \
-    || fail "Expected build to succeed"
-  expect_log_n "hello world!" 3
-
-  # platform worker thread, never restarts
-  bazel shutdown
-  bazel build @foo//:bar --experimental_worker_for_repo_fetching=platform >& $TEST_log \
-    || fail "Expected build to succeed"
-  expect_log_n "hello world!" 1
-
-  # virtual worker thread, never restarts
-  bazel shutdown
-  bazel build @foo//:bar --experimental_worker_for_repo_fetching=virtual >& $TEST_log \
-    || fail "Expected build to succeed"
+  bazel build @foo//:bar >& $TEST_log || fail "Expected build to succeed"
   expect_log_n "hello world!" 1
 }
 
@@ -2477,9 +2478,9 @@ EOF
   bazel build @foo >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I see: nothing"
 
-  local marker_file=$(bazel info output_base)/external/@+_repo_rules+foo.marker
-  # the marker file for this repo should contain a reference to "@@+_repo_rules2+bar". Mangle that.
-  sed -i'' -e 's/@@+_repo_rules2+bar/@@LOL@@LOL/g' ${marker_file}
+  local marker_file=$(bazel info output_base)/external/@+foo+foo.marker
+  # the marker file for this repo should contain a reference to "@@+bar+bar". Mangle that.
+  sed -i'' -e 's/@@+bar+bar/@@LOL@@LOL/g' ${marker_file}
 
   # Running Bazel again shouldn't crash, and should result in a refetch.
   bazel shutdown
@@ -2506,7 +2507,7 @@ EOF
 def _foo(rctx):
   rctx.file("BUILD", "filegroup(name='foo')")
   # this repo might not have been defined yet
-  rctx.watch("../+_repo_rules2+bar/BUILD")
+  rctx.watch("../+bar+bar/BUILD")
   print("I see something!")
 foo=repository_rule(_foo)
 EOF
@@ -2919,8 +2920,8 @@ filegroup(
 EOF
     bazel build //:foo >& $TEST_log || fail "expected bazel to succeed"
     expect_log "main repo: //:foo @@//:foo"
-    expect_log "my_first_repo: @my_first_repo//:foo @@+_repo_rules+my_first_repo//:foo"
-    expect_log "my_second_repo: @my_first_repo//:foo @@+_repo_rules+my_first_repo//:foo"
+    expect_log "my_first_repo: @my_first_repo//:foo @@+my_repository_rule+my_first_repo//:foo"
+    expect_log "my_second_repo: @my_first_repo//:foo @@+my_repository_rule+my_first_repo//:foo"
 }
 
 function test_execute_environment_remove_vars() {
@@ -2961,6 +2962,58 @@ EOF
     @repo//... &> $TEST_log || fail "expected Bazel to succeed"
 }
 
+function test_execute_environment_repo_env_ignores_action_env_off() {
+  cat >> $(setup_module_dot_bazel)  <<'EOF'
+my_repo = use_repo_rule("//:repo.bzl", "my_repo")
+my_repo(name="repo")
+EOF
+  touch BUILD
+  cat > repo.bzl <<'EOF'
+def _impl(ctx):
+  st = ctx.execute(
+    ["env"],
+  )
+  if st.return_code:
+    fail("Command did not succeed")
+  vars = {line.partition("=")[0]: line.partition("=")[-1] for line in st.stdout.strip().split("\n")}
+  if vars.get("ACTION_ENV_PRESENT") != "value1":
+    fail("ACTION_ENV_PRESENT has wrong value: " + vars.get("ACTION_ENV_PRESENT"))
+  ctx.file("BUILD", "exports_files(['data.txt'])")
+my_repo = repository_rule(_impl)
+EOF
+
+  bazel build \
+    --noincompatible_repo_env_ignores_action_env \
+    --action_env=ACTION_ENV_PRESENT=value1 \
+    @repo//... &> $TEST_log || fail "expected Bazel to succeed"
+}
+
+function test_execute_environment_repo_env_ignores_action_env_on() {
+  cat >> $(setup_module_dot_bazel)  <<'EOF'
+my_repo = use_repo_rule("//:repo.bzl", "my_repo")
+my_repo(name="repo")
+EOF
+  touch BUILD
+  cat > repo.bzl <<'EOF'
+def _impl(ctx):
+  st = ctx.execute(
+    ["env"],
+  )
+  if st.return_code:
+    fail("Command did not succeed")
+  vars = {line.partition("=")[0]: line.partition("=")[-1] for line in st.stdout.strip().split("\n")}
+  if "ACTION_ENV_REMOVED" in vars:
+    fail("ACTION_ENV_REMOVED should not be in the environment")
+  ctx.file("BUILD", "exports_files(['data.txt'])")
+my_repo = repository_rule(_impl)
+EOF
+
+  bazel build \
+    --incompatible_repo_env_ignores_action_env \
+    --action_env=ACTION_ENV_REMOVED=value1 \
+    @repo//... &> $TEST_log || fail "expected Bazel to succeed"
+}
+
 function test_dependency_on_repo_with_invalid_name() {
   cat >> $(setup_module_dot_bazel) <<'EOF'
 my_repo = use_repo_rule("//:repo.bzl", "my_repo")
@@ -2977,6 +3030,43 @@ EOF
   bazel build @repo//... &> $TEST_log && fail "expected Bazel to fail"
   expect_not_log "Unrecoverable error"
   expect_log "attempted to watch path under external repository directory: invalid repository name '@invalid_name@'"
+}
+
+function test_load_and_execute_wasm() {
+  setup_starlark_repository
+
+  declare -r exec_wasm="$(rlocation "io_bazel/src/test/shell/bazel/testdata/exec_wasm.wasm")"
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  wasm_file = "$exec_wasm"
+  wasm_module = repository_ctx.load_wasm("$exec_wasm")
+
+  result_ok = repository_ctx.execute_wasm(wasm_module, "run_ok", input="")
+  print('result_ok.output: %r' % (result_ok.output,))
+  print('result_ok.return_code: %r' % (result_ok.return_code,))
+  print('result_ok.error_message: %r' % (result_ok.error_message,))
+
+  result_err = repository_ctx.execute_wasm(wasm_module, "run_err", input="")
+  print('result_err.output: %r' % (result_err.output,))
+  print('result_err.return_code: %r' % (result_err.return_code,))
+  print('result_err.error_message: %r' % (result_err.error_message,))
+
+  # Symlink so a repository is created
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
+
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  bazel build --experimental_repository_ctx_execute_wasm @foo//:bar >& $TEST_log \
+    || fail "Expected build to succeed"
+
+  expect_log 'result_ok.output: "ok"'
+  expect_log 'result_ok.return_code: 0'
+  expect_log 'result_ok.error_message: ""'
+
+  expect_log 'result_err.output: "err"'
+  expect_log 'result_err.return_code: 1'
+  expect_log 'result_err.error_message: ""'
 }
 
 run_suite "local repository tests"

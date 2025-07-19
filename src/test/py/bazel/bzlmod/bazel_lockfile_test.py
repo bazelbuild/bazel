@@ -59,6 +59,12 @@ class BazelLockfileTest(test_base.TestBase):
     # TODO(pcloudy): investigate why this is needed, MODULE.bazel.lock is not
     # deterministic?
     os.remove(self.Path('MODULE.bazel.lock'))
+    _, stdout, _ = self.RunBazel(['info', 'output_base'])
+    output_base = pathlib.Path(stdout[0].strip())
+    try:
+      os.remove(output_base.joinpath('MODULE.bazel.lock'))
+    except FileNotFoundError:
+      pass
 
   def tearDown(self):
     self.main_registry.stop()
@@ -116,7 +122,7 @@ class BazelLockfileTest(test_base.TestBase):
 
     # Shutdown bazel to empty any cache of the deps tree
     self.RunBazel(['shutdown'])
-    # Runing again will try to get 'sss' which should produce an error
+    # Running again will try to get 'sss' which should produce an error
     exit_code, _, stderr = self.RunBazel(
         [
             'build',
@@ -363,10 +369,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _module_ext_impl(ctx):',
             '    print("Hello from the other side!")',
@@ -400,6 +406,67 @@ class BazelLockfileTest(test_base.TestBase):
     )
     self.assertNotIn('Hello from the other side!', ''.join(stderr))
 
+  def testReproducibleModuleExtension(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+            'lockfile_ext.dep(name = "bmbm", versions = ["v1", "v2"])',
+            'use_repo(lockfile_ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=impl)',
+            '',
+            'def _module_ext_impl(ctx):',
+            '    print("Hello from the other side!")',
+            '    repo_rule(name="hello")',
+            '    for mod in ctx.modules:',
+            '        for dep in mod.tags.dep:',
+            '            print("Name:", dep.name, ", Versions:", dep.versions)',
+            '    return ctx.extension_metadata(reproducible = True)',
+            '',
+            '_dep = tag_class(attrs={"name": attr.string(), "versions":',
+            ' attr.string_list()})',
+            'lockfile_ext = module_extension(',
+            '    implementation=_module_ext_impl,',
+            '    tag_classes={"dep": _dep},',
+            '    environ=["GREEN_TREES", "NOT_SET"],',
+            '    os_dependent=True,',
+            '    arch_dependent=True,',
+            ')',
+        ],
+    )
+
+    # Only set one env var, to make sure null variables don't crash
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], env_add={'GREEN_TREES': 'In the city'}
+    )
+    self.assertIn('Hello from the other side!', ''.join(stderr))
+    self.assertIn('Name: bmbm , Versions: ["v1", "v2"]', ''.join(stderr))
+
+    self.RunBazel(['clean'])
+    self.RunBazel(['shutdown'])
+    # Verify that the lockfile entry is not stored in the regular lockfile.
+    os.remove(self.Path('MODULE.bazel.lock'))
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], env_add={'GREEN_TREES': 'In the city'}
+    )
+    self.assertNotIn('Hello from the other side!', ''.join(stderr))
+
+    self.RunBazel(['clean', '--expunge'])
+
+    _, _, stderr = self.RunBazel(
+        ['build', '@hello//:all'], env_add={'GREEN_TREES': 'In the city'}
+    )
+    self.assertIn('Hello from the other side!', ''.join(stderr))
+
   def testIsolatedAndNonIsolatedModuleExtensions(self):
     self.ScratchFile(
         'MODULE.bazel',
@@ -417,10 +484,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _module_ext_impl(ctx):',
             '    print("Hello from the other side, %s!" % ctx.is_isolated)',
@@ -464,10 +531,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _module_ext_impl(ctx):',
             '    print("Hello from the other side, %s!" % ctx.is_isolated)',
@@ -535,9 +602,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             'def _ext_a_impl(ctx):',
             '    repo_rule(name="hello_ext_A")',
             'def _ext_b_impl(ctx):',
@@ -568,9 +635,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
-            'repo_rule = repository_rule(implementation = _repo_rule_impl)',
+            'repo_rule = repository_rule(implementation = impl)',
             'def _mod_ext_impl(ctx):',
             '    print("Hello from the other side!")',
             '    repo_rule(name= "hello")',
@@ -595,9 +662,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
-            'repo_rule = repository_rule(implementation = _repo_rule_impl)',
+            'repo_rule = repository_rule(implementation = impl)',
             'def _mod_ext_impl(ctx):',
             '    print("Hello from the other town!")',
             '    repo_rule(name= "hello")',
@@ -625,9 +692,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
-            'repo_rule = repository_rule(implementation = _repo_rule_impl)',
+            'repo_rule = repository_rule(implementation = impl)',
             'def _mod_ext_impl(ctx):',
             '    print("Hello from the other side!")',
             '    repo_rule(name= "hello")',
@@ -642,9 +709,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\\"lalo\\")")',
-            'repo_rule = repository_rule(implementation = _repo_rule_impl)',
+            'repo_rule = repository_rule(implementation = impl)',
             'def _mod_ext_impl(ctx):',
             '    print("Hello from the other town!")',
             '    repo_rule(name= "hello")',
@@ -681,9 +748,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             'def _ext_impl(ctx):',
             '    repo_rule(name="hello")',
             'ext = module_extension(implementation=_ext_impl)',
@@ -719,10 +786,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _module_ext_impl(ctx):',
             '    for mod in ctx.modules:',
@@ -778,9 +845,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
-            'repo_rule = repository_rule(implementation = _repo_rule_impl)',
+            'repo_rule = repository_rule(implementation = impl)',
             'def _module_ext_impl(ctx):',
             '    print("Hello from the other side!")',
             '    repo_rule(name= "hello")',
@@ -819,9 +886,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\\"lala\\")")',
-            'repo_rule = repository_rule(implementation = _repo_rule_impl)',
+            'repo_rule = repository_rule(implementation = impl)',
             'def _module_ext_impl(ctx):',
             '    print("Hello from the other side!")',
             '    repo_rule(name= "hello")',
@@ -861,10 +928,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _module_ext_impl(ctx):',
             '    print("I am running the extension")',
@@ -944,10 +1011,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _module_ext_impl(ctx):',
             '    print("I am being evaluated")',
@@ -1065,10 +1132,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _module_ext_impl(ctx):',
             '    repo_rule(name="hello")',
@@ -1108,10 +1175,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _module_ext1_impl(ctx):',
             '    repo_rule(name="hello1")',
@@ -1162,10 +1229,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _module_ext1_impl(ctx):',
             '    repo_rule(name="hello1")',
@@ -1216,10 +1283,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _module_ext1_impl(ctx):',
             '    print("Hello from ext1!")',
@@ -1270,9 +1337,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _module_ext_impl(ctx):',
             '    repo_rule(name="hello")',
@@ -1304,9 +1371,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _module_ext_impl(ctx):',
             '    repo_rule(name="hello")',
@@ -1336,9 +1403,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _module_ext_impl(ctx):',
             '    repo_rule(name="hello")',
@@ -1379,13 +1446,13 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "exports_files([\\"data.txt\\"])")',
             '    ctx.file("data.txt", ctx.attr.value)',
             '    print(ctx.attr.value)',
             '',
             'repo_rule = repository_rule(',
-            '    implementation=_repo_rule_impl,',
+            '    implementation=impl,',
             '    attrs = {"value": attr.string()},)',
             '',
             'def _ext_1_impl(ctx):',
@@ -1616,13 +1683,13 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "exports_files([\\"data.txt\\"])")',
             '    ctx.file("data.txt", ctx.attr.value)',
             '    print(ctx.attr.value)',
             '',
             'repo_rule = repository_rule(',
-            '    implementation=_repo_rule_impl,',
+            '    implementation=impl,',
             '    attrs = {"value": attr.string()},)',
             '',
             'def _ext_impl(ctx):',
@@ -1879,6 +1946,95 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertNotIn('ran the extension!', stderr)
     self.assertIn('STR=@@bar+//:lib_foo', stderr)
 
+  def testExtensionRepoMappingChange_tag(self):
+    # Regression test for #20721
+    self.main_registry.createCcModule('foo', '1.0')
+    self.main_registry.createCcModule('bar', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="foo",version="1.0",repo_name="repo_name")',
+            'bazel_dep(name="bar",version="1.0")',
+            'ext = use_extension(":ext.bzl", "ext")',
+            'ext.tag(label = "@repo_name//:lib_foo")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'load("@repo//:defs.bzl", "STR")',
+            'print("STR="+STR)',
+            'filegroup(name="lol")',
+        ],
+    )
+    self.ScratchFile(
+        'ext.bzl',
+        [
+            'def _repo_impl(rctx):',
+            '  rctx.file("BUILD")',
+            '  rctx.file("defs.bzl", "STR = " + repr(str(rctx.attr.value)))',
+            'repo = repository_rule(_repo_impl,attrs={"value":attr.label()})',
+            'def _ext_impl(mctx):',
+            '  print("ran the extension!")',
+            '  repo(name = "repo", value = mctx.modules[0].tags.tag[0].label)',
+            'tag = tag_class(',
+            '  attrs = {',
+            '    "label": attr.label(),',
+            '  },',
+            ')',
+            'ext = module_extension(_ext_impl, tag_classes={"tag": tag})',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', ':lol'])
+    self.assertIn('STR=@@foo+//:lib_foo', '\n'.join(stderr))
+
+    # Shutdown bazel to make sure we rely on the lockfile and not skyframe
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', ':lol'])
+    self.assertNotIn('ran the extension!', '\n'.join(stderr))
+
+    # Shutdown bazel to make sure we rely on the lockfile and not skyframe
+    self.RunBazel(['shutdown'])
+    # Now, for something spicy: let repo_name point to bar and change nothing
+    # else. The extension should rerun despite the lockfile being present, and
+    # no usages or .bzl files having changed.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="foo",version="1.0")',
+            'bazel_dep(name="bar",version="1.0",repo_name="repo_name")',
+            'ext = use_extension(":ext.bzl", "ext")',
+            'ext.tag(label = "@repo_name//:lib_foo")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', ':lol'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('ran the extension!', stderr)
+    self.assertIn('STR=@@bar+//:lib_foo', stderr)
+
+    # Shutdown bazel to make sure we rely on the lockfile and not skyframe
+    self.RunBazel(['shutdown'])
+    # More spicy! change the repo_name of foo, but nothing else.
+    # The extension should NOT rerun, since it never used the @other_name repo
+    # mapping.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="foo",version="1.0",repo_name="other_name")',
+            'bazel_dep(name="bar",version="1.0",repo_name="repo_name")',
+            'ext = use_extension(":ext.bzl", "ext")',
+            'ext.tag(label = "@repo_name//:lib_foo")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', ':lol'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('ran the extension!', stderr)
+    self.assertIn('STR=@@bar+//:lib_foo', stderr)
+
   def testExtensionRepoMappingChange_loadsAndRepoRelativeLabels(self):
     # Regression test for #20721; same test as above, except that the call to
     # Label() in ext.bzl is now moved to @{foo,bar}//:defs.bzl and doesn't
@@ -2034,9 +2190,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _should_lock_impl(ctx): repo_rule(name="repo1")',
             'def _no_lock_impl(ctx):',
@@ -2061,9 +2217,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _should_lock_impl(ctx): repo_rule(name="repo2")',
             'def _no_lock_impl(ctx):',
@@ -2097,9 +2253,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="repo")',
@@ -2124,9 +2280,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx): repo_rule(name="repo")',
             'ext = module_extension(implementation=_ext_impl)',
@@ -2155,9 +2311,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    ctx.file("hello", "repo")',
@@ -2187,9 +2343,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name=ctx.read(%s, watch="yes"))'
@@ -2218,9 +2374,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'repo\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    print("I see: " + ",".join(sorted([e.basename for e in'
@@ -2259,9 +2415,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'repo\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    print("I see: " + ",".join(sorted([e.basename for e in'
@@ -2296,9 +2452,9 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'repo\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    print("I see: " + ",".join(sorted([e.basename for e in'
@@ -2330,10 +2486,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _module_ext_impl(ctx):',
             '    print("I am running the extension: " + ctx.modules[0].name)',
@@ -2385,10 +2541,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _module_ext_impl(ctx):',
             (
@@ -2440,10 +2596,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
             '',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _module_ext_impl(ctx):',
             (

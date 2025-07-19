@@ -159,7 +159,7 @@ public class EagerInvalidatorTest {
             inconsistencyReceiver,
             AbstractQueueVisitor.create(
                 "test-pool", 200, ParallelEvaluatorErrorClassifier.instance()),
-            new SimpleCycleDetector(),
+            new SimpleCycleDetector(/* storeExactCycles= */ true),
             UnnecessaryTemporaryStateDropperReceiver.NULL,
             unused -> keepGoing);
     graphVersion = graphVersion.next();

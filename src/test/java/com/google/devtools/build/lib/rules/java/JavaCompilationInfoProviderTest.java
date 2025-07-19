@@ -89,7 +89,7 @@ public class JavaCompilationInfoProviderTest {
 
   private static Artifact createArtifact(String path) throws IOException {
     Path execRoot = new Scratch().dir("/");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "fake-root");
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "fake-root");
     return ActionsTestUtil.createArtifact(root, path);
   }
 }

@@ -21,8 +21,13 @@ import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.co
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionConflictException;
+import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.AspectCollection;
+import com.google.devtools.build.lib.analysis.AspectResolutionHelpers;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
@@ -32,24 +37,26 @@ import com.google.devtools.build.lib.analysis.producers.RuleTransitionApplier.Id
 import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationData;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
-import com.google.devtools.build.lib.skyframe.BuildTopLevelAspectsDetailsFunction.AspectDetails;
-import com.google.devtools.build.lib.skyframe.BuildTopLevelAspectsDetailsFunction.BuildTopLevelAspectsDetailsKey;
-import com.google.devtools.build.lib.skyframe.BuildTopLevelAspectsDetailsFunction.BuildTopLevelAspectsDetailsValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.DependencyException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
+import com.google.devtools.build.lib.skyframe.LoadTopLevelAspectsFunction.LoadTopLevelAspectsKey;
+import com.google.devtools.build.lib.skyframe.LoadTopLevelAspectsFunction.LoadTopLevelAspectsValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -62,19 +69,19 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.state.Driver;
 import com.google.devtools.build.skyframe.state.StateMachine;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.syntax.Location;
 
 /**
  * SkyFunction to run the aspects path obtained from top-level aspects on the list of top-level
  * targets.
  *
- * <p>Used for loading top-level aspects. At top level, in {@link
- * com.google.devtools.build.lib.analysis.BuildView}, we cannot invoke two SkyFunctions one after
- * another, so BuildView calls this function to do the work.
+ * <p>Used for loading top-level aspects, filtering them based on their required providers, and
+ * computing the relationship between top-level aspects.
+ *
+ * <p>At top level, in {@link com.google.devtools.build.lib.analysis.BuildView}, we cannot invoke
+ * two SkyFunctions one after another, so BuildView calls this function to do the work.
  */
 final class ToplevelStarlarkAspectFunction implements SkyFunction {
   private final BuildViewProvider buildViewProvider;
@@ -104,32 +111,47 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
           ReportedException {
     TopLevelAspectsKey topLevelAspectsKey = (TopLevelAspectsKey) skyKey.argument();
 
-    BuildTopLevelAspectsDetailsKey topLevelAspectsDetailsKey =
-        BuildTopLevelAspectsDetailsKey.create(
+    LoadTopLevelAspectsKey loadAspectsKey =
+        LoadTopLevelAspectsKey.create(
             topLevelAspectsKey.getTopLevelAspectsClasses(),
             topLevelAspectsKey.getTopLevelAspectsParameters());
-    ConfiguredTargetKey baseConfiguredTargetKey = topLevelAspectsKey.getBaseConfiguredTargetKey();
+    PackageIdentifier packageIdentifier =
+        topLevelAspectsKey.getBaseConfiguredTargetKey().getLabel().getPackageIdentifier();
 
     SkyframeLookupResult initialLookupResult =
-        env.getValuesAndExceptions(ImmutableList.of(topLevelAspectsDetailsKey));
-    var topLevelAspectsDetails =
-        (BuildTopLevelAspectsDetailsValue) initialLookupResult.get(topLevelAspectsDetailsKey);
-    if (topLevelAspectsDetails == null) {
-      return null; // some aspects details are not ready
+        env.getValuesAndExceptions(ImmutableList.of(loadAspectsKey, packageIdentifier));
+
+    var loadAspectsValue = (LoadTopLevelAspectsValue) initialLookupResult.get(loadAspectsKey);
+    if (loadAspectsValue == null) {
+      return null; // aspects are not ready
     }
+
+    var packageValue = (PackageValue) initialLookupResult.get(packageIdentifier);
+    if (packageValue == null) {
+      return null; // package is not ready
+    }
+    Target target =
+        getTarget(packageValue, topLevelAspectsKey.getBaseConfiguredTargetKey().getLabel());
+
+    State state = env.getState(() -> new State(storeTransitivePackages, prerequisitePackages));
 
     // Configuration of top level target could change during the analysis phase with rule
     // transitions. In order not to wait for the complete configuration of the assigned target,
     // {@link RuleTransitionApplier} is used to apply potentially requested rule transitions
     // upfront. Configuration can be `null` if the target is not configurable, in which case the
     // Skyframe restart is needed.
-    baseConfiguredTargetKey = getConfiguredTargetKey(baseConfiguredTargetKey, env);
+    ConfiguredTargetKey baseConfiguredTargetKey =
+        getConfiguredTargetKey(state, topLevelAspectsKey.getBaseConfiguredTargetKey(), target, env);
     if (baseConfiguredTargetKey == null) {
       return null;
     }
 
-    Collection<AspectKey> aspectsKeys =
-        getTopLevelAspectsKeys(topLevelAspectsDetails.getAspectsDetails(), baseConfiguredTargetKey);
+    ImmutableList<AspectKey> aspectsKeys =
+        createAspectsKeys(
+            state, target, loadAspectsValue.getAspects(), baseConfiguredTargetKey, env);
+    if (aspectsKeys == null) {
+      return null; // alias target needs to be resolved
+    }
 
     SkyframeLookupResult result = env.getValuesAndExceptions(aspectsKeys);
     if (env.valuesMissing()) {
@@ -154,52 +176,84 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
     return new TopLevelAspectsValue(valuesMap.buildOrThrow());
   }
 
-  private static Collection<AspectKey> getTopLevelAspectsKeys(
-      ImmutableList<AspectDetails> aspectsDetails, ConfiguredTargetKey topLevelTargetKey) {
-    Map<AspectDescriptor, AspectKey> result = new HashMap<>();
-    for (AspectDetails aspect : aspectsDetails) {
-      buildAspectKey(aspect, result, topLevelTargetKey);
-    }
-    return result.values();
-  }
-
-  private static AspectKey buildAspectKey(
-      AspectDetails aspect,
-      Map<AspectDescriptor, AspectKey> result,
-      ConfiguredTargetKey topLevelTargetKey) {
-    if (result.containsKey(aspect.getAspectDescriptor())) {
-      return result.get(aspect.getAspectDescriptor());
-    }
-
-    ImmutableList.Builder<AspectKey> dependentAspects = ImmutableList.builder();
-    for (AspectDetails depAspect : aspect.getUsedAspects()) {
-      dependentAspects.add(buildAspectKey(depAspect, result, topLevelTargetKey));
-    }
-
-    AspectKey aspectKey =
-        AspectKeyCreator.createAspectKey(
-            aspect.getAspectDescriptor(), dependentAspects.build(), topLevelTargetKey);
-    result.put(aspectKey.getAspectDescriptor(), aspectKey);
-    return aspectKey;
-  }
-
-  /**
-   * Skyframe lookup for the package and, if it is ready, get the target from it. Otherwise, return
-   * `null` since Skyframe restart is needed.
-   */
-  @Nullable
-  private Target getTarget(ConfiguredTargetKey configuredTargetKey, Environment env)
-      throws InterruptedException, NoSuchTargetException {
-    PackageIdentifier packageIdentifier = configuredTargetKey.getLabel().getPackageIdentifier();
-    SkyframeLookupResult packageLookupResult =
-        env.getValuesAndExceptions(ImmutableList.of(packageIdentifier));
-    var packageValue = (PackageValue) packageLookupResult.get(packageIdentifier);
-    if (packageValue == null) {
-      // Skyframe restart is needed since package is still not ready.
-      return null;
-    }
+  private static Target getTarget(PackageValue packageValue, Label targetLabel)
+      throws DependencyException {
     Package pkg = packageValue.getPackage();
-    return pkg.getTarget(configuredTargetKey.getLabel().getName());
+    try {
+      return pkg.getTarget(targetLabel.getName());
+    } catch (NoSuchTargetException e) {
+      throw new DependencyException(e);
+    }
+  }
+
+  @Nullable
+  private static ImmutableList<AspectKey> createAspectsKeys(
+      State state,
+      Target target,
+      ImmutableList<Aspect> aspects,
+      ConfiguredTargetKey baseConfiguredTargetKey,
+      Environment env)
+      throws InterruptedException, DependencyException, TopLevelStarlarkAspectFunctionException {
+
+    if (state.aspectKeys != null) {
+      return state.aspectKeys;
+    }
+
+    // In case the target is an alias, we need to resolve its actual target.
+    if (AliasProvider.mayBeAlias(target)) {
+
+      var aliasConfiguredValue = (ConfiguredTargetValue) env.getValue(baseConfiguredTargetKey);
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      Label actualLabel = aliasConfiguredValue.getConfiguredTarget().getActual().getLabel();
+      var packageValue = (PackageValue) env.getValue(actualLabel.getPackageIdentifier());
+      if (env.valuesMissing()) {
+        return null;
+      }
+      target = getTarget(packageValue, actualLabel);
+    }
+
+    AspectCollection aspectCollection;
+    try {
+      // TODO(bazel-team): Filter aspects more based on rule type. For example, aspect key should
+      // not be created for a file target if the aspect does not apply to files or their generating
+      // rules. Currently, some tests depend on such keys being created, so they need to be modified
+      // first.
+      if (target.isRule()) {
+        Rule ruleTarget = (Rule) target;
+        aspectCollection =
+            AspectResolutionHelpers.computeAspectCollection(
+                aspects,
+                ruleTarget.getAdvertisedProviders(),
+                ruleTarget.getLabel(),
+                ruleTarget.getRuleClassObject(),
+                ruleTarget.getOnlyTagsAttribute(),
+                ruleTarget.getLocation(),
+                env.getListener());
+      } else {
+        aspectCollection =
+            AspectResolutionHelpers.computeAspectCollectionNoAspectsFiltering(
+                aspects, target.getLabel(), target.getLocation());
+      }
+    } catch (InconsistentAspectOrderException e) {
+      // This exception should never happen because aspects duplicates are not allowed in top-level
+      // aspects and their existence should have been caught and reported by
+      // LoadTopLevelAspectsFunction.
+      env.getListener().handle(Event.error(e.getMessage()));
+      throw new TopLevelStarlarkAspectFunctionException(
+          new TopLevelAspectsDetailsBuildFailedException(
+              e.getMessage(), Code.ASPECT_CREATION_FAILED));
+    } catch (EvalException e) {
+      env.getListener().handle(Event.error(e.getMessageWithStack()));
+      throw new TopLevelStarlarkAspectFunctionException(
+          new TopLevelAspectsDetailsBuildFailedException(
+              e.getMessage(), Code.ASPECT_CREATION_FAILED));
+    }
+
+    state.aspectKeys = aspectCollection.createAspectKeys(baseConfiguredTargetKey);
+    return state.aspectKeys;
   }
 
   /**
@@ -256,30 +310,18 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
     }
   }
 
-
   // Computes {@link BuildConfigurationKey} by driving the state machine of {@link
   // RuleTransitionApplier} and returns the new {@link ConfiguredTargetKey} with the obtained build
   // configuration. In case configuration key is still not ready, returns `null` since Skyframe
   // restart is needed.
   @Nullable
   private ConfiguredTargetKey getConfiguredTargetKey(
-      ConfiguredTargetKey baseConfiguredTargetKey, Environment env)
-      throws InterruptedException, AssertionError, DependencyException, ReportedException {
-    Target target;
-    try {
-      // TODO(kotlaja): Move this logic into the state machine.
-      target = getTarget(baseConfiguredTargetKey, env);
-      if (target == null) {
-        return null;
-      }
-    } catch (NoSuchTargetException e) {
-      throw new DependencyException(e);
-    }
+      State state, ConfiguredTargetKey baseConfiguredTargetKey, Target target, Environment env)
+      throws InterruptedException, ReportedException {
     if (!target.isConfigurable()) {
       return baseConfiguredTargetKey.toBuilder().setConfigurationKey(null).build();
     }
 
-    State state = env.getState(() -> new State(storeTransitivePackages, prerequisitePackages));
     computeConfiguration(
         env,
         state,
@@ -308,6 +350,11 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
 
   private static class TopLevelStarlarkAspectFunctionException extends SkyFunctionException {
     protected TopLevelStarlarkAspectFunctionException(ActionConflictException cause) {
+      super(cause, Transience.PERSISTENT);
+    }
+
+    protected TopLevelStarlarkAspectFunctionException(
+        TopLevelAspectsDetailsBuildFailedException cause) {
       super(cause, Transience.PERSISTENT);
     }
   }
@@ -389,6 +436,9 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
     // --------------- Configuration fields ------------------
     private BuildConfigurationKey configurationKey;
     private IdempotencyState idempotencyState;
+
+    // --------------- Aspect fields ------------------
+    @Nullable private ImmutableList<AspectKey> aspectKeys;
 
     // --------------- Error handling fields ------------------
     @Nullable private String message = null;

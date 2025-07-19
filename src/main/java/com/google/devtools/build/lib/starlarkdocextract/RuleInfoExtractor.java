@@ -88,14 +88,14 @@ public final class RuleInfoExtractor {
     if (ruleClass.getRuleClassType() == RuleClassType.TEST) {
       ruleInfoBuilder.setTest(true);
     }
-    if (ruleClass.hasAttr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, Type.BOOLEAN)) {
+    if (ruleClass.getAttributeProvider().hasAttr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, Type.BOOLEAN)) {
       ruleInfoBuilder.setExecutable(true);
     }
 
     AttributeInfoExtractor.addDocumentableAttributes(
         context,
         IMPLICIT_RULE_ATTRIBUTES,
-        ruleClass.getAttributes(),
+        ruleClass.getAttributeProvider().getAttributes(),
         ruleInfoBuilder::addAttribute);
     ImmutableSet<StarlarkProviderIdentifier> advertisedProviders =
         ruleClass.getAdvertisedProviders().getStarlarkProviders();

@@ -275,7 +275,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                     rulePb.addRuleOutput(
                         internalToUnicode(labelPrinter.toString(output.getLabel()))));
       }
-      for (String feature : rule.getPackage().getPackageArgs().features().toStringList()) {
+      for (String feature :
+          rule.getPackageDeclarations().getPackageArgs().features().toStringList()) {
         rulePb.addDefaultSetting(internalToUnicode(feature));
       }
 
@@ -285,7 +286,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           // (New fields needn't honor relativeLocations.)
           rulePb.addInstantiationStack(
               internalToUnicode(
-                  FormatUtils.getRootRelativeLocation(fr.location, rule.getPackage())
+                  FormatUtils.getRootRelativeLocation(fr.location, rule.getPackageMetadata())
                       + ": "
                       + fr.name));
         }
@@ -297,7 +298,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           // (New fields needn't honor relativeLocations.)
           rulePb.addDefinitionStack(
               internalToUnicode(
-                  FormatUtils.getRootRelativeLocation(fr.location, rule.getPackage())
+                  FormatUtils.getRootRelativeLocation(fr.location, rule.getPackageMetadata())
                       + ": "
                       + fr.name));
         }
@@ -338,20 +339,22 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
 
       if (inputFile.getName().equals("BUILD")) {
+        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion.
         Iterable<Label> starlarkLoadLabels =
             aspectResolver == null
-                ? inputFile.getPackage().getOrComputeTransitivelyLoadedStarlarkFiles()
+                ? inputFile.getPackageDeclarations().getOrComputeTransitivelyLoadedStarlarkFiles()
                 : aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
 
         for (Label starlarkLoadLabel : starlarkLoadLabels) {
           input.addSubinclude(internalToUnicode(labelPrinter.toString(starlarkLoadLabel)));
         }
 
-        for (String feature : inputFile.getPackage().getPackageArgs().features().toStringList()) {
+        for (String feature :
+            inputFile.getPackageDeclarations().getPackageArgs().features().toStringList()) {
           input.addFeature(internalToUnicode(feature));
         }
 
-        input.setPackageContainsErrors(inputFile.getPackage().containsErrors());
+        input.setPackageContainsErrors(inputFile.getPackageoid().containsErrors());
       }
 
       // TODO(bazel-team): We're being inconsistent about whether we include the package's
@@ -559,7 +562,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         || attrType == BuildType.NODEP_LABEL_LIST
         || attrType == BuildType.DORMANT_LABEL_LIST
         || attrType == BuildType.OUTPUT_LIST
-        || attrType == BuildType.DISTRIBUTIONS
         || attrType == Types.INTEGER_LIST) {
       ImmutableList.Builder<Object> builder = ImmutableList.builder();
       for (Object possibleValue : possibleValues) {
@@ -574,6 +576,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     // Same for maps as for collections.
     if (attrType == Types.STRING_DICT
         || attrType == Types.STRING_LIST_DICT
+        || attrType == BuildType.LABEL_LIST_DICT
         || attrType == BuildType.LABEL_DICT_UNARY
         || attrType == BuildType.LABEL_KEYED_STRING_DICT) {
       Map<Object, Object> mergedDict = new HashMap<>();

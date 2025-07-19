@@ -595,4 +595,51 @@ public final class BuildConfigurationFunctionTest extends BuildViewTestCase {
     assertThat(getMnemonic(dep)).contains("alpha-override-opt-exec");
     assertThat(getMnemonic(dep)).doesNotContain("-ST-");
   }
+
+  @Test
+  public void testPlatformWithNoCPUConstraint_emptyTargetCpu() throws Exception {
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "no_cpu_platform",
+        )
+        """);
+    scratch.file(
+        "test/lib.bzl",
+        """
+        my_rule = rule(
+            implementation = lambda ctx: [],
+            attrs = {
+                "exec_deps": attr.label_list(cfg = "exec"),
+            },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "my_rule")
+        my_rule(
+            name = "parent",
+            exec_deps = [":child"]
+        )
+        my_rule(name = "child")
+        """);
+
+    useConfiguration(
+        "--incompatible_target_cpu_from_platform",
+        "--platforms=//platforms:no_cpu_platform",
+        "--extra_execution_platforms=//platforms:no_cpu_platform");
+
+    BuildConfigurationValue config = getConfiguration(getConfiguredTarget("//test:parent"));
+    assertThat(config.isExecConfiguration()).isFalse();
+    assertThat(config.getMakeEnvironment()).containsEntry("TARGET_CPU", "");
+
+    BuildConfigurationValue execConfig =
+        getConfiguration(
+            getDirectPrerequisite(getConfiguredTarget("//test:parent"), "//test:child"));
+
+    assertThat(execConfig.isExecConfiguration()).isTrue();
+    assertThat(execConfig.getMakeEnvironment()).containsEntry("TARGET_CPU", "");
+  }
 }

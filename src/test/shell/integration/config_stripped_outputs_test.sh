@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2023 The Bazel Authors. All rights reserved.
 #
@@ -180,9 +180,7 @@ function test_inmemory_jdeps_support() {
   write_java_classpath_reduction_files "$pkg"
 
   bazel clean
-  bazel build --experimental_java_classpath=bazel  \
-    --experimental_output_paths=strip \
-    --experimental_inmemory_jdeps_files \
+  bazel build --experimental_output_paths=strip \
     //"$pkg"/java/hello:a -s 2>"$TEST_log" \
     || fail "Expected success"
 
@@ -312,9 +310,7 @@ public class BaseLib {
 EOF
 
   bazel clean
-  bazel build --experimental_java_classpath=bazel  \
-    --experimental_output_paths=strip \
-    --experimental_inmemory_jdeps_files \
+  bazel build --experimental_output_paths=strip \
     //$pkg/java:Main -s 2>"$TEST_log" \
     || fail "Expected success"
 
@@ -369,8 +365,7 @@ java_library(name='c', srcs=['C.java'], deps = [':d'])
 java_library(name='d', srcs=['D.java'])
 EOF
 
-  bazel build --experimental_java_classpath=bazel  \
-    --experimental_output_paths=strip \
+  bazel build --experimental_output_paths=strip \
     //"$pkg"/java/hello:a -s 2>"$TEST_log" \
     || fail "Expected success"
 

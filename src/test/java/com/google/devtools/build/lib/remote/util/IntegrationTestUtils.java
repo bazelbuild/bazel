@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.util;
 
-import static com.google.devtools.build.lib.testutil.TestUtils.tmpDirFile;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
@@ -24,128 +23,152 @@ import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.runfiles.Runfiles;
-import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Comparator;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.List;
 import javax.annotation.Nullable;
+import org.junit.rules.TestRule;
+import org.junit.runner.Description;
+import org.junit.runners.model.Statement;
 
 /** Integration test utilities. */
 public final class IntegrationTestUtils {
   private IntegrationTestUtils() {}
 
-  private static final PathFragment WORKER_PATH =
-      PathFragment.create(
-          "io_bazel/src/tools/remote/worker"
-              + (OS.getCurrent() == OS.WINDOWS ? ".exe" : ""));
+  private static final String WORKER_RLOCATIONPATH =
+      "io_bazel/src/tools/remote/worker"
+          + (OS.getCurrent() == OS.WINDOWS ? ".exe" : "");
 
-  private static final AtomicInteger WORKER_COUNTER = new AtomicInteger(0);
-
-  public static WorkerInstance startWorker() throws IOException, InterruptedException {
-    return startWorker(/* useHttp= */ false);
+  /**
+   * Manages a remote worker instance as a {@link TestRule}.
+   *
+   * <p>Should be kept in a static variable annotated with both {@link org.junit.ClassRule} and
+   * {@link org.junit.Rule}.
+   */
+  public static WorkerInstance createWorker() {
+    return createWorker(/* useHttp= */ false);
   }
 
-  public static WorkerInstance startWorker(boolean useHttp)
-      throws IOException, InterruptedException {
-    PathFragment testTmpDir = PathFragment.create(tmpDirFile().getAbsolutePath());
-    PathFragment stdPath = testTmpDir.getRelative("remote.std");
-    PathFragment workPath = testTmpDir.getRelative("remote.work_path");
-    PathFragment casPath = testTmpDir.getRelative("remote.cas_path");
-    int workerPort = FreePortFinder.pickUnusedRandomPort();
-    var worker =
-        new WorkerInstance(WORKER_COUNTER, useHttp, workerPort, stdPath, workPath, casPath);
-    worker.start();
-    return worker;
+  /**
+   * Manages a remote worker instance as a {@link TestRule}.
+   *
+   * <p>Should be kept in a static variable annotated with both {@link org.junit.ClassRule} and
+   * {@link org.junit.Rule}.
+   */
+  public static WorkerInstance createWorker(boolean useHttp) {
+    // The worker directory must not be a subdirectory of the test temporary directory for two
+    // reasons:
+    // 1. It should be preserved between individual tests so that the worker can be kept running.
+    // 2. Even if that wasn't needed, JUnit runs "after" methods of rules after those of
+    //    superclasses, which means that BuildIntegrationtestCase's cleanup method would attempt
+    //    to delete the worker directory before the worker is stopped, which fails on Windows.
+    Path workerTmpDir;
+    try {
+      workerTmpDir = Files.createTempDirectory(systemTmpDir(), "remote.");
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+    return new WorkerInstance(useHttp, workerTmpDir);
   }
 
-  private static void ensureTouchFile(PathFragment path) throws IOException {
-    File file = new File(path.getSafePathString());
-    if (file.exists()) {
+  private static Path systemTmpDir() {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return Path.of(System.getenv("TEMP"));
+    }
+    String tmpdir = System.getenv("TMPDIR");
+    if (tmpdir == null) {
+      tmpdir = "/tmp";
+    }
+    return Path.of(tmpdir);
+  }
+
+  private static void ensureMkdir(Path path) throws IOException {
+    if (!Files.notExists(path)) {
       throw new IOException(path + " already exists");
     }
-    if (!file.createNewFile()) {
-      throw new IOException("Failed to create file " + path);
-    }
+    Files.createDirectories(path);
   }
 
-  private static void ensureMkdir(PathFragment path) throws IOException {
-    File dir = new File(path.getSafePathString());
-    if (dir.exists()) {
-      throw new IOException(path + " already exists");
-    }
-    if (!dir.mkdirs()) {
-      throw new IOException("Failed to create directory " + path);
-    }
-  }
-
-  public static class WorkerInstance {
-    private final AtomicInteger counter;
+  public static class WorkerInstance implements TestRule {
     private final boolean useHttp;
-    private final int port;
-    private final PathFragment stdPathPrefix;
-    private final PathFragment workPathPrefix;
-    private final PathFragment casPathPrefix;
+    private final Path stdPath;
+    private final Path stdoutPath;
+    private final Path stderrPath;
+    private final Path workPath;
+    private final Path casPath;
 
+    @Nullable private Integer port;
     @Nullable private Subprocess process;
-    @Nullable PathFragment stdoutPath;
-    @Nullable PathFragment stderrPath;
-    @Nullable PathFragment workPath;
-    @Nullable PathFragment casPath;
 
-    private WorkerInstance(
-        AtomicInteger counter,
-        boolean useHttp,
-        int port,
-        PathFragment stdPathPrefix,
-        PathFragment workPathPrefix,
-        PathFragment casPathPrefix) {
-      this.counter = counter;
+    private WorkerInstance(boolean useHttp, Path dir) {
       this.useHttp = useHttp;
-      this.port = port;
-      this.stdPathPrefix = stdPathPrefix;
-      this.workPathPrefix = workPathPrefix;
-      this.casPathPrefix = casPathPrefix;
+      this.stdPath = dir.resolve("std");
+      this.stdoutPath = stdPath.resolve("stdout");
+      this.stderrPath = stdPath.resolve("stderr");
+      this.workPath = dir.resolve("work_path");
+      this.casPath = dir.resolve("cas_path");
+    }
+
+    @Override
+    public Statement apply(Statement base, Description description) {
+      if (description.isSuite()) {
+        return new Statement() {
+          @Override
+          public void evaluate() throws Throwable {
+            start();
+            try {
+              base.evaluate();
+            } finally {
+              stop();
+            }
+          }
+        };
+      } else if (description.isTest()) {
+        return new Statement() {
+          @Override
+          public void evaluate() throws Throwable {
+            try {
+              base.evaluate();
+            } finally {
+              reset();
+            }
+          }
+        };
+      } else {
+        return base;
+      }
     }
 
     private void start() throws IOException, InterruptedException {
       Preconditions.checkState(process == null);
-      Preconditions.checkState(stdoutPath == null);
-      Preconditions.checkState(stderrPath == null);
-      Preconditions.checkState(workPath == null);
-      Preconditions.checkState(casPath == null);
-
-      var suffix = String.valueOf(counter.getAndIncrement());
-      var stdPath = stdPathPrefix.getRelative(suffix);
-      stdoutPath = stdPath.getRelative("stdout");
-      stderrPath = stdPath.getRelative("stderr");
-      workPath = workPathPrefix.getRelative(suffix);
-      casPath = casPathPrefix.getRelative(suffix);
+      Preconditions.checkState(port == null);
 
       ensureMkdir(workPath);
       ensureMkdir(casPath);
       ensureMkdir(stdPath);
-      ensureTouchFile(stdoutPath);
-      ensureTouchFile(stderrPath);
+      Files.createFile(stdoutPath);
+      Files.createFile(stderrPath);
       Runfiles runfiles = Runfiles.preload().withSourceRepository("");
-      String workerPath = runfiles.rlocation(WORKER_PATH.getSafePathString());
+      String workerPath = runfiles.rlocation(WORKER_RLOCATIONPATH);
       ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
       env.putAll(System.getenv());
       env.putAll(runfiles.getEnvVars());
+      port = FreePortFinder.pickUnusedRandomPort();
       process =
-          new SubprocessBuilder()
+          new SubprocessBuilder(System.getenv())
               .setEnv(env.buildKeepingLast())
-              .setStdout(new File(stdoutPath.getSafePathString()))
-              .setStderr(new File(stderrPath.getSafePathString()))
+              .setStdout(stdoutPath.toFile())
+              .setStderr(stderrPath.toFile())
               .setArgv(
                   ImmutableList.of(
                       workerPath,
-                      "--work_path=" + workPath.getSafePathString(),
-                      "--cas_path=" + casPath.getSafePathString(),
+                      "--work_path=" + workPath,
+                      "--cas_path=" + casPath,
                       (useHttp ? "--http_listen_port=" : "--listen_port=") + port))
               .start();
       waitForPortOpen(process, port);
@@ -179,31 +202,31 @@ public final class IntegrationTestUtils {
       throw timeout;
     }
 
-    public void stop() throws IOException {
+    private void stop() throws IOException {
       Preconditions.checkNotNull(process);
       process.destroyAndWait();
       process = null;
 
-      deleteDir(stdoutPath);
-      stdoutPath = null;
-      deleteDir(stderrPath);
-      stderrPath = null;
-
-      deleteDir(workPath);
-      workPath = null;
-
-      deleteDir(casPath);
-      casPath = null;
+      deleteTree(stdPath);
+      deleteTree(workPath);
+      deleteTree(casPath);
     }
 
-    public void restart() throws IOException, InterruptedException {
-      stop();
-      start();
+    public void reset() throws IOException, InterruptedException {
+      // The DiskCacheClient in the worker expects the CAS subdirectories to exist.
+      List<Path> toClear;
+      try (var stream = Files.list(casPath)) {
+        toClear = stream.toList();
+      }
+      for (var path : toClear) {
+        deleteTree(path);
+        ensureMkdir(path);
+      }
     }
 
     public String getStdout() {
       try {
-        var out = Files.readAllBytes(Paths.get(stdoutPath.getSafePathString()));
+        var out = Files.readAllBytes(stdoutPath);
         return new String(out, UTF_8);
       } catch (IOException e) {
         throw new RuntimeException(e);
@@ -212,16 +235,20 @@ public final class IntegrationTestUtils {
 
     public String getStderr() {
       try {
-        var out = Files.readAllBytes(Paths.get(stderrPath.getSafePathString()));
+        var out = Files.readAllBytes(stderrPath);
         return new String(out, UTF_8);
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
     }
 
-    private static void deleteDir(PathFragment path) throws IOException {
-      try (var stream = Files.walk(Paths.get(path.getSafePathString()))) {
-        stream.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+    private static void deleteTree(Path path) throws IOException {
+      List<Path> toDelete;
+      try (var stream = Files.walk(path)) {
+        toDelete = stream.sorted(Comparator.reverseOrder()).toList();
+      }
+      for (var p : toDelete) {
+        Files.delete(p);
       }
     }
 
@@ -230,7 +257,7 @@ public final class IntegrationTestUtils {
     }
 
     public PathFragment getCasPath() {
-      return casPath;
+      return PathFragment.create(casPath.toString());
     }
   }
 }

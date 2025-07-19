@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -26,6 +25,8 @@ import net.starlark.java.eval.StarlarkThread.Frame;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Resolver;
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types.CallableType;
 
 /** A StarlarkFunction is a function value created by a Starlark {@code def} statement. */
 @StarlarkBuiltin(
@@ -89,6 +90,11 @@ public final class StarlarkFunction implements StarlarkCallable {
   /** Whether this function is defined at the top level of a file. */
   public boolean isGlobal() {
     return module.getGlobal(getName()) == this;
+  }
+
+  @Override
+  public StarlarkType getStarlarkType() {
+    return rfn.getFunctionType();
   }
 
   // TODO(adonovan): many functions would be simpler if
@@ -190,51 +196,8 @@ public final class StarlarkFunction implements StarlarkCallable {
   }
 
   @Override
-  public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
-      throws EvalException, InterruptedException {
-    checkRecursive(thread);
-    FastcallArgumentProcessor argumentProcessor = new FastcallArgumentProcessor(this);
-    // Feed positional and named arguments into the argument processor.
-    argumentProcessor.processPositionalAndNamed(positional, named, thread.mutability());
-    return callWithArguments(thread, argumentProcessor);
-  }
-
-  @Override
-  public Object positionalOnlyCall(StarlarkThread thread, Object... positional)
-      throws EvalException, InterruptedException {
-    checkRecursive(thread);
-    FastcallArgumentProcessor argumentProcessor = new FastcallArgumentProcessor(this);
-    // Feed only positional arguments into the argument processor.
-    argumentProcessor.processPositionalOnly(positional, thread.mutability());
-    return callWithArguments(thread, argumentProcessor);
-  }
-
-  @Override
   public StarlarkCallable.ArgumentProcessor requestArgumentProcessor(StarlarkThread thread) {
-    return new ArgumentProcessor(this);
-  }
-
-  private Object callWithArguments(StarlarkThread thread, BaseArgumentProcessor argumentProcessor)
-      throws EvalException, InterruptedException {
-    checkRecursive(thread);
-    Frame fr = thread.frame(0);
-    fr.locals = argumentProcessor.retrieveFinishedLocals();
-
-    spillIndicatedLocalsToCells(fr);
-
-    return Eval.execFunctionBody(fr, rfn.getBody());
-  }
-
-  private void checkRecursive(StarlarkThread thread) throws EvalException {
-    if (!thread.isRecursionAllowed() && thread.isRecursiveCall(this)) {
-      throw Starlark.errorf("function '%s' called recursively", getName());
-    }
-  }
-
-  private void spillIndicatedLocalsToCells(Frame fr) {
-    for (int index : rfn.getCellIndices()) {
-      fr.locals[index] = new Cell(fr.locals[index]);
-    }
+    return new ArgumentProcessor(this, thread);
   }
 
   Cell getFreeVar(int index) {
@@ -335,8 +298,7 @@ public final class StarlarkFunction implements StarlarkCallable {
   // Newly allocated values (e.g. a **kwargs dict) use the Mutability mu.
   //
   // If the function has optional parameters, their default values are supplied by getDefaultValue.
-  private abstract static class BaseArgumentProcessor
-      implements StarlarkCallable.ArgumentProcessor {
+  private static final class ArgumentProcessor extends StarlarkCallable.ArgumentProcessor {
 
     // This is the general schema of a function:
     //
@@ -357,38 +319,46 @@ public final class StarlarkFunction implements StarlarkCallable {
     //   default values come from the tuple above.
     //   It is an error if the defaults tuple entry for an unset parameter is MANDATORY.
 
-    protected final StarlarkFunction owner;
+    private final StarlarkFunction owner;
     // Number of positional args that were set by the caller and bound to ordinary params (in other
     // words, not counting surplus positional args that were spilled to *args, and not counting
     // positional params that weren't set via args but were instead filled with defaults).
-    protected int numNonSurplusPositionalArgs;
+    private int numNonSurplusPositionalArgs;
     // Local variable array for the function's call frame. It has the following layout:
     //
     // * The first owner.getNumOrdinaryParameters() entries are values of ordinary parameters
     //   * The first numNonSurplusPositionalArgs entries contain positional args, set by
-    //     bindPositionalArgsToLocals()
-    //   * The remaining entries contain keyword args (set by bindNamedArgsToLocals()) or default
+    //     addPositionalArg()
+    //   * The remaining entries contain keyword args (set by addNamedArg()) or default
     //     values (set by applyDefaultsReportMissingArgs())
     // * The next owner.getNumKeywordOnlyParameters() entries are values of keyword-only parameters,
-    //   which may be either keyword args (set by bindNamedArgsToLocals()) or default values (set by
+    //   which may be either keyword args (set by addNamedArg()) or default values (set by
     //   applyDefaultsReportMissingArgs())
     // * An optional entry for *args - present if and only if the function takes varargs (set by
     //   bindSurplusPositionalArgsToVarArgs())
     // * An optional entry for **kwargs - present if and only if the function takes kwargs (set by
-    //   bindNamedArgsToLocals())
+    //   addNamedArg())
     // * The remaining entries hold values of the function body's variables - these are left
     //   uninitialized by ArgumentProcessor, and will be set in the process of evaluating the
     //   function body.
-    protected final Object[] locals;
+    private final Object[] locals;
     // unexpectedNamedArgs serves as accumulator for named arguments that can't be bound to any of
     // the function's parameters or to **kwargs. It is used to error-report all unexpected named
     // args, not just the first one that was encountered.
-    @Nullable protected List<String> unexpectedNamedArgs;
+    @Nullable private List<String> unexpectedNamedArgs;
+    // varArgs and kwargs are used to collect the respective arguments before transforming them into
+    // Starlark values and binding them to the right slots in the locals array.
+    @Nullable private ArrayList<Object> varArgs;
+    @Nullable private LinkedHashMap<String, Object> kwargs;
 
-    public BaseArgumentProcessor(StarlarkFunction owner) {
+    ArgumentProcessor(StarlarkFunction owner, StarlarkThread thread) {
+      super(thread);
       this.owner = owner;
       this.locals = new Object[owner.rfn.getLocals().size()];
+      this.numNonSurplusPositionalArgs = 0;
       this.unexpectedNamedArgs = null;
+      this.varArgs = null;
+      this.kwargs = null;
     }
 
     @Override
@@ -396,11 +366,11 @@ public final class StarlarkFunction implements StarlarkCallable {
       return owner;
     }
 
-    protected int getKwargsIndex() {
+    private int getKwargsIndex() {
       return owner.rfn.hasKwargs() ? owner.rfn.getParameters().size() - 1 : -1;
     }
 
-    protected int getVarArgsIndex() {
+    private int getVarArgsIndex() {
       if (owner.rfn.hasVarargs()) {
         int index = owner.rfn.getParameters().size();
         return owner.rfn.hasKwargs() ? index - 2 : index - 1;
@@ -408,19 +378,14 @@ public final class StarlarkFunction implements StarlarkCallable {
       return -1;
     }
 
-    private Object[] retrieveFinishedLocals() throws EvalException {
-      applyDefaultsReportMissingArgs();
-      return locals;
-    }
-
-    protected void addUnexpectedNamedArg(String keyword) {
+    private void addUnexpectedNamedArg(String keyword) {
       if (unexpectedNamedArgs == null) {
         unexpectedNamedArgs = new ArrayList<>();
       }
       unexpectedNamedArgs.add(keyword);
     }
 
-    protected void checkUnexpectedNamedArgs() throws EvalException {
+    private void checkUnexpectedNamedArgs() throws EvalException {
       if (unexpectedNamedArgs != null) {
         // Give a spelling hint if there is exactly one.
         // More than that suggests the wrong function was called.
@@ -437,11 +402,12 @@ public final class StarlarkFunction implements StarlarkCallable {
       }
     }
 
-    protected void applyDefaultsReportMissingArgs() throws EvalException {
+    private void applyDefaultsReportMissingArgs() throws EvalException {
       // Apply defaults and report errors for missing required arguments.
       // Inv: all params below positionalCount were bound (by bindPositionalArgsToLocals()).
       int numParams = owner.getNumNonResidualParameters();
-      int firstDefault = numParams - owner.defaultValues.size(); // first default
+      Tuple defaultValues = owner.defaultValues;
+      int firstDefault = numParams - defaultValues.size(); // first default
       List<String> missingPositional = null;
       List<String> missingKwonly = null;
       for (int i = numNonSurplusPositionalArgs; i < numParams; i++) {
@@ -452,7 +418,7 @@ public final class StarlarkFunction implements StarlarkCallable {
 
         // optional?
         if (i >= firstDefault) {
-          Object dflt = owner.defaultValues.get(i - firstDefault);
+          Object dflt = defaultValues.get(i - firstDefault);
           if (dflt != MANDATORY) {
             locals[i] = dflt;
             continue;
@@ -489,151 +455,6 @@ public final class StarlarkFunction implements StarlarkCallable {
             Joiner.on(", ").join(missingKwonly));
       }
     }
-  }
-
-  private static class FastcallArgumentProcessor extends BaseArgumentProcessor {
-
-    public FastcallArgumentProcessor(StarlarkFunction owner) {
-      super(owner);
-    }
-
-    void processPositionalAndNamed(Object[] positional, Object[] named, Mutability mu)
-        throws EvalException {
-      numNonSurplusPositionalArgs = getNumNonSurplusPositionalArgs(positional);
-      bindPositionalArgsToLocals(positional);
-      bindSurplusPositionalArgsToVarArgs(positional);
-      bindNamedArgsToLocals(named, mu);
-    }
-
-    void processPositionalOnly(Object[] positional, Mutability mu) throws EvalException {
-      numNonSurplusPositionalArgs = getNumNonSurplusPositionalArgs(positional);
-      bindPositionalArgsToLocals(positional);
-      bindSurplusPositionalArgsToVarArgs(positional);
-      // Bind an empty dict to **kwargs if present. (The dict, unfortunately, needs to be mutable;
-      // see https://github.com/bazelbuild/starlark/issues/295)
-      if (owner.rfn.hasKwargs()) {
-        locals[owner.rfn.getParameters().size() - 1] = Dict.of(mu);
-      }
-    }
-
-    /**
-     * Returns the number of positional arguments that should be bound to the function's positional
-     * parameters (in other words, excluding surplus positionals that get bound to {@code *args}).
-     * If the function doesn't take {@code *args}, verifies that the number of positional arguments
-     * doesn't exceed the number of ordinary parameters.
-     *
-     * @param positional positional arguments passed by the caller
-     */
-    private int getNumNonSurplusPositionalArgs(Object[] positional) throws EvalException {
-      int positionalCount = positional.length;
-      int numOrdinaryParams = owner.getNumOrdinaryParameters();
-      if (positionalCount > numOrdinaryParams) {
-        if (!owner.rfn.hasVarargs()) {
-          if (numOrdinaryParams > 0) {
-            throw Starlark.errorf(
-                "%s() accepts no more than %d positional argument%s but got %d",
-                owner.getName(), numOrdinaryParams, plural(numOrdinaryParams), positionalCount);
-          } else {
-            throw Starlark.errorf(
-                "%s() does not accept positional arguments, but got %d",
-                owner.getName(), positionalCount);
-          }
-        }
-        positionalCount = numOrdinaryParams;
-      }
-      return positionalCount;
-    }
-
-    private void bindPositionalArgsToLocals(Object[] positional) {
-      // Inv: numNonSurplusPositionalArgs == getNumNonSurplusPositionalArgs(positional)
-      for (int i = 0; i < numNonSurplusPositionalArgs; i++) {
-        locals[i] = positional[i];
-      }
-    }
-
-    private void bindSurplusPositionalArgsToVarArgs(Object[] positional) {
-      // Inv: numNonSurplusPositionalArgs == getNumNonSurplusPositionalArgs(positional)
-      if (owner.rfn.hasVarargs()) {
-        locals[owner.getNumNonResidualParameters()] =
-            Tuple.wrap(
-                Arrays.copyOfRange(positional, numNonSurplusPositionalArgs, positional.length));
-      }
-    }
-
-    private void bindNamedArgsToLocals(Object[] named, Mutability mu) throws EvalException {
-
-      // Named arguments.
-      LinkedHashMap<String, Object> kwargs = null;
-      if (owner.rfn.hasKwargs()) {
-        // To avoid Dict overhead, we populate a LinkedHashMap and then pass it to Dict.wrap()
-        // afterwards. (The contract of Dict.wrap prohibits us from modifying the map once the Dict
-        // is created.)
-        kwargs = Maps.newLinkedHashMapWithExpectedSize(1);
-      }
-      for (int i = 0; i < named.length; i += 2) {
-        String keyword = (String) named[i]; // safe
-        Object value = named[i + 1];
-        // The list should be short, so linear scan should still be OK for now.
-        // TODO(b/380824219): Investigate caching between calls
-        int pos = owner.getParameterNames().indexOf(keyword);
-        if (0 <= pos && pos < owner.getNumNonResidualParameters()) {
-          // keyword is the name of a named parameter
-          if (locals[pos] != null) {
-            throw Starlark.errorf(
-                "%s() got multiple values for parameter '%s'", owner.getName(), keyword);
-          }
-          locals[pos] = value;
-
-        } else if (kwargs != null) {
-          // residual keyword argument
-          if (kwargs.put(keyword, value) != null) {
-            throw Starlark.errorf(
-                "%s() got multiple values for parameter '%s'", owner.getName(), keyword);
-          }
-
-        } else {
-          // unexpected keyword argument
-          addUnexpectedNamedArg(keyword);
-        }
-      }
-      checkUnexpectedNamedArgs();
-      if (kwargs != null) {
-        locals[owner.rfn.getParameters().size() - 1] = Dict.wrap(mu, kwargs);
-      }
-    }
-
-    @Override
-    public void addPositionalArg(Object value) throws EvalException {
-      throw notForOutsideUse();
-    }
-
-    @Override
-    public void addNamedArg(String name, Object value) throws EvalException {
-      throw notForOutsideUse();
-    }
-
-    @Override
-    public Object call(StarlarkThread thread) throws EvalException, InterruptedException {
-      throw notForOutsideUse();
-    }
-
-    private IllegalStateException notForOutsideUse() {
-      return new IllegalStateException(
-          "FastcallArgumentProcessor is not intended to be used outside of StarlarkFunction.");
-    }
-  }
-
-  private static class ArgumentProcessor extends BaseArgumentProcessor {
-    // varArgs and kwargs are used to collect the respective arguments before transforming them into
-    // Starlark values and binding them to the right slots in the locals array.
-    @Nullable private ArrayList<Object> varArgs;
-    @Nullable private LinkedHashMap<String, Object> kwargs;
-
-    ArgumentProcessor(StarlarkFunction owner) {
-      super(owner);
-      this.varArgs = null;
-      this.kwargs = null;
-    }
 
     @Override
     public void addPositionalArg(Object value) throws EvalException {
@@ -657,8 +478,9 @@ public final class StarlarkFunction implements StarlarkCallable {
       locals[index] = value;
     }
 
-    protected void throwDoubleDefinedKeywordArg(String name) throws EvalException {
-      throw Starlark.errorf("%s() got multiple values for parameter '%s'", owner.getName(), name);
+    private void throwDoubleDefinedKeywordArg(String name) throws EvalException {
+      pushCallableAndThrow(
+          Starlark.errorf("%s() got multiple values for parameter '%s'", owner.getName(), name));
     }
 
     @Override
@@ -683,6 +505,7 @@ public final class StarlarkFunction implements StarlarkCallable {
 
     @Override
     public Object call(StarlarkThread thread) throws EvalException, InterruptedException {
+      // Check positional args count
       int numOrdinaryParams = owner.getNumOrdinaryParameters();
       if (numNonSurplusPositionalArgs > numOrdinaryParams) {
         if (numOrdinaryParams > 0) {
@@ -699,7 +522,8 @@ public final class StarlarkFunction implements StarlarkCallable {
         }
       }
       checkUnexpectedNamedArgs();
-      if (owner.rfn.hasVarargs()) {
+      Resolver.Function rfn = owner.rfn;
+      if (rfn.hasVarargs()) {
         locals[getVarArgsIndex()] =
             varArgs == null
                 ? Tuple.empty()
@@ -707,11 +531,56 @@ public final class StarlarkFunction implements StarlarkCallable {
                     ? Tuple.of(varArgs.getFirst())
                     : Tuple.wrap(varArgs.toArray());
       }
-      if (owner.rfn.hasKwargs()) {
+      if (rfn.hasKwargs()) {
         locals[getKwargsIndex()] =
             kwargs == null ? Dict.of(thread.mutability()) : Dict.wrap(thread.mutability(), kwargs);
       }
-      return owner.callWithArguments(thread, this);
+
+      // Runtime type check
+      StarlarkType type = owner.getStarlarkType();
+      if (type instanceof CallableType functionType) {
+        for (int i = 0; i < functionType.getParameterTypes().size(); i++) {
+          if (locals[i] == null) {
+            continue; // the default value is already type checked
+          }
+          StarlarkType parameterType = functionType.getParameterTypeByPos(i);
+          if (!TypeChecker.isValueSubtypeOf(locals[i], parameterType)) {
+            throw Starlark.errorf(
+                "in call to %s(), parameter '%s' got value of type '%s', want '%s'",
+                owner.getName(),
+                owner.getParameterNames().get(i),
+                TypeChecker.type(locals[i]),
+                parameterType);
+          }
+        }
+        // TODO(ilist@): typecheck *args and **kwargs, once we have more than primitive types
+      }
+
+      applyDefaultsReportMissingArgs();
+      // Spill indicated locals to cells
+      for (int index : rfn.getCellIndices()) {
+        locals[index] = new Cell(locals[index]);
+      }
+
+      // Check recursion
+      if (!thread.isRecursionAllowed() && thread.isRecursiveCall(owner)) {
+        throw Starlark.errorf("function '%s' called recursively", owner.getName());
+      }
+
+      Frame fr = thread.frame(0);
+      fr.locals = locals;
+      Object returnValue = Eval.execFunctionBody(fr, rfn.getBody());
+
+      // Return value check
+      if (type instanceof CallableType functionType) {
+        if (!TypeChecker.isValueSubtypeOf(returnValue, functionType.getReturnType())) {
+          throw Starlark.errorf(
+              "%s(): returns value of type '%s', declares '%s'",
+              owner.getName(), TypeChecker.type(returnValue), functionType.getReturnType());
+        }
+      }
+
+      return returnValue;
     }
   }
 }

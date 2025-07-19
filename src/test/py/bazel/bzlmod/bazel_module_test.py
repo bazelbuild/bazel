@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+
 from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
@@ -284,7 +285,12 @@ class BazelModuleTest(test_base.TestBase):
     )
     exit_code, _, stderr = self.RunBazel(['run', '//:main'], allow_failure=True)
     self.AssertNotExitCode(exit_code, 0, stderr)
-    self.assertIn("@@[unknown repo 'bbb' requested from @@]", '\n'.join(stderr))
+    self.assertIn(
+        "Error in <toplevel>: in call to 'http_archive' repo rule, no"
+        " repository visible as '@bbb' to the root module, but referenced by"
+        " label '@bbb//:aaa.patch' in attribute 'patches'",
+        '\n'.join(stderr),
+    )
 
   def testRepoNameForBazelDep(self):
     self.writeMainProjectFiles()
@@ -352,9 +358,9 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile(
         'pkg/rules.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    pass',
-            'repo_rule = repository_rule(implementation = _repo_rule_impl)',
+            'repo_rule = repository_rule(implementation = impl)',
         ],
     )
     self.ScratchFile('pkg/extension.bzl', [
@@ -368,8 +374,8 @@ class BazelModuleTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     stderr = '\n'.join(stderr)
     self.assertIn(
-        '/pkg/extension.bzl:3:14: //pkg:+module_ext+foo: no such attribute'
-        " 'invalid_attr' in 'repo_rule' rule",
+        "Error: in call to 'repo_rule' repo rule with name 'foo', unknown"
+        " attribute 'invalid_attr' provided",
         stderr,
     )
     self.assertIn(
@@ -709,8 +715,8 @@ class BazelModuleTest(test_base.TestBase):
     )
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
-        'Error in init_rule: Cannot instantiate a rule when loading a .bzl '
-        'file. Rules may be instantiated only in a BUILD thread.',
+        'Error in init_rule: a rule can only be instantiated while evaluating a'
+        ' BUILD file or a legacy or symbolic macro',
         stderr,
     )
 

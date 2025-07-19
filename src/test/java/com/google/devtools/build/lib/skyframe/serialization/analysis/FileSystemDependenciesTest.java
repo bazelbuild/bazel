@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.analysis.Vers
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.VersionedChanges.NO_MATCH;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.ListingDependencies.AvailableListingDependencies;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -60,7 +61,9 @@ public final class FileSystemDependenciesTest {
   @Test
   public void listingDependencies_findEarliestMatch_matchesClientChange() {
     var changes = new VersionedChanges(ImmutableList.of("abc/def"));
-    var dependencies = new ListingDependencies(FileDependencies.builder("abc").build());
+    var dependencies =
+        (AvailableListingDependencies)
+            ListingDependencies.from(FileDependencies.builder("abc").build());
 
     assertThat(dependencies.findEarliestMatch(changes, 0)).isEqualTo(CLIENT_CHANGE);
   }
@@ -71,7 +74,9 @@ public final class FileSystemDependenciesTest {
     changes.registerFileChange("abc/def", 99);
     changes.registerFileChange("abc/ghi", 100);
 
-    var dependencies = new ListingDependencies(FileDependencies.builder("abc").build());
+    var dependencies =
+        (AvailableListingDependencies)
+            ListingDependencies.from(FileDependencies.builder("abc").build());
 
     assertThat(dependencies.findEarliestMatch(changes, 100)).isEqualTo(NO_MATCH);
     assertThat(dependencies.findEarliestMatch(changes, 99)).isEqualTo(100);

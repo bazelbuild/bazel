@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 2018 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -68,8 +68,8 @@ function test_client_debug_change_does_not_restart_server() {
 }
 
 function test_server_restart_due_to_startup_options() {
-  local server_pid1=$(bazel --write_command_log info server_pid 2>$TEST_log)
-  local server_pid2=$(bazel --nowrite_command_log info server_pid 2>$TEST_log)
+  local server_pid1=$(bazel --idle_server_tasks info server_pid 2>$TEST_log)
+  local server_pid2=$(bazel --noidle_server_tasks info server_pid 2>$TEST_log)
   assert_not_equals "$server_pid1" "$server_pid2" # pid changed.
   expect_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
 }
@@ -171,14 +171,14 @@ function test_shutdown_different_options() {
 function test_server_restart_due_to_startup_options_with_client_debug_information() {
   # Using --write_command_log for no particular reason, if that flag is removed, another startup
   # option will do just fine.
-  local server_pid1=$(bazel --client_debug --write_command_log info server_pid 2>$TEST_log)
-  local server_pid2=$(bazel --client_debug --nowrite_command_log info server_pid 2>$TEST_log)
+  local server_pid1=$(bazel --client_debug --idle_server_tasks info server_pid 2>$TEST_log)
+  local server_pid2=$(bazel --client_debug --noidle_server_tasks info server_pid 2>$TEST_log)
   assert_not_equals "$server_pid1" "$server_pid2" # pid changed.
   expect_log "\\[WARNING .*\\] Running B\\(azel\\|laze\\) server needs to be killed"
   expect_log "\\[INFO .*\\] Args from the running server that are not included in the current request:"
-  expect_log "\\[INFO .*\\]   --write_command_log"
+  expect_log "\\[INFO .*\\]   --idle_server_tasks"
   expect_log "\\[INFO .*\\] Args from the current request that were not included when creating the server:"
-  expect_log "\\[INFO .*\\]   --nowrite_command_log"
+  expect_log "\\[INFO .*\\]   --noidle_server_tasks"
 }
 
 function test_exit_code() {
@@ -280,9 +280,9 @@ function test_output_user_root() {
   expect_log "$TEST_TMPDIR/user/[0-9a-f]\{32\}"
 
   # Test relative path
-  bazel --output_user_root=user info output_base >& $TEST_log \
+  bazel --output_user_root=../user info output_base >& $TEST_log \
       || fail "Expected success"
-  expect_log "$(pwd)/user/[0-9a-f]\{32\}"
+  expect_log "$(cd .. && pwd)/user/[0-9a-f]\{32\}"
 }
 
 function test_multiple_commands_same_output_base() {
@@ -324,7 +324,7 @@ EOF
     pid[$i]="${!}"
   done
 
-  # The various Bazel invocations are are now competing to run.  Wait for them
+  # The various Bazel invocations are now competing to run.  Wait for them
   # to start, in any order, and then allow them to proceed, recording the order
   # in which they actually started running the command.
   declare -a order
@@ -416,8 +416,10 @@ function test_multiple_commands_different_output_base() {
   # Make sure it runs locally even if Bazel is configured to run actions
   # remotely (which is the case when this test is run at Google), because it
   # must be able to synchronize through the FIFO.
+  add_rules_shell "MODULE.bazel"
   mkdir -p x
   cat > x/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(name = "x", srcs = ["x.sh"], local = True)
 EOF
 
@@ -425,7 +427,7 @@ EOF
   # - one of "read" or "write"
   # - the path to the fifo
   cat > x/x.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$1" == "read" ]]; then
   cat "$2" > /dev/null
 elif [[ "$1" == "write" ]]; then

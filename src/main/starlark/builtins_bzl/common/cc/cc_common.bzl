@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Utilities related to C++ support."""
 
 load(
@@ -19,12 +18,17 @@ load(
     _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = "CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES",
     _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST",
 )
-load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_info.bzl", "CcInfo", "CcNativeLibraryInfo", "create_linking_context", "merge_linking_contexts")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
+load(":common/cc/compile/compile.bzl", "compile")
+load(":common/cc/link/create_extra_link_time_library.bzl", "build_libraries", "create_extra_link_time_library")
+load(":common/cc/link/create_library_to_link.bzl", "create_library_to_link")
+load(":common/cc/link/create_linker_input.bzl", "create_linker_input")
+load(":common/cc/link/create_linking_context_from_compilation_outputs.bzl", "create_linking_context_from_compilation_outputs")
+load(":common/cc/link/link.bzl", "link")
 load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
 
 cc_common_internal = _builtins.internal.cc_common
-CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
 
 # buildifier: disable=name-conventions
 _UnboundValueProviderDoNotUse = provider("This provider is used as an unique symbol to distinguish between bound and unbound Starlark values, to avoid using kwargs.", fields = [])
@@ -72,7 +76,6 @@ def _link(
         whole_archive = _UNBOUND,
         additional_linkstamp_defines = _UNBOUND,
         always_link = _UNBOUND,
-        only_for_dynamic_libs = _UNBOUND,
         link_artifact_name_suffix = _UNBOUND,
         main_output = _UNBOUND,
         use_shareable_artifact_factory = _UNBOUND,
@@ -91,7 +94,6 @@ def _link(
        whole_archive != _UNBOUND or \
        additional_linkstamp_defines != _UNBOUND or \
        always_link != _UNBOUND or \
-       only_for_dynamic_libs != _UNBOUND or \
        link_artifact_name_suffix != _UNBOUND or \
        main_output != _UNBOUND or \
        use_shareable_artifact_factory != _UNBOUND or \
@@ -113,8 +115,6 @@ def _link(
         additional_linkstamp_defines = []
     if always_link == _UNBOUND:
         always_link = False
-    if only_for_dynamic_libs == _UNBOUND:
-        only_for_dynamic_libs = False
     if link_artifact_name_suffix == _UNBOUND:
         link_artifact_name_suffix = ""
     if main_output == _UNBOUND:
@@ -126,7 +126,7 @@ def _link(
     if emit_interface_shared_library == _UNBOUND:
         emit_interface_shared_library = False
 
-    return cc_common_internal.link(
+    return link(
         actions = actions,
         name = name,
         feature_configuration = feature_configuration,
@@ -148,7 +148,6 @@ def _link(
         whole_archive = whole_archive,
         additional_linkstamp_defines = additional_linkstamp_defines,
         always_link = always_link,
-        only_for_dynamic_libs = only_for_dynamic_libs,
         link_artifact_name_suffix = link_artifact_name_suffix,
         main_output = main_output,
         use_shareable_artifact_factory = use_shareable_artifact_factory,
@@ -279,7 +278,7 @@ def _create_library_to_link(
         lto_compilation_context = None
     if must_keep_debug != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    if must_keep_debug == _UNBOUND:
+    else:
         must_keep_debug = False
     if objects != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
@@ -307,54 +306,21 @@ def _create_library_to_link(
         kwargs["pic_objects"] = pic_objects
     if objects != _UNBOUND:
         kwargs["objects"] = objects
-    return cc_common_internal.create_library_to_link(
+    return create_library_to_link(
         **kwargs
-    )
-
-def _create_linker_input(
-        *,
-        owner,
-        libraries = None,
-        user_link_flags = None,
-        additional_inputs = None,
-        linkstamps = None):
-    return cc_common_internal.create_linker_input(
-        owner = owner,
-        libraries = libraries,
-        user_link_flags = user_link_flags,
-        additional_inputs = additional_inputs,
-        linkstamps = linkstamps,
     )
 
 def _create_linking_context(
         *,
-        linker_inputs = None,
-        libraries_to_link = _UNBOUND,
-        user_link_flags = _UNBOUND,
-        additional_inputs = _UNBOUND,
-        extra_link_time_library = _UNBOUND,
-        owner = _UNBOUND):
+        linker_inputs,
+        extra_link_time_library = _UNBOUND):
     if extra_link_time_library != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    if extra_link_time_library == _UNBOUND:
+    else:  # extra_link_time_library == _UNBOUND:
         extra_link_time_library = None
-
-    # Usage of libraries_to_link, user_link_flags and additional_inputs are restricted by a flag.
-    # Since we cannot do it here, we let the native code to do it.
-    kwargs = {
-        "linker_inputs": linker_inputs,
-        "extra_link_time_library": extra_link_time_library,
-    }
-    if libraries_to_link != _UNBOUND:
-        kwargs["libraries_to_link"] = libraries_to_link
-    if user_link_flags != _UNBOUND:
-        kwargs["user_link_flags"] = user_link_flags
-    if additional_inputs != _UNBOUND:
-        kwargs["additional_inputs"] = additional_inputs
-    if owner != _UNBOUND:
-        kwargs["owner"] = owner
-    return cc_common_internal.create_linking_context(
-        **kwargs
+    return create_linking_context(
+        linker_inputs = linker_inputs,
+        extra_link_time_library = extra_link_time_library,
     )
 
 def _merge_cc_infos(*, direct_cc_infos = [], cc_infos = []):
@@ -378,7 +344,7 @@ def _merge_cc_infos(*, direct_cc_infos = [], cc_infos = []):
 
     return CcInfo(
         compilation_context = cc_common_internal.merge_compilation_contexts(compilation_contexts = direct_cc_compilation_contexts, non_exported_compilation_contexts = cc_compilation_contexts),
-        linking_context = cc_common_internal.merge_linking_contexts(linking_contexts = cc_linking_contexts),
+        linking_context = merge_linking_contexts(linking_contexts = cc_linking_contexts),
         debug_context = cc_common_internal.merge_debug_context(cc_debug_info_contexts),
         cc_native_library_info = CcNativeLibraryInfo(libraries_to_link = depset(order = "topological", transitive = transitive_native_cc_libraries)),
     )
@@ -570,7 +536,7 @@ def _create_linking_context_from_compilation_outputs(
     if test_only_target == _UNBOUND:
         test_only_target = False
 
-    return cc_common_internal.create_linking_context_from_compilation_outputs(
+    return create_linking_context_from_compilation_outputs(
         actions = actions,
         name = name,
         feature_configuration = feature_configuration,
@@ -592,27 +558,23 @@ def _create_linking_context_from_compilation_outputs(
 def _merge_compilation_contexts(*, compilation_contexts = []):
     return cc_common_internal.merge_compilation_contexts(compilation_contexts = compilation_contexts)
 
-def _merge_linking_contexts(*, linking_contexts = []):
-    return cc_common_internal.merge_linking_contexts(linking_contexts = linking_contexts)
-
 def _check_experimental_cc_shared_library():
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.check_experimental_cc_shared_library()
-
-def _check_experimental_cc_static_library():
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return cc_common_internal.check_experimental_cc_static_library()
 
 def _incompatible_disable_objc_library_transition():
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.incompatible_disable_objc_library_transition()
 
-def _create_module_map(*, file, name, umbrella_header = None):
+def _add_go_exec_groups_to_binary_rules():
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return cc_common_internal.add_go_exec_groups_to_binary_rules()
+
+def _create_module_map(*, file, name):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.create_module_map(
         file = file,
         name = name,
-        umbrella_header = umbrella_header,
     )
 
 def _create_debug_context(compilation_outputs = []):
@@ -629,7 +591,7 @@ def _get_tool_requirement_for_action(*, feature_configuration, action_name):
 
 def _create_extra_link_time_library(*, build_library_func, **kwargs):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-    return cc_common_internal.create_extra_link_time_library(build_library_func = build_library_func, **kwargs)
+    return create_extra_link_time_library(build_library_func = build_library_func, **kwargs)
 
 def _register_linkstamp_compile_action(
         *,
@@ -742,7 +704,11 @@ def _compile(
     if has_tuple:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
-    return cc_common_internal.compile(
+    if cc_toolchain._cpp_configuration.experimental_starlark_compiling():
+        compile_func = compile
+    else:
+        compile_func = cc_common_internal.compile
+    return compile_func(
         actions = actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
@@ -875,19 +841,19 @@ cc_common = struct(
     create_link_variables = create_link_variables,
     empty_variables = _empty_variables,
     create_library_to_link = _create_library_to_link,
-    create_linker_input = _create_linker_input,
+    create_linker_input = create_linker_input,
     create_linking_context = _create_linking_context,
     merge_cc_infos = _merge_cc_infos,
     create_compilation_context = _create_compilation_context,
     legacy_cc_flags_make_variable_do_not_use = _legacy_cc_flags_make_variable_do_not_use,
     incompatible_disable_objc_library_transition = _incompatible_disable_objc_library_transition,
+    add_go_exec_groups_to_binary_rules = _add_go_exec_groups_to_binary_rules,
     is_cc_toolchain_resolution_enabled_do_not_use = _is_cc_toolchain_resolution_enabled_do_not_use,
     create_cc_toolchain_config_info = _create_cc_toolchain_config_info,
     create_linking_context_from_compilation_outputs = _create_linking_context_from_compilation_outputs,
     merge_compilation_contexts = _merge_compilation_contexts,
-    merge_linking_contexts = _merge_linking_contexts,
+    merge_linking_contexts = merge_linking_contexts,
     check_experimental_cc_shared_library = _check_experimental_cc_shared_library,
-    check_experimental_cc_static_library = _check_experimental_cc_static_library,
     create_module_map = _create_module_map,
     create_debug_context = _create_debug_context,
     merge_debug_context = _merge_debug_context,
@@ -906,4 +872,5 @@ cc_common = struct(
     create_compile_action = _create_compile_action,
     implementation_deps_allowed_by_allowlist = _implementation_deps_allowed_by_allowlist,
     CcSharedLibraryHintInfo = CcSharedLibraryHintInfo,
+    build_extra_link_time_libraries = build_libraries,
 )

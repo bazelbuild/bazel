@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -36,7 +37,7 @@ final class WorkerLifecycleManager extends Thread {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private boolean isWorking = false;
+  private volatile boolean isWorking = false;
   private boolean emptyEvictionWasLogged = false;
   private final WorkerPool workerPool;
   private final WorkerOptions options;
@@ -213,6 +214,51 @@ final class WorkerLifecycleManager extends Thread {
       }
 
       emptyEvictionWasLogged = candidates.isEmpty();
+    }
+
+    // TODO(b/300067854): Shrinking of the worker pool happens on worker keys that are active at the
+    //  time of polling, but doesn't shrink the pools of idle workers. We might be wrongly
+    //  penalizing lower memory usage workers (but more active) by shrinking their pool sizes
+    //  instead of higher memory usage workers (but less active) and are killed directly with
+    //  {@code #evictCandidates()} (where shrinking doesn't happen).
+    if (options.shrinkWorkerPool) {
+      List<WorkerProcessMetrics> notEvictedWorkerProcessMetrics =
+          workerProcessMetrics.stream()
+              .filter(metric -> !evictedWorkers.containsAll(metric.getWorkerIds()))
+              .collect(Collectors.toList());
+
+      int notEvictedWorkerMemoryUsageKb =
+          notEvictedWorkerProcessMetrics.stream()
+              .mapToInt(WorkerProcessMetrics::getUsedMemoryInKb)
+              .sum();
+
+      if (notEvictedWorkerMemoryUsageKb <= options.totalWorkerMemoryLimitMb * 1000) {
+        return;
+      }
+
+      postponeInvalidation(notEvictedWorkerProcessMetrics, notEvictedWorkerMemoryUsageKb);
+    }
+  }
+
+  private void postponeInvalidation(
+      List<WorkerProcessMetrics> workerProcessMetrics, int notEvictedWorkerMemoryUsageKb) {
+    ImmutableSet<WorkerProcessMetrics> potentialCandidates =
+        getCandidates(
+            workerProcessMetrics, options.totalWorkerMemoryLimitMb, notEvictedWorkerMemoryUsageKb);
+
+    if (!potentialCandidates.isEmpty()) {
+      String msg =
+          String.format(
+              "Postponing eviction of worker ids: %s",
+              potentialCandidates.stream()
+                  .flatMap(m -> m.getWorkerIds().stream())
+                  .collect(toImmutableList()));
+      logger.atInfo().log("%s", msg);
+      if (options.workerVerbose && this.reporter != null) {
+        reporter.handle(Event.info(msg));
+      }
+      potentialCandidates.forEach(
+          m -> m.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE));
     }
   }
 

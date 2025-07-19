@@ -17,8 +17,7 @@ package com.google.devtools.build.lib.starlark;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
+import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
@@ -56,6 +55,7 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +74,7 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -80,6 +82,23 @@ import org.junit.runner.RunWith;
 /** Tests for {@link StarlarkRuleContext}. */
 @RunWith(TestParameterInjector.class)
 public final class StarlarkRuleContextTest extends BuildViewTestCase {
+  private static final BzlLoadValue.Key providersBzlKey =
+      keyForBuild(Label.parseCanonicalUnchecked("//test:providers.bzl"));
+  private static final StarlarkProvider.Key A_KEY =
+      new StarlarkProvider.Key(providersBzlKey, "AInfo");
+  private static final StarlarkProvider.Key B_KEY =
+      new StarlarkProvider.Key(providersBzlKey, "BInfo");
+  private static final StarlarkProvider.Key C_KEY =
+      new StarlarkProvider.Key(providersBzlKey, "CInfo");
+
+  @Before
+  public void defineStarlarkProviders() throws IOException {
+    scratch.file(
+        "test/providers.bzl", //
+        "AInfo = provider()",
+        "BInfo = provider()",
+        "CInfo = provider()");
+  }
 
   private StarlarkRuleContext createRuleContext(String label) throws Exception {
     return new StarlarkRuleContext(getRuleContextForStarlark(getConfiguredTarget(label)), null);
@@ -101,10 +120,10 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
                               .legacyAllowAnyFileType()
                               .mandatoryProvidersList(
                                   ImmutableList.of(
-                                      ImmutableList.of(StarlarkProviderIdentifier.forLegacy("a")),
+                                      ImmutableList.of(StarlarkProviderIdentifier.forKey(A_KEY)),
                                       ImmutableList.of(
-                                          StarlarkProviderIdentifier.forLegacy("b"),
-                                          StarlarkProviderIdentifier.forLegacy("c"))))));
+                                          StarlarkProviderIdentifier.forKey(B_KEY),
+                                          StarlarkProviderIdentifier.forKey(C_KEY))))));
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
@@ -179,12 +198,13 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/macros.bzl",
         """
+        SomeInfo = provider()
         def _impl(ctx):
           return
         starlark_rule = rule(
           implementation = _impl,
           attrs = {
-            'deps': attr.label_list(providers = ['some_provider'], allow_files=True)
+            'deps': attr.label_list(providers = [SomeInfo], allow_files=True)
           }
         )
         def macro_native_rule(name, deps):
@@ -215,7 +235,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertContainsEvent(
         "ERROR /workspace/test/BUILD:5:20: in deps attribute of starlark_rule rule "
             + "//test:m_starlark: '//test:jlib' does not have mandatory providers:"
-            + " 'some_provider'. "
+            + " 'SomeInfo'. "
             + "Since this rule was created by the macro 'macro_starlark_rule', the error might "
             + "have been caused by the macro implementation");
   }
@@ -237,12 +257,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertContainsEvent(
         "ERROR /workspace/test/BUILD:11:14: in deps attribute of "
             + "starlark_rule rule //test:skyrule: '//test:jlib' does not have mandatory providers: "
-            + "'some_provider'");
+            + "'SomeInfo'");
   }
 
   @Test
   public void testMandatoryProvidersListWithStarlark() throws Exception {
-    setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/BUILD",
         """
@@ -259,21 +278,22 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/rules.bzl",
         """
+        load("//test:providers.bzl", "AInfo", "BInfo", "CInfo")
         def _impl(ctx):
           return
         starlark_rule = rule(
           implementation = _impl,
           attrs = {
-            'deps': attr.label_list(providers = [['a'], ['b', 'c']],
+            'deps': attr.label_list(providers = [[AInfo], [BInfo, CInfo]],
             allow_files=True)
           }
         )
         def my_rule_impl(ctx):
-          return struct(a = [])
+          return AInfo()
         my_rule = rule(implementation = my_rule_impl,
           attrs = { 'srcs' : attr.label_list(allow_files=True)})
         def my_other_rule_impl(ctx):
-          return struct(b = [])
+          return BInfo()
         my_other_rule = rule(implementation = my_other_rule_impl,
           attrs = { 'srcs' : attr.label_list(allow_files=True)})
         """);
@@ -284,12 +304,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertContainsEvent(
         "ERROR /workspace/test/BUILD:8:14: in deps attribute of "
             + "starlark_rule rule //test:skyrule2: '//test:my_other_lib' does not have "
-            + "mandatory providers: 'a' or 'c'");
+            + "mandatory providers: 'AInfo' or 'CInfo'");
   }
 
   @Test
   public void testMandatoryProvidersListWithNative() throws Exception {
-    setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/BUILD",
         """
@@ -306,12 +325,13 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/rules.bzl",
         """
+        load("//test:providers.bzl", "AInfo", "BInfo")
         def my_rule_impl(ctx):
-          return struct(a = [])
+          return AInfo()
         my_rule = rule(implementation = my_rule_impl,
           attrs = { 'srcs' : attr.label_list(allow_files=True)})
         def my_other_rule_impl(ctx):
-          return struct(b = [])
+          return BInfo()
         my_other_rule = rule(implementation = my_other_rule_impl,
           attrs = { 'srcs' : attr.label_list(allow_files=True)})
         """);
@@ -322,7 +342,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertContainsEvent(
         "ERROR /workspace/test/BUILD:8:37: in deps attribute of "
             + "testing_rule_for_mandatory_providers rule //test:skyrule2: '//test:my_other_lib' "
-            + "does not have mandatory providers: 'a' or 'c'");
+            + "does not have mandatory providers: 'AInfo' or 'CInfo'");
   }
 
   /* Sharing setup code between the testPackageBoundaryError*() methods is not possible since the
@@ -1345,40 +1365,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLabelKeyedStringDictAllowsRulesWithRequiredProviders_legacy() throws Exception {
-    setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=false");
-    scratch.file(
-        "my_rule.bzl",
-        """
-        def _impl(ctx):
-          return
-        my_rule = rule(
-          implementation = _impl,
-          attrs = {
-            'label_dict': attr.label_keyed_string_dict(providers=[['my_provider']]),
-          }
-        )
-        def _dep_impl(ctx):
-          return struct(my_provider=5)
-        my_dep_rule = rule(
-          implementation = _dep_impl,
-          attrs = {}
-        )
-        """);
-
-    scratch.file(
-        "BUILD",
-        "load('//:my_rule.bzl', 'my_rule', 'my_dep_rule')",
-        "my_dep_rule(name='dep')",
-        "my_rule(name='r',",
-        "        label_dict={':dep': 'value'})");
-
-    invalidatePackages();
-    createRuleContext("//:r");
-    assertNoEvents();
-  }
-
-  @Test
   public void testLabelKeyedStringDictAllowsRulesWithRequiredProviders() throws Exception {
     scratch.file(
         "my_rule.bzl",
@@ -1418,12 +1404,13 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "my_rule.bzl",
         """
+        MyInfo = provider()
         def _impl(ctx):
           return
         my_rule = rule(
           implementation = _impl,
           attrs = {
-            'label_dict': attr.label_keyed_string_dict(providers=[['my_provider']]),
+            'label_dict': attr.label_keyed_string_dict(providers=[[MyInfo]]),
           }
         )
         def _dep_impl(ctx):
@@ -1445,7 +1432,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     getConfiguredTarget("//:r");
     assertContainsEvent(
         "in label_dict attribute of my_rule rule //:r: "
-            + "'//:dep' does not have mandatory providers: 'my_provider'");
+            + "'//:dep' does not have mandatory providers: 'MyInfo'");
   }
 
   @Test
@@ -1742,11 +1729,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     scratch.file(
         "test/BUILD",
-        getPyLoad("py_binary"),
         "load('//test:rule.bzl', 'starlark_rule')",
-        "py_binary(name = 'lib', srcs = ['lib.py', 'lib2.py'])",
+        "load('//test_defs:foo_binary.bzl', 'foo_binary')",
+        "foo_binary(name = 'lib', srcs = ['lib.py', 'lib2.py'])",
         "starlark_rule(name = 'foo', dep = ':lib')",
-        "py_binary(name = 'lib_with_init', srcs = ['lib_with_init.py', 'lib2.py', '__init__.py'])",
+        "foo_binary(name = 'lib_with_init', srcs = ['lib_with_init.py', 'lib2.py', '__init__.py'])",
         "starlark_rule(name = 'foo_with_init', dep = ':lib_with_init')");
 
     setRuleContext(createRuleContext("//test:foo"));
@@ -1762,58 +1749,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(noEmptyFilenames).isInstanceOf(Sequence.class);
     Sequence<?> noEmptyFilenamesList = (Sequence) noEmptyFilenames;
     assertThat(noEmptyFilenamesList).isEmpty();
-  }
-
-  @Test
-  public void testAccessingRunfilesSymlinks_legacy() throws Exception {
-    setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=false");
-    scratch.file("test/a.py");
-    scratch.file("test/b.py");
-    scratch.file(
-        "test/rule.bzl",
-        """
-        def symlink_impl(ctx):
-          symlinks = {
-            'symlink_' + f.short_path: f
-            for f in ctx.files.symlink
-          }
-          return DefaultInfo(
-            runfiles = ctx.runfiles(
-              symlinks=symlinks,
-            )
-          )
-        symlink_rule = rule(
-          implementation = symlink_impl,
-          attrs = {
-            'symlink': attr.label(allow_files=True),
-          },
-        )
-        """);
-    scratch.file(
-        "test/BUILD",
-        """
-        load('//test:rule.bzl', 'symlink_rule')
-        load('//test_defs:foo_binary.bzl', 'foo_binary')
-        symlink_rule(name = 'lib_with_symlink', symlink = ':a.py')
-        foo_binary(
-          name = 'test_with_symlink',
-          srcs = ['test/b.py'],
-          data = [':lib_with_symlink'],
-        )
-        """);
-    setRuleContext(createRuleContext("//test:test_with_symlink"));
-    Object symlinkPaths =
-        ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
-    assertThat(symlinkPaths).isInstanceOf(Sequence.class);
-    Sequence<?> symlinkPathsList = (Sequence) symlinkPaths;
-    assertThat(symlinkPathsList).containsExactly("symlink_test/a.py").inOrder();
-    Object symlinkFilenames =
-        ev.eval(
-            "[s.target_file.short_path for s in"
-                + " ruleContext.attr.data[0].data_runfiles.symlinks.to_list()]");
-    assertThat(symlinkFilenames).isInstanceOf(Sequence.class);
-    Sequence<?> symlinkFilenamesList = (Sequence) symlinkFilenames;
-    assertThat(symlinkFilenamesList).containsExactly("test/a.py").inOrder();
   }
 
   @Test
@@ -1865,58 +1800,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(symlinkFilenames).isInstanceOf(Sequence.class);
     Sequence<?> symlinkFilenamesList = (Sequence) symlinkFilenames;
     assertThat(symlinkFilenamesList).containsExactly("test/a.py").inOrder();
-  }
-
-  @Test
-  public void testAccessingRunfilesRootSymlinks_legacy() throws Exception {
-    setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=false");
-    scratch.file("test/a.py");
-    scratch.file("test/b.py");
-    scratch.file(
-        "test/rule.bzl",
-        """
-        def root_symlink_impl(ctx):
-          root_symlinks = {
-            'root_symlink_' + f.short_path: f
-            for f in ctx.files.root_symlink
-          }
-          return DefaultInfo(
-            runfiles = ctx.runfiles(
-              root_symlinks=root_symlinks,
-            )
-          )
-        root_symlink_rule = rule(
-          implementation = root_symlink_impl,
-          attrs = {
-            'root_symlink': attr.label(allow_files=True)
-          },
-        )
-        """);
-    scratch.file(
-        "test/BUILD",
-        """
-        load('//test:rule.bzl', 'root_symlink_rule')
-        load('//test_defs:foo_binary.bzl', 'foo_binary')
-        root_symlink_rule(name = 'lib_with_root_symlink', root_symlink = ':a.py')
-        foo_binary(
-          name = 'test_with_root_symlink',
-          srcs = ['test/b.py'],
-          data = [':lib_with_root_symlink'],
-        )
-        """);
-    setRuleContext(createRuleContext("//test:test_with_root_symlink"));
-    Object rootSymlinkPaths =
-        ev.eval("[s.path for s in ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
-    assertThat(rootSymlinkPaths).isInstanceOf(Sequence.class);
-    Sequence<?> rootSymlinkPathsList = (Sequence) rootSymlinkPaths;
-    assertThat(rootSymlinkPathsList).containsExactly("root_symlink_test/a.py").inOrder();
-    Object rootSymlinkFilenames =
-        ev.eval(
-            "[s.target_file.short_path for s in"
-                + " ruleContext.attr.data[0].data_runfiles.root_symlinks.to_list()]");
-    assertThat(rootSymlinkFilenames).isInstanceOf(Sequence.class);
-    Sequence<?> rootSymlinkFilenamesList = (Sequence) rootSymlinkFilenames;
-    assertThat(rootSymlinkFilenamesList).containsExactly("test/a.py").inOrder();
   }
 
   @Test
@@ -2343,7 +2226,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     Map<?, ?> mapping = (Dict<?, ?>) ev.eval("actions.by_file");
     assertThat(mapping).hasSize(1);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     Object actionUnchecked = ev.eval("actions.by_file[file]");
     assertThat(actionUnchecked).isInstanceOf(ActionAnalysisMetadata.class);
   }
@@ -2371,17 +2254,17 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   @Test
   public void testAbstractActionInterface() throws Exception {
     setBuildLanguageOptions(
-        "--incompatible_disallow_struct_provider_syntax=false",
         "--incompatible_no_rule_outputs_param=false");
     scratch.file(
         "test/rules.bzl",
+        "load('//test:providers.bzl', 'AInfo')",
         "def _undertest_impl(ctx):",
         "  out1 = ctx.outputs.out1",
         "  out2 = ctx.outputs.out2",
         "  ctx.actions.write(output=out1, content='foo123')",
         "  ctx.actions.run_shell(outputs=[out2], inputs=[out1],",
         "                        command='cp ' + out1.path + ' ' + out2.path)",
-        "  return struct(out1=out1, out2=out2)",
+        "  return AInfo(out1=out1, out2=out2)",
         "undertest_rule = rule(",
         "  implementation = _undertest_impl,",
         "  outputs = {'out1': '%{name}1.txt',",
@@ -2392,8 +2275,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file1", ev.eval("ruleContext.attr.dep.out1"));
-    ev.update("file2", ev.eval("ruleContext.attr.dep.out2"));
+    ev.update("AInfo", StarlarkProvider.builder(Location.BUILTIN).buildExported(A_KEY));
+    ev.update("file1", ev.eval("ruleContext.attr.dep[AInfo].out1"));
+    ev.update("file2", ev.eval("ruleContext.attr.dep[AInfo].out2"));
     ev.update("action1", ev.eval("ruleContext.attr.dep[Actions].by_file[file1]"));
     ev.update("action2", ev.eval("ruleContext.attr.dep[Actions].by_file[file2]"));
 
@@ -2416,7 +2300,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   @Test
   public void testCreatedActions() throws Exception {
     setBuildLanguageOptions(
-        "--incompatible_disallow_struct_provider_syntax=false",
         "--incompatible_no_rule_outputs_param=false");
     // createRuleContext() gives us the context for a rule upon entry into its analysis function.
     // But we need to inspect the result of calling created_actions() after the rule context has
@@ -2424,6 +2307,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     // function and pass it along as a provider.
     scratch.file(
         "test/rules.bzl",
+        "load('//test:providers.bzl', 'AInfo')",
         "def _undertest_impl(ctx):",
         "  out1 = ctx.outputs.out1",
         "  out2 = ctx.outputs.out2",
@@ -2431,7 +2315,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "                        mnemonic='foo')",
         "  v = ctx.created_actions().by_file",
         "  ctx.actions.run_shell(outputs=[out2], command='echo bar123 > ' + out2.path)",
-        "  return struct(v=v, out1=out1, out2=out2)",
+        "  return AInfo(v=v, out1=out1, out2=out2)",
         "undertest_rule = rule(",
         "  implementation = _undertest_impl,",
         "  outputs = {'out1': '%{name}1.txt',",
@@ -2442,13 +2326,14 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
+    ev.update("AInfo", StarlarkProvider.builder(Location.BUILTIN).buildExported(A_KEY));
 
-    Object mapUnchecked = ev.eval("ruleContext.attr.dep.v");
+    Object mapUnchecked = ev.eval("ruleContext.attr.dep[AInfo].v");
     assertThat(mapUnchecked).isInstanceOf(Dict.class);
     Map<?, ?> map = (Dict) mapUnchecked;
     // Should only have the first action because created_actions() was called
     // before the second action was created.
-    Object file = ev.eval("ruleContext.attr.dep.out1");
+    Object file = ev.eval("ruleContext.attr.dep[AInfo].out1");
     assertThat(map).hasSize(1);
     assertThat(map).containsKey(file);
     Object actionUnchecked = map.get(file);
@@ -2487,7 +2372,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
@@ -2504,7 +2389,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   @Test
   public void testRunShellUsesHelperScriptForLongCommand() throws Exception {
     setBuildLanguageOptions(
-        "--incompatible_disallow_struct_provider_syntax=false",
         "--incompatible_no_rule_outputs_param=false");
     // createRuleContext() gives us the context for a rule upon entry into its analysis function.
     // But we need to inspect the result of calling created_actions() after the rule context has
@@ -2512,6 +2396,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     // function and pass it along as a provider.
     scratch.file(
         "test/rules.bzl",
+        "load('//test:providers.bzl', 'AInfo')",
         "def _undertest_impl(ctx):",
         "  out1 = ctx.outputs.out1",
         "  out2 = ctx.outputs.out2",
@@ -2530,7 +2415,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "                        mnemonic='mnemonic3',",
         "                        arguments=[out3.path])",
         "  v = ctx.created_actions().by_file",
-        "  return struct(v=v, out1=out1, out2=out2, out3=out3)",
+        "  return AInfo(v=v, out1=out1, out2=out2, out3=out3)",
         "",
         "undertest_rule = rule(",
         "    implementation=_undertest_impl,",
@@ -2543,13 +2428,14 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
+    ev.update("AInfo", StarlarkProvider.builder(Location.BUILTIN).buildExported(A_KEY));
 
-    Object mapUnchecked = ev.eval("ruleContext.attr.dep.v");
+    Object mapUnchecked = ev.eval("ruleContext.attr.dep[AInfo].v");
     assertThat(mapUnchecked).isInstanceOf(Dict.class);
     Map<?, ?> map = (Dict) mapUnchecked;
-    Object out1 = ev.eval("ruleContext.attr.dep.out1");
-    Object out2 = ev.eval("ruleContext.attr.dep.out2");
-    Object out3 = ev.eval("ruleContext.attr.dep.out3");
+    Object out1 = ev.eval("ruleContext.attr.dep[AInfo].out1");
+    Object out2 = ev.eval("ruleContext.attr.dep[AInfo].out2");
+    Object out3 = ev.eval("ruleContext.attr.dep[AInfo].out3");
     // 5 actions in total: 3 SpawnActions and 2 FileWriteActions for the two long commands.
     assertThat(map).hasSize(5);
     assertThat(map).containsKey(out1);
@@ -2626,10 +2512,32 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
+    assertThat(ev.eval("action.mnemonic")).isEqualTo("FileWrite");
+
+    Object contentUnchecked = ev.eval("action.content");
+    assertThat(contentUnchecked).isInstanceOf(String.class);
+    assertThat(contentUnchecked).isEqualTo("foo123");
+  }
+
+  @Test
+  public void testFileWriteActionInterfaceWithCustomMnemonic() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "ctx.actions.write(output=out, content='foo123', mnemonic='MyWrite')"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
+
+    assertThat(ev.eval("type(action)")).isEqualTo("Action");
+    assertThat(ev.eval("action.mnemonic")).isEqualTo("MyWrite");
 
     Object contentUnchecked = ev.eval("action.content");
     assertThat(contentUnchecked).isInstanceOf(String.class);
@@ -2648,10 +2556,35 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
+    assertThat(ev.eval("action.mnemonic")).isEqualTo("FileWrite");
+
+    Object contentUnchecked = ev.eval("action.content");
+    assertThat(contentUnchecked).isInstanceOf(String.class);
+    // Args content ends the file with a newline
+    assertThat(contentUnchecked).isEqualTo("foo123\n");
+  }
+
+  @Test
+  public void testFileWriteActionInterfaceWithArgsAndCustomMnemonic() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "args = ctx.actions.args()",
+            "args.add('foo123')",
+            "ctx.actions.write(output=out, content=args, mnemonic='MyWrite')"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
+
+    assertThat(ev.eval("type(action)")).isEqualTo("Action");
+    assertThat(ev.eval("action.mnemonic")).isEqualTo("MyWrite");
 
     Object contentUnchecked = ev.eval("action.content");
     assertThat(contentUnchecked).isInstanceOf(String.class);
@@ -2676,7 +2609,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
@@ -2699,7 +2632,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
@@ -2793,7 +2726,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     Object contentUnchecked = ev.eval("action.content");
@@ -2828,7 +2761,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         execPath -> execPath.subFragment(0, 1).getRelative(execPath.subFragment(2));
 
     assertThat(result).isInstanceOf(Args.class);
-    CommandLine args = ((Args) result).build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    CommandLine args = ((Args) result).build(() -> RepositoryMapping.EMPTY);
     String out = TestConstants.PRODUCT_NAME + "-out";
     assertThat(args.arguments(null, stripConfig))
         .containsExactly(
@@ -2869,7 +2802,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
@@ -3055,14 +2988,15 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     for (String attribute : attributes) {
       scratch.overwriteFile(
           "test/rules.bzl",
+          "MyInfo = provider()",
           "def _rule_impl(ctx):",
           "  pass",
           "def _aspect_impl(target, ctx):",
           "  if ctx.rule.attr.deps:",
           "    dep = ctx.rule.attr.deps[0]",
           "    file = ctx.actions.declare_file('file.txt')",
-          "    foo = dep." + (attribute.startsWith("rule.") ? "" : "ctx.") + attribute,
-          "  return struct(ctx = ctx, rule=ctx.rule)",
+          "    foo = dep[MyInfo]." + (attribute.startsWith("rule.") ? "" : "ctx.") + attribute,
+          "  return MyInfo(ctx = ctx, rule=ctx.rule)",
           "MyAspect = aspect(implementation=_aspect_impl)",
           "my_rule = rule(",
           "  implementation = _rule_impl,",
@@ -3824,7 +3758,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
@@ -3888,7 +3822,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
@@ -3949,7 +3883,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     assertThat(ev.eval("type(action)")).isEqualTo("Action");
@@ -4037,7 +3971,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     EvalException evalException =
@@ -4086,7 +4020,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     EvalException evalException =
@@ -4135,7 +4069,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     EvalException evalException =
@@ -4187,7 +4121,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         """);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
-    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("file", ev.eval("ruleContext.attr.dep[DefaultInfo].files.to_list()[0]"));
     ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
 
     EvalException evalException =

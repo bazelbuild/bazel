@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -43,7 +44,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.buildeventstream.ChainableEvent;
 import com.google.devtools.build.lib.buildeventstream.LastBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
+import com.google.devtools.build.lib.buildeventstream.ReplaceableBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
@@ -60,6 +61,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoExecutionEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.ReleaseReplaceableBuildEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -88,8 +90,13 @@ import javax.annotation.Nullable;
 public class BuildEventStreamer {
   /** Return value for {@link #routeBuildEvent}. */
   private enum RetentionDecision {
+    // Delay posting this event until other events post.
     BUFFERED,
+    // Only post this event if the build ends before an event that replaces it is posted.
+    BUFFERED_FOR_REPLACEMENT,
+    // Don't post this event.
     DISCARD,
+    // Post this event immediately.
     POST
   }
 
@@ -401,11 +408,19 @@ public class BuildEventStreamer {
     }
   }
 
-  /** Clear pending events by generating aborted events for all their requisits. */
+  /** Clear pending events by generating aborted events for all their requests. */
   private synchronized void clearPendingEvents() {
     while (!pendingEvents.isEmpty()) {
       BuildEventId id = pendingEvents.keySet().iterator().next();
-      buildEvent(new AbortedEvent(id, getLastAbortReason(), getAbortReasonDetails()));
+      boolean bufferedEventsPendingOnThisType =
+          releaseReplaceableBuildEvent(new ReleaseReplaceableBuildEvent(id));
+      if (bufferedEventsPendingOnThisType) {
+        // Replaceable (BUFERED_FOR_REPLACEMENT) events finally trigger on build abort, so
+        // we don't need a distinct AbortedEvent to acknowledge them. Normal buffered events
+        // don't trigger because their trigger event never happened, so they need an
+        // AbortedEvent.
+        buildEvent(new AbortedEvent(id, getLastAbortReason(), getAbortReasonDetails()));
+      }
     }
   }
 
@@ -519,6 +534,44 @@ public class BuildEventStreamer {
     addAbortReason(AbortReason.NO_BUILD);
   }
 
+  /**
+   * Posts a {@code RetensionDecision#BUFFERED_FOR_REPLACEMENT} build event without waiting for its
+   * replacement.
+   *
+   * <p>Does nothing if no replaceable event is pending for this event type. Note there can be at
+   * most one pending replaceable event for any build type.
+   *
+   * @param event event id of the replaceable event to post
+   * @return true iff normal buffered events are also waiting on this event id. This is useful to
+   *     distinguish from replaceable events because when builds abort, pending replaceable events
+   *     trigger while normal buffered events are dropped and noted with a matching AbortedEvent.
+   */
+  @Subscribe
+  public boolean releaseReplaceableBuildEvent(ReleaseReplaceableBuildEvent event) {
+    BuildEvent replaceable = null;
+    boolean bufferedEventsAlsoPending = false;
+    synchronized (this) {
+      var pendingEventsThisType = pendingEvents.get(event.getEventId()).iterator();
+      while (pendingEventsThisType.hasNext()) {
+        BuildEvent pendingEvent = pendingEventsThisType.next();
+        if (pendingEvent instanceof ReplaceableBuildEvent) {
+          Verify.verify(
+              replaceable == null,
+              "Multiple replaceable events not supported for %s ",
+              event.getEventId());
+          replaceable = pendingEvent;
+          pendingEventsThisType.remove();
+        } else {
+          bufferedEventsAlsoPending = true;
+        }
+      }
+    }
+    if (replaceable != null) {
+      post(replaceable);
+    }
+    return bufferedEventsAlsoPending;
+  }
+
   @Subscribe
   @AllowConcurrentEvents
   public void buildEvent(BuildEvent event) {
@@ -540,7 +593,11 @@ public class BuildEventStreamer {
         return; // bail: we're dropping this event
       case BUFFERED:
         // Bail: the event was buffered and the BuildEventStreamer is now responsible for eventually
-        // posting (or discarding) it
+        // posting it.
+        return;
+      case BUFFERED_FOR_REPLACEMENT:
+        // Bail: the event was buffered to possibly be replaced with an updated version. The
+        // BuildEventStreamer is now responsible for eventually posting or discarding it.
         return;
       case POST:
         break; // proceed
@@ -585,7 +642,10 @@ public class BuildEventStreamer {
       blockedEventsFifo = pendingEvents.removeAll(event.getEventId());
     }
     for (BuildEvent freedEvent : blockedEventsFifo) {
-      buildEvent(freedEvent);
+      // Replaceable events have been replaced, so can be silently dropped.
+      if (!(freedEvent instanceof ReplaceableBuildEvent)) {
+        buildEvent(freedEvent);
+      }
     }
 
     // Special-case handling for subclasses of `BuildCompletingEvent`.
@@ -830,6 +890,11 @@ public class BuildEventStreamer {
       return RetentionDecision.DISCARD;
     }
 
+    RetentionDecision replaceableDecision = decideBufferedForReplacementEvent(event);
+    if (replaceableDecision != null) {
+      return replaceableDecision;
+    }
+
     if (bufferUntilPrerequisitesReceived(event)) {
       return RetentionDecision.BUFFERED;
     }
@@ -871,6 +936,32 @@ public class BuildEventStreamer {
       return true;
     }
     return event.getAction() instanceof ExtraAction;
+  }
+
+  @Nullable
+  private synchronized RetentionDecision decideBufferedForReplacementEvent(BuildEvent event) {
+    if (!(event instanceof ReplaceableBuildEvent replaceableBuiltEvent)) {
+      return null;
+    }
+    if (!replaceableBuiltEvent.replaceable()) {
+      // The event's class is replaceable but this instance isn't. Treat it normally.
+      return RetentionDecision.POST;
+    }
+    if (postedEvents.contains(event.getEventId())) {
+      // This event type has already been posted, so the replaceable event is outdated.
+      return RetentionDecision.DISCARD;
+    }
+    synchronized (this) {
+      Verify.verify(
+          pendingEvents.get(event.getEventId()).stream()
+              .filter(e -> e instanceof ReplaceableBuildEvent)
+              .findFirst()
+              .isEmpty(),
+          "Multiple replaceable events not supported for %s",
+          event.getEventId());
+      pendingEvents.put(event.getEventId(), event);
+    }
+    return RetentionDecision.BUFFERED_FOR_REPLACEMENT;
   }
 
   private synchronized boolean bufferUntilPrerequisitesReceived(BuildEvent event) {

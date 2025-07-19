@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.buildjar.instrumentation;
 
+import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
+
 import com.google.common.io.MoreFiles;
 import com.google.common.io.RecursiveDeleteOption;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
@@ -38,15 +40,14 @@ public final class JacocoInstrumentationProcessor {
 
   public static JacocoInstrumentationProcessor create(List<String> args)
       throws InvalidCommandLineException {
+    // Ignore extra arguments for backwards compatibility (they used to contain filters).
     if (args.size() < 1) {
       throw new InvalidCommandLineException(
           "Number of arguments for Jacoco instrumentation should be 1+ (given "
               + args.size()
-              + ": metadataOutput [filters*].");
+              + ": pathsForCoverageFile");
     }
 
-    // ignoring filters, they weren't used in the previous implementation
-    // TODO(bazel-team): filters should be correctly handled
     return new JacocoInstrumentationProcessor(args.get(0));
   }
 
@@ -103,18 +104,22 @@ public final class JacocoInstrumentationProcessor {
             // It's not clear whether there is any advantage in not instrumenting *Test classes,
             // apart from lowering the covered percentage in the aggregate statistics.
 
-            // We first move the original .class file to our metadata directory, then instrument it
-            // and output the instrumented version in the regular classes output directory.
+            // We first copy the original .class file to our metadata directory, then instrument it
+            // and rewrite the instrumented version back into the regular classes output directory.
+
+            // Not moving or unlinking the source .class file is essential to guarantee visiting
+            // it only once during recursive directory traversal while also mutating the directory.
             Path instrumentedCopy = file;
             Path absoluteUninstrumentedCopy = Path.of(file + ".uninstrumented");
             Path uninstrumentedCopy =
                 instrumentedClassesDirectory.resolve(root.relativize(absoluteUninstrumentedCopy));
             Files.createDirectories(uninstrumentedCopy.getParent());
-            Files.move(file, uninstrumentedCopy);
+            Files.copy(file, uninstrumentedCopy);
             try (InputStream input =
                     new BufferedInputStream(Files.newInputStream(uninstrumentedCopy));
                 OutputStream output =
-                    new BufferedOutputStream(Files.newOutputStream(instrumentedCopy))) {
+                    new BufferedOutputStream(
+                        Files.newOutputStream(instrumentedCopy, TRUNCATE_EXISTING))) {
               instr.instrument(input, output, file.toString());
             }
             return FileVisitResult.CONTINUE;

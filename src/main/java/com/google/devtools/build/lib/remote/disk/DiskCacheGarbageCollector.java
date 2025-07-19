@@ -22,12 +22,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.util.FileSystemLock;
+import com.google.devtools.build.lib.util.FileSystemLock.LockMode;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
-import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -183,7 +184,7 @@ public final class DiskCacheGarbageCollector {
   public CollectionStats run() throws IOException, InterruptedException {
     // Acquire an exclusive lock to prevent two Bazel processes from simultaneously running
     // garbage collection, which can waste resources and lead to incorrect results.
-    try (var lock = FileSystemLock.getExclusive(root.getRelative("gc/lock"))) {
+    try (var lock = FileSystemLock.tryGet(root.getRelative("gc/lock"), LockMode.EXCLUSIVE)) {
       return runUnderLock();
     }
   }
@@ -229,8 +230,8 @@ public final class DiskCacheGarbageCollector {
       execute(() -> visitDirectory(root));
       try {
         awaitQuiescence(true);
-      } catch (IORuntimeException e) {
-        throw e.getCauseIOException();
+      } catch (UncheckedIOException e) {
+        throw e.getCause();
       }
       return entries;
     }
@@ -259,7 +260,7 @@ public final class DiskCacheGarbageCollector {
           // Deliberately ignore other file types, which should never occur in a well-formed cache.
         }
       } catch (IOException e) {
-        throw new IORuntimeException(e);
+        throw new UncheckedIOException(e);
       }
     }
   }
@@ -303,7 +304,7 @@ public final class DiskCacheGarbageCollector {
                 concurrentUpdate.set(true);
               }
             } catch (IOException e) {
-              throw new IORuntimeException(e);
+              throw new UncheckedIOException(e);
             }
           });
     }
@@ -312,8 +313,8 @@ public final class DiskCacheGarbageCollector {
     DeletionStats await() throws IOException, InterruptedException {
       try {
         awaitQuiescence(true);
-      } catch (IORuntimeException e) {
-        throw e.getCauseIOException();
+      } catch (UncheckedIOException e) {
+        throw e.getCause();
       }
       return new DeletionStats(deletedEntries.sum(), deletedBytes.sum(), concurrentUpdate.get());
     }

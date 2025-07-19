@@ -16,6 +16,7 @@
 
 import os
 import tempfile
+
 from absl.testing import absltest
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
@@ -39,6 +40,7 @@ class BazelFetchTest(test_base.TestBase):
             'common --registry=' + self.main_registry.getURL(),
             'common --registry=https://bcr.bazel.build',
             'common --verbose_failures',
+            'common --incompatible_disable_native_repo_rules',
             # Set an explicit Java language version
             'common --java_language_version=8',
             'common --tool_java_language_version=8',
@@ -53,11 +55,6 @@ class BazelFetchTest(test_base.TestBase):
     test_base.TestBase.tearDown(self)
 
   def generatBuiltinModules(self):
-    self.ScratchFile('platforms_mock/BUILD')
-    self.ScratchFile(
-        'platforms_mock/MODULE.bazel', ['module(name="local_config_platform")']
-    )
-
     self.ScratchFile('tools_mock/BUILD')
     self.ScratchFile('tools_mock/MODULE.bazel', ['module(name="bazel_tools")'])
     self.ScratchFile('tools_mock/tools/build_defs/repo/BUILD')
@@ -70,11 +67,20 @@ class BazelFetchTest(test_base.TestBase):
         'tools_mock/tools/build_defs/repo/http.bzl',
     )
     self.CopyFile(
+        self.Rlocation('io_bazel/tools/build_defs/repo/local.bzl'),
+        'tools_mock/tools/build_defs/repo/local.bzl',
+    )
+    self.CopyFile(
         self.Rlocation('io_bazel/tools/build_defs/repo/utils.bzl'),
         'tools_mock/tools/build_defs/repo/utils.bzl',
     )
 
+  def useMockBuiltinModules(self):
+    with open(self.Path('.bazelrc'), 'a', encoding='utf-8') as f:
+      f.write('common --override_repository=bazel_tools=tools_mock\n')
+
   def testFetchAll(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
@@ -85,17 +91,15 @@ class BazelFetchTest(test_base.TestBase):
             'ext = use_extension("extension.bzl", "ext")',
             'use_repo(ext, "hello")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="hello")',
@@ -111,6 +115,7 @@ class BazelFetchTest(test_base.TestBase):
     self.assertIn('+ext+hello', repos_fetched)
 
   def testFetchConfig(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
@@ -122,18 +127,16 @@ class BazelFetchTest(test_base.TestBase):
             'use_repo(ext, "notConfig")',
             'use_repo(ext, "IamConfig")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("BUILD")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
-            'repo_rule2 = repository_rule(implementation=_repo_rule_impl, ',
+            'repo_rule = repository_rule(implementation=impl)',
+            'repo_rule2 = repository_rule(implementation=impl, ',
             'configure=True)',
             '',
             'def _ext_impl(ctx):',
@@ -151,6 +154,7 @@ class BazelFetchTest(test_base.TestBase):
     self.assertIn('+ext+IamConfig', repos_fetched)
 
   def testFetchConfigForce(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
@@ -162,15 +166,13 @@ class BazelFetchTest(test_base.TestBase):
             'use_repo(ext, "notConfig")',
             'use_repo(ext, "IamConfig")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    print("Fetching {}".format(ctx.attr.name))',
             '    if ctx.attr.name.endswith("IamConfig"):',
             (
@@ -178,8 +180,8 @@ class BazelFetchTest(test_base.TestBase):
                 ' ctx.path(Label("@notConfig//:whatever")).dirname.readdir()'
             ),
             '    ctx.file("BUILD")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
-            'repo_rule2 = repository_rule(implementation=_repo_rule_impl, ',
+            'repo_rule = repository_rule(implementation=impl)',
+            'repo_rule2 = repository_rule(implementation=impl, ',
             'configure=True)',
             '',
             'def _ext_impl(ctx):',
@@ -223,6 +225,7 @@ class BazelFetchTest(test_base.TestBase):
     )
 
   def testFetchRepo(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
     ).createCcModule('ccc', '1.0')
@@ -232,8 +235,6 @@ class BazelFetchTest(test_base.TestBase):
             'bazel_dep(name = "bbb", version = "1.0")',
             'bazel_dep(name = "ccc", version = "1.0", repo_name = "my_repo")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -246,6 +247,7 @@ class BazelFetchTest(test_base.TestBase):
     self.assertNotIn('aaa+', repos_fetched)
 
   def testFetchInvalidRepo(self):
+    self.useMockBuiltinModules()
     # Invalid repo name (not canonical or apparent)
     exit_code, _, stderr = self.RunBazel(
         ['fetch', '--repo=hello'], allow_failure=True
@@ -261,8 +263,6 @@ class BazelFetchTest(test_base.TestBase):
         'MODULE.bazel',
         [
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     exit_code, _, stderr = self.RunBazel(
@@ -276,14 +276,13 @@ class BazelFetchTest(test_base.TestBase):
     )
 
   def testForceFetch(self):
+    self.useMockBuiltinModules()
     self.ScratchFile(
         'MODULE.bazel',
         [
             'ext = use_extension("extension.bzl", "ext")',
             'use_repo(ext, "hello")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -292,11 +291,11 @@ class BazelFetchTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    file_content = ctx.read("' + file_path + '", watch="no")',
             '    print(file_content)',
             '    ctx.file("BUILD")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="hello")',
@@ -319,6 +318,56 @@ class BazelFetchTest(test_base.TestBase):
     # One more time to validate force is invoked and not cached by skyframe
     _, _, stderr = self.RunBazel(['fetch', '--repo=@hello', '--force'])
     self.assertIn('No more Orange Juice!', ''.join(stderr))
+
+  def testForceFetchWithRepoCache(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "hello")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile('name.txt', ['foo'])
+    file_path = self.Path('name.txt').replace('\\', '\\\\')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def impl(ctx):',
+            '    file_content = ctx.read("' + file_path + '", watch="no")',
+            '    print("name is " + file_content)',
+            '    ctx.file("BUILD",',
+            '             "filegroup(name=\'" + file_content.strip() + "\')")',
+            '    return ctx.repo_metadata(reproducible=True)',
+            'repo_rule = repository_rule(implementation=impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="hello")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@hello'])
+    self.assertIn('name is foo', ''.join(stderr))
+    self.RunBazel(['build', '@hello//:foo'])
+
+    # Change file content and run WITHOUT force, assert no fetching!
+    self.ScratchFile('name.txt', ['bar'])
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@hello'])
+    self.assertNotIn('name is bar', ''.join(stderr))
+    self.RunBazel(['build', '@hello//:foo'])
+
+    # Run again WITH --force and assert fetching
+    _, _, stderr = self.RunBazel(['fetch', '--repo=@hello', '--force'])
+    self.assertIn('name is bar', ''.join(stderr))
+    self.RunBazel(['build', '@hello//:bar'])
+
+    # Clean expunge. Assert the cache entry with "bar" is selected (despite
+    # "foo" also still existing in the cache).
+    self.RunBazel(['clean', '--expunge'])
+    self.ScratchFile('name.txt', ['quux'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:bar'])
+    self.assertNotIn('name is ', ''.join(stderr))
 
   def testFetchTarget(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(

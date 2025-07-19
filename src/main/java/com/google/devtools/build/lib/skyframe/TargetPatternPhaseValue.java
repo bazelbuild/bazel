@@ -45,21 +45,21 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
   private final ImmutableSet<Label> targetLabels;
   @Nullable private final ImmutableSet<Label> testsToRunLabels;
+  private final ImmutableSet<Label> nonExpandedLabels;
   private final boolean hasError;
   private final boolean hasPostExpansionError;
-  private final String workspaceName;
 
   TargetPatternPhaseValue(
       ImmutableSet<Label> targetLabels,
       ImmutableSet<Label> testsToRunLabels,
+      ImmutableSet<Label> nonExpandedLabels,
       boolean hasError,
-      boolean hasPostExpansionError,
-      String workspaceName) {
+      boolean hasPostExpansionError) {
     this.targetLabels = targetLabels;
     this.testsToRunLabels = testsToRunLabels;
+    this.nonExpandedLabels = nonExpandedLabels;
     this.hasError = hasError;
     this.hasPostExpansionError = hasPostExpansionError;
-    this.workspaceName = workspaceName;
   }
 
   /** Expensive. Results in a Skyframe evaluation. */
@@ -87,6 +87,10 @@ public final class TargetPatternPhaseValue implements SkyValue {
     return getTargetsFromLabels(targetLabels, eventHandler, packageManager);
   }
 
+  public ImmutableSet<Label> getNonExpandedLabels() {
+    return nonExpandedLabels;
+  }
+
   public ImmutableSet<Target> getTestsToRun(
       ExtendedEventHandler eventHandler, PackageManager packageManager)
       throws InterruptedException {
@@ -110,10 +114,6 @@ public final class TargetPatternPhaseValue implements SkyValue {
     return hasPostExpansionError;
   }
 
-  public String getWorkspaceName() {
-    return workspaceName;
-  }
-
   @Override
   public boolean equals(Object obj) {
     if (this == obj) {
@@ -124,7 +124,6 @@ public final class TargetPatternPhaseValue implements SkyValue {
     }
     return Objects.equals(this.targetLabels, that.targetLabels)
         && Objects.equals(this.testsToRunLabels, that.testsToRunLabels)
-        && Objects.equals(this.workspaceName, that.workspaceName)
         && this.hasError == that.hasError
         && this.hasPostExpansionError == that.hasPostExpansionError;
   }
@@ -134,7 +133,6 @@ public final class TargetPatternPhaseValue implements SkyValue {
     return Objects.hash(
         this.targetLabels,
         this.testsToRunLabels,
-        this.workspaceName,
         this.hasError,
         this.hasPostExpansionError);
   }

@@ -82,19 +82,18 @@ inline CharStar var_strprefix(CharStar str, const char *prefix) {
 
 // Join the elements of pieces separated by delimeter.  Returns the joined
 // string in output.
-void JoinStrings(const std::vector<std::string> &pieces, const char delimeter,
+void JoinStrings(const std::vector<std::string> &pieces, char delimeter,
                  std::string *output);
 
 // Splits contents by delimeter.  Skips empty subsections.
-std::vector<std::string> Split(const std::string &contents,
-                               const char delimeter);
+std::vector<std::string> Split(const std::string &contents, char delimeter);
 
 // Same as above, but adds results to output.
-void SplitStringUsing(const std::string &contents, const char delimeter,
+void SplitStringUsing(const std::string &contents, char delimeter,
                       std::vector<std::string> *output);
 
 // Same as above, but adds results to output. Returns number of elements added.
-size_t SplitQuotedStringUsing(const std::string &contents, const char delimeter,
+size_t SplitQuotedStringUsing(const std::string &contents, char delimeter,
                               std::vector<std::string> *output);
 
 // Global replace of oldsub with newsub.
@@ -136,6 +135,8 @@ std::string WstringToCstring(const std::wstring &input);
 
 // Deprecated. Use AcpToWcs or Utf8ToWcs.
 std::wstring CstringToWstring(const std::string &input);
+
+char** WArgsToCArgs(int argc, wchar_t **wargv);
 #endif  // defined(_WIN32) || defined(__CYGWIN__)
 
 }  // namespace blaze_util

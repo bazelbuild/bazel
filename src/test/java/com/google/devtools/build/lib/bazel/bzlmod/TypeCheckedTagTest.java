@@ -163,7 +163,7 @@ public class TypeCheckedTagTest {
                     buildTag("tag_name").build(),
                     /* labelConverter= */ null,
                     "root module"));
-    assertThat(e).hasMessageThat().contains("mandatory attribute foo isn't being specified");
+    assertThat(e).hasMessageThat().contains("mandatory attribute 'foo' isn't being specified");
   }
 
   @Test
@@ -182,7 +182,8 @@ public class TypeCheckedTagTest {
                     "root module"));
     assertThat(e)
         .hasMessageThat()
-        .contains("the value for attribute foo has to be one of 'yes' or 'no' instead of 'maybe'");
+        .contains(
+            "the value for attribute 'foo' has to be one of 'yes' or 'no' instead of 'maybe'");
   }
 
   @Test
@@ -196,6 +197,6 @@ public class TypeCheckedTagTest {
                     buildTag("tag_name").addAttr("bar", "maybe").build(),
                     /* labelConverter= */ null,
                     "root module"));
-    assertThat(e).hasMessageThat().contains("unknown attribute bar provided");
+    assertThat(e).hasMessageThat().contains("unknown attribute 'bar' provided");
   }
 }

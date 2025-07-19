@@ -122,7 +122,7 @@ public final class CppConfiguration extends Fragment
   }
 
   /** This enumeration is used for the --strip option. */
-  public enum StripMode {
+  public enum StripMode implements StarlarkValue {
     ALWAYS("always"), // Always strip.
     SOMETIMES("sometimes"), // Strip iff compilationMode == FASTBUILD.
     NEVER("never"); // Never strip.
@@ -313,24 +313,14 @@ public final class CppConfiguration extends Fragment
     this.appleGenerateDsym = cppOptions.appleGenerateDsym;
   }
 
-  /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
-  @StarlarkConfigurationField(
-      name = "cc_toolchain",
-      doc = "The label of the target describing the C++ toolchain",
-      defaultLabel = "//tools/cpp:toolchain",
-      defaultInToolRepository = true)
-  @Nullable
-  public Label getRuleProvidingCcToolchainProvider() {
-      return null;
-  }
-
   @Nullable
   @StarlarkConfigurationField(name = "zipper", doc = "The zipper label for FDO.")
   public Label getFdoZipper() {
     if (getFdoOptimizeLabel() != null
         || getFdoProfileLabel() != null
         || fdoPath != null
-        || getMemProfProfileLabel() != null) {
+        || getMemProfProfileLabel() != null
+        || getXFdoProfileLabel() != null) {
       return Label.parseCanonicalUnchecked(BAZEL_TOOLS_REPO + "//tools/zip:unzip_fdo");
     }
     return null;
@@ -364,6 +354,7 @@ public final class CppConfiguration extends Fragment
   }
 
   /** Returns the set of command-line LTO backend options. */
+  @StarlarkMethod(name = "lto_backend_options", documented = false, structField = true)
   public ImmutableList<String> getLtoBackendOptions() {
     return ltobackendOptions;
   }
@@ -391,16 +382,6 @@ public final class CppConfiguration extends Fragment
 
   public boolean useArgsParamsFile() {
     return cppOptions.useArgsParamsFile;
-  }
-
-  public boolean useCcTestFeature() {
-    return cppOptions.enableCcTestFeature;
-  }
-
-  @Override
-  public boolean useCcTestFeatureStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return useCcTestFeature();
   }
 
   /** Returns whether or not to strip the binaries. */
@@ -511,9 +492,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.experimentalLinkStaticLibrariesOnce;
   }
 
-  public boolean experimentalPlatformCcTest() {
-    return cppOptions.experimentalPlatformCcTest;
-  }
 
   public boolean legacyWholeArchive() {
     return cppOptions.legacyWholeArchive;
@@ -875,10 +853,6 @@ public final class CppConfiguration extends Fragment
     return appleGenerateDsym;
   }
 
-  public boolean experimentalStarlarkCcImport() {
-    return cppOptions.experimentalStarlarkCcImport;
-  }
-
   public boolean useCppCompileHeaderMnemonic() {
     return cppOptions.useCppCompileHeaderMnemonic;
   }
@@ -943,7 +917,7 @@ public final class CppConfiguration extends Fragment
 
   @Override
   public boolean macosSetInstallName() {
-    return cppOptions.macosSetInstallName;
+    return true;
   }
 
   private static void checkInExpandedApiAllowlist(StarlarkThread thread, String feature)
@@ -1001,12 +975,6 @@ public final class CppConfiguration extends Fragment
   }
 
   @Override
-  public boolean getExperimentalPlatformCcTest(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return experimentalPlatformCcTest();
-  }
-
-  @Override
   public boolean objcShouldStripBinary() {
     return objcEnableBinaryStripping() && getCompilationMode() == CompilationMode.OPT;
   }
@@ -1020,5 +988,14 @@ public final class CppConfiguration extends Fragment
   public boolean getProtoProfile(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return cppOptions.protoProfile;
+  }
+
+  @StarlarkMethod(
+      name = "experimental_starlark_compiling",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean experimentalStarlarkCompiling(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.experimentalStarlarkCompiling;
   }
 }

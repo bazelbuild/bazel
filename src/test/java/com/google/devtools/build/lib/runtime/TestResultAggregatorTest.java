@@ -241,7 +241,7 @@ public final class TestResultAggregatorTest {
     ArtifactRoot root =
         ArtifactRoot.asDerivedRoot(
             new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/output_base"),
-            RootType.Output,
+            RootType.OUTPUT,
             "execroot");
     when(mockParams.getTestStatusArtifacts())
         .thenReturn(

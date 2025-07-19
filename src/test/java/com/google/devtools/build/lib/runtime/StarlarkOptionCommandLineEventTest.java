@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bazel.BazelStartupOptionsModule.Options;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.OriginalCommandLineEvent;
@@ -46,7 +47,15 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
 
     CommandLine line =
         new OriginalCommandLineEvent(
-                "testblaze", fakeStartupOptions, "someCommandName", optionsParser, Optional.empty())
+                "testblaze",
+                fakeStartupOptions,
+                "someCommandName",
+                ImmutableList.of(),
+                false,
+                optionsParser.asListOfExplicitOptions(),
+                optionsParser.getExplicitStarlarkOptions(
+                    OriginalCommandLineEvent::commandLinePriority),
+                Optional.empty())
             .asStreamProto(null)
             .getStructuredCommandLine();
 
@@ -104,7 +113,15 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
             /* bazelrcOptions= */ "--//test:bazelrcflag=777");
     CommandLine line =
         new OriginalCommandLineEvent(
-                "testblaze", fakeStartupOptions, "someCommandName", optionsParser, Optional.empty())
+                "testblaze",
+                fakeStartupOptions,
+                "someCommandName",
+                ImmutableList.of(),
+                false,
+                optionsParser.asListOfExplicitOptions(),
+                optionsParser.getExplicitStarlarkOptions(
+                    OriginalCommandLineEvent::commandLinePriority),
+                Optional.empty())
             .asStreamProto(null)
             .getStructuredCommandLine();
 
@@ -126,7 +143,16 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
 
     CommandLine line =
         new CanonicalCommandLineEvent(
-                "testblaze", fakeStartupOptions, "someCommandName", optionsParser)
+                "testblaze",
+                fakeStartupOptions,
+                "someCommandName",
+                ImmutableList.of(),
+                false,
+                optionsParser.getExplicitStarlarkOptions(
+                    OriginalCommandLineEvent::commandLinePriority),
+                optionsParser.getStarlarkOptions(),
+                optionsParser.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
     assertThat(line.getCommandLineLabel()).isEqualTo("canonical");
@@ -155,7 +181,16 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
 
     CommandLine line =
         new CanonicalCommandLineEvent(
-                "testblaze", fakeStartupOptions, "someCommandName", optionsParser)
+                "testblaze",
+                fakeStartupOptions,
+                "someCommandName",
+                ImmutableList.of(),
+                false,
+                optionsParser.getExplicitStarlarkOptions(
+                    OriginalCommandLineEvent::commandLinePriority),
+                optionsParser.getStarlarkOptions(),
+                optionsParser.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
     assertThat(line.getCommandLineLabel()).isEqualTo("canonical");
@@ -209,7 +244,16 @@ public class StarlarkOptionCommandLineEventTest extends StarlarkOptionsTestCase 
             /* bazelrcOptions= */ "--//test:bazelrcflag=777");
     CommandLine line =
         new CanonicalCommandLineEvent(
-                "testblaze", fakeStartupOptions, "someCommandName", optionsParser)
+                "testblaze",
+                fakeStartupOptions,
+                "someCommandName",
+                ImmutableList.of(),
+                false,
+                optionsParser.getExplicitStarlarkOptions(
+                    OriginalCommandLineEvent::commandLinePriority),
+                optionsParser.getStarlarkOptions(),
+                optionsParser.asListOfCanonicalOptions(),
+                /* replaceable= */ false)
             .asStreamProto(null)
             .getStructuredCommandLine();
 

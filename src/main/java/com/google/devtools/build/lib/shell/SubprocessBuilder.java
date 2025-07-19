@@ -20,19 +20,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * A builder class that starts a subprocess.
- */
+/** A builder class that starts a subprocess. */
 public class SubprocessBuilder {
-  /**
-   * What to do with an output stream of the process.
-   */
+  /** What to do with an output stream of the process. */
   public enum StreamAction {
     /** Redirect to a file */
     REDIRECT,
@@ -45,6 +42,7 @@ public class SubprocessBuilder {
   }
 
   private final SubprocessFactory factory;
+  private final ImmutableMap<String, String> clientEnv;
   private ImmutableList<String> argv;
   private ImmutableMap<String, String> env;
   private StreamAction stdoutAction;
@@ -75,14 +73,28 @@ public class SubprocessBuilder {
         factory != null ? factory : subprocessFactoryImplementation();
   }
 
-  public SubprocessBuilder() {
-    this(defaultFactory);
+  /**
+   * Creates a new subprocess builder.
+   *
+   * @param clientEnv the environment variables of the Bazel client, which will be inherited by the
+   *     subprocess unless {@link #setEnv} is called with a non-null argument
+   */
+  public SubprocessBuilder(Map<String, String> clientEnv) {
+    this(clientEnv, defaultFactory);
   }
 
-  public SubprocessBuilder(SubprocessFactory factory) {
+  /**
+   * Creates a new subprocess builder.
+   *
+   * @param clientEnv the environment variables of the Bazel client, which will be inherited by the
+   *     subprocess unless {@link #setEnv} is called with a non-null argument
+   * @param factory the subprocess factory to use, only used for testing
+   */
+  public SubprocessBuilder(Map<String, String> clientEnv, SubprocessFactory factory) {
     stdoutAction = StreamAction.STREAM;
     stderrAction = StreamAction.STREAM;
     this.factory = factory;
+    this.clientEnv = ImmutableMap.copyOf(clientEnv);
   }
 
   /**
@@ -110,7 +122,7 @@ public class SubprocessBuilder {
   public SubprocessBuilder setArgv(ImmutableList<String> argv) {
     this.argv = Preconditions.checkNotNull(argv);
     Preconditions.checkArgument(!this.argv.isEmpty());
-    File argv0 = new File(this.argv.get(0));
+    File argv0 = new File(StringEncoding.internalToPlatform(this.argv.get(0)));
     Preconditions.checkArgument(
         argv0.isAbsolute() || argv0.getParent() == null,
         "argv[0] = '%s'; it should be either absolute or just a single file name"
@@ -124,8 +136,8 @@ public class SubprocessBuilder {
   }
 
   /**
-   * Sets the environment passed to the child process. If null, inherit the environment of the
-   * parent. The default is to inherit.
+   * Sets the environment passed to the child process. If null, inherit the client environment
+   * passed to the constructor. The default is to inherit.
    */
   @CanIgnoreReturnValue
   public SubprocessBuilder setEnv(@Nullable Map<String, String> env) {
@@ -230,6 +242,10 @@ public class SubprocessBuilder {
   public SubprocessBuilder setWorkingDirectory(File workingDirectory) {
     this.workingDirectory = workingDirectory;
     return this;
+  }
+
+  ImmutableMap<String, String> getClientEnv() {
+    return clientEnv;
   }
 
   public Subprocess start() throws IOException {

@@ -622,7 +622,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    * Returns a {@code CcCompilationContext} that is based on a given {@code CcCompilationContext},
    * with {@code extraHeaderTokens} added to the header tokens.
    */
-  public static CcCompilationContext createWithExtraHeaderTokens(
+  static CcCompilationContext createWithExtraHeaderTokens(
       CcCompilationContext ccCompilationContext, Iterable<Artifact> extraHeaderTokens) {
     NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
     headerTokens.addTransitive(ccCompilationContext.getHeaderTokens());
@@ -781,17 +781,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       if (artifact != null) {
         builder.add(artifact);
       }
-    }
-
-    /**
-     * Merges the given {@code CcCompilationContext}s into this one by adding the contents of their
-     * attributes.
-     */
-    @CanIgnoreReturnValue
-    public Builder addDependentCcCompilationContexts(
-        Iterable<CcCompilationContext> ccCompilationContexts) {
-      deps.addAll(ccCompilationContexts);
-      return this;
     }
 
     /**

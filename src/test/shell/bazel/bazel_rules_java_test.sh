@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -68,6 +68,8 @@ function test_java_library_extension_support() {
   cat >java/java_library.bzl <<EOF
 load("@rules_java//java/common/rules/impl:bazel_java_library_impl.bzl", "bazel_java_library_rule")
 load("@rules_java//java/common/rules:java_library.bzl", "JAVA_LIBRARY_ATTRS")
+load("@rules_java//java/common:java_info.bzl", "JavaInfo")
+
 def _impl(ctx):
     return bazel_java_library_rule(
         ctx,

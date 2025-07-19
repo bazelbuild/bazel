@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.immediateWriteStatus;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import javax.annotation.Nullable;
@@ -35,9 +37,9 @@ public final class GetRecordingStore implements FingerprintValueStore {
   private final LinkedBlockingQueue<GetRequest> requestQueue = new LinkedBlockingQueue<>();
 
   @Override
-  public ListenableFuture<Void> put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
+  public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
     fingerprintToContents.put(fingerprint, serializedBytes);
-    return immediateVoidFuture();
+    return immediateWriteStatus();
   }
 
   @Override
@@ -49,6 +51,10 @@ public final class GetRecordingStore implements FingerprintValueStore {
 
   public GetRequest takeFirstRequest() throws InterruptedException {
     return requestQueue.take();
+  }
+
+  public Map<KeyBytesProvider, byte[]> getFingerprintToContents() {
+    return fingerprintToContents;
   }
 
   @Nullable
@@ -65,6 +71,15 @@ public final class GetRecordingStore implements FingerprintValueStore {
      */
     public void complete() {
       response().set(checkNotNull(parent().fingerprintToContents.get(fingerprint())));
+    }
+
+    /**
+     * Simulates returning null bytes.
+     *
+     * <p>In certain setups, null bytes are used to signal missing data for the given key.
+     */
+    public void completeWithNullBytes() {
+      response().set(null);
     }
   }
 }

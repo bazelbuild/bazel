@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -100,8 +99,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
 
   @Before
   public void createExecutorAndContext() throws Exception {
-    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
-    Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
+    Executor executor = new TestExecutorBuilder(fileSystem, directories).build();
     executionContext =
         new ActionExecutionContext(
             executor,
@@ -114,10 +112,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
             /* fileOutErr= */ null,
             /* eventHandler= */ null,
             /* clientEnv= */ ImmutableMap.of(),
-            /* topLevelFilesets= */ ImmutableMap.of(),
-            /* artifactExpander= */ null,
             /* actionFileSystem= */ null,
-            /* skyframeDepsResult= */ null,
             DiscoveredModulesPruner.DEFAULT,
             SyscallCache.NO_CACHE,
             ThreadStateReceiver.NULL_INSTANCE);

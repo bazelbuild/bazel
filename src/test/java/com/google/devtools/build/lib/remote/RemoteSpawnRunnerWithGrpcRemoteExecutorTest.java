@@ -74,7 +74,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
@@ -91,6 +90,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.FakeSpawnExecutionContext;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -213,7 +213,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/execroot/main");
     execRoot.createDirectoryAndParents();
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outputs");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "outputs");
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
     tempPathGenerator = new TempPathGenerator(fs.getPath("/execroot/_tmp/actions/remote"));
     logDir = fs.getPath("/server-logs");
@@ -224,7 +224,6 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             ImmutableList.of("/bin/echo", "Hi!"),
             ImmutableMap.of("VARIABLE", "value"),
             /* executionInfo= */ ImmutableMap.<String, String>of(),
-            /* filesetMappings= */ ImmutableMap.of(),
             /* inputs= */ NestedSetBuilder.create(
                 Order.STABLE_ORDER, ActionInputHelper.fromPath("input")),
             /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -298,7 +297,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new ExponentialBackoff(remoteOptions),
-            RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
+            RemoteRetrier.GRPC_RESULT_CLASSIFIER,
             retryService);
     ReferenceCountedChannel channel =
         new ReferenceCountedChannel(
@@ -771,8 +770,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
   @Test
   public void remotelyExecuteRetries() throws Exception {
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
-        .thenReturn(true);
+    PathFragment execPath = ArgumentMatchers.<PathFragment>any();
+    when(remoteOutputChecker.shouldDownloadOutput(execPath, any())).thenReturn(true);
 
     serviceRegistry.addService(
         new ActionCacheImplBase() {
@@ -928,8 +927,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
 
   @Test
   public void remotelyExecuteRetriesWaitResult() throws Exception {
-    when(remoteOutputChecker.shouldDownloadOutput(ArgumentMatchers.<PathFragment>any()))
-        .thenReturn(true);
+    PathFragment execPath = ArgumentMatchers.<PathFragment>any();
+    when(remoteOutputChecker.shouldDownloadOutput(execPath, any())).thenReturn(true);
 
     // This test's flow is similar to the previous, except the result
     // will eventually be returned by the waitExecute function.
@@ -1189,6 +1188,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     SpawnResult result = client.exec(simpleSpawn, context);
 
     assertThat(result.status()).isEqualTo(SpawnResult.Status.REMOTE_CACHE_FAILED);
+    assertThat(result.failureDetail().getSpawn().getCode())
+        .isEqualTo(FailureDetails.Spawn.Code.REMOTE_CACHE_FAILED);
     assertThat(result.getFailureMessage()).contains(DigestUtil.toString(stdOutDigest));
     // Ensure we also got back the stack trace because verboseFailures=true
     assertThat(result.getFailureMessage())
@@ -1579,8 +1580,6 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             execRoot.asFragment(),
             artifactRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
             new ActionInputMap(0),
-            ImmutableList.of(),
-            StaticInputMetadataProvider.empty(),
             actionInputFetcher);
 
     return new FakeSpawnExecutionContext(

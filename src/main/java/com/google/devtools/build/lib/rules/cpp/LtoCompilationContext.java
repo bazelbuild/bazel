@@ -64,7 +64,8 @@ public final class LtoCompilationContext implements StarlarkValue, LtoCompilatio
      * The compiler flags used for the compile that should also be used when finishing compilation
      * during the LTO backend.
      */
-    ImmutableList<String> getCopts() {
+    @StarlarkMethod(name = "copts", structField = true, documented = false)
+    public ImmutableList<String> getCopts() {
       return copts;
     }
 
@@ -176,5 +177,10 @@ public final class LtoCompilationContext implements StarlarkValue, LtoCompilatio
   @Override
   public int hashCode() {
     return ltoBitcodeFiles.hashCode();
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true;
   }
 }

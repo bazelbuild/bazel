@@ -57,6 +57,7 @@ import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -65,6 +66,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -96,9 +98,9 @@ public final class GrpcServerTest {
             "response-cookie",
             serverDirectory,
             SERVER_PID,
-            1000,
-            false,
-            false,
+            /* maxIdleSeconds= */ 1000,
+            /* shutdownOnLowSysMem= */ false,
+            /* doIdleServerTasks= */ true,
             "slow interrupt message suffix");
     String uniqueName = InProcessServerBuilder.generateName();
     server =
@@ -144,6 +146,7 @@ public final class GrpcServerTest {
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
               List<Any> commandExtensions,
               CommandExtensionReporter commandExtensionReporter) {
             argsReceived.set(args);
@@ -196,6 +199,7 @@ public final class GrpcServerTest {
             clientDesc,
             startMs,
             startOpts,
+            idleTaskResultsSupplier,
             cmdExts,
             cmdExtOut) -> {
           // Send the first extension.
@@ -257,6 +261,7 @@ public final class GrpcServerTest {
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
               List<Any> commandExtensions,
               CommandExtensionReporter commandExtensionReporter) {
             synchronized (this) {
@@ -306,6 +311,7 @@ public final class GrpcServerTest {
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
               List<Any> commandExtensions,
               CommandExtensionReporter commandExtensionReporter) {
             OutputStream out = outErr.getOutputStream();
@@ -322,8 +328,7 @@ public final class GrpcServerTest {
                 BlazeCommandResult.success(),
                 ImmutableList.of(
                     Any.pack(StringValue.of("foo")),
-                    Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")))),
-                true);
+                    Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")))));
           }
         };
     createServer(dispatcher);
@@ -451,6 +456,7 @@ public final class GrpcServerTest {
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
               List<Any> commandExtensions,
               CommandExtensionReporter commandExtensionReporter) {
             OutputStream out = outErr.getOutputStream();
@@ -513,6 +519,7 @@ public final class GrpcServerTest {
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
               List<Any> commandExtensions,
               CommandExtensionReporter commandExtensionReporter)
               throws InterruptedException {
@@ -604,6 +611,7 @@ public final class GrpcServerTest {
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
               List<Any> commandExtensions,
               CommandExtensionReporter commandExtensionReporter) {
             if (args.contains(firstCommandArg)) {
@@ -700,6 +708,7 @@ public final class GrpcServerTest {
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
               List<Any> commandExtensions,
               CommandExtensionReporter commandExtensionReporter)
               throws InterruptedException {
@@ -802,6 +811,7 @@ public final class GrpcServerTest {
               String clientDescription,
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+              Supplier<ImmutableList<IdleTask.Result>> idleTaskResultsSupplier,
               List<Any> commandExtensions,
               CommandExtensionReporter commandExtensionReporter)
               throws InterruptedException {
@@ -1139,6 +1149,70 @@ public final class GrpcServerTest {
     server.awaitTermination();
   }
 
+  @Test
+  public void testIdleTasks() throws Exception {
+    CountDownLatch idleTaskRunning = new CountDownLatch(1);
+    AtomicReference<ImmutableList<IdleTask.Result>> idleTaskResults = new AtomicReference<>();
+
+    IdleTask idleTask =
+        new IdleTask() {
+          @Override
+          public String displayName() {
+            return "task";
+          }
+
+          @Override
+          public void run() {
+            idleTaskRunning.countDown();
+          }
+        };
+
+    CommandDispatcher dispatcher =
+        (invocationPolicy,
+            args,
+            outErr,
+            lockingMode,
+            uiVerbosity,
+            clientDescription,
+            firstContactTimeMillis,
+            startupOptionsTaggedWithBazelRc,
+            idleTaskResultsSupplier,
+            commandExtensions,
+            commandExtensionReporter) -> {
+          if (args.contains("1")) {
+            return BlazeCommandResult.withIdleTasks(
+                BlazeCommandResult.success(), ImmutableList.of(idleTask));
+          } else if (args.contains("2")) {
+            idleTaskResults.set(idleTaskResultsSupplier.get());
+            return BlazeCommandResult.success();
+          }
+          throw new IllegalStateException("Unexpected command");
+        };
+
+    createServer(dispatcher);
+    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+
+    List<RunResponse> firstCmdResponses = new ArrayList<>();
+    CountDownLatch firstCmdDone = new CountDownLatch(1);
+    stub.run(createRequest("1"), createResponseObserver(firstCmdResponses, firstCmdDone));
+    firstCmdDone.await();
+
+    idleTaskRunning.await();
+
+    List<RunResponse> secondCmdResponses = new ArrayList<>();
+    CountDownLatch secondCmdDone = new CountDownLatch(1);
+    stub.run(createRequest("2"), createResponseObserver(secondCmdResponses, secondCmdDone));
+    secondCmdDone.await();
+
+    server.shutdown();
+    server.awaitTermination();
+
+    assertThat(
+            idleTaskResults.get().stream()
+                .map(s -> new IdleTask.Result(s.name(), s.status(), Duration.ZERO)))
+        .containsExactly(new IdleTask.Result("task", IdleTask.Status.SUCCESS, Duration.ZERO));
+  }
+
   private static StreamObserver<RunResponse> createResponseObserver(
       List<RunResponse> responses, CountDownLatch done) {
     return new StreamObserver<RunResponse>() {
@@ -1168,6 +1242,7 @@ public final class GrpcServerTest {
         clientDescription,
         firstContactTimeMillis,
         startupOptionsTaggedWithBazelRc,
+        idleTaskResultsSupplier,
         commandExtensions,
         commandExtensionReporter) -> {
       throw new IllegalStateException("Command exec not expected");

@@ -18,15 +18,23 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
+import com.google.devtools.build.lib.skyframe.rewinding.LostInputOwners;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 
 /** Context to be informed of top-level outputs and their runfiles. */
 public interface ImportantOutputHandler extends ActionContext {
+
+  /**
+   * A threshold to pass to {@link com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils}
+   * for profiling {@link ImportantOutputHandler} operations.
+   */
+  Duration LOG_THRESHOLD = Duration.ofMillis(100);
 
   /**
    * Informs this handler that top-level outputs have been built.
@@ -34,16 +42,24 @@ public interface ImportantOutputHandler extends ActionContext {
    * <p>The handler may verify that remotely stored outputs are still available. Returns a map from
    * digest to output for any artifacts that need to be regenerated via action rewinding.
    *
-   * @param outputs top-level outputs
-   * @param expander used to expand {@linkplain Artifact#isDirectory directory artifacts} in {@code
-   *     outputs}
-   * @param metadataProvider provides metadata for artifacts in {@code outputs} and their expansions
+   * @param importantOutputs top-level outputs, excluding {@linkplain
+   *     com.google.devtools.build.lib.analysis.OutputGroupInfo#HIDDEN_OUTPUT_GROUP_PREFIX hidden
+   *     output groups}
+   * @param importantMetadataProvider provides metadata for artifacts in {@code importantOutputs}
+   *     and their expansions
+   * @param fullMetadataProvider like {@code importantMetadataProvider}, but additionally provides
+   *     metadata for artifacts in {@linkplain
+   *     com.google.devtools.build.lib.analysis.OutputGroupInfo#HIDDEN_OUTPUT_GROUP_PREFIX hidden
+   *     output groups} and their expansions
    * @return any artifacts that need to be regenerated via action rewinding
    * @throws ImportantOutputException for an issue processing the outputs, not including lost
    *     outputs which are reported in the returned {@link LostArtifacts}
    */
+  // TODO: jhorvitz - Find a cleaner way than passing two InputMetadataProviders.
   LostArtifacts processOutputsAndGetLostArtifacts(
-      Iterable<Artifact> outputs, ArtifactExpander expander, InputMetadataProvider metadataProvider)
+      Iterable<Artifact> importantOutputs,
+      InputMetadataProvider importantMetadataProvider,
+      InputMetadataProvider fullMetadataProvider)
       throws ImportantOutputException, InterruptedException;
 
   /**
@@ -56,10 +72,9 @@ public interface ImportantOutputHandler extends ActionContext {
    * @param runfiles mapping from {@code runfilesDir}-relative path to target artifact; values may
    *     be {@code null} to represent an empty file (can happen with {@code __init__.py} files, see
    *     {@link com.google.devtools.build.lib.rules.python.PythonUtils.GetInitPyFiles})
-   * @param expander used to expand {@linkplain Artifact#isDirectory directory artifacts} in {@code
-   *     runfiles}
    * @param metadataProvider provides metadata for artifacts in {@code runfiles} and their
    *     expansions
+   * @param inputManifestExtension the file extension of the input manifest
    * @return any artifacts that need to be regenerated via action rewinding
    * @throws ImportantOutputException for an issue processing the runfiles, not including lost
    *     outputs which are reported in the returned {@link LostArtifacts}
@@ -67,8 +82,8 @@ public interface ImportantOutputHandler extends ActionContext {
   LostArtifacts processRunfilesAndGetLostArtifacts(
       PathFragment runfilesDir,
       Map<PathFragment, Artifact> runfiles,
-      ArtifactExpander expander,
-      InputMetadataProvider metadataProvider)
+      InputMetadataProvider metadataProvider,
+      String inputManifestExtension)
       throws ImportantOutputException, InterruptedException;
 
   /**
@@ -102,24 +117,31 @@ public interface ImportantOutputHandler extends ActionContext {
       throws ImportantOutputException, InterruptedException;
 
   /**
-   * A threshold to pass to {@link
-   * com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils#logged(String, Duration)} for
-   * profiling {@link ImportantOutputHandler} operations.
+   * Represents artifacts that need to be regenerated via action rewinding, optionally along with
+   * their owners if known. If {@code owners} is present, the ownership information must be
+   * complete.
    */
-  Duration LOG_THRESHOLD = Duration.ofMillis(100);
+  record LostArtifacts(
+      ImmutableMap<String, ActionInput> byDigest, Optional<LostInputOwners> owners) {
 
-  /**
-   * Represents artifacts that need to be regenerated via action rewinding, along with their owners.
-   */
-  record LostArtifacts(ImmutableMap<String, ActionInput> byDigest, ActionInputDepOwners owners) {
+    /** An empty instance of {@link LostArtifacts}. */
+    public static final LostArtifacts EMPTY =
+        new LostArtifacts(ImmutableMap.of(), Optional.of(new LostInputOwners()));
 
-    public LostArtifacts(ImmutableMap<String, ActionInput> byDigest, ActionInputDepOwners owners) {
-      this.byDigest = checkNotNull(byDigest);
-      this.owners = checkNotNull(owners);
+    public LostArtifacts {
+      checkNotNull(byDigest);
+      checkNotNull(owners);
     }
 
     public boolean isEmpty() {
       return byDigest.isEmpty();
+    }
+
+    /** Throws {@link LostInputsExecException} if this instance is not empty. */
+    public void throwIfNotEmpty() throws LostInputsExecException {
+      if (!isEmpty()) {
+        throw new LostInputsExecException(byDigest, owners, /* cause= */ null);
+      }
     }
   }
 

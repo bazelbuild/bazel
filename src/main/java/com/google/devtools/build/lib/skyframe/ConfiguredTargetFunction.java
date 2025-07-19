@@ -13,9 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationIdMessage;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
-import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.maybeFetchSkyValueRemotely;
+import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.fetchRemoteSkyValue;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.Preconditions;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -70,6 +72,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -84,7 +87,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -269,15 +271,19 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               /* postFetch= */ () -> maybeAcquireSemaphoreWithLogging(key));
     }
 
-    switch (maybeFetchSkyValueRemotely(
-        configuredTargetKey, env, cachingDependenciesSupplier.get(), stateSupplier)) {
-      case SkyValueRetriever.Restart unused:
-        return null;
-      case SkyValueRetriever.RetrievedValue v:
-        analysisProgress.doneDownloadedConfiguredTarget();
-        return v.value();
-      case SkyValueRetriever.NoCachedData unused:
-        break;
+    RemoteAnalysisCachingDependenciesProvider remoteCachingDependencies =
+        cachingDependenciesSupplier.get();
+    if (remoteCachingDependencies.isRemoteFetchEnabled()) {
+      switch (fetchRemoteSkyValue(
+          configuredTargetKey, env, remoteCachingDependencies, stateSupplier)) {
+        case SkyValueRetriever.Restart unused:
+          return null;
+        case SkyValueRetriever.RetrievedValue v:
+          analysisProgress.doneDownloadedConfiguredTarget();
+          return v.value();
+        case SkyValueRetriever.NoCachedData unused:
+          break;
+      }
     }
 
     State state = env.getState(stateSupplier);
@@ -373,7 +379,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               prereqs.getConfigConditions(),
               toolchainContexts,
               computeDependenciesState.execGroupCollectionBuilder,
-              state.computeDependenciesState.transitivePackages());
+              state.computeDependenciesState.transitivePackages(),
+              /* crashIfExecutionPhase= */ !remoteCachingDependencies.isRemoteFetchEnabled(),
+              remoteCachingDependencies.mode());
       if (ans != null && analysisProgress != null) {
         analysisProgress.doneConfigureTarget();
       }
@@ -419,7 +427,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
-      @Nullable NestedSet<Package> transitivePackages)
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
+      boolean crashIfExecutionPhase,
+      RemoteAnalysisCacheMode remoteAnalysisCacheMode)
       throws ConfiguredValueCreationException, InterruptedException, ActionConflictException {
     Target target = ctgValue.getTarget();
     BuildConfigurationValue configuration = ctgValue.getConfiguration();
@@ -449,7 +459,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               configConditions,
               toolchainContexts,
               transitivePackages,
-              execGroupCollectionBuilder);
+              execGroupCollectionBuilder,
+              crashIfExecutionPhase);
     } catch (MissingDepException e) {
       Preconditions.checkState(env.valuesMissing(), e.getMessage());
       return null;
@@ -478,7 +489,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                               target.getLabel(),
                               configurationIdMessage(configuration),
                               createDetailedExitCode(event.getMessage())))
-                  .collect(Collectors.toList()));
+                  .collect(toImmutableList()));
       throw new ConfiguredValueCreationException(
           ctgValue.getTarget(),
           null,
@@ -505,6 +516,23 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           configuredTargetKey,
           analysisEnvironment.getRegisteredActions(),
           configuredTarget);
+      // If this is a Skycache download build, we check if it's an alias. For remote values, the
+      // package isn't present but the target data is present
+      if (remoteAnalysisCacheMode == RemoteAnalysisCacheMode.DOWNLOAD
+          && configuredTarget instanceof AliasConfiguredTarget alias) {
+        ConfiguredTargetValue configuredTargetValue =
+            (ConfiguredTargetValue) env.getValue(alias.getActual().getLookupKey());
+        // TODO: b/431749743 - The actual target's ConfiguredTargetValue is not a dependency of the
+        // alias's ConfiguredTargetValue. Still need to clarify why.
+        if (configuredTargetValue == null) {
+          return null;
+        }
+        if (configuredTargetValue
+            instanceof RemoteConfiguredTargetValue remoteConfiguredTargetValue) {
+          return new NonRuleConfiguredTargetValue(
+              configuredTarget, transitivePackages, remoteConfiguredTargetValue.getTargetData());
+        }
+      }
       return new NonRuleConfiguredTargetValue(configuredTarget, transitivePackages);
     }
   }

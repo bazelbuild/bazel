@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
@@ -20,7 +21,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
-import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /**
@@ -29,18 +29,11 @@ import com.google.devtools.build.skyframe.SkyKey;
  */
 public interface RemoteAnalysisCachingDependenciesProvider {
 
-  default boolean requiresBackendConnectivity() {
-    switch (mode()) {
-      case DOWNLOAD:
-      // fall through
-      case UPLOAD:
-        return true;
-      default:
-        return false;
-    }
-  }
-
   RemoteAnalysisCacheMode mode();
+
+  default boolean isRemoteFetchEnabled() {
+    return mode() == RemoteAnalysisCacheMode.DOWNLOAD;
+  }
 
   /** Value of RemoteAnalysisCachingOptions#serializedFrontierProfile. */
   String serializedFrontierProfile();
@@ -59,10 +52,12 @@ public interface RemoteAnalysisCachingDependenciesProvider {
    *
    * <p>Calling this can be an expensive process as the codec registry will be initialized.
    */
-  ObjectCodecs getObjectCodecs();
+  ObjectCodecs getObjectCodecs() throws InterruptedException;
 
   /** Returns the {@link FingerprintValueService} implementation. */
-  FingerprintValueService getFingerprintValueService();
+  FingerprintValueService getFingerprintValueService() throws InterruptedException;
+
+  RemoteAnalysisCacheClient getAnalysisCacheClient();
 
   void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);
 
@@ -70,7 +65,13 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   void setTopLevelConfigChecksum(String checksum);
 
-  ModifiedFileSet getDiffFromEvaluatingVersion();
+  /**
+   * Returns the set of SkyKeys to be invalidated.
+   *
+   * <p>May call the remote analysis cache to get the set of keys to invalidate.
+   */
+  ImmutableSet<SkyKey> lookupKeysToInvalidate(RemoteAnalysisCachingState remoteAnalysisCachingState)
+      throws InterruptedException;
 
   /** A stub dependencies provider for when analysis caching is disabled. */
   final class DisabledDependenciesProvider implements RemoteAnalysisCachingDependenciesProvider {
@@ -110,6 +111,11 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
+    public RemoteAnalysisCacheClient getAnalysisCacheClient() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key) {
       throw new UnsupportedOperationException();
     }
@@ -125,7 +131,8 @@ public interface RemoteAnalysisCachingDependenciesProvider {
     }
 
     @Override
-    public ModifiedFileSet getDiffFromEvaluatingVersion() {
+    public ImmutableSet<SkyKey> lookupKeysToInvalidate(
+        RemoteAnalysisCachingState remoteAnalysisCachingState) {
       throw new UnsupportedOperationException();
     }
   }

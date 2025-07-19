@@ -26,10 +26,10 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -149,9 +149,16 @@ public class SpawnIncludeScanner {
      * future.
      */
     private final ActionExecutionMetadata actionExecutionMetadata;
+
+    @Nullable private final PlatformInfo executionPlatform;
+
     private final String progressMessage;
 
-    GrepIncludesAction(ActionExecutionMetadata actionExecutionMetadata, PathFragment input) {
+    GrepIncludesAction(
+        ActionExecutionMetadata actionExecutionMetadata,
+        @Nullable PlatformInfo executionPlatform,
+        PathFragment input) {
+      this.executionPlatform = executionPlatform;
       this.actionExecutionMetadata = Preconditions.checkNotNull(actionExecutionMetadata);
       this.progressMessage = "Extracting include lines from " + input.getPathString();
     }
@@ -213,12 +220,18 @@ public class SpawnIncludeScanner {
 
     @Override
     public ImmutableMap<String, String> getExecProperties() {
+      if (executionPlatform != null) {
+        return executionPlatform.execProperties();
+      }
       return actionExecutionMetadata.getExecProperties();
     }
 
     @Override
     @Nullable
     public PlatformInfo getExecutionPlatform() {
+      if (executionPlatform != null) {
+        return executionPlatform;
+      }
       return actionExecutionMetadata.getExecutionPlatform();
     }
 
@@ -256,7 +269,7 @@ public class SpawnIncludeScanner {
 
     @Override
     public String getKey(
-        ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
+        ActionKeyContext actionKeyContext, @Nullable InputMetadataProvider inputMetadataProvider) {
       throw new UnsupportedOperationException();
     }
 
@@ -291,6 +304,7 @@ public class SpawnIncludeScanner {
       ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
       Artifact grepIncludes,
+      @Nullable PlatformInfo grepIncludesExecutionPlatform,
       GrepIncludesFileType fileType,
       boolean isOutputFile)
       throws IOException, ExecException, InterruptedException {
@@ -318,7 +332,8 @@ public class SpawnIncludeScanner {
             // that _this does not work_. We call Spawn.getResourceOwner().getMnemonic() in a lot of
             // places, some of which are downstream from here, and doing so would cause the Spawn
             // and its owning ActionExecutionMetadata to be inconsistent with each other.
-            new GrepIncludesAction(actionExecutionMetadata, file.getExecPath()),
+            new GrepIncludesAction(
+                actionExecutionMetadata, grepIncludesExecutionPlatform, file.getExecPath()),
             actionExecutionContext,
             grepIncludes,
             fileType);

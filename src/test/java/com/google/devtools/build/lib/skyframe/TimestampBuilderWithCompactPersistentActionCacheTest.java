@@ -42,6 +42,8 @@ import org.junit.runners.JUnit4;
 public class TimestampBuilderWithCompactPersistentActionCacheTest extends TimestampBuilderTestCase {
   private final StoredEventHandler storedEventHandler = new StoredEventHandler();
   private Path cacheRoot;
+  private Path corruptedCacheRoot;
+  private Path tmpDir;
   private CompactPersistentActionCache cache;
 
   @Before
@@ -49,11 +51,14 @@ public class TimestampBuilderWithCompactPersistentActionCacheTest extends Timest
     // BlazeRuntime.setupLogging(Level.FINEST);  // Uncomment this for debugging.
 
     cacheRoot = scratch.dir("cacheRoot");
+    corruptedCacheRoot = scratch.dir("corruptedCacheRoot");
+    tmpDir = scratch.dir("cacheTmp");
     cache = createCache();
   }
 
   private CompactPersistentActionCache createCache() throws IOException {
-    return CompactPersistentActionCache.create(cacheRoot, clock, storedEventHandler);
+    return CompactPersistentActionCache.create(
+        cacheRoot, corruptedCacheRoot, tmpDir, clock, storedEventHandler);
   }
 
   private static NestedSet<Artifact> asNestedSet(Artifact... artifacts) {

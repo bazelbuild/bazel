@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 # Description:
 #   C++ utility tests for Bazel
 package(default_visibility = ["//visibility:public"])

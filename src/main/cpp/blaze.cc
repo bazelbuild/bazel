@@ -52,6 +52,8 @@
 #include <utility>
 #include <vector>
 
+#include "src/main/cpp/startup_interceptor.h"
+
 #if !defined(_WIN32)
 #include <sys/stat.h>
 #include <unistd.h>
@@ -432,13 +434,25 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   // https://github.com/openjdk/jdk/blob/2faf8b8d582183275b1fdc92313a1c63c1753e80/src/java.base/share/classes/sun/nio/fs/AbstractWatchKey.java#L40
   result.push_back("-Djdk.nio.file.WatchService.maxEventsPerPoll=10000");
 
+  // Disable warnings about unsafe memory access, which still occurs in
+  // protobuf.
+  // TODO: Drop this when protobuf uses VarHandle.
+  result.push_back("-Dsun.misc.unsafe.memory.access=allow");
+
+#if defined(_WIN32)
+  // See and use more than 64 CPUs on Windows.
+  // https://bugs.openjdk.org/browse/JDK-6942632
+  result.push_back("-XX:+IgnoreUnrecognizedVMOptions");
+  result.push_back("-XX:+UseAllWindowsProcessorGroups");
+#endif
+
   if (startup_options.host_jvm_debug) {
     BAZEL_LOG(USER)
         << "Running host JVM under debugger (listening on TCP port 5005).";
     // Start JVM so that it listens for a connection from a
     // JDWP-compliant debugger:
-    result.push_back("-Xdebug");
-    result.push_back("-Xrunjdwp:transport=dt_socket,server=y,address=5005");
+    result.push_back(
+        "-agentlib:jdwp=transport=dt_socket,server=y,address=5005");
   }
   result.insert(result.end(), user_options.begin(), user_options.end());
 
@@ -654,8 +668,8 @@ static void EnsureServerDir(const blaze_util::Path &server_dir) {
 }
 
 // Do a chdir into the workspace, and die if it fails.
-static const void GoToWorkspace(const WorkspaceLayout &workspace_layout,
-                                const string &workspace) {
+static void GoToWorkspace(const WorkspaceLayout &workspace_layout,
+                          const string &workspace) {
   if (workspace_layout.InWorkspace(workspace) &&
       !blaze_util::ChangeDirectory(workspace)) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
@@ -664,7 +678,7 @@ static const void GoToWorkspace(const WorkspaceLayout &workspace_layout,
   }
 }
 
-static const bool IsServerMode(const string &command) {
+static bool IsServerMode(const string &command) {
   return "exec-server" == command;
 }
 
@@ -899,12 +913,24 @@ static void StartServerAndConnect(
     const blaze_util::Path &server_dir, const WorkspaceLayout &workspace_layout,
     const string &workspace, const OptionProcessor &option_processor,
     const StartupOptions &startup_options, LoggingInfo *logging_info,
-    BlazeServer *server, const string &build_label) {
+    BlazeServer *server, const string &build_label,
+    StartupInterceptor *interceptor) {
+  if (interceptor != nullptr) {
+    interceptor->MaybeReroute(&startup_options, build_label);
+  }
+
   // Delete the old command_port file if it already exists. Otherwise we might
   // run into the race condition that we read the old command_port file before
   // the new server has written the new file and we try to connect to the old
   // port, run into a timeout and try again.
   (void)blaze_util::UnlinkPath(server_dir.GetRelative("command_port"));
+
+  // Delete the OOM file if it exists (e.g. leftover from a previous server that
+  // OOmed). Otherwise in the future we might incorrectly think this server
+  // OOMed.
+  if (blaze_util::UnlinkPath(GetOOMFilePath(startup_options.output_base))) {
+    BAZEL_LOG(INFO) << "Deleted old OOM file.";
+  }
 
   EnsureServerDir(server_dir);
 
@@ -965,10 +991,13 @@ static bool IsVolatileArg(const string &arg) {
 }
 
 // Returns true if the server needs to be restarted to accommodate changes
-// between the two argument lists.
+// between the two argument lists. Populates old_server_options and
+// new_server_options.
 static bool AreStartupOptionsDifferent(
     const vector<string> &running_server_args,
-    const vector<string> &requested_args) {
+    const vector<string> &requested_args,
+    vector<string> *old_server_options,
+    vector<string> *new_server_options) {
   // We need not worry about one side missing an argument and the other side
   // having the default value, since this command line is the canonical one for
   // this version of Bazel: either the default value is listed explicitly or it
@@ -1016,6 +1045,7 @@ static bool AreStartupOptionsDifferent(
                        "included in the current request:";
     for (const string &a : old_args) {
       BAZEL_LOG(INFO) << "  " << a;
+      old_server_options->push_back(a);
     }
   }
   if (!new_args.empty()) {
@@ -1023,6 +1053,7 @@ static bool AreStartupOptionsDifferent(
                        "included when creating the server:";
     for (const string &a : new_args) {
       BAZEL_LOG(INFO) << "  " << a;
+      new_server_options->push_back(a);
     }
   }
 
@@ -1053,11 +1084,31 @@ static bool KillRunningServerIfDifferentStartupOptions(
   // These strings contain null-separated command line arguments. If they are
   // the same, the server can stay alive, otherwise, it needs shuffle off this
   // mortal coil.
-  if (AreStartupOptionsDifferent(old_arguments, server_exe_args)) {
+  vector<string> old_server_options;
+  vector<string> new_server_options;
+  if (AreStartupOptionsDifferent(old_arguments, server_exe_args,
+                                 &old_server_options,
+                                 &new_server_options)) {
     logging_info->restart_reason = NEW_OPTIONS;
-    BAZEL_LOG(WARNING) << "Running " << startup_options.product_name
-                       << " server needs to be killed, because the startup "
-                          "options are different.";
+
+    string different_startup_options_message;
+
+    string old_options_str;
+    blaze_util::JoinStrings(old_server_options, ' ', &old_options_str);
+    different_startup_options_message +=
+        "\n  - Only in old server: " + old_options_str;
+
+    string new_options_str;
+    blaze_util::JoinStrings(new_server_options, ' ', &new_options_str);
+    different_startup_options_message +=
+        "\n  - Only in new server: " + new_options_str;
+
+    BAZEL_LOG(WARNING)
+        << "Running " << startup_options.product_name
+        << " server needs to be killed, because the following startup "
+           "options are different:"
+        << different_startup_options_message;
+
     server->KillRunningServer();
     return true;
   }
@@ -1126,12 +1177,14 @@ static ATTRIBUTE_NORETURN void RunClientServerMode(
     const StartupOptions &startup_options, LoggingInfo *logging_info,
     const std::optional<DurationMillis> extract_data_duration,
     const std::optional<DurationMillis> command_wait_duration,
-    BlazeServer *server, const string &build_label) {
+    BlazeServer *server, StartupInterceptor *interceptor,
+    const string &build_label) {
   while (true) {
     if (!server->Connected()) {
       StartServerAndConnect(server_exe, server_exe_args, server_dir,
                             workspace_layout, workspace, option_processor,
-                            startup_options, logging_info, server, build_label);
+                            startup_options, logging_info, server, build_label,
+                            interceptor);
     }
 
     // Check for the case when the workspace directory deleted and then gets
@@ -1294,31 +1347,31 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   // TODO(bazel-team):  We've also seen a failure during loading (creating
   // threads?) when ulimit -Hs 8192.  Characterize that and check for it here.
 
-  // Make the JVM use ISO-8859-1 for parsing its command line because "blaze
-  // run" doesn't handle non-ASCII command line arguments. This is apparently
-  // the most reliable way to select the platform default encoding.
-  //
-  // On Linux, only do this if the locale is available to avoid the JVM
-  // falling back to ASCII-only mode.
+  // Ensure that the JVM runs with a locale that supports Unicode characters in
+  // filenames, environment variables, etc. The approach differs by OS:
+  // - On macOS, the JVM always uses UTF-8, so we don't need to do anything.
+  // - On Windows, the JVM uses the system code page to determine the encoding.
+  //   For the embedded JDK, we force this to UTF-8 in minimize_jdk.sh.
+  // - On Linux, the JVM goes through the regular locale mechanism. In
+  //   particular, we can only force UTF-8 if we can find a locale that supports
+  //   it. Furthermore, for backwards compatibility with setups using other
+  //   encodings, we pick a Latin-1 locale if possible to support arbitrary byte
+  //   sequences, not just valid UTF-8.
+#ifdef __linux__
+  const char *want_locale = nullptr;
+  for (auto candidate_locale : {"en_US.ISO-8859-1", "C.UTF-8", "en_US.UTF-8"}) {
+    locale_t locale = newlocale(LC_CTYPE_MASK, candidate_locale, nullptr);
+    if (locale != nullptr) {
+      freelocale(locale);
+      want_locale = candidate_locale;
+      break;
+    }
+  }
 
-  const char *want_locale = "en_US.ISO-8859-1";
-  bool override_locale = true;
-#ifndef _WIN32
-  locale_t iso_locale = newlocale(LC_CTYPE_MASK, want_locale, (locale_t)0);
-  if (iso_locale == 0) {
-    // ISO-8859-1 locale not available, use whatever the user has defined.
-    override_locale = false;
-  } else {
-    freelocale(iso_locale);
+  if (want_locale != nullptr) {
+    result["LC_ALL"] = EnvVarValue(EnvVarAction::SET, want_locale);
   }
 #endif
-
-  if (override_locale) {
-    result["LANG"] = EnvVarValue(EnvVarAction::SET, want_locale);
-    result["LANGUAGE"] = EnvVarValue(EnvVarAction::SET, want_locale);
-    result["LC_ALL"] = EnvVarValue(EnvVarAction::SET, want_locale);
-    result["LC_CTYPE"] = EnvVarValue(EnvVarAction::SET, want_locale);
-  }
 
   return result;
 }
@@ -1340,29 +1393,33 @@ static string CheckAndGetBinaryPath(const string &cwd, const string &argv0) {
 }
 
 static int GetExitCodeForAbruptExit(const blaze_util::Path &output_base) {
-  BAZEL_LOG(INFO) << "Looking for a custom exit-code.";
-  blaze_util::Path filename =
-      output_base.GetRelative("exit_code_to_use_on_abrupt_exit");
-  std::string content;
-  if (!blaze_util::ReadFile(filename, &content)) {
-    BAZEL_LOG(INFO) << "Unable to read the custom exit-code file. "
-                    << "Exiting with an INTERNAL_ERROR.";
-    return blaze_exit_code::INTERNAL_ERROR;
+  BAZEL_LOG(INFO) << "Looking for a custom exit-code file.";
+  blaze_util::Path exit_code_file_path = GetAbruptExitFilePath(output_base);
+  if (blaze_util::PathExists(exit_code_file_path)) {
+    std::string content;
+    if (!blaze_util::ReadFile(exit_code_file_path, &content)) {
+      BAZEL_LOG(INFO) << "Unable to read the custom exit-code file. "
+                      << "Exiting with an INTERNAL_ERROR.";
+      return blaze_exit_code::INTERNAL_ERROR;
+    }
+    int custom_exit_code;
+    if (!blaze_util::safe_strto32(content, &custom_exit_code)) {
+      BAZEL_LOG(INFO) << "Content of custom exit-code file not an int: "
+                      << content << "Exiting with an INTERNAL_ERROR.";
+      return blaze_exit_code::INTERNAL_ERROR;
+    }
+    BAZEL_LOG(INFO) << "Read exit code " << custom_exit_code
+                    << " from custom exit-code file. Exiting accordingly.";
+    return custom_exit_code;
   }
-  if (!blaze_util::UnlinkPath(filename)) {
-    BAZEL_LOG(INFO) << "Unable to delete the custom exit-code file. "
-                    << "Exiting with an INTERNAL_ERROR.";
-    return blaze_exit_code::INTERNAL_ERROR;
+  BAZEL_LOG(INFO) << "No custom exit-code file found. Looking for an OOM file.";
+  if (blaze_util::PathExists(GetOOMFilePath(output_base))) {
+    BAZEL_LOG(INFO) << "The JVM wrote the OOM file. Exiting with OOM_ERROR.";
+    return blaze_exit_code::OOM_ERROR;
   }
-  int custom_exit_code;
-  if (!blaze_util::safe_strto32(content, &custom_exit_code)) {
-    BAZEL_LOG(INFO) << "Content of custom exit-code file not an int: "
-                    << content << "Exiting with an INTERNAL_ERROR.";
-    return blaze_exit_code::INTERNAL_ERROR;
-  }
-  BAZEL_LOG(INFO) << "Read exit code " << custom_exit_code
-                  << " from custom exit-code file. Exiting accordingly.";
-  return custom_exit_code;
+  BAZEL_LOG(INFO) << "Unable to determine why the server exited abruptly. "
+                  << "Exiting with INTERNAL_ERROR.";
+  return blaze_exit_code::INTERNAL_ERROR;
 }
 
 void PrintBazelLeaf() {
@@ -1438,7 +1495,8 @@ static void RunLauncher(const string &self_path,
                         const StartupOptions &startup_options,
                         const OptionProcessor &option_processor,
                         const WorkspaceLayout &workspace_layout,
-                        const string &workspace, LoggingInfo *logging_info) {
+                        const string &workspace, LoggingInfo *logging_info,
+                        StartupInterceptor *interceptor) {
   blaze_server = new BlazeServer(startup_options);
 
   const std::optional<DurationMillis> command_wait_duration =
@@ -1511,15 +1569,16 @@ static void RunLauncher(const string &self_path,
   } else {
     string build_label;
     ExtractBuildLabel(self_path, &build_label);
-    RunClientServerMode(server_exe, server_exe_args, server_dir,
-                        workspace_layout, workspace, option_processor,
-                        startup_options, logging_info, extract_data_duration,
-                        command_wait_duration, blaze_server, build_label);
+    RunClientServerMode(
+        server_exe, server_exe_args, server_dir, workspace_layout, workspace,
+        option_processor, startup_options, logging_info, extract_data_duration,
+        command_wait_duration, blaze_server, interceptor, build_label);
   }
 }
 
 int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
-         OptionProcessor *option_processor, uint64_t start_time) {
+         OptionProcessor *option_processor, StartupInterceptor *interceptor,
+         uint64_t start_time) {
   blaze_util::InitializeStdOutErrForUtf8();
 
   // Logging must be set first to assure no log statements are missed.
@@ -1611,7 +1670,8 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   PrepareDirectories(startup_options);
 
   RunLauncher(self_path, archive_contents, install_md5, *startup_options,
-              *option_processor, *workspace_layout, workspace, &logging_info);
+              *option_processor, *workspace_layout, workspace, &logging_info,
+              interceptor);
   return 0;
 }
 

@@ -19,13 +19,12 @@ import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAM
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -52,7 +51,7 @@ public final class SymlinkTreeHelperTest {
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final Path execRoot = fs.getPath("/execroot");
   private final ArtifactRoot outputRoot =
-      ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+      ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "out");
 
   @Before
   public void setUp() throws Exception {
@@ -60,82 +59,34 @@ public final class SymlinkTreeHelperTest {
   }
 
   @Test
-  public void checkCreatedSpawn() {
-    Path execRoot = fs.getPath("/my/workspace");
-    Path inputManifestPath = execRoot.getRelative("input_manifest");
-    Path outputManifestPath = execRoot.getRelative("output/MANIFEST");
-    Path symlinkTreeRoot = execRoot.getRelative("output");
-    BinTools binTools =
-        BinTools.forUnitTesting(execRoot, ImmutableList.of(SymlinkTreeHelper.BUILD_RUNFILES));
-    Command command =
-        new SymlinkTreeHelper(
-                execRoot, inputManifestPath, outputManifestPath, symlinkTreeRoot, false, "__main__")
-            .createCommand(binTools, ImmutableMap.of());
-    assertThat(command.getEnvironment()).isEmpty();
-    assertThat(command.getWorkingDirectory()).isEqualTo(execRoot.getPathFile());
-    ImmutableList<String> commandLine = command.getArguments();
-    assertThat(commandLine).hasSize(4);
-    assertThat(commandLine.get(0)).endsWith(SymlinkTreeHelper.BUILD_RUNFILES);
-    assertThat(commandLine.get(1)).isEqualTo("--allow_relative");
-    assertThat(commandLine.get(2)).isEqualTo("input_manifest");
-    assertThat(commandLine.get(3)).isEqualTo("output");
-  }
-
-  @Test
-  public void readManifest() {
-    PathFragment execRoot = PathFragment.create("/my/workspace");
-
-    FilesetOutputSymlink link =
-        FilesetOutputSymlink.createForTesting(
-            PathFragment.create("from"), PathFragment.create("to"), execRoot);
-
-    Map<PathFragment, PathFragment> symlinks =
-        SymlinkTreeHelper.processFilesetLinks(ImmutableList.of(link), "workspace", execRoot);
-    assertThat(symlinks)
-        .containsExactly(PathFragment.create("workspace/from"), PathFragment.create("to"));
-  }
-
-  @Test
-  public void readMultilineManifest() {
-    PathFragment execRoot = PathFragment.create("/my/workspace");
-
+  public void processFilesetLinks() {
+    Artifact target1 = ActionsTestUtil.createArtifact(outputRoot, "target1");
+    Artifact target2 = ActionsTestUtil.createArtifact(outputRoot, "target2");
+    FileArtifactValue metadata =
+        FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3, 4}, null, 10);
     FilesetOutputSymlink link1 =
-        FilesetOutputSymlink.createForTesting(
-            PathFragment.create("from"), PathFragment.create("to"), execRoot);
+        new FilesetOutputSymlink(PathFragment.create("from1"), target1, metadata);
     FilesetOutputSymlink link2 =
-        FilesetOutputSymlink.createForTesting(
-            PathFragment.create("foo"), PathFragment.create("/bar"), execRoot);
-    FilesetOutputSymlink link3 =
-        FilesetOutputSymlink.createAlreadyRelativizedForTesting(
-            PathFragment.create("rel"), PathFragment.create("path"), true);
-    FilesetOutputSymlink link4 =
-        FilesetOutputSymlink.createAlreadyRelativizedForTesting(
-            PathFragment.create("rel2"), PathFragment.create("/path"), false);
+        new FilesetOutputSymlink(PathFragment.create("from2"), target2, metadata);
 
     Map<PathFragment, PathFragment> symlinks =
-        SymlinkTreeHelper.processFilesetLinks(
-            ImmutableList.of(link1, link2, link3, link4), "workspace2", execRoot);
+        SymlinkTreeHelper.processFilesetLinks(ImmutableList.of(link1, link2), "workspace");
     assertThat(symlinks)
         .containsExactly(
-            PathFragment.create("workspace2/from"),
-            PathFragment.create("to"),
-            PathFragment.create("workspace2/foo"),
-            PathFragment.create("/bar"),
-            PathFragment.create("workspace2/rel"),
-            execRoot.getRelative("path"),
-            PathFragment.create("workspace2/rel2"),
-            PathFragment.create("/path"));
+            PathFragment.create("workspace/from1"),
+            target1.getPath().asFragment(),
+            PathFragment.create("workspace/from2"),
+            target2.getPath().asFragment());
   }
 
   @Test
-  public void createSymlinksDirectly(
-      @TestParameter TreeType treeType, @TestParameter boolean replace) throws Exception {
+  public void createSymlinks(@TestParameter TreeType treeType, @TestParameter boolean replace)
+      throws Exception {
     Path treeRoot = execRoot.getRelative("foo.runfiles");
     Path inputManifestPath = execRoot.getRelative("foo.runfiles_manifest");
     Path outputManifestPath = execRoot.getRelative("foo.runfiles/MANIFEST");
     SymlinkTreeHelper helper =
-        new SymlinkTreeHelper(
-            execRoot, inputManifestPath, outputManifestPath, treeRoot, false, WORKSPACE_NAME);
+        new SymlinkTreeHelper(inputManifestPath, outputManifestPath, treeRoot, WORKSPACE_NAME);
 
     Artifact file = ActionsTestUtil.createArtifact(outputRoot, "file");
     Artifact symlink = ActionsTestUtil.createUnresolvedSymlinkArtifact(outputRoot, "symlink");
@@ -164,7 +115,7 @@ public final class SymlinkTreeHelperTest {
         symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/file"), file);
         symlinkMap.put(PathFragment.create(WORKSPACE_NAME + "/symlink"), symlink);
 
-        helper.createRunfilesSymlinksDirectly(symlinkMap);
+        helper.createRunfilesSymlinks(symlinkMap);
       }
       case FILESET -> {
         HashMap<PathFragment, PathFragment> symlinkMap = new HashMap<>();
@@ -174,7 +125,7 @@ public final class SymlinkTreeHelperTest {
             PathFragment.create(WORKSPACE_NAME + "/symlink"),
             PathFragment.create("/path/to/target"));
 
-        helper.createFilesetSymlinksDirectly(symlinkMap);
+        helper.createFilesetSymlinks(symlinkMap);
       }
     }
 

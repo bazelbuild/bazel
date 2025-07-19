@@ -159,7 +159,7 @@ public final class CppLinkstampCompileHelper {
         buildInfoHeaderArtifacts.stream()
             .map(Artifact::getExecPathString)
             .collect(toImmutableList()),
-        CcCompilationHelper.getCoptsFromOptions(
+        CcStaticCompilationHelper.getCoptsFromOptions(
             ccToolchainProvider.getCppConfiguration(), semantics, sourceFile.getExecPathString()),
         /* cppModuleMap= */ null,
         needsPic,

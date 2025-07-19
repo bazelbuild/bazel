@@ -35,7 +35,7 @@ java_test(
     name = "JavaConfigurationTest",
     srcs = ["JavaConfigurationTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:junit4",
         "//third_party:truth",
@@ -63,6 +63,7 @@ java_test(
 java_test(
     name = "JavaInfoStarlarkApiTest",
     srcs = ["JavaInfoStarlarkApiTest.java"],
+    shard_count = 5,
     deps = [
         ":java_test_util",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -113,7 +114,7 @@ java_test(
     name = "JavaOptionsTest",
     srcs = ["JavaOptionsTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:guava",
@@ -125,12 +126,13 @@ java_test(
 java_test(
     name = "JavaRuntimeTest",
     srcs = ["JavaRuntimeTest.java"],
+    shard_count = 5,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:provider_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:template_variable_info",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
@@ -146,12 +148,14 @@ java_test(
 
 java_test(
     name = "JavaStarlarkApiTest",
-    timeout = "long",
     srcs = ["JavaStarlarkApiTest.java"],
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
+    shard_count = 15,
     deps = [
         ":java_compile_action_test_helper",
         ":java_test_util",
-        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
@@ -162,9 +166,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:dumper",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java",
-        "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
@@ -207,13 +209,14 @@ java_test(
     name = "JavaInfoCodecTest",
     srcs = ["JavaInfoCodecTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:dumper",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -225,7 +228,7 @@ java_library(
     srcs = ["JavaCompileActionTestHelper.java"],
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:optionsparser",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_option_converters",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:core_option_converters",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//third_party:guava",
     ],

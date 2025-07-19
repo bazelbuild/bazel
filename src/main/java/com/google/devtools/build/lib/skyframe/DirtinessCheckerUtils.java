@@ -150,7 +150,7 @@ public class DirtinessCheckerUtils {
     private static boolean isCacheableType(FileType fileType) {
       switch (fileType) {
         case INTERNAL:
-        case EXTERNAL:
+        case EXTERNAL_OTHER:
         case BUNDLED:
           return true;
         case EXTERNAL_REPO:

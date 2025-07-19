@@ -275,7 +275,7 @@ public interface ModuleArg {
       if (!repoName.isVisible()) {
         throw new InvalidArgumentException(
             String.format(
-                "No repo visible as %s from @%s", name(), repoName.getOwnerRepoDisplayString()),
+                "No repo visible as %s from @%s", name(), repoName.getContextRepoDisplayString()),
             Code.INVALID_ARGUMENTS);
       }
       return ImmutableMap.of(toString(), repoName);

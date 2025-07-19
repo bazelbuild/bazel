@@ -49,6 +49,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "src/main/tools/logging.h"
 #include "src/main/tools/process-tools.h"
 
 // Configures std{in,out,err} of the current process to serve as a daemon.
@@ -80,6 +81,8 @@ static void SetupStdio(const char* log_path, bool log_append) {
     err(EXIT_FAILURE, "dup failed");
   }
   assert(fd == STDERR_FILENO);
+
+  global_debug = stderr;
 }
 
 // Writes the given pid to a new file at pid_path.
@@ -112,6 +115,7 @@ static void WritePidFile(pid_t pid, const char* pid_path, int pid_done_fd) {
   close(pid_done_fd);
 }
 
+#ifdef __linux__
 static bool ShellEscapeNeeded(const char* arg) {
   static const char kDontNeedShellEscapeChars[] =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -232,6 +236,7 @@ static void WriteSystemdWrapper(const char* systemd_wrapper_path,
 static bool IsBinaryExecutable(const char* binary_path) {
   return access(binary_path, X_OK) == 0;
 }
+#endif
 
 static void ExecAsDaemon(const char* log_path, bool log_append,
                          const char* systemd_wrapper_path, int pid_done_fd,
@@ -275,12 +280,24 @@ static void ExecAsDaemon(const char* log_path, bool log_append,
   // the original exe.
   const char* systemd_run_path = "/usr/bin/systemd-run";
   if (systemd_wrapper_path != NULL && IsBinaryExecutable(systemd_run_path)) {
-    WriteSystemdWrapper(systemd_wrapper_path, exe, argv);
+    // Even if systemd-run is present and executable, we still need to run a
+    // command first to check if we can use it. There are some cases when the
+    // environment is not set up correctly, e.g. no DBUS available.
+    char* systemd_test_command;
+    asprintf(&systemd_test_command, "%s --user --scope -- /bin/true",
+             systemd_run_path);
+    int status = system(systemd_test_command);
+    free(systemd_test_command);
 
-    execl(systemd_run_path, systemd_run_path, "--user", "--scope", "--",
-          "/bin/bash", systemd_wrapper_path, NULL);
-    err(EXIT_FAILURE, "Failed to execute %s with systemd-run.", exe);
+    if (status == 0) {
+      WriteSystemdWrapper(systemd_wrapper_path, exe, argv);
+
+      execl(systemd_run_path, systemd_run_path, "--user", "--scope", "--",
+            "/bin/bash", systemd_wrapper_path, NULL);
+      err(EXIT_FAILURE, "Failed to execute %s with systemd-run.", exe);
+    }
   }
+
 #endif
 
   execv(exe, argv);
@@ -310,7 +327,20 @@ static void MoveToCgroup(pid_t pid, const char* cgroup_path) {
         strcmp(fs_vfstype, "cgroup2") == 0) {
       char* procs_path;
       asprintf(&procs_path, "%s%s/cgroup.procs", fs_file, cgroup_path);
-      WriteFile(procs_path, "%d", pid);
+      FILE* procs = fopen(procs_path, "w");
+      if (procs == NULL) {
+        PRINT_DEBUG(
+            "Failed to open %s. Falling back to running without cgroups",
+            procs_path);
+      } else if (fprintf(procs, "%d", pid) < 0) {
+        PRINT_DEBUG(
+            "Failed to write %s. Falling back to running without cgroups",
+            procs_path);
+      } else if (fclose(procs) < 0) {
+        PRINT_DEBUG(
+            "Failed to close %s. Falling back to running without cgroups",
+            procs_path);
+      }
       free(procs_path);
     }
   }

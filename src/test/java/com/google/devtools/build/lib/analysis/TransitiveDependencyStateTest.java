@@ -17,8 +17,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Comparator.comparing;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
@@ -26,18 +24,24 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
@@ -52,14 +56,16 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class TransitiveDependencyStateTest {
   private static final Random rng = new Random(0);
+  private static final Root fakeRoot =
+      Root.fromPath(new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/fake"));
 
   @Test
   public void singlyAddedPackages_areSorted() {
     var orderedPackages =
-        ImmutableList.<Package>of(
-            createMockPackage(PackageIdentifier.createInMainRepo("package1")),
-            createMockPackage(PackageIdentifier.createInMainRepo("package2")),
-            createMockPackage(PackageIdentifier.createInMainRepo("package3")));
+        ImmutableList.<Package.Metadata>of(
+            createFakePackageMetadata(PackageIdentifier.createInMainRepo("package1")),
+            createFakePackageMetadata(PackageIdentifier.createInMainRepo("package2")),
+            createFakePackageMetadata(PackageIdentifier.createInMainRepo("package3")));
     var workingCopy = new ArrayList<>(orderedPackages);
 
     for (int i = 0; i < 3; i++) {
@@ -78,9 +84,10 @@ public final class TransitiveDependencyStateTest {
   public void configuredTargetPackages_areSorted() {
     ImmutableList<ConfiguredTargetKey> orderedKeys = getOrderedConfiguredTargetKeys();
 
-    ImmutableList<Package> orderedPackages = createMockPackages(orderedKeys.size());
-    ImmutableList<NestedSet<Package>> orderedPackageNestedSets =
-        asSingletonNestedSets(orderedPackages);
+    ImmutableList<Package.Metadata> orderedPackageMetadataList =
+        createFakePackageMetadataList(orderedKeys.size());
+    ImmutableList<NestedSet<Package.Metadata>> orderedPackageMetadataNestedSets =
+        asSingletonNestedSets(orderedPackageMetadataList);
 
     var shuffledIndices = new ArrayList<Integer>();
     for (int i = 0; i < orderedKeys.size(); i++) {
@@ -93,12 +100,13 @@ public final class TransitiveDependencyStateTest {
       // Adds the entries to `state` in random order.
       Collections.shuffle(shuffledIndices, rng);
       for (int index : shuffledIndices) {
-        state.updateTransitivePackages(orderedKeys.get(index), orderedPackageNestedSets.get(index));
+        state.updateTransitivePackages(
+            orderedKeys.get(index), orderedPackageMetadataNestedSets.get(index));
       }
 
       // The result is always ordered.
       assertThat(state.transitivePackages().toList())
-          .containsExactlyElementsIn(orderedPackages)
+          .containsExactlyElementsIn(orderedPackageMetadataList)
           .inOrder();
     }
   }
@@ -107,9 +115,10 @@ public final class TransitiveDependencyStateTest {
   public void aspectPackages_areSorted() {
     ImmutableList<AspectKey> orderedKeys = getOrderedAspectKeys();
 
-    ImmutableList<Package> orderedPackages = createMockPackages(orderedKeys.size());
-    ImmutableList<NestedSet<Package>> orderedPackageNestedSets =
-        asSingletonNestedSets(orderedPackages);
+    ImmutableList<Package.Metadata> orderedPackageMetadataList =
+        createFakePackageMetadataList(orderedKeys.size());
+    ImmutableList<NestedSet<Package.Metadata>> orderedPackagMetadataNestedSets =
+        asSingletonNestedSets(orderedPackageMetadataList);
 
     var shuffledIndices = new ArrayList<Integer>();
     for (int i = 0; i < orderedKeys.size(); i++) {
@@ -122,12 +131,13 @@ public final class TransitiveDependencyStateTest {
       // Adds the entries to `state` in random order.
       Collections.shuffle(shuffledIndices, rng);
       for (int index : shuffledIndices) {
-        state.updateTransitivePackages(orderedKeys.get(index), orderedPackageNestedSets.get(index));
+        state.updateTransitivePackages(
+            orderedKeys.get(index), orderedPackagMetadataNestedSets.get(index));
       }
 
       // The result is always ordered.
       assertThat(state.transitivePackages().toList())
-          .containsExactlyElementsIn(orderedPackages)
+          .containsExactlyElementsIn(orderedPackageMetadataList)
           .inOrder();
     }
   }
@@ -137,13 +147,18 @@ public final class TransitiveDependencyStateTest {
         /* storeTransitivePackages= */ true, /* prerequisitePackages= */ p -> null);
   }
 
-  private static Package createMockPackage(PackageIdentifier id) {
-    var pkg = mock(Package.class);
-    when(pkg.getPackageIdentifier()).thenReturn(id);
-    return pkg;
+  private static Package.Metadata createFakePackageMetadata(PackageIdentifier id) {
+    return Package.Metadata.builder()
+        .packageIdentifier(id)
+        .buildFilename(
+            RootedPath.toRootedPath(
+                fakeRoot, fakeRoot.getRelative(id.getPackageFragment().getRelative("BUILD"))))
+        .repositoryMapping(RepositoryMapping.EMPTY)
+        .succinctTargetNotFoundErrors(PackageSettings.DEFAULTS.succinctTargetNotFoundErrors())
+        .build();
   }
 
-  private static ImmutableList<Package> createMockPackages(int count) {
+  private static ImmutableList<Package.Metadata> createFakePackageMetadataList(int count) {
     var orderedIds = new ArrayList<PackageIdentifier>(count);
     for (int i = 0; i < count; ++i) {
       orderedIds.add(PackageIdentifier.createInMainRepo("package" + i));
@@ -151,13 +166,16 @@ public final class TransitiveDependencyStateTest {
     // Scrambles the order so if the result is ordered it's not somehow due to package sorting.
     Collections.shuffle(orderedIds, rng);
     return orderedIds.stream()
-        .map(TransitiveDependencyStateTest::createMockPackage)
+        .map(TransitiveDependencyStateTest::createFakePackageMetadata)
         .collect(toImmutableList());
   }
 
-  private static ImmutableList<NestedSet<Package>> asSingletonNestedSets(List<Package> packages) {
-    return packages.stream()
-        .map(pkg -> NestedSetBuilder.<Package>stableOrder().add(pkg).build())
+  private static ImmutableList<NestedSet<Package.Metadata>> asSingletonNestedSets(
+      List<Package.Metadata> packageMetadataList) {
+    return packageMetadataList.stream()
+        .map(
+            pkgMetadata ->
+                NestedSetBuilder.<Package.Metadata>stableOrder().add(pkgMetadata).build())
         .collect(toImmutableList());
   }
 

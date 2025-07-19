@@ -125,8 +125,10 @@ Authorization: Bearer RANDOM-TOKEN
 
 def _update_integrity_attr(ctx, attrs, download_info):
     # We don't need to override the integrity attribute if sha256 is already specified.
-    integrity_override = {} if ctx.attr.sha256 else {"integrity": download_info.integrity}
-    return update_attrs(ctx.attr, attrs.keys(), integrity_override)
+    if ctx.attr.sha256 or ctx.attr.integrity:
+        return ctx.repo_metadata(reproducible = True)
+    integrity_override = {"integrity": download_info.integrity}
+    return ctx.repo_metadata(attrs_for_reproducibility = update_attrs(ctx.attr, attrs.keys(), integrity_override))
 
 def _http_archive_impl(ctx):
     """Implementation of the http_archive rule."""
@@ -148,6 +150,17 @@ def _http_archive_impl(ctx):
 
     download_remote_files(ctx)
     patch(ctx)
+
+    # Download the module file after applying patches since modules may decide
+    # to patch their packaged module and the patch may not apply to the file
+    # checked in to the registry. This overrides the file if it exists.
+    if ctx.attr.remote_module_file_urls:
+        ctx.download(
+            ctx.attr.remote_module_file_urls,
+            "MODULE.bazel",
+            auth = get_auth(ctx, ctx.attr.remote_module_file_urls),
+            integrity = ctx.attr.remote_module_file_integrity,
+        )
 
     return _update_integrity_attr(ctx, _http_archive_attrs, download_info)
 
@@ -315,6 +328,14 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "A map of file relative paths (key) to its integrity value (value). These relative paths should map " +
             "to the files (key) in the `remote_file_urls` attribute.",
     ),
+    "remote_module_file_urls": attr.string_list(
+        default = [],
+        doc = "For internal use only.",
+    ),
+    "remote_module_file_integrity": attr.string(
+        default = "",
+        doc = "For internal use only.",
+    ),
     "remote_patches": attr.string_dict(
         default = {},
         doc =
@@ -376,16 +397,10 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "not both.",
     ),
     "workspace_file": attr.label(
-        doc =
-            "The file to use as the `WORKSPACE` file for this repository. " +
-            "Either `workspace_file` or `workspace_file_content` can be " +
-            "specified, or neither, but not both.",
+        doc = "No-op attribute; do not use.",
     ),
     "workspace_file_content": attr.string(
-        doc =
-            "The content for the WORKSPACE file for this repository. " +
-            "Either `workspace_file` or `workspace_file_content` can be " +
-            "specified, or neither, but not both.",
+        doc = "No-op attribute; do not use.",
     ),
 }
 

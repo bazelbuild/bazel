@@ -150,6 +150,19 @@ public final class RemoteWorker {
     }
   }
 
+  private static class UnavailableInterceptor implements ServerInterceptor {
+
+    @Override
+    public <ReqT, RespT> Listener<ReqT> interceptCall(
+        ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
+      if (!call.getMethodDescriptor().getServiceName().contains("Capabilities")) {
+        call.close(Status.UNAVAILABLE, new Metadata());
+        return new ServerCall.Listener<ReqT>() {};
+      }
+      return Contexts.interceptCall(Context.current(), call, headers, next);
+    }
+  }
+
   public RemoteWorker(
       FileSystem fs,
       RemoteWorkerOptions workerOptions,
@@ -193,6 +206,9 @@ public final class RemoteWorker {
 
   public Server startServer() throws IOException {
     List<ServerInterceptor> interceptors = new ArrayList<>();
+    if (workerOptions.unavailable) {
+      interceptors.add(new UnavailableInterceptor());
+    }
     interceptors.add(new TracingMetadataUtils.ServerHeadersInterceptor());
     if (workerOptions.expectedAuthorizationToken != null) {
       interceptors.add(new AuthorizationTokenInterceptor(workerOptions.expectedAuthorizationToken));
@@ -387,7 +403,8 @@ public final class RemoteWorker {
                 .buildForCommand(ImmutableList.of("true"))
                 .toArray(new String[0]),
             ImmutableMap.of(),
-            sandboxPath.getParentDirectory().getPathFile());
+            sandboxPath.getParentDirectory().getPathFile(),
+            System.getenv());
     try {
       cmdResult = cmd.execute();
     } catch (CommandException e) {

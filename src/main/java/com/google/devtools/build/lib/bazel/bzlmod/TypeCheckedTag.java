@@ -15,11 +15,10 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableCollection;
-import com.google.devtools.build.lib.packages.Attribute;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.bazel.repository.AttributeUtils;
 import com.google.devtools.build.lib.packages.LabelConverter;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
-import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
@@ -36,7 +35,7 @@ import net.starlark.java.syntax.Location;
 @StarlarkBuiltin(name = "bazel_module_tag", documented = false)
 public class TypeCheckedTag implements Structure {
   private final TagClass tagClass;
-  private final Object[] attrValues;
+  private final ImmutableList<Object> attrValues;
   private final boolean devDependency;
 
   // The properties below are only used for error reporting.
@@ -45,7 +44,7 @@ public class TypeCheckedTag implements Structure {
 
   private TypeCheckedTag(
       TagClass tagClass,
-      Object[] attrValues,
+      ImmutableList<Object> attrValues,
       boolean devDependency,
       Location location,
       String tagClassName) {
@@ -60,69 +59,16 @@ public class TypeCheckedTag implements Structure {
   public static TypeCheckedTag create(
       TagClass tagClass, Tag tag, LabelConverter labelConverter, String moduleDisplayString)
       throws ExternalDepsException {
-    Object[] attrValues = new Object[tagClass.attributes().size()];
-    for (Map.Entry<String, Object> attrValue : tag.getAttributeValues().attributes().entrySet()) {
-      Integer attrIndex = tagClass.attributeIndices().get(attrValue.getKey());
-      if (attrIndex == null) {
-        throw ExternalDepsException.withMessage(
+    ImmutableList<Object> attrValues =
+        AttributeUtils.typeCheckAttrValues(
+            tagClass.attributes(),
+            tagClass.attributeIndices(),
+            tag.getAttributeValues().attributes(),
+            labelConverter,
             Code.BAD_MODULE,
-            "in tag at %s, unknown attribute %s provided%s",
-            tag.getLocation(),
-            attrValue.getKey(),
-            SpellChecker.didYouMean(attrValue.getKey(), tagClass.attributeIndices().keySet()));
-      }
-      Attribute attr = tagClass.attributes().get(attrIndex);
-      Object nativeValue;
-      try {
-        nativeValue =
-            attr.getType().convert(attrValue.getValue(), attr.getPublicName(), labelConverter);
-      } catch (ConversionException e) {
-        throw ExternalDepsException.withCauseAndMessage(
-            Code.BAD_MODULE,
-            e,
-            "in tag at %s, error converting value for attribute %s",
-            tag.getLocation(),
-            attr.getPublicName());
-      }
-
-      // Check that the value is actually allowed.
-      if (attr.checkAllowedValues() && !attr.getAllowedValues().apply(nativeValue)) {
-        throw ExternalDepsException.withMessage(
-            Code.BAD_MODULE,
-            "in tag at %s, the value for attribute %s %s",
-            tag.getLocation(),
-            attr.getPublicName(),
-            attr.getAllowedValues().getErrorReason(nativeValue));
-      }
-
-      attrValues[attrIndex] = Attribute.valueToStarlark(nativeValue);
-    }
-
-    // Check that all mandatory attributes have been specified, and fill in default values.
-    // Along the way, verify that labels in the attribute values refer to visible repos only.
-    for (int i = 0; i < attrValues.length; i++) {
-      Attribute attr = tagClass.attributes().get(i);
-      if (attr.isMandatory() && attrValues[i] == null) {
-        throw ExternalDepsException.withMessage(
-            Code.BAD_MODULE,
-            "in tag at %s, mandatory attribute %s isn't being specified",
-            tag.getLocation(),
-            attr.getPublicName());
-      }
-      if (attrValues[i] == null) {
-        attrValues[i] = Attribute.valueToStarlark(attr.getDefaultValueUnchecked());
-      }
-      try {
-        AttributeValues.validateSingleAttr(
-            attr.getPublicName(),
-            attrValues[i],
-            String.format("to the %s", moduleDisplayString),
-            String.format("tag '%s'", tag.getTagName()));
-      } catch (EvalException e) {
-        throw ExternalDepsException.withMessage(
-            Code.BAD_MODULE, "in tag at %s: %s", tag.getLocation(), e.getMessage());
-      }
-    }
+            ImmutableList.of(StarlarkThread.callStackEntry("<toplevel>", tag.getLocation())),
+            "'%s' tag".formatted(tag.getTagName()),
+            "to the %s".formatted(moduleDisplayString));
     return new TypeCheckedTag(
         tagClass, attrValues, tag.isDevDependency(), tag.getLocation(), tag.getTagName());
   }
@@ -147,7 +93,7 @@ public class TypeCheckedTag implements Structure {
     if (attrIndex == null) {
       return null;
     }
-    return attrValues[attrIndex];
+    return attrValues.get(attrIndex);
   }
 
   @Override
@@ -158,7 +104,7 @@ public class TypeCheckedTag implements Structure {
   @Nullable
   @Override
   public String getErrorMessageForUnknownField(String field) {
-    return "unknown attribute " + field;
+    return "unknown attribute " + field + SpellChecker.didYouMean(field, getFieldNames());
   }
 
   @Override

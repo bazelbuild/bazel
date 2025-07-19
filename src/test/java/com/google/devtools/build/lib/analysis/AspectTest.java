@@ -745,15 +745,16 @@ public class AspectTest extends AnalysisTestCase {
     scratch.file(
         "foo/shared_aspect.bzl",
         """
+        MyInfo = provider()
         def _shared_aspect_impl(target, ctx):
             shared_file = ctx.actions.declare_file("shared_file")
             ctx.actions.write(output = shared_file, content = "Shared content")
             lib = ctx.rule.attr.lib
             if lib:
-                result = depset([shared_file], transitive = [ctx.rule.attr.lib.prov])
+                result = depset([shared_file], transitive = [ctx.rule.attr.lib[MyInfo].prov])
             else:
                 result = depset([shared_file])
-            return struct(prov = result)
+            return MyInfo(prov = result)
 
         shared_aspect = aspect(
             implementation = _shared_aspect_impl,
@@ -766,7 +767,7 @@ public class AspectTest extends AnalysisTestCase {
         simple_rule = rule(
             implementation = _rule_impl,
             attrs = {"lib": attr.label(
-                providers = ["prov"],
+                providers = [MyInfo],
                 aspects = [shared_aspect],
             )},
         )
@@ -896,9 +897,6 @@ public class AspectTest extends AnalysisTestCase {
     assertContainsEvent(
         "Aspect 'FalseAdvertisementAspect', applied to '//a:s',"
             + " does not provide advertised provider 'RequiredProvider'");
-    assertContainsEvent(
-        "Aspect 'FalseAdvertisementAspect', applied to '//a:s',"
-            + " does not provide advertised provider 'advertised_provider'");
   }
 
   @Test
@@ -1134,20 +1132,15 @@ public class AspectTest extends AnalysisTestCase {
         a = aspect(
             implementation = _a_impl,
             attrs = {"_f": attr.label(
-                default = configuration_field(
-                    fragment = "cpp",
-                    name = "cc_toolchain",
-                ),
+                default = configuration_field(fragment = "coverage", name = "output_generator"),
             )},
         )
         r = rule(
             implementation = _r_impl,
             attrs = {
                 "_f": attr.label(
-                    default = configuration_field(
-                        fragment = "cpp",
-                        name = "cc_toolchain",
-                    ),
+                    default =
+                        configuration_field(fragment = "coverage", name = "output_generator"),
                 ),
                 "dep": attr.label(aspects = [a]),
             },

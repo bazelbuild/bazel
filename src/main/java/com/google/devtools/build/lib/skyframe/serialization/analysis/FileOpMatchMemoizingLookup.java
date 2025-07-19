@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.AlwaysMatch.ALWAYS_MATCH_RESULT;
 import static java.lang.Math.min;
 
 import com.google.common.util.concurrent.FutureCallback;
@@ -31,9 +32,9 @@ import java.util.concurrent.ConcurrentMap;
  * Matches {@link FileOpDependency} instances representing cached value dependencies against {@link
  * #changes}, containing file system content changes.
  *
- * <p>The {@code validityHorizon} (VH) has subtle semantics, but works correctly, even in the
- * presence of multiple overlapping nodes at different versions and VH values. See {@link
- * DepotDeltaValidator} and {@link VersionedChanges} for more details.
+ * <p>The {@code validityHorizon} (VH) parameter of {@link #getValueOrFuture} has subtle semantics,
+ * but works correctly, even in the presence of multiple overlapping nodes at different versions and
+ * VH values. See {@link VersionedChangesValidator} and {@link VersionedChanges} for more details.
  */
 final class FileOpMatchMemoizingLookup
     extends AbstractValueOrFutureMap<
@@ -64,21 +65,23 @@ final class FileOpMatchMemoizingLookup
 
   private FileOpMatchResultOrFuture populateFutureFileOpMatchResult(
       int validityHorizon, FutureFileOpMatchResult ownedFuture) {
-    switch (ownedFuture.key()) {
-      case FileDependencies file:
-        return aggregateAnyAdditionalFileDependencies(
-            file.findEarliestMatch(changes, validityHorizon), file, validityHorizon, ownedFuture);
-      case ListingDependencies listing:
+    return switch (ownedFuture.key()) {
+      case FileDependencies file ->
+          aggregateAnyAdditionalFileDependencies(
+              file.findEarliestMatch(changes, validityHorizon), file, validityHorizon, ownedFuture);
+      case ListingDependencies.AvailableListingDependencies listing -> {
         // Matches the listing (files inside the directory changed).
         int version = listing.findEarliestMatch(changes, validityHorizon);
         // Then matches the directory itself.
         FileDependencies realDirectory = listing.realDirectory();
-        return aggregateAnyAdditionalFileDependencies(
+        yield aggregateAnyAdditionalFileDependencies(
             min(version, realDirectory.findEarliestMatch(changes, validityHorizon)),
             realDirectory,
             validityHorizon,
             ownedFuture);
-    }
+      }
+      case ListingDependencies.MissingListingDependencies missingListing -> ALWAYS_MATCH_RESULT;
+    };
   }
 
   private FileOpMatchResultOrFuture aggregateAnyAdditionalFileDependencies(

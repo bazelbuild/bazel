@@ -163,13 +163,13 @@ public final class BlazeDirectories {
     return serverDirectories.getOutputBase();
   }
 
-  /** Returns the effective execution root, which may be virtualized. */
+  /** Returns the execution root base path with no workspace name fragment. */
   public Path getExecRootBase() {
     return serverDirectories.getExecRootBase();
   }
 
   /**
-   * Returns the local execution root of Google-internal Blaze. Virtualization is not respected.
+   * Returns the local execution root of Google-internal Blaze.
    *
    * <p>This method throws {@link NullPointerException} in Bazel. Use {@link #getExecRoot} instead.
    */
@@ -187,7 +187,7 @@ public final class BlazeDirectories {
   }
 
   /**
-   * Returns the local output path of Google-internal Blaze. Virtualization is not respected.
+   * Returns the local output path of Google-internal Blaze.
    *
    * <p>This method throws {@link NullPointerException} in Bazel. Use {@link #getOutputPath}
    * instead.
@@ -225,7 +225,7 @@ public final class BlazeDirectories {
    */
   public ArtifactRoot getBuildDataDirectory(String workspaceName) {
     return ArtifactRoot.asDerivedRoot(
-        getExecRoot(workspaceName), RootType.Output, getRelativeOutputPath(productName));
+        getExecRoot(workspaceName), RootType.OUTPUT, getRelativeOutputPath(productName));
   }
 
   /**

@@ -17,14 +17,14 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.FileOpNodeOrFuture.EmptyFileOpNode.EMPTY_FILE_OP_NODE;
-import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.FRONTIER_CANDIDATE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ConstantFileData.CONSTANT_FILE;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ConstantListingData.CONSTANT_LISTING;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataInfoOrFuture.ConstantNodeData.CONSTANT_NODE;
+import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_ANALYSIS_NODE;
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_EMPTY;
+import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_EXECUTION_NODE;
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_FILE;
 import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_LISTING;
-import static com.google.devtools.build.lib.skyframe.serialization.proto.DataType.DATA_TYPE_NODE;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.collect.ImmutableMap;
@@ -78,7 +78,8 @@ import javax.annotation.Nullable;
  * <ul>
  *   <li><b>Key</b>: formatted as {@code fingerprint(<version stamp>, <serialized SkyKey>)}.
  *   <li><b>Invalidation Data and Value</b>: formatted as {@code <invalidation data>, <serialized
- *       SkyValue>}.
+ *       SkyValue>}. The {@code invalidation data} consists of a {@link DataType} number followed by
+ *       a corresponding key, if it is not {@link DATA_TYPE_EMPTY}.
  * </ul>
  *
  * <p>Note that both {@code <invalidation data>} and {@code <serialized SkyValue>} are intended to
@@ -99,12 +100,9 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
 
   private final EventBus eventBus;
   private final ProfileCollector profileCollector;
-  private final AtomicInteger frontierValueCount;
+  private final AtomicInteger serializedCount;
 
-  /**
-   * Uploads the {@link FRONTIER_CANDIDATE} marked entries of {@code selection} to {@code
-   * fingerprintValueService}.
-   */
+  /** Uploads the entries of {@code selection} to {@code fingerprintValueService}. */
   static ListenableFuture<Void> uploadSelection(
       InMemoryGraph graph,
       LongVersionGetter versionGetter,
@@ -114,7 +112,7 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
       FingerprintValueService fingerprintValueService,
       EventBus eventBus,
       ProfileCollector profileCollector,
-      AtomicInteger frontierValueCount) {
+      AtomicInteger serializedCount) {
     var fileOpNodes = new FileOpNodeMemoizingLookup(graph);
     var fileDependencySerializer =
         new FileDependencySerializer(versionGetter, graph, fingerprintValueService);
@@ -130,7 +128,7 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
             writeStatuses,
             eventBus,
             profileCollector,
-            frontierValueCount);
+            serializedCount);
     selection.entrySet().parallelStream().forEach(serializer);
     writeStatuses.notifyAllStarted();
     return writeStatuses;
@@ -146,29 +144,25 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
       WriteStatusesFuture writeStatuses,
       EventBus eventBus,
       ProfileCollector profileCollector,
-      AtomicInteger frontierValueCount) {
+      AtomicInteger serializedCount) {
     this.graph = graph;
     this.codecs = codecs;
     this.frontierVersion = frontierVersion;
+
     this.fingerprintValueService = fingerprintValueService;
     this.fileOpNodes = fileOpNodes;
     this.fileDependencySerializer = fileDependencySerializer;
     this.writeStatuses = writeStatuses;
     this.eventBus = eventBus;
     this.profileCollector = profileCollector;
-    this.frontierValueCount = frontierValueCount;
+    this.serializedCount = serializedCount;
   }
 
   @Override
   public void accept(Map.Entry<SkyKey, SelectionMarking> entry) {
-    if (!entry.getValue().equals(FRONTIER_CANDIDATE)) {
-      return;
-    }
-    SkyKey key = entry.getKey();
-
     // TODO: b/371508153 - only upload nodes that were freshly computed by this invocation and
     // unaffected by local, un-submitted changes.
-
+    SkyKey key = entry.getKey();
     try {
       switch (key) {
         case ActionLookupKey actionLookupKey:
@@ -183,9 +177,9 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
           uploadEntry(artifact, checkNotNull(artifact.getArtifactOwner(), artifact));
           break;
         default:
-          throw new AssertionError("Unexpected selected type: " + key + " " + key.getClass());
+          throw new AssertionError("Unexpected selected type: " + key.getCanonicalName());
       }
-      frontierValueCount.getAndIncrement();
+      serializedCount.getAndIncrement();
       eventBus.post(new SerializedNodeEvent(key));
     } catch (SerializationException e) {
       writeStatuses.addWriteStatus(immediateFailedFuture(e));
@@ -203,13 +197,38 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
   }
 
   /** Key and value bytes representing a serialized Skyframe entry. */
-  private static class SerializedEntry {
+  private abstract static sealed class SerializedEntry
+      permits SerializedAnalysisEntry, SerializedExecutionEntry {
     private final PackedFingerprint versionedKey;
     private final byte[] valueBytes;
 
     private SerializedEntry(PackedFingerprint versionedKey, byte[] valueBytes) {
       this.versionedKey = versionedKey;
       this.valueBytes = valueBytes;
+    }
+
+    abstract boolean isExecutionValue();
+  }
+
+  private static final class SerializedAnalysisEntry extends SerializedEntry {
+    private SerializedAnalysisEntry(PackedFingerprint versionedKey, byte[] valueBytes) {
+      super(versionedKey, valueBytes);
+    }
+
+    @Override
+    boolean isExecutionValue() {
+      return false;
+    }
+  }
+
+  private static final class SerializedExecutionEntry extends SerializedEntry {
+    private SerializedExecutionEntry(PackedFingerprint versionedKey, byte[] valueBytes) {
+      super(versionedKey, valueBytes);
+    }
+
+    @Override
+    boolean isExecutionValue() {
+      return true;
     }
   }
 
@@ -228,7 +247,10 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
         fingerprintValueService.fingerprint(
             frontierVersion.concat(keyBytes.getObject().toByteArray()));
 
-    return new SerializedEntry(versionedKey, valueBytes.getObject().toByteArray());
+    byte[] bytes = valueBytes.getObject().toByteArray();
+    return key instanceof ActionLookupKey
+        ? new SerializedAnalysisEntry(versionedKey, bytes)
+        : new SerializedExecutionEntry(versionedKey, bytes);
   }
 
   private final class FileOpNodeProcessor implements FutureCallback<FileOpNodeOrEmpty>, Runnable {
@@ -295,9 +317,10 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
        *   <li>If {@code dataInfo} is null, the invalidation data is the {@link DATA_TYPE_EMPTY}
        *       value only.
        *   <li>Otherwise when {@code dataInfo} is non-null, the invalidation data starts with a type
-       *       value, {@link DATA_TYPE_FILE}, {@link DATA_TYPE_LISTING}, or {@link DATA_TYPE_NODE}
-       *       depending on {@code dataInfo}'s type. The invalidation data cache key follows the
-       *       type value.
+       *       value, {@link DATA_TYPE_FILE}, {@link DATA_TYPE_LISTING}, {@link
+       *       DATA_TYPE_ANALYSIS_NODE} or {@link DATA_TYPE_EXECUTION_NODE}, depending on {@code
+       *       dataInfo}'s and {@link FileOpNodeProcessor#entry}'s type. The invalidation data cache
+       *       key follows the type value.
        *   <li>The {@link #entry}'s value bytes.
        * </ol>
        */
@@ -326,7 +349,9 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
               writeStatuses.addWriteStatus(listing.writeStatus());
               break;
             case NodeInvalidationDataInfo node:
-              codedOut.writeEnumNoTag(DATA_TYPE_NODE.getNumber());
+              codedOut.writeEnumNoTag(
+                  (entry.isExecutionValue() ? DATA_TYPE_EXECUTION_NODE : DATA_TYPE_ANALYSIS_NODE)
+                      .getNumber());
               node.cacheKey().writeTo(codedOut);
               writeStatuses.addWriteStatus(node.writeStatus());
               break;

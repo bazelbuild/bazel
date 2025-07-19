@@ -45,6 +45,7 @@ class BazelVendorTest(test_base.TestBase):
             'common --java_language_version=8',
             'common --tool_java_language_version=8',
             'common --lockfile_mode=update',
+            'common --incompatible_disable_native_repo_rules',
             'startup --windows_enable_symlinks' if self.IsWindows() else '',
         ],
     )
@@ -56,11 +57,6 @@ class BazelVendorTest(test_base.TestBase):
     test_base.TestBase.tearDown(self)
 
   def generateBuiltinModules(self):
-    self.ScratchFile('platforms_mock/BUILD')
-    self.ScratchFile(
-        'platforms_mock/MODULE.bazel', ['module(name="local_config_platform")']
-    )
-
     self.ScratchFile('tools_mock/BUILD')
     self.ScratchFile('tools_mock/MODULE.bazel', ['module(name="bazel_tools")'])
     self.ScratchFile('tools_mock/tools/build_defs/repo/BUILD')
@@ -73,11 +69,20 @@ class BazelVendorTest(test_base.TestBase):
         'tools_mock/tools/build_defs/repo/http.bzl',
     )
     self.CopyFile(
+        self.Rlocation('io_bazel/tools/build_defs/repo/local.bzl'),
+        'tools_mock/tools/build_defs/repo/local.bzl',
+    )
+    self.CopyFile(
         self.Rlocation('io_bazel/tools/build_defs/repo/utils.bzl'),
         'tools_mock/tools/build_defs/repo/utils.bzl',
     )
 
+  def useMockBuiltinModules(self):
+    with open(self.Path('.bazelrc'), 'a', encoding='utf-8') as f:
+      f.write('common --override_repository=bazel_tools=tools_mock\n')
+
   def testBasicVendoring(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
     ).createCcModule('bbb', '2.0')
@@ -86,8 +91,6 @@ class BazelVendorTest(test_base.TestBase):
         [
             'bazel_dep(name = "bbb", version = "1.0")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -109,8 +112,6 @@ class BazelVendorTest(test_base.TestBase):
         [
             'bazel_dep(name = "bbb", version = "2.0")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('vendor/bbb+/foo')
@@ -123,12 +124,11 @@ class BazelVendorTest(test_base.TestBase):
     )  # foo should be removed due to re-vendor
 
   def testVendorFailsWithNofetch(self):
+    self.useMockBuiltinModules()
     self.ScratchFile(
         'MODULE.bazel',
         [
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -143,14 +143,13 @@ class BazelVendorTest(test_base.TestBase):
     )
 
   def testVendorAfterFetch(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0')
     self.ScratchFile(
         'MODULE.bazel',
         [
             'bazel_dep(name = "aaa", version = "1.0")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -162,14 +161,13 @@ class BazelVendorTest(test_base.TestBase):
     self.assertIn('aaa+', repos_vendored)
 
   def testVendoringMultipleTimes(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0')
     self.ScratchFile(
         'MODULE.bazel',
         [
             'bazel_dep(name = "aaa", version = "1.0")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -187,6 +185,7 @@ class BazelVendorTest(test_base.TestBase):
     self.AssertPathIsSymlink(repo_path)
 
   def testVendorRepo(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
     ).createCcModule('ccc', '1.0')
@@ -196,8 +195,6 @@ class BazelVendorTest(test_base.TestBase):
             'bazel_dep(name = "bbb", version = "1.0")',
             'bazel_dep(name = "ccc", version = "1.0", repo_name = "my_repo")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -211,14 +208,13 @@ class BazelVendorTest(test_base.TestBase):
     self.assertNotIn('aaa+', repos_vendored)
 
   def testVendorExistingRepo(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0')
     self.ScratchFile(
         'MODULE.bazel',
         [
             'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
@@ -233,6 +229,7 @@ class BazelVendorTest(test_base.TestBase):
     self.RunBazel(['vendor', '--vendor_dir=vendor', '--repo=@my_repo'])
 
   def testVendorInvalidRepo(self):
+    self.useMockBuiltinModules()
     # Invalid repo name (not canonical or apparent)
     exit_code, _, stderr = self.RunBazel(
         ['vendor', '--vendor_dir=vendor', '--repo=hello'], allow_failure=True
@@ -248,8 +245,6 @@ class BazelVendorTest(test_base.TestBase):
         'MODULE.bazel',
         [
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     exit_code, _, stderr = self.RunBazel(
@@ -265,6 +260,7 @@ class BazelVendorTest(test_base.TestBase):
     )
 
   def testIgnoreFromVendoring(self):
+    self.useMockBuiltinModules()
     # Repos should be excluded from vendoring:
     # 1.Local Repos, 2.Config Repos, 3.Repos declared in VENDOR.bazel file
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
@@ -279,22 +275,20 @@ class BazelVendorTest(test_base.TestBase):
             'use_repo(ext, "localRepo")',
             'use_repo(ext, "configRepo")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
         ],
     )
     self.ScratchFile('BUILD')
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD")',
             '',
-            'repo_rule1 = repository_rule(implementation=_repo_rule_impl)',
-            'repo_rule2 = repository_rule(implementation=_repo_rule_impl, ',
+            'repo_rule1 = repository_rule(implementation=impl)',
+            'repo_rule2 = repository_rule(implementation=impl, ',
             'local=True)',
-            'repo_rule3 = repository_rule(implementation=_repo_rule_impl, ',
+            'repo_rule3 = repository_rule(implementation=impl, ',
             'configure=True)',
             '',
             'def _ext_impl(ctx):',
@@ -321,7 +315,6 @@ class BazelVendorTest(test_base.TestBase):
     # Assert regular repo (from VENDOR.bazel), local and config repos are
     # not vendored
     self.assertNotIn('bazel_tools', repos_vendored)
-    self.assertNotIn('local_config_platform', repos_vendored)
     self.assertNotIn('+ext+localRepo', repos_vendored)
     self.assertNotIn('+ext+configRepo', repos_vendored)
     self.assertNotIn('+ext+regularRepo', repos_vendored)
@@ -337,10 +330,10 @@ class BazelVendorTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="venRepo")',
@@ -354,10 +347,10 @@ class BazelVendorTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'IhaveChanged\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="venRepo")',
@@ -419,10 +412,10 @@ class BazelVendorTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="justRepo")',
@@ -443,10 +436,10 @@ class BazelVendorTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'haha\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="justRepo")',
@@ -462,7 +455,7 @@ class BazelVendorTest(test_base.TestBase):
     # Assert repo in vendor is out-of-date, and the new one is fetched into
     # external and not a symlink
     self.assertIn(
-        "WARNING: <builtin>: Vendored repository '+ext+justRepo' is out-of-date"
+        "WARNING: Vendored repository '+ext+justRepo' is out-of-date"
         ' (Bazel version, flags, repo rule definition or attributes changed).'
         ' The up-to-date version will be fetched into the external cache and'
         ' used. To update the repo in the vendor directory, run the bazel'
@@ -492,10 +485,10 @@ class BazelVendorTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="venRepo")',
@@ -520,10 +513,10 @@ class BazelVendorTest(test_base.TestBase):
     self.ScratchFile(
         'extension.bzl',
         [
-            'def _repo_rule_impl(ctx):',
+            'def impl(ctx):',
             '    ctx.file("WORKSPACE")',
             '    ctx.file("BUILD", "filegroup(name=\'haha\')")',
-            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule = repository_rule(implementation=impl)',
             '',
             'def _ext_impl(ctx):',
             '    repo_rule(name="venRepo")',
@@ -550,7 +543,7 @@ class BazelVendorTest(test_base.TestBase):
         ['build', '@venRepo//:all', '--vendor_dir=vendor', '--nofetch'],
     )
     self.assertIn(
-        "WARNING: <builtin>: Vendored repository '+ext+venRepo' is out-of-date"
+        "WARNING: Vendored repository '+ext+venRepo' is out-of-date"
         ' (Bazel version, flags, repo rule definition or attributes changed)'
         " and fetching is disabled. Run build without the '--nofetch' option or"
         ' run the bazel vendor command to update it',
@@ -726,6 +719,7 @@ class BazelVendorTest(test_base.TestBase):
       self.AssertPathIsSymlink(repo_path)
 
   def testVendorConflictRegistryFile(self):
+    self.useMockBuiltinModules()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
@@ -741,8 +735,6 @@ class BazelVendorTest(test_base.TestBase):
         [
             'bazel_dep(name = "bbb", version = "1.0")',
             'local_path_override(module_name="bazel_tools", path="tools_mock")',
-            'local_path_override(module_name="local_config_platform", ',
-            'path="platforms_mock")',
             'single_version_override(',
             '  module_name = "aaa",',
             '  registry = "%s",' % another_registry.getURL(),

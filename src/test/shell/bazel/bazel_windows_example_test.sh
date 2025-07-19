@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -292,6 +292,7 @@ function test_java_test() {
 }
 
 function test_native_python() {
+  add_rules_python "MODULE.bazel"
   # On windows, we build a python executable zip as the python binary
   assert_build //examples/py_native:bin
   # run the python package directly, clearing out runfiles variables to
@@ -314,6 +315,7 @@ function test_native_python() {
 # default on your system. See this pull request for an example:
 # https://github.com/bazelbuild/continuous-integration/pull/1216
 function test_native_python_with_runfiles() {
+  add_rules_python "MODULE.bazel"
   BUILD_FLAGS="--enable_runfiles --build_python_zip=0"
   bazel build -s --verbose_failures $BUILD_FLAGS //examples/py_native:bin \
     || fail "Failed to build //examples/py_native:bin with runfiles support"
@@ -351,6 +353,7 @@ function test_native_python_with_python3() {
 }
 
 function test_python_test_with_data() {
+  add_rules_python "MODULE.bazel"
   touch BUILD
 
   mkdir data
@@ -368,6 +371,7 @@ EOF
 
   mkdir src
   cat >src/BUILD <<EOF
+load("@rules_python//python:py_test.bzl", "py_test")
 py_test(
   name = "data_test",
   srcs = ["data_test.py"],

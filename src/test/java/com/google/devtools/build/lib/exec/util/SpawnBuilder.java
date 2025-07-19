@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.exec.util;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -23,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -54,7 +52,6 @@ public final class SpawnBuilder {
   private final NestedSetBuilder<ActionInput> inputs = NestedSetBuilder.stableOrder();
   private final List<ActionInput> outputs = new ArrayList<>();
   @Nullable private Set<? extends ActionInput> mandatoryOutputs;
-  private final Map<Artifact, FilesetOutputTree> filesetMappings = new HashMap<>();
   private final NestedSetBuilder<ActionInput> tools = NestedSetBuilder.stableOrder();
 
   private ResourceSet resourceSet = ResourceSet.ZERO;
@@ -81,7 +78,6 @@ public final class SpawnBuilder {
         ImmutableList.copyOf(args),
         ImmutableMap.copyOf(environment),
         ImmutableMap.copyOf(executionInfo),
-        ImmutableMap.copyOf(filesetMappings),
         inputs.build(),
         tools.build(),
         ImmutableSet.copyOf(outputs),
@@ -165,6 +161,14 @@ public final class SpawnBuilder {
   }
 
   @CanIgnoreReturnValue
+  public SpawnBuilder withInputs(Iterable<? extends ActionInput> inputs) {
+    for (var input : inputs) {
+      this.inputs.add(input);
+    }
+    return this;
+  }
+
+  @CanIgnoreReturnValue
   public SpawnBuilder withInputs(String... names) {
     for (String name : names) {
       this.inputs.add(ActionInputHelper.fromPath(name));
@@ -207,13 +211,6 @@ public final class SpawnBuilder {
   @CanIgnoreReturnValue
   public SpawnBuilder withMandatoryOutputs(@Nullable Set<? extends ActionInput> mandatoryOutputs) {
     this.mandatoryOutputs = mandatoryOutputs;
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public SpawnBuilder withFilesetMapping(Artifact fileset, FilesetOutputTree filesetOutput) {
-    Preconditions.checkArgument(fileset.isFileset(), "Artifact %s is not fileset", fileset);
-    filesetMappings.put(fileset, filesetOutput);
     return this;
   }
 

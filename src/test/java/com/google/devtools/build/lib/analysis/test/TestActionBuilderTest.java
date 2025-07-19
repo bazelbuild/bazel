@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.test;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.base.Preconditions;
@@ -23,13 +22,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.RunfilesTreeAction;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -38,20 +40,22 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** {@link com.google.devtools.build.lib.analysis.test.TestActionBuilder} tests. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class TestActionBuilderTest extends BuildViewTestCase {
 
   @Before
@@ -61,9 +65,9 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     scratch.file(
         "tests/BUILD",
         "load('//test_defs:foo_test.bzl', 'foo_test')",
-        getPyLoad("py_binary"),
-        getPyLoad("py_test"),
-        "py_test(name = 'small_test_1',",
+        "load('//test_defs:foo_binary.bzl', 'foo_binary')",
+        "load('//test_defs:foo_library.bzl', 'foo_library')",
+        "foo_test(name = 'small_test_1',",
         "        srcs = ['small_test_1.py'],",
         "        data = [':xUnit'],",
         "        size = 'small',",
@@ -80,9 +84,9 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "        size = 'large',",
         "        tags = ['tag1'])",
         "",
-        "py_binary(name = 'notest',",
+        "foo_binary(name = 'notest',",
         "        srcs = ['notest.py'])",
-        "cc_library(name = 'xUnit')",
+        "foo_library(name = 'xUnit')",
         "",
         "test_suite(name = 'smallTests', tags=['small'])");
   }
@@ -574,6 +578,230 @@ public class TestActionBuilderTest extends BuildViewTestCase {
   }
 
   /**
+   * With the legacy test toolchain, a test action will run on the first execution platform,
+   * regardless of its constraints.
+   */
+  @Test
+  public void testFirstExecPlatformWithLegacyTestToolchain(
+      @TestParameter({"linux", "macos"}) String targetOs,
+      @TestParameter({"x86_64", "aarch64"}) String targetCpu)
+      throws Exception {
+    scratch.file(
+        "some_test.bzl",
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.write(script, "shell script goes here", is_executable = True)
+            return [
+                DefaultInfo(executable = script),
+            ]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            test = True,
+        )
+        """);
+    scratch.file(
+        "BUILD",
+        "load(':some_test.bzl', 'some_test')",
+        """
+        constraint_setting(name = "exec")
+        constraint_value(
+            name = "is_exec",
+            constraint_setting = ":exec",
+        )
+
+        [
+            platform(
+                name = "{}_{}_target".format(os, cpu),
+                constraint_values = [
+                    "%1$sos:" + os,
+                    "%1$scpu:" + cpu,
+                ],
+            )
+            for os in ["linux", "macos"]
+            for cpu in ["x86_64", "aarch64"]
+        ]
+
+        [
+            platform(
+                name = "{}_{}_exec".format(os, cpu),
+                constraint_values = [
+                    "%1$sos:" + os,
+                    "%1$scpu:" + cpu,
+                    ":is_exec",
+                ],
+                exec_properties = {
+                    "os": os,
+                    "cpu": cpu,
+                },
+            )
+            for os in ["linux", "macos"]
+            for cpu in ["x86_64", "aarch64"]
+        ]
+
+        some_test(name = "some_test")
+        """
+            .formatted(TestConstants.CONSTRAINTS_PACKAGE_ROOT));
+    useConfiguration(
+        String.format(
+            "--no%s//tools/test:incompatible_use_default_test_toolchain",
+            TestConstants.TOOLS_REPOSITORY.getCanonicalForm()),
+        "--platforms=//:%s_%s_target".formatted(targetOs, targetCpu),
+        "--extra_execution_platforms=//:linux_x86_64_exec,//:linux_aarch64_exec,//:macos_x86_64_exec,//:macos_aarch64_exec");
+    ImmutableList<Artifact.DerivedArtifact> testStatusList = getTestStatusArtifacts("//:some_test");
+    TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
+    assertThat(testAction.getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonicalUnchecked("//:linux_x86_64_exec"));
+    assertThat(testAction.getExecProperties()).containsExactly("os", "linux", "cpu", "x86_64");
+  }
+
+  /**
+   * With the default test toolchain, a test action should run on a platform that matches all
+   * constraints of the target platform.
+   */
+  @Test
+  public void testExecPlatformMatchesTargetConstraintsWithDefaultTestToolchain(
+      @TestParameter({"linux", "macos"}) String targetOs,
+      @TestParameter({"x86_64", "aarch64"}) String targetCpu)
+      throws Exception {
+    scratch.file(
+        "some_test.bzl",
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.write(script, "shell script goes here", is_executable = True)
+            return [
+                DefaultInfo(executable = script),
+            ]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            test = True,
+        )
+        """);
+    scratch.file(
+        "BUILD",
+        "load(':some_test.bzl', 'some_test')",
+        """
+        constraint_setting(name = "exec")
+        constraint_value(
+            name = "is_exec",
+            constraint_setting = ":exec",
+        )
+
+        [
+            platform(
+                name = "{}_{}_target".format(os, cpu),
+                constraint_values = [
+                    "%1$sos:" + os,
+                    "%1$scpu:" + cpu,
+                ],
+            )
+            for os in ["linux", "macos"]
+            for cpu in ["x86_64", "aarch64"]
+        ]
+
+        [
+            platform(
+                name = "{}_{}_exec".format(os, cpu),
+                constraint_values = [
+                    "%1$sos:" + os,
+                    "%1$scpu:" + cpu,
+                    ":is_exec",
+                ],
+                exec_properties = {
+                    "os": os,
+                    "cpu": cpu,
+                },
+            )
+            for os in ["linux", "macos"]
+            for cpu in ["x86_64", "aarch64"]
+        ]
+
+        some_test(name = "some_test")
+        """
+            .formatted(TestConstants.CONSTRAINTS_PACKAGE_ROOT));
+    useConfiguration(
+        String.format(
+            "--%s//tools/test:incompatible_use_default_test_toolchain",
+            TestConstants.TOOLS_REPOSITORY.getCanonicalForm()),
+        "--platforms=//:%s_%s_target".formatted(targetOs, targetCpu),
+        "--extra_execution_platforms=//:linux_x86_64_exec,//:linux_aarch64_exec,//:macos_x86_64_exec,//:macos_aarch64_exec");
+    ImmutableList<Artifact.DerivedArtifact> testStatusList = getTestStatusArtifacts("//:some_test");
+    TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
+    assertThat(testAction.getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonicalUnchecked("//:%s_%s_exec".formatted(targetOs, targetCpu)));
+    assertThat(testAction.getExecProperties()).containsExactly("os", targetOs, "cpu", targetCpu);
+  }
+
+  /**
+   * With the default test toolchain, a failure to find a suitable execution platform will result in
+   * a toolchain resolution error.
+   */
+  @Test
+  public void testNoMatchingExecPlatformWithDefaultTestToolchain() throws Exception {
+    scratch.file(
+        "some_test.bzl",
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.write(script, "shell script goes here", is_executable = True)
+            return [
+                DefaultInfo(executable = script),
+            ]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            test = True,
+        )
+        """);
+    scratch.file(
+        "BUILD",
+        "load(':some_test.bzl', 'some_test')",
+        """
+        constraint_setting(name = "exec")
+        constraint_value(
+            name = "is_exec",
+            constraint_setting = ":exec",
+        )
+
+        platform(
+            name = "linux_x86_64_target",
+            constraint_values = [
+                "%1$sos:linux",
+                "%1$scpu:x86_64",
+            ],
+        )
+
+        platform(
+            name = "macos_aarch64_exec",
+            constraint_values = [
+                "%1$sos:macos",
+                "%1$scpu:aarch64",
+                ":is_exec",
+            ],
+        )
+
+        some_test(name = "some_test")
+        """
+            .formatted(TestConstants.CONSTRAINTS_PACKAGE_ROOT));
+    useConfiguration(
+        String.format(
+            "--%s//tools/test:incompatible_use_default_test_toolchain",
+            TestConstants.TOOLS_REPOSITORY.getCanonicalForm()),
+        "--platforms=//:linux_x86_64_target",
+        "--host_platform=//:macos_aarch64_exec",
+        "--extra_execution_platforms=//:macos_aarch64_exec");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//:some_test")).isNull();
+    assertContainsEvent(
+        Pattern.compile(
+            "While resolving toolchains for target //:some_test: No matching toolchains found for"
+                + " types:.*?//tools/test:default_test_toolchain_type"));
+  }
+
+  /**
    * Overriding the exec group from within the test affects the way exec properties are selected.
    */
   @Test
@@ -781,6 +1009,114 @@ public class TestActionBuilderTest extends BuildViewTestCase {
       throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
     return target.getProvider(TestProvider.class).getTestParams().getTestStatusArtifacts();
+  }
+
+  @Test
+  public void testRunUnderConfiguredForTestExecPlatform() throws Exception {
+    scratch.file(
+        "some_test.bzl",
+        """
+        def _some_test_impl(ctx):
+            script = ctx.actions.declare_file(ctx.attr.name + ".sh")
+            ctx.actions.run_shell(
+                outputs = [script],
+                inputs = [],
+                command = "echo 'shell script goes here' > $@",
+            )
+            return [
+                DefaultInfo(executable = script),
+                testing.ExecutionInfo(exec_group = "alternative_test"),
+            ]
+
+        some_test = rule(
+            implementation = _some_test_impl,
+            test = True,
+            exec_groups = {
+                "test": exec_group(
+                    exec_compatible_with = [
+                        "%1$sos:linux",
+                    ],
+                ),
+                "alternative_test": exec_group(
+                    exec_compatible_with = [
+                        "%1$sos:android",
+                    ],
+                ),
+            },
+        )
+        """
+            .formatted(TestConstants.CONSTRAINTS_PACKAGE_ROOT));
+    scratch.file(
+        "BUILD",
+        """
+        load(':some_test.bzl', 'some_test')
+        platform(
+            name = "linux",
+            constraint_values = [
+                "%1$sos:linux",
+            ],
+        )
+        platform(
+            name = "windows",
+            constraint_values = [
+                "%1$sos:windows",
+            ],
+        )
+        platform(
+            name = "macos",
+            constraint_values = [
+                "%1$sos:macos",
+            ],
+        )
+        platform(
+            name = "android",
+            constraint_values = [
+                "%1$sos:android",
+            ],
+        )
+        genrule(
+            name = "run_under_tool",
+            outs = ["run_under_tool.sh"],
+            cmd = "echo 'runUnderTool' > $@",
+            executable = True,
+        )
+        some_test(
+            name = "some_test",
+            exec_compatible_with = ["%1$sos:macos"],
+        )
+        """
+            .formatted(TestConstants.CONSTRAINTS_PACKAGE_ROOT));
+    useConfiguration(
+        "--run_under=//:run_under_tool",
+        "--incompatible_bazel_test_exec_run_under",
+        "--platforms=//:windows",
+        "--host_platform=//:windows",
+        "--extra_execution_platforms=//:windows,//:android,//:linux,//:macos");
+
+    Action generateAction = getGeneratingAction(getExecutable("//:some_test"));
+    assertThat(generateAction.getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonicalUnchecked("//:macos"));
+
+    Action testAction = getGeneratingAction(getTestStatusArtifacts("//:some_test").get(0));
+    assertThat(testAction.getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonicalUnchecked("//:android"));
+
+    Artifact runUnderTool =
+        testAction.getInputs().toList().stream()
+            .filter(artifact -> artifact.getExecPath().getBaseName().equals("run_under_tool.sh"))
+            .findFirst()
+            .orElseThrow();
+    // TODO: The run_under_tool should be built for the exec platform of the test action, which
+    //  differs from the exec platform of the "test" exec group due to testing.ExecutionInfo.
+    //  Building for the "test" exec group is still preferred over building for the target platform
+    //  or the default exec platform of the test rule.
+    assertThat(
+            ((BuildConfigurationValue)
+                    getGeneratingAction(runUnderTool).getOwner().getBuildConfigurationInfo())
+                .getOptions()
+                .get(PlatformOptions.class)
+                .platforms)
+        .containsExactly(Label.parseCanonicalUnchecked("//:linux"));
   }
 
   private ImmutableList<Artifact.DerivedArtifact> getTestStatusArtifacts(

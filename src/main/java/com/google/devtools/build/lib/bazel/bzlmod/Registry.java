@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
@@ -50,7 +51,10 @@ public interface Registry extends NotComparableSkyValue {
    * by {@code key} should be materialized as a repo.
    */
   RepoSpec getRepoSpec(
-      ModuleKey key, ExtendedEventHandler eventHandler, DownloadManager downloadManager)
+      ModuleKey key,
+      ImmutableMap<String, Optional<Checksum>> moduleFileHashes,
+      ExtendedEventHandler eventHandler,
+      DownloadManager downloadManager)
       throws IOException, InterruptedException;
 
   /**

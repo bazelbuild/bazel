@@ -87,18 +87,20 @@ public class TestConfiguration extends Fragment {
 
     @Option(
         name = "test_env",
-        converter = Converters.OptionalAssignmentConverter.class,
+        converter = Converters.EnvVarsConverter.class,
         allowMultiple = true,
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.TESTING,
         effectTags = {OptionEffectTag.TEST_RUNNER},
         help =
             "Specifies additional environment variables to be injected into the test runner "
-                + "environment. Variables can be either specified by name, in which case its value "
-                + "will be read from the Bazel client environment, or by the name=value pair. "
+                + "environment. Variables can be either specified by <code>name</code>, in which "
+                + "case its value will be read from the Bazel client environment, or by the "
+                + "<code>name=value</code> pair. "
+                + "Previously set variables can be unset via <code>=name</code>. "
                 + "This option can be used multiple times to specify several variables. "
                 + "Used only by the 'bazel test' command.")
-    public List<Map.Entry<String, String>> testEnvironment;
+    public List<Converters.EnvVar> testEnvironment;
 
     @Option(
         name = "test_timeout",
@@ -333,16 +335,6 @@ public class TestConfiguration extends Fragment {
     public boolean zipUndeclaredTestOutputs;
 
     @Option(
-        name = "use_target_platform_for_tests",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-        effectTags = {OptionEffectTag.EXECUTION},
-        help =
-            "If true, then Bazel will use the target platform for running tests rather than "
-                + "the test exec group.")
-    public boolean useTargetPlatformForTests;
-
-    @Option(
         name = "incompatible_check_sharding_support",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -366,7 +358,7 @@ public class TestConfiguration extends Fragment {
     @Override
     public TestOptions getNormalized() {
       TestOptions result = (TestOptions) clone();
-      result.testEnvironment = normalizeEntries(testEnvironment);
+      result.testEnvironment = normalizeEnvVars(testEnvironment);
       return result;
     }
   }
@@ -472,10 +464,6 @@ public class TestConfiguration extends Fragment {
 
   public boolean getZipUndeclaredTestOutputs() {
     return options.zipUndeclaredTestOutputs;
-  }
-
-  public boolean useTargetPlatformForTests() {
-    return options.useTargetPlatformForTests;
   }
 
   public boolean checkShardingSupport() {

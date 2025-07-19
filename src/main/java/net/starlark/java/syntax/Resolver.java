@@ -14,6 +14,8 @@
 
 package net.starlark.java.syntax;
 
+import static net.starlark.java.types.Types.NO_PARAMS_CALLABLE;
+
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -27,6 +29,8 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
 
 /**
  * The Resolver resolves each identifier in a syntax tree to its binding, and performs other
@@ -155,6 +159,7 @@ public final class Resolver extends NodeVisitor {
     private final String name;
     private final Location location;
     private final ImmutableList<Parameter> params;
+    private final Types.CallableType functionType;
     private final ImmutableList<Statement> body;
     private final boolean hasVarargs;
     private final boolean hasKwargs;
@@ -170,6 +175,7 @@ public final class Resolver extends NodeVisitor {
         String name,
         Location loc,
         ImmutableList<Parameter> params,
+        Types.CallableType functionType,
         ImmutableList<Statement> body,
         boolean hasVarargs,
         boolean hasKwargs,
@@ -180,6 +186,7 @@ public final class Resolver extends NodeVisitor {
       this.name = name;
       this.location = loc;
       this.params = params;
+      this.functionType = functionType;
       this.body = body;
       this.hasVarargs = hasVarargs;
       this.hasKwargs = hasKwargs;
@@ -282,6 +289,10 @@ public final class Resolver extends NodeVisitor {
      */
     public ImmutableList<Parameter> getParameters() {
       return params;
+    }
+
+    public Types.CallableType getFunctionType() {
+      return functionType;
     }
 
     /**
@@ -818,6 +829,101 @@ public final class Resolver extends NodeVisitor {
     return bind;
   }
 
+  @Nullable
+  public StarlarkType resolveType(Resolver.Module module, Expression expr) {
+    switch (expr.kind()) {
+      case BINARY_OPERATOR:
+        // Syntax sugar for union types, i.e. a|b == Union[a,b]
+        BinaryOperatorExpression binop = (BinaryOperatorExpression) expr;
+        if (binop.getOperator() == TokenKind.PIPE) {
+          StarlarkType x = resolveType(module, binop.getX());
+          StarlarkType y = resolveType(module, binop.getY());
+          return Types.union(x, y);
+        }
+        break;
+      case IDENTIFIER:
+        Identifier id = (Identifier) expr;
+        // TODO(ilist@): consider moving resolution/TYPE_UNIVERSE into Module interface
+        Object result = Types.TYPE_UNIVERSE.get(id.getName());
+        if (result == null) {
+          // TODO(ilist@): include possible candidates in the error message
+          errorf(expr, "type '%s' is not defined", id.getName());
+          return Types.ANY;
+        }
+        if (result instanceof StarlarkType type) {
+          return type;
+        }
+      // TODO(ilist@): full evaluation: applications
+      // fall through
+      default:
+    }
+    errorf(expr, "expression '%s' is not a valid type.", expr);
+    return Types.ANY;
+  }
+
+  public Types.CallableType resolveFunctionType(
+      Resolver.Module module,
+      ImmutableList<Parameter> parameters,
+      @Nullable Expression returnTypeExpr) {
+    ImmutableList.Builder<String> names = ImmutableList.builder();
+    ImmutableList.Builder<StarlarkType> types = ImmutableList.builder();
+    ImmutableSet.Builder<String> mandatoryParameters = ImmutableSet.builder();
+
+    int nparams = parameters.size();
+    int numPositionalParameters = 0;
+    Parameter.Star star = null;
+    Parameter.StarStar starStar = null;
+    int i;
+    for (i = 0; i < nparams; i++) {
+      Parameter param = parameters.get(i);
+      if (param instanceof Parameter.Star pstar) {
+        star = pstar;
+        continue;
+      }
+      if (param instanceof Parameter.StarStar pstarstar) {
+        starStar = pstarstar;
+      }
+      if (star == null) {
+        numPositionalParameters++;
+      }
+
+      String name = param.getName();
+      Expression typeExpr = param.getType();
+
+      names.add(name);
+      types.add(typeExpr == null ? Types.ANY : resolveType(module, typeExpr));
+      if (param instanceof Parameter.Mandatory) {
+        mandatoryParameters.add(name);
+      }
+    }
+
+    StarlarkType varargsType = Types.NONE;
+    if (star != null && star.getIdentifier() != null) {
+      Expression typeExpr = star.getType();
+      varargsType = typeExpr == null ? Types.ANY : resolveType(module, typeExpr);
+    }
+
+    StarlarkType kwargsType = Types.NONE;
+    if (starStar != null) {
+      Expression typeExpr = starStar.getType();
+      kwargsType = typeExpr == null ? Types.ANY : resolveType(module, typeExpr);
+    }
+
+    StarlarkType returnType = Types.ANY;
+    if (returnTypeExpr != null) {
+      returnType = resolveType(module, returnTypeExpr);
+    }
+
+    return Types.callable(
+        names.build(),
+        types.build(),
+        numPositionalParameters,
+        mandatoryParameters.build(),
+        varargsType,
+        kwargsType,
+        returnType);
+  }
+
   // Common code for def, lambda.
   private Function resolveFunction(
       Node syntax, // DefStatement or LambdaExpression
@@ -914,10 +1020,19 @@ public final class Resolver extends NodeVisitor {
     visitAll(body);
     popLocalBlock();
 
+    Types.CallableType functionType = null;
+    if (syntax instanceof DefStatement def) {
+      functionType = resolveFunctionType(module, def.getParameters(), def.getReturnType());
+    } else if (syntax instanceof LambdaExpression lambda) {
+      functionType =
+          resolveFunctionType(module, lambda.getParameters(), /* returnTypeExpr= */ null);
+    }
+
     return new Function(
         name,
         loc,
         params.build(),
+        functionType,
         body,
         star != null && star.getIdentifier() != null,
         starStar != null,
@@ -1099,13 +1214,14 @@ public final class Resolver extends NodeVisitor {
         new Function(
             "<toplevel>",
             file.getStartLocation(),
-            /*params=*/ ImmutableList.of(),
-            /*body=*/ stmts,
-            /*hasVarargs=*/ false,
-            /*hasKwargs=*/ false,
-            /*numKeywordOnlyParams=*/ 0,
+            /* params= */ ImmutableList.of(),
+            /* functionType= */ NO_PARAMS_CALLABLE,
+            /* body= */ stmts,
+            /* hasVarargs= */ false,
+            /* hasKwargs= */ false,
+            /* numKeywordOnlyParams= */ 0,
             frame,
-            /*freevars=*/ ImmutableList.of(),
+            /* freevars= */ ImmutableList.of(),
             r.globals));
   }
 
@@ -1132,13 +1248,14 @@ public final class Resolver extends NodeVisitor {
     return new Function(
         "<expr>",
         expr.getStartLocation(),
-        /*params=*/ ImmutableList.of(),
+        /* params= */ ImmutableList.of(),
+        /* functionType= */ NO_PARAMS_CALLABLE,
         ImmutableList.of(ReturnStatement.make(expr)),
-        /*hasVarargs=*/ false,
-        /*hasKwargs=*/ false,
-        /*numKeywordOnlyParams=*/ 0,
+        /* hasVarargs= */ false,
+        /* hasKwargs= */ false,
+        /* numKeywordOnlyParams= */ 0,
         frame,
-        /*freevars=*/ ImmutableList.of(),
+        /* freevars= */ ImmutableList.of(),
         r.globals);
   }
 

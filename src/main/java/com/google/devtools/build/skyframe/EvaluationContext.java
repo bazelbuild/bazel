@@ -34,7 +34,10 @@ public class EvaluationContext {
   private final ExtendedEventHandler eventHandler;
   private final boolean isExecutionPhase;
   private final boolean mergingSkyframeAnalysisExecutionPhases;
+  private final boolean storeExactCycles;
   private final UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver;
+
+  private final boolean detectCycles;
 
   protected EvaluationContext(
       int parallelism,
@@ -43,14 +46,18 @@ public class EvaluationContext {
       ExtendedEventHandler eventHandler,
       boolean isExecutionPhase,
       boolean mergingSkyframeAnalysisExecutionPhases,
-      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver) {
+      boolean storeExactCycles,
+      UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver,
+      boolean detectCycles) {
     this.parallelism = parallelism;
     this.executor = executor;
     this.keepGoing = keepGoing;
     this.eventHandler = Preconditions.checkNotNull(eventHandler);
     this.isExecutionPhase = isExecutionPhase;
     this.mergingSkyframeAnalysisExecutionPhases = mergingSkyframeAnalysisExecutionPhases;
+    this.storeExactCycles = storeExactCycles;
     this.unnecessaryTemporaryStateDropperReceiver = unnecessaryTemporaryStateDropperReceiver;
+    this.detectCycles = detectCycles;
   }
 
   public int getParallelism() {
@@ -75,6 +82,10 @@ public class EvaluationContext {
 
   public boolean mergingSkyframeAnalysisExecutionPhases() {
     return mergingSkyframeAnalysisExecutionPhases;
+  }
+
+  public boolean storeExactCycles() {
+    return storeExactCycles;
   }
 
   /**
@@ -113,6 +124,10 @@ public class EvaluationContext {
     return unnecessaryTemporaryStateDropperReceiver;
   }
 
+  public boolean detectCycles() {
+    return detectCycles;
+  }
+
   public Builder builder() {
     return newBuilder().copyFrom(this);
   }
@@ -129,8 +144,11 @@ public class EvaluationContext {
     protected ExtendedEventHandler eventHandler;
     protected boolean isExecutionPhase = false;
     protected boolean mergingSkyframeAnalysisExecutionPhases;
+    protected boolean storeExactCycles = true;
     protected UnnecessaryTemporaryStateDropperReceiver unnecessaryTemporaryStateDropperReceiver =
         UnnecessaryTemporaryStateDropperReceiver.NULL;
+
+    protected boolean detectCycles = true;
 
     protected Builder() {}
 
@@ -143,8 +161,10 @@ public class EvaluationContext {
       this.isExecutionPhase = evaluationContext.isExecutionPhase;
       this.mergingSkyframeAnalysisExecutionPhases =
           evaluationContext.mergingSkyframeAnalysisExecutionPhases;
+      this.storeExactCycles = evaluationContext.storeExactCycles;
       this.unnecessaryTemporaryStateDropperReceiver =
           evaluationContext.unnecessaryTemporaryStateDropperReceiver;
+      this.detectCycles = evaluationContext.detectCycles;
       return this;
     }
 
@@ -192,6 +212,18 @@ public class EvaluationContext {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setStoreExactCycles(boolean storeExactCycles) {
+      this.storeExactCycles = storeExactCycles;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setDetectCycles(boolean detectCycles) {
+      this.detectCycles = detectCycles;
+      return this;
+    }
+
     public EvaluationContext build() {
       return new EvaluationContext(
           parallelism,
@@ -200,7 +232,9 @@ public class EvaluationContext {
           eventHandler,
           isExecutionPhase,
           mergingSkyframeAnalysisExecutionPhases,
-          unnecessaryTemporaryStateDropperReceiver);
+          storeExactCycles,
+          unnecessaryTemporaryStateDropperReceiver,
+          detectCycles);
     }
   }
 }

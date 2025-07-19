@@ -92,11 +92,9 @@ public abstract class BlazeModule {
    * and {@link #blazeStartup}).
    *
    * @param startupOptions the server's startup options
-   * @param realExecRootBase absolute path fragment of the actual, underlying execution root
    */
   @Nullable
-  public ModuleFileSystem getFileSystem(
-      OptionsParsingResult startupOptions, PathFragment realExecRootBase)
+  public ModuleFileSystem getFileSystem(OptionsParsingResult startupOptions)
       throws AbruptExitException {
     return null;
   }
@@ -130,25 +128,15 @@ public abstract class BlazeModule {
      */
     abstract Optional<Root> virtualSourceRoot();
 
-    /**
-     * Present if this filesystem virtualizes the execroot folder. See {@link
-     * ServerDirectories#getExecRootBase}.
-     */
-    abstract Optional<Path> virtualExecRootBase();
-
     public static ModuleFileSystem createWithVirtualization(
-        FileSystem fileSystem, PathFragment virtualSourceRoot, PathFragment virtualExecRootBase) {
+        FileSystem fileSystem, PathFragment virtualSourceRoot) {
       return new AutoValue_BlazeModule_ModuleFileSystem(
-          fileSystem,
-          Optional.of(Root.fromPath(fileSystem.getPath(virtualSourceRoot))),
-          Optional.of(fileSystem.getPath(virtualExecRootBase)));
+          fileSystem, Optional.of(Root.fromPath(fileSystem.getPath(virtualSourceRoot))));
     }
 
     public static ModuleFileSystem create(FileSystem fileSystem) {
       return new AutoValue_BlazeModule_ModuleFileSystem(
-          fileSystem,
-          /* virtualSourceRoot= */ Optional.empty(),
-          /* virtualExecRootBase= */ Optional.empty());
+          fileSystem, /* virtualSourceRoot= */ Optional.empty());
     }
   }
 
@@ -390,6 +378,10 @@ public abstract class BlazeModule {
    *
    * <p>If you are also implementing {@link #blazeShutdownOnCrash}, consider putting the common
    * shutdown code in the latter and calling that other hook from here.
+   *
+   * <p>This is also called after each test case in {@link
+   * com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase} and can be used to avoid
+   * leaking resources when this module instance is thrown away between tests.
    */
   public void blazeShutdown() {}
 

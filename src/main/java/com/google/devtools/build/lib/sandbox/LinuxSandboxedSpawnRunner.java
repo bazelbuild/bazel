@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -107,7 +106,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Path execRoot = cmdEnv.getExecRoot();
     File cwd = execRoot.getPathFile();
 
-    Command cmd = new Command(linuxSandboxArgv.toArray(new String[0]), env, cwd);
+    Command cmd =
+        new Command(linuxSandboxArgv.toArray(new String[0]), env, cwd, cmdEnv.getClientEnv());
     try (SilentCloseable c = Profiler.instance().profile("LinuxSandboxedSpawnRunner.isSupported")) {
       cmd.execute(ByteStreams.nullOutputStream(), ByteStreams.nullOutputStream());
     } catch (CommandException e) {
@@ -117,7 +117,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return true;
   }
 
-  private final SandboxHelpers helpers;
   private final FileSystem fileSystem;
   private final Path execRoot;
   private final boolean allowNetwork;
@@ -136,7 +135,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
    *
-   * @param helpers common tools and state across all spawns during sandboxed execution
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
    * @param inaccessibleHelperFile path to a file that is (already) inaccessible
@@ -144,7 +142,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * @param timeoutKillDelay an additional grace period before killing timing out commands
    */
   LinuxSandboxedSpawnRunner(
-      SandboxHelpers helpers,
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       Path inaccessibleHelperFile,
@@ -161,10 +158,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
                 VirtualCgroup.getInstance(),
                 getSandboxOptions().getLimits(),
                 /* alwaysCreate= */ false);
-    this.helpers = helpers;
     this.fileSystem = cmdEnv.getRuntime().getFileSystem();
     this.execRoot = cmdEnv.getExecRoot();
-    this.allowNetwork = helpers.shouldAllowNetwork(cmdEnv.getOptions());
+    this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv.getBlazeWorkspace());
     this.sandboxBase = sandboxBase;
     this.inaccessibleHelperFile = inaccessibleHelperFile;
@@ -212,11 +208,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   private boolean useHermeticTmp() {
-    if (!getSandboxOptions().sandboxHermeticTmp) {
-      // No hermetic /tmp requested, so let's not do it
-      return false;
-    }
-
     if (getSandboxOptions().useHermetic) {
       // The hermetic sandbox is, well, already hermetic. Also, it creates an empty /tmp by default
       // so nothing needs to be done to achieve a /tmp that is also hermetic.
@@ -227,7 +218,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         getSandboxOptions().sandboxAdditionalMounts.stream()
             .anyMatch(e -> e.getKey().equals("/tmp"));
     if (tmpExplicitlyBindMounted) {
-      // An explicit mount on /tmp is likely an explicit way to make it non-hermetic.
+      // An explicit mount on /tmp is an explicit way to make it non-hermetic.
       return false;
     }
 
@@ -248,7 +239,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   @Override
   protected SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
-      throws IOException, ForbiddenActionInputException, ExecException, InterruptedException {
+      throws IOException, ExecException, InterruptedException {
 
     // Each invocation of "exec" gets its own sandbox base.
     // Note that the value returned by context.getId() is only unique inside one given SpawnRunner,
@@ -263,7 +254,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     sandboxExecRoot.createDirectoryAndParents();
 
     SandboxInputs inputs =
-        helpers.processInputFiles(
+        SandboxHelpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
             execRoot);
 
@@ -296,7 +287,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       }
     }
 
-    SandboxOutputs outputs = helpers.getOutputs(spawn);
+    SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
     Duration timeout = context.getTimeout();
     SandboxOptions sandboxOptions = getSandboxOptions();
 
@@ -322,7 +313,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     if (cgroupFactory != null) {
       ImmutableMap<String, Double> spawnResourceLimits = ImmutableMap.of();
-      if (sandboxOptions.enforceResources.regexPattern().matcher(spawn.getMnemonic()).matches()) {
+      if (sandboxOptions.enforceResources.matcher().test(spawn.getMnemonic())) {
         spawnResourceLimits = spawn.getLocalResources().getResources();
       }
       VirtualCgroup cgroup = cgroupFactory.create(context.getId(), spawnResourceLimits);
@@ -458,7 +449,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   @Override
   public void verifyPostCondition(
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
-      throws IOException, ForbiddenActionInputException {
+      throws IOException {
     if (getSandboxOptions().useHermetic) {
       checkForConcurrentModifications(context);
     }
@@ -471,8 +462,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
   }
 
-  private void checkForConcurrentModifications(SpawnExecutionContext context)
-      throws IOException, ForbiddenActionInputException {
+  private void checkForConcurrentModifications(SpawnExecutionContext context) throws IOException {
     for (ActionInput input :
         context
             .getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)

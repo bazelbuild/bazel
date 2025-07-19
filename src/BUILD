@@ -1,10 +1,11 @@
 # Packaging
 
-load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_java//java:java_binary.bzl", "java_binary")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
-load("//src:build_defs.bzl", "transition_java_language_8_archive")
-load("//src:release_archive.bzl", "release_archive")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("//src:release_archive.bzl", "minimum_java_compilation_runtime_filegroup", "minimum_java_runtime_filegroup", "release_archive")
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 
@@ -15,7 +16,15 @@ exports_files([
     "MODULE.tools",
 ])
 
-md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
+sh_binary(
+    name = "md5",
+    srcs = select({
+        "//src/conditions:darwin": ["md5_darwin_freebsd.sh"],
+        "//src/conditions:freebsd": ["md5_darwin_freebsd.sh"],
+        "//src/conditions:openbsd": ["md5_openbsd.sh"],
+        "//conditions:default": ["md5_default.sh"],
+    }),
+)
 
 [genrule(
     name = "install_base_key-file" + suffix,
@@ -25,7 +34,6 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
         "//src/main/cpp:client",
-        "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
@@ -37,14 +45,10 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
         ],
     }) + embedded_tools_target,
     outs = ["install_base_key" + suffix],
-    cmd = select({
-        "//src/conditions:darwin": md5_cmd % ("/sbin/md5", "/sbin/md5", "head -c 32"),
-        "//src/conditions:freebsd": md5_cmd % ("/sbin/md5", "/sbin/md5", "head -c 32"),
-        # We avoid using the `head` tool's `-c` option, since it does not exist
-        # on OpenBSD.
-        "//src/conditions:openbsd": md5_cmd % ("/bin/md5", "/bin/md5", "dd bs=32 count=1"),
-        "//conditions:default": md5_cmd % ("md5sum", "md5sum", "head -c 32"),
-    }),
+    cmd = "$(location :md5) $(SRCS) > $@",
+    tools = [
+        ":md5",
+    ],
 ) for suffix, embedded_tools_target in {
     "_jdk_allmodules": [":embedded_tools_jdk_allmodules"],
     "_jdk_minimal": [":embedded_tools_jdk_minimal"],
@@ -103,13 +107,9 @@ JAVA_TOOLS = [
                "//src/tools/launcher:srcs",
                "//third_party:gpl-srcs",
                "//third_party/def_parser:srcs",
-               "//third_party/grpc:embedded_tools_srcs",
-               "//third_party/grpc/bazel:embedded_tools_srcs",
                "//third_party/ijar:embedded_zipper_sources",
                "//third_party/ijar:zipper",
-               "//third_party/java/j2objc:embedded_tools_srcs",
                "//third_party/py/abseil:srcs",
-               "//third_party/zlib:embedded_tools",
                "//tools:embedded_tools_srcs",
            ] + select({
                "//src/conditions:darwin": [
@@ -144,7 +144,7 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 364,
+    expect = 327,
     margin = 5,  # percentage
 )
 
@@ -172,6 +172,9 @@ filegroup(
         "//src/conditions:linux_s390x": [
             "@openjdk_linux_s390x_vanilla//file",
         ],
+        "//src/conditions:linux_riscv64": [
+            "@openjdk_linux_riscv64_vanilla//file",
+        ],
         "//conditions:default": [
             "@openjdk_linux_vanilla//file",
         ],
@@ -179,16 +182,31 @@ filegroup(
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
-# This program patches the app manifest of the java.exe launcher to force its
-# active code page to UTF-8 on Windows 1903 and later, which is required for
-# proper support of Unicode characters outside the system code page.
-# The JDK currently (as of JDK 23) doesn't support this natively:
-# https://mail.openjdk.org/pipermail/core-libs-dev/2024-November/133773.html
+# Only necessary to distinguish between the tool and the target JDK for location
+# expansion.
+copy_file(
+    name = "jdk_for_jlink",
+    src = ":embedded_jdk_vanilla",
+    out = "jdk_for_jlink",
+    allow_symlink = True,
+)
+
+# Reads the app manifest of a Windows executable.
 cc_binary(
-    name = "patch_java_manifest_for_utf8",
-    srcs = ["patch_java_manifest_for_utf8.cc"],
+    name = "read_manifest",
+    srcs = ["read_manifest.cc"],
     tags = ["manual"],
     target_compatible_with = ["@platforms//os:windows"],
+    visibility = ["//src/java_tools:__subpackages__"],
+)
+
+# Updates the app manifest of a Windows executable.
+cc_binary(
+    name = "write_manifest",
+    srcs = ["write_manifest.cc"],
+    tags = ["manual"],
+    target_compatible_with = ["@platforms//os:windows"],
+    visibility = ["//src/java_tools:__subpackages__"],
 )
 
 sh_binary(
@@ -196,7 +214,8 @@ sh_binary(
     srcs = ["minimize_jdk.sh"],
     data = select({
         "@platforms//os:windows": [
-            ":patch_java_manifest_for_utf8",
+            ":read_manifest",
+            ":write_manifest",
         ],
         "//conditions:default": [],
     }),
@@ -212,8 +231,9 @@ genrule(
         ":jdeps_modules.golden",
     ],
     outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
+    cmd = "$(location :minimize_jdk) $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
     tools = [
+        ":jdk_for_jlink",
         ":minimize_jdk",
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
@@ -226,8 +246,9 @@ genrule(
         ":jdeps_modules.golden",
     ],
     outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk) --allmodules $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
+    cmd = "$(location :minimize_jdk) --allmodules $(location :jdk_for_jlink) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $@",
     tools = [
+        ":jdk_for_jlink",
         ":minimize_jdk",
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
@@ -275,7 +296,6 @@ genrule(
         "//:platforms-srcs",
         # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
-        "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
@@ -300,6 +320,7 @@ genrule(
     srcs = ["package-bazel.sh"],
     outs = ["package-bazel-on-host-platform.sh"],
     cmd = select({
+        "//src/conditions:freebsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
         "//src/conditions:openbsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
         "//conditions:default": "cp $(SRCS) $@",
     }),
@@ -381,6 +402,7 @@ filegroup(
         "//src/main/protobuf:srcs",
         "//src/main/res:srcs",
         "//src/main/starlark/builtins_bzl:srcs",
+        "//src/main/starlark/docgen:srcs",
         "//src/main/tools:srcs",
         "//src/test/cpp:srcs",
         "//src/test/gen:srcs",
@@ -398,6 +420,7 @@ filegroup(
         "//src/test/testdata/test_tls_certificate",
         "//src/test/tools:srcs",
         "//src/test/tools/bzlmod:srcs",
+        "//src/test/tools/test_repos:srcs",
         "//src/tools/bzlmod:srcs",
         "//src/tools/diskcache:srcs",
         "//src/tools/execlog:srcs",
@@ -442,6 +465,7 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/packages/metrics:dist_jars",
+        "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/skyframe:dist_jars",
@@ -502,18 +526,33 @@ genrule(
 )
 
 # Following targets build java_tools.zip - platform independent part of java_tools
-JAVA_TOOLS_DEPLOY_JARS = [
-    "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
-    "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
-    "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
-    "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_binary_deploy.jar",
-    "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage_jarjar_deploy.jar",
-    "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
-]
+minimum_java_runtime_filegroup(
+    name = "minimum_java_runtime_tools",
+    srcs = [
+        "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage_jarjar_deploy.jar",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+minimum_java_compilation_runtime_filegroup(
+    name = "minimum_java_compilation_runtime_tools",
+    srcs = [
+        "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
+        "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_direct_binary_deploy.jar",
+        "//src/java_tools/import_deps_checker/java/com/google/devtools/build/importdeps:ImportDepsChecker_deploy.jar",
+    ],
+    visibility = ["//visibility:private"],
+)
 
 release_archive(
     name = "jars_java_tools_zip",
-    srcs = JAVA_TOOLS_DEPLOY_JARS,
+    srcs = [
+        ":minimum_java_compilation_runtime_tools",
+        ":minimum_java_runtime_tools",
+    ],
     package_dir = "java_tools",
     visibility = ["//visibility:private"],
 )
@@ -532,12 +571,6 @@ release_archive(
         "//third_party/java/jacoco:jacoco_jars_zip",
         "//third_party/java/proguard:proguard_zip",
     ],
-)
-
-transition_java_language_8_archive(
-    name = "java_tools_java8.zip",
-    archive_zip = ":java_tools.zip",
-    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 release_archive(
@@ -560,12 +593,6 @@ release_archive(
         "//src/tools/singlejar:singlejar_deploy_zip",
         "//third_party/ijar:ijar_deploy_zip",
     ],
-)
-
-transition_java_language_8_archive(
-    name = "java_tools_prebuilt_java8.zip",
-    archive_zip = ":java_tools_prebuilt.zip",
-    visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
 # Following targets used by the java_tools_binaries Buildkite pipeline to upload
@@ -616,54 +643,14 @@ sh_binary(
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
-# Part of the Java tools remote archive. Not embedded or used in Bazel.
-release_archive(
-    name = "zlib_zip",
-    srcs = ["//third_party/zlib:embedded_tools"],
-    package_dir = "zlib",
-    visibility = [
-        "//src/tools/singlejar:__pkg__",
-        "//third_party/ijar:__pkg__",
-    ],
-)
-
-JDK_VERSIONS = [
-    "11",
-    "17",
-    "21",
-]
-
-filegroup(
+alias(
     name = "test_repos",
-    srcs = [
-        requirement("bazel-runfiles"),  # Fetching the hermetic Python toolchain.
-        "@bazel_skylib//:WORKSPACE",
-        "@com_google_protobuf//:LICENSE",
-        "@remote_coverage_tools//:all_lcov_merger_lib",
-        "@remote_java_tools//:GenClass",
-        "@remote_java_tools_darwin_arm64//:java_tools/src/tools/singlejar/singlejar_local",
-        "@remote_java_tools_darwin_x86_64//:java_tools/src/tools/singlejar/singlejar_local",
-        "@remote_java_tools_linux//:java_tools/src/tools/singlejar/singlejar_local",
-        "@remote_java_tools_windows//:java_tools/src/tools/singlejar/singlejar_local.exe",
-        "@rules_cc//:LICENSE",
-        "@rules_java//:WORKSPACE",
-        "@rules_license//:WORKSPACE",
-        "@rules_pkg//:WORKSPACE",
-        "@rules_python//:WORKSPACE",
-        "@rules_testing//:LICENSE",
-    ] + select({
-        "//src/conditions:linux_x86_64": ["@remotejdk%s_linux//:WORKSPACE" % v for v in JDK_VERSIONS],
-        "//src/conditions:darwin_x86_64": ["@remotejdk%s_macos//:WORKSPACE" % v for v in JDK_VERSIONS],
-        "//src/conditions:darwin_arm64": ["@remotejdk%s_macos_aarch64//:WORKSPACE" % v for v in JDK_VERSIONS],
-        "//src/conditions:windows_x86_64": ["@remotejdk%s_win//:WORKSPACE" % v for v in JDK_VERSIONS],
-        "//conditions:default": [],
-    }) + [
-        "@bazel_tools_repo_cache//:files",
-        "@workspace_repo_cache//:files",
-    ],
+    actual = "//src/test/tools/test_repos",
 )
 
-bzl_library(
-    name = "build_defs_bzl",
-    srcs = ["build_defs.bzl"],
+java_binary(
+    name = "CheckSunJnuEncoding",
+    srcs = ["CheckSunJnuEncoding.java"],
+    env = {"LC_CTYPE": "C.UTF-8"},
+    main_class = "CheckSunJnuEncoding",
 )

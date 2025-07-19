@@ -15,9 +15,14 @@
 """Starlark tests for cc_shared_library"""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@com_google_protobuf//bazel/common:proto_info.bzl", "ProtoInfo")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+load("@rules_cc//cc/common:cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
+load("@rules_cc//cc/common:cc_shared_library_info.bzl", "CcSharedLibraryInfo")
 load("@rules_testing//lib:analysis_test.bzl", "analysis_test")
 load("@rules_testing//lib:truth.bzl", "matching")
-load(":semantics.bzl", "semantics")
 
 def _same_package_or_above(label_a, label_b):
     if label_a.workspace_name != label_b.workspace_name:
@@ -53,7 +58,14 @@ def _linking_order_test_impl(env, target):
                 break
 
         args = target_action.argv
-        user_libs = [paths.basename(arg) for arg in args if arg.endswith(".o")]
+
+        # Exclude implicitly added runtimes libraries by restricting to objects
+        # in or under the current package.
+        user_libs = [
+            paths.basename(arg)
+            for arg in args
+            if arg.endswith(".o") and env.ctx.label.package in arg
+        ]
 
         env.expect.that_collection(user_libs).contains_at_least_predicates([
             matching.contains("foo.pic.o"),
@@ -61,9 +73,6 @@ def _linking_order_test_impl(env, target):
         ]).in_order()
 
         env.expect.that_collection(args).contains_at_least([
-            "-lprivate_lib_so",
-            "-Wl,-rpath,hdr_only",
-        ] if semantics.is_bazel else [
             "-lprivate_lib_so",
         ])
 
@@ -171,7 +180,7 @@ def _paths_test_impl(env, _):
     env.expect.that_bool(_check_if_target_under_path(Label("//foo/bar:baz"), Label("//:__subpackages__"))).equals(True)
 
 def _paths_test_macro(name):
-    native.cc_library(
+    cc_library(
         name = "dummy",
     )
     analysis_test(

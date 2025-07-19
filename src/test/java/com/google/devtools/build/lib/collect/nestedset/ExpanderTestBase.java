@@ -199,7 +199,7 @@ public abstract class ExpanderTestBase {
   public void nestingValidation() {
     for (Order ordering : Order.values()) {
       NestedSet<String> a = prepareBuilder("a", "b").build();
-      NestedSetBuilder<String> b = new NestedSetBuilder<>(ordering);
+      NestedSetBuilder<String> b = NestedSetBuilder.newBuilder(ordering);
       try {
         b.addTransitive(a);
         if (ordering != expanderOrder() && ordering != Order.STABLE_ORDER) {
@@ -214,7 +214,7 @@ public abstract class ExpanderTestBase {
   }
 
   private NestedSetBuilder<String> prepareBuilder(String... directMembers) {
-    NestedSetBuilder<String> builder = new NestedSetBuilder<>(expanderOrder());
+    NestedSetBuilder<String> builder = NestedSetBuilder.newBuilder(expanderOrder());
     builder.addAll(Lists.newArrayList(directMembers));
     return builder;
   }

@@ -90,7 +90,7 @@ public final class WorkerKey {
       WorkerProtocolFormat protocolFormat) {
     this.args = Preconditions.checkNotNull(args);
     this.env = Preconditions.checkNotNull(env);
-    this.execRoot = Preconditions.checkNotNull(execRoot);
+    this.execRoot = Preconditions.checkNotNull(execRoot.devirtualize());
     this.mnemonic = Preconditions.checkNotNull(mnemonic);
     this.workerFilesCombinedHash = Preconditions.checkNotNull(workerFilesCombinedHash);
     this.workerFilesWithDigests = Preconditions.checkNotNull(workerFilesWithDigests);
@@ -101,6 +101,7 @@ public final class WorkerKey {
     this.protocolFormat = protocolFormat;
     hash = calculateHashCode();
   }
+
 
   public ImmutableList<String> getArgs() {
     return args;

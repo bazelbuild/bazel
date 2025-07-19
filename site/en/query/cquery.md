@@ -1,13 +1,13 @@
 Project: /_project.yaml
 Book: /_book.yaml
 
-#  Configurable Query (cquery)
+# Configurable Query (cquery)
 
 {% include "_buttons.html" %}
 
 `cquery` is a variant of [`query`](/query/language) that correctly handles
-[`select()`](/docs/configurable-attributes) and build options' effects on the build
-graph.
+[`select()`](/docs/configurable-attributes) and build options' effects on the
+build graph.
 
 It achieves this by running over the results of Bazel's [analysis
 phase](/extending/concepts#evaluation-model),
@@ -142,7 +142,8 @@ If you want to precisely declare which instance to query over, use
 the [`config`](#config) function.
 
 See `query`'s [target pattern
-documentation](/query/language#target-patterns) for more information on target patterns.
+documentation](/query/language#target-patterns) for more information on target
+patterns.
 
 ## Functions {:#functions}
 
@@ -191,7 +192,8 @@ can be found in the specified configuration, the query fails.
 ### Build options {:#build-options}
 
 `cquery` runs over a regular Bazel build and thus inherits the set of
-[options](/reference/command-line-reference#build-options) available during a build.
+[options](/reference/command-line-reference#build-options) available during a
+build.
 
 ###  Using cquery options {:#using-cquery-options}
 
@@ -245,36 +247,35 @@ so the following queries would produce the following outputs:
 </table>
 
 If this flag is set, its contents are built. _If it's not set, all targets
-mentioned in the query expression are built_ instead. The transitive closure of the
-built targets are used as the universe of the query. Either way, the targets to
-be built must be buildable at the top level (that is, compatible with top-level
-options). `cquery` returns results in the transitive closure of these
+mentioned in the query expression are built_ instead. The transitive closure of
+the built targets are used as the universe of the query. Either way, the targets
+to be built must be buildable at the top level (that is, compatible with
+top-level options). `cquery` returns results in the transitive closure of these
 top-level targets.
 
 Even if it's possible to build all targets in a query expression at the top
 level, it may be beneficial to not do so. For example, explicitly setting
 `--universe_scope` could prevent building targets multiple times in
-configurations you don't care about. It could also help specify which configuration version of a
-target you're looking for (since it's not currently possible
-to fully specify this any other way). You should set this flag
+configurations you don't care about. It could also help specify which
+configuration version of a target you're looking for. You should set this flag
 if your query expression is more complex than `deps(//foo)`.
 
 #### `--implicit_deps` (boolean, default=True) {:#implicit-deps}
 
 Setting this flag to false filters out all results that aren't explicitly set in
-the BUILD file and instead set elsewhere by Bazel. This includes filtering resolved
-toolchains.
+the BUILD file and instead set elsewhere by Bazel. This includes filtering
+resolved toolchains.
 
 #### `--tool_deps` (boolean, default=True) {:#tool-deps}
 
 Setting this flag to false filters out all configured targets for which the
 path from the queried target to them crosses a transition between the target
 configuration and the
-[non-target configurations](/extending/rules#configurations).
-If the queried target is in the target configuration, setting `--notool_deps` will
-only return targets that also are in the target configuration. If the queried
-target is in a non-target configuration, setting `--notool_deps` will only return
-targets also in non-target configurations. This setting generally does not affect filtering
+[non-target configurations](/extending/rules#configurations). If the queried
+target is in the target configuration, setting `--notool_deps` will only return
+targets that also are in the target configuration. If the queried target is in a
+non-target configuration, setting `--notool_deps` will only return targets also
+in non-target configurations. This setting generally does not affect filtering
 of resolved toolchains.
 
 #### `--include_aspects` (boolean, default=True) {:#include-aspects}
@@ -401,20 +402,20 @@ plus a few cquery-specific ones described below, but not (for example) `glob`,
 
 ##### build_options(target) {:#build-options}
 
-`build_options(target)` returns a map whose keys are build option identifiers (see
-[Configurations](/extending/config))
-and whose values are their Starlark values. Build options whose values are not legal Starlark
-values are omitted from this map.
+`build_options(target)` returns a map whose keys are build option identifiers
+(see [Configurations](/extending/config)) and whose values are their Starlark
+values. Build options whose values are not legal Starlark values are omitted
+from this map.
 
-If the target is an input file, `build_options(target)` returns None, as input file
-targets have a null configuration.
+If the target is an input file, `build_options(target)` returns None, as input
+file targets have a null configuration.
 
 ##### providers(target) {:#providers}
 
 `providers(target)` returns a map whose keys are names of
 [providers](/extending/rules#providers)
-(for example, `"DefaultInfo"`) and whose values are their Starlark values. Providers
-whose values are not legal Starlark values are omitted from this map.
+(for example, `"DefaultInfo"`) and whose values are their Starlark values.
+Providers whose values are not legal Starlark values are omitted from this map.
 
 #### Examples {:#output-format-definition-examples}
 
@@ -422,7 +423,7 @@ Print a space-separated list of the base names of all files produced by `//foo`:
 
 <pre>
   bazel cquery //foo --output=starlark \
-    --starlark:expr="' '.join([f.basename for f in target.files.to_list()])"
+    --starlark:expr="' '.join([f.basename for f in providers(target)['DefaultInfo'].files.to_list()])"
 </pre>
 
 Print a space-separated list of the paths of all files produced by **rule** targets in
@@ -430,7 +431,7 @@ Print a space-separated list of the paths of all files produced by **rule** targ
 
 <pre>
   bazel cquery 'kind(rule, //bar/...)' --output=starlark \
-    --starlark:expr="' '.join([f.path for f in target.files.to_list()])"
+    --starlark:expr="' '.join([f.path for f in providers(target)['DefaultInfo'].files.to_list()])"
 </pre>
 
 Print a list of the mnemonics of all actions registered by `//foo`.
@@ -461,7 +462,7 @@ Starlark functions defined in a file.
   $ cat example.cquery
 
   def has_one_output(target):
-    return len(target.files.to_list()) == 1
+    return len(providers(target)["DefaultInfo"].files.to_list()) == 1
 
   def format(target):
     if has_one_output(target):
@@ -535,60 +536,25 @@ different niches. Consider the following to decide which is right for you:
     if `"//foo"` exists in two configurations, which one
     should `cquery "deps(//foo)"` use?
     The [`config`](#config) function can help with this.
-*   As a newer tool, `cquery` lacks support for certain use
-    cases. See [Known issues](#known-issues) for details.
 
-## Known issues {:#known-issues}
+## Non-deterministic output
 
-**All targets that `cquery` "builds" must have the same configuration.**
+`cquery` does not automatically wipe the build graph from previous commands.
+It's therefore prone to picking up results from past queries.
 
-Before evaluating queries, `cquery` triggers a build up to just
-before the point where build actions would execute. The targets it
-"builds" are by default selected from all labels that appear in the query
-expression (this can be overridden
-with [`--universe_scope`](#universe-scope)). These
-must have the same configuration.
-
-While these generally share the top-level "target" configuration,
-rules can change their own configuration with
-[incoming edge transitions](/extending/config#incoming-edge-transitions).
-This is where `cquery` falls short.
-
-Workaround: If possible, set `--universe_scope` to a stricter
-scope. For example:
-
-<pre>
-# This command attempts to build the transitive closures of both //foo and
-# //bar. //bar uses an incoming edge transition to change its --cpu flag.
-$ bazel cquery 'somepath(//foo, //bar)'
-ERROR: Error doing post analysis query: Top-level targets //foo and //bar
-have different configurations (top-level targets with different
-configurations is not supported)
-
-# This command only builds the transitive closure of //foo, under which
-# //bar should exist in the correct configuration.
-$ bazel cquery 'somepath(//foo, //bar)' --universe_scope=//foo
-</pre>
-
-**No support for [`--output=xml`](/query/language#xml).**
-
-**Non-deterministic output.**
-
-`cquery` does not automatically wipe the build graph from
-previous commands and is therefore prone to picking up results from past
-queries. For example, `genrule` exerts an exec transition on
-its `tools` attribute - that is, it configures its tools in the
-[exec configuration](/extending/rules#configurations).
+For example, `genrule` exerts an exec transition on its `tools` attribute -
+that is, it configures its tools in the [exec configuration]
+(https://bazel.build/rules/rules#configurations).
 
 You can see the lingering effects of that transition below.
 
 <pre>
-$ cat > foo/BUILD &lt;&lt;&lt;EOF
+$ cat > foo/BUILD <<<EOF
 genrule(
     name = "my_gen",
     srcs = ["x.in"],
     outs = ["x.cc"],
-    cmd = "$(locations :tool) $&lt; >$@",
+    cmd = "$(locations :tool) $< >$@",
     tools = [":tool"],
 )
 cc_library(
@@ -596,20 +562,26 @@ cc_library(
 )
 EOF
 
-    $ bazel cquery "//foo:tool"
-tool(target_config)
+# Evaluate //foo:tool in the target configuration.
+$ blaze cquery "//foo:tool"
+//foo:tool (473ccb7)
 
-    $ bazel cquery "deps(//foo:my_gen)"
-my_gen (target_config)
-tool (exec_config)
-...
+# Evaluate a genrule that adds an exec-configured //foo:tool to the build graph.
+$ blaze cquery "somepath(//foo:my_gen, //foo:tool)"
+//foo:my_gen (473ccb7)
+//foo:tool (c932dde)
 
-    $ bazel cquery "//foo:tool"
-tool(exec_config)
+# The first command now shows both versions.
+$ blaze cquery "//foo:tool"
+//foo:tool (473ccb7)
+//foo:tool (c932dde)
 </pre>
 
-Workaround: change any startup option to force re-analysis of configured targets.
-For example, add `--test_arg=<whatever>` to your build command.
+This may or may not be desirable behavior depending on what you're trying to
+evaluate.
+
+To disable this, run `blaze clean` before your `cquery` to ensure a fresh
+analysis graph.
 
 ## Troubleshooting {:#troubleshooting}
 

@@ -50,12 +50,13 @@ public final class RepositoryName {
 
   @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("");
 
-  @SerializationConstant static final RepositoryName BUILTINS = new RepositoryName("_builtins");
+  @SerializationConstant
+  public static final RepositoryName BUILTINS = new RepositoryName("_builtins");
 
   private static final Pattern VALID_REPO_NAME = Pattern.compile("[\\w\\-.+]*");
 
   // Must start with a letter. Can contain ASCII letters and digits, underscore, dash, and dot.
-  private static final Pattern VALID_USER_PROVIDED_NAME = Pattern.compile("[a-zA-Z][-.\\w]*$");
+  private static final Pattern VALID_USER_PROVIDED_NAME = Pattern.compile("[a-zA-Z0-9][-.\\w]*$");
 
   /**
    * A valid module name must: 1) begin with a lowercase letter; 2) end with a lowercase letter or a
@@ -142,15 +143,16 @@ public final class RepositoryName {
   private final String name;
 
   /**
-   * Store the name of the owner repository where this repository name is requested. If this field
+   * Store the name of the context repository where this repository name is requested. If this field
    * is not null, it means this instance represents the requested repository name that is actually
-   * not visible from the owner repository and should fail in {@code RepositoryDelegatorFunction}
+   * not visible from the context repository and should fail in {@code RepositoryDelegatorFunction}
    * when fetching the repository.
    */
-  @Nullable private final RepositoryName ownerRepoIfNotVisible;
+  @Nullable private final RepositoryName contextRepoIfNotVisible;
 
   /**
-   * If ownerRepoIfNotVisible is not null, this field stores the suffix to be appended to the error
+   * If {@code contextRepoIfNotVisible} is not null, this field stores the suffix to be appended to
+   * the error.
    */
   @Nullable private final String didYouMeanSuffix;
 
@@ -158,18 +160,18 @@ public final class RepositoryName {
 
   private RepositoryName(
       String name,
-      @Nullable RepositoryName ownerRepoIfNotVisible,
+      @Nullable RepositoryName contextRepoIfNotVisible,
       @Nullable String didYouMeanSuffix) {
     this.name = name;
-    this.ownerRepoIfNotVisible = ownerRepoIfNotVisible;
+    this.contextRepoIfNotVisible = contextRepoIfNotVisible;
     this.didYouMeanSuffix = didYouMeanSuffix;
     this.hashCode =
         31 * OsPathPolicy.getFilePathOs().hash(name)
-            + HashCodes.hashObjects(ownerRepoIfNotVisible, didYouMeanSuffix);
+            + HashCodes.hashObjects(contextRepoIfNotVisible, didYouMeanSuffix);
   }
 
   private RepositoryName(String name) {
-    this(name, /* ownerRepoIfNotVisible= */ null, /* didYouMeanSuffix= */ null);
+    this(name, /* contextRepoIfNotVisible= */ null, /* didYouMeanSuffix= */ null);
   }
 
   /**
@@ -203,7 +205,7 @@ public final class RepositoryName {
     if (!VALID_USER_PROVIDED_NAME.matcher(name).matches()) {
       throw Starlark.errorf(
           "invalid user-provided repo name '%s': valid names may contain only A-Z, a-z, 0-9, '-',"
-              + " '_', '.', and must start with a letter",
+              + " '_', '.', and must start with a letter or a number",
           StringUtilities.sanitizeControlChars(name));
     }
   }
@@ -220,36 +222,36 @@ public final class RepositoryName {
 
   /**
    * Create a {@link RepositoryName} instance that indicates the requested repository name is
-   * actually not visible from the owner repository and should fail in {@code
+   * actually not visible from the context repository and should fail in {@code
    * RepositoryDelegatorFunction} when fetching with this {@link RepositoryName} instance.
    */
-  public RepositoryName toNonVisible(RepositoryName ownerRepo, String didYouMeanSuffix) {
-    Preconditions.checkNotNull(ownerRepo);
-    Preconditions.checkArgument(ownerRepo.isVisible());
+  public RepositoryName toNonVisible(RepositoryName contextRepo, String didYouMeanSuffix) {
+    Preconditions.checkNotNull(contextRepo);
+    Preconditions.checkArgument(contextRepo.isVisible());
     Preconditions.checkNotNull(didYouMeanSuffix);
-    return new RepositoryName(name, ownerRepo, didYouMeanSuffix);
+    return new RepositoryName(name, contextRepo, didYouMeanSuffix);
   }
 
   @VisibleForTesting
-  public RepositoryName toNonVisible(RepositoryName ownerRepo) {
-    return toNonVisible(ownerRepo, "");
+  public RepositoryName toNonVisible(RepositoryName contextRepo) {
+    return toNonVisible(contextRepo, "");
   }
 
   public boolean isVisible() {
-    return ownerRepoIfNotVisible == null;
+    return contextRepoIfNotVisible == null;
   }
 
-  public boolean isOwnerRepoMainRepo() {
-    return !isVisible() && ownerRepoIfNotVisible.isMain();
+  public boolean isContextRepoMainRepo() {
+    return !isVisible() && contextRepoIfNotVisible.isMain();
   }
 
   // Must only be called if isVisible() returns true.
-  public String getOwnerRepoDisplayString() {
-    Preconditions.checkNotNull(ownerRepoIfNotVisible);
-    if (ownerRepoIfNotVisible.isMain()) {
+  public String getContextRepoDisplayString() {
+    Preconditions.checkNotNull(contextRepoIfNotVisible);
+    if (contextRepoIfNotVisible.isMain()) {
       return "main repository";
     } else {
-      return String.format("repository '%s'", ownerRepoIfNotVisible);
+      return String.format("repository '%s'", contextRepoIfNotVisible);
     }
   }
 
@@ -267,7 +269,7 @@ public final class RepositoryName {
     if (!isVisible()) {
       return String.format(
           "@@[unknown repo '%s' requested from %s%s]",
-          name, ownerRepoIfNotVisible, didYouMeanSuffix);
+          name, contextRepoIfNotVisible, didYouMeanSuffix);
     }
     return "@@" + name;
   }
@@ -293,17 +295,14 @@ public final class RepositoryName {
    *       <dt>the empty string
    *       <dd>if this is the main repository
    *       <dt><code>@protobuf</code>
-   *       <dd>if this repository is a WORKSPACE dependency and its <code>name</code> is "protobuf",
-   *           or if this repository is a Bzlmod dependency of the main module and its apparent name
-   *           is "protobuf" (in both cases only if mainRepositoryMapping is not null)
+   *       <dd>if this repository is a direct dependency of the main module and its apparent name is
+   *           "protobuf" (only if mainRepositoryMapping is not null)
    *       <dt><code>@@protobuf+</code>
-   *       <dd>only with Bzlmod, if this a repository that is not visible from the main module
+   *       <dd>if this a repository that is not visible from the main module
    */
   public String getDisplayForm(@Nullable RepositoryMapping mainRepositoryMapping) {
     Preconditions.checkArgument(
-        mainRepositoryMapping == null
-            || mainRepositoryMapping.ownerRepo() == null
-            || mainRepositoryMapping.ownerRepo().isMain());
+        mainRepositoryMapping == null || mainRepositoryMapping.contextRepo().isMain());
     if (!isVisible()) {
       return getNameWithAt();
     }
@@ -313,12 +312,6 @@ public final class RepositoryName {
     }
     if (mainRepositoryMapping == null) {
       return getNameWithAt();
-    }
-    if (!mainRepositoryMapping.usesStrictDeps()) {
-      // If the main repository mapping is not using strict visibility, then Bzlmod is certainly
-      // disabled, which means that canonical and apparent names can be used interchangeably from
-      // the context of the main repository.
-      return '@' + getName();
     }
     // If possible, represent the repository with a non-canonical label using the apparent name the
     // main repository has for it, otherwise fall back to a canonical label.
@@ -346,9 +339,7 @@ public final class RepositoryName {
     return prefix.getRelative(getName());
   }
 
-  /**
-   * Returns the runfiles path relative to the x.runfiles/main-repo directory.
-   */
+  /** Returns the runfiles path relative to the x.runfiles/main-repo directory. */
   // TODO(kchodorow): remove once execroot is reorg-ed.
   public PathFragment getRunfilesPath() {
     return isMain()
@@ -371,7 +362,7 @@ public final class RepositoryName {
       return false;
     }
     return OsPathPolicy.getFilePathOs().equals(name, other.name)
-        && Objects.equals(ownerRepoIfNotVisible, other.ownerRepoIfNotVisible)
+        && Objects.equals(contextRepoIfNotVisible, other.contextRepoIfNotVisible)
         && Objects.equals(didYouMeanSuffix, other.didYouMeanSuffix);
   }
 
@@ -397,7 +388,7 @@ public final class RepositoryName {
         LeafSerializationContext context, RepositoryName obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
       context.serializeLeaf(obj.getName(), stringCodec(), codedOut);
-      context.serializeLeaf(obj.ownerRepoIfNotVisible, this, codedOut);
+      context.serializeLeaf(obj.contextRepoIfNotVisible, this, codedOut);
       context.serializeLeaf(obj.didYouMeanSuffix, stringCodec(), codedOut);
     }
 

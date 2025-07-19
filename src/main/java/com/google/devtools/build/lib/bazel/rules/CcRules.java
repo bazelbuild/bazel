@@ -18,13 +18,11 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRule;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
-import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcModule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLibcTopAlias;
-import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainAliasRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainSuiteRule;
@@ -34,8 +32,6 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcLinkingRule;
 import com.google.devtools.build.lib.rules.cpp.DebugPackageProvider;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcBootstrap;
-import com.google.devtools.build.lib.util.ResourceFileLoader;
-import java.io.IOException;
 import net.starlark.java.eval.Starlark;
 
 /**
@@ -72,9 +68,6 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new CcLinkingRule());
     builder.addRuleDefinition(new EmptyRule("memprof_profile") {});
     builder.addRuleDefinition(new EmptyRule("propeller_optimize") {});
-    builder.addStarlarkBuiltinsInternal(
-        "StaticallyLinkedMarkerProvider", StaticallyLinkedMarkerProvider.PROVIDER);
-    builder.addStarlarkBuiltinsInternal("CcNativeLibraryInfo", CcNativeLibraryInfo.PROVIDER);
     builder.addStarlarkBuiltinsInternal("cc_common", bazelCcModule);
     builder.addStarlarkBootstrap(
         new CcBootstrap(
@@ -82,13 +75,6 @@ public class CcRules implements RuleSet {
             CcInfo.PROVIDER,
             DebugPackageProvider.PROVIDER,
             CcToolchainConfigInfo.PROVIDER));
-
-    try {
-      builder.addWorkspaceFileSuffix(
-          ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
   }
 
   @Override

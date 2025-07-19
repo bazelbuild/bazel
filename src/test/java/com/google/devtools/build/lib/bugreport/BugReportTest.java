@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
+import com.google.devtools.build.lib.server.FailureDetails.Crash.OomCauseCategory;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -408,7 +409,9 @@ public final class BugReportTest {
                         Lists.transform(
                             Arrays.asList(t.getStackTrace()), StackTraceElement::toString)));
     if (oomDetectorOverride && crashType == CrashType.CRASH) {
-      crash.setOomDetectorOverride(true);
+      crash.setOomCauseCategory(OomCauseCategory.OOM_DETECTOR_OVERRIDE);
+    } else if (crashType == CrashType.OOM) {
+      crash.setOomCauseCategory(OomCauseCategory.ORGANIC);
     }
     return FailureDetail.newBuilder()
         .setMessage(String.format("Crashed: (%s) %s", t.getClass().getName(), t.getMessage()))

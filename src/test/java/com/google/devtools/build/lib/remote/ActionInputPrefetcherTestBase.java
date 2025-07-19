@@ -36,9 +36,7 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -54,9 +52,11 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher.MetadataSupplier;
-import com.google.devtools.build.lib.remote.common.LostInputsEvent;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
 import com.google.devtools.build.lib.util.Pair;
@@ -69,13 +69,13 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -135,7 +135,7 @@ public abstract class ActionInputPrefetcherTestBase {
             new DelayedChmodFileSystem(new InMemoryFileSystem(DigestHashFunction.SHA256)));
     execRoot = fs.getPath("/exec");
     execRoot.createDirectoryAndParents();
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "root");
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "root");
     artifactRoot.getRoot().asPath().createDirectoryAndParents();
     Path tempDir = fs.getPath("/tmp");
     tempDir.createDirectoryAndParents();
@@ -147,7 +147,7 @@ public abstract class ActionInputPrefetcherTestBase {
   protected Artifact createRemoteArtifact(
       String pathFragment,
       String contents,
-      @Nullable PathFragment materializationExecPath,
+      @Nullable PathFragment resolvedPath,
       Map<ActionInput, FileArtifactValue> metadata,
       @Nullable Map<HashCode, byte[]> cas) {
     Path p = artifactRoot.getRoot().getRelative(pathFragment);
@@ -159,8 +159,10 @@ public abstract class ActionInputPrefetcherTestBase {
             hashCode.asBytes(),
             contentsBytes.length,
             /* locationIndex= */ 1,
-            /* expirationTime= */ null,
-            materializationExecPath);
+            /* expirationTime= */ null);
+    if (resolvedPath != null) {
+      f = FileArtifactValue.createFromExistingWithResolvedPath(f, resolvedPath);
+    }
     metadata.put(a, f);
     if (cas != null) {
       cas.put(hashCode, contentsBytes);
@@ -173,15 +175,14 @@ public abstract class ActionInputPrefetcherTestBase {
       String contents,
       Map<ActionInput, FileArtifactValue> metadata,
       @Nullable Map<HashCode, byte[]> cas) {
-    return createRemoteArtifact(
-        pathFragment, contents, /* materializationExecPath= */ null, metadata, cas);
+    return createRemoteArtifact(pathFragment, contents, /* resolvedPath= */ null, metadata, cas);
   }
 
   protected Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> createRemoteTreeArtifact(
       String pathFragment,
       Map<String, String> localContentMap,
       Map<String, String> remoteContentMap,
-      @Nullable PathFragment materializationExecPath,
+      @Nullable PathFragment resolvedPath,
       Map<ActionInput, FileArtifactValue> metadata,
       Map<HashCode, byte[]> cas,
       boolean isActionTemplateExpansion)
@@ -217,14 +218,13 @@ public abstract class ActionInputPrefetcherTestBase {
               hashCode.asBytes(),
               contents.length,
               /* locationIndex= */ 1,
-              /* expirationTime= */ null,
-              /* materializationExecPath= */ null);
+              /* expirationTime= */ null);
       treeBuilder.putChild(child, childValue);
       metadata.put(child, childValue);
       cas.put(hashCode, contents);
     }
-    if (materializationExecPath != null) {
-      treeBuilder.setMaterializationExecPath(materializationExecPath);
+    if (resolvedPath != null) {
+      treeBuilder.setResolvedPath(resolvedPath);
     }
     TreeArtifactValue treeValue = treeBuilder.build();
 
@@ -244,7 +244,7 @@ public abstract class ActionInputPrefetcherTestBase {
         pathFragment,
         localContentMap,
         remoteContentMap,
-        /* materializationExecPath= */ null,
+        /* resolvedPath= */ null,
         metadata,
         cas,
         /* isActionTemplateExpansion= */ false);
@@ -254,7 +254,7 @@ public abstract class ActionInputPrefetcherTestBase {
       String pathFragment,
       Map<String, String> localContentMap,
       Map<String, String> remoteContentMap,
-      @Nullable PathFragment materializationExecPath,
+      @Nullable PathFragment resolvedPath,
       Map<ActionInput, FileArtifactValue> metadata,
       Map<HashCode, byte[]> cas)
       throws IOException {
@@ -262,7 +262,7 @@ public abstract class ActionInputPrefetcherTestBase {
         pathFragment,
         localContentMap,
         remoteContentMap,
-        materializationExecPath,
+        resolvedPath,
         metadata,
         cas,
         /* isActionTemplateExpansion= */ false);
@@ -280,7 +280,7 @@ public abstract class ActionInputPrefetcherTestBase {
         pathFragment,
         localContentMap,
         remoteContentMap,
-        /* materializationExecPath= */ null,
+        /* resolvedPath= */ null,
         metadata,
         cas,
         /* isActionTemplateExpansion= */ true);
@@ -348,11 +348,11 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   @Test
-  public void prefetchFiles_downloadRemoteFiles_withMaterializationExecPath() throws Exception {
+  public void prefetchFiles_downloadRemoteFiles_withResolvedPath() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
-    PathFragment targetExecPath = artifactRoot.getExecPath().getChild("target");
-    Artifact a = createRemoteArtifact("file", "hello world", targetExecPath, metadata, cas);
+    PathFragment resolvedPath = artifactRoot.getRoot().asPath().getChild("target").asFragment();
+    Artifact a = createRemoteArtifact("file", "hello world", resolvedPath, metadata, cas);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
     wait(
@@ -360,11 +360,9 @@ public abstract class ActionInputPrefetcherTestBase {
             action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS));
 
     assertThat(a.getPath().isSymbolicLink()).isTrue();
-    assertThat(a.getPath().readSymbolicLink())
-        .isEqualTo(execRoot.getRelative(targetExecPath).asFragment());
+    assertThat(a.getPath().readSymbolicLink()).isEqualTo(resolvedPath);
     assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world");
-    assertThat(prefetcher.downloadedFiles())
-        .containsExactly(a.getPath(), execRoot.getRelative(targetExecPath));
+    assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath(), fs.getPath(resolvedPath));
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
   }
 
@@ -434,17 +432,17 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   @Test
-  public void prefetchFiles_downloadRemoteTrees_withMaterializationExecPath() throws Exception {
+  public void prefetchFiles_downloadRemoteTrees_withResolvedPath() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
-    PathFragment targetExecPath = artifactRoot.getExecPath().getChild("target");
+    PathFragment resolvedPath = artifactRoot.getRoot().asPath().getChild("target").asFragment();
     Pair<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeAndChildren =
         createRemoteTreeArtifact(
             "dir",
             /* localContentMap= */ ImmutableMap.of(),
             /* remoteContentMap= */ ImmutableMap.of(
                 "file1", "content1", "nested_dir/file2", "content2"),
-            targetExecPath,
+            resolvedPath,
             metadata,
             cas);
     SpecialArtifact tree = treeAndChildren.getFirst();
@@ -459,18 +457,17 @@ public abstract class ActionInputPrefetcherTestBase {
             action, children, metadata::get, Priority.MEDIUM, Reason.INPUTS));
 
     assertThat(tree.getPath().isSymbolicLink()).isTrue();
-    assertThat(tree.getPath().readSymbolicLink())
-        .isEqualTo(execRoot.getRelative(targetExecPath).asFragment());
+    assertThat(tree.getPath().readSymbolicLink()).isEqualTo(resolvedPath);
     assertThat(FileSystemUtils.readContent(firstChild.getPath(), UTF_8)).isEqualTo("content1");
     assertThat(FileSystemUtils.readContent(secondChild.getPath(), UTF_8)).isEqualTo("content2");
 
-    assertTreeReadableNonWritableAndExecutable(execRoot.getRelative(targetExecPath));
+    assertTreeReadableNonWritableAndExecutable(fs.getPath(resolvedPath));
 
     assertThat(prefetcher.downloadedFiles())
         .containsExactly(
             tree.getPath(),
-            execRoot.getRelative(targetExecPath.getRelative(firstChild.getParentRelativePath())),
-            execRoot.getRelative(targetExecPath.getRelative(secondChild.getParentRelativePath())));
+            fs.getPath(resolvedPath).getRelative(firstChild.getParentRelativePath()),
+            fs.getPath(resolvedPath).getRelative(secondChild.getParentRelativePath()));
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
   }
 
@@ -867,29 +864,25 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   @Test
-  public void missingInputs_sendLostInputsEvent() {
+  public void missingInputs_exceptionHasLostInputs() {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
-    var unused = createRemoteArtifact("file", "hello world", metadata, /* cas= */ null);
+    var input = createRemoteArtifact("file", "hello world", metadata, /* cas= */ null);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
-    var lostInputsEvents = new ConcurrentLinkedQueue<LostInputsEvent>();
-    eventBus.register(
-        new Object() {
-          @Subscribe
-          @AllowConcurrentEvents
-          public void onLostInputsEvent(LostInputsEvent event) {
-            lostInputsEvents.add(event);
-          }
-        });
+    var metadataProvider = new StaticInputMetadataProvider(metadata);
 
-    assertThrows(
-        Exception.class,
-        () ->
-            wait(
-                prefetcher.prefetchFilesInterruptibly(
-                    action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS)));
-
-    assertThat(lostInputsEvents).hasSize(1);
+    var e =
+        assertThrows(
+            BulkTransferException.class,
+            () ->
+                wait(
+                    prefetcher.prefetchFilesInterruptibly(
+                        action, metadata.keySet(), metadata::get, Priority.MEDIUM, Reason.INPUTS)));
+    assertThat(e.getLostArtifacts(metadataProvider::getInput).byDigest())
+        .containsExactly(
+            DigestUtil.toString(
+                new DigestUtil(SyscallCache.NO_CACHE, HASH_FUNCTION).computeAsUtf8("hello world")),
+            input);
   }
 
   protected static void wait(ListenableFuture<Void> future)

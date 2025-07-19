@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.skyframe.config;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static java.util.Objects.requireNonNull;
 
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
 /** A return value of {@link FlagSetFunction} */
@@ -45,31 +44,34 @@ public class FlagSetValue implements SkyValue {
   /** Key for {@link FlagSetValue} based on the raw flags. */
   @ThreadSafety.Immutable
   @AutoCodec
-  public static final class Key implements SkyKey {
-    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
-    private final Label projectFile;
-    private final String sclConfig;
-    private final BuildOptions targetOptions;
-    private final ImmutableMap<String, String> userOptions;
-    private final ConfigFlagDefinitions configFlagDefinitions;
-    private final boolean enforceCanonical;
+  public record Key(
+      ImmutableSet<Label> targets,
+      Label projectFile,
+      @Nullable String sclConfig,
+      BuildOptions targetOptions,
+      ImmutableMap<String, String> userOptions,
+      ConfigFlagDefinitions configFlagDefinitions,
+      boolean enforceCanonical)
+      implements SkyKey {
 
-    public Key(
-        Label projectFile,
-        @Nullable String sclConfig,
-        BuildOptions targetOptions,
-        ImmutableMap<String, String> userOptions,
-        ConfigFlagDefinitions configFlagDefinitions,
-        boolean enforceCanonical) {
-      this.projectFile = Verify.verifyNotNull(projectFile);
-      this.sclConfig = nullToEmpty(sclConfig);
-      this.targetOptions = Verify.verifyNotNull(targetOptions);
-      this.userOptions = Verify.verifyNotNull(userOptions);
-      this.configFlagDefinitions = configFlagDefinitions;
-      this.enforceCanonical = enforceCanonical;
+    public Key {
+      requireNonNull(targets, "targets");
+      requireNonNull(projectFile, "projectFile");
+      sclConfig = nullToEmpty(sclConfig);
+      requireNonNull(targetOptions, "targetOptions");
+      requireNonNull(userOptions, "userOptions");
+      requireNonNull(configFlagDefinitions, "configFlagDefinitions");
     }
 
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
+
+    /**
+     * Creating @link FlagSetValue.Key. b/409382048 requires to pass the targets to the Key so it
+     * can be used in FlagSetFunction. But this is bad for Skyframe caching. For the sake of fast
+     * iteration, this is the simplest approach. We should consider to optimize this in the future.
+     */
     public static Key create(
+        ImmutableSet<Label> targets,
         Label projectFile,
         String sclConfig,
         BuildOptions targetOptions,
@@ -78,40 +80,13 @@ public class FlagSetValue implements SkyValue {
         boolean enforceCanonical) {
       return interner.intern(
           new Key(
+              targets,
               projectFile,
               sclConfig,
               targetOptions,
               userOptions,
               configFlagDefinitions,
               enforceCanonical));
-    }
-
-    public Label getProjectFile() {
-      return projectFile;
-    }
-
-    public String getSclConfig() {
-      return sclConfig;
-    }
-
-    public BuildOptions getTargetOptions() {
-      return targetOptions;
-    }
-
-    public ImmutableMap<String, String> getUserOptions() {
-      return userOptions;
-    }
-
-    public ConfigFlagDefinitions getConfigFlagDefinitions() {
-      return configFlagDefinitions;
-    }
-
-    /**
-     * Whether {@code --scl_config} must match an officially supported project configuration. See
-     * {@link com.google.devtools.build.lib.buildtool.BuildRequestOptions#enforceProjectConfigs}.
-     */
-    public boolean enforceCanonical() {
-      return enforceCanonical;
     }
 
     @Override
@@ -122,34 +97,6 @@ public class FlagSetValue implements SkyValue {
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.FLAG_SET;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      Key key = (Key) o;
-      return Objects.equals(projectFile, key.projectFile)
-          && Objects.equals(sclConfig, key.sclConfig)
-          && Objects.equals(targetOptions, key.targetOptions)
-          && Objects.equals(userOptions, key.userOptions)
-          && Objects.equals(configFlagDefinitions, key.configFlagDefinitions)
-          && (enforceCanonical == key.enforceCanonical);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(
-          projectFile,
-          sclConfig,
-          targetOptions,
-          userOptions,
-          configFlagDefinitions,
-          enforceCanonical);
     }
   }
 

@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.ConvenienceSymlinksIde
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -101,11 +100,11 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -115,7 +114,6 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -185,11 +183,7 @@ public class ExecutionTool {
     }
     actionContextRegistryBuilder.register(
         SymlinkTreeActionContext.class,
-        new SymlinkTreeStrategy(
-            env.getOutputService(),
-            env.getExecRoot(),
-            env.getBlazeWorkspace().getBinTools(),
-            env.getWorkspaceName()));
+        new SymlinkTreeStrategy(env.getOutputService(), env.getWorkspaceName()));
     // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own, instead
     // these dependencies should be added to the ActionContextConsumer of the module that actually
     // depends on them.
@@ -270,13 +264,6 @@ public class ExecutionTool {
     init();
     BuildRequestOptions buildRequestOptions = request.getBuildOptions();
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
-    boolean localActionsSupported =
-        env.getOutputService().actionFileSystemType().shouldDoTopLevelOutputSetup();
-
-    // TODO: b/290617036 - Reconsider this for local action support with virtual roots.
-    checkState(
-        !localActionsSupported || env.getDirectories().getVirtualSourceRoot() == null,
-        "Local actions are incompatible with virtual roots");
 
     try (SilentCloseable c = Profiler.instance().profile("preparingExecroot")) {
       IncrementalPackageRoots incrementalPackageRoots =
@@ -289,9 +276,7 @@ public class ExecutionTool {
               skyframeExecutor.getIgnoredPaths(),
               request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout,
               runtime.getWorkspace().doesAllowExternalRepositories());
-      if (localActionsSupported) {
-        incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
-      }
+      incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
 
       env.getSkyframeBuildView()
           .getArtifactFactory()
@@ -301,10 +286,10 @@ public class ExecutionTool {
     OutputService outputService = env.getOutputService();
     ModifiedFileSet modifiedOutputFiles =
         startBuildAndDetermineModifiedOutputFiles(request.getId(), outputService);
-    if (localActionsSupported) {
+    if (outputService.actionFileSystemType().supportsLocalActions()) {
       // Must be created after the output path is created above.
       try (SilentCloseable c = Profiler.instance().profile("createActionLogDirectory")) {
-        createActionLogDirectory();
+        createActionLogDirectory(outputService.bulkDeleter());
       }
     }
 
@@ -399,9 +384,9 @@ public class ExecutionTool {
     ModifiedFileSet modifiedOutputFiles =
         startBuildAndDetermineModifiedOutputFiles(buildId, outputService);
 
-    if (outputService.actionFileSystemType().shouldDoTopLevelOutputSetup()) {
+    if (outputService.actionFileSystemType().supportsLocalActions()) {
       // Must be created after the output path is created above.
-      createActionLogDirectory();
+      createActionLogDirectory(outputService.bulkDeleter());
     }
 
     buildResult.setConvenienceSymlinks(
@@ -633,34 +618,30 @@ public class ExecutionTool {
   }
 
   private void prepare(PackageRoots packageRoots) throws AbruptExitException, InterruptedException {
-    Optional<ImmutableMap<PackageIdentifier, Root>> packageRootMap =
-        packageRoots.getPackageRootsMap();
-    if (packageRootMap.isPresent()) {
-      // Prepare for build.
-      Profiler.instance().markPhase(ProfilePhase.PREPARE);
+    // Prepare for build.
+    Profiler.instance().markPhase(ProfilePhase.PREPARE);
 
-      // Plant the symlink forest.
-      try (SilentCloseable c = Profiler.instance().profile("plantSymlinkForest")) {
-        SymlinkForest symlinkForest =
-            new SymlinkForest(
-                packageRootMap.get(),
-                getExecRoot(),
-                runtime.getProductName(),
-                request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
-        symlinkForest.plantSymlinkForest();
-      } catch (IOException e) {
-        String message = String.format("Source forest creation failed: %s", e.getMessage());
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setMessage(message)
-                    .setSymlinkForest(
-                        FailureDetails.SymlinkForest.newBuilder()
-                            .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
-                    .build()),
-            e);
+    // Plant the symlink forest.
+    try (SilentCloseable c = Profiler.instance().profile("plantSymlinkForest")) {
+      SymlinkForest symlinkForest =
+          new SymlinkForest(
+              packageRoots.getPackageRootsMap(),
+              getExecRoot(),
+              runtime.getProductName(),
+              request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
+      symlinkForest.plantSymlinkForest();
+    } catch (IOException e) {
+      String message = String.format("Source forest creation failed: %s", e.getMessage());
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setSymlinkForest(
+                      FailureDetails.SymlinkForest.newBuilder()
+                          .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
+                  .build()),
+          e);
       }
-    }
   }
 
   private static void logDeleteTreeFailure(
@@ -688,11 +669,16 @@ public class ExecutionTool {
     }
   }
 
-  private void createActionLogDirectory() throws AbruptExitException {
+  private void createActionLogDirectory(@Nullable BulkDeleter bulkDeleter)
+      throws AbruptExitException, InterruptedException {
     Path directory = env.getActionTempsDirectory();
     if (directory.exists()) {
       try (SilentCloseable c = Profiler.instance().profile("directory.deleteTree")) {
-        directory.deleteTree();
+        if (bulkDeleter != null) {
+          bulkDeleter.bulkDelete(ImmutableList.of(directory.relativeTo(getExecRoot())));
+        } else {
+          directory.deleteTree();
+        }
       } catch (IOException e) {
         // TODO(b/140567980): Remove when we determine the cause of occasional deleteTree() failure.
         logDeleteTreeFailure(directory, "action output directory", e);
@@ -977,7 +963,6 @@ public class ExecutionTool {
             executionFilter,
             ActionCacheChecker.CacheConfig.builder()
                 .setEnabled(options.useActionCache)
-                .setVerboseExplanations(options.verboseExplanations)
                 .setStoreOutputMetadata(shouldStoreRemoteOutputMetadataInActionCache)
                 .build()),
         modifiedOutputFiles,
@@ -1016,6 +1001,8 @@ public class ExecutionTool {
         options.experimentalCpuLoadScheduling,
         options.experimentalCpuLoadSchedulingWindowSize);
     resourceMgr.scheduleCpuLoadWindowUpdate();
+
+    resourceMgr.setAllowOneActionOnResourceUnavailable(options.allowOneActionOnResourceUnavailable);
   }
 
   /**

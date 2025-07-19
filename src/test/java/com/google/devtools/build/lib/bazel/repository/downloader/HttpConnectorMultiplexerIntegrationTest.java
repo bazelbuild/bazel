@@ -25,7 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache.KeyType;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.Sleeper;
@@ -53,7 +53,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class HttpConnectorMultiplexerIntegrationTest {
 
-  @Rule public final Timeout globalTimeout = new Timeout(20000);
+  @Rule public final Timeout globalTimeout = Timeout.seconds(20);
 
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private final ProxyHelper proxyHelper = mock(ProxyHelper.class);

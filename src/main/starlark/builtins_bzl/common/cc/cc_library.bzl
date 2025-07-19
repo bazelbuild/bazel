@@ -18,11 +18,13 @@ load(":common/cc/attrs.bzl", "common_attrs", "linkstatic_doc")
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/link/create_linkstamp.bzl", "create_linkstamp")
 load(":common/cc/semantics.bzl", "semantics")
 
 cc_internal = _builtins.internal.cc_internal
 
 def _cc_library_impl(ctx):
+    semantics.validate(ctx, "cc_library")
     cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library", True)
 
     semantics.check_cc_shared_library_tags(ctx)
@@ -80,9 +82,7 @@ def _cc_library_impl(ctx):
     )
 
     precompiled_objects = cc_common.create_compilation_outputs(
-        # TODO(bazel-team): Perhaps this should be objects, leaving as it is in the original
-        # Java code for now. Changing it might cause breakages.
-        objects = depset(precompiled_files[1]),
+        objects = depset(precompiled_files[0]),
         pic_objects = depset(precompiled_files[1]),
     )
 
@@ -113,10 +113,9 @@ def _cc_library_impl(ctx):
     linking_contexts.extend(cc_helper.get_linking_contexts_from_deps(ctx.attr.implementation_deps))
     if ctx.file.linkstamp != None:
         linkstamps = []
-        linkstamps.append(cc_internal.create_linkstamp(
-            actions = ctx.actions,
+        linkstamps.append(create_linkstamp(
             linkstamp = ctx.file.linkstamp,
-            compilation_context = compilation_context,
+            headers = compilation_context.headers,
         ))
         linkstamps_linker_input = cc_common.create_linker_input(
             owner = ctx.label,
@@ -512,7 +511,7 @@ def _check_no_repeated_srcs(ctx):
     seen = {}
     for target in ctx.attr.srcs:
         if DefaultInfo in target:
-            for file in target.files.to_list():
+            for file in target[DefaultInfo].files.to_list():
                 extension = "." + file.extension
                 if extension not in cc_helper.extensions.CC_HEADER:
                     if extension in cc_helper.extensions.CC_AND_OBJC:
@@ -526,7 +525,7 @@ ALLOWED_SRC_FILES = []
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.CC_SOURCE)
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.C_SOURCE)
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.CC_HEADER)
-ALLOWED_SRC_FILES.extend(cc_helper.extensions.ASSESMBLER_WITH_C_PREPROCESSOR)
+ALLOWED_SRC_FILES.extend(cc_helper.extensions.ASSEMBLER_WITH_C_PREPROCESSOR)
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.ASSEMBLER)
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.ARCHIVE)
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.PIC_ARCHIVE)
@@ -537,7 +536,7 @@ ALLOWED_SRC_FILES.extend(cc_helper.extensions.SHARED_LIBRARY)
 SRCS_FOR_COMPILATION = []
 SRCS_FOR_COMPILATION.extend(cc_helper.extensions.CC_SOURCE)
 SRCS_FOR_COMPILATION.extend(cc_helper.extensions.C_SOURCE)
-SRCS_FOR_COMPILATION.extend(cc_helper.extensions.ASSESMBLER_WITH_C_PREPROCESSOR)
+SRCS_FOR_COMPILATION.extend(cc_helper.extensions.ASSEMBLER_WITH_C_PREPROCESSOR)
 SRCS_FOR_COMPILATION.extend(cc_helper.extensions.ASSEMBLER)
 
 ALLOWED_SRC_FILES.extend(cc_helper.extensions.OBJECT_FILE)
@@ -712,7 +711,7 @@ cc_library(
     deps = ["//third_party/llvm/llvm/tools/clang:frontend"],
     # alwayslink as we want to be able to call things in this library at
     # debug time, even if they aren't used anywhere in the code.
-    alwayslink = 1,
+    alwayslink = True,
 )
 </code></pre>
 
@@ -949,10 +948,8 @@ See <a href="${link cc_binary.linkshared}"><code>cc_binary.linkshared</code></a>
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
         "_stl": semantics.get_stl(),
         "_def_parser": semantics.get_def_parser(),
-        # TODO(b/288421584): necessary because IDE aspect can't see toolchains
-        "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
         "_use_auto_exec_groups": attr.bool(default = True),
-    } | semantics.get_distribs_attr() | semantics.get_implementation_deps_allowed_attr() | semantics.get_nocopts_attr(),
+    } | semantics.get_implementation_deps_allowed_attr() | semantics.get_nocopts_attr(),
     toolchains = cc_helper.use_cpp_toolchain() +
                  semantics.get_runtimes_toolchain(),
     fragments = ["cpp"] + semantics.additional_fragments(),

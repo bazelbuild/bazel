@@ -59,9 +59,7 @@ import org.junit.Before;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Testing framework for tests which create configuration collections.
- */
+/** Testing framework for tests which create configuration collections. */
 @RunWith(JUnit4.class)
 public abstract class ConfigurationTestCase extends FoundationTestCase {
 
@@ -230,13 +228,11 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   protected BuildConfigurationValue createRaw(
       BuildOptions buildOptions,
       String mnemonic,
-      String workspaceName,
       boolean siblingRepositoryLayout)
       throws Exception {
     return BuildConfigurationValue.createForTesting(
         buildOptions,
         mnemonic,
-        workspaceName,
         siblingRepositoryLayout,
         skyframeExecutor.getBlazeDirectoriesForTesting(),
         skyframeExecutor.getRuleClassProviderForTesting(),

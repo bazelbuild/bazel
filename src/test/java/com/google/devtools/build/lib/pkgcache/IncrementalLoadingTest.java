@@ -29,21 +29,23 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.BrokenDiffAwarenessException;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
@@ -362,12 +364,14 @@ public class IncrementalLoadingTest {
         "foo_library(name = 'pkg', srcs = glob(['**/*.sh']))");
     tester.addFile("pkg/pkg.sh", "#!/bin/bash");
     tester.addFile("pkg/bar/bar.sh", "#!/bin/bash");
-    Package pkg = tester.getTarget("//pkg:pkg").getPackage();
+    Packageoid packageoid = tester.getTarget("//pkg:pkg").getPackageoid();
+    Package pkg = tester.getPackage("pkg");
 
     // Write file in directory to force reload of top-level glob.
     tester.addFile("pkg/irrelevant_file");
     tester.addFile("pkg/bar/irrelevant_file"); // Subglob is also reloaded.
-    assertThat(tester.getTarget("//pkg:pkg").getPackage()).isSameInstanceAs(pkg);
+    assertThat(tester.getTarget("//pkg:pkg").getPackageoid()).isSameInstanceAs(packageoid);
+    assertThat(tester.getPackage("pkg")).isSameInstanceAs(pkg);
   }
 
   @Test
@@ -401,8 +405,13 @@ public class IncrementalLoadingTest {
     tester.addSymlink("a/b.bzl", "/b.bzl");
     tester.sync();
     tester.getTarget("//a:BUILD");
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.checkExternalOtherFiles = false;
     tester.modifyFile("/b.bzl", "ERROR ERROR");
-    tester.sync();
+    tester.syncWithOptions(packageOptions);
+    tester.getTarget("//a:BUILD");
+    packageOptions.checkExternalOtherFiles = true;
+    tester.syncWithOptions(packageOptions);
 
     assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:BUILD"));
   }
@@ -426,12 +435,6 @@ public class IncrementalLoadingTest {
         } else {
           return ModifiedFileSet.EVERYTHING_MODIFIED;
         }
-      }
-
-      @Override
-      public ModifiedFileSet getDiffFromEvaluatingVersion(OptionsProvider options, FileSystem fs)
-          throws BrokenDiffAwarenessException {
-        throw new UnsupportedOperationException("not implemented");
       }
 
       @Override
@@ -522,9 +525,7 @@ public class IncrementalLoadingTest {
       skyframeExecutor.injectExtraPrecomputedValues(
           ImmutableList.of(
               PrecomputedValue.injected(
-                  RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-              PrecomputedValue.injected(
-                  RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
+                  RepositoryDirectoryValue.VENDOR_DIRECTORY, Optional.empty()),
               PrecomputedValue.injected(
                   RepositoryMappingFunction.REPOSITORY_OVERRIDES, ImmutableMap.of())));
       BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
@@ -613,10 +614,14 @@ public class IncrementalLoadingTest {
     }
 
     void sync() throws InterruptedException, AbruptExitException {
+      syncWithOptions(Options.getDefaults(PackageOptions.class));
+    }
+
+    void syncWithOptions(PackageOptions packageOptions)
+        throws InterruptedException, AbruptExitException {
       clock.advanceMillis(1);
 
       modifiedFileSet = getModifiedFileSet();
-      PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
       packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
       packageOptions.showLoadingProgress = true;
       packageOptions.globbingThreads = 7;
@@ -637,7 +642,7 @@ public class IncrementalLoadingTest {
       skyframeExecutor.invalidateFilesUnderPathForTesting(
           new Reporter(new EventBus()), modifiedFileSet, Root.fromPath(workspace));
       ((SequencedSkyframeExecutor) skyframeExecutor)
-          .handleDiffsForTesting(new Reporter(new EventBus()));
+          .handleDiffsForTesting(new Reporter(new EventBus()), packageOptions);
 
       changes.clear();
     }
@@ -646,6 +651,16 @@ public class IncrementalLoadingTest {
         throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
       Label label = Label.parseCanonicalUnchecked(targetName);
       return skyframeExecutor.getPackageManager().getTarget(reporter, label);
+    }
+
+    Package getPackage(PackageIdentifier pkgId)
+        throws NoSuchPackageException, InterruptedException {
+      return skyframeExecutor.getPackageManager().getPackage(reporter, pkgId);
+    }
+
+    Package getPackage(String packageName)
+        throws LabelSyntaxException, NoSuchPackageException, InterruptedException {
+      return getPackage(PackageIdentifier.parse(packageName));
     }
   }
 }

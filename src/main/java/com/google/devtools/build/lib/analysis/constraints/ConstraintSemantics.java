@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.analysis.constraints;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider.RemovedEnvironmentCulprit;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
+import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackagePiece;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
@@ -138,7 +140,19 @@ public interface ConstraintSemantics<T> {
           envTarget.getLabel() + " is not a valid environment definition",
           Code.INVALID_ENVIRONMENT);
     }
-    for (EnvironmentGroup group : envTarget.getPackage().getTargets(EnvironmentGroup.class)) {
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support package pieces.
+    Iterable<EnvironmentGroup> groups;
+    if (envTarget.getPackageoid() instanceof Package pkg) {
+      groups = pkg.getTargets(EnvironmentGroup.class);
+    } else if (envTarget.getPackageoid() instanceof PackagePiece pkgPiece) {
+      // Note that environments and environment groups are prohibited in symbolic macros; therefore,
+      // if package piece evaluation is enabled and an environment and environment group belong to
+      // have the same package ID, then they belong to the same package piece.
+      groups = pkgPiece.getTargets(EnvironmentGroup.class);
+    } else {
+      throw new AssertionError("Unknown packageoid " + envTarget.getPackageoid());
+    }
+    for (EnvironmentGroup group : groups) {
       if (group.getEnvironments().contains(envTarget.getLabel())) {
         return group;
       }

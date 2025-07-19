@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -77,7 +78,8 @@ public interface IncludeScanner {
       Set<Artifact> includes,
       ActionExecutionMetadata actionExecutionMetadata,
       ActionExecutionContext actionExecutionContext,
-      Artifact grepIncludes)
+      Artifact grepIncludes,
+      @Nullable PlatformInfo grepIncludesExecutionPlatform)
       throws IOException, NoSuchPackageException, ExecException, InterruptedException;
 
   /**

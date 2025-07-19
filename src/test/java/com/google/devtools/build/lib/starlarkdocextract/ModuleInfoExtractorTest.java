@@ -82,13 +82,13 @@ public final class ModuleInfoExtractorTest {
   }
 
   private static ModuleInfoExtractor getExtractor() {
-    RepositoryMapping repositoryMapping = RepositoryMapping.ALWAYS_FALLBACK;
+    RepositoryMapping repositoryMapping = RepositoryMapping.EMPTY;
     return new ModuleInfoExtractor(
         name -> true, new LabelRenderer(repositoryMapping, Optional.empty()));
   }
 
   private static ModuleInfoExtractor getExtractor(Predicate<String> isWantedQualifiedName) {
-    RepositoryMapping repositoryMapping = RepositoryMapping.ALWAYS_FALLBACK;
+    RepositoryMapping repositoryMapping = RepositoryMapping.EMPTY;
     return new ModuleInfoExtractor(
         isWantedQualifiedName, new LabelRenderer(repositoryMapping, Optional.empty()));
   }
@@ -608,7 +608,7 @@ public final class ModuleInfoExtractorTest {
 
             my_lib = rule(
                 implementation = _my_impl,
-                provides = [MyInfo, DefaultInfo, "LegacyStructInfo"],
+                provides = [MyInfo, DefaultInfo],
             )
             """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
@@ -622,12 +622,10 @@ public final class ModuleInfoExtractorTest {
                     ProviderNameGroup.newBuilder()
                         .addProviderName("MyInfo")
                         .addProviderName("DefaultInfo")
-                        .addProviderName("LegacyStructInfo")
                         .addOriginKey(
                             OriginKey.newBuilder().setName("MyInfo").setFile(fakeLabelString))
                         .addOriginKey(
-                            OriginKey.newBuilder().setName("DefaultInfo").setFile("<native>"))
-                        .addOriginKey(OriginKey.newBuilder().setName("LegacyStructInfo")))
+                            OriginKey.newBuilder().setName("DefaultInfo").setFile("<native>")))
                 .build());
   }
 
@@ -1021,7 +1019,7 @@ public final class ModuleInfoExtractorTest {
   public void macroInheritedAttributes() throws Exception {
     Module module =
         exec(
-            """
+"""
 def _my_rule_impl(ctx):
     pass
 
@@ -1138,10 +1136,10 @@ my_macro = macro(
                 attrs = {
                     "label": attr.label(default = "//test:foo"),
                     "label_list": attr.label_list(
-                        default = ["//x", "@canonical//y", "@canonical//y:z"],
+                        default = ["//x", "@@canonical//y", "@@canonical//y:z"],
                     ),
                     "label_keyed_string_dict": attr.label_keyed_string_dict(
-                        default = {"//x": "label_in_main", "@canonical//y": "label_in_dep"},
+                        default = {"//x": "label_in_main", "@@canonical//y": "label_in_dep"},
                     ),
                 },
             )

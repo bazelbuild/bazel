@@ -496,11 +496,13 @@ public class PackageMetricsPackageLoadingListenerTest {
 
   private static Package mockPackage(
       String pkgIdString, Map<String, Target> targets, int transitivelyLoadedStarlarkFiles) {
+    Package.Declarations mockDeclarations = mock(Package.Declarations.class);
     Package mockPackage = mock(Package.class);
     when(mockPackage.getPackageIdentifier())
         .thenReturn(PackageIdentifier.createInMainRepo(pkgIdString));
     when(mockPackage.getTargets()).thenReturn(ImmutableSortedMap.copyOf(targets));
-    when(mockPackage.countTransitivelyLoadedStarlarkFiles())
+    when(mockPackage.getDeclarations()).thenReturn(mockDeclarations);
+    when(mockDeclarations.countTransitivelyLoadedStarlarkFiles())
         .thenReturn(transitivelyLoadedStarlarkFiles);
     return mockPackage;
   }

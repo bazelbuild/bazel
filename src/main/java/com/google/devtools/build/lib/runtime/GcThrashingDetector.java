@@ -26,6 +26,11 @@ import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
+import com.google.devtools.build.lib.server.FailureDetails.Crash.OomCauseCategory;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -34,7 +39,14 @@ import java.util.Queue;
 import javax.annotation.Nullable;
 
 /**
- * Listens for {@link MemoryPressureEvent} to detect GC thrashing.
+ * Per-invocation handler of {@link MemoryPressureEvent} to detect GC thrashing.
+ *
+ * <p>"GC thrashing" is the situation when Blaze is under memory pressure and there are full GCs but
+ * not much memory is being reclaimed. See {@link GcChurningDetector} for "GC churning". GC
+ * thrashing and GC churning can sometimes, but not necessarily, coincide. Consider a situation
+ * where Blaze all of a sudden is under memory pressure and full GCs do not alleviate it. By
+ * assumption not much time has been spent on full GCs up until this point, so this cannot be GC
+ * churning, but if the memory pressure is high enough it could be GC thrashing.
  *
  * <p>For each {@link Limit}, maintains a sliding window of the timestamps of consecutive full GCs
  * within {@link Limit#period} where {@link MemoryPressureEvent#percentTenuredSpaceUsed} was more
@@ -45,7 +57,7 @@ import javax.annotation.Nullable;
  * <p>Manual GCs do not contribute to the limit. This is to avoid OOMing on GCs manually triggered
  * for memory metrics.
  */
-final class GcThrashingDetector {
+class GcThrashingDetector {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -140,7 +152,18 @@ final class GcThrashingDetector {
                         + " occupied after %s consecutive full GCs within the past %s seconds.",
                     threshold, count, period.toSeconds()));
         logger.atInfo().log("Calling handleCrash");
-        bugReporter.handleCrash(Crash.from(oom), CrashContext.halt());
+        bugReporter.handleCrash(
+            Crash.from(
+                oom,
+                DetailedExitCode.of(
+                    FailureDetail.newBuilder()
+                        .setMessage(oom.getMessage())
+                        .setCrash(
+                            FailureDetails.Crash.newBuilder()
+                                .setCode(Code.CRASH_OOM)
+                                .setOomCauseCategory(OomCauseCategory.GC_THRASHING))
+                        .build())),
+            CrashContext.halt());
       }
     }
   }

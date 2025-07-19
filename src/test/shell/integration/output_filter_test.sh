@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -84,10 +84,10 @@ int main(void)
 #ifdef _WIN32
   // MSVC does not support the #warning directive.
   int unused_variable__triggers_a_warning;  // triggers C4101
-#else  // not COMPILER_MSVC
+#else  // not _WIN32
   // GCC/Clang support #warning.
 #warning("triggers_a_warning")
-#endif  // COMPILER_MSVC
+#endif  // _WIN32
   printf("%s", "Hello, World!\n");
   return 0;
 }
@@ -260,11 +260,17 @@ EOF
   local status_cmd="$TEST_TMPDIR/status_cmd.sh"
 
   cat >"$status_cmd" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo 'STATUS_COMMAND_RAN' >&2
 EOF
   chmod +x "$status_cmd" || fail "Failed to mark $status_cmd executable"
+
+  bazel build --workspace_status_command="$status_cmd" \
+      --auto_output_filter=none \
+      "//$pkg:foo" >&"$TEST_log" \
+      || fail "Expected success"
+  expect_log STATUS_COMMAND_RAN
 
   bazel build --workspace_status_command="$status_cmd" \
       --auto_output_filter=packages \

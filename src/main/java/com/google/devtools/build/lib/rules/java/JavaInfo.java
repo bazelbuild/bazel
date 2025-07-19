@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec.FieldHa
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
 import com.google.errorprone.annotations.Keep;
@@ -53,14 +52,12 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
 /** A Starlark declared provider that encapsulates all providers that are needed by Java rules. */
@@ -78,15 +75,6 @@ public sealed class JavaInfo extends NativeInfo
 
   @SerializationConstant public static final JavaInfoProvider PROVIDER = new JavaInfoProvider();
 
-  // Ideally we would check if the target has a JavaInfo, but this check predates the Starlark
-  // sandwich and consumers depend on this returning `false` for java_binary/java_test targets. When
-  // these are in Starlark, this check will need to exclude the latter targets by checking for
-  // `JavaInfo._is_binary`
-  public static boolean isJavaLibraryesqueTarget(TransitiveInfoCollection target)
-      throws RuleErrorException {
-    return JavaInfo.getCompilationArgsProvider(target).isPresent();
-  }
-
   public static NestedSet<Artifact> transitiveRuntimeJars(TransitiveInfoCollection target)
       throws RuleErrorException {
     return transformStarlarkDepsetApi(target, JavaInfo::getTransitiveRuntimeJars);
@@ -103,20 +91,6 @@ public sealed class JavaInfo extends NativeInfo
       }
     }
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  }
-
-  public static Optional<JavaCompilationArgsProvider> getCompilationArgsProvider(
-      TransitiveInfoCollection target) throws RuleErrorException {
-    return Optional.ofNullable(getJavaInfo(target))
-        .map(javaInfo -> javaInfo.providerJavaCompilationArgs);
-  }
-
-  public static CcInfo ccInfo(TransitiveInfoCollection target) throws RuleErrorException {
-    JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
-    if (javaInfo != null && javaInfo.providerJavaCcInfo != null) {
-      return javaInfo.providerJavaCcInfo.ccInfo();
-    }
-    return CcInfo.EMPTY;
   }
 
   /** Marker interface for encapuslated providers */
@@ -151,8 +125,9 @@ public sealed class JavaInfo extends NativeInfo
   private final JavaModuleFlagsProvider providerModuleFlags;
   private final JavaPluginInfo providerJavaPlugin;
 
-  /*
+  /**
    * Contains the .jar files to be put on the runtime classpath by the configured target.
+   *
    * <p>Unlike {@link JavaCompilationArgs#getRuntimeJars()}, it does not contain transitive runtime
    * jars, only those produced by the configured target itself.
    *
@@ -388,21 +363,23 @@ public sealed class JavaInfo extends NativeInfo
             JavaSourceJarsProvider.class, JavaSourceJarsProvider::transitiveSourceJars));
   }
 
-  /** Returns the transitive set of CC native libraries required by the target. */
+  /**
+   * Returns the transitive set of CC native libraries required by the target.
+   *
+   * @deprecated Only use in tests
+   */
+  @Deprecated
   public NestedSet<LibraryToLink> getTransitiveNativeLibraries() {
     return getProviderAsNestedSet(
         JavaCcInfoProvider.class,
-        x -> x.ccInfo().getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
+        x ->
+            CcNativeLibraryInfo.wrap(x.ccInfo().getCcNativeLibraryInfo())
+                .getTransitiveCcNativeLibrariesForTests());
   }
 
   @Override
   public Depset /*<LibraryToLink>*/ getTransitiveNativeLibrariesForStarlark() {
-    return Depset.of(LibraryToLink.class, getTransitiveNativeLibraries());
-  }
-
-  @Override
-  public CcInfoApi<Artifact> getCcLinkParamInfo() {
-    return providerJavaCcInfo != null ? providerJavaCcInfo.ccInfo() : CcInfo.EMPTY;
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -450,6 +427,15 @@ public sealed class JavaInfo extends NativeInfo
     return StarlarkList.immutableCopyOf(javaConstraints);
   }
 
+  @Override
+  public Depset headerCompilationDirectDeps() {
+    NestedSet<Artifact> headerCompilationDirectDeps =
+        getProviderAsNestedSet(
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider::directHeaderCompilationJars);
+    return Depset.of(Artifact.class, headerCompilationDirectDeps);
+  }
+
   /**
    * Gets Provider, check it for not null and call function to get NestedSet&lt;S&gt; from it.
    *
@@ -462,9 +448,8 @@ public sealed class JavaInfo extends NativeInfo
    * @param <P> type of Provider
    * @param <S> type of returned NestedSet items
    */
-  private <P extends JavaInfoInternalProvider, S extends StarlarkValue>
-      NestedSet<S> getProviderAsNestedSet(
-          Class<P> providerClass, Function<P, NestedSet<S>> mapper) {
+  private <P extends JavaInfoInternalProvider, S> NestedSet<S> getProviderAsNestedSet(
+      Class<P> providerClass, Function<P, NestedSet<S>> mapper) {
 
     P provider = getProvider(providerClass);
     if (provider == null) {
@@ -574,9 +559,9 @@ public sealed class JavaInfo extends NativeInfo
     public JavaInfo wrap(Info info) throws RuleErrorException {
       if (info instanceof JavaInfo javaInfo) {
         return javaInfo;
-      } else if (info instanceof StructImpl) {
+      } else if (info instanceof StructImpl structImpl) {
         try {
-          return makeNewInstance((StructImpl) info);
+          return makeNewInstance(structImpl);
         } catch (EvalException | TypeException e) {
           throw new RuleErrorException(e);
         }

@@ -19,19 +19,24 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.TargetPatternsHelper.TargetPatternsHelperException;
+import com.google.devtools.build.lib.runtime.events.InputFileEvent;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,6 +50,7 @@ public class TargetPatternsHelperTest {
   private CommandEnvironment env;
   private Scratch scratch;
   private OptionsParser options;
+  private MockEventBus mockEventBus;
 
   @Before
   public void setUp() throws Exception {
@@ -62,9 +68,11 @@ public class TargetPatternsHelperTest {
             .setStartupOptionsProvider(
                 OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
             .build();
+    mockEventBus = new MockEventBus();
     env = Mockito.mock(CommandEnvironment.class);
     when(env.getWorkingDirectory()).thenReturn(scratch.resolve("wd"));
     when(env.getRuntime()).thenReturn(runtime);
+    when(env.getEventBus()).thenReturn(mockEventBus);
   }
 
   @Test
@@ -75,11 +83,15 @@ public class TargetPatternsHelperTest {
 
   @Test
   public void testTargetPatternFile() throws Exception {
-    scratch.file("/wd/patterns.txt", "//some/...\n//patterns");
+    Path targetPatternFilePath = scratch.file("/wd/patterns.txt", "//some/...\n//patterns");
     options.parse("--target_pattern_file=patterns.txt");
 
     assertThat(TargetPatternsHelper.readFrom(env, options))
         .isEqualTo(ImmutableList.of("//some/...", "//patterns"));
+    assertThat(mockEventBus.inputFileEvents)
+        .containsExactly(
+            InputFileEvent.create(
+                /* type= */ "target_pattern_file", targetPatternFilePath.getFileSize()));
   }
 
   @Test
@@ -126,5 +138,14 @@ public class TargetPatternsHelperTest {
     assertThat(expected.getFailureDetail().hasTargetPatterns()).isTrue();
     assertThat(expected.getFailureDetail().getTargetPatterns().getCode())
         .isEqualTo(Code.TARGET_PATTERN_FILE_READ_FAILURE);
+  }
+
+  private static class MockEventBus extends EventBus {
+    final Set<InputFileEvent> inputFileEvents = Sets.newConcurrentHashSet();
+
+    @Override
+    public void post(Object event) {
+      inputFileEvents.add((InputFileEvent) event);
+    }
   }
 }

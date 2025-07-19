@@ -257,7 +257,9 @@ public final class InvocationPolicyEnforcer {
             "Invocation policy is applied after --config expansion, changing config values now "
                 + "would have no effect and is disallowed to prevent confusion. Please remove the "
                 + "following policy : "
-                + policy);
+                +
+            policy
+            );
       }
 
       // These policies are high-level, before expansion, and so are not the implicitDependents or
@@ -312,7 +314,9 @@ public final class InvocationPolicyEnforcer {
       throws OptionsParsingException {
     throw new OptionsParsingException(
         String.format(
-            "SetValue operation from invocation policy for has an undefined behavior: %s", policy));
+            "SetValue operation from invocation policy for has an undefined behavior: %s",
+            policy
+            ));
   }
 
   /**
@@ -449,6 +453,9 @@ public final class InvocationPolicyEnforcer {
       case ALLOW_OVERRIDES:
         setValueExpansion.setBehavior(
             subflag.allowsMultiple() ? Behavior.APPEND : Behavior.ALLOW_OVERRIDES);
+        break;
+      case FINAL_VALUE_THROW_ON_OVERRIDE:
+        setValueExpansion.setBehavior(Behavior.FINAL_VALUE_THROW_ON_OVERRIDE);
         break;
     }
 
@@ -587,6 +594,17 @@ public final class InvocationPolicyEnforcer {
         parser.clearValue(flagPolicy.description.getOptionDefinition());
         break;
       case APPEND:
+        break;
+      case FINAL_VALUE_THROW_ON_OVERRIDE:
+        if (valueDescription != null) {
+          throw new OptionsParsingException(
+              String.format(
+                  "User set a value for %s which is not permitted by the invocation policy. This"
+                      + " flag value will always be overridden to %s. %s",
+                  optionDefinition,
+                  flagPolicy.policy.getSetValue().getFlagValueList(),
+                  flagPolicy.policy.getCustomErrorMessage()));
+        }
         break;
     }
 

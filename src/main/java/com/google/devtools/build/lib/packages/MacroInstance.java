@@ -16,19 +16,22 @@ package com.google.devtools.build.lib.packages;
 
 import static java.util.Objects.requireNonNull;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
-import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.packages.Package.Declarations;
+import com.google.devtools.build.lib.util.HashCodes;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.syntax.Location;
 
 /**
  * Represents a use of a symbolic macro in a package.
@@ -40,71 +43,182 @@ import net.starlark.java.eval.Starlark;
  *
  * <p>Macro instance names are not guaranteed to be unique within a package; see {@link #getId}.
  */
-public final class MacroInstance {
+public final class MacroInstance extends RuleOrMacroInstance {
 
   // TODO: #19922 - If we want to save the cost of a field here, we can merge pkg and parent into a
   // single field of type Object, and walk up the parent hierarchy to answer getPackage() queries.
-  private final Package pkg;
+  private final Package.Metadata packageMetadata;
 
+  // TODO(bazel-team): This is only needed for RuleOrMacroInstance#getPackageDeclarations(), which
+  // is used by the attribute mapper logic. That might only be needed for rules rather than macros.
+  // Consider removing it and pushing getPackageDeclarations() down to Rule.
+  private final Package.Declarations packageDeclarations;
+
+  // TODO(https://github.com/bazelbuild/bazel/issues/26128): replace with a parent identifier. The
+  // existence of a parent pointer prevents change pruning on outer macro instances, forcing an
+  // unconditional re-evaluation of all inner macros when an outer macro is invalidated.
   @Nullable private final MacroInstance parent;
+
+  // Null if this symbolic macro was instantiated as a result of a legacy macro call without a
+  // "name" parameter made at the top level of a BUILD file.
+  @Nullable private final String generatorName;
+
+  // TODO(https://github.com/bazelbuild/bazel/issues/26128): move location and Starlark stack to the
+  // owning PackagePiece to make MacroInstance more change pruning friendly; we don't want the macro
+  // to be invalidated if line numbers in a BUILD file or an ancestor macro's definition .bzl file
+  // change.
+  private final Location buildFileLocation;
+  private final CallStack.Node parentCallStack;
 
   private final MacroClass macroClass;
 
   private final int sameNameDepth;
 
-  // Order isn't guaranteed, sort before dumping. You can use the schema map
-  // MacroClass#getAttributes for a guaranteed order.
-  private final ImmutableMap<String, Object> attrValues;
-
-  // TODO(#19922): Consider switching to more optimized, indexed representation for attributes, as
-  // in Rule.
-
   /**
-   * Instantiates the given macro class with the given attribute values.
-   *
-   * <p>{@code attrValues} must have already been normalized based on the types of the attributes;
-   * see {@link MacroClass#instantiateMacro}. Values for the {@code "name"} and {@code "visibility"}
-   * attributes must exist with the correct types, and the {@code "visibility"} value must satisfy
-   * {@link RuleVisibility#validate}.
+   * Instantiates the given macro class.
    *
    * <p>{@code sameNameDepth} is the number of macro instances that this one is inside of that share
    * its name. For most instances it is 1, but for the main submacro of a parent macro it is one
    * more than the parent's depth.
-   *
-   * @throws EvalException if there's a problem with the attribute values (currently, only thrown if
-   *     the {@code visibility} value is invalid)
    */
-  // TODO: #19922 - Better encapsulate the invariant around attrValues, by either transitioning to
-  // storing internal-typed values (the way Rules do) instead of Starlark-typed values, or else just
-  // making the constructor private and moving instantiateMacro() to this class.
-  public MacroInstance(
-      Package pkg,
+  MacroInstance(
+      Package.Metadata packageMetadata,
+      Declarations packageDeclarations,
       @Nullable MacroInstance parent,
+      @Nullable String generatorName,
+      Location buildFileLocation,
+      CallStack.Node parentCallStack,
       MacroClass macroClass,
-      Map<String, Object> attrValues,
-      int sameNameDepth)
-      throws EvalException {
-    this.pkg = pkg;
+      Label label,
+      int sameNameDepth) {
+    super(label, macroClass.getAttributeProvider().getAttributeCount());
+    this.packageMetadata = packageMetadata;
+    this.packageDeclarations = packageDeclarations;
     this.parent = parent;
+    this.generatorName = generatorName;
+    this.buildFileLocation = buildFileLocation;
+    this.parentCallStack = parentCallStack;
     this.macroClass = macroClass;
-    this.attrValues = ImmutableMap.copyOf(attrValues);
     Preconditions.checkArgument(sameNameDepth > 0);
     this.sameNameDepth = sameNameDepth;
-    Preconditions.checkArgument(macroClass.getAttributes().keySet().equals(attrValues.keySet()));
   }
 
-  /** Returns the package this instance was created in. */
-  public Package getPackage() {
-    return pkg;
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    // TODO(https://github.com/bazelbuild/bazel/issues/26128): consider comparing digests instead.
+    return obj instanceof MacroInstance other
+        && super.equalsHelper(other)
+        && Objects.equals(packageMetadata, other.packageMetadata)
+        && Objects.equals(packageDeclarations, other.packageDeclarations)
+        && Objects.equals(parent, other.parent)
+        && Objects.equals(generatorName, other.generatorName)
+        && Objects.equals(buildFileLocation, other.buildFileLocation)
+        && Objects.equals(parentCallStack, other.parentCallStack)
+        && Objects.equals(macroClass, other.macroClass)
+        && sameNameDepth == other.sameNameDepth;
+  }
+
+  @Override
+  public int hashCode() {
+    return super.hashCodeHelper()
+        + HashCodes.MULTIPLIER
+            * HashCodes.hashObjects(
+                packageMetadata,
+                packageDeclarations,
+                parent,
+                generatorName,
+                buildFileLocation,
+                parentCallStack,
+                macroClass,
+                sameNameDepth);
+  }
+
+  @Override
+  public Package.Metadata getPackageMetadata() {
+    return packageMetadata;
+  }
+
+  @Override
+  Declarations getPackageDeclarations() {
+    return packageDeclarations;
   }
 
   /**
    * Returns the macro instance that instantiated this one, or null if this was created directly
    * during BUILD evaluation.
    */
+  // TODO(bazel-team): Consider merging into getDeclaringMacro().
+  // TODO(https://github.com/bazelbuild/bazel/issues/26128): Avoid new uses of this method; it is
+  // hostile to change pruning for lazy macro expansion. Replace with a method that either returns
+  // the parent identifier, or takes a context argument that allows retrieving the parent by id.
   @Nullable
   public MacroInstance getParent() {
     return parent;
+  }
+
+  // TODO(https://github.com/bazelbuild/bazel/issues/26128): Avoid new uses of this method; it is
+  // hostile to change pruning for lazy macro expansion. Replace with a method that either returns
+  // the parent identifier, or takes a context argument that allows retrieving the parent by id.
+  @Override
+  @Nullable
+  public MacroInstance getDeclaringMacro() {
+    return parent;
+  }
+
+  /**
+   * Returns the location in the BUILD file at which this macro was created or its outermost
+   * enclosing symbolic or legacy macro was called.
+   */
+  public Location getBuildFileLocation() {
+    return buildFileLocation;
+  }
+
+  /**
+   * Returns the value of the "name" parameter of the top-level call in a BUILD file which resulted
+   * in this macro being instantiated.
+   *
+   * <p>This is either the "name" attribute of this macro's outermost symbolic macro ancestor, if it
+   * was defined directly at the top level of a BUILD file; or the "name" parameter of the outermost
+   * legacy macro wrapping it.
+   *
+   * <p>Null if this symbolic macro was instantiated as a result of a legacy macro call without a
+   * "name" parameter made at the top level of a BUILD file.
+   */
+  @Nullable
+  public String getGeneratorName() {
+    return generatorName;
+  }
+
+  /**
+   * Returns the call stack of the Starlark thread that created this macro instance.
+   *
+   * <p>If this macro was instantiated in a BUILD file thread (as contrasted with a symbolic macro
+   * thread), the call stack does not include the frame for the BUILD file top level, since it's
+   * redundant with {@link #getBuildFileLocation}.
+   */
+  CallStack.Node getParentCallStack() {
+    return parentCallStack;
+  }
+
+  /**
+   * Returns the call stack of the Starlark thread that created this macro instance.
+   *
+   * <p>Requires reconstructing the call stack from a compact representation, so should only be
+   * called when the full call stack is needed.
+   */
+  @VisibleForTesting
+  public ImmutableList<StarlarkThread.CallStackEntry> reconstructParentCallStack() {
+    ImmutableList.Builder<StarlarkThread.CallStackEntry> stack = ImmutableList.builder();
+    if (parent == null) {
+      stack.add(StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, buildFileLocation));
+    }
+    for (CallStack.Node node = parentCallStack; node != null; node = node.next()) {
+      stack.add(node.toCallStackEntry());
+    }
+    return stack.build();
   }
 
   /** Returns the {@link MacroClass} (i.e. schema info) that this instance parameterizes. */
@@ -146,13 +260,12 @@ public final class MacroInstance {
     return getName() + ":" + sameNameDepth;
   }
 
-  /**
-   * Returns the name of this instance, as given in the {@code name = ...} attribute in the calling
-   * BUILD file or macro.
-   */
-  public String getName() {
-    // Type and existence enforced by RuleClass.NAME_ATTRIBUTE.
-    return (String) Preconditions.checkNotNull(attrValues.get("name"));
+  @Override
+  public RuleVisibility getDefaultVisibility() {
+    return RuleVisibility.parseUnchecked(
+        ImmutableList.of(
+            Label.createUnvalidated(
+                macroClass.getDefiningBzlLabel().getPackageIdentifier(), "__pkg__")));
   }
 
   /**
@@ -167,18 +280,8 @@ public final class MacroInstance {
    */
   public ImmutableList<Label> getActualVisibility() {
     @SuppressWarnings("unchecked")
-    List<Label> visibility = (List<Label>) Preconditions.checkNotNull(attrValues.get("visibility"));
+    List<Label> visibility = (List<Label>) Preconditions.checkNotNull(getAttr("visibility"));
     return ImmutableList.copyOf(visibility);
-  }
-
-  /**
-   * Dictionary of attributes for this instance.
-   *
-   * <p>Contains all attributes, as seen after processing by {@link
-   * MacroClass#instantiateAndAddMacro}.
-   */
-  public ImmutableMap<String, Object> getAttrValues() {
-    return attrValues;
   }
 
   /**
@@ -201,7 +304,7 @@ public final class MacroInstance {
    * visibility privilege to us.
    */
   public void visitExplicitAttributeLabels(Consumer<Label> consumer) {
-    for (Attribute attribute : macroClass.getAttributes().values()) {
+    for (Attribute attribute : macroClass.getAttributeProvider().getAttributes()) {
       String name = attribute.getName();
       Type<?> type = attribute.getType();
       if (name.startsWith("_")) {
@@ -210,41 +313,19 @@ public final class MacroInstance {
       if (type.getLabelClass() != Type.LabelClass.DEPENDENCY) {
         continue;
       }
-      Object value = attrValues.get(name);
-      if (value == Starlark.NONE) {
-        continue;
-      }
+      Object value = getAttr(name, type);
       visitAttributeLabels(value, type, attribute, consumer);
     }
   }
 
   // Separate method needed to satisfy type system w.r.t. Type<T>.
   // `value` is either a T or SelectorList<T>.
-  private static <T> void visitAttributeLabels(
+  private <T> void visitAttributeLabels(
       Object value, Type<T> type, Attribute attribute, Consumer<Label> consumer) {
-    // The attribute value is stored as a Starlark value. Convert it to the internal type as would
-    // be used in rules, so we can apply visitLabels() machinery to it. selectableConvert() will
-    // yield either a T or a BuildType.SelectorList.
-    Object convertedValue;
-    try {
-      convertedValue =
-          BuildType.selectableConvert(
-              type,
-              value,
-              "macro attribute (internal)",
-              // No string -> Label conversion is being done here.
-              /* context= */ null,
-              // Macros always preserve selects as selects.
-              /* simplifyUnconditionalSelects= */ false);
-    } catch (ConversionException e) {
-      // TODO: #19922 - The fact that we have to do this seems like a signal that we should
-      // transition to storing macro attribute values as native-typed attributes in the future.
-      throw new IllegalStateException("Could not convert macro attribute value internally", e);
+    if (value == null) {
+      return;
     }
 
-    // Unlike rules, null attribute values are disallowed here by construction (the attrValues
-    // map won't tolerate them). It's unclear if the visitor can be passed null values like it can
-    // for rules, so filter them out just in case.
     Type.LabelVisitor visitor =
         (label, unusedAttribute) -> {
           if (label != null) {
@@ -252,9 +333,9 @@ public final class MacroInstance {
           }
         };
 
-    if (convertedValue instanceof SelectorList) {
+    if (value instanceof SelectorList) {
       @SuppressWarnings("unchecked") // safe by precondition assumption
-      SelectorList<T> selectorList = (SelectorList<T>) convertedValue;
+      SelectorList<T> selectorList = (SelectorList<T>) value;
       AggregatingAttributeMapper.visitLabelsInSelect(
           selectorList,
           attribute,
@@ -264,9 +345,29 @@ public final class MacroInstance {
           /* includeKeys= */ false,
           /* includeValues= */ true);
     } else {
-      T castValue = type.cast(convertedValue);
+      T castValue = type.cast(value);
       type.visitLabels(visitor, castValue, attribute);
     }
+  }
+
+  @Override
+  public AttributeProvider getAttributeProvider() {
+    return macroClass.getAttributeProvider();
+  }
+
+  @Override
+  void reportError(String message, EventHandler eventHandler) {
+    eventHandler.handle(Event.error(message));
+  }
+
+  @Override
+  public boolean isRuleInstance() {
+    return false;
+  }
+
+  @Override
+  public boolean isRuleCreatedInMacro() {
+    return false;
   }
 
   /**

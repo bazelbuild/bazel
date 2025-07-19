@@ -31,7 +31,7 @@ class Path {
   bool operator<(const Path &o) const { return path_ < o.path_; }
   bool IsEmpty() const { return path_.empty(); }
   bool IsNull() const;
-  bool Contains(const char c) const;
+  bool Contains(char c) const;
   bool Contains(const std::string &s) const;
   Path GetRelative(const std::string &r) const;
 
@@ -64,7 +64,7 @@ class Path {
 #else
   // Returns a platform-native, absolute, normalized path.
   // Use this to pass paths to filesystem API functions.
-  const std::string AsNativePath() const { return path_; }
+  std::string AsNativePath() const { return path_; }
 #endif
 
  private:

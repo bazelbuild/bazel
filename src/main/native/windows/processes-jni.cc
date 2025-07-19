@@ -43,12 +43,6 @@ static std::wstring ToString(const T& e) {
   return s.str();
 }
 
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_getpid(
-    JNIEnv* env, jclass clazz) {
-  return GetCurrentProcessId();
-}
-
 class JavaByteArray {
  public:
   JavaByteArray(JNIEnv* env, jbyteArray java_array)

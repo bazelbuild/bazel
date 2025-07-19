@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
@@ -109,6 +110,22 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
     return normalizedEntries.entrySet().stream()
         .map(AbstractMap.SimpleEntry::new)
         .collect(toImmutableList());
+  }
+
+  /**
+   * Helper method for subclasses to normalize list of {@link Converters.EnvVar}s by keeping only
+   * the last entry for each key. The order of the entries is preserved.
+   */
+  protected static List<Converters.EnvVar> normalizeEnvVars(List<Converters.EnvVar> entries) {
+    LinkedHashMap<String, Converters.EnvVar> normalizedEntries = new LinkedHashMap<>();
+    for (var entry : entries) {
+      normalizedEntries.put(entry.name(), entry);
+    }
+    // If we made no changes, return the same instance we got to reduce churn.
+    if (normalizedEntries.size() == entries.size()) {
+      return entries;
+    }
+    return ImmutableList.copyOf(normalizedEntries.values());
   }
 
   /** Tracks limitations on referring to an option in a {@code config_setting}. */

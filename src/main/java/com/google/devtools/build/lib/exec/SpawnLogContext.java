@@ -155,7 +155,7 @@ public abstract class SpawnLogContext implements ActionContext {
   protected Digest computeDigest(
       @Nullable ActionInput input,
       Path path,
-      InputMetadataProvider inputMetadataProvider,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       XattrProvider xattrProvider,
       DigestHashFunction digestHashFunction,
       boolean includeHashFunctionName)
@@ -173,17 +173,19 @@ public abstract class SpawnLogContext implements ActionContext {
         return builder.setHash(digest.getHash()).setSizeBytes(digest.getSizeBytes()).build();
       }
 
-      // Try to obtain a digest from the input metadata.
-      try {
-        FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(input);
-        if (metadata != null && metadata.getDigest() != null) {
-          return builder
-              .setHash(HashCode.fromBytes(metadata.getDigest()).toString())
-              .setSizeBytes(metadata.getSize())
-              .build();
+      if (inputMetadataProvider != null) {
+        // Try to obtain a digest from the input metadata.
+        try {
+          FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(input);
+          if (metadata != null && metadata.getDigest() != null) {
+            return builder
+                .setHash(HashCode.fromBytes(metadata.getDigest()).toString())
+                .setSizeBytes(metadata.getSize())
+                .build();
+          }
+        } catch (IOException | IllegalStateException e) {
+          // Pass through to local computation.
         }
-      } catch (IOException | IllegalStateException e) {
-        // Pass through to local computation.
       }
     }
 

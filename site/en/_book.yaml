@@ -130,6 +130,8 @@ upper_tabs:
         path: /external/module
       - title: Bazel registries
         path: /external/registry
+      - title: Repository rules
+        path: /external/repo
       - title: Module extensions
         path: /external/extension
       - title: Module lockfile
@@ -140,8 +142,8 @@ upper_tabs:
         path: /external/mod-command
       - title: Bzlmod migration guide
         path: /external/migration
-      - title: Advanced topics
-        path: /external/advanced
+      - title: FAQ
+        path: /external/faq
       - heading: Querying your build
       - title: Query quickstart
         path: /query/quickstart
@@ -282,8 +284,6 @@ upper_tabs:
         path: /extending/depsets
       - title: Aspects
         path: /extending/aspects
-      - title: Repository rules
-        path: /extending/repo
       - title: Configuring
         path: /extending/config
       - title: Platforms

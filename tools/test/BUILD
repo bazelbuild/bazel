@@ -1,3 +1,7 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 package(default_visibility = ["//visibility:public"])
 
 # Members of this filegroup shouldn't have duplicate basenames, otherwise
@@ -113,6 +117,7 @@ filegroup(
         "BUILD.tools",
         "collect_cc_coverage.sh",
         "collect_coverage.sh",
+        "default_test_toolchain.bzl",
         "extensions.bzl",
         "generate-xml.sh",
         "test-setup.sh",
@@ -130,5 +135,8 @@ filegroup(
 
 filegroup(
     name = "bzl_srcs",
-    srcs = ["extensions.bzl"],
+    srcs = [
+        "default_test_toolchain.bzl",
+        "extensions.bzl",
+    ],
 )

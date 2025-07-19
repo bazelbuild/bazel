@@ -65,13 +65,13 @@ final class FormatUtils {
       Target target, boolean relative, @Nullable PathFragment overrideSourceRoot) {
     Location loc = target.getLocation();
     if (target instanceof InputFile) {
-      PathFragment packageDir = target.getPackage().getPackageDirectory().asFragment();
+      PathFragment packageDir = target.getPackageMetadata().getPackageDirectory().asFragment();
       loc = Location.fromFileLineColumn(packageDir.getRelative(target.getName()).toString(), 1, 1);
     }
     if (relative) {
-      loc = getRootRelativeLocation(loc, target.getPackage());
+      loc = getRootRelativeLocation(loc, target.getPackageMetadata());
     } else if (overrideSourceRoot != null) {
-      loc = getLocationUnderAlternateRoot(loc, target.getPackage(), overrideSourceRoot);
+      loc = getLocationUnderAlternateRoot(loc, target.getPackageMetadata(), overrideSourceRoot);
     }
     return loc.toString();
   }
@@ -80,15 +80,14 @@ final class FormatUtils {
    * Returns the specified location relative to the optional package's source root directory, if
    * available.
    */
-  static Location getRootRelativeLocation(Location location, @Nullable Package base) {
+  static Location getRootRelativeLocation(Location location, @Nullable Package.Metadata base) {
     return getLocationUnderAlternateRoot(location, base, PathFragment.EMPTY_FRAGMENT);
   }
 
   private static Location getLocationUnderAlternateRoot(
-      Location location, @Nullable Package base, PathFragment alternateRoot) {
-    if (base != null
-        && base.getSourceRoot().isPresent()) { // !isPresent => WORKSPACE pseudo-package
-      Root root = base.getSourceRoot().get();
+      Location location, @Nullable Package.Metadata base, PathFragment alternateRoot) {
+    if (base != null) {
+      Root root = base.sourceRoot();
       PathFragment file = PathFragment.create(location.file());
       if (root.contains(file)) {
         PathFragment rel = root.relativize(file);

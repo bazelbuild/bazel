@@ -1365,15 +1365,19 @@ public final class SkyframeBuildView {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
-      @Nullable NestedSet<Package> transitivePackages,
-      ExecGroupCollection.Builder execGroupCollectionBuilder)
+      @Nullable NestedSet<Package.Metadata> transitivePackages,
+      ExecGroupCollection.Builder execGroupCollectionBuilder,
+      boolean crashIfExecutionPhase)
       throws InterruptedException,
           ActionConflictException,
           InvalidExecGroupException,
           AnalysisFailurePropagationException,
           StarlarkExecTransitionLoadingException {
     Preconditions.checkState(
-        enableAnalysis, "Already in execution phase %s %s", target, configuration);
+        enableAnalysis || !crashIfExecutionPhase,
+        "Already in execution phase %s %s",
+        target,
+        configuration);
     Preconditions.checkNotNull(analysisEnvironment);
     Preconditions.checkNotNull(target);
     Preconditions.checkNotNull(prerequisiteMap);
@@ -1507,11 +1511,6 @@ public final class SkyframeBuildView {
               // Created actions will be counted from {@link AspectValue} on the original target.
               return;
             }
-          }
-          if (alv.getNumActions() == 0) {
-            // No actions in deserialized action lookup values, and calling #getActions will
-            // cause an NPE.
-            return;
           }
 
           // During multithreaded operation, this is only set to true, so no concurrency issues.

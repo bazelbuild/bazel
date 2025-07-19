@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.skyframe.toolchains;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
@@ -29,25 +29,20 @@ import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
+import com.google.devtools.build.lib.rules.platform.PlatformRule;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
-import com.google.devtools.build.lib.skyframe.PackageValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
 import com.google.devtools.build.lib.skyframe.TargetPatternUtil;
@@ -67,7 +62,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkSemantics;
 
 /** {@link SkyFunction} that returns all registered execution platforms available. */
 public class RegisteredExecutionPlatformsFunction implements SkyFunction {
@@ -80,7 +74,6 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws RegisteredExecutionPlatformsFunctionException, InterruptedException {
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     RegisteredExecutionPlatformsValue.Key key = (RegisteredExecutionPlatformsValue.Key) skyKey;
     BuildConfigurationValue configuration =
         (BuildConfigurationValue) env.getValue(key.configurationKey());
@@ -109,31 +102,12 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
       }
     }
 
-    // Get registered execution platforms from the root Bazel module.
-    ImmutableList<TargetPattern> bzlmodRootModuleExecutionPlatforms =
-        getBzlmodExecutionPlatforms(starlarkSemantics, env, /* forRootModule= */ true);
-    if (bzlmodRootModuleExecutionPlatforms == null) {
+    // Get registered execution platforms from the external dep graph.
+    ImmutableList<TargetPattern> bzlmodExecutionPlatforms = getBzlmodExecutionPlatforms(env);
+    if (bzlmodExecutionPlatforms == null) {
       return null;
     }
-    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodRootModuleExecutionPlatforms));
-
-    // Get the registered execution platforms from the WORKSPACE.
-    // The WORKSPACE suffixes don't register any execution platforms, so we can register all
-    // platforms in WORKSPACE before those in non-root Bazel modules.
-    ImmutableList<TargetPattern> workspaceExecutionPlatforms =
-        getWorkspaceExecutionPlatforms(starlarkSemantics, env);
-    if (workspaceExecutionPlatforms == null) {
-      return null;
-    }
-    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(workspaceExecutionPlatforms));
-
-    // Get registered execution platforms from the non-root Bazel modules.
-    ImmutableList<TargetPattern> bzlmodNonRootModuleExecutionPlatforms =
-        getBzlmodExecutionPlatforms(starlarkSemantics, env, /* forRootModule= */ false);
-    if (bzlmodNonRootModuleExecutionPlatforms == null) {
-      return null;
-    }
-    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodNonRootModuleExecutionPlatforms));
+    targetPatternBuilder.addAll(TargetPatternUtil.toSigned(bzlmodExecutionPlatforms));
 
     // Expand target patterns.
     ImmutableList<Label> platformLabels;
@@ -169,7 +143,10 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
         Consumer<String> errorHandler =
             key.debug() ? message -> rejectedPlatforms.put(platformInfo.label(), message) : null;
         if (ConfigMatchingUtil.validate(
-            platformInfo.label(), platformInfo.requiredSettings(), errorHandler)) {
+            platformInfo.label(),
+            platformInfo.requiredSettings(),
+            errorHandler,
+            PlatformRule.REQUIRED_SETTINGS_ATTR)) {
           platformKeys.add(configuredTargetKey);
         }
       } catch (InvalidConfigurationException e) {
@@ -184,35 +161,9 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
         rejectedPlatforms != null ? rejectedPlatforms.buildKeepingLast() : null);
   }
 
-  /**
-   * Loads the external package and then returns the registered execution platform labels.
-   *
-   * @param env the environment to use for lookups
-   */
   @Nullable
-  @VisibleForTesting
-  public static ImmutableList<TargetPattern> getWorkspaceExecutionPlatforms(
-      StarlarkSemantics semantics, Environment env) throws InterruptedException {
-    if (!semantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {
-      return ImmutableList.of();
-    }
-    PackageValue externalPackageValue =
-        (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
-    if (externalPackageValue == null) {
-      return null;
-    }
-
-    Package externalPackage = externalPackageValue.getPackage();
-    return externalPackage.getRegisteredExecutionPlatforms();
-  }
-
-  @Nullable
-  private static ImmutableList<TargetPattern> getBzlmodExecutionPlatforms(
-      StarlarkSemantics semantics, Environment env, boolean forRootModule)
+  private static ImmutableList<TargetPattern> getBzlmodExecutionPlatforms(Environment env)
       throws InterruptedException, RegisteredExecutionPlatformsFunctionException {
-    if (!semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
-      return ImmutableList.of();
-    }
     BazelDepGraphValue bazelDepGraphValue =
         (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
     if (bazelDepGraphValue == null) {
@@ -220,9 +171,6 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     }
     ImmutableList.Builder<TargetPattern> executionPlatforms = ImmutableList.builder();
     for (Module module : bazelDepGraphValue.getDepGraph().values()) {
-      if (forRootModule != module.getKey().equals(ModuleKey.ROOT)) {
-        continue;
-      }
       TargetPattern.Parser parser =
           new TargetPattern.Parser(
               PathFragment.EMPTY_FRAGMENT,
@@ -245,7 +193,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
       configureRegisteredExecutionPlatforms(
           Environment env, BuildConfigurationValue configuration, List<Label> labels)
           throws InterruptedException, RegisteredExecutionPlatformsFunctionException {
-    ImmutableList<ConfiguredTargetKey> keys =
+    ImmutableSet<ConfiguredTargetKey> keys =
         labels.stream()
             .map(
                 label ->
@@ -253,7 +201,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
                         .setLabel(label)
                         .setConfiguration(configuration)
                         .build())
-            .collect(toImmutableList());
+            .collect(toImmutableSet());
 
     SkyframeLookupResult values = env.getValuesAndExceptions(keys);
     ImmutableMap.Builder<ConfiguredTargetKey, PlatformInfo> platforms =

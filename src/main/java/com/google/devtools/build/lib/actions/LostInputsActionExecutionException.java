@@ -16,21 +16,29 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skyframe.rewinding.LostInputOwners;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
  * An {@link ActionExecutionException} thrown when an action fails to execute because one or more of
  * its inputs was lost. In some cases, Bazel may know how to fix this on its own.
  */
-public class LostInputsActionExecutionException extends ActionExecutionException {
+public final class LostInputsActionExecutionException extends ActionExecutionException {
 
-  /** Maps lost input digests to their ActionInputs. */
+  /** Maps lost input digests to their {@link ActionInput}. */
   private final ImmutableMap<String, ActionInput> lostInputs;
 
-  private final ActionInputDepOwners owners;
+  /**
+   * Optional mapping of lost inputs to their owning expansion artifacts (tree artifacts, filesets,
+   * runfiles).
+   *
+   * <p>See {@link LostInputsExecException} for details on whether this should be provided.
+   */
+  private final Optional<LostInputOwners> owners;
 
   /**
    * The {@link ActionLookupData} for the action whose evaluation failed. Used to distinguish
@@ -65,7 +73,7 @@ public class LostInputsActionExecutionException extends ActionExecutionException
   public LostInputsActionExecutionException(
       String message,
       ImmutableMap<String, ActionInput> lostInputs,
-      ActionInputDepOwners owners,
+      Optional<LostInputOwners> owners,
       Action action,
       Exception cause,
       DetailedExitCode detailedExitCode) {
@@ -78,7 +86,7 @@ public class LostInputsActionExecutionException extends ActionExecutionException
     return lostInputs;
   }
 
-  public ActionInputDepOwners getOwners() {
+  public Optional<LostInputOwners> getOwners() {
     return owners;
   }
 

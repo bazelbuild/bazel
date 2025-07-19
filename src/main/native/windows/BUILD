@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -77,6 +80,7 @@ cc_binary(
         ":lib-file",
         ":lib-process",
         "//src/main/native:blake3_jni",
+        "//src/main/native:common",
     ],
 )
 

@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.rules.genquery.GenQueryDirectPackageProviderFactory;
+import com.google.devtools.build.lib.rules.genquery.GenQueryPackageProviderFactory;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -43,7 +43,7 @@ public final class NodeDroppingInconsistencyReceiver implements GraphInconsisten
       ImmutableMap.of(
           SkyFunctions.FILE, FileStateKey.FILE_STATE,
           SkyFunctions.DIRECTORY_LISTING, SkyFunctions.DIRECTORY_LISTING_STATE,
-          SkyFunctions.CONFIGURED_TARGET, GenQueryDirectPackageProviderFactory.GENQUERY_SCOPE);
+          SkyFunctions.CONFIGURED_TARGET, GenQueryPackageProviderFactory.GENQUERY_SCOPE);
 
   // TODO: b/290998109#comment60 - After the GLOB nodes are replaced by GLOBS, the missing children
   // below might be unexpected.

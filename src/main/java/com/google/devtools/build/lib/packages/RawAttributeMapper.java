@@ -25,19 +25,19 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /**
- * {@link AttributeMap} implementation that returns raw attribute information as contained within
- * a {@link Rule} via {@link #getRawAttributeValue}. In particular, configurable attributes
- * of the form { config1: "value1", config2: "value2" } are passed through without being resolved
- * to a final value when obtained via that method.
+ * {@link AttributeMap} implementation that returns raw attribute information as contained within a
+ * {@link RuleOrMacroInstance} via {@link #getRawAttributeValue}. In particular, configurable
+ * attributes of the form { config1: "value1", config2: "value2" } are passed through without being
+ * resolved to a final value when obtained via that method.
  */
 public class RawAttributeMapper extends AbstractAttributeMapper {
 
-  private RawAttributeMapper(Rule rule) {
-    super(rule);
+  private RawAttributeMapper(RuleOrMacroInstance ruleOrMacroInstance) {
+    super(ruleOrMacroInstance);
   }
 
-  public static RawAttributeMapper of(Rule rule) {
-    return new RawAttributeMapper(rule);
+  public static RawAttributeMapper of(RuleOrMacroInstance ruleOrMacroInstance) {
+    return new RawAttributeMapper(ruleOrMacroInstance);
   }
 
   /**

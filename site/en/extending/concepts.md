@@ -97,7 +97,7 @@ them within reach:
 
 In addition to [macros](/extending/macros) and [rules](/extending/rules), you
 may want to write [aspects](/extending/aspects) and [repository
-rules](/extending/repo).
+rules](/external/repo).
 
 * Use [Buildifier](https://github.com/bazelbuild/buildtools){: .external}
   consistently to format and lint your code.

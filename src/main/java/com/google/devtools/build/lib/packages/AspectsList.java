@@ -104,7 +104,7 @@ public final class AspectsList {
         // Required aspect parameters must be specified by the rule propagating the aspect with
         // the same parameter type.
         if (requiredAspectParameters.contains(aspectAttrName)) {
-          if (!ruleClass.hasAttr(aspectAttrName, aspectAttrType)) {
+          if (!ruleClass.getAttributeProvider().hasAttr(aspectAttrName, aspectAttrType)) {
             throw Starlark.errorf(
                 "Aspect %s requires rule %s to specify attribute '%s' with type %s.",
                 aspect.getName(), ruleClass.getName(), aspectAttrName, aspectAttrType);

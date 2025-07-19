@@ -490,7 +490,7 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
                 "While parsing option %s='%s': invalid package name ''%s'': "
                     + "package names may contain "
                     + "A-Z, a-z, 0-9, or any of ' !\"#$%%&'()*+,-./;<=>?[]^_`{|}~' "
-                    + "(most 7-bit ascii characters except 0-31, 127, ':', or '\\')",
+                    + "(any ASCII character except 0-31, 127, ':', or '\\')",
                 "--experimental_action_listener",
                 "this is \\not\\ a valid label",
                 "this is \\not\\ a valid label"));

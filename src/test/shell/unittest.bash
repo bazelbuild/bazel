@@ -333,7 +333,7 @@ function expect_log_n() {
     local message=${3:-"Expected regexp '$pattern' not found exactly $expectednum times"}
     local count=$(grep -sc -- "$pattern" $TEST_log)
     (( count == expectednum )) && return 0
-    fail "$message"
+    fail "$message (found $count times instead)"
     return 1
 }
 
@@ -477,7 +477,7 @@ function assert_contains() {
     local message=${3:-"Expected regexp '$pattern' not found in '$file'"}
     grep -sq -- "$pattern" "$file" && return 0
 
-    fail "$message" $(__copy_to_undeclared_outputs "$2")
+    fail "$message" $(__copy_to_undeclared_outputs "$file")
     return 1
 }
 
@@ -497,7 +497,7 @@ function assert_not_contains() {
       return 1
     fi
 
-    fail "$message" $(__copy_to_undeclared_outputs "$2")
+    fail "$message" $(__copy_to_undeclared_outputs "$file")
     return 1
 }
 
@@ -515,7 +515,7 @@ function assert_contains_n() {
     fi
     (( count == expectednum )) && return 0
 
-    fail "$message" $(__copy_to_undeclared_outputs "$2")
+    fail "$message" $(__copy_to_undeclared_outputs "$file")
     return 1
 }
 
@@ -556,7 +556,7 @@ function assert_empty_file() {
         return 0
     fi
 
-    fail "$message" $(__copy_to_undeclared_outputs "$1")
+    fail "$message" $(__copy_to_undeclared_outputs "$file")
     return 1
 }
 
@@ -571,7 +571,7 @@ function assert_nonempty_file() {
         return 0
     fi
 
-    fail "$message" $(__copy_to_undeclared_outputs "$1")
+    fail "$message" $(__copy_to_undeclared_outputs "$file")
     return 1
 }
 
@@ -579,10 +579,10 @@ function assert_nonempty_file() {
 # between the original file and the new file.
 function __copy_to_undeclared_outputs() {
   local name=$(basename "$1")
-  local uuid=$(uuidgen)
-  local testdir="${TEST_UNDECLARED_OUTPUTS_DIR}/${TEST_name}/${uuid}"
+  local testdir="${TEST_UNDECLARED_OUTPUTS_DIR}/${TEST_name}"
   mkdir -p "$testdir"
-  local newname="${testdir}/${name}"
+  local unique_dir=$(mktemp -d -p "$testdir" XXX)
+  local newname="${unique_dir}/${name}"
   cp "$1" "$newname"
   echo "Copied '$1' to '$newname'"
 }

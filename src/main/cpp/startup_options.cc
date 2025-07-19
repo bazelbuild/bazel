@@ -79,7 +79,6 @@ StartupOptions::StartupOptions(const string &product_name,
       oom_more_eagerly(false),
       oom_more_eagerly_threshold(100),
       write_command_log(true),
-      watchfs(false),
       fatal_event_bus_exceptions(false),
       command_port(0),
       connect_timeout_secs(30),
@@ -132,7 +131,6 @@ StartupOptions::StartupOptions(const string &product_name,
                              &shutdown_on_low_sys_mem);
   RegisterNullaryStartupFlagNoRc("ignore_all_rc_files", &ignore_all_rc_files);
   RegisterNullaryStartupFlag("unlimit_coredumps", &unlimit_coredumps);
-  RegisterNullaryStartupFlag("watchfs", &watchfs);
   RegisterNullaryStartupFlag("write_command_log", &write_command_log);
   RegisterNullaryStartupFlag("windows_enable_symlinks",
                              &windows_enable_symlinks);
@@ -591,6 +589,10 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   result->push_back("-XX:-MaxFDLimit");
 
   result->push_back("-Djava.lang.Thread.allowVirtualThreads=true");
+
+  result->push_back(
+      "-XX:OnOutOfMemoryError=touch " +
+      GetOOMFilePath(blaze_util::Path(output_base)).AsJvmArgument());
 
   return AddJVMMemoryArguments(server_javabase, result, user_options, error);
 }

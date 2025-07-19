@@ -17,7 +17,7 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -124,8 +124,7 @@ class DirectoryTreeBuilder {
             throw new IOException(String.format("Input '%s' is not a file.", input));
           }
           Digest d = digestUtil.compute(input);
-          boolean childAdded =
-              currDir.addChild(FileNode.createExecutable(path.getBaseName(), input, d));
+          boolean childAdded = currDir.addChild(FileNode.create(path.getBaseName(), input, d));
           return childAdded ? 1 : 0;
         });
   }
@@ -156,7 +155,7 @@ class DirectoryTreeBuilder {
             Digest d = digestUtil.compute(virtualActionInput);
             boolean childAdded =
                 currDir.addChild(
-                    FileNode.createExecutable(
+                    FileNode.create(
                         path.getBaseName(), virtualActionInput, d, toolInputs.contains(path)));
             return childAdded ? 1 : 0;
           }
@@ -172,13 +171,12 @@ class DirectoryTreeBuilder {
               Path inputPath = artifactPathResolver.toPath(input);
               boolean childAdded =
                   currDir.addChild(
-                      FileNode.createExecutable(
-                          path.getBaseName(), inputPath, d, toolInputs.contains(path)));
+                      FileNode.create(path.getBaseName(), inputPath, d, toolInputs.contains(path)));
               return childAdded ? 1 : 0;
             }
             case DIRECTORY -> {
               SortedMap<PathFragment, ActionInput> directoryInputs =
-                  explodeDirectory(input.getExecPath(), execRoot);
+                  explodeDirectory(path, input, artifactPathResolver);
               return buildFromActionInputs(
                   directoryInputs,
                   toolInputs,
@@ -239,14 +237,12 @@ class DirectoryTreeBuilder {
         continue;
       }
 
-      if (input instanceof DerivedArtifact && ((DerivedArtifact) input).isTreeArtifact()) {
+      if (input instanceof Artifact artifact && artifact.isTreeArtifact()) {
         // SpawnInputExpander has already expanded non-empty tree artifacts into a collection of
         // TreeFileArtifacts. Thus, at this point, tree artifacts represent empty directories, which
-        // we create together with their parents.
-        // Note: This also handles output directories of actions, which are explicitly included as
-        // inputs so that they are created by the executor before the action executes. Since such a
-        // directory must remain writeable, MetadataProvider#getMetadata must not be called on the
-        // tree artifact here as it would have the side effect of making it read only.
+        // we create together with their parents. Note that this includes both empty input *and*
+        // output tree artifacts (the latter are included so that their root directory is created
+        // before the action executes).
         DirectoryNode emptyDir = new DirectoryNode(path.getBaseName());
         tree.put(path, emptyDir);
         createParentDirectoriesIfNotExist(path, emptyDir, tree);
@@ -270,30 +266,39 @@ class DirectoryTreeBuilder {
   }
 
   private static SortedMap<PathFragment, ActionInput> explodeDirectory(
-      PathFragment dirname, Path execRoot) throws IOException {
+      PathFragment logicalPath, ActionInput directory, ArtifactPathResolver artifactPathResolver)
+      throws IOException {
     SortedMap<PathFragment, ActionInput> inputs = new TreeMap<>();
-    explodeDirectory(dirname, inputs, execRoot);
+    explodeDirectory(
+        logicalPath, directory.getExecPath(), artifactPathResolver.toPath(directory), inputs);
     return inputs;
   }
 
   private static void explodeDirectory(
-      PathFragment dirname, SortedMap<PathFragment, ActionInput> inputs, Path execRoot)
+      PathFragment logicalPath,
+      PathFragment execPath,
+      Path realPath,
+      SortedMap<PathFragment, ActionInput> inputs)
       throws IOException {
-    Collection<Dirent> entries = execRoot.getRelative(dirname).readdir(Symlinks.FOLLOW);
+    Collection<Dirent> entries = realPath.readdir(Symlinks.FOLLOW);
     for (Dirent entry : entries) {
       String basename = entry.getName();
-      PathFragment path = dirname.getChild(basename);
+      PathFragment childExecPath = execPath.getChild(basename);
       switch (entry.getType()) {
-        case FILE -> inputs.put(path, ActionInputHelper.fromPath(path));
-        case DIRECTORY -> explodeDirectory(path, inputs, execRoot);
+        case FILE ->
+            inputs.put(logicalPath.getChild(basename), ActionInputHelper.fromPath(childExecPath));
+        case DIRECTORY ->
+            explodeDirectory(
+                logicalPath.getChild(basename), childExecPath, realPath.getChild(basename), inputs);
         case SYMLINK ->
             throw new IllegalStateException(
                 String.format(
                     "Encountered symlink input '%s', but all"
                         + " symlinks should have been resolved by readdir. This is a bug.",
-                    path));
+                    childExecPath));
         case UNKNOWN ->
-            throw new IOException(String.format("The file type of '%s' is not supported.", path));
+            throw new IOException(
+                String.format("The file type of '%s' is not supported.", childExecPath));
       }
     }
   }

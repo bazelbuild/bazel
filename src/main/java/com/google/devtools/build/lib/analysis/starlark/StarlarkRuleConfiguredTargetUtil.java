@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
@@ -30,35 +28,25 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.StarlarkProviderValidationUtil;
-import com.google.devtools.build.lib.analysis.test.CoverageCommon;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.FormatMethod;
-import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -68,9 +56,6 @@ import net.starlark.java.syntax.Location;
 public final class StarlarkRuleConfiguredTargetUtil {
 
   private StarlarkRuleConfiguredTargetUtil() {}
-
-  private static final ImmutableSet<String> DEFAULT_PROVIDER_FIELDS =
-      ImmutableSet.of("files", "runfiles", "data_runfiles", "default_runfiles", "executable");
 
   /**
    * Evaluates the rule's implementation function and returns what it returns (raw providers).
@@ -238,43 +223,6 @@ public final class StarlarkRuleConfiguredTargetUtil {
     return ct;
   }
 
-  private static void addOutputGroups(Object outputGroups, RuleConfiguredTargetBuilder builder)
-      throws EvalException {
-    for (Map.Entry<String, StarlarkValue> entry :
-        Dict.cast(outputGroups, String.class, StarlarkValue.class, "output_groups").entrySet()) {
-      String outputGroup = entry.getKey();
-      NestedSet<Artifact> artifacts = convertToOutputGroupValue(outputGroup, entry.getValue());
-      builder.addOutputGroup(outputGroup, artifacts);
-    }
-  }
-
-  private static void addInstrumentedFiles(
-      StructImpl insStruct, RuleContext ruleContext, RuleConfiguredTargetBuilder builder)
-      throws EvalException {
-    List<String> extensions = null;
-    if (insStruct.getFieldNames().contains("extensions")) {
-      extensions = Sequence.cast(insStruct.getValue("extensions"), String.class, "extensions");
-    }
-
-    List<String> dependencyAttributes = Collections.emptyList();
-    if (insStruct.getFieldNames().contains("dependency_attributes")) {
-      dependencyAttributes =
-          Sequence.cast(
-              insStruct.getValue("dependency_attributes"), String.class, "dependency_attributes");
-    }
-
-    List<String> sourceAttributes = Collections.emptyList();
-    if (insStruct.getFieldNames().contains("source_attributes")) {
-      sourceAttributes =
-          Sequence.cast(insStruct.getValue("source_attributes"), String.class, "source_attributes");
-    }
-
-    InstrumentedFilesInfo instrumentedFilesProvider =
-        CoverageCommon.createInstrumentedFilesInfo(
-            ruleContext, sourceAttributes, dependencyAttributes, extensions);
-    builder.addNativeDeclaredProvider(instrumentedFilesProvider);
-  }
-
   public static NestedSet<Artifact> convertToOutputGroupValue(String outputGroup, Object objects)
       throws EvalException {
     // regrettable preemptive allocation of error message
@@ -293,47 +241,20 @@ public final class StarlarkRuleConfiguredTargetUtil {
       Location implLoc,
       boolean isDefaultExecutableCreated)
       throws EvalException, InterruptedException {
-
-    StructImpl oldStyleProviders =
-        StarlarkInfo.create(StructProvider.STRUCT, ImmutableMap.of(), implLoc);
     Map<Provider.Key, Info> declaredProviders = new LinkedHashMap<>();
-
     if (rawProviders instanceof Info info) {
-      // Either an old-style struct or a single declared provider (not in a list)
       if (getProviderKey(info).equals(StructProvider.STRUCT.getKey())) {
-        if (context
-            .getAnalysisEnvironment()
-            .getStarlarkSemantics()
-            .getBool(BuildLanguageOptions.INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX)) {
-          throw infoError(
-              info,
-              "Returning a struct from a rule implementation function is deprecated and will "
-                  + "be removed soon. It may be temporarily re-enabled by setting "
-                  + "--incompatible_disallow_struct_provider_syntax=false . See "
-                  + "https://github.com/bazelbuild/bazel/issues/7347 for details.");
-        }
-
-        // Old-style struct, but it may contain declared providers
-        StructImpl struct = (StructImpl) rawProviders;
-        oldStyleProviders = struct;
-
-        Object providersField = struct.getValue("providers");
-        if (providersField != null) {
-          for (Info provider : Sequence.cast(providersField, Info.class, "providers")) {
-            Provider.Key providerKey = getProviderKey(provider);
-            if (declaredProviders.put(providerKey, provider) != null) {
-              context.ruleError("Multiple conflicting returned providers with key " + providerKey);
-            }
-          }
-        }
-      } else {
-        if (info instanceof StarlarkInfo starlarkInfo) {
-          info = starlarkInfo.unsafeOptimizeMemoryLayout();
-        }
-        Provider.Key providerKey = getProviderKey(info);
-        // Single declared provider
-        declaredProviders.put(providerKey, info);
+        throw infoError(
+            info, "Returning a struct from a rule implementation function is deprecated.");
       }
+
+      // A single declared provider (not in a list)
+      if (info instanceof StarlarkInfo starlarkInfo) {
+        info = starlarkInfo.unsafeOptimizeMemoryLayout();
+      }
+      Provider.Key providerKey = getProviderKey(info);
+      // Single declared provider
+      declaredProviders.put(providerKey, info);
     } else if (rawProviders instanceof Sequence) {
       // Sequence of declared providers
       for (Info provider :
@@ -349,14 +270,16 @@ public final class StarlarkRuleConfiguredTargetUtil {
           context.ruleError("Multiple conflicting returned providers with key " + providerKey);
         }
       }
+    } else if (rawProviders != Starlark.NONE) {
+      throw Starlark.errorf(
+          "Expected a list of providers, but got %s", Starlark.type(rawProviders));
     }
 
     boolean defaultProviderProvidedExplicitly = false;
 
     for (Info declaredProvider : declaredProviders.values()) {
-      if (getProviderKey(declaredProvider).equals(DefaultInfo.PROVIDER.getKey())) {
-        parseDefaultProviderFields(
-            (DefaultInfo) declaredProvider, context, builder, isDefaultExecutableCreated);
+      if (declaredProvider instanceof DefaultInfo defaultInfo) {
+        parseDefaultProviderFields(defaultInfo, context, builder, isDefaultExecutableCreated);
         defaultProviderProvidedExplicitly = true;
       } else if (getProviderKey(declaredProvider).equals(RunEnvironmentInfo.PROVIDER.getKey())
           && !(context.getRule().getRuleClassObject().isExecutableStarlark()
@@ -376,29 +299,10 @@ public final class StarlarkRuleConfiguredTargetUtil {
     }
 
     if (!defaultProviderProvidedExplicitly) {
-      parseDefaultProviderFields(oldStyleProviders, context, builder, isDefaultExecutableCreated);
-    }
-
-    for (String field : oldStyleProviders.getFieldNames()) {
-      if (DEFAULT_PROVIDER_FIELDS.contains(field)) {
-        // These fields have already been parsed above.
-        // If a default provider has been provided explicitly then it's an error that they also
-        // occur here.
-        if (defaultProviderProvidedExplicitly) {
-          throw infoError(
-              oldStyleProviders,
-              "Provider '%s' should be specified in DefaultInfo if it's provided explicitly.",
-              field);
-        }
-      } else if (field.equals("output_groups")) {
-        addOutputGroups(oldStyleProviders.getValue(field), builder);
-      } else if (field.equals("instrumented_files")) {
-        addInstrumentedFiles(
-            oldStyleProviders.getValue("instrumented_files", StructImpl.class), context, builder);
-      } else if (!field.equals("providers")) { // "providers" already handled above.
-        addProviderFromLegacySyntax(
-            builder, oldStyleProviders, field, oldStyleProviders.getValue(field));
-      }
+      // TODO(b/308767456): Avoid creating an empty DefaultInfo, just to pass location for throwing
+      // exceptions.
+      parseDefaultProviderFields(
+          DefaultInfo.createEmpty(implLoc), context, builder, isDefaultExecutableCreated);
     }
   }
 
@@ -407,65 +311,6 @@ public final class StarlarkRuleConfiguredTargetUtil {
   @FormatMethod
   private static EvalException infoError(Info info, String format, Object... args) {
     return Starlark.errorf("%s: %s", info.getCreationLocation(), String.format(format, args));
-  }
-
-  @SuppressWarnings("deprecation") // For legacy migrations
-  private static void addProviderFromLegacySyntax(
-      RuleConfiguredTargetBuilder builder,
-      StructImpl oldStyleProviders,
-      String fieldName,
-      Object value)
-      throws EvalException {
-    builder.addStarlarkTransitiveInfo(fieldName, value);
-
-    if (value instanceof Info info) {
-
-      // To facilitate migration off legacy provider syntax, implicitly set the modern provider key
-      // and the canonical legacy provider key if applicable.
-      if (shouldAddWithModernKey(builder, oldStyleProviders, fieldName, info)) {
-        builder.addNativeDeclaredProvider(info);
-      }
-
-      if (info.getProvider()
-          instanceof BuiltinProvider.WithLegacyStarlarkName providerWithLegacyName) {
-        if (shouldAddWithLegacyKey(oldStyleProviders, providerWithLegacyName)) {
-          builder.addStarlarkTransitiveInfo(providerWithLegacyName.getStarlarkName(), info);
-        }
-      }
-    }
-  }
-
-  @SuppressWarnings("deprecation") // For legacy migrations
-  private static boolean shouldAddWithModernKey(
-      RuleConfiguredTargetBuilder builder,
-      StructImpl oldStyleProviders,
-      String fieldName,
-      Info info)
-      throws EvalException {
-    // If the modern key is already set, do nothing.
-    if (builder.containsProviderKey(info.getProvider().getKey())) {
-      return false;
-    }
-    if (info.getProvider() instanceof BuiltinProvider.WithLegacyStarlarkName) {
-      String canonicalLegacyKey =
-          ((BuiltinProvider.WithLegacyStarlarkName) info.getProvider()).getStarlarkName();
-      // Add info using its modern key if it was specified using its canonical legacy key, or
-      // if no provider was used using that canonical legacy key.
-      return fieldName.equals(canonicalLegacyKey)
-          || oldStyleProviders.getValue(canonicalLegacyKey) == null;
-    } else {
-      return true;
-    }
-  }
-
-  @SuppressWarnings("deprecation") // For legacy migrations
-  private static boolean shouldAddWithLegacyKey(
-      StructImpl oldStyleProviders, BuiltinProvider.WithLegacyStarlarkName provider)
-      throws EvalException {
-    String canonicalLegacyKey = provider.getStarlarkName();
-    // Add info using its canonical legacy key if no provider was specified using that canonical
-    // legacy key.
-    return oldStyleProviders.getValue(canonicalLegacyKey) == null;
   }
 
   /**
@@ -491,68 +336,22 @@ public final class StarlarkRuleConfiguredTargetUtil {
     return provider.getKey();
   }
 
-  /**
-   * Parses fields of (not necessarily a default) provider. If it is an actual default provider,
-   * throws an {@link EvalException} if there are unknown fields.
-   */
-  // TODO(brandjon): Consider refactoring this method by splitting it into two versions for the
-  // case of DefaultInfo and the case of a legacy struct. They'd differ in how they parse the
-  // fields, then dispatch to a common validation helper and finally the common
-  // addSimpleProviders call. Also rename this method to make clear that it mutates the builder.
-  // If lagacy struct providers are removed first, this is moot.
+  /** Parses fields of a default provider. */
   private static void parseDefaultProviderFields(
-      StructImpl info,
+      DefaultInfo defaultInfo,
       RuleContext context,
       RuleConfiguredTargetBuilder builder,
       boolean isDefaultExecutableCreated)
       throws EvalException, InterruptedException {
-    Depset files = null;
-    Runfiles statelessRunfiles = null;
-    Runfiles dataRunfiles = null;
-    Runfiles defaultRunfiles = null;
-    Artifact executable = null;
-
-    if (getProviderKey(info).equals(DefaultInfo.PROVIDER.getKey())) {
-      DefaultInfo defaultInfo = (DefaultInfo) info;
-
-      files = defaultInfo.getFiles();
-      statelessRunfiles = defaultInfo.getStatelessRunfiles();
-      dataRunfiles = defaultInfo.getDataRunfiles();
-      defaultRunfiles = defaultInfo.getDefaultRunfiles();
-      executable = defaultInfo.getExecutable();
-
-    } else {
-      // Rule implementations aren't required to return default-info fields via a DefaultInfo
-      // provider. They can return them as fields on the returned struct. For example,
-      // 'return struct(executable = foo)' instead of 'return DefaultInfo(executable = foo)'.
-      // TODO(cparsons): Look into deprecating this option.
-      for (String field : info.getFieldNames()) {
-        if (field.equals("files")) {
-          Object x = info.getValue("files");
-          Depset.cast(x, Artifact.class, "files"); // may throw exception
-          files = (Depset) x;
-        } else if (field.equals("runfiles")) {
-          statelessRunfiles = info.getValue("runfiles", Runfiles.class);
-        } else if (field.equals("data_runfiles")) {
-          dataRunfiles = info.getValue("data_runfiles", Runfiles.class);
-        } else if (field.equals("default_runfiles")) {
-          defaultRunfiles = info.getValue("default_runfiles", Runfiles.class);
-        } else if (field.equals("executable") && info.getValue("executable") != null) {
-          executable = info.getValue("executable", Artifact.class);
-        }
-      }
-
-      if ((statelessRunfiles != null) && (dataRunfiles != null || defaultRunfiles != null)) {
-        throw infoError(
-            info,
-            "Cannot specify the provider 'runfiles' together with 'data_runfiles' or"
-                + " 'default_runfiles'");
-      }
-    }
+    Depset files = defaultInfo.getFiles();
+    Runfiles statelessRunfiles = defaultInfo.getStatelessRunfiles();
+    Runfiles dataRunfiles = defaultInfo.getDataRunfiles();
+    Runfiles defaultRunfiles = defaultInfo.getDefaultRunfiles();
+    Artifact executable = defaultInfo.getExecutable();
 
     if (executable != null && !executable.getArtifactOwner().equals(context.getOwner())) {
       throw infoError(
-          info,
+          defaultInfo,
           "'executable' provided by an executable rule '%s' should be created "
               + "by the same rule.",
           context.getRule().getRuleClass());
@@ -563,7 +362,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
       Artifact defaultExecutable = context.createOutputArtifact();
       if (!executable.equals(defaultExecutable)) {
         throw infoError(
-            info,
+            defaultInfo,
             "The rule '%s' both accesses 'ctx.outputs.executable' and provides "
                 + "a different executable '%s'. Do not use 'ctx.output.executable'.",
             context.getRule().getRuleClass(),
@@ -589,7 +388,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
         executable = context.createOutputArtifact();
       } else {
         throw infoError(
-            info,
+            defaultInfo,
             "The rule '%s' is executable. "
                 + "It needs to create an executable File and pass it as the 'executable' "
                 + "parameter to the DefaultInfo it returns.",
@@ -630,29 +429,36 @@ public final class StarlarkRuleConfiguredTargetUtil {
       statelessRunfiles = Runfiles.EMPTY;
     }
 
-    RunfilesProvider runfilesProvider =
-        statelessRunfiles != null
-            ? RunfilesProvider.simple(mergeFiles(statelessRunfiles, executable, ruleContext))
-            : RunfilesProvider.withData(
-                // The executable doesn't get into the default runfiles if we have runfiles states.
-                // This is to keep Starlark genrule consistent with the original genrule.
-                defaultRunfiles != null ? defaultRunfiles : Runfiles.EMPTY,
-                dataRunfiles != null ? dataRunfiles : Runfiles.EMPTY);
+    // This works because we only allowed to call a rule *_test iff it's a test type rule.
+    boolean testRule = TargetUtils.isTestRuleName(ruleContext.getRule().getRuleClass());
+    boolean isExecutableOrTest = executable != null || testRule;
+    RunfilesProvider runfilesProvider;
+    if (statelessRunfiles != null) {
+      runfilesProvider =
+          RunfilesProvider.simple(mergeFiles(statelessRunfiles, executable, ruleContext));
+    } else {
+      var mergedDefaultRunfiles = defaultRunfiles != null ? defaultRunfiles : Runfiles.EMPTY;
+      if (isExecutableOrTest) {
+        // The executable is only merged in if needed when using stateful runfiles to preserve
+        // long-standing behavior.
+        mergedDefaultRunfiles = mergeFiles(mergedDefaultRunfiles, executable, ruleContext);
+      }
+      runfilesProvider =
+          RunfilesProvider.withData(
+              mergedDefaultRunfiles, dataRunfiles != null ? dataRunfiles : Runfiles.EMPTY);
+    }
     builder.addProvider(RunfilesProvider.class, runfilesProvider);
 
     Runfiles computedDefaultRunfiles = runfilesProvider.getDefaultRunfiles();
-    // This works because we only allowed to call a rule *_test iff it's a test type rule.
-    boolean testRule = TargetUtils.isTestRuleName(ruleContext.getRule().getRuleClass());
     if (testRule && computedDefaultRunfiles.isEmpty()) {
       throw Starlark.errorf("Test rules have to define runfiles");
     }
-    if (executable != null || testRule) {
+    if (isExecutableOrTest) {
       RunfilesSupport runfilesSupport = null;
       if (!computedDefaultRunfiles.isEmpty()) {
         Preconditions.checkNotNull(executable, "executable must not be null");
         runfilesSupport =
             RunfilesSupport.withExecutable(ruleContext, computedDefaultRunfiles, executable);
-        assertExecutableSymlinkPresent(runfilesSupport.getRunfiles(), executable);
       }
       builder.setRunfilesSupport(runfilesSupport, executable);
     }
@@ -664,23 +470,12 @@ public final class StarlarkRuleConfiguredTargetUtil {
     }
   }
 
-  private static void assertExecutableSymlinkPresent(Runfiles runfiles, Artifact executable)
-      throws EvalException {
-    // Extracting the map from Runfiles flattens a depset.
-    // TODO(cparsons): Investigate: Avoiding this flattening may be an efficiency win.
-    Map<PathFragment, Artifact> symlinks = runfiles.asMapWithoutRootSymlinks();
-    if (!symlinks.containsValue(executable)) {
-      throw Starlark.errorf("main program %s not included in runfiles", executable);
-    }
-  }
-
   private static Runfiles mergeFiles(
       Runfiles runfiles, Artifact executable, RuleContext ruleContext) {
     if (executable == null) {
       return runfiles;
     }
-    return new Runfiles.Builder(
-            ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
+    return new Runfiles.Builder(ruleContext.getWorkspaceName())
         .addArtifact(executable)
         .merge(runfiles)
         .build();

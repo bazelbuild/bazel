@@ -349,12 +349,15 @@ def _resolve_explicitly_defined_version(
         flag_version = alias_to_versions.get(str(xcode_version_flag))
         if flag_version:
             return flag_version.xcode_version_properties
+        elif xcode_version_flag.startswith("/"):
+            return XcodeVersionPropertiesInfo(xcode_version = xcode_version_flag)
         else:
             fail(
                 ("--xcode_version={0} specified, but '{0}' is not an available Xcode version. " +
                  "If you believe you have '{0}' installed, try running \"bazel shutdown\", and then " +
                  "re-run your command.").format(xcode_version_flag),
             )
+
     return alias_to_versions.get(explicit_default_version.xcode_version_properties.xcode_version).xcode_version_properties
 
 def _dotted_version_or_default(field, default):

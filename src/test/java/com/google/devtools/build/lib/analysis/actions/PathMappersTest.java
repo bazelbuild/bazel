@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.lang.String.format;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -100,6 +101,7 @@ public class PathMappersTest extends BuildViewTestCase {
             format("%s/cfg/bin/java/com/google/test/C.java", outDir),
             format("%s/cfg/bin/java/com/google/test/liba-hjar.jar", outDir),
             format("%s/cfg/bin/java/com/google/test/liba-hjar.jdeps", outDir),
+            format("%s/cfg/bin/java/com/google/test/liba-tjar.jar", outDir),
             format("-XepOpt:foo:bar=%s/cfg/bin/java/com/google/test/B.java", outDir),
             format(
                 "-XepOpt:baz=%s/cfg/bin/java/com/google/test/C.java,%s/cfg/bin/java/com/google/test/B.java",
@@ -298,7 +300,7 @@ public class PathMappersTest extends BuildViewTestCase {
 
   @Test
   public void forActionKey() {
-    var pathMapper = PathMappers.forActionKey(CoreOptions.OutputPathsMode.STRIP);
+    var pathMapper = PathMapper.forActionKey(CoreOptions.OutputPathsMode.STRIP);
     assertThat(pathMapper.isNoop()).isFalse();
     assertThat(pathMapper.map(PathFragment.create("pkg/file")))
         .isEqualTo(PathFragment.create("pkg/file"));

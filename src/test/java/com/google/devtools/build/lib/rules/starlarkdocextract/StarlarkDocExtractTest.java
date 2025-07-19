@@ -22,15 +22,12 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil;
-import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.starlarkdocextract.ModuleInfoExtractor;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
@@ -45,7 +42,6 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Prov
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RepositoryRuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.TextFormat;
@@ -57,15 +53,6 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class StarlarkDocExtractTest extends BuildViewTestCase {
-
-  @Override
-  protected ConfiguredRuleClassProvider createRuleClassProvider() {
-    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-    TestRuleClassProvider.addStandardRules(builder);
-    // Ensure repository_rule is supported.
-    builder.addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
-    return builder.build();
-  }
 
   private static ModuleInfo protoFromBinaryFileWriteAction(Action action) throws Exception {
     assertThat(action).isInstanceOf(BinaryFileWriteAction.class);

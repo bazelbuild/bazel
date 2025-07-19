@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.config.RunUnder.LabelRunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
@@ -45,10 +46,10 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.lang.ref.WeakReference;
-import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
@@ -79,7 +80,7 @@ import javax.annotation.Nullable;
 @Immutable
 public final class RunfilesSupport {
   private static final String RUNFILES_DIR_EXT = ".runfiles";
-  private static final String INPUT_MANIFEST_EXT = ".runfiles_manifest";
+  public static final String INPUT_MANIFEST_EXT = ".runfiles_manifest";
   private static final String OUTPUT_MANIFEST_BASENAME = "MANIFEST";
   private static final String REPO_MAPPING_MANIFEST_EXT = ".repo_mapping";
 
@@ -87,7 +88,7 @@ public final class RunfilesSupport {
   @VisibleForTesting
   public static class RunfilesTreeImpl implements RunfilesTree {
 
-    private static final WeakReference<Map<PathFragment, Artifact>> NOT_YET_COMPUTED =
+    private static final WeakReference<SortedMap<PathFragment, Artifact>> NOT_YET_COMPUTED =
         new WeakReference<>(null);
 
     private final PathFragment execPath;
@@ -108,7 +109,7 @@ public final class RunfilesSupport {
      * com.google.devtools.build.lib.runtime.GcThrashingDetector} may throw a manual OOM before all
      * soft references are collected. See b/322474776.
      */
-    @Nullable private volatile WeakReference<Map<PathFragment, Artifact>> cachedMapping;
+    @Nullable private volatile WeakReference<SortedMap<PathFragment, Artifact>> cachedMapping;
 
     private final boolean buildRunfileLinks;
     private final RunfileSymlinksMode runfileSymlinksMode;
@@ -136,7 +137,7 @@ public final class RunfilesSupport {
           /* repoMappingManifest= */ null,
           /* buildRunfileLinks= */ false,
           /* cacheMapping= */ false,
-          RunfileSymlinksMode.EXTERNAL);
+          RunfileSymlinksMode.CREATE);
     }
 
     @Override
@@ -145,12 +146,12 @@ public final class RunfilesSupport {
     }
 
     @Override
-    public Map<PathFragment, Artifact> getMapping() {
+    public SortedMap<PathFragment, Artifact> getMapping() {
       if (cachedMapping == null) {
         return runfiles.getRunfilesInputs(repoMappingManifest);
       }
 
-      Map<PathFragment, Artifact> result = cachedMapping.get();
+      SortedMap<PathFragment, Artifact> result = cachedMapping.get();
       if (result != null) {
         return result;
       }
@@ -196,11 +197,6 @@ public final class RunfilesSupport {
     @Override
     public Artifact getRepoMappingManifestForLogging() {
       return repoMappingManifest;
-    }
-
-    @Override
-    public boolean isLegacyExternalRunfiles() {
-      return runfiles.isLegacyExternalRunfiles();
     }
 
     @Override
@@ -286,9 +282,7 @@ public final class RunfilesSupport {
     if (runUnder instanceof LabelRunUnder && TargetUtils.isTestRule(ruleContext.getRule())) {
       TransitiveInfoCollection runUnderTarget = ruleContext.getRunUnderPrerequisite();
       runfiles =
-          new Runfiles.Builder(
-                  ruleContext.getWorkspaceName(),
-                  ruleContext.getConfiguration().legacyExternalRunfiles())
+          new Runfiles.Builder(ruleContext.getWorkspaceName())
               .merge(getRunfiles(runUnderTarget, ruleContext.getWorkspaceName()))
               .merge(runfiles)
               .build();
@@ -438,32 +432,6 @@ public final class RunfilesSupport {
       return null;
     }
     return FileSystemUtils.replaceExtension(runfilesInputManifest.getPath(), RUNFILES_DIR_EXT);
-  }
-
-  /**
-   * Returns the files pointed to by the symlinks in the runfiles symlink farm. This method is slow.
-   */
-  @VisibleForTesting
-  public Collection<Artifact> getRunfilesSymlinkTargets() {
-    return getRunfilesSymlinks().values();
-  }
-
-  /**
-   * Returns the names of the symlinks in the runfiles symlink farm as a Set of PathFragments. This
-   * method is slow.
-   */
-  // We should make this VisibleForTesting, but it is still used by TestHelper
-  public Set<PathFragment> getRunfilesSymlinkNames() {
-    return getRunfilesSymlinks().keySet();
-  }
-
-  /**
-   * Returns the names of the symlinks in the runfiles symlink farm as a Set of PathFragments. This
-   * method is slow.
-   */
-  @VisibleForTesting
-  public Map<PathFragment, Artifact> getRunfilesSymlinks() {
-    return runfilesTree.runfiles.asMapWithoutRootSymlinks();
   }
 
   /**
@@ -713,7 +681,12 @@ public final class RunfilesSupport {
                 runfiles.getArtifacts(),
                 runfiles.getSymlinks(),
                 runfiles.getRootSymlinks(),
-                ruleContext.getWorkspaceName()));
+                ruleContext.getWorkspaceName(),
+                ruleContext
+                    .getConfiguration()
+                    .getOptions()
+                    .get(CoreOptions.class)
+                    .compactRepoMapping));
     return repoMappingManifest;
   }
 

@@ -24,6 +24,7 @@ import java.io.OutputStream;
 import java.lang.ProcessBuilder.Redirect;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 
 /** A subprocess factory that uses {@link java.lang.ProcessBuilder}. */
 public class JavaSubprocessFactory implements SubprocessFactory {
@@ -103,8 +104,7 @@ public class JavaSubprocessFactory implements SubprocessFactory {
 
     @Override
     public void close() {
-      // java.lang.Process doesn't give us a way to clean things up other than #destroy(), which was
-      // already called by this point.
+      process.destroyForcibly();
     }
 
     @Override
@@ -114,6 +114,7 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   }
 
   public static final JavaSubprocessFactory INSTANCE = new JavaSubprocessFactory();
+  private final ReentrantLock lock = new ReentrantLock();
 
   private JavaSubprocessFactory() {
     // We are a singleton
@@ -136,8 +137,9 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   // I was able to reproduce this problem reliably by running significantly more threads than
   // there are CPU cores on my workstation - the more threads the more likely it happens.
   //
-  // As a workaround, we put a synchronized block around the fork.
-  private synchronized Process start(ProcessBuilder builder) throws IOException {
+  // As a workaround, we use a lock around the fork.
+  private Process start(ProcessBuilder builder) throws IOException {
+    lock.lock();
     try {
       return builder.start();
     } catch (IOException e) {
@@ -150,6 +152,8 @@ public class JavaSubprocessFactory implements SubprocessFactory {
             e);
       }
       throw e;
+    } finally {
+      lock.unlock();
     }
   }
 
@@ -157,18 +161,15 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   public Subprocess create(SubprocessBuilder params) throws IOException {
     ProcessBuilder builder = new ProcessBuilder();
     builder.command(Lists.transform(params.getArgv(), StringEncoding::internalToPlatform));
-    if (params.getEnv() != null) {
-      builder.environment().clear();
-      params
-          .getEnv()
-          .forEach(
-              (key, value) ->
-                  builder
-                      .environment()
-                      .put(
-                          StringEncoding.internalToPlatform(key),
-                          StringEncoding.internalToPlatform(value)));
-    }
+    builder.environment().clear();
+    (params.getEnv() != null ? params.getEnv() : params.getClientEnv())
+        .forEach(
+            (key, value) ->
+                builder
+                    .environment()
+                    .put(
+                        StringEncoding.internalToPlatform(key),
+                        StringEncoding.internalToPlatform(value)));
 
     builder.redirectOutput(getRedirect(params.getStdout(), params.getStdoutFile()));
     builder.redirectError(getRedirect(params.getStderr(), params.getStderrFile()));
@@ -188,24 +189,18 @@ public class JavaSubprocessFactory implements SubprocessFactory {
    * redirected to exists, deletes the file before redirecting to it.
    */
   private Redirect getRedirect(StreamAction action, File file) {
-    switch (action) {
-      case DISCARD:
-        return Redirect.to(new File("/dev/null"));
-
-      case REDIRECT:
+    return switch (action) {
+      case DISCARD -> Redirect.to(new File("/dev/null"));
+      case REDIRECT -> {
         // We need to use Redirect.appendTo() here, because on older Linux kernels writes are
         // otherwise not atomic and might result in lost log messages:
         // https://lkml.org/lkml/2014/3/3/308
         if (file.exists()) {
           file.delete();
         }
-        return Redirect.appendTo(file);
-
-      case STREAM:
-        return Redirect.PIPE;
-
-      default:
-        throw new IllegalStateException();
-    }
+        yield Redirect.appendTo(file);
+      }
+      case STREAM -> Redirect.PIPE;
+    };
   }
 }

@@ -15,15 +15,31 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.immediateWriteStatus;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** Encapsulates fingerprint keyed bytes storage system. */
 public interface FingerprintValueStore {
+  /** Usage statistics. */
+  record Stats(
+      long valueBytesReceived,
+      long valueBytesSent,
+      long keyBytesSent,
+      long entriesWritten,
+      long entriesFound,
+      long entriesNotFound,
+      long getBatches,
+      long setBatches) {}
+
+  default Stats getStats() {
+    return new Stats(0, 0, 0, 0, 0, 0, 0, 0);
+  }
+
   /**
    * Associates a fingerprint with the serialized representation of some object.
    *
@@ -32,7 +48,7 @@ public interface FingerprintValueStore {
    *
    * @return a future that completes when the write completes
    */
-  ListenableFuture<Void> put(KeyBytesProvider fingerprint, byte[] serializedBytes);
+  WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes);
 
   /**
    * Retrieves the serialized bytes associated with {@code fingerprint}.
@@ -67,20 +83,34 @@ public interface FingerprintValueStore {
 
   /** An in-memory {@link FingerprintValueStore} for testing. */
   static class InMemoryFingerprintValueStore implements FingerprintValueStore {
+    private static final ListenableFuture<byte[]> IMMEDIATE_NULL = immediateFuture((byte[]) null);
+
     public final ConcurrentHashMap<KeyBytesProvider, byte[]> fingerprintToContents =
         new ConcurrentHashMap<>();
 
+    private final boolean useNullForMissingValues;
+
+    public InMemoryFingerprintValueStore() {
+      this(/* useNullForMissingValues= */ false);
+    }
+
+    public InMemoryFingerprintValueStore(boolean useNullForMissingValues) {
+      this.useNullForMissingValues = useNullForMissingValues;
+    }
+
     @Override
-    public ListenableFuture<Void> put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
+    public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
       fingerprintToContents.put(fingerprint, serializedBytes);
-      return immediateVoidFuture();
+      return immediateWriteStatus();
     }
 
     @Override
     public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
       byte[] serializedBytes = fingerprintToContents.get(fingerprint);
       if (serializedBytes == null) {
-        return immediateFailedFuture(new MissingFingerprintValueException(fingerprint));
+        return useNullForMissingValues
+            ? IMMEDIATE_NULL
+            : immediateFailedFuture(new MissingFingerprintValueException(fingerprint));
       }
       return immediateFuture(serializedBytes);
     }

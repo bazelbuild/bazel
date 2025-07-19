@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
@@ -150,7 +151,8 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
       } catch (ToolchainException
           | ConfiguredValueCreationException
           | IncompatibleTargetException
-          | DependencyEvaluationException e) {
+          | DependencyEvaluationException
+          | ExecGroupCollection.InvalidExecGroupException e) {
         throw new ComputeUnloadedToolchainContextsException(e);
       }
       if (!state.transitiveRootCauses().isEmpty()) {
@@ -302,10 +304,18 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
         """
         def _impl(ctx):
             data = ctx.toolchains["//toolchain:test_toolchain"].data
-            return []
+            return [
+                coverage_common.instrumented_files_info(
+                    ctx,
+                    source_attributes = ["srcs"],
+                )
+            ]
 
         my_rule = rule(
             implementation = _impl,
+            attrs = {
+                "srcs": attr.label_list(allow_files = True),
+            },
             toolchains = ["//toolchain:test_toolchain"],
         )
         """);
@@ -740,11 +750,13 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
 
         my_rule(
             name = "a",
+            srcs = ["a.c"],
             exec_compatible_with = ["//platforms:local_value_a"],
         )
 
         my_rule(
             name = "b",
+            srcs = ["b.c"],
             exec_compatible_with = ["//platforms:local_value_b"],
         )
         """);

@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.SettableFutureKeyedValue;
 import com.google.devtools.build.lib.skyframe.AbstractNestedFileOpNodes;
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.function.BiConsumer;
 
@@ -30,7 +30,7 @@ import java.util.function.BiConsumer;
  *
  * <p>Each family has 3 types, a constant type (no persisted data), information about stored
  * invalidation data or a future. Information about stored invalidation data always includes a cache
- * key and a {@link ListenableFuture<Void>} write status.
+ * key and a write status.
  *
  * <p>In the case of {@link FileInvalidationData}, a Max Transitive Source Version (MTSV) and fully
  * resolved path is also included. These fields are used for ancestor resolution.
@@ -49,9 +49,9 @@ sealed interface InvalidationDataInfoOrFuture
   /** Base implementation of a {@link InvalidationDataInfoOrFuture} value. */
   abstract static sealed class BaseInvalidationDataInfo<T> {
     private final T cacheKey;
-    private final ListenableFuture<Void> writeStatus;
+    private final WriteStatus writeStatus;
 
-    BaseInvalidationDataInfo(T cacheKey, ListenableFuture<Void> writeStatus) {
+    BaseInvalidationDataInfo(T cacheKey, WriteStatus writeStatus) {
       this.cacheKey = cacheKey;
       this.writeStatus = writeStatus;
     }
@@ -62,7 +62,7 @@ sealed interface InvalidationDataInfoOrFuture
     }
 
     /** Transitively inclusive status of writing this data to the cache. */
-    final ListenableFuture<Void> writeStatus() {
+    final WriteStatus writeStatus() {
       return writeStatus;
     }
   }
@@ -86,11 +86,7 @@ sealed interface InvalidationDataInfoOrFuture
     private final RootedPath realPath;
 
     FileInvalidationDataInfo(
-        String cacheKey,
-        ListenableFuture<Void> writeStatus,
-        boolean exists,
-        long mtsv,
-        RootedPath realPath) {
+        String cacheKey, WriteStatus writeStatus, boolean exists, long mtsv, RootedPath realPath) {
       super(cacheKey, writeStatus);
       this.exists = exists;
       this.mtsv = mtsv;
@@ -147,7 +143,7 @@ sealed interface InvalidationDataInfoOrFuture
    */
   static final class ListingInvalidationDataInfo extends BaseInvalidationDataInfo<String>
       implements ListingDataInfo {
-    ListingInvalidationDataInfo(String cacheKey, ListenableFuture<Void> writeStatus) {
+    ListingInvalidationDataInfo(String cacheKey, WriteStatus writeStatus) {
       super(cacheKey, writeStatus);
     }
   }
@@ -174,7 +170,7 @@ sealed interface InvalidationDataInfoOrFuture
   /** Information about remotely persisted {@link AbstractNestedFileOpNodes}. */
   static final class NodeInvalidationDataInfo extends BaseInvalidationDataInfo<PackedFingerprint>
       implements NodeDataInfo {
-    NodeInvalidationDataInfo(PackedFingerprint key, ListenableFuture<Void> writeStatus) {
+    NodeInvalidationDataInfo(PackedFingerprint key, WriteStatus writeStatus) {
       super(key, writeStatus);
     }
   }

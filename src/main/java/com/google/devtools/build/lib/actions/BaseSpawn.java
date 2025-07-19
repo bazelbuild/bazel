@@ -61,11 +61,6 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public ImmutableMap<Artifact, FilesetOutputTree> getFilesetMappings() {
-    return ImmutableMap.of();
-  }
-
-  @Override
   public ImmutableMap<String, String> getEnvironment() {
     return environment;
   }
@@ -81,7 +76,7 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public Collection<Artifact> getOutputFiles() {
+  public Collection<? extends ActionInput> getOutputFiles() {
     return action.getOutputs();
   }
 
@@ -91,7 +86,7 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public ResourceSet getLocalResources() throws ExecException {
+  public ResourceSet getLocalResources() throws ExecException, InterruptedException {
     ResourceSet result = localResourcesCached;
     if (result == null) {
       // Not expected to be called concurrently, and an idempotent computation if it is.

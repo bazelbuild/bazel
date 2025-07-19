@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
@@ -50,7 +51,7 @@ public class BazelCoverageReportModule extends BlazeModule {
         converter = ReportTypeConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "none",
+        defaultValue = "lcov",
         help =
             "Specifies desired cumulative coverage report type. At this point only LCOV "
                 + "is supported.")
@@ -86,7 +87,7 @@ public class BazelCoverageReportModule extends BlazeModule {
           EventBus eventBus,
           BlazeDirectories directories,
           Collection<ConfiguredTarget> targetsToTest,
-          ImmutableList<Artifact> baselineCoverageArtifacts,
+          NestedSet<Artifact> baselineCoverageArtifacts,
           ArtifactFactory artifactFactory,
           ActionKeyContext actionKeyContext,
           ActionLookupKey actionLookupKey,
@@ -140,7 +141,8 @@ public class BazelCoverageReportModule extends BlazeModule {
       event
           .getResult()
           .getBuildToolLogCollection()
-          .addLocalFile("coverage_report.lcov", wrapper.getCoverageReportArtifact().getPath());
+          .addLocalFile("coverage_report.lcov", wrapper.getCoverageReportArtifact().getPath())
+          .addLocalFile("baseline_report.lcov", wrapper.getBaselineReportArtifact().getPath());
     }
   }
 }

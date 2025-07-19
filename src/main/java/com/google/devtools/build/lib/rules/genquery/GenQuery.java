@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -82,6 +81,7 @@ import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
+import com.google.devtools.build.lib.util.DeterministicWriter;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -124,7 +124,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
             .withConversionContext(
                 Label.RepoContext.of(
                     ruleContext.getRepository(),
-                    ruleContext.getRule().getPackage().getRepositoryMapping()))
+                    ruleContext.getRule().getPackageMetadata().repositoryMapping()))
             .build();
     try {
       optionsParser.parse(ruleContext.attributes().get("opts", Types.STRING_LIST));
@@ -203,9 +203,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         .addProvider(
             RunfilesProvider.class,
             RunfilesProvider.simple(
-                new Runfiles.Builder(
-                        ruleContext.getWorkspaceName(),
-                        ruleContext.getConfiguration().legacyExternalRunfiles())
+                new Runfiles.Builder(ruleContext.getWorkspaceName())
                     .addTransitiveArtifacts(filesToBuild)
                     .build()))
         .addOutputGroup(
@@ -233,11 +231,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
     GenQueryPackageProvider packageProvider;
     try {
-      GenQueryPackageProviderFactory packageProviderFactory =
-          ruleContext.getConfiguration().getFragment(GenQueryConfiguration.class).skipTtvs()
-              ? new GenQueryDirectPackageProviderFactory()
-              : new GenQueryTtvPackageProviderFactory();
-      packageProvider = packageProviderFactory.constructPackageMap(env, scope);
+      packageProvider = GenQueryPackageProviderFactory.constructPackageMap(env, scope);
       if (packageProvider == null) {
         return null;
       }
@@ -302,7 +296,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               new TargetPattern.Parser(
                   PathFragment.EMPTY_FRAGMENT,
                   ruleContext.getRepository(),
-                  ruleContext.getRule().getPackage().getRepositoryMapping()),
+                  ruleContext.getRule().getPackageMetadata().repositoryMapping()),
               PathFragment.EMPTY_FRAGMENT,
               /* keepGoing= */ false,
               ruleContext.attributes().get("strict", Type.BOOLEAN),
@@ -382,7 +376,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     @Override
     protected void computeKey(
         ActionKeyContext actionKeyContext,
-        @Nullable ArtifactExpander artifactExpander,
+        @Nullable InputMetadataProvider inputMetadataProvider,
         Fingerprint fp) {
       result.fingerprint(fp);
     }
@@ -516,7 +510,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    public void writeOutputFile(OutputStream out) throws IOException {
+    public void writeTo(OutputStream out) throws IOException {
       genQueryResult.writeTo(out);
     }
 

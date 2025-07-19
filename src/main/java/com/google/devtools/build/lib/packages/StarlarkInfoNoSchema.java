@@ -110,6 +110,11 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
     return new StarlarkInfoFactory(provider, thread);
   }
 
+  /**
+   * Constructs a StarlarkInfo with calls forwarded from one of the StarlarkInfo ArgumentProcessor
+   * implementations. Checks that each key is provided at most once. This class exists solely for
+   * the StarlarkInfo ArgumentProcessors.
+   */
   static class StarlarkInfoFactory extends StarlarkProvider.StarlarkInfoFactory {
     private final Map<String, Object> namedArgMap;
 
@@ -139,71 +144,6 @@ public class StarlarkInfoNoSchema extends StarlarkInfo {
     public StarlarkInfo createFromMap(Map<String, Object> map, StarlarkThread thread)
         throws EvalException {
       return new StarlarkInfoNoSchema(provider, map, thread.getCallerLocation());
-    }
-  }
-
-  /**
-   * Constructs a StarlarkInfo from an array of alternating key/value pairs as provided by
-   * Starlark.fastcall. Checks that each key is provided at most once. This optimized
-   * zero-allocation function exists solely for the StarlarkProvider constructor.
-   */
-  static StarlarkInfo createFromNamedArgs(StarlarkProvider provider, Object[] table, Location loc)
-      throws EvalException {
-    // Permute fastcall form (k, v, ..., k, v) into table form (k, k, ..., v, v).
-    permute(table);
-
-    int n = table.length >> 1; // number of K/V pairs
-
-    // Sort keys, permuting values in parallel.
-    if (n > 1) {
-      sortPairs(table, 0, n - 1);
-    }
-
-    // Check for duplicate keys, which are now adjacent.
-    for (int i = 0; i < n - 1; i++) {
-      if (table[i].equals(table[i + 1])) {
-        throw Starlark.errorf(
-            "got multiple values for parameter %s in call to instantiate provider %s",
-            table[i], provider.getPrintableName());
-      }
-    }
-
-    return new StarlarkInfoNoSchema(provider, table, loc);
-  }
-
-  // Permutes array elements from alternating keys/values form,
-  // (as used by fastcall's named array) into keys-then-corresponding-values form,
-  // as used by StarlarkInfo.table.
-  // The permutation preserves the key/value association but not the order of keys.
-  static void permute(Object[] named) {
-    int n = named.length >> 1; // number of K/V pairs
-
-    // Thanks to Murali Ganapathy for the algorithm.
-    // See https://play.golang.org/p/QOKnrj_bIwk.
-    //
-    // i and j are the indices bracketing successive pairs of cells,
-    // working from the outside to the middle.
-    //
-    //   i                  j
-    //   [KV]KVKVKVKVKVKV[KV]
-    //     i              j
-    //   KK[KV]KVKVKVKV[KV]VV
-    //       i          j
-    //   KKKK[KV]KVKV[KV]VVVV
-    //   etc...
-    for (int i = 0; i < n - 1; i += 2) {
-      int j = named.length - i;
-      // rotate two pairs [KV]...[kv] -> [Kk]...[vV]
-      Object tmp = named[i + 1];
-      named[i + 1] = named[j - 2];
-      named[j - 2] = named[j - 1];
-      named[j - 1] = tmp;
-    }
-    // reverse lower half containing keys: [KkvV] -> [kKvV]
-    for (int i = 0; i < n >> 1; i++) {
-      Object tmp = named[n - 1 - i];
-      named[n - 1 - i] = named[i];
-      named[i] = tmp;
     }
   }
 

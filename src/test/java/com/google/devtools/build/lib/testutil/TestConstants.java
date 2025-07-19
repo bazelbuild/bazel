@@ -25,7 +25,8 @@ public class TestConstants {
   private TestConstants() {}
 
   public static final String LOAD_PROTO_LANG_TOOLCHAIN =
-      "load('@com_google_protobuf//bazel/toolchains:proto_lang_toolchain.bzl', 'proto_lang_toolchain')";
+      "load('@com_google_protobuf//bazel/toolchains:proto_lang_toolchain.bzl',"
+          + " 'proto_lang_toolchain')";
 
   public static final String PRODUCT_NAME = "bazel";
 
@@ -33,7 +34,6 @@ public class TestConstants {
    * A list of all embedded binaries that go into the regular Bazel binary.
    */
   public static final ImmutableList<String> EMBEDDED_TOOLS = ImmutableList.of(
-      "build-runfiles",
       "linux-sandbox",
       "process-wrapper",
       "xcode-locator");
@@ -79,6 +79,13 @@ public class TestConstants {
       "_main/src/test/shell/integration/spend_cpu_time";
 
   /**
+   * Relative path to the protolark-created {@code project_proto.scl} file that {@code PROJECT.scl}
+   * files load to define configuration.
+   */
+  public static final String PROJECT_SCL_DEFINITION_PATH =
+      "src/main/protobuf/project/project_proto.scl";
+
+  /**
    * Directory where we can find Bazel's own bootstrapping rules relative to a test's runfiles
    * directory, i.e. when //tools/build_rules:srcs is in a test's data.
    */
@@ -108,7 +115,9 @@ public class TestConstants {
   public static final String TOOLS_REPOSITORY_SCRATCH = "embedded_tools/";
 
   /** The directory in which rules_cc repo resides in execroot. */
-  public static final String RULES_CC_REPOSITORY_EXECROOT = "external/" + RulesCcRepoName.CANONICAL_REPO_NAME + "/";
+  public static final String RULES_CC_REPOSITORY_EXECROOT =
+      "external/" + RulesCcRepoName.CANONICAL_REPO_NAME + "/";
+
   /* Prefix for loads from rules_cc */
   public static final String RULES_CC = "@rules_cc//cc";
 
@@ -119,7 +128,8 @@ public class TestConstants {
 
   public static final String PYINFO_BZL = "@@rules_python+//python/private:py_info.bzl";
 
-  public static final String PYRUNTIMEINFO_BZL = "@@rules_python+//python/private:py_runtime_info.bzl";
+  public static final String PYRUNTIMEINFO_BZL =
+      "@@rules_python+//python/private:py_runtime_info.bzl";
 
   // Constants used to determine how genrule pulls in the setup script.
   public static final String GENRULE_SETUP = "@bazel_tools//tools/genrule:genrule-setup.sh";
@@ -137,7 +147,8 @@ public class TestConstants {
           "--platforms=@platforms//host",
           "--host_platform=@platforms//host",
           // TODO(#7849): Remove after flag flip.
-          "--incompatible_use_toolchain_resolution_for_java_rules");
+          "--incompatible_use_toolchain_resolution_for_java_rules",
+          "--incompatible_disable_select_on=cpu,crosstool_top,host_cpu");
 
   public static final ImmutableList<String> PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS =
       ImmutableList.of(
@@ -150,7 +161,8 @@ public class TestConstants {
       + " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:grep-includes)";
 
   public static final String APPLE_PLATFORM_PATH = "build_bazel_apple_support/platforms";
-  public static final String APPLE_PLATFORM_PACKAGE_ROOT = "@@build_bazel_apple_support+//platforms";
+  public static final String APPLE_PLATFORM_PACKAGE_ROOT =
+      "@@build_bazel_apple_support+//platforms";
   public static final String CONSTRAINTS_PACKAGE_ROOT = "@platforms//";
 
   public static final String PLATFORMS_PATH = "embedded_tools/platforms";

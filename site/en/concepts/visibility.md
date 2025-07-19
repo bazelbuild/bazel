@@ -53,7 +53,7 @@ are just syntactic placeholders that don't correspond to any actual target.
 *   `"//foo/bar:__pkg__"`: Grants access to `//foo/bar` (but not its
     subpackages).
 
-*   `"//foo/bar:__subpackages__"`: Grants access `//foo/bar` and all of its
+*   `"//foo/bar:__subpackages__"`: Grants access to `//foo/bar` and all of its
     direct and indirect subpackages.
 
 *   `"//some_pkg:my_package_group"`: Grants access to all of the packages that
@@ -379,6 +379,25 @@ label-typed attributes.
 
 Note: Visibility delegation does not work for labels that were not passed into
 the macro, such as labels derived by string manipulation.
+
+#### Finalizers {:#finalizers}
+
+Targets declared in a rule finalizer (a symbolic macro with `finalizer = True`),
+in addition to seeing targets following the usual symbolic macro visibility
+rules, can *also* see all targets which are visible to the finalizer target's
+package.
+
+In other words, if you migrate a `native.existing_rules()`-based legacy macro to
+a finalizer, the targets declared by the finalizer will still be able to see
+their old dependencies.
+
+It is possible to define targets that a finalizer can introspect using
+`native.existing_rules()`, but which it cannot use as dependencies under the
+visibility system. For example, if a macro-defined target is not visible to its
+own package or to the finalizer macro's definition, and is not delegated to the
+finalizer, the finalizer cannot see such a target. Note, however, that a
+`native.existing_rules()`-based legacy macro will also be unable to see such a
+target.
 
 ## Load visibility {:#load-visibility}
 

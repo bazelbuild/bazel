@@ -120,7 +120,7 @@ public class SyntheticAttributeHashCalculatorTest extends PackageLoadingTestCase
 
     ImmutableMap<Attribute, Build.Attribute> serializedAttributes =
         ImmutableMap.of(
-            rule.getRuleClassObject().getAttributeByName("cmd"),
+            rule.getRuleClassObject().getAttributeProvider().getAttributeByName("cmd"),
             Build.Attribute.newBuilder()
                 .setName("dummy")
                 .setType(Discriminator.STRING)

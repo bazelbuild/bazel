@@ -551,7 +551,7 @@ public class OptionsParser implements OptionsParsingResult {
    * intuitive short description for the options.
    */
   public String describeOptionsHtml(
-      Escaper escaper, String productName, List<String> optionsToIgnore) {
+      Escaper escaper, String productName, List<String> optionsToIgnore, String commandName) {
     StringBuilder desc = new StringBuilder();
     LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>> optionsByCategory =
         getOptionsSortedByCategory();
@@ -576,7 +576,8 @@ public class OptionsParser implements OptionsParsingResult {
 
       desc.append("<dl>").append(escaper.escape(categoryDescription)).append(":\n");
       for (OptionDefinition optionDef : categorizedOptionsList) {
-        OptionsUsage.getUsageHtml(optionDef, desc, escaper, impl.getOptionsData(), true);
+        OptionsUsage.getUsageHtml(
+            optionDef, desc, escaper, impl.getOptionsData(), true, commandName);
       }
       desc.append("</dl>\n");
     }
@@ -830,9 +831,11 @@ public class OptionsParser implements OptionsParsingResult {
             .collect(toImmutableList());
   }
 
-  /* Sets the residue (all elements parsed as non-options) to {@code residue}, as well as the part
+  /**
+   * Sets the residue (all elements parsed as non-options) to {@code residue}, as well as the part
    * of the residue that follows the double-dash on the command line, {@code postDoubleDashResidue}.
-   * {@code postDoubleDashResidue} must be a subset of {@code residue}. */
+   * {@code postDoubleDashResidue} must be a subset of {@code residue}.
+   */
   public void setResidue(List<String> residue, List<String> postDoubleDashResidue) {
     Preconditions.checkArgument(residue.containsAll(postDoubleDashResidue));
     this.residue.clear();
@@ -886,6 +889,16 @@ public class OptionsParser implements OptionsParsingResult {
     return impl.asCanonicalizedList();
   }
 
+  private static String getFinalExpansion(ParsedOptionDescription option) {
+    if (option.getExpandedFrom() == null) {
+      return "";
+    }
+    while (option.getExpandedFrom() != null) {
+      option = option.getExpandedFrom();
+    }
+    return option.getCanonicalForm();
+  }
+
   @Override
   public ImmutableMap<String, String> getUserOptions() {
     if (ignoreUserOptions) {
@@ -898,13 +911,7 @@ public class OptionsParser implements OptionsParsingResult {
     asCompleteListOfParsedOptions().stream()
         .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
         .filter(option -> !option.getCanonicalForm().contains("default_override"))
-        .forEach(
-            option ->
-                userOptions.put(
-                    option.getCanonicalForm(),
-                    option.getExpandedFrom() == null
-                        ? ""
-                        : option.getExpandedFrom().getCanonicalForm()));
+        .forEach(option -> userOptions.put(option.getCanonicalForm(), getFinalExpansion(option)));
     impl.getSkippedOptions().stream()
         .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
         .map(option -> option.getUnconvertedValue())

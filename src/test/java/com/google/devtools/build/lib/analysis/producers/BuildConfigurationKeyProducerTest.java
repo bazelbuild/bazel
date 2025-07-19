@@ -75,6 +75,13 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
             .build());
   }
 
+  @Before
+  public void iniitalizeProjectScl() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+    writeProjectSclDefinition("test/project_proto.scl");
+    scratch.file("test/BUILD");
+  }
+
   /** Extra options for this test. */
   public static class DummyTestOptions extends FragmentOptions {
     public DummyTestOptions() {}
@@ -488,13 +495,10 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     scratch.file(
         "flag/PROJECT.scl",
         """
-        project = {
-          "active_directories": {
-            "default": [
-                "//my_project"
-            ]
-          }
-        }
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+            project_directories = ["//my_project"],
+        )
         """);
 
     scratch.file(
@@ -510,13 +514,10 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     scratch.file(
         "out_of_scope_flag/PROJECT.scl",
         """
-        project = {
-          "active_directories": {
-            "default": [
-                "//out_side_of_my_project"
-            ]
-          }
-        }
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+            project_directories = ["//out_side_of_my_project"],
+        )
         """);
 
     invalidatePackages(false);
@@ -601,13 +602,10 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     scratch.file(
         "flag/PROJECT.scl",
         """
-        project = {
-          "active_directories": {
-            "default": [
-                "//my_project"
-            ]
-          }
-        }
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+            project_directories = ["//my_project"],
+        )
         """);
 
     scratch.file(
@@ -623,13 +621,10 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     scratch.file(
         "out_of_scope_flag/PROJECT.scl",
         """
-        project = {
-          "active_directories": {
-            "default": [
-                "//out_side_of_my_project"
-            ]
-          }
-        }
+        load("//test:project_proto.scl", "project_pb2")
+        project = project_pb2.Project.create(
+            project_directories = ["//out_side_of_my_project"],
+        )
         """);
 
     invalidatePackages(false);

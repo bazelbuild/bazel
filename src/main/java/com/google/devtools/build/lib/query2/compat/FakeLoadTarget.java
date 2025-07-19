@@ -14,16 +14,16 @@
 package com.google.devtools.build.lib.query2.compat;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackagePiece;
+import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetData;
 import java.util.Objects;
-import java.util.Set;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -32,11 +32,17 @@ import net.starlark.java.syntax.Location;
 public class FakeLoadTarget implements Target {
 
   private final Label label;
-  private final Package pkg;
+  private final Packageoid pkg;
 
   public FakeLoadTarget(Label label, Package pkg) {
     this.label = Preconditions.checkNotNull(label);
     this.pkg = Preconditions.checkNotNull(pkg);
+  }
+
+  // Fake load targets should be in the same package piece as the package's BUILD file.
+  public FakeLoadTarget(Label label, PackagePiece.ForBuildFile pkgPiece) {
+    this.label = Preconditions.checkNotNull(label);
+    this.pkg = Preconditions.checkNotNull(pkgPiece);
   }
 
   @Override
@@ -45,8 +51,18 @@ public class FakeLoadTarget implements Target {
   }
 
   @Override
-  public Package getPackage() {
+  public Packageoid getPackageoid() {
     return pkg;
+  }
+
+  @Override
+  public Package.Metadata getPackageMetadata() {
+    return pkg.getMetadata();
+  }
+
+  @Override
+  public Package.Declarations getPackageDeclarations() {
+    return pkg.getDeclarations();
   }
 
   @Override
@@ -66,12 +82,7 @@ public class FakeLoadTarget implements Target {
 
   @Override
   public Location getLocation() {
-    return pkg.getBuildFile().getLocation();
-  }
-
-  @Override
-  public Set<License.DistributionType> getDistributions() {
-    return ImmutableSet.of();
+    return getPackageMetadata().getBuildFileLocation();
   }
 
   @Override

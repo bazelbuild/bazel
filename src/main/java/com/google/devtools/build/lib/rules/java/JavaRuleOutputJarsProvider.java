@@ -75,6 +75,7 @@ public record JavaRuleOutputJarsProvider(@Override ImmutableList<JavaOutput> jav
   public record JavaOutput(
       @Override Artifact classJar,
       @Nullable @Override Artifact compileJar,
+      @Nullable @Override Artifact headerCompilationJar,
       @Nullable @Override Artifact compileJdeps,
       @Nullable @Override Artifact generatedClassJar,
       @Nullable @Override Artifact generatedSourceJar,
@@ -97,6 +98,12 @@ public record JavaRuleOutputJarsProvider(@Override ImmutableList<JavaOutput> jav
     @Override
     public Artifact getCompileJar() {
       return compileJar();
+    }
+
+    @Nullable
+    @Override
+    public Artifact getHeaderCompilationJar() {
+      return headerCompilationJar;
     }
 
     @Nullable
@@ -203,6 +210,8 @@ public record JavaRuleOutputJarsProvider(@Override ImmutableList<JavaOutput> jav
       return JavaOutput.builder()
           .setClassJar(nullIfNone(struct.getValue("class_jar"), Artifact.class))
           .setCompileJar(nullIfNone(struct.getValue("compile_jar"), Artifact.class))
+          .setHeaderCompilationJar(
+              nullIfNone(struct.getValue("header_compilation_jar"), Artifact.class))
           .setCompileJdeps(nullIfNone(struct.getValue("compile_jdeps"), Artifact.class))
           .setGeneratedClassJar(nullIfNone(struct.getValue("generated_class_jar"), Artifact.class))
           .setGeneratedSourceJar(
@@ -222,6 +231,8 @@ public record JavaRuleOutputJarsProvider(@Override ImmutableList<JavaOutput> jav
       public abstract Builder setClassJar(Artifact value);
 
       public abstract Builder setCompileJar(Artifact value);
+
+      public abstract Builder setHeaderCompilationJar(Artifact value);
 
       public abstract Builder setCompileJdeps(Artifact value);
 

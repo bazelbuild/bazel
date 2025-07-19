@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -148,7 +149,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @Override
   public Collection<Target> getSiblingTargetsInPackage(Target target) {
-    Collection<Target> siblings = target.getPackage().getTargets().values();
+    // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
+    ImmutableCollection<Target> siblings = target.getPackage().getTargets().values();
     // Ensure that the sibling targets are in the graph being built-up.
     siblings.forEach(this::getNode);
     return siblings;
@@ -349,6 +351,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return new TransitiveLoadFilesHelperForTargets() {
       @Override
       public Target getLoadFileTarget(Target originalTarget, Label bzlLabel) {
+        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
         return getNode(new FakeLoadTarget(bzlLabel, originalTarget.getPackage())).getLabel();
       }
 
@@ -361,6 +364,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         if (baseName == null) {
           return null;
         }
+        // TODO(https://github.com/bazelbuild/bazel/issues/23852): support lazy macro expansion
         return getNode(
                 new FakeLoadTarget(
                     Label.createUnvalidated(pkgIdOfBzlLabel, baseName),

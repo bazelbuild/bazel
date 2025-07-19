@@ -13,10 +13,5 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-/**
- * Indicates a mismatch between configurability of the target and nullness of the configuration.
- *
- * <p>Thrown if a rule is requested with a null configuration or a non-configurable target is
- * requested with a non-null configuration.
- */
+/** Indicates a configurable target is requested with null configuration. */
 public final class InconsistentNullConfigException extends Exception {}

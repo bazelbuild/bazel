@@ -57,12 +57,12 @@ public abstract class CommandLine {
     }
 
     @Override
-    public Iterable<String> arguments() {
+    public Iterable<String> arguments(PathMapper pathMapper) {
       return args;
     }
 
     @Override
-    public int totalArgLength() {
+    public int totalArgLength(PathMapper pathMapper) {
       int total = 0;
       for (String arg : args) {
         total += arg.length() + 1;
@@ -80,26 +80,27 @@ public abstract class CommandLine {
   public abstract ArgChunk expand() throws CommandLineExpansionException, InterruptedException;
 
   /**
-   * Returns the expanded command line with enclosed artifacts expanded by {@code artifactExpander}
-   * at execution time.
+   * Returns the expanded command line, expanding the referenced artifacts using the provided {@link
+   * InputMetadataProvider}.
    */
-  public abstract ArgChunk expand(ArtifactExpander artifactExpander, PathMapper pathMapper)
+  public abstract ArgChunk expand(
+      InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException;
 
   /** Identical to calling {@code expand().arguments()}. */
   public abstract Iterable<String> arguments()
       throws CommandLineExpansionException, InterruptedException;
 
-  /** Identical to calling {@code expand(artifactExpander, pathMapper).arguments()}. */
+  /** Identical to calling {@code expand(inputMetadataProvider, pathMapper).arguments()}. */
   public abstract Iterable<String> arguments(
-      ArtifactExpander artifactExpander, PathMapper pathMapper)
+      InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException;
 
   /** Adds this command line to the provided {@link Fingerprint}. */
   public abstract void addToFingerprint(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
-      CoreOptions.OutputPathsMode outputPathsMode,
+      @Nullable InputMetadataProvider inputMetadataProvider,
+      CoreOptions.OutputPathsMode effectiveOutputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException;
 
@@ -140,9 +141,11 @@ public abstract class CommandLine {
     }
 
     @Override
-    public Iterable<String> arguments(ArtifactExpander artifactExpander, PathMapper pathMapper)
+    public Iterable<String> arguments(
+        InputMetadataProvider inputMetadataProvider, PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
-      return Iterables.concat(commandLine.arguments(artifactExpander, pathMapper), executableArgs);
+      return Iterables.concat(
+          commandLine.arguments(inputMetadataProvider, pathMapper), executableArgs);
     }
   }
 

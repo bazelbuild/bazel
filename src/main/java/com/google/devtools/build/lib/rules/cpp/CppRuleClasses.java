@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
-import com.google.devtools.build.lib.packages.ExecGroup;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -387,6 +387,12 @@ public class CppRuleClasses {
   /** A string constant for a feature that, if enabled, disables .d file handling. */
   public static final String NO_DOTD_FILE = "no_dotd_file";
 
+  /**
+   * A string constant for a feature that, if enabled, shortens the virtual include paths via
+   * hashing.
+   */
+  public static final String SHORTEN_VIRTUAL_INCLUDES = "shorten_virtual_includes";
+
   /*
    * A string constant for the fdo_instrument feature.
    */
@@ -498,17 +504,6 @@ public class CppRuleClasses {
   /** A feature to indicate whether to do linker deadstrip. For Apple platform only. */
   public static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
 
-  /**
-   * A feature which indicates that this target is a test (rather than a binary). This can be used
-   * to select test-only options.
-   */
-  public static final String IS_CC_TEST_FEATURE_NAME = "is_cc_test";
-
-  /**
-   * A feature which indicates whether we are using the legacy_is_cc_test build variable behavior.
-   */
-  public static final String LEGACY_IS_CC_TEST_FEATURE_NAME = "legacy_is_cc_test";
-
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {
     private final boolean addGrepIncludes;
@@ -552,7 +547,9 @@ public class CppRuleClasses {
           .addExecGroups(
               ImmutableMap.of(
                   CPP_LINK_EXEC_GROUP,
-                  ExecGroup.builder().addToolchainType(ccToolchainTypeRequirement(env)).build()))
+                  DeclaredExecGroup.builder()
+                      .addToolchainType(ccToolchainTypeRequirement(env))
+                      .build()))
           .build();
     }
 

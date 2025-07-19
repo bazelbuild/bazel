@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.De
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializableSkyKeyComputeState;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.function.Supplier;
@@ -36,25 +35,22 @@ import java.util.function.Supplier;
  */
 public final class SkyValueRetrieverUtils {
 
-  public static RetrievalResult maybeFetchSkyValueRemotely(
+  public static RetrievalResult fetchRemoteSkyValue(
       SkyKey key,
       Environment env,
       RemoteAnalysisCachingDependenciesProvider analysisCachingDeps,
       Supplier<? extends SerializableSkyKeyComputeState> stateSupplier)
       throws InterruptedException {
-    if (analysisCachingDeps.mode() != RemoteAnalysisCacheMode.DOWNLOAD) {
-      return NO_CACHED_DATA;
-    }
-
     Label label =
         switch (key) {
           case ActionLookupKey alk -> alk.getLabel();
           case ActionLookupData ald -> ald.getLabel();
           case Artifact artifact -> artifact.getOwnerLabel();
-          default -> throw new IllegalStateException("unexpected key: " + key);
+          default -> throw new IllegalStateException("unexpected key: " + key.getCanonicalName());
         };
 
-    if (analysisCachingDeps.withinActiveDirectories(label.getPackageIdentifier())) {
+    if (label == null) {
+      // If there's no label, there's no cached data.
       return NO_CACHED_DATA;
     }
 
@@ -67,6 +63,7 @@ public final class SkyValueRetrieverUtils {
               new DefaultDependOnFutureShim(env),
               analysisCachingDeps.getObjectCodecs(),
               analysisCachingDeps.getFingerprintValueService(),
+              analysisCachingDeps.getAnalysisCacheClient(),
               key,
               state,
               /* frontierNodeVersion= */ analysisCachingDeps.getSkyValueVersion());

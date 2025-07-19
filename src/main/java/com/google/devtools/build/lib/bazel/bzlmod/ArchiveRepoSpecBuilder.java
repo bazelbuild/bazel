@@ -15,16 +15,16 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
-import java.util.Map.Entry;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.StarlarkInt;
+import net.starlark.java.eval.StarlarkList;
 
 /**
  * Builder for a {@link RepoSpec} object that indicates how to materialize a repo corresponding to
@@ -37,15 +37,13 @@ public class ArchiveRepoSpecBuilder {
           Label.parseCanonicalUnchecked("@@bazel_tools//tools/build_defs/repo:http.bzl"),
           "http_archive");
 
-  private final ImmutableMap.Builder<String, Object> attrBuilder;
+  private final Dict.Builder<String, Object> attrBuilder = Dict.builder();
 
-  public ArchiveRepoSpecBuilder() {
-    attrBuilder = new ImmutableMap.Builder<>();
-  }
+  public ArchiveRepoSpecBuilder() {}
 
   @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setUrls(ImmutableList<String> urls) {
-    attrBuilder.put("urls", urls);
+    attrBuilder.put("urls", StarlarkList.immutableCopyOf(urls));
     return this;
   }
 
@@ -63,38 +61,30 @@ public class ArchiveRepoSpecBuilder {
 
   @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setPatches(ImmutableList<Label> patches) {
-    attrBuilder.put("patches", patches);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public ArchiveRepoSpecBuilder setPatchCmds(ImmutableList<String> patchCmds) {
-    attrBuilder.put("patch_cmds", patchCmds);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public ArchiveRepoSpecBuilder setPatchStrip(int patchStrip) {
-    attrBuilder.put("patch_args", ImmutableList.of("-p" + patchStrip));
+    attrBuilder.put("patches", StarlarkList.immutableCopyOf(patches));
     return this;
   }
 
   @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setRemotePatches(ImmutableMap<String, String> remotePatches) {
-    attrBuilder.put("remote_patches", remotePatches);
+    attrBuilder.put("remote_patches", Dict.immutableCopyOf(remotePatches));
     return this;
   }
 
   @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setOverlay(ImmutableMap<String, RemoteFile> overlay) {
-    ImmutableMap<String, List<String>> remoteFiles =
-        overlay.entrySet().stream()
-            .collect(toImmutableMap(Entry::getKey, e -> e.getValue().urls()));
-    ImmutableMap<String, String> remoteFilesIntegrity =
-        overlay.entrySet().stream()
-            .collect(toImmutableMap(Entry::getKey, e -> e.getValue().integrity()));
-    attrBuilder.put("remote_file_urls", remoteFiles);
-    attrBuilder.put("remote_file_integrity", remoteFilesIntegrity);
+    var remoteFiles = Maps.transformValues(overlay, rf -> StarlarkList.immutableCopyOf(rf.urls()));
+    var remoteFilesIntegrity = Maps.transformValues(overlay, RemoteFile::integrity);
+    attrBuilder.put("remote_file_urls", Dict.immutableCopyOf(remoteFiles));
+    attrBuilder.put("remote_file_integrity", Dict.immutableCopyOf(remoteFilesIntegrity));
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public ArchiveRepoSpecBuilder setRemoteModuleFile(RemoteFile remoteModuleFile) {
+    attrBuilder.put(
+        "remote_module_file_urls", StarlarkList.immutableCopyOf(remoteModuleFile.urls()));
+    attrBuilder.put("remote_module_file_integrity", remoteModuleFile.integrity());
     return this;
   }
 
@@ -113,7 +103,7 @@ public class ArchiveRepoSpecBuilder {
   }
 
   public RepoSpec build() {
-    return new RepoSpec(HTTP_ARCHIVE, AttributeValues.create(attrBuilder.buildOrThrow()));
+    return new RepoSpec(HTTP_ARCHIVE, AttributeValues.create(attrBuilder.buildImmutable()));
   }
 
   /**

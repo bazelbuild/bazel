@@ -33,20 +33,17 @@ import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFetchFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
+import com.google.devtools.build.lib.bazel.repository.cache.RepoContentsCache;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
-import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
@@ -174,9 +171,6 @@ public abstract class AnalysisMock extends LoadingMock {
     // Do nothing by default.
   }
 
-  @Override
-  public abstract ConfiguredRuleClassProvider createRuleClassProvider();
-
   public abstract boolean isThisBazel();
 
   public abstract MockCcSupport ccSupport();
@@ -186,23 +180,11 @@ public abstract class AnalysisMock extends LoadingMock {
   public abstract MockPythonSupport pySupport();
 
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
-    // Some tests require the local_repository rule so we need the appropriate SkyFunctions.
-    ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers =
-        new ImmutableMap.Builder<String, RepositoryFunction>()
-            .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
-
-    addExtraRepositoryFunctions(repositoryHandlers);
-
     return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
         .put(
             SkyFunctions.REPOSITORY_DIRECTORY,
-            new RepositoryDelegatorFunction(
-                repositoryHandlers.buildKeepingLast(),
-                new StarlarkRepositoryFunction(),
-                new AtomicBoolean(true),
-                ImmutableMap::of,
-                directories,
-                BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+            new RepositoryFetchFunction(
+                ImmutableMap::of, new AtomicBoolean(true), directories, new RepoContentsCache()))
         .put(
             SkyFunctions.MODULE_FILE,
             new ModuleFileFunction(
@@ -210,7 +192,9 @@ public abstract class AnalysisMock extends LoadingMock {
                 directories.getWorkspace(),
                 getBuiltinModules(directories)))
         .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
-        .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(directories.getWorkspace()))
+        .put(
+            SkyFunctions.BAZEL_LOCK_FILE,
+            new BazelLockFileFunction(directories.getWorkspace(), directories.getOutputBase()))
         .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
         .put(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
         .put(
@@ -239,16 +223,11 @@ public abstract class AnalysisMock extends LoadingMock {
         PrecomputedValue.injected(
             RepositoryMappingFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(
-            RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-        PrecomputedValue.injected(
-            RepositoryDelegatorFunction.FORCE_FETCH,
-            RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
-        PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
-        PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
+            RepositoryDirectoryValue.FORCE_FETCH, RepositoryDirectoryValue.FORCE_FETCH_DISABLED),
+        PrecomputedValue.injected(RepositoryDirectoryValue.VENDOR_DIRECTORY, Optional.empty()),
         PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, ImmutableSet.of()),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
-        PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
@@ -256,10 +235,6 @@ public abstract class AnalysisMock extends LoadingMock {
             BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, BazelCompatibilityMode.ERROR),
         PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE));
   }
-
-  // Allow subclasses to add extra repository functions.
-  public abstract void addExtraRepositoryFunctions(
-      ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers);
 
   /** Returns the built-in modules. */
   public abstract ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
@@ -342,12 +317,6 @@ public abstract class AnalysisMock extends LoadingMock {
     @Override
     public void setupPrelude(MockToolsConfig mockToolsConfig) throws IOException {
       delegate.setupPrelude(mockToolsConfig);
-    }
-
-    @Override
-    public void addExtraRepositoryFunctions(
-        ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers) {
-      delegate.addExtraRepositoryFunctions(repositoryHandlers);
     }
 
     @Override

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
@@ -148,6 +148,7 @@ EOF
 
 function test_foo_runfiles() {
   add_rules_python "MODULE.bazel"
+  add_rules_shell "MODULE.bazel"
   local WORKSPACE_NAME=$TEST_WORKSPACE
   local -r pkg=$FUNCNAME
   create_pkg $pkg
@@ -160,6 +161,7 @@ py_library(name = "root",
 EOF
 cat > $pkg/BUILD << EOF
 load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 sh_binary(name = "foo",
           srcs = [ "x/y/z.sh" ],
@@ -280,6 +282,7 @@ EOF
   # Rebuild the same target with a new dependency.
   cd "$workspace_root"
 cat > $pkg/BUILD << EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(name = "foo",
           srcs = [ "x/y/z.sh" ],
           data = [ "e/f" ])
@@ -411,6 +414,7 @@ EOF
 }
 
 function test_manifest_action_reruns_on_output_base_change() {
+  add_rules_shell "MODULE.bazel"
   CURRENT_DIRECTORY=$(pwd)
   if $is_windows; then
     CURRENT_DIRECTORY=$(cygpath -m "${CURRENT_DIRECTORY}")
@@ -431,6 +435,7 @@ function test_manifest_action_reruns_on_output_base_change() {
   mkdir -p "${TEST_FOLDER_2}"
 
   cat > BUILD <<EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "hello_world",
     srcs = ["hello_world.sh"],
@@ -458,7 +463,9 @@ EOF
 }
 
 function test_removal_of_old_tempfiles() {
+  add_rules_shell "MODULE.bazel"
   cat > BUILD << EOF
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "foo",
     srcs = ["foo.sh"],
@@ -547,7 +554,9 @@ EOF
   assert_contains '/link_two$' *-bin/a/go
 }
 
-function setup_special_chars_in_runfiles_source_paths() {
+function test_special_chars_in_runfiles_source_paths() {
+  add_rules_shell "MODULE.bazel"
+
   mkdir -p pkg
   if "$is_windows"; then
     cat > pkg/constants.bzl <<'EOF'
@@ -576,6 +585,8 @@ spaces = rule(
 EOF
   cat > pkg/BUILD <<'EOF'
 load(":defs.bzl", "spaces")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 spaces(name = "spaces")
 sh_test(
     name = "foo",
@@ -585,7 +596,7 @@ sh_test(
 EOF
   if "$is_windows"; then
     cat > pkg/foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$(cat $'pkg/a b .txt')" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
@@ -593,7 +604,7 @@ fi
 EOF
   else
     cat > pkg/foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$(cat $'pkg/a \n \\ b .txt')" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
@@ -601,23 +612,13 @@ fi
 EOF
   fi
   chmod +x pkg/foo.sh
-}
 
-function test_special_chars_in_runfiles_source_paths_out_of_process() {
-  setup_special_chars_in_runfiles_source_paths
-  bazel test --noexperimental_inprocess_symlink_creation \
-    --test_output=errors \
+  bazel test --test_output=errors \
     //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
 }
 
-function test_special_chars_in_runfiles_source_paths_in_process() {
-  setup_special_chars_in_runfiles_source_paths
-  bazel test --experimental_inprocess_symlink_creation \
-    --test_output=errors \
-    //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
-}
-
-function setup_special_chars_in_runfiles_target_paths() {
+function test_special_chars_in_runfiles_target_paths() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   if "$is_windows"; then
     cat > pkg/constants.bzl <<'EOF'
@@ -646,6 +647,8 @@ spaces = rule(
 EOF
   cat > pkg/BUILD <<'EOF'
 load(":defs.bzl", "spaces")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 spaces(name = "spaces")
 sh_test(
     name = "foo",
@@ -654,30 +657,20 @@ sh_test(
 )
 EOF
   cat > pkg/foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$(cat pkg/data.txt)" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
 fi
 EOF
   chmod +x pkg/foo.sh
-}
 
-function test_special_chars_in_runfiles_target_paths_out_of_process() {
-  setup_special_chars_in_runfiles_target_paths
-  bazel test --noexperimental_inprocess_symlink_creation \
-    --test_output=errors \
+  bazel test --test_output=errors \
     //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
 }
 
-function test_special_chars_in_runfiles_target_paths_in_process() {
-  setup_special_chars_in_runfiles_target_paths
-  bazel test --experimental_inprocess_symlink_creation \
-    --test_output=errors \
-    //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
-}
-
-function setup_special_chars_in_runfiles_source_and_target_paths() {
+function test_special_chars_in_runfiles_source_and_target_paths() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p pkg
   if "$is_windows"; then
     cat > pkg/constants.bzl <<'EOF'
@@ -700,7 +693,9 @@ spaces = rule(
 )
 EOF
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load(":defs.bzl", "spaces")
+
 spaces(name = "spaces")
 sh_test(
     name = "foo",
@@ -710,7 +705,7 @@ sh_test(
 EOF
   if "$is_windows"; then
     cat > pkg/foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$(cat $'pkg/a b .txt')" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
@@ -718,7 +713,7 @@ fi
 EOF
   else
     cat > pkg/foo.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 if [[ "$(cat $'pkg/a \n \\ b .txt')" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
@@ -726,19 +721,8 @@ fi
 EOF
   fi
   chmod +x pkg/foo.sh
-}
 
-function test_special_chars_in_runfiles_source_and_target_paths_out_of_process() {
-  setup_special_chars_in_runfiles_source_and_target_paths
-  bazel test --noexperimental_inprocess_symlink_creation \
-    --test_output=errors \
-    //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
-}
-
-function test_special_chars_in_runfiles_source_and_target_paths_in_process() {
-  setup_special_chars_in_runfiles_source_and_target_paths
-  bazel test --experimental_inprocess_symlink_creation \
-    --test_output=errors \
+  bazel test --test_output=errors \
     //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
 }
 
@@ -751,6 +735,7 @@ function test_compatibility_with_bash_runfiles_library_snippet() {
     return
   fi
   # Create a workspace path with a space.
+  add_rules_shell "MODULE.bazel"
   WORKSPACE="$(mktemp -d jar_manifest.XXXXXXXX)/my w\orkspace"
   trap "rm -fr '$WORKSPACE'" EXIT
   mkdir -p "$WORKSPACE"
@@ -758,9 +743,11 @@ function test_compatibility_with_bash_runfiles_library_snippet() {
   cat > MODULE.bazel <<'EOF'
 module(name = "my_module")
 EOF
-
+  add_rules_shell "MODULE.bazel"
   mkdir pkg
   cat > pkg/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "tool",
     srcs = ["tool.sh"],
@@ -775,7 +762,7 @@ genrule(
 )
 EOF
   cat > pkg/tool.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 # --- begin runfiles.bash initialization v3 ---
 # Copy-pasted from the Bazel Bash runfiles library v3.
 set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash

@@ -44,6 +44,9 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackagePiece;
+import com.google.devtools.build.lib.packages.Packageoid;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
@@ -232,7 +235,7 @@ final class DependencyProducer
 
   private String getMessageWithEdgeTransitionInfo(Throwable e) {
     return String.format(
-        "On dependency edge %s (%s) -|%s|-> %s: %s",
+        "on dependency edge %s (%s) -|%s|-> %s: %s",
         parameters.target().getLabel(),
         parameters.configurationKey().getOptions().shortId(),
         kind.getAttribute().getName(),
@@ -245,7 +248,26 @@ final class DependencyProducer
       return DONE; // There was a previously reported error.
     }
 
-    if (isNonconfigurableTargetInSamePackage()) {
+    boolean isNonconfigurableTargetInSamePackage = false;
+    try {
+      @Nullable Target toTarget = getTargetInSamePackageWithoutSkyframe(toLabel);
+      if (toTarget != null) {
+        isNonconfigurableTargetInSamePackage = !toTarget.isConfigurable();
+      }
+    } catch (NoSuchTargetException e) {
+      Target parentTarget = parameters.target();
+      parameters
+          .transitiveState()
+          .addTransitiveCause(new LoadingFailedCause(toLabel, e.getDetailedExitCode()));
+      parameters
+          .eventHandler()
+          .handle(
+              Event.error(
+                  TargetUtils.getLocationMaybe(parentTarget),
+                  TargetUtils.formatMissingEdge(parentTarget, toLabel, e, kind.getAttribute())));
+    }
+
+    if (isNonconfigurableTargetInSamePackage) {
       // The target is in the same package as the parent and non-configurable. In the general case
       // loading a child target would defeat Package-based sharding. However, when the target is in
       // the same Package, that concern no longer applies. This optimization means that delegation,
@@ -368,27 +390,39 @@ final class DependencyProducer
     sink.acceptDependencyError(DependencyError.of(error));
   }
 
-  private boolean isNonconfigurableTargetInSamePackage() {
+  /**
+   * Attempts to resolve a label to a target in the same package as the parent target without doing
+   * a skyframe call. Returns the target if it can be resolved, and null otherwise.
+   *
+   * <p>In particular, this method always returns null if {@code label} points to a different
+   * package.
+   *
+   * <p>If the parent target is owned by a {@link PackagePiece}, this method will look for {@code
+   * label} in that package piece only, and cannot examine other package pieces.
+   *
+   * @throws NoSuchTargetException if it can be determined without a skyframe call that {@code
+   *     label} is not a valid target.
+   */
+  @Nullable
+  private Target getTargetInSamePackageWithoutSkyframe(Label label) throws NoSuchTargetException {
     Target parentTarget = parameters.target();
-    if (parentTarget.getLabel().getPackageIdentifier().equals(toLabel.getPackageIdentifier())) {
-      try {
-        Target toTarget = parentTarget.getPackage().getTarget(toLabel.getName());
-        if (!toTarget.isConfigurable()) {
-          return true;
+    if (parentTarget.getLabel().getPackageIdentifier().equals(label.getPackageIdentifier())) {
+      Packageoid parentPackageoid = parentTarget.getPackageoid();
+      if (parentPackageoid instanceof Package parentPkg) {
+        // Throws NoSuchTargetException if label is not found; since parentPkg is a full Package,
+        // this guarantees that label is not a valid target.
+        return parentPkg.getTarget(label.getName());
+      } else if (parentPackageoid instanceof PackagePiece parentPkgPiece) {
+        // NoSuchTargetException could indicate that label is owned by a different package piece,
+        // and we would need a skyframe call to resolve.
+        try {
+          return parentPkgPiece.getTarget(label.getName());
+        } catch (NoSuchTargetException e) {
+          return null;
         }
-      } catch (NoSuchTargetException e) {
-        parameters
-            .transitiveState()
-            .addTransitiveCause(new LoadingFailedCause(toLabel, e.getDetailedExitCode()));
-        parameters
-            .eventHandler()
-            .handle(
-                Event.error(
-                    TargetUtils.getLocationMaybe(parentTarget),
-                    TargetUtils.formatMissingEdge(parentTarget, toLabel, e, kind.getAttribute())));
       }
     }
-    return false;
+    return null;
   }
 
   /**

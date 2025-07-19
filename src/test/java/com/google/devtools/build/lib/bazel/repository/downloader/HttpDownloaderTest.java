@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
@@ -29,7 +30,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
+import com.google.devtools.build.lib.bazel.repository.cache.DownloadCache;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
@@ -74,11 +75,11 @@ public class HttpDownloaderTest {
 
   @Rule public final Timeout timeout = new Timeout(30, SECONDS);
 
-  private final RepositoryCache repositoryCache = mock(RepositoryCache.class);
+  private final DownloadCache downloadCache = mock(DownloadCache.class);
   // Scale timeouts down to make test fast.
   private final HttpDownloader httpDownloader = new HttpDownloader(0, Duration.ZERO, 8, .1f);
   private final DownloadManager downloadManager =
-      new DownloadManager(repositoryCache, httpDownloader, httpDownloader);
+      new DownloadManager(downloadCache, httpDownloader, httpDownloader);
 
   private final ExecutorService executor = Executors.newFixedThreadPool(2);
   private final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
@@ -389,7 +390,8 @@ public class HttpDownloaderTest {
           destination,
           eventHandler,
           Collections.emptyMap(),
-          Optional.empty());
+          Optional.empty(),
+          "context");
 
       assertThat(new String(readFile(destination), UTF_8)).isEqualTo("hello");
     }
@@ -429,7 +431,8 @@ public class HttpDownloaderTest {
                   fs.getPath(workingDir.newFile().getAbsolutePath()),
                   eventHandler,
                   Collections.emptyMap(),
-                  Optional.empty()));
+                  Optional.empty(),
+                  "context"));
     }
   }
 
@@ -490,7 +493,8 @@ public class HttpDownloaderTest {
           destination,
           eventHandler,
           Collections.emptyMap(),
-          Optional.empty());
+          Optional.empty(),
+          "context");
 
       assertThat(new String(readFile(destination), UTF_8)).isEqualTo("content2");
     }
@@ -595,7 +599,7 @@ public class HttpDownloaderTest {
                       StaticCredentials.EMPTY,
                       Optional.of(
                           Checksum.fromString(
-                              RepositoryCache.KeyType.SHA256,
+                              DownloadCache.KeyType.SHA256,
                               Hashing.sha256().hashString("hello", UTF_8).toString())),
                       eventHandler,
                       ImmutableMap.of()),
@@ -635,7 +639,7 @@ public class HttpDownloaderTest {
                       StaticCredentials.EMPTY,
                       Optional.of(
                           Checksum.fromString(
-                              RepositoryCache.KeyType.SHA256,
+                              DownloadCache.KeyType.SHA256,
                               Hashing.sha256().hashUnencodedChars("hello").toString())),
                       eventHandler,
                       ImmutableMap.of()));
@@ -648,7 +652,7 @@ public class HttpDownloaderTest {
     Downloader downloader = mock(Downloader.class);
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     DownloadManager downloadManager =
-        new DownloadManager(repositoryCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader);
     // do not retry
     downloadManager.setRetries(0);
     AtomicInteger times = new AtomicInteger(0);
@@ -660,7 +664,7 @@ public class HttpDownloaderTest {
                   throw new ContentLengthMismatchException(0, data.length);
                 })
         .when(downloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
 
     assertThrows(
         ContentLengthMismatchException.class,
@@ -687,7 +691,7 @@ public class HttpDownloaderTest {
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
     DownloadManager downloadManager =
-        new DownloadManager(repositoryCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -705,7 +709,7 @@ public class HttpDownloaderTest {
                   return null;
                 })
         .when(downloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
 
     Path result =
         download(
@@ -732,7 +736,7 @@ public class HttpDownloaderTest {
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
     DownloadManager downloadManager =
-        new DownloadManager(repositoryCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -753,7 +757,7 @@ public class HttpDownloaderTest {
                   return null;
                 })
         .when(downloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
 
     Path result =
         download(
@@ -780,7 +784,7 @@ public class HttpDownloaderTest {
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
     DownloadManager downloadManager =
-        new DownloadManager(repositoryCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -798,7 +802,7 @@ public class HttpDownloaderTest {
                   return null;
                 })
         .when(downloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
 
     Path result =
         download(
@@ -825,7 +829,7 @@ public class HttpDownloaderTest {
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
     DownloadManager downloadManager =
-        new DownloadManager(repositoryCache, downloader, httpDownloader);
+        new DownloadManager(downloadCache, downloader, httpDownloader);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -846,7 +850,7 @@ public class HttpDownloaderTest {
                   return null;
                 })
         .when(downloader)
-        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any(), eq("testRepo"));
 
     Path result =
         download(

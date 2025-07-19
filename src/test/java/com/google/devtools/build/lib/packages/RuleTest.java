@@ -117,7 +117,7 @@ public class RuleTest extends PackageLoadingTestCase {
             visibility = ["//a:b"],
         )
         """);
-    Package pkg = getTarget("//x:BUILD").getPackage();
+    Package pkg = getPackage("x");
     assertThat(pkg.getRule("pu").getVisibility()).isEqualTo(RuleVisibility.PUBLIC);
     assertThat(pkg.getRule("pr").getVisibility()).isEqualTo(RuleVisibility.PRIVATE);
   }
@@ -133,7 +133,7 @@ public class RuleTest extends PackageLoadingTestCase {
         )
         """);
     reporter.removeHandler(failFastHandler);
-    Package pkg = getTarget("//x:BUILD").getPackage();
+    Package pkg = getPackage("x");
     assertContainsEvent(
         "Invalid visibility label '//visibility:none'; did you mean //visibility:public or"
             + " //visibility:private?");
@@ -157,9 +157,9 @@ public class RuleTest extends PackageLoadingTestCase {
             visibility = ["//visibility:none"],
         )
         """);
-    assertThat(getTarget("//visibility:BUILD").getPackage().containsErrors()).isFalse();
+    assertThat(getPackage("visibility").containsErrors()).isFalse();
     reporter.removeHandler(failFastHandler);
-    Package pkg = getTarget("//x:BUILD").getPackage();
+    Package pkg = getPackage("x");
     assertContainsEvent(
         "Invalid visibility label '//visibility:none'; did you mean //visibility:public or"
             + " //visibility:private?");
@@ -188,8 +188,8 @@ public class RuleTest extends PackageLoadingTestCase {
             visibility = ["//visibility:__subpackages__"],
         )
         """);
-    assertThat(getTarget("//visibility:BUILD").getPackage().containsErrors()).isFalse();
-    Package pkg = getTarget("//x:BUILD").getPackage();
+    assertThat(getPackage("visibility").containsErrors()).isFalse();
+    Package pkg = getPackage("x");
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("p").getVisibility().getDeclaredLabels())
         .containsExactly(Label.parseCanonicalUnchecked("//visibility:__pkg__"));
@@ -208,7 +208,7 @@ public class RuleTest extends PackageLoadingTestCase {
         )
         """);
     reporter.removeHandler(failFastHandler);
-    Package pkg = getTarget("//x:BUILD").getPackage();
+    Package pkg = getPackage("x");
     assertContainsEvent(
         "Invalid visibility label '//visibility:plubic'; did you mean //visibility:public or"
             + " //visibility:private?");
@@ -237,7 +237,7 @@ public class RuleTest extends PackageLoadingTestCase {
             visibility = [],
         )
         """);
-    Package pkg = getTarget("//x:BUILD").getPackage();
+    Package pkg = getPackage("x");
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("is_this_public").getVisibility().getDeclaredLabels())
         .containsExactly(Label.parseCanonicalUnchecked("//visibility:public"));
@@ -275,7 +275,7 @@ public class RuleTest extends PackageLoadingTestCase {
             cmd = 'echo "Hello, world." >message.txt',
         )
         """);
-    Package pkg = getTarget("//x:BUILD").getPackage();
+    Package pkg = getPackage("x");
 
     var testDep = pkg.getRule("dep");
     assertThat(testDep).hasSamePropertiesAs(roundTrip(testDep));

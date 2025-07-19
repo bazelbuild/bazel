@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.StarlarkProviderValidationUtil;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -31,14 +30,10 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
-import java.util.Map;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkValue;
 
 /** A factory for aspects that are defined in Starlark. */
 public class StarlarkAspectFactory implements ConfiguredAspectFactory {
@@ -87,13 +82,15 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
 
     if (ruleContext.hasErrors() && !allowAnalysisFailures) {
       return errorConfiguredAspect(ruleContext, requiredConfigFragments);
-    } else if (!(aspectStarlarkObject instanceof StructImpl)
-        && !(aspectStarlarkObject instanceof Iterable)
+    } else if (aspectStarlarkObject instanceof Info info
+        && info.getProvider().getKey().equals(StructProvider.STRUCT.getKey())) {
+      ruleContext.ruleError(
+          "Returning a struct from an aspect implementation function is deprecated.");
+    } else if (!(aspectStarlarkObject instanceof Iterable)
         && !(aspectStarlarkObject instanceof Info)) {
       ruleContext.ruleError(
           String.format(
-              "Aspect implementation should return a struct, a list, or a provider "
-                  + "instance, but got %s",
+              "Aspect implementation should return a list, or a provider instance, but got %s",
               Starlark.type(aspectStarlarkObject)));
       return errorConfiguredAspect(ruleContext, requiredConfigFragments);
     }
@@ -127,37 +124,17 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
     if (requiredConfigFragments != null) {
       builder.addProvider(requiredConfigFragments);
     }
-    if (aspectStarlarkObject instanceof Iterable<?> iterable) {
+    // not instanceof Info, because OutputGroupInfo is both Iterable and Info
+    if (!(aspectStarlarkObject instanceof Info)
+        && aspectStarlarkObject instanceof Iterable<?> iterable) {
       addDeclaredProviders(builder, iterable);
     } else {
-      // Either an old-style struct or a single declared provider (not in a list)
+      // A single declared provider (not in a list)
       Info info = (Info) aspectStarlarkObject;
-      if (info.getProvider().getKey().equals(StructProvider.STRUCT.getKey())) {
-        // Old-style struct, that may contain declared providers.
-        StructImpl struct = (StructImpl) aspectStarlarkObject;
-        for (String field : struct.getFieldNames()) {
-          if (field.equals("output_groups")) {
-            addOutputGroups(struct.getValue(field), builder);
-          } else if (field.equals("providers")) {
-            Object providers = struct.getValue(field);
-            // TODO(adonovan): can we be more specific than iterable, and use Sequence.cast?
-            if (!(providers instanceof Iterable)) {
-              throw Starlark.errorf(
-                  "The value for \"providers\" should be a list of declared providers, "
-                      + "got %s instead",
-                  Starlark.type(providers));
-            }
-            addDeclaredProviders(builder, (Iterable<?>) providers);
-          } else {
-            builder.addStarlarkTransitiveInfo(field, struct.getValue(field));
-          }
-        }
-      } else {
-        if (info instanceof StarlarkInfo starlarkInfo) {
-          info = starlarkInfo.unsafeOptimizeMemoryLayout();
-        }
-        builder.addStarlarkDeclaredProvider(info);
+      if (info instanceof StarlarkInfo starlarkInfo) {
+        info = starlarkInfo.unsafeOptimizeMemoryLayout();
       }
+      builder.addStarlarkDeclaredProvider(info);
     }
 
     ConfiguredAspect configuredAspect = builder.build();
@@ -180,17 +157,6 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
       }
       builder.addStarlarkDeclaredProvider((Info) o);
       i++;
-    }
-  }
-
-  private static void addOutputGroups(Object outputGroups, ConfiguredAspect.Builder builder)
-      throws EvalException {
-    for (Map.Entry<String, StarlarkValue> entry :
-        Dict.cast(outputGroups, String.class, StarlarkValue.class, "output_groups").entrySet()) {
-      builder.addOutputGroup(
-          entry.getKey(),
-          StarlarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
-              entry.getKey(), entry.getValue()));
     }
   }
 }

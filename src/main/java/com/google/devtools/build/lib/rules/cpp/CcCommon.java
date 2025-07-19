@@ -48,6 +48,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
@@ -227,7 +228,7 @@ public final class CcCommon implements StarlarkValue {
   }
 
   /** A filter that removes copts from a c++ compile action according to a nocopts regex. */
-  public static final class CoptsFilter {
+  public static final class CoptsFilter implements StarlarkValue {
     private final Pattern noCoptsPattern;
     private final boolean allPasses;
 
@@ -256,6 +257,20 @@ public final class CcCommon implements StarlarkValue {
       } else {
         return !noCoptsPattern.matcher(flag).matches();
       }
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true;
+    }
+
+    @Override
+    public void repr(Printer printer) {
+      printer.append("CoptsFilter(noCoptsPattern=");
+      printer.append(noCoptsPattern.pattern());
+      printer.append(", allPasses=");
+      printer.append(Boolean.toString(allPasses));
+      printer.append(")");
     }
   }
 
@@ -324,12 +339,6 @@ public final class CcCommon implements StarlarkValue {
   @StarlarkMethod(name = "loose_include_dirs", structField = true, documented = false)
   public Sequence<String> getLooseIncludeDirsForStarlark() {
     return StarlarkList.empty();
-  }
-
-  public String getPurpose(CppSemantics semantics) {
-    return semantics.getClass().getSimpleName()
-        + "_build_arch_"
-        + ruleContext.getConfiguration().getMnemonic();
   }
 
   public static ImmutableList<String> getCoverageFeatures(CppConfiguration cppConfiguration) {

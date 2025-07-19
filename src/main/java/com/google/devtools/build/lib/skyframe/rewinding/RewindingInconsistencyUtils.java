@@ -18,11 +18,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
-import com.google.devtools.build.lib.skyframe.FilesetEntryKey;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
 import com.google.devtools.build.lib.skyframe.TopLevelActionLookupKeyWrapper;
-import com.google.devtools.build.lib.skyframe.TraversalRequest;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /** Rewinding-related utilities used by {@link RewindableGraphInconsistencyReceiver}. */
@@ -40,9 +38,7 @@ public final class RewindingInconsistencyUtils {
   public static boolean isRewindable(SkyKey key) {
     return key instanceof ActionLookupData
         || key instanceof ArtifactNestedSetKey
-        || key instanceof Artifact
-        || key instanceof FilesetEntryKey
-        || key instanceof TraversalRequest;
+        || key instanceof Artifact;
   }
 
   /**
@@ -58,8 +54,6 @@ public final class RewindingInconsistencyUtils {
         || key instanceof Artifact
         || key instanceof TargetCompletionKey
         || key instanceof TestCompletionKey
-        || key instanceof AspectCompletionKey
-        || key instanceof TraversalRequest
-        || key instanceof FilesetEntryKey;
+        || key instanceof AspectCompletionKey;
   }
 }

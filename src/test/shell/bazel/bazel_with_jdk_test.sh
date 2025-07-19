@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -83,8 +83,11 @@ function set_up() {
     setup_bazelrc
   fi
 
+  add_rules_java "MODULE.bazel"
+
   mkdir -p java/main
   cat >java/main/BUILD <<EOF
+load("@rules_java//java:java_binary.bzl", "java_binary")
 java_binary(
     name = 'JavaExample',
     srcs = ['JavaExample.java'],
@@ -155,7 +158,7 @@ function test_bazel_detects_local_jdk_version8() {
   touch jdk/bin/javac
   chmod +x jdk/bin/javac
   cat >jdk/bin/java <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo " Property settings:" >&2
 echo "  java.version = 1.8.0 " >&2
@@ -190,7 +193,7 @@ function test_bazel_detects_local_jdk_version11() {
   touch jdk/bin/javac
   chmod +x jdk/bin/javac
   cat >jdk/bin/java <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo " Property settings:" >&2
 echo "  java.version = 11.0.1 " >&2
@@ -225,7 +228,7 @@ function test_bazel_detects_local_jdk_version11_with_only_major() {
   touch jdk/bin/javac
   chmod +x jdk/bin/javac
   cat >jdk/bin/java <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo " Property settings:" >&2
 echo "  java.version = 11 " >&2
@@ -260,7 +263,7 @@ function test_bazel_gracefully_handles_unknown_java() {
   touch jdk/bin/javac
   chmod +x jdk/bin/javac
   cat >jdk/bin/java <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo " Property settings:" >&2
 echo "  java.version = xxx.superfuture.version " >&2
@@ -279,7 +282,6 @@ EOF
 
 # Bazel shall provide Java compilation toolchains that use local JDK.
 function test_bazel_compiles_with_localjdk() {
-  add_rules_java "MODULE.bazel"
   cat >> MODULE.bazel <<EOF
 java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
 use_repo(java_toolchains, "local_jdk")

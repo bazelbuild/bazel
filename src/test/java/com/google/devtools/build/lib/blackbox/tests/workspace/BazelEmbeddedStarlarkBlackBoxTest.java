@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.blackbox.tests.workspace;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
-import com.google.devtools.build.lib.bazel.repository.TarFunction;
+import com.google.devtools.build.lib.bazel.repository.decompressor.DecompressorDescriptor;
+import com.google.devtools.build.lib.bazel.repository.decompressor.TarFunction;
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
@@ -112,13 +112,13 @@ public class BazelEmbeddedStarlarkBlackBoxTest extends AbstractBlackBoxTest {
     Path packedFile =
         context()
             .resolveBinPath(
-                bazel, String.format("external/+_repo_rules+ext_local/%s.tar", tarTarget));
+                bazel, String.format("external/+local_repository+ext_local/%s.tar", tarTarget));
     Files.copy(packedFile, zipFile);
 
     // now build the target from http_archive
     bazel.build("@ext//:" + RepoWithRuleWritingTextGenerator.TARGET);
 
-    Path xPath = context().resolveBinPath(bazel, "external/+_repo_rules2+ext/out");
+    Path xPath = context().resolveBinPath(bazel, "external/+http_archive+ext/out");
     WorkspaceTestUtils.assertLinesExactly(xPath, HELLO_FROM_EXTERNAL_REPOSITORY);
 
     // and use the rule from http_archive in the main repository

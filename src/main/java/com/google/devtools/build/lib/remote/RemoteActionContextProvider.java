@@ -217,7 +217,7 @@ final class RemoteActionContextProvider {
             getRemoteExecutionService(),
             digestUtil);
     registryBuilder.registerStrategy(
-        new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner, executionOptions), "remote");
+        new RemoteSpawnStrategy(spawnRunner, executionOptions), "remote");
   }
 
   /**
@@ -228,7 +228,6 @@ final class RemoteActionContextProvider {
   public void registerSpawnCache(ModuleActionContextRegistry.Builder registryBuilder) {
     RemoteSpawnCache spawnCache =
         new RemoteSpawnCache(
-            env.getExecRoot(),
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
             checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures,
             getRemoteExecutionService(),

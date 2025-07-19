@@ -39,7 +39,6 @@ public final class BlazeCommandResult {
   @Nullable private final ExecRequest execDescription;
   private final ImmutableList<Any> responseExtensions;
   private final boolean shutdown;
-  private final boolean stateKeptAfterBuild;
   private final ImmutableList<IdleTask> idleTasks;
 
   private BlazeCommandResult(
@@ -47,19 +46,17 @@ public final class BlazeCommandResult {
       @Nullable ExecRequest execDescription,
       boolean shutdown,
       ImmutableList<Any> responseExtensions,
-      boolean stateKeptAfterBuild,
       ImmutableList<IdleTask> idleTasks) {
     this.detailedExitCode = Preconditions.checkNotNull(detailedExitCode);
     this.execDescription = execDescription;
     this.shutdown = shutdown;
     this.responseExtensions = responseExtensions;
-    this.stateKeptAfterBuild = stateKeptAfterBuild;
     this.idleTasks = idleTasks;
   }
 
   private BlazeCommandResult(
       DetailedExitCode detailedExitCode, @Nullable ExecRequest execDescription, boolean shutdown) {
-    this(detailedExitCode, execDescription, shutdown, ImmutableList.of(), true, ImmutableList.of());
+    this(detailedExitCode, execDescription, shutdown, ImmutableList.of(), ImmutableList.of());
   }
 
   public ExitCode getExitCode() {
@@ -96,11 +93,6 @@ public final class BlazeCommandResult {
     return idleTasks;
   }
 
-  /** Reflects the value of {@link CommonCommandOptions#keepStateAfterBuild}. */
-  public boolean stateKeptAfterBuild() {
-    return stateKeptAfterBuild;
-  }
-
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
@@ -109,7 +101,6 @@ public final class BlazeCommandResult {
         .add("execDescription", execDescription)
         .add("shutdown", shutdown)
         .add("responseExtensions", responseExtensions)
-        .add("stateKeptAfterBuild", stateKeptAfterBuild)
         .toString();
   }
 
@@ -134,15 +125,12 @@ public final class BlazeCommandResult {
   }
 
   public static BlazeCommandResult withResponseExtensions(
-      BlazeCommandResult result,
-      ImmutableList<Any> responseExtensions,
-      boolean stateKeptAfterBuild) {
+      BlazeCommandResult result, ImmutableList<Any> responseExtensions) {
     return new BlazeCommandResult(
         result.detailedExitCode,
         result.execDescription,
         result.shutdown,
         responseExtensions,
-        stateKeptAfterBuild,
         result.idleTasks);
   }
 
@@ -153,7 +141,6 @@ public final class BlazeCommandResult {
         result.execDescription,
         result.shutdown,
         result.responseExtensions,
-        result.stateKeptAfterBuild,
         idleTasks);
   }
 

@@ -231,7 +231,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
           "If max_idle_secs is set and the build server has been idle for a while, shut down the "
-              + "server when the system is low on free RAM. Linux only.")
+              + "server when the system is low on free RAM. Linux and MacOS only.")
   public boolean shutdownOnLowSysMem;
 
   @Option(
@@ -357,13 +357,16 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "messages and logging")
   public String productName;
 
-  // TODO(ulfjack): Make this a command option.
+  // TODO: b/231429363 - Remove this option definition when deleting it from the cpp launcher in six
+  // months.
   @Option(
       name = "write_command_log",
       defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      help = "Whether or not to write the command.log file")
+      help =
+          "WARNING: This option is deprecated and will be removed soon. Please use the command"
+              + " option instead.")
   public boolean writeCommandLog;
 
   @Option(

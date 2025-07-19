@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
@@ -73,8 +73,10 @@ EOF
 }
 
 function test_cc_binary_http_cache() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 cc_binary(
 name = 'test',
@@ -106,8 +108,11 @@ EOF
 }
 
 function test_cc_binary_http_cache_bad_server() {
+  add_rules_cc "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 package(default_visibility = ["//visibility:public"])
 cc_binary(
 name = 'test',
@@ -139,6 +144,7 @@ EOF
 }
 
 function set_directory_artifact_starlark_testfixtures() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/rule.bzl <<'EOF'
 def _gen_output_dir_impl(ctx):
@@ -169,6 +175,7 @@ gen_output_dir = rule(
 )
 EOF
   cat > a/BUILD <<'EOF'
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 package(default_visibility = ["//visibility:public"])
 load("//a:rule.bzl", "gen_output_dir")
 

@@ -1,5 +1,6 @@
 # Description: Bazel's Starlark interpreter
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:defs.bzl", "java_library")
 
 licenses(["notice"])  # Apache 2.0
@@ -60,6 +61,7 @@ java_library(
         "Structure.java",
         "SymbolGenerator.java",
         "Tuple.java",
+        "TypeChecker.java",
     ],
     visibility = ["//src/main/java/net/starlark/java:clients"],
     deps = [
@@ -67,6 +69,7 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/spelling",
         "//src/main/java/net/starlark/java/syntax",
+        "//src/main/java/net/starlark/java/types",
         "//third_party:error_prone_annotations",
         "//third_party:auto_value",
         "//third_party:flogger",

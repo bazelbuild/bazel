@@ -176,9 +176,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
           + " the case of a legacy provider, its string name). The dependency must return ALL"
           + " providers mentioned in at least ONE of the inner lists. As a convenience, this"
           + " argument may also be a single-level list of providers, in which case it is wrapped in"
-          + " an outer list with one element. It is NOT required that the rule of the dependency"
-          + " advertises those providers in its <code>provides</code> parameter, however, it is"
-          + " considered best practice.";
+          + " an outer list with one element (i.e. <code>[A, B]</code> means <code>[[A,"
+          + " B]]</code>). It is NOT required that the rule of the dependency advertises those"
+          + " providers in its <code>provides</code> parameter, however, it is considered best"
+          + " practice.";
 
   String ALLOW_SINGLE_FILE_ARG = "allow_single_file";
 
@@ -352,7 +353,6 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             name = MATERIALIZER_ARG,
             enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_DORMANT_DEPS,
             allowedTypes = {@ParamType(type = StarlarkFunction.class)},
-            valueWhenDisabled = "None",
             defaultValue = "None",
             named = true,
             positional = false,
@@ -637,7 +637,6 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             name = MATERIALIZER_ARG,
             enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_DORMANT_DEPS,
             allowedTypes = {@ParamType(type = StarlarkFunction.class)},
-            valueWhenDisabled = "None",
             defaultValue = "None",
             named = true,
             positional = false,
@@ -974,6 +973,12 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc = MANDATORY_DOC),
         @Param(
+            name = SKIP_VALIDATIONS_ARG,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = SKIP_VALIDATIONS_ARG_DOC),
+        @Param(
             name = CONFIGURATION_ARG,
             defaultValue = "None",
             named = true,
@@ -999,6 +1004,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       Object forDependencyResolution,
       Sequence<?> flags,
       Boolean mandatory,
+      Boolean skipValidations,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)

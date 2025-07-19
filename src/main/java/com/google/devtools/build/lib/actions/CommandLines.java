@@ -64,7 +64,7 @@ public abstract sealed class CommandLines {
    * Expands this object into a single primary command line and (0-N) param files. The spawn runner
    * is expected to write these param files prior to execution of an action.
    *
-   * @param artifactExpander The artifact expander to use.
+   * @param inputMetadataProvider the metadata provider to expand composite artifacts
    * @param paramFileBasePath Used to derive param file names. Often the first output of an action
    * @param pathMapper function to map configuration prefixes in output paths to more cache-friendly
    *     identifiers
@@ -72,18 +72,22 @@ public abstract sealed class CommandLines {
    * @return The expanded command line and its param files (if any).
    */
   public ExpandedCommandLines expand(
-      ArtifactExpander artifactExpander,
+      InputMetadataProvider inputMetadataProvider,
       PathFragment paramFileBasePath,
       PathMapper pathMapper,
       CommandLineLimits limits)
       throws CommandLineExpansionException, InterruptedException {
     return expand(
-        artifactExpander, paramFileBasePath, limits, pathMapper, PARAM_FILE_ARG_LENGTH_ESTIMATE);
+        inputMetadataProvider,
+        paramFileBasePath,
+        limits,
+        pathMapper,
+        PARAM_FILE_ARG_LENGTH_ESTIMATE);
   }
 
   @VisibleForTesting
   ExpandedCommandLines expand(
-      ArtifactExpander artifactExpander,
+      InputMetadataProvider inputMetadataProvider,
       PathFragment paramFileBasePath,
       CommandLineLimits limits,
       PathMapper pathMapper,
@@ -99,16 +103,16 @@ public abstract sealed class CommandLines {
     for (CommandLineAndParamFileInfo pair : commandLines) {
       CommandLine commandLine = pair.commandLine;
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
-      ArgChunk chunk = commandLine.expand(artifactExpander, pathMapper);
+      ArgChunk chunk = commandLine.expand(inputMetadataProvider, pathMapper);
       if (paramFileInfo == null) {
-        arguments.addAll(chunk.arguments());
-        cmdLineLength += chunk.totalArgLength();
+        arguments.addAll(chunk.arguments(pathMapper));
+        cmdLineLength += chunk.totalArgLength(pathMapper);
       } else {
         boolean useParamFile = true;
         if (!paramFileInfo.always()) {
-          int tentativeCmdLineLength = cmdLineLength + chunk.totalArgLength();
+          int tentativeCmdLineLength = cmdLineLength + chunk.totalArgLength(pathMapper);
           if (tentativeCmdLineLength <= conservativeMaxLength) {
-            arguments.addAll(chunk.arguments());
+            arguments.addAll(chunk.arguments(pathMapper));
             cmdLineLength = tentativeCmdLineLength;
             useParamFile = false;
           }
@@ -131,16 +135,16 @@ public abstract sealed class CommandLines {
             paramFiles.add(
                 new ParamFileActionInput(
                     paramFileExecPath,
-                    ParameterFile.flagsOnly(chunk.arguments()),
+                    ParameterFile.flagsOnly(chunk.arguments(pathMapper)),
                     paramFileInfo.getFileType()));
-            for (String positionalArg : ParameterFile.nonFlags(chunk.arguments())) {
+            for (String positionalArg : ParameterFile.nonFlags(chunk.arguments(pathMapper))) {
               arguments.add(positionalArg);
               cmdLineLength += positionalArg.length() + 1;
             }
           } else {
             paramFiles.add(
                 new ParamFileActionInput(
-                    paramFileExecPath, chunk.arguments(), paramFileInfo.getFileType()));
+                    paramFileExecPath, chunk.arguments(pathMapper), paramFileInfo.getFileType()));
           }
         }
       }
@@ -164,15 +168,15 @@ public abstract sealed class CommandLines {
       throws CommandLineExpansionException, InterruptedException {
     ImmutableList.Builder<String> arguments = ImmutableList.builder();
     for (CommandLineAndParamFileInfo pair : unpack()) {
-      arguments.addAll(pair.commandLine.arguments(/* artifactExpander= */ null, pathMapper));
+      arguments.addAll(pair.commandLine.arguments(/* inputMetadataProvider= */ null, pathMapper));
     }
     return arguments.build();
   }
 
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
-      CoreOptions.OutputPathsMode outputPathsMode,
+      @Nullable InputMetadataProvider inputMetadataProvider,
+      CoreOptions.OutputPathsMode effectiveOutputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     ImmutableList<CommandLineAndParamFileInfo> commandLines = unpack();
@@ -180,7 +184,7 @@ public abstract sealed class CommandLines {
       CommandLine commandLine = pair.commandLine;
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
       commandLine.addToFingerprint(
-          actionKeyContext, artifactExpander, outputPathsMode, fingerprint);
+          actionKeyContext, inputMetadataProvider, effectiveOutputPathsMode, fingerprint);
       if (paramFileInfo != null) {
         addParamFileInfoToFingerprint(paramFileInfo, fingerprint);
       }
@@ -524,7 +528,7 @@ public abstract sealed class CommandLines {
 
     @Override
     public Iterable<String> arguments(
-        @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper) {
+        @Nullable InputMetadataProvider inputMetadataProvider, PathMapper pathMapper) {
       return ImmutableList.of(
           switch (arg) {
             case PathStrippable ps -> ps.expand(pathMapper::map);

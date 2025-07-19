@@ -303,7 +303,7 @@ public final class BuildOptions implements Cloneable {
   // after construction but before consumption. Access via checksum() to ensure initialization. This
   // field is volatile as per https://errorprone.info/bugpattern/DoubleCheckedLocking, which
   // encourages using volatile even for immutable objects.
-  @Nullable private volatile String checksum = null;
+  @Nullable private transient volatile String checksum = null;
 
   private BuildOptions(
       ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap,

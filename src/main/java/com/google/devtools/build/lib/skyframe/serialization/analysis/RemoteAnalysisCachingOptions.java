@@ -58,9 +58,9 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
     /** Disabled. */
     OFF;
 
-    /** Returns true if the selected mode should fetch remote SkyValues for the analysis phase. */
-    public boolean downloadForAnalysis() {
-      return this == DOWNLOAD;
+    /** Returns true if the selected mode needs to connect to a backend. */
+    public boolean requiresBackendConnectivity() {
+      return this == DOWNLOAD || this == UPLOAD;
     }
   }
 
@@ -81,6 +81,14 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
   public String remoteAnalysisCache;
 
   @Option(
+      name = "experimental_remote_analysis_cache_max_batch_size",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      defaultValue = "4095",
+      help = "Batch size limit for remote analysis caching RPCs.")
+  public int maxBatchSize;
+
+  @Option(
       name = "experimental_remote_analysis_cache_concurrency",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
@@ -96,4 +104,20 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       converter = DurationConverter.class,
       help = "Deadline to use for remote analysis cache operations.")
   public Duration deadline;
+
+  @Option(
+      name = "experimental_analysis_cache_service",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "Locator for the AnalysisCacheService instance.")
+  public String analysisCacheService;
+
+  @Option(
+      name = "experimental_analysis_cache_key_distinguisher_for_testing",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "An opaque string used as part of the cache key. Should only be used for testing.")
+  public String analysisCacheKeyDistinguisherForTesting;
 }

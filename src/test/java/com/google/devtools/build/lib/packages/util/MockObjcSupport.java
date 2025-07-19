@@ -178,6 +178,7 @@ public final class MockObjcSupport {
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:osx',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:device',",
         "  ],",
         ")",
         "platform(",
@@ -185,6 +186,7 @@ public final class MockObjcSupport {
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:device',",
         "  ],",
         ")",
         "platform(",
@@ -192,6 +194,7 @@ public final class MockObjcSupport {
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64e',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:device',",
         "  ],",
         ")",
         "platform(", // legacy platform only used to support tests
@@ -199,6 +202,7 @@ public final class MockObjcSupport {
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:device',",
         "  ],",
         ")",
         "platform(",
@@ -206,6 +210,7 @@ public final class MockObjcSupport {
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7k',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:device',",
         "  ],",
         ")",
         "platform(",
@@ -213,6 +218,7 @@ public final class MockObjcSupport {
         "  constraint_values = [",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos',",
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:arm64_32',",
+        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:device',",
         "  ],",
         ")");
 
@@ -222,6 +228,7 @@ public final class MockObjcSupport {
       "  constraint_values = [",
       "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
       "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+      "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:simulator',",
       "  ],",
       ")",
       "platform(",
@@ -229,6 +236,7 @@ public final class MockObjcSupport {
       "  constraint_values = [",
       "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:ios',",
       "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_32',",
+      "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:simulator',",
       "  ],",
       ")",
       "platform(",
@@ -236,6 +244,7 @@ public final class MockObjcSupport {
       "  constraint_values = [",
       "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:watchos',",
       "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+      "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "env:simulator',",
       "  ],",
       ")"
     };
@@ -246,7 +255,7 @@ public final class MockObjcSupport {
       config.create(TestConstants.APPLE_PLATFORM_PATH + "/simulator/BUILD", simulatorPlatforms);
     }
 
-    for (String tool : ImmutableSet.of("objc_dummy.mm", "gcov", "testrunner", "mcov", "libtool")) {
+    for (String tool : ImmutableSet.of("gcov", "testrunner", "mcov", "libtool")) {
       config.create(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/" + tool);
     }
     config.create(
@@ -256,10 +265,6 @@ public final class MockObjcSupport {
         "exports_files(glob(['**']))",
         "filegroup(name = 'default_provisioning_profile', srcs = ['foo.mobileprovision'])",
         "filegroup(name = 'xctest_infoplist', srcs = ['xctest.plist'])",
-        "py_binary(",
-        "  name = 'j2objc_dead_code_pruner_binary',",
-        "  srcs = ['j2objc_dead_code_pruner_binary.py']",
-        ")",
         "xcode_config(name = 'host_xcodes',",
         "  default = ':version7_3_1',",
         "  versions = [':version7_3_1', ':version5_0', ':version7_3', ':version5_8', ':version5'])",

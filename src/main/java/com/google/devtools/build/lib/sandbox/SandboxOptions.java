@@ -307,10 +307,12 @@ public class SandboxOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       help =
-          "If 0, delete sandbox trees as soon as an action completes (causing completion of the "
-              + "action to be delayed). If greater than zero, execute the deletion of such threes"
-              + " on an asynchronous thread pool that has size 1 when the build is running and"
-              + " grows to the size specified by this flag when the server is idle.")
+          "If 0, sandboxes are deleted as soon as actions finish, blocking action completion. If"
+              + " greater than 0, sandboxes are deleted asynchronously in the background without"
+              + " blocking action completion. Asynchronous deletion uses a single thread while a"
+              + " command is running, but ramps up to as many threads as the value of this flag"
+              + " once the server becomes idle. Set to `auto` to use as many threads as the number"
+              + " of CPUs. A server shutdown blocks on any pending asynchronous deletions.")
   public int asyncTreeDeleteIdleThreads;
 
   @Option(
@@ -362,17 +364,6 @@ public class SandboxOptions extends OptionsBase {
               + "If action input files are located on a filesystem different from the sandbox, "
               + "then the input files will be copied instead.")
   public boolean useHermetic;
-
-  @Option(
-      name = "incompatible_sandbox_hermetic_tmp",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "If set to true, each Linux sandbox will have its own dedicated empty directory mounted"
-              + " as /tmp rather than sharing /tmp with the host filesystem. Use"
-              + " --sandbox_add_mount_pair=/tmp to keep seeing the host's /tmp in all sandboxes.")
-  public boolean sandboxHermeticTmp;
 
   @Option(
       name = "experimental_sandbox_memory_limit_mb",

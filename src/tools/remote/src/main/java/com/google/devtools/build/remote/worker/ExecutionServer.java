@@ -408,7 +408,6 @@ final class ExecutionServer extends ExecutionImplBase {
       try {
         UploadManifest manifest =
             UploadManifest.create(
-                cache.getRemoteOptions(),
                 cache.getRemoteCacheCapabilities(),
                 digestUtil,
                 RemotePathResolver.createDefault(workingDirectory),
@@ -493,7 +492,8 @@ final class ExecutionServer extends ExecutionImplBase {
             new String[] {"id", "-u"},
             /* environmentVariables= */ null,
             /* workingDirectory= */ null,
-            uidTimeout);
+            uidTimeout,
+            System.getenv());
     try {
       ByteArrayOutputStream stdout = new ByteArrayOutputStream();
       ByteArrayOutputStream stderr = new ByteArrayOutputStream();
@@ -593,7 +593,10 @@ final class ExecutionServer extends ExecutionImplBase {
       newCommandLineElements.addAll(cmd.getArgumentsList());
 
       return new com.google.devtools.build.lib.shell.Command(
-          newCommandLineElements.toArray(new String[0]), null, new File(pathString));
+          newCommandLineElements.toArray(new String[0]),
+          null,
+          new File(pathString),
+          System.getenv());
     } else if (sandboxPath != null) {
       // Run command with sandboxing.
       ArrayList<String> newCommandLineElements = new ArrayList<>(cmd.getArgumentsCount());
@@ -614,13 +617,15 @@ final class ExecutionServer extends ExecutionImplBase {
       return new com.google.devtools.build.lib.shell.Command(
           newCommandLineElements.toArray(new String[0]),
           environmentVariables,
-          new File(pathString));
+          new File(pathString),
+          System.getenv());
     } else {
       // Just run the command.
       return new com.google.devtools.build.lib.shell.Command(
           cmd.getArgumentsList().toArray(new String[0]),
           environmentVariables,
-          new File(pathString));
+          new File(pathString),
+          System.getenv());
     }
   }
 }

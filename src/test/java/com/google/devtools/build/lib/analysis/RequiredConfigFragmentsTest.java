@@ -135,7 +135,7 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         """
         config_setting(
             name = "config_on_native",
-            values = {"cpu": "foo"},
+            values = {"compilation_mode": "dbg"},
         )
 
         config_setting(
@@ -184,7 +184,7 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
         """
         config_setting(
             name = "config_on_native",
-            values = {"cpu": "foo"},
+            values = {"compilation_mode": "dbg"},
         )
 
         config_setting(

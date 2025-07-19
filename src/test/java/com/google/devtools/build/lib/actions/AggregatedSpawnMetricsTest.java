@@ -25,36 +25,6 @@ import org.junit.runners.JUnit4;
 public final class AggregatedSpawnMetricsTest {
 
   @Test
-  public void sumAllMetrics() throws Exception {
-    SpawnMetrics metrics1 =
-        SpawnMetrics.Builder.forRemoteExec()
-            .setTotalTimeInMs(1 * 1000)
-            .setExecutionWallTimeInMs(2 * 1000)
-            .setInputBytes(10)
-            .setInputFiles(20)
-            .setMemoryEstimateBytes(30)
-            .build();
-    SpawnMetrics metrics2 =
-        SpawnMetrics.Builder.forRemoteExec()
-            .setTotalTimeInMs(10 * 1000)
-            .setExecutionWallTimeInMs(20 * 1000)
-            .setInputBytes(100)
-            .setInputFiles(200)
-            .setMemoryEstimateBytes(300)
-            .build();
-
-    AggregatedSpawnMetrics aggregated = AggregatedSpawnMetrics.EMPTY;
-    aggregated = aggregated.sumAllMetrics(metrics1);
-    aggregated = aggregated.sumAllMetrics(metrics2);
-
-    assertThat(aggregated.getRemoteMetrics().totalTimeInMs()).isEqualTo(11 * 1000);
-    assertThat(aggregated.getRemoteMetrics().executionWallTimeInMs()).isEqualTo(22 * 1000);
-    assertThat(aggregated.getRemoteMetrics().inputBytes()).isEqualTo(110);
-    assertThat(aggregated.getRemoteMetrics().inputFiles()).isEqualTo(220);
-    assertThat(aggregated.getRemoteMetrics().memoryEstimate()).isEqualTo(330);
-  }
-
-  @Test
   public void sumDurationMetricsMaxOther() throws Exception {
     SpawnMetrics metrics1 =
         SpawnMetrics.Builder.forRemoteExec()
@@ -91,7 +61,7 @@ public final class AggregatedSpawnMetricsTest {
     SpawnMetrics metrics3 = SpawnMetrics.Builder.forWorkerExec().setTotalTimeInMs(3 * 1000).build();
 
     AggregatedSpawnMetrics aggregated = AggregatedSpawnMetrics.EMPTY;
-    aggregated = aggregated.sumAllMetrics(metrics1);
+    aggregated = aggregated.sumDurationsMaxOther(metrics1);
     aggregated = aggregated.sumDurationsMaxOther(metrics2);
     aggregated = aggregated.sumDurationsMaxOther(metrics3);
 

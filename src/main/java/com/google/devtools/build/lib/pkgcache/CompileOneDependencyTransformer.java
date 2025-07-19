@@ -44,7 +44,7 @@ import java.util.TreeSet;
 
 /** Implementation of --compile_one_dependency. */
 public final class CompileOneDependencyTransformer {
-  private final TargetProvider targetProvider;
+  private final PackageProvider packageProvider;
 
   private static final FileType CC_FILE_TYPE = FileType.of(".cc", ".h", ".c");
   private static final FileType JAVA_FILE_TYPE = FileType.of(".java");
@@ -63,8 +63,8 @@ public final class CompileOneDependencyTransformer {
           "py_library",
           PYTHON_FILE_TYPE);
 
-  public CompileOneDependencyTransformer(TargetProvider targetProvider) {
-    this.targetProvider = targetProvider;
+  public CompileOneDependencyTransformer(PackageProvider packageProvider) {
+    this.packageProvider = packageProvider;
   }
 
   /**
@@ -93,7 +93,8 @@ public final class CompileOneDependencyTransformer {
     }
 
     Rule result = null;
-    Iterable<Rule> orderedRuleList = getOrderedRuleList(target.getPackage());
+    Iterable<Rule> orderedRuleList =
+        getOrderedRuleList(packageProvider.getPackage(eventHandler, target.getPackageoid()));
     for (Rule rule : orderedRuleList) {
       Set<Label> labels = getInputLabels(rule);
       if (listContainsFile(eventHandler, labels, target.getLabel(), Sets.<Label>newHashSet())) {
@@ -123,7 +124,7 @@ public final class CompileOneDependencyTransformer {
       return result;
     }
     // If the rule has source targets, return it: one of those sources will parse the header.
-    if (result.getRuleClassObject().hasAttr("srcs", BuildType.LABEL_LIST)
+    if (result.getRuleClassObject().getAttributeProvider().hasAttr("srcs", BuildType.LABEL_LIST)
         && !RawAttributeMapper.of(result).getMergedValues("srcs", BuildType.LABEL_LIST).isEmpty()) {
       return result;
     }
@@ -136,8 +137,8 @@ public final class CompileOneDependencyTransformer {
         continue;
       }
       RuleClass ruleClass = rule.getRuleClassObject();
-      if (ruleClass.hasAttr("deps", BuildType.LABEL_LIST)
-          && ruleClass.hasAttr("srcs", BuildType.LABEL_LIST)) {
+      if (ruleClass.getAttributeProvider().hasAttr("deps", BuildType.LABEL_LIST)
+          && ruleClass.getAttributeProvider().hasAttr("srcs", BuildType.LABEL_LIST)) {
         for (Label dep : attributes.get("deps", BuildType.LABEL_LIST)) {
           if (dep.equals(result.getLabel())) {
             if (!attributes.get("srcs", BuildType.LABEL_LIST).isEmpty()) {
@@ -156,7 +157,7 @@ public final class CompileOneDependencyTransformer {
     // At load time we can't really know, so check for the common static configuration sources.
     // (We ignore parse_headers being disabled through the toolchain & by rule implementations).
 
-    FeatureSet mergedFeatures = rule.getPackage().getPackageArgs().features();
+    FeatureSet mergedFeatures = rule.getPackageDeclarations().getPackageArgs().features();
     RawAttributeMapper ruleAttrs = RawAttributeMapper.of(rule);
     if (ruleAttrs.has("features", Types.STRING_LIST) && !ruleAttrs.isConfigurable("features")) {
       FeatureSet ruleFeatures = FeatureSet.parse(ruleAttrs.get("features", Types.STRING_LIST));
@@ -209,7 +210,7 @@ public final class CompileOneDependencyTransformer {
 
       Target target = null;
       try {
-        target = targetProvider.getTarget(eventHandler, label);
+        target = packageProvider.getTarget(eventHandler, label);
       } catch (NoSuchThingException e) {
         // Just ignore failing sources/packages. We could report them here, but as long as we do
         // early return, the presence of this error would then be determined by the order of items

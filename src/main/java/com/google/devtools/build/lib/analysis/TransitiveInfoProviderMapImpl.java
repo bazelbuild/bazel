@@ -46,10 +46,14 @@ public class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object,
     super(keys, values);
   }
 
+  static TransitiveInfoProviderMapImpl empty() {
+    return EMPTY_TRANSITIVE_INFO_PROVIDER_MAP;
+  }
+
   static TransitiveInfoProviderMapImpl create(Map<Object, Object> map) {
     int count = map.size();
     if (count == 0) {
-      return EMPTY_TRANSITIVE_INFO_PROVIDER_MAP;
+      return empty();
     }
     Object[] keys = new Object[count];
     Object[] values = new Object[count];

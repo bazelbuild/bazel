@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
 import static com.google.devtools.build.lib.packages.BuildType.DORMANT_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.DORMANT_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.GENQUERY_SCOPE_TYPE;
@@ -22,6 +21,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_DICT_UNARY;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
@@ -70,8 +70,7 @@ public class AttributeFormatter {
           LABEL_LIST,
           LABEL_DICT_UNARY,
           LABEL_KEYED_STRING_DICT,
-          OUTPUT_LIST,
-          DISTRIBUTIONS);
+          OUTPUT_LIST);
 
   private static final ImmutableSet<Type<?>> noDepTypes =
       ImmutableSet.of(NODEP_LABEL_LIST, NODEP_LABEL);
@@ -219,7 +218,7 @@ public class AttributeFormatter {
         || type == GENQUERY_SCOPE_TYPE
         || type == DORMANT_LABEL) {
       builder.setStringValue(internalToUnicode(labelPrinter.toString((Label) value)));
-    } else if (type == STRING_LIST || type == DISTRIBUTIONS) {
+    } else if (type == STRING_LIST) {
       for (Object entry : (Collection<?>) value) {
         builder.addStringListValue(internalToUnicode(entry.toString()));
       }
@@ -258,13 +257,13 @@ public class AttributeFormatter {
                 .setValue(internalToUnicode(keyValueList.getValue()));
         builder.addStringDictValue(entry);
       }
-    } else if (type == STRING_LIST_DICT) {
-      Map<String, List<String>> dict = (Map<String, List<String>>) value;
-      for (Map.Entry<String, List<String>> dictEntry : dict.entrySet()) {
+    } else if (type == STRING_LIST_DICT || type == LABEL_LIST_DICT) {
+      Map<String, List<Object>> dict = (Map<String, List<Object>>) value;
+      for (Map.Entry<String, List<Object>> dictEntry : dict.entrySet()) {
         StringListDictEntry.Builder entry =
             StringListDictEntry.newBuilder().setKey(internalToUnicode(dictEntry.getKey()));
-        for (String dictEntryValue : dictEntry.getValue()) {
-          entry.addValue(internalToUnicode(dictEntryValue));
+        for (Object dictEntryValue : dictEntry.getValue()) {
+          entry.addValue(internalToUnicode(dictEntryValue.toString()));
         }
         builder.addStringListDictValue(entry);
       }

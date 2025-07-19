@@ -90,7 +90,8 @@ parameter should be added when `tools` are from a toolchain.
 
 As the name suggests, AEGs are exec groups created automatically for each
 toolchain type registered on a rule. There is no need to manually specify them,
-unlike the "classic" exec groups.
+unlike the "classic" exec groups. Moreover, name of AEG is automatically set to
+its toolchain type (e.g. `//tools:toolchain_type_1`).
 
 ### When should I use a custom exec_group? {:#when-should-use-exec-groups}
 

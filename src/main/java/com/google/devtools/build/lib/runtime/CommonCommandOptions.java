@@ -24,6 +24,7 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.Converters.DurationConverter;
+import com.google.devtools.common.options.Converters.PercentageConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -108,7 +109,7 @@ public class CommonCommandOptions extends OptionsBase {
 
   @Option(
       name = "experimental_install_base_gc_max_age",
-      defaultValue = "0",
+      defaultValue = "30d",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       converter = DurationConverter.class,
@@ -117,6 +118,42 @@ public class CommonCommandOptions extends OptionsBase {
               + " If nonzero, the server will attempt to garbage collect other install bases when"
               + " idle.")
   public Duration installBaseGcMaxAge;
+
+  @Option(
+      name = "experimental_action_cache_gc_idle_delay",
+      defaultValue = "5m",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      converter = DurationConverter.class,
+      help =
+          "How long the server must remain idle before a garbage collection of the action cache is"
+              + " attempted. Ineffectual unless --experimental_action_cache_gc_max_age is nonzero.")
+  public Duration actionCacheGcIdleDelay;
+
+  @Option(
+      name = "experimental_action_cache_gc_threshold",
+      defaultValue = "10",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      converter = PercentageConverter.class,
+      help =
+          "The percentage of stale action cache entries required for garbage collection to be"
+              + " triggered. Ineffectual unless --experimental_action_cache_gc_max_age is nonzero.")
+  public int actionCacheGcThreshold;
+
+  @Option(
+      name = "experimental_action_cache_gc_max_age",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      converter = DurationConverter.class,
+      help =
+          "If set to a nonzero value, the action cache will be periodically garbage collected to"
+              + " remove entries older than this age. Garbage collection occurs in the background"
+              + " once the server has become idle, as determined by the"
+              + " --experimental_action_cache_gc_idle_delay and"
+              + " --experimental_action_cache_gc_threshold flags.")
+  public Duration actionCacheGcMaxAge;
 
   /** Converter for UUID. Accepts values as specified by {@link UUID#fromString(String)}. */
   public static class UUIDConverter extends Converter.Contextless<UUID> {
@@ -248,7 +285,7 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
           "Slims down the size of the JSON profile by merging events if the profile gets "
-              + " too large.")
+              + "too large.")
   public boolean slimProfile;
 
   @Option(
@@ -296,8 +333,9 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
-          "If set, profile Bazel and write data to the specified "
-              + "file. Use bazel analyze-profile to analyze the profile.")
+          "If set, profile Bazel and write data to the specified file. See"
+              + " https://bazel.build/advanced/performance/json-trace-profile for more"
+              + " information.")
   public PathFragment profilePath;
 
   @Option(
@@ -532,17 +570,32 @@ public class CommonCommandOptions extends OptionsBase {
 
   @Option(
       name = "repo_env",
-      converter = Converters.OptionalAssignmentConverter.class,
+      converter = Converters.EnvVarsConverter.class,
       allowMultiple = true,
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
-          "Specifies additional environment variables to be available only for repository rules."
-              + " Note that repository rules see the full environment anyway, but in this way"
-              + " configuration information can be passed to repositories through options without"
-              + " invalidating the action graph.")
-  public List<Map.Entry<String, String>> repositoryEnvironment;
+          """
+          Specifies additional environment variables to be available only for repository rules. \
+          Note that repository rules see the full environment anyway, but in this way \
+          variables can be set via command-line flags and <code>.bazelrc</code> entries. \
+          The special syntax <code>=NAME</code> can be used to explicitly unset a variable.
+          """)
+  public List<Converters.EnvVar> repositoryEnvironment;
+
+  @Option(
+      name = "incompatible_repo_env_ignores_action_env",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          """
+          If true, <code>--action_env=NAME=VALUE</code> will no longer affect repository rule \
+          and module extension environments.
+          """)
+  public boolean repoEnvIgnoresActionEnv;
 
   @Option(
       name = "heuristically_drop_nodes",
@@ -608,4 +661,12 @@ public class CommonCommandOptions extends OptionsBase {
           "If true and supported, instrumentation output is redirected to be written locally on a"
               + " different machine than where bazel is running on.")
   public boolean redirectLocalInstrumentationOutputWrites;
+
+  @Option(
+      name = "write_command_log",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help = "Whether or not to write the command.log file")
+  public boolean writeCommandLog;
 }

@@ -399,7 +399,7 @@ public class CppActionConfigs {
                         "    flag_group {",
                         "      expand_if_all_available: 'propeller_optimize_cc_path'",
                         "      flag: '-fbasic-block-sections=list=%{propeller_optimize_cc_path}'",
-                        "      flag: '-DBUILD_PROPELLER_TYPE=\"full\"'",
+                        "      flag: '-DBUILD_PROPELLER_ENABLED=1'",
                         "    }",
                         "  }",
                         "  flag_set {",

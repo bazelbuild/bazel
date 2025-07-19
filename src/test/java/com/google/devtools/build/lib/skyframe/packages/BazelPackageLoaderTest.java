@@ -91,11 +91,18 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
         "  pass");
     FileSystemUtils.writeIsoLatin1(
         tools.getRelative("tools/build_defs/repo/local.bzl"),
-        "def local_repository(**kwargs):",
-        "  pass",
-        "",
-        "def new_local_repository(**kwargs):",
-        "  pass");
+        """
+        def _local_repository_impl(rctx):
+          path = rctx.workspace_root.get_child(rctx.attr.path)
+          rctx.symlink(path, ".")
+        local_repository = repository_rule(
+            implementation = _local_repository_impl,
+            attrs = {"path": attr.string()},
+        )
+
+        def new_local_repository(**kwargs):
+          pass
+        """);
     FileSystemUtils.writeIsoLatin1(
         tools.getRelative("tools/build_defs/repo/utils.bzl"),
         "def maybe(repo_rule, name, **kwargs):",

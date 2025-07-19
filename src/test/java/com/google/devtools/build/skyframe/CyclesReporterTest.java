@@ -51,7 +51,7 @@ public class CyclesReporterTest {
     SingleCycleReporter singleReporter =
         (topLevelKey, cycleInfo, alreadyReported, eventHandler) -> false;
 
-    CycleInfo cycleInfo = new CycleInfo(ImmutableList.of(DUMMY_KEY));
+    CycleInfo cycleInfo = CycleInfo.createCycleInfo(ImmutableList.of(DUMMY_KEY));
     CyclesReporter cyclesReporter = new CyclesReporter(singleReporter);
     assertThrows(
         IllegalStateException.class,
@@ -69,10 +69,9 @@ public class CyclesReporterTest {
           return true;
         };
 
-    CycleInfo cycleInfo = new CycleInfo(ImmutableList.of(DUMMY_KEY));
+    CycleInfo cycleInfo = CycleInfo.createCycleInfo(ImmutableList.of(DUMMY_KEY));
     CyclesReporter cyclesReporter = new CyclesReporter(singleReporter);
-    cyclesReporter.reportCycles(ImmutableList.of(cycleInfo), DUMMY_KEY,
-        NullEventHandler.INSTANCE);
+    cyclesReporter.reportCycles(ImmutableList.of(cycleInfo), DUMMY_KEY, NullEventHandler.INSTANCE);
     assertThat(reported.get()).isTrue();
   }
 
@@ -88,13 +87,16 @@ public class CyclesReporterTest {
     SkyKey cycle1 = () -> SkyFunctionName.createHermetic("cycle1");
     SkyKey cycle2 = () -> SkyFunctionName.createHermetic("cycle2");
     CycleInfo top1FirstCycle =
-        new CycleInfo(ImmutableList.of(top1, path1), ImmutableList.of(cycle1, cycle2));
+        CycleInfo.createCycleInfo(ImmutableList.of(top1, path1), ImmutableList.of(cycle1, cycle2));
     cyclesReporter.reportCycles(
         ImmutableList.of(
             top1FirstCycle,
-            new CycleInfo(ImmutableList.of(top1, path2), ImmutableList.of(cycle1, cycle2)),
-            new CycleInfo(ImmutableList.of(top1, path1), ImmutableList.of(cycle2, cycle1)),
-            new CycleInfo(ImmutableList.of(top1, path2), ImmutableList.of(cycle2, cycle1))),
+            CycleInfo.createCycleInfo(
+                ImmutableList.of(top1, path2), ImmutableList.of(cycle1, cycle2)),
+            CycleInfo.createCycleInfo(
+                ImmutableList.of(top1, path1), ImmutableList.of(cycle2, cycle1)),
+            CycleInfo.createCycleInfo(
+                ImmutableList.of(top1, path2), ImmutableList.of(cycle2, cycle1))),
         top1,
         NullEventHandler.INSTANCE);
     verify(mockReporter)
@@ -104,13 +106,16 @@ public class CyclesReporterTest {
     verifyNoMoreInteractions(mockReporter);
 
     CycleInfo top2FirstCycle =
-        new CycleInfo(ImmutableList.of(top2, path1), ImmutableList.of(cycle1, cycle2));
+        CycleInfo.createCycleInfo(ImmutableList.of(top2, path1), ImmutableList.of(cycle1, cycle2));
     cyclesReporter.reportCycles(
         ImmutableList.of(
             top2FirstCycle,
-            new CycleInfo(ImmutableList.of(top2, path2), ImmutableList.of(cycle1, cycle2)),
-            new CycleInfo(ImmutableList.of(top2, path1), ImmutableList.of(cycle2, cycle1)),
-            new CycleInfo(ImmutableList.of(top2, path2), ImmutableList.of(cycle2, cycle1))),
+            CycleInfo.createCycleInfo(
+                ImmutableList.of(top2, path2), ImmutableList.of(cycle1, cycle2)),
+            CycleInfo.createCycleInfo(
+                ImmutableList.of(top2, path1), ImmutableList.of(cycle2, cycle1)),
+            CycleInfo.createCycleInfo(
+                ImmutableList.of(top2, path2), ImmutableList.of(cycle2, cycle1))),
         top2,
         NullEventHandler.INSTANCE);
 

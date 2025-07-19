@@ -32,12 +32,9 @@ import java.util.Optional;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
-import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
-import org.apache.commons.pool2.PooledObject;
-import org.apache.commons.pool2.impl.DefaultPooledObject;
 
 /** Factory used by the pool to create / destroy / validate worker processes. */
-public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker> {
+public class WorkerFactory {
 
   // It's fine to use an AtomicInteger here (which is 32-bit), because it is only incremented when
   // spawning a new worker, thus even under worst-case circumstances and buggy workers quitting
@@ -81,7 +78,6 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     this.reporter = reporter;
   }
 
-  @Override
   public Worker create(WorkerKey key) throws IOException {
     int workerId = pidCounter.getAndIncrement();
     String workTypeName = key.getWorkerTypeName();
@@ -99,10 +95,17 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     if (key.isSandboxed()) {
       if (key.isMultiplex()) {
         WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
-        Path workDir = getSandboxedWorkerPath(key);
+        int multiplexerId = workerMultiplexer.getMultiplexerId();
+        Path workDir = getMultiplexSandboxedWorkerPath(key, multiplexerId);
         worker =
             new SandboxedWorkerProxy(
-                key, workerId, logFile, workerMultiplexer, workDir, treeDeleter);
+                key,
+                workerId,
+                workerMultiplexer.getLogFile(),
+                workerMultiplexer,
+                workDir,
+                treeDeleter);
+        workerMultiplexer.setWorkDir(workDir);
       } else {
         Path workDir = getSandboxedWorkerPath(key, workerId);
         worker =
@@ -130,8 +133,9 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
 
     String msg =
         String.format(
-            "Created new %s %s %s (id %d, key hash %d), logging to %s",
+            "Created new %s %s %s %s (id %d, key hash %d), logging to %s",
             key.isSandboxed() ? "sandboxed" : "non-sandboxed",
+            key.isMultiplex() ? "multiplex" : "singleplex",
             key.getMnemonic(),
             workTypeName,
             workerId,
@@ -148,23 +152,12 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
         .getRelative(workspaceName);
   }
 
-  Path getSandboxedWorkerPath(WorkerKey key) {
+  Path getMultiplexSandboxedWorkerPath(WorkerKey key, int multiplexerId) {
     String workspaceName = key.getExecRoot().getBaseName();
     return workerBaseDir
-        .getRelative(key.getMnemonic() + "-" + key.getWorkerTypeName() + "-workdir")
+        .getRelative(
+            key.getMnemonic() + "-" + key.getWorkerTypeName() + "-" + multiplexerId + "-workdir")
         .getRelative(workspaceName);
-  }
-
-  /** Use the DefaultPooledObject implementation. */
-  @Override
-  public PooledObject<Worker> wrap(Worker worker) {
-    return new DefaultPooledObject<>(worker);
-  }
-
-  /** When a worker process is discarded, destroy its process, too. */
-  @Override
-  public void destroyObject(WorkerKey key, PooledObject<Worker> p) {
-    destroyWorker(key, p.getObject());
   }
 
   public void destroyWorker(WorkerKey key, Worker worker) {
@@ -185,16 +178,6 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
             workerFailureCode);
     WorkerLoggingHelper.logMessage(reporter, WorkerLoggingHelper.LogLevel.INFO, msg);
     worker.destroy();
-  }
-
-  /**
-   * Returns true if this worker is still valid. The worker is considered to be valid as long as its
-   * process has not exited and its files have not changed on disk. Validity is checked when the
-   * worker is created, borrowed and returned.
-   */
-  @Override
-  public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
-    return validateWorker(key, p.getObject());
   }
 
   public boolean validateWorker(WorkerKey key, Worker worker) {

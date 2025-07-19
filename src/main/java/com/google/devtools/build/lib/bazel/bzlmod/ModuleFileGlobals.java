@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -42,6 +43,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
@@ -50,6 +52,7 @@ import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Identifier;
+import net.starlark.java.syntax.Location;
 
 /** A collection of global Starlark build API functions that apply to MODULE.bazel files. */
 @GlobalMethods(environment = Environment.MODULE)
@@ -247,9 +250,18 @@ public class ModuleFileGlobals {
             defaultValue = "-1"),
         @Param(
             name = "repo_name",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
             doc =
-                "The name of the external repo representing this dependency. This is by default the"
-                    + " name of the module.",
+                """
+                The name of the external repo representing this dependency. This is by default the
+                name of the module. Can be set to <code>None</code> to make this dependency a
+                "<em>nodep</em>" dependency: in this case, this <code>bazel_dep</code> specification
+                is only honored if the target module already exists in the dependency graph by some
+                other means.
+                """,
             named = true,
             positional = false,
             defaultValue = "''"),
@@ -257,7 +269,7 @@ public class ModuleFileGlobals {
             name = "dev_dependency",
             doc =
                 "If true, this dependency will be ignored if the current module is not the root"
-                    + " module or `--ignore_dev_dependency` is enabled.",
+                    + " module or <code>--ignore_dev_dependency</code> is enabled.",
             named = true,
             positional = false,
             defaultValue = "False"),
@@ -267,15 +279,12 @@ public class ModuleFileGlobals {
       String name,
       String version,
       StarlarkInt maxCompatibilityLevel,
-      String repoName,
+      Object repoNameArg,
       boolean devDependency,
       StarlarkThread thread)
       throws EvalException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "bazel_dep()");
     context.setNonModuleCalled();
-    if (repoName.isEmpty()) {
-      repoName = name;
-    }
     validateModuleName(name);
     Version parsedVersion;
     try {
@@ -283,7 +292,17 @@ public class ModuleFileGlobals {
     } catch (ParseException e) {
       throw new EvalException("Invalid version in bazel_dep()", e);
     }
-    RepositoryName.validateUserProvidedRepoName(repoName);
+
+    Optional<String> repoName =
+        switch (repoNameArg) {
+          case NoneType n -> Optional.empty();
+          case String s when s.isEmpty() -> Optional.of(name);
+          case String s -> {
+            RepositoryName.validateUserProvidedRepoName(s);
+            yield Optional.of(s);
+          }
+          default -> throw Starlark.errorf("internal error: unexpected repoName type");
+        };
 
     if (!(context.shouldIgnoreDevDeps() && devDependency)) {
       context.addDep(
@@ -292,7 +311,9 @@ public class ModuleFileGlobals {
               name, parsedVersion, maxCompatibilityLevel.toInt("max_compatibility_level")));
     }
 
-    context.addRepoNameUsage(repoName, "by a bazel_dep", thread.getCallStack());
+    if (repoName.isPresent()) {
+      context.addRepoNameUsage(repoName.get(), "by a bazel_dep", thread.getCallStack());
+    }
   }
 
   @StarlarkMethod(
@@ -423,8 +444,7 @@ public class ModuleFileGlobals {
             named = true,
             positional = false,
             defaultValue = "False",
-            enableOnlyWithFlag = "-experimental_isolated_extension_usages",
-            valueWhenDisabled = "False"),
+            enableOnlyWithFlag = "-experimental_isolated_extension_usages"),
       },
       useStarlarkThread = true)
   public ModuleExtensionProxy useExtension(
@@ -493,12 +513,18 @@ public class ModuleFileGlobals {
               rawExtensionBzlFile,
               Label.PackageContext.of(
                   PackageIdentifier.create(ownRepoName, PathFragment.EMPTY_FRAGMENT),
-                  RepositoryMapping.createAllowingFallback(repoMapping)));
+                  RepositoryMapping.create(repoMapping, ownRepoName)));
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("invalid label \"%s\": %s", rawExtensionBzlFile, e.getMessage());
     }
+    String apparentRepoName = label.getRepository().getName();
+    Label fabricatedLabel =
+        Label.createUnvalidated(
+            PackageIdentifier.create(
+                RepositoryName.createUnvalidated(apparentRepoName), label.getPackageFragment()),
+            label.getName());
     // Skip over the leading "@" of the unambiguous form.
-    return label.getUnambiguousCanonicalForm().substring(1);
+    return fabricatedLabel.getUnambiguousCanonicalForm().substring(1);
   }
 
   private Label convertAndValidatePatchLabel(InterimModule.Builder module, String rawLabel)
@@ -604,7 +630,8 @@ public class ModuleFileGlobals {
     }
 
     @Override
-    public void export(EventHandler handler, Label bzlFileLabel, String name) {
+    public void export(
+        EventHandler handler, Label bzlFileLabel, String name, Location exportedLocation) {
       proxyBuilder.setProxyName(name);
     }
   }
@@ -624,10 +651,15 @@ public class ModuleFileGlobals {
           @Param(
               name = "kwargs",
               doc =
-                  "Specifies certain repos to import into the scope of the current module with"
-                      + " different names. The keys should be the name to use in the current scope,"
-                      + " whereas the values should be the original names exported by the module"
-                      + " extension."),
+                  """
+                  Specifies certain repos to import into the scope of the current module with
+                  different names. The keys should be the name to use in the current scope,
+                  whereas the values should be the original names exported by the module
+                  extension.
+                  <p>Keys that are not valid identifiers can be specified via a literal dict
+                  passed as extra keyword arguments, e.g.,
+                  <code>use_repo(extension_proxy, **{"foo.2": "foo"})</code>.
+                  """),
       useStarlarkThread = true)
   public void useRepo(
       ModuleExtensionProxy extensionProxy,
@@ -677,7 +709,10 @@ public class ModuleFileGlobals {
                   """
                   The overrides to apply to the repos generated by the extension, where the values
                   are the names of repos in the scope of the current module and the keys are the
-                  names of the repos they will override in the extension.\
+                  names of the repos they will override in the extension.
+                  <p>Keys that are not valid identifiers can be specified via a literal dict
+                  passed as extra keyword arguments, e.g.,
+                  <code>override_repo(extension_proxy, **{"foo.2": "foo"})</code>.
                   """),
       useStarlarkThread = true)
   public void overrideRepo(
@@ -734,7 +769,10 @@ public class ModuleFileGlobals {
                   """
                   The new repos to inject into the extension, where the values are the names of
                   repos in the scope of the current module and the keys are the name they will be
-                  visible under in the extension.\
+                  visible under in the extension.
+                  <p>Keys that are not valid identifiers can be specified via a literal dict
+                  passed as extra keyword arguments, e.g.,
+                  <code>inject_repo(extension_proxy, **{"foo.2": "foo"})</code>.
                   """),
       useStarlarkThread = true)
   public void injectRepo(
@@ -1108,7 +1146,7 @@ public class ModuleFileGlobals {
           """
           Specifies that this dependency should come from a certain directory on local disk,
           instead of from a registry. Effectively, this dependency will be backed by a
-          <code>local_repository</code> rule.
+          <a href="../repo/local#local_repository"><code>local_repository</code></a> rule.
 
           <p>This directive only takes effect in the root module; in other words, if a module is
           used as a dependency by others, its own overrides are ignored.\

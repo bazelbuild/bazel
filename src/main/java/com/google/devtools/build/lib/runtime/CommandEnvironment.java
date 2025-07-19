@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.OptionAndRawValue;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
@@ -136,12 +137,13 @@ public class CommandEnvironment {
   private final HttpDownloader httpDownloader;
   private final DelegatingDownloader delegatingDownloader;
   private final RemoteAnalysisCachingEventListener remoteAnalysisCachingEventListener;
+  @Nullable private final ImmutableList<IdleTask.Result> idleTaskResultsFromPreviousIdlePeriod;
   private final ImmutableList.Builder<IdleTask> idleTasks = ImmutableList.builder();
+  private final ResourceManager resourceManager;
 
   private boolean mergedAnalysisAndExecution;
 
   private OutputService outputService;
-  private String workspaceName;
   private boolean hasSyncedPackageLoading = false;
   private boolean buildInfoPosted = false;
   private Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent =
@@ -170,6 +172,9 @@ public class CommandEnvironment {
 
   @Nullable // Optionally set in `beforeCommand` phase.
   private LongVersionGetter versionGetter;
+  private boolean useFakeStampData = false;
+
+  private UiEventHandler uiEventHandler;
 
   /**
    * Gets the {@link RemoteAnalysisCachingEventListener} for this invocation.
@@ -226,11 +231,14 @@ public class CommandEnvironment {
       List<String> warnings,
       long waitTimeInMs,
       long commandStartTime,
-      List<Any> commandExtensions,
+      @Nullable ImmutableList<IdleTask.Result> idleTaskResultsFromPreviousIdlePeriod,
       Consumer<String> shutdownReasonConsumer,
+      List<Any> commandExtensions,
       CommandExtensionReporter commandExtensionReporter,
       int attemptNumber,
-      ConfigFlagDefinitions configFlagDefinitions) {
+      @Nullable String buildRequestIdOverride,
+      ConfigFlagDefinitions configFlagDefinitions,
+      ResourceManager resourceManager) {
     checkArgument(attemptNumber >= 1);
 
     this.runtime = runtime;
@@ -243,6 +251,7 @@ public class CommandEnvironment {
     this.options = options;
     this.invocationPolicy = invocationPolicy;
     this.packageLocator = packageLocator;
+    this.idleTaskResultsFromPreviousIdlePeriod = idleTaskResultsFromPreviousIdlePeriod;
     this.shutdownReasonConsumer = shutdownReasonConsumer;
     this.syscallCache = syscallCache;
     this.quiescingExecutors = quiescingExecutors;
@@ -251,6 +260,7 @@ public class CommandEnvironment {
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
     this.attemptNumber = attemptNumber;
     this.configFlagDefinitions = configFlagDefinitions;
+    this.resourceManager = resourceManager;
 
     // Record the command's starting time again, for use by
     // TimestampGranularityMonitor.waitForTimestampGranularity().
@@ -277,7 +287,6 @@ public class CommandEnvironment {
     } else {
       this.relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
     }
-    this.workspaceName = null;
 
     this.waitTime = Duration.ofMillis(waitTimeInMs + commandOptions.waitTime);
     this.commandStartTime = commandStartTime - commandOptions.startupTime;
@@ -316,42 +325,63 @@ public class CommandEnvironment {
             "CommandEnvironment needs its options provider to have ClientOptions loaded.");
 
     this.clientEnv = makeMapFromMapEntries(clientOptions.clientEnv);
-    this.commandId = computeCommandId(commandOptions.invocationId, warnings);
+    this.commandId = computeCommandId(commandOptions.invocationId, warnings, attemptNumber);
     this.buildRequestId =
         commandOptions.buildRequestId != null
             ? commandOptions.buildRequestId
-            : UUID.randomUUID().toString();
+            : buildRequestIdOverride != null
+                ? buildRequestIdOverride
+                : UUID.randomUUID().toString();
 
     this.repoEnv.putAll(clientEnv);
-    if (command.buildPhase().analyzes() || command.name().equals("info")) {
+    // TODO: This only needs to check for loads() rather than analyzes() due to
+    //  the effect of --action_env on the repository env. Revert back to
+    //  analyzes() when --action_env no longer affects it.
+    if (command.buildPhase().loads() || command.name().equals("info")) {
       // Compute the set of environment variables that are allowlisted on the commandline
       // for inheritance.
-      for (Map.Entry<String, String> entry :
-          options.getOptions(CoreOptions.class).actionEnvironment) {
-        if (entry.getValue() == null) {
-          visibleActionEnv.add(entry.getKey());
-        } else {
-          visibleActionEnv.remove(entry.getKey());
-          repoEnv.put(entry.getKey(), entry.getValue());
+      for (var envVar : options.getOptions(CoreOptions.class).actionEnvironment) {
+        switch (envVar) {
+          case Converters.EnvVar.Set(String name, String value) -> {
+            visibleActionEnv.remove(name);
+            if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
+              repoEnv.put(name, value);
+            }
+          }
+          case Converters.EnvVar.Inherit(String name) -> {
+            visibleActionEnv.add(name);
+          }
+          case Converters.EnvVar.Unset(String name) -> {
+            visibleActionEnv.remove(name);
+            if (!options.getOptions(CommonCommandOptions.class).repoEnvIgnoresActionEnv) {
+              repoEnv.remove(name);
+            }
+          }
         }
       }
-      for (Map.Entry<String, String> entry :
-          options.getOptions(TestOptions.class).testEnvironment) {
-        if (entry.getValue() == null) {
-          visibleTestEnv.add(entry.getKey());
+    }
+    if (command.buildPhase().analyzes() || command.name().equals("info")) {
+      for (Converters.EnvVar envVar : options.getOptions(TestOptions.class).testEnvironment) {
+        if (envVar instanceof Converters.EnvVar.Inherit(String name)) {
+          visibleTestEnv.add(name);
         }
       }
     }
 
-    for (Map.Entry<String, String> entry : commandOptions.repositoryEnvironment) {
-      String name = entry.getKey();
-      String value = entry.getValue();
-      if (value == null) {
-        value = clientEnv.get(name);
-      }
-      if (value != null) {
-        repoEnv.put(name, value);
-        repoEnvFromOptions.put(name, value);
+    for (var envVar : commandOptions.repositoryEnvironment) {
+      switch (envVar) {
+        case Converters.EnvVar.Set(String name, String value) -> {
+          repoEnv.put(name, value);
+          repoEnvFromOptions.put(name, value);
+        }
+        case Converters.EnvVar.Inherit(String name) -> {
+          repoEnv.put(name, clientEnv.get(name));
+          repoEnvFromOptions.put(name, clientEnv.get(name));
+        }
+        case Converters.EnvVar.Unset(String name) -> {
+          repoEnv.remove(name);
+          repoEnvFromOptions.remove(name);
+        }
       }
     }
     this.buildResultListener = new BuildResultListener();
@@ -433,7 +463,7 @@ public class CommandEnvironment {
     return directories;
   }
 
-  @Nullable
+  @Nullable // Null for commands that don't have PackageOptions (version, help, shutdown, etc).
   public PathPackageLocator getPackageLocator() {
     return packageLocator;
   }
@@ -441,6 +471,11 @@ public class CommandEnvironment {
   /** Returns the reporter for events. */
   public Reporter getReporter() {
     return reporter;
+  }
+
+  // TODO: b/395157821 - Replace env.getReporter().getOutErr() with env.getReporterOutErr().
+  public OutErr getReporterOutErr() {
+    return reporter.getOutErr();
   }
 
   public EventBus getEventBus() {
@@ -539,7 +574,7 @@ public class CommandEnvironment {
     return ImmutableMap.copyOf(result);
   }
 
-  private UUID computeCommandId(UUID idFromOptions, List<String> warnings) {
+  private UUID computeCommandId(UUID idFromOptions, List<String> warnings, int attemptNumber) {
     // TODO(b/67895628): Stop reading ids from the environment after the compatibility window has
     // passed.
     UUID commandId = idFromOptions;
@@ -553,11 +588,17 @@ public class CommandEnvironment {
                   + "--invocation_id. Please switch to using the flag.");
         } catch (IllegalArgumentException e) {
           // String was malformed, so we will resort to generating a random UUID
-          commandId = UUID.randomUUID();
+          return UUID.randomUUID();
         }
       } else {
-        commandId = UUID.randomUUID();
+        return UUID.randomUUID();
       }
+    }
+    // When retrying a command, the retry has to use a different command ID. BES backends can still
+    // link the invocations since their build ID will be the same and the attempt number will be
+    // increased.
+    if (attemptNumber > 1) {
+      return UUID.randomUUID();
     }
     return commandId;
   }
@@ -628,13 +669,7 @@ public class CommandEnvironment {
   }
 
   public String getWorkspaceName() {
-    return checkNotNull(workspaceName);
-  }
-
-  public void setWorkspaceName(String workspaceName) {
-    checkState(this.workspaceName == null, "workspace name can only be set once");
-    this.workspaceName = workspaceName;
-    eventBus.post(new ExecRootEvent(getExecRoot()));
+    return runtime.getRuleClassProvider().getRunfilesPrefix();
   }
 
   /**
@@ -650,8 +685,7 @@ public class CommandEnvironment {
    * all input and output files visible to the actual build reside.
    */
   public Path getExecRoot() {
-    checkNotNull(workspaceName);
-    return directories.getExecRoot(workspaceName);
+    return directories.getExecRoot(getWorkspaceName());
   }
 
   /**
@@ -696,7 +730,7 @@ public class CommandEnvironment {
   }
 
   public ResourceManager getLocalResourceManager() {
-    return ResourceManager.instance();
+    return resourceManager;
   }
 
   /**
@@ -893,8 +927,8 @@ public class CommandEnvironment {
       skyframeExecutor.prepareForSkyfocus(
           options.getOptions(SkyfocusOptions.class), reporter, runtime.getProductName());
     } else if (getCommand().buildPhase().loads()
-        && !getSkyframeExecutor().getSkyfocusState().workingSet().isEmpty()) {
-      // A non-empty working set implies a focused Skyframe state.
+        && !getSkyframeExecutor().getSkyfocusState().activeDirectories().isEmpty()) {
+      // A non-empty active directories implies a focused Skyframe state.
       throw new AbruptExitException(
           DetailedExitCode.of(
               FailureDetail.newBuilder()
@@ -924,7 +958,11 @@ public class CommandEnvironment {
     }
   }
 
-  /** Returns the client environment with all settings from --action_env and --repo_env. */
+  /**
+   * Returns the repository environment created from the client environment, {@code --repo_env}, and
+   * {@code --action_env=NAME=VALUE} (when {@code
+   * --incompatible_repo_env_ignores_action_env=false}).
+   */
   public Map<String, String> getRepoEnv() {
     return Collections.unmodifiableMap(repoEnv);
   }
@@ -936,7 +974,10 @@ public class CommandEnvironment {
         if (fileCache == null) {
           fileCache =
               new SingleBuildFileCache(
-                  getExecRoot().getPathString(), runtime.getFileSystem(), syscallCache);
+                  getExecRoot().getPathString(),
+                  PathFragment.create(directories.getRelativeOutputPath()),
+                  runtime.getFileSystem(),
+                  syscallCache);
         }
       }
     }
@@ -1045,10 +1086,15 @@ public class CommandEnvironment {
   }
 
   /**
-   * Registers a task to be executed following this command, while the server is idle.
-   *
-   * <p>See {@link IdleServerTasks} for details.
+   * Retrieves the idle tasks stats from a previous idle period, if this command was preceded by
+   * one.
    */
+  @Nullable
+  public ImmutableList<IdleTask.Result> getIdleTaskResultsFromPreviousIdlePeriod() {
+    return idleTaskResultsFromPreviousIdlePeriod;
+  }
+
+  /** Registers a task to be executed during an idle period following this command. */
   public void addIdleTask(IdleTask idleTask) {
     idleTasks.add(idleTask);
   }
@@ -1065,5 +1111,24 @@ public class CommandEnvironment {
   @Nullable
   public LongVersionGetter getVersionGetter() {
     return versionGetter;
+  }
+
+  public void setUseFakeStampData(boolean useFakeStampData) {
+    this.useFakeStampData = useFakeStampData;
+  }
+
+  public boolean getUseFakeStampData() {
+    return useFakeStampData;
+  }
+
+  public void setUiEventHandler(UiEventHandler uiEventHandler) {
+    checkState(this.uiEventHandler == null, "UiEventHandler already set");
+    this.uiEventHandler = checkNotNull(uiEventHandler);
+    eventBus.register(uiEventHandler);
+    reporter.addHandler(uiEventHandler);
+  }
+
+  public UiEventHandler getUiEventHandler() {
+    return checkNotNull(uiEventHandler, "UiEventHandler was not set");
   }
 }

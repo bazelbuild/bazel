@@ -46,13 +46,18 @@ class FirstTimeUseTest(test_base.TestBase):
 
   def testNoBashRequiredForSimpleBazelRun(self):
     """Regression test for https://github.com/bazelbuild/bazel/issues/8229."""
-    self.ScratchFile('foo/BUILD', [
-        'py_binary(',
-        '    name = "x",'
-        '    srcs = ["x.py"],',
-        '    args = ["a", "\'b c\'"],',
-        ')',
-    ])
+    self.AddBazelDep('rules_python')
+    self.ScratchFile(
+        'foo/BUILD',
+        [
+            'load("@rules_python//python:py_binary.bzl", "py_binary")',
+            'py_binary(',
+            '    name = "x",',
+            '    srcs = ["x.py"],',
+            '    args = ["a", "\'b c\'"],',
+            ')',
+        ],
+    )
     self.ScratchFile('foo/x.py', [
         'from __future__ import print_function',
         'import sys',

@@ -33,6 +33,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.Nullable;
 
 /**
@@ -162,6 +163,7 @@ public final class BinTools {
   /** An ActionInput pointing at an absolute path. */
   @VisibleForTesting
   public static final class PathActionInput extends VirtualActionInput {
+    private final ReentrantLock lock = new ReentrantLock();
     private final Path path;
     private final PathFragment execPath;
     private volatile FileArtifactValue metadata;
@@ -188,13 +190,16 @@ public final class BinTools {
       // conditions. We rely on the fact that no two {@link PathActionInput} instances refer to the
       // same file to use in-memory synchronization and avoid writing to a temporary file first.
       if (digest == null || !outputPath.exists()) {
-        synchronized (this) {
+        lock.lock();
+        try {
           if (digest == null || !outputPath.exists()) {
             outputPath.getParentDirectory().createDirectoryAndParents();
             digest = writeTo(outputPath);
             // Some of the embedded tools are executable.
             outputPath.setExecutable(true);
           }
+        } finally {
+          lock.unlock();
         }
       }
       return digest;
@@ -204,10 +209,13 @@ public final class BinTools {
     public FileArtifactValue getMetadata() throws IOException {
       // We intentionally delay hashing until it is necessary.
       if (metadata == null) {
-        synchronized (this) {
+        lock.lock();
+        try {
           if (metadata == null) {
             metadata = hash(path);
           }
+        } finally {
+          lock.unlock();
         }
       }
       return metadata;

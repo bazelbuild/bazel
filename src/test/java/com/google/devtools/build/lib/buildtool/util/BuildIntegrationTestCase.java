@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
-import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -118,6 +117,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkymeldModule;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -141,6 +141,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerModule;
+import com.google.devtools.build.runfiles.Runfiles;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -154,6 +155,7 @@ import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -254,7 +256,7 @@ public abstract class BuildIntegrationTestCase {
             /* installBase= */ outputBase,
             /* outputBase= */ outputBase,
             /* outputUserRoot= */ outputBase,
-            /* execRootBase= */ getExecRootBase(),
+            /* execRootBase= */ outputBase.getRelative(ServerDirectories.EXECROOT),
             /* virtualSourceRoot= */ getVirtualSourceRoot(),
             // Arbitrary install base hash.
             /* installMD5= */ "83bc4458738962b9b77480bac76164a9");
@@ -332,10 +334,6 @@ public abstract class BuildIntegrationTestCase {
     return null;
   }
 
-  protected Path getExecRootBase() {
-    return outputBase.getRelative(ServerDirectories.EXECROOT);
-  }
-
   protected void createRuntimeWrapper() throws Exception {
     if (runtimeWrapper != null) {
       cleanupInterningPools();
@@ -397,6 +395,14 @@ public abstract class BuildIntegrationTestCase {
 
   @After
   public final void cleanUp() throws Exception {
+    try {
+      doCleanup();
+    } finally {
+      getRuntime().getBlazeModules().forEach(BlazeModule::blazeShutdown);
+    }
+  }
+
+  private void doCleanup() throws Exception {
     if (subscriberException.getException() != null) {
       throwIfUnchecked(subscriberException.getException());
       throw new RuntimeException(subscriberException.getException());
@@ -662,8 +668,15 @@ public abstract class BuildIntegrationTestCase {
     runtimeWrapper.addOptions("--experimental_extended_sanity_checks");
     runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
-    // TODO(rosica): Remove this once g3 is migrated.
-    runtimeWrapper.addOptions("--noincompatible_use_specific_tool_files");
+
+    if (AnalysisMock.get().isThisBazel()) {
+      // We have to explicitly override @bazel_tools to the version in the workspace (which is where
+      // we usually set up mocks), instead of the install base, where it is normally looked up from.
+      // This needs to be done for all BuildIntegrationTestCase subclasses, because the setup here
+      // requires that the install base be separate from the workspace (unlike, say,
+      // BuildViewTestCase).
+      runtimeWrapper.addOptions("--override_repository=bazel_tools=embedded_tools");
+    }
   }
 
   protected void resetOptions() {
@@ -693,6 +706,7 @@ public abstract class BuildIntegrationTestCase {
       return null;
     }
   }
+
   /**
    * Returns the path to the executable that label "target" identifies.
    *
@@ -702,8 +716,12 @@ public abstract class BuildIntegrationTestCase {
    * @param target the label of the target whose executable location is requested.
    */
   protected Path getExecutableLocation(String target)
-      throws LabelSyntaxException, NoSuchPackageException, NoSuchTargetException,
-          InterruptedException, TransitionException, InvalidConfigurationException {
+      throws LabelSyntaxException,
+          NoSuchPackageException,
+          NoSuchTargetException,
+          InterruptedException,
+          TransitionException,
+          InvalidConfigurationException {
     return getExecutable(getConfiguredTarget(target)).getPath();
   }
 
@@ -769,7 +787,7 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /** Gets all the already computed configured targets. */
-  protected Iterable<ConfiguredTarget> getAllConfiguredTargets() {
+  protected ImmutableList<ConfiguredTarget> getAllConfiguredTargets() {
     return SkyframeExecutorTestUtils.getAllExistingConfiguredTargets(getSkyframeExecutor());
   }
 
@@ -835,17 +853,17 @@ public abstract class BuildIntegrationTestCase {
   }
 
   /** Runs the {@code info} command. */
-  public void info() throws Exception {
+  protected void info() throws Exception {
     events.setOutErr(outErr);
     runtimeWrapper.newCommand(InfoCommand.class);
-    runtimeWrapper.executeNonBuildCommand();
+    runtimeWrapper.executeCustomCommand();
   }
 
   /** Runs the {@code clean} command. */
   public void clean() throws Exception {
     events.setOutErr(outErr);
     runtimeWrapper.newCommand(CleanCommand.class);
-    runtimeWrapper.executeNonBuildCommand();
+    runtimeWrapper.executeCustomCommand();
   }
 
   /** Utility function: parse a string as a label. */
@@ -992,7 +1010,7 @@ public abstract class BuildIntegrationTestCase {
       boolean verboseFailures)
       throws ExecException, InterruptedException {
     Command command =
-        new CommandBuilder()
+        new CommandBuilder(System.getenv())
             .addArgs(argv)
             .setEnv(environment)
             .setWorkingDir(workingDirectory)
@@ -1020,6 +1038,15 @@ public abstract class BuildIntegrationTestCase {
     assertContents(expectedContents, Iterables.getOnlyElement(getArtifacts(target)).getPath());
   }
 
+  protected void assertContentsContainsAtLeast(String expectedContents, String target)
+      throws Exception {
+    String actualContents =
+        new String(
+            FileSystemUtils.readContentAsLatin1(
+                Iterables.getOnlyElement(getArtifacts(target)).getPath()));
+    assertThat(actualContents).contains(expectedContents);
+  }
+
   protected void assertContents(String expectedContents, Path path) throws Exception {
     String actualContents = new String(FileSystemUtils.readContentAsLatin1(path));
     // .indent(0) doesn't change the indentation, but normalizes all OS-specific endings.
@@ -1040,15 +1067,15 @@ public abstract class BuildIntegrationTestCase {
     return new String(FileSystemUtils.readContentAsLatin1(metadata.getInputStream()));
   }
 
-  protected FileArtifactValue getOutputMetadata(Artifact output)
-      throws IOException, InterruptedException {
-    assertThat(output).isInstanceOf(DerivedArtifact.class);
-    SkyValue actionExecutionValue =
-        getSkyframeExecutor()
-            .getEvaluator()
-            .getExistingValue(((DerivedArtifact) output).getGeneratingActionKey());
-    assertThat(actionExecutionValue).isInstanceOf(ActionExecutionValue.class);
-    return ((ActionExecutionValue) actionExecutionValue).getExistingFileArtifactValue(output);
+  protected FileArtifactValue getOutputMetadata(Artifact output) throws InterruptedException {
+    return getActionExecutionValue(output).getExistingFileArtifactValue(output);
+  }
+
+  protected TreeArtifactValue getTreeArtifactValue(Artifact treeArtifact)
+      throws InterruptedException {
+    return checkNotNull(
+        getActionExecutionValue(treeArtifact).getAllTreeArtifactValues().get(treeArtifact),
+        treeArtifact);
   }
 
   protected FileArtifactValue getSourceArtifactMetadata(Artifact sourceArtifact)
@@ -1058,6 +1085,17 @@ public abstract class BuildIntegrationTestCase {
         getSkyframeExecutor().getEvaluator().getExistingValue(sourceArtifact);
     assertThat(sourceArtifactValue).isInstanceOf(FileArtifactValue.class);
     return (FileArtifactValue) sourceArtifactValue;
+  }
+
+  protected ActionExecutionValue getActionExecutionValue(Artifact output)
+      throws InterruptedException {
+    assertThat(output).isInstanceOf(DerivedArtifact.class);
+    SkyValue actionExecutionValue =
+        getSkyframeExecutor()
+            .getEvaluator()
+            .getExistingValue(((DerivedArtifact) output).getGeneratingActionKey());
+    assertThat(actionExecutionValue).isInstanceOf(ActionExecutionValue.class);
+    return (ActionExecutionValue) actionExecutionValue;
   }
 
   /**
@@ -1309,5 +1347,28 @@ public abstract class BuildIntegrationTestCase {
 
   protected Set<SkyKey> getAllKeysInGraph() {
     return getSkyframeExecutor().getEvaluator().getValues().keySet();
+  }
+
+  /**
+   * Copies the protolark-provided {@code project} scl definition into the given scratch file path.
+   *
+   * <p>{@code PROJECT.scl} files load this file to define their configuration. This method loads
+   * the actual (non-mocked) file, so tests can effectively match production code.
+   */
+  public void writeProjectSclDefinition(String dest, boolean alsoWriteBuildFile)
+      throws IOException {
+    write(
+        dest,
+        Files.readString(
+            java.nio.file.Path.of(
+                Runfiles.preload()
+                    .withSourceRepository("")
+                    .rlocation(
+                        TestConstants.WORKSPACE_NAME
+                            + "/"
+                            + TestConstants.PROJECT_SCL_DEFINITION_PATH))));
+    if (alsoWriteBuildFile) {
+      write(dest.substring(0, dest.lastIndexOf('/') + 1) + "BUILD");
+    }
   }
 }

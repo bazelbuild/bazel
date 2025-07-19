@@ -18,12 +18,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.assertThrows;
 
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import java.util.List;
 import org.junit.Test;
@@ -33,21 +30,6 @@ import org.junit.runners.JUnit4;
 /** Integration test for Starlark repository not as heavyweight than shell integration tests. */
 @RunWith(JUnit4.class)
 public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
-
-  // The RuleClassProvider loaded with the StarlarkRepositoryModule
-  private ConfiguredRuleClassProvider ruleProvider = null;
-
-  @Override
-  protected ConfiguredRuleClassProvider createRuleClassProvider() {
-    // We inject the repository module in our test rule class provider.
-    if (ruleProvider == null) {
-      ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-      TestRuleClassProvider.addStandardRules(builder);
-      builder.addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
-      ruleProvider = builder.build();
-    }
-    return ruleProvider;
-  }
 
   @Override
   protected void invalidatePackages() throws InterruptedException, AbruptExitException {
@@ -80,7 +62,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "repo = use_repo_rule('//:def.bzl', 'repo')",
         "repo(name='foo', path='/repo2')");
     invalidatePackages();
-    getConfiguredTargetAndData("@@+_repo_rules+foo//:bar");
+    getConfiguredTargetAndData("@@+repo+foo//:bar");
   }
 
   @Test
@@ -109,7 +91,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "repo = use_repo_rule('//:def.bzl', 'repo')",
         "repo(name='foo', path='/repo2')");
     invalidatePackages();
-    getConfiguredTargetAndData("@@+_repo_rules+foo//:bar");
+    getConfiguredTargetAndData("@@+repo+foo//:bar");
   }
 
   @Test
@@ -138,7 +120,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "repo = use_repo_rule('//:def.bzl', 'repo')",
         "repo(name='foo')");
     invalidatePackages();
-    getConfiguredTargetAndData("@@+_repo_rules+foo//:bar");
+    getConfiguredTargetAndData("@@+repo+foo//:bar");
   }
 
   @Test
@@ -164,11 +146,11 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "repo = use_repo_rule('//:def.bzl', 'repo')",
         "repo(name='foo')");
     invalidatePackages();
-    ConfiguredTargetAndData target = getConfiguredTargetAndData("@@+_repo_rules+foo//:bar");
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("@@+repo+foo//:bar");
     @SuppressWarnings("unchecked")
     List<Label> srcs =
         (List<Label>) target.getTargetForTesting().getAssociatedRule().getAttr("srcs", LABEL_LIST);
-    assertThat(srcs).containsExactly(Label.parseCanonical("@@+_repo_rules+foo//:foo"));
+    assertThat(srcs).containsExactly(Label.parseCanonical("@@+repo+foo//:foo"));
   }
 
   @Test
@@ -195,12 +177,11 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
         "repo = use_repo_rule('//:def.bzl', 'repo')",
         "repo(name='foobar')");
     invalidatePackages();
-    ConfiguredTargetAndData target = getConfiguredTargetAndData("@@+_repo_rules+foobar//:bar");
+    ConfiguredTargetAndData target = getConfiguredTargetAndData("@@+repo+foobar//:bar");
     @SuppressWarnings("unchecked")
     List<Label> srcs =
         (List<Label>) target.getTargetForTesting().getAssociatedRule().getAttr("srcs", LABEL_LIST);
-    assertThat(srcs)
-        .containsExactly(Label.parseCanonical("@@+_repo_rules+foobar//:+_repo_rules+foobar"));
+    assertThat(srcs).containsExactly(Label.parseCanonical("@@+repo+foobar//:+repo+foobar"));
   }
 
   @Test
@@ -224,7 +205,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
     invalidatePackages();
     AssertionError e =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("@@+_repo_rules+foo//:bar"));
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("@@+repo+foo//:bar"));
     assertThat(e)
         .hasMessageThat()
         .contains("There is already a built-in attribute 'name' " + "which cannot be overridden");
@@ -247,7 +228,8 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
     invalidatePackages();
     getConfiguredTarget("//:x");
-    assertContainsEvent("repository rules can only be used while evaluating a WORKSPACE file");
+    assertContainsEvent(
+        "repo rules can only be called from within module extension impl functions");
   }
 
   @Test

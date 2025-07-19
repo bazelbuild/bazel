@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.unix.NativePosixFiles.ReadTypes;
 import com.google.devtools.build.lib.unix.NativePosixFiles.StatErrorHandling;
 import com.google.devtools.build.lib.util.Blocker;
 import com.google.devtools.build.lib.util.StringEncoding;
-import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
+import com.google.devtools.build.lib.vfs.AbstractFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -42,7 +43,7 @@ import javax.annotation.Nullable;
 
 /** This class implements the FileSystem interface using direct calls to the UNIX filesystem. */
 @ThreadSafe
-public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
+public class UnixFileSystem extends AbstractFileSystem {
   protected final String hashAttributeName;
 
   public UnixFileSystem(DigestHashFunction hashFunction, String hashAttributeName) {
@@ -466,7 +467,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   @Override
   protected OutputStream createFileOutputStream(PathFragment path, boolean append, boolean internal)
       throws FileNotFoundException {
-    final String name = path.toString();
+    String name = path.getPathString();
     if (!internal
         && profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_WRITE)
@@ -474,7 +475,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
       long startTime = Profiler.nanoTimeMaybe();
       var comp = Blocker.begin();
       try {
-        return new ProfiledNativeFileOutputStream(NativePosixFiles.openWrite(name, append), name);
+        return new ProfiledFileOutputStream(name, /* append= */ append);
       } finally {
         Blocker.end(comp);
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
@@ -482,77 +483,43 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     } else {
       var comp = Blocker.begin();
       try {
-        return new NativeFileOutputStream(NativePosixFiles.openWrite(name, append));
+        return new FileOutputStream(StringEncoding.internalToPlatform(name), /* append= */ append);
       } finally {
         Blocker.end(comp);
       }
     }
   }
 
-  private static class NativeFileOutputStream extends OutputStream {
-    private final int fd;
-    private boolean closed = false;
-
-    NativeFileOutputStream(int fd) {
-      this.fd = fd;
-    }
-
-    @Override
-    protected void finalize() throws Throwable {
-      close();
-      super.finalize();
-    }
-
-    @Override
-    public synchronized void close() throws IOException {
-      if (!closed) {
-        var comp = Blocker.begin();
-        try {
-          NativePosixFiles.close(fd, this);
-          closed = true;
-        } finally {
-          Blocker.end(comp);
-        }
-      }
-      super.close();
-    }
-
-    @Override
-    public void write(int b) throws IOException {
-      write(new byte[] {(byte) (b & 0xFF)});
-    }
-
-    @Override
-    public void write(byte[] b) throws IOException {
-      write(b, 0, b.length);
-    }
-
-    @Override
-    @SuppressWarnings(
-        "UnsafeFinalization") // Finalizer invokes close; close and write are synchronized.
-    public synchronized void write(byte[] b, int off, int len) throws IOException {
-      if (closed) {
-        throw new IOException("attempt to write to a closed Outputstream backed by a native file");
-      }
-      var comp = Blocker.begin();
-      try {
-        NativePosixFiles.write(fd, b, off, len);
-      } finally {
-        Blocker.end(comp);
-      }
-    }
-  }
-
-  private static final class ProfiledNativeFileOutputStream extends NativeFileOutputStream {
+  private static final class ProfiledFileOutputStream extends FileOutputStream {
     private final String name;
 
-    public ProfiledNativeFileOutputStream(int fd, String name) {
-      super(fd);
+    private ProfiledFileOutputStream(String name, boolean append) throws FileNotFoundException {
+      super(StringEncoding.internalToPlatform(name), append);
       this.name = name;
     }
 
     @Override
-    public synchronized void write(byte[] b, int off, int len) throws IOException {
+    public void write(int b) throws IOException {
+      long startTime = Profiler.nanoTimeMaybe();
+      try {
+        super.write(b);
+      } finally {
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
+      }
+    }
+
+    @Override
+    public void write(byte[] b) throws IOException {
+      long startTime = Profiler.nanoTimeMaybe();
+      try {
+        super.write(b);
+      } finally {
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
+      }
+    }
+
+    @Override
+    public void write(byte[] b, int off, int len) throws IOException {
       long startTime = Profiler.nanoTimeMaybe();
       try {
         super.write(b, off, len);

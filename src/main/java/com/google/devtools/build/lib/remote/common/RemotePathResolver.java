@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
@@ -46,12 +45,11 @@ public interface RemotePathResolver {
    * ActionInput}.
    */
   SortedMap<PathFragment, ActionInput> getInputMapping(
-      SpawnExecutionContext context, boolean willAccessRepeatedly)
-      throws ForbiddenActionInputException;
+      SpawnExecutionContext context, boolean willAccessRepeatedly);
 
   void walkInputs(
       Spawn spawn, SpawnExecutionContext context, SpawnInputExpander.InputVisitor visitor)
-      throws IOException, ForbiddenActionInputException;
+      throws IOException;
 
   /** Resolves the output path relative to input root for the given {@link Path}. */
   String localPathToOutputPath(Path path);
@@ -74,6 +72,9 @@ public interface RemotePathResolver {
    * @param outputPath the return value of {@link #localPathToOutputPath(PathFragment)}.
    */
   Path outputPathToLocalPath(String outputPath);
+
+  /** Returns the exec path for the given local path. */
+  PathFragment localPathToExecPath(PathFragment localPath);
 
   /** Creates the default {@link RemotePathResolver}. */
   static RemotePathResolver createDefault(Path execRoot) {
@@ -99,23 +100,18 @@ public interface RemotePathResolver {
 
     @Override
     public SortedMap<PathFragment, ActionInput> getInputMapping(
-        SpawnExecutionContext context, boolean willAccessRepeatedly)
-        throws ForbiddenActionInputException {
+        SpawnExecutionContext context, boolean willAccessRepeatedly) {
       return context.getInputMapping(PathFragment.EMPTY_FRAGMENT, willAccessRepeatedly);
     }
 
     @Override
     public void walkInputs(
         Spawn spawn, SpawnExecutionContext context, SpawnInputExpander.InputVisitor visitor)
-        throws IOException, ForbiddenActionInputException {
+        throws IOException {
       context
           .getSpawnInputExpander()
           .walkInputs(
-              spawn,
-              context.getArtifactExpander(),
-              context.getInputMetadataProvider(),
-              PathFragment.EMPTY_FRAGMENT,
-              visitor);
+              spawn, context.getInputMetadataProvider(), PathFragment.EMPTY_FRAGMENT, visitor);
     }
 
     @Override
@@ -131,6 +127,11 @@ public interface RemotePathResolver {
     @Override
     public Path outputPathToLocalPath(String outputPath) {
       return execRoot.getRelative(outputPath);
+    }
+
+    @Override
+    public PathFragment localPathToExecPath(PathFragment localPath) {
+      return localPath.relativeTo(execRoot.asFragment());
     }
   }
 
@@ -156,8 +157,7 @@ public interface RemotePathResolver {
 
     @Override
     public SortedMap<PathFragment, ActionInput> getInputMapping(
-        SpawnExecutionContext context, boolean willAccessRepeatedly)
-        throws ForbiddenActionInputException {
+        SpawnExecutionContext context, boolean willAccessRepeatedly) {
       // The "root directory" of the action from the point of view of RBE is the parent directory of
       // the execroot locally. This is so that paths of artifacts in external repositories don't
       // start with an uplevel reference.
@@ -168,12 +168,11 @@ public interface RemotePathResolver {
     @Override
     public void walkInputs(
         Spawn spawn, SpawnExecutionContext context, SpawnInputExpander.InputVisitor visitor)
-        throws IOException, ForbiddenActionInputException {
+        throws IOException {
       context
           .getSpawnInputExpander()
           .walkInputs(
               spawn,
-              context.getArtifactExpander(),
               context.getInputMetadataProvider(),
               PathFragment.create(checkNotNull(getWorkingDirectory())),
               visitor);
@@ -198,6 +197,10 @@ public interface RemotePathResolver {
       return getBase().getRelative(outputPath);
     }
 
+    @Override
+    public PathFragment localPathToExecPath(PathFragment localPath) {
+      return localPath.relativeTo(getBase().asFragment());
+    }
   }
 
   /**
@@ -220,14 +223,13 @@ public interface RemotePathResolver {
 
       @Override
       public SortedMap<PathFragment, ActionInput> getInputMapping(
-          SpawnExecutionContext context, boolean willAccessRepeatedly)
-          throws ForbiddenActionInputException {
+          SpawnExecutionContext context, boolean willAccessRepeatedly) {
         return base.getInputMapping(context, willAccessRepeatedly);
       }
 
       @Override
       public void walkInputs(Spawn spawn, SpawnExecutionContext context, InputVisitor visitor)
-          throws IOException, ForbiddenActionInputException {
+          throws IOException {
         base.walkInputs(spawn, context, visitor);
       }
 
@@ -245,6 +247,11 @@ public interface RemotePathResolver {
       public Path outputPathToLocalPath(String outputPath) {
         return execRoot.getRelative(
             inverseMap(base.outputPathToLocalPath(outputPath).relativeTo(execRoot)));
+      }
+
+      @Override
+      public PathFragment localPathToExecPath(PathFragment localPath) {
+        return base.localPathToExecPath(localPath);
       }
 
       private PathFragment map(PathFragment path) {

@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.bazel.BazelHashFunctions;
 import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -50,8 +49,7 @@ public class BazelFileSystemModule extends BlazeModule {
   }
 
   @Override
-  public ModuleFileSystem getFileSystem(
-      OptionsParsingResult startupOptions, PathFragment realExecRootBase)
+  public ModuleFileSystem getFileSystem(OptionsParsingResult startupOptions)
       throws AbruptExitException {
     BlazeServerStartupOptions options =
         checkNotNull(startupOptions.getOptions(BlazeServerStartupOptions.class));

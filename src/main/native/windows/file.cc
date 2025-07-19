@@ -120,6 +120,13 @@ int IsSymlinkOrJunction(const WCHAR* path, bool* result, wstring* error) {
   }
 }
 
+static int64_t WindowsFileTimeToUnixMillis(LARGE_INTEGER filetime) {
+  // Convert from Windows file time (100ns units since January 1, 1601) to
+  // Unix millis (1ms units since January 1, 1970). For the magic constant, see:
+  // https://learn.microsoft.com/en-us/windows/win32/sysinfo/converting-a-time-t-value-to-a-file-time
+  return (filetime.QuadPart - 116444736000000000LL) / 10000LL;
+}
+
 int GetChangeTime(const WCHAR* path, bool follow_reparse_points,
                   int64_t* result, wstring* error) {
   if (!IsAbsoluteNormalizedWindowsPath(path)) {
@@ -164,7 +171,7 @@ int GetChangeTime(const WCHAR* path, bool follow_reparse_points,
     return GetChangeTimeResult::kError;
   }
 
-  *result = info.ChangeTime.QuadPart;
+  *result = WindowsFileTimeToUnixMillis(info.ChangeTime);
   return GetChangeTimeResult::kSuccess;
 }
 
@@ -607,7 +614,10 @@ int ReadSymlinkOrJunction(const wstring& path, wstring* result,
       return ReadSymlinkOrJunctionResult::kNotALink;
     }
     default:
-      return ReadSymlinkOrJunctionResult::kUnknownLinkType;
+      *error =
+          MakeErrorMessage(WSTR(__FILE__), __LINE__, L"ReadSymlinkOrJunction",
+                           path, L"unsupported link type");
+      return ReadSymlinkOrJunctionResult::kError;
   }
 }
 

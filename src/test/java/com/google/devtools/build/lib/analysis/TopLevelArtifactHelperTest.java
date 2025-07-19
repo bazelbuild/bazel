@@ -53,7 +53,7 @@ public class TopLevelArtifactHelperTest {
   public final void setRootDir() throws Exception {
     Scratch scratch = new Scratch();
     Path execRoot = scratch.getFileSystem().getPath("/");
-    root = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "blaze-out");
+    root = ArtifactRoot.asDerivedRoot(execRoot, RootType.OUTPUT, "blaze-out");
     path = scratch.dir("/blaze-out/foo");
   }
 
@@ -63,8 +63,7 @@ public class TopLevelArtifactHelperTest {
       outputGroups.put(pair.first, newArtifacts(pair.second));
     }
     groupProvider = OutputGroupInfo.fromBuilders(outputGroups);
-    ctx =
-        new TopLevelArtifactContext(false, false, false, ImmutableSortedSet.copyOf(groupProvider));
+    ctx = new TopLevelArtifactContext(false, false, ImmutableSortedSet.copyOf(groupProvider));
   }
 
   @Test
@@ -107,7 +106,7 @@ public class TopLevelArtifactHelperTest {
   }
 
   private NestedSetBuilder<Artifact> newArtifacts(int num) {
-    NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.newBuilder(Order.STABLE_ORDER);
     for (int i = 0; i < num; i++) {
       builder.add(newArtifact());
     }

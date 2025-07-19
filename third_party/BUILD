@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
+load("@rules_java//java:defs.bzl", "java_binary", "java_import", "java_library", "java_plugin")
 load("@rules_license//rules:license.bzl", "license")
 load("//src/tools/bzlmod:utils.bzl", "get_repo_root")
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "distrib_java_import")
@@ -9,22 +9,19 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
-        "//third_party/android_dex:srcs",
+        "//third_party/chicory:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/googleapis:srcs",
         "//third_party/grpc:srcs",
         "//third_party/grpc-java:srcs",
         "//third_party/ijar:srcs",
         "//third_party/jarjar:srcs",
-        "//third_party/java/android_databinding:srcs",
-        "//third_party/java/aosp_gradle_core:srcs",
-        "//third_party/java/j2objc:srcs",
-        "//third_party/java/j2objc-annotations:srcs",
         "//third_party/java/jacoco:srcs",
         "//third_party/java/javapoet:srcs",
         "//third_party/java/jcommander:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/pprof:srcs",
+        "//third_party/proguard:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
         "//third_party/py/concurrent:srcs",
@@ -32,7 +29,6 @@ filegroup(
         "//third_party/py/frozendict:srcs",
         "//third_party/py/mock:srcs",
         "//third_party/remoteapis:srcs",
-        "//third_party/zlib:srcs",
     ],
 )
 
@@ -60,11 +56,6 @@ alias(
 )
 
 alias(
-    name = "apache_commons_pool2",
-    actual = "@maven//:org_apache_commons_commons_pool2",
-)
-
-alias(
     name = "apache_velocity",
     actual = "@maven//:org_apache_velocity_velocity",
 )
@@ -85,35 +76,35 @@ java_library(
 distrib_java_import(
     name = "asm",
     enable_distributions = ["debian"],
-    jars = ["asm/asm-9.6.jar"],
-    srcjar = "asm/asm-9.6-sources.jar",
+    jars = ["asm/asm-9.7.1.jar"],
+    srcjar = "asm/asm-9.7.1-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-9.6.jar"],
-    srcjar = "asm/asm-analysis-9.6-sources.jar",
+    jars = ["asm/asm-analysis-9.7.1.jar"],
+    srcjar = "asm/asm-analysis-9.7.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-9.6.jar"],
-    srcjar = "asm/asm-commons-9.6-sources.jar",
+    jars = ["asm/asm-commons-9.7.1.jar"],
+    srcjar = "asm/asm-commons-9.7.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-9.6.jar"],
-    srcjar = "asm/asm-tree-9.6-sources.jar",
+    jars = ["asm/asm-tree-9.7.1.jar"],
+    srcjar = "asm/asm-tree-9.7.1-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-9.6.jar"],
-    srcjar = "asm/asm-util-9.6-sources.jar",
+    jars = ["asm/asm-util-9.7.1.jar"],
+    srcjar = "asm/asm-util-9.7.1-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
@@ -326,13 +317,17 @@ genrule(
         "@rules_java//toolchains:platformclasspath",
     ],
     outs = ["fastutil-stripped.jar"],
+    # ProGuard output is silenced below because it prints
+    # ...
+    # Caused by: java.net.UnknownHostException: bk-docker-3gmr: Temporary failure in name resolution
+    # ...
+    # when running in the Bazel sandbox, which throws off bazel_determinism_test.
     cmd = """
     $(location :proguard) \
         -injars $(execpath @maven//:it_unimi_dsi_fastutil_file) \
         -outjars $@ \
         -libraryjars $(execpath @rules_java//toolchains:platformclasspath) \
-        @$(location //tools:fastutil.proguard) \
-      | tail -n +2 # Skip the "ProGuard, version X" line
+        @$(location //tools:fastutil.proguard) > /dev/null
     # Null out the file times stored in the jar to make the output reproducible.
     TMPDIR=$$(mktemp -d)
     trap 'rm -rf $$TMPDIR' EXIT
@@ -350,6 +345,10 @@ genrule(
 
 java_binary(
     name = "proguard",
+    jvm_flags = [
+        # Prevent ProGuard from calling out to the internet through log4j.
+        "-Dlog4j.rootLogger=OFF",
+    ],
     main_class = "proguard.ProGuard",
     runtime_deps = ["@maven//:com_guardsquare_proguard_base"],
 )
@@ -358,7 +357,6 @@ java_library(
     name = "error_prone_annotations",
     exports = [
         "@maven//:com_google_errorprone_error_prone_annotations",
-        "@maven//:com_google_errorprone_error_prone_type_annotations",
     ],
 )
 
@@ -676,4 +674,17 @@ filegroup(
         "@maven//:junit_junit_file",
         "@maven//:org_hamcrest_hamcrest_core_file",
     ],
+)
+
+java_library(
+    name = "jmh",
+    exported_plugins = [":jmh_benchmark_processor"],
+    exports = ["@maven//:org_openjdk_jmh_jmh_core"],
+)
+
+java_plugin(
+    name = "jmh_benchmark_processor",
+    processor_class = "org.openjdk.jmh.generators.BenchmarkProcessor",
+    visibility = ["//visibility:private"],
+    deps = ["@maven//:org_openjdk_jmh_jmh_generator_annprocess"],
 )

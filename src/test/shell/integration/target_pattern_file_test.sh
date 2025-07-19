@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2020 The Bazel Authors. All rights reserved.
 #
@@ -60,7 +60,10 @@ add_to_bazelrc "build --package_path=%workspace%"
 #### SETUP #############################################################
 
 function setup() {
+  add_rules_shell "MODULE.bazel"
   cat >BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
 genrule(name = "x", outs = ["x.out"], cmd = "echo true > $@", executable = True)
 sh_test(name = "y", srcs = ["x.out"])
 EOF
@@ -93,6 +96,17 @@ function test_target_pattern_file_and_cli_pattern() {
   setup
   bazel build --target_pattern_file=build.params -- //:x >& $TEST_log && fail "Expected failure"
   expect_log "ERROR: Command-line target pattern and --target_pattern_file cannot both be specified"
+}
+
+function test_target_pattern_file_unicode() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+filegroup(name = "äöüÄÖÜß🌱")
+EOF
+
+  echo "//foo:äöüÄÖÜß🌱" > my_targets || fail "Could not write my_query"
+  bazel build --target_pattern_file=my_targets >& $TEST_log || fail "Expected success"
+  expect_log "//foo:äöüÄÖÜß🌱"
 }
 
 run_suite "Tests for using target_pattern_file"

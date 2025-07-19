@@ -20,7 +20,6 @@ import static java.lang.Math.min;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.errorprone.annotations.CheckReturnValue;
@@ -585,17 +584,20 @@ public final class Starlark {
    * processors interpreting indented parts of the original string as special formatting (e.g. code
    * blocks in the case of Markdown).
    */
+  // TODO: Pass in StarlarkSemantics as an argument rather than using StarlarkSemantics.DEFAULT.
   public static String trimDocString(String docString) {
     ImmutableList<String> lines = expandTabs(docString, 8).lines().collect(toImmutableList());
     if (lines.isEmpty()) {
       return "";
     }
     // First line is special: we fully strip it and ignore it for leading spaces calculation
-    String firstLineTrimmed = StringModule.INSTANCE.strip(lines.get(0), NONE);
+    String firstLineTrimmed =
+        StringModule.INSTANCE.stripSemantics(lines.get(0), NONE, StarlarkSemantics.DEFAULT);
     Iterable<String> subsequentLines = Iterables.skip(lines, 1);
     int minLeadingSpaces = Integer.MAX_VALUE;
     for (String line : subsequentLines) {
-      String strippedLeading = StringModule.INSTANCE.lstrip(line, NONE);
+      String strippedLeading =
+          StringModule.INSTANCE.lstripSemantics(line, NONE, StarlarkSemantics.DEFAULT);
       if (!strippedLeading.isEmpty()) {
         int leadingSpaces = line.length() - strippedLeading.length();
         minLeadingSpaces = min(leadingSpaces, minLeadingSpaces);
@@ -613,11 +615,14 @@ public final class Starlark {
         result.append("\n");
       }
       if (line.length() > minLeadingSpaces) {
-        result.append(StringModule.INSTANCE.rstrip(line.substring(minLeadingSpaces), NONE));
+        result.append(
+            StringModule.INSTANCE.rstripSemantics(
+                line.substring(minLeadingSpaces), NONE, StarlarkSemantics.DEFAULT));
       }
     }
     // Remove trailing empty lines
-    return StringModule.INSTANCE.rstrip(result.toString(), NONE);
+    return StringModule.INSTANCE.rstripSemantics(
+        result.toString(), NONE, StarlarkSemantics.DEFAULT);
   }
 
   /**
@@ -768,13 +773,16 @@ public final class Starlark {
   public static Object call(
       StarlarkThread thread, Object fn, List<Object> args, Map<String, Object> kwargs)
       throws EvalException, InterruptedException {
-    Object[] named = new Object[2 * kwargs.size()];
-    int i = 0;
-    for (Map.Entry<String, Object> e : kwargs.entrySet()) {
-      named[i++] = e.getKey();
-      named[i++] = Starlark.checkValid(e.getValue());
+    StarlarkCallable callable = getStarlarkCallable(thread, fn);
+    StarlarkCallable.ArgumentProcessor argumentProcessor =
+        requestArgumentProcessor(thread, callable);
+    for (Object arg : args) {
+      argumentProcessor.addPositionalArg(arg);
     }
-    return fastcall(thread, fn, args.toArray(), named);
+    for (Map.Entry<String, Object> e : kwargs.entrySet()) {
+      argumentProcessor.addNamedArg(e.getKey(), Starlark.checkValid(e.getValue()));
+    }
+    return callViaArgumentProcessor(thread, callable, argumentProcessor);
   }
 
   /**
@@ -794,9 +802,8 @@ public final class Starlark {
   // StarlarkCallable implementations that currently implement fastcall, plus a default
   // implementation in StarlarkCallable that forwards to StarlarkCallable.call().
   public static Object fastcall(
-      StarlarkThread thread, Object fn, Object[] positional, Object[] named)
+      StarlarkThread thread, StarlarkCallable callable, Object[] positional, Object[] named)
       throws EvalException, InterruptedException {
-    StarlarkCallable callable = getStarlarkCallable(thread, fn);
 
     // LINT.IfChange(fastcall)
     thread.push(callable);
@@ -830,9 +837,11 @@ public final class Starlark {
    * stack) may be retrieved using {@link Throwable#getCause}.
    */
   public static Object callViaArgumentProcessor(
-      StarlarkThread thread, StarlarkCallable.ArgumentProcessor argumentProcessor)
+      StarlarkThread thread,
+      StarlarkCallable callable,
+      StarlarkCallable.ArgumentProcessor argumentProcessor)
       throws EvalException, InterruptedException {
-    thread.push(argumentProcessor.getCallable());
+    thread.push(callable);
     try {
       return argumentProcessor.call(thread);
     } catch (UncheckedEvalException | UncheckedEvalError ex) {
@@ -862,10 +871,9 @@ public final class Starlark {
    * Starlark call stack rather than the Java call stack. The original throwable (and the Java call
    * stack) may be retrieved using {@link Throwable#getCause}.
    */
-  public static Object positionalOnlyCall(StarlarkThread thread, Object fn, Object... positional)
+  public static Object positionalOnlyCall(
+      StarlarkThread thread, StarlarkCallable callable, Object... positional)
       throws EvalException, InterruptedException {
-    StarlarkCallable callable = getStarlarkCallable(thread, fn);
-
     // LINT.IfChange(positionalOnlyCall)
     thread.push(callable);
     try {
@@ -885,7 +893,7 @@ public final class Starlark {
     // LINT.ThenChange(:fastcall)
   }
 
-  private static StarlarkCallable getStarlarkCallable(StarlarkThread thread, Object fn)
+  static StarlarkCallable getStarlarkCallable(StarlarkThread thread, Object fn)
       throws EvalException {
     StarlarkCallable callable;
     if (fn instanceof StarlarkCallable starlarkCallable) {
@@ -902,10 +910,9 @@ public final class Starlark {
     return callable;
   }
 
-  @Nullable
   public static StarlarkCallable.ArgumentProcessor requestArgumentProcessor(
-      StarlarkThread thread, Object fn) throws EvalException {
-    return getStarlarkCallable(thread, fn).requestArgumentProcessor(thread);
+      StarlarkThread thread, StarlarkCallable callable) throws EvalException {
+    return callable.requestArgumentProcessor(thread);
   }
 
   /**
@@ -1029,27 +1036,6 @@ public final class Starlark {
   // --- methods related to StarlarkMethod-annotated classes ---
 
   /**
-   * Returns the value of the named field of Starlark value {@code x}, as defined by a Java method
-   * with a {@code StarlarkMethod(structField=true)} annotation.
-   *
-   * <p>Most callers should use {@link #getattr} instead.
-   */
-  public static Object getAnnotatedField(StarlarkSemantics semantics, Object x, String name)
-      throws EvalException, InterruptedException {
-    return CallUtils.getAnnotatedField(semantics, x, name);
-  }
-
-  /**
-   * Returns the names of the fields of Starlark value {@code x}, as defined by Java methods with
-   * {@code StarlarkMethod(structField=true)} annotations under the specified semantics.
-   *
-   * <p>Most callers should use {@link #dir} instead.
-   */
-  public static ImmutableSet<String> getAnnotatedFieldNames(StarlarkSemantics semantics, Object x) {
-    return CallUtils.getAnnotatedFieldNames(semantics, x);
-  }
-
-  /**
    * Returns a map of Java methods and corresponding StarlarkMethod annotations for each annotated
    * Java method of the specified class. Elements are ordered by Java method name, which is not
    * necessarily the same as the Starlark attribute name. The set of enabled methods is determined
@@ -1105,16 +1091,7 @@ public final class Starlark {
             String.format("addMethods(%s): method %s has structField=true", cls.getName(), name));
       }
 
-      // We use the 2-arg (desc=null) BuiltinFunction constructor instead of passing
-      // the descriptor that CallUtils.getAnnotatedMethod would return,
-      // because most calls to addMethods implicitly pass StarlarkSemantics.DEFAULT,
-      // which is probably the wrong semantics for the later call.
-      //
-      // The effect is that the default semantics determine which method names are
-      // statically available in the environment, but the thread's semantics determine
-      // the dynamic behavior of the method call; this includes a run-time check for
-      // whether the method was disabled by the semantics.
-      env.put(name, new BuiltinFunction(v, name));
+      env.put(name, new BuiltinFunction(v, name, e.getValue()));
     }
   }
 

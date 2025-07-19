@@ -1,7 +1,7 @@
 ---
 
 tasks:
-  centos7:
+  rockylinux8:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -19,8 +19,6 @@ tasks:
       - "//src/tools/execlog/..."
     test_flags:
       - "--config=ci-linux"
-      # Override REMOTE_NETWORK_ADDRESS since bazel_sandboxing_networking_test doesn't work on this platform
-      - "--test_env=REMOTE_NETWORK_ADDRESS="
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
@@ -35,7 +33,7 @@ tasks:
       - "//tools/compliance/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # These tests are not compatible with the gcov version of CentOS 7.
+      # These tests are not compatible with the gcov version of Rocky Linux 8.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
@@ -43,6 +41,24 @@ tasks:
     include_json_profile:
       - build
       - test
+  rockylinux8_arm64:
+    shell_commands:
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
+    build_flags:
+      - "--config=ci-linux"
+    build_targets:
+      - "//:bazel-distfile.zip"
+      - "//scripts/packages/debian:bazel-debian.deb"
+      - "//scripts/packages:with-jdk/install.sh"
+      - "//src:bazel"
+      - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
+      - "//src/main/java/..."
+      - "//src/tools/diskcache/..."
+      - "//src/tools/execlog/..."
+    include_json_profile:
+      - build
   fedora39:
     shell_commands:
       - rm -rf $HOME/bazeltest
@@ -254,7 +270,6 @@ tasks:
       # https://github.com/bazelbuild/bazel/issues/4292
       - "-//src/test/java/com/google/devtools/build/lib/query2/cquery/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/engine/..."
-      - "-//src/test/java/com/google/devtools/build/lib/versioning/..."
       - "-//src/test/java/com/google/devtools/build/lib/worker/..."
       - "-//src/test/java/com/google/devtools/build/lib/remote:RemoteTests"
       - "-//src/test/shell/bazel/remote/..."
@@ -327,7 +342,6 @@ tasks:
       - "-//src/test/py/bazel:bzlmod_query_test"
       - "-//src/test/py/bazel:mod_command_test"
       - "-//src/test/shell/bazel:starlark_repository_test"
-      - "-//src/test/shell/bazel:verify_workspace"
     include_json_profile:
       - build
       - test

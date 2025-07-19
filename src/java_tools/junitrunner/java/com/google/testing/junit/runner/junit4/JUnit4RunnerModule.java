@@ -15,7 +15,6 @@
 package com.google.testing.junit.runner.junit4;
 
 import com.google.testing.junit.runner.internal.SignalHandlers;
-import com.google.testing.junit.runner.internal.Xml;
 import com.google.testing.junit.runner.internal.junit4.CancellableRequestFactory;
 import com.google.testing.junit.runner.internal.junit4.JUnit4TestNameListener;
 import com.google.testing.junit.runner.internal.junit4.JUnit4TestStackTraceListener;
@@ -36,7 +35,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
-import javax.inject.Singleton;
 import org.junit.runner.notification.RunListener;
 
 /** Utility class for real test runs. This is a legacy Dagger module. */
@@ -48,8 +46,7 @@ class JUnit4RunnerModule {
     this.options = options;
   }
 
-  @Singleton
-  @Xml
+  @SuppressWarnings("CatchAndPrintStackTrace") // see comment below
   static OutputStream provideXmlStream(JUnit4Config config) {
     @Nullable Path path = config.getXmlOutputPath();
 

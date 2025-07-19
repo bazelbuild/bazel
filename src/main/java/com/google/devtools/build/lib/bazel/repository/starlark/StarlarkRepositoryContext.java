@@ -17,26 +17,22 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.github.difflib.patch.PatchFailedException;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
-import com.google.devtools.build.lib.bazel.repository.PatchUtil;
+import com.google.devtools.build.lib.bazel.repository.RepoDefinition;
+import com.google.devtools.build.lib.bazel.repository.RepositoryFunctionException;
+import com.google.devtools.build.lib.bazel.repository.decompressor.PatchUtil;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
-import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RepoCacheFriendlyPath;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
-import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
@@ -63,6 +59,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Structure;
 
 /** Starlark API for the repository_rule's context. */
 @StarlarkBuiltin(
@@ -76,9 +73,8 @@ import net.starlark.java.eval.StarlarkThread;
         repository rule.
         """)
 public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
-  private final Rule rule;
+  private final RepoDefinition repoDefinition;
   private final PathPackageLocator packageLocator;
-  private final StructImpl attrObject;
   private final IgnoredSubdirectories ignoredSubdirectories;
   private final SyscallCache syscallCache;
   private final HashMap<RepoRecordedInput.DirTree, String> recordedDirTreeInputs = new HashMap<>();
@@ -87,8 +83,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
    * Create a new context (repository_ctx) object for a Starlark repository rule ({@code rule}
    * argument).
    */
-  StarlarkRepositoryContext(
-      Rule rule,
+  public StarlarkRepositoryContext(
+      RepoDefinition repoDefinition,
       PathPackageLocator packageLocator,
       Path outputDirectory,
       IgnoredSubdirectories ignoredSubdirectories,
@@ -112,23 +108,13 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         processWrapper,
         starlarkSemantics,
         RepositoryFetchProgress.repositoryFetchContextString(
-            RepositoryName.createUnvalidated(rule.getName())),
+            RepositoryName.createUnvalidated(repoDefinition.name())),
         remoteExecutor,
         /* allowWatchingPathsOutsideWorkspace= */ true);
-    this.rule = rule;
+    this.repoDefinition = repoDefinition;
     this.packageLocator = packageLocator;
     this.ignoredSubdirectories = ignoredSubdirectories;
     this.syscallCache = syscallCache;
-    WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
-    ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
-    for (String name : attrs.getAttributeNames()) {
-      if (!name.equals("$local")) {
-        // Attribute values should be type safe
-        attrBuilder.put(
-            Attribute.getStarlarkName(name), Attribute.valueToStarlark(attrs.getObject(name)));
-      }
-    }
-    attrObject = StructProvider.STRUCT.create(attrBuilder.buildOrThrow(), "No such attribute '%s'");
   }
 
   @Override
@@ -143,9 +129,31 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   @StarlarkMethod(
       name = "name",
       structField = true,
-      doc = "The name of the external repository created by this rule.")
+      doc =
+          "The canonical name of the external repository created by this rule. This name is"
+              + " guaranteed to be unique among all external repositories, but its exact format is"
+              + " not specified. Use <a href='#original_name'><code>original_name</code></a>"
+              + " instead to get the name that was originally specified as the <code>name</code>"
+              + " when this repository rule was instantiated.")
   public String getName() {
-    return rule.getName();
+    return repoDefinition.name();
+  }
+
+  @StarlarkMethod(
+      name = "original_name",
+      structField = true,
+      doc =
+          "The name that was originally specified as the <code>name</code> attribute when this"
+              + " repository rule was instantiated. This name is not necessarily unique among"
+              + " external repositories. Use <a href='#name'><code>name</code></a> instead to get"
+              + " the canonical name of the external repository.")
+  public String getOriginalName() {
+    // The original name isn't set for repositories backing Bazel modules, in which case the
+    // original name doesn't matter as the restricted set of rules that can back
+    // Bazel modules do not use the name.
+    return Strings.isNullOrEmpty(repoDefinition.originalName())
+        ? repoDefinition.name()
+        : repoDefinition.originalName();
   }
 
   @StarlarkMethod(
@@ -164,8 +172,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
           A struct to access the values of the attributes. The values are provided by \
           the user (if not, a default value is used).
           """)
-  public StructImpl getAttr() {
-    return attrObject;
+  public Structure getAttr() {
+    return repoDefinition;
   }
 
   private StarlarkPath externalPath(String method, Object pathObject)
@@ -346,12 +354,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   }
 
   @Override
-  protected boolean isRemotable() {
-    Object remotable = rule.getAttr("$remotable");
-    if (remotable != null) {
-      return (Boolean) remotable;
-    }
-    return false;
+  public boolean isRemotable() {
+    return repoDefinition.repoRule().remotable();
   }
 
   @Override
@@ -580,8 +584,53 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     }
   }
 
+  @StarlarkMethod(
+      name = "repo_metadata",
+      doc =
+          """
+          Constructs an opaque object that can be returned from the repo rule's implementation \
+          function to provide metadata about its reproducibility.
+          """,
+      parameters = {
+        @Param(
+            name = "reproducible",
+            defaultValue = "False",
+            doc =
+                """
+                States that this repo can be reproducibly refetched; that is, if it were fetched \
+                another time with exactly the same input attributes, repo rule definition, watched \
+                files and environment variables, etc., then exactly the same output would be \
+                produced. This property needs to hold even if other untracked conditions change, \
+                such as information from the internet, the path of the workspace root, output from \
+                running arbitrary executables, etc. If set to True, this allows the fetched repo \
+                contents to be cached across workspaces. \
+                <p>Note that setting this to True does not guarantee caching in the repo contents \
+                cache; for example, local repo rules are never cached.
+                """,
+            positional = false,
+            named = true),
+        @Param(
+            name = "attrs_for_reproducibility",
+            defaultValue = "{}",
+            doc =
+                """
+                If <code>reproducible</code> is False, this can be specified to tell Bazel which \
+                attributes of the original repo rule to change to make it reproducible.
+                """,
+            positional = false,
+            named = true)
+      })
+  public RepoMetadata repoMetadata(boolean reproducible, Dict<?, ?> attrs) throws EvalException {
+    if (reproducible && !attrs.isEmpty()) {
+      throw Starlark.errorf(
+          "attrs_for_reproducibility can only be specified if reproducible is False");
+    }
+    return new RepoMetadata(
+        reproducible ? RepoMetadata.Reproducibility.YES : RepoMetadata.Reproducibility.NO, attrs);
+  }
+
   @Override
   public String toString() {
-    return "repository_ctx[" + rule.getLabel() + "]";
+    return "repository_ctx[" + repoDefinition.name() + "]";
   }
 }

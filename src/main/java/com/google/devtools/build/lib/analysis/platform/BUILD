@@ -11,6 +11,14 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+java_library(
+    name = "constants",
+    srcs = ["PlatformConstants.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+    ],
+)
+
 # Description:
 #   Providers defined for platforms, constraints, and toolchains.
 java_library(
@@ -27,11 +35,12 @@ java_library(
         "ToolchainTypeInfo.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
+        ":constants",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_data",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:config_matching_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
@@ -39,6 +48,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
@@ -55,9 +65,9 @@ java_library(
     deps = [
         ":platform",
         ":utils",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/common_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/analysis/config:common_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",

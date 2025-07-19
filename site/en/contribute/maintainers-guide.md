@@ -160,13 +160,6 @@ issues.
 * [**P4**](https://github.com/bazelbuild/bazel/labels/P4){: .external} - Low priority defect
   or feature request that is unlikely to get closed. Can also be kept open for a
   potential re-prioritization if more users are impacted.
-* [**ice-box**](https://github.com/bazelbuild/bazel/issues?q=label%3Aice-box+is%3Aclosed){: .external}
-  - Issues that we currently don't have time to deal with nor the
-  time to accept contributions. We will close these issues to indicate that
-  nobody is working on them, but will continue to monitor their validity over
-  time and revive them if enough people are impacted and if we happen to have
-  resources to deal with them. As always, feel free to comment or add reactions
-  to these issues even when closed.
 
 ## Team labels {:#team-labels}
 

@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
+import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.google.devtools.build.lib.skyframe.HighWaterMarkLimiter;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.errorprone.annotations.Keep;
@@ -41,22 +43,26 @@ public final class MemoryPressureModule extends BlazeModule {
   @Override
   public void beforeCommand(CommandEnvironment env) {
     eventBus = env.getEventBus();
-    memoryPressureListener.setEventBus(eventBus);
-
     MemoryPressureOptions options = env.getOptions().getOptions(MemoryPressureOptions.class);
+    memoryPressureListener.initForInvocation(
+        eventBus,
+        GcThrashingDetector.createForCommand(options),
+        GcChurningDetector.createForCommand(options));
     highWaterMarkLimiter =
         new HighWaterMarkLimiter(env.getSkyframeExecutor(), env.getSyscallCache(), options);
-    memoryPressureListener.setGcThrashingDetector(GcThrashingDetector.createForCommand(options));
-
     eventBus.register(this);
     eventBus.register(highWaterMarkLimiter);
+  }
+
+  @Subscribe
+  public void targetParsingComplete(TargetParsingCompleteEvent event) {
+    memoryPressureListener.targetParsingComplete(event.getTargets().size());
   }
 
   @Override
   public void afterCommand() {
     postStats();
-    memoryPressureListener.setEventBus(null);
-    memoryPressureListener.setGcThrashingDetector(null);
+    memoryPressureListener.reset();
     eventBus = null;
     highWaterMarkLimiter = null;
   }
@@ -74,6 +80,9 @@ public final class MemoryPressureModule extends BlazeModule {
     if (highWaterMarkLimiter == null || eventBus == null) {
       return;
     }
-    eventBus.post(highWaterMarkLimiter.getStats());
+    MemoryPressureStats.Builder memoryPressureStatsBuilder = MemoryPressureStats.newBuilder();
+    highWaterMarkLimiter.populateStats(memoryPressureStatsBuilder);
+    memoryPressureListener.populateStats(memoryPressureStatsBuilder);
+    eventBus.post(memoryPressureStatsBuilder.build());
   }
 }

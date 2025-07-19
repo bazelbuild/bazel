@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.jni.JniLoader;
 import com.google.devtools.build.lib.util.Blocker;
 import com.google.devtools.build.lib.vfs.FileStatus;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 
 /**
@@ -359,26 +358,6 @@ final class NativePosixFiles {
    *     a directory
    */
   static native void deleteTreesBelow(String dir) throws IOException;
-
-  /**
-   * Open a file descriptor for writing.
-   *
-   * <p>This is a low level API. The caller is responsible for calling {@link close} on the returned
-   * file descriptor.
-   *
-   * @param path file to open
-   * @param append whether to open is append mode
-   */
-  static native int openWrite(String path, boolean append) throws FileNotFoundException;
-
-  /** Write a segment of data to a file descriptor. */
-  static native int write(int fd, byte[] data, int off, int len) throws IOException;
-
-  /**
-   * Close a file descriptor. Additionally, accept and ignore an object; this can be used to keep a
-   * reference alive.
-   */
-  static native int close(int fd, Object ignored) throws IOException;
 
   /** Logs a path string that does not have a Latin-1 coder. Called from JNI. */
   private static void logBadPath(String path) {

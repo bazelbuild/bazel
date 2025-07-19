@@ -20,8 +20,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.LicensesProvider;
-import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.TargetContext;
@@ -29,7 +27,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
@@ -78,11 +75,6 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
   }
 
   @Override
-  public BuiltinProvider<LicensesProvider> getProvider() {
-    return LicensesProvider.PROVIDER;
-  }
-
-  @Override
   @Nullable
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
     P provider = super.getProvider(providerClass);
@@ -100,10 +92,6 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
   protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     // The following Starlark providers do not implement TransitiveInfoProvider and thus may only be
     // requested via this method using a Provider.Key, not via getProvider(Class) above.
-
-    if (providerKey.equals(LicensesProvider.PROVIDER.getKey())) {
-      return generatingRule.get(LicensesProvider.PROVIDER);
-    }
 
     if (providerKey.equals(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey())) {
       return firstNonNull(
@@ -148,25 +136,6 @@ public final class OutputFileConfiguredTarget extends FileConfiguredTarget {
     if (provider != null) {
       tryAddProviderForQuery(dict, providerClass, provider);
     }
-  }
-
-  @Override
-  public NestedSet<TargetLicense> getTransitiveLicenses() {
-    return getLicencesProviderFromGeneratingRule().getTransitiveLicenses();
-  }
-
-  @Override
-  public TargetLicense getOutputLicenses() {
-    return getLicencesProviderFromGeneratingRule().getOutputLicenses();
-  }
-
-  @Override
-  public boolean hasOutputLicenses() {
-    return getLicencesProviderFromGeneratingRule().hasOutputLicenses();
-  }
-
-  private LicensesProvider getLicencesProviderFromGeneratingRule() {
-    return firstNonNull(generatingRule.get(LicensesProvider.PROVIDER), LicensesProviderImpl.EMPTY);
   }
 
   @Override

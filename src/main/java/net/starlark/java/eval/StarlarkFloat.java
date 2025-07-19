@@ -17,6 +17,8 @@ package net.starlark.java.eval;
 import java.math.BigInteger;
 import java.util.Locale;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.types.StarlarkType;
+import net.starlark.java.types.Types;
 
 /** The Starlark float data type. */
 @StarlarkBuiltin(
@@ -24,6 +26,10 @@ import net.starlark.java.annot.StarlarkBuiltin;
     category = "core",
     doc = "The type of floating-point numbers in Starlark.")
 public final class StarlarkFloat implements StarlarkValue, Comparable<StarlarkFloat> {
+  @Override
+  public StarlarkType getStarlarkType() {
+    return Types.FLOAT;
+  }
 
   private final double v;
 

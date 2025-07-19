@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_java//java:defs.bzl", "java_binary", "java_test")
 
 package(
@@ -41,7 +42,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/main/java/com/google/devtools/build/lib/windows:file",
         "//src/main/java/com/google/devtools/build/lib/windows:processes",
-        "//src/main/java/com/google/devtools/build/lib/windows:windows_short_path",
+        "//src/main/java/com/google/devtools/build/lib/windows:windows_path_operations",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/windows/util",
         "//third_party:guava",

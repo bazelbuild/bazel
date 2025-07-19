@@ -149,72 +149,6 @@ fi
 # This header marks where --test_output=streamed will start being printed.
 echo "-----------------------------------------------------------------------------"
 
-# Unused if EXPERIMENTAL_SPLIT_XML_GENERATION is set.
-function encode_stream {
-  # See generate-xml.sh for documentation.
-  LC_ALL=C sed -E \
-      -e 's/.*/& /g' \
-      -e 's/(('\
-"$(echo -e '[\x9\x20-\x7f]')|"\
-"$(echo -e '[\xc0-\xdf][\x80-\xbf]')|"\
-"$(echo -e '[\xe0-\xec][\x80-\xbf][\x80-\xbf]')|"\
-"$(echo -e '[\xed][\x80-\x9f][\x80-\xbf]')|"\
-"$(echo -e '[\xee-\xef][\x80-\xbf][\x80-\xbf]')|"\
-"$(echo -e '[\xf0][\x80-\x8f][\x80-\xbf][\x80-\xbf]')"\
-')*)./\1?/g' \
-      -e 's/(.*)\?/\1/g' \
-      -e 's|]]>|]]>]]<![CDATA[>|g'
-}
-
-function encode_output_file {
-  if [ -f "$1" ]; then
-    cat "$1" | encode_stream
-  fi
-}
-
-# Unused if EXPERIMENTAL_SPLIT_XML_GENERATION is set.
-# Keep this in sync with generate-xml.sh!
-function write_xml_output_file {
-  local duration=$(expr $(date +%s) - $start)
-  local errors=0
-  local error_msg=
-  local signal="${1-}"
-  local test_name=
-  if [ -n "${XML_OUTPUT_FILE-}" -a ! -f "${XML_OUTPUT_FILE-}" ]; then
-    # Create a default XML output file if the test runner hasn't generated it
-    if [ -n "${signal}" ]; then
-      errors=1
-      if [ "${signal}" = "SIGTERM" ]; then
-        error_msg="<error message=\"Timed out\"></error>"
-      else
-        error_msg="<error message=\"Terminated by signal ${signal}\"></error>"
-      fi
-    elif (( $exitCode != 0 )); then
-      errors=1
-      error_msg="<error message=\"exited with error code $exitCode\"></error>"
-    fi
-    test_name="${TEST_BINARY#./}"
-    test_name="${test_name#../}"
-    # Ensure that test shards have unique names in the xml output.
-    if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
-      ((shard_num=TEST_SHARD_INDEX+1))
-      test_name="${test_name}"_shard_"$shard_num"/"$TEST_TOTAL_SHARDS"
-    fi
-    cat <<EOF >${XML_OUTPUT_FILE}
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuites>
-  <testsuite name="$test_name" tests="1" failures="0" errors="${errors}">
-    <testcase name="$test_name" status="run" duration="${duration}" time="${duration}">${error_msg}</testcase>
-    <system-out>Generated test.log (if the file is not UTF-8, then this may be unreadable):
-      <![CDATA[$(encode_output_file "${XML_OUTPUT_FILE}.log")]]>
-    </system-out>
-  </testsuite>
-</testsuites>
-EOF
-  fi
-  rm -f "${XML_OUTPUT_FILE}.log"
-}
-
 # The path of this command-line is usually relative to the exec-root,
 # but when using --run_under it can be a "/bin/bash -c" command-line.
 
@@ -292,19 +226,11 @@ function signal_children {
 
 exitCode=0
 signals="$(trap -l | sed -E 's/[0-9]+\)//g')"
-if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
-  for signal in $signals; do
-    # SIGCHLD is expected when a subprocess dies
-    [ "${signal}" = "SIGCHLD" ] && continue
-    trap "signal_children ${signal}" ${signal}
-  done
-else
-  for signal in $signals; do
-    # SIGCHLD is expected when a subprocess dies
-    [ "${signal}" = "SIGCHLD" ] && continue
-    trap "write_xml_output_file ${signal}; signal_children ${signal}" ${signal}
-  done
-fi
+for signal in $signals; do
+  # SIGCHLD is expected when a subprocess dies
+  [ "${signal}" = "SIGCHLD" ] && continue
+  trap "signal_children ${signal}" ${signal}
+done
 start=$(date +%s)
 
 # We have a challenge here: we want to forward signals to our child processes,
@@ -325,20 +251,10 @@ start=$(date +%s)
 # watches for us to be killed, and then chain-kills the test's process group.
 # Aren't processes fun?
 set -m
-if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
-  if [ -z "$COVERAGE_DIR" ]; then
-    ("${TEST_PATH}" "$@" 2>&1) <&0 &
-  else
-    ("$1" "$TEST_PATH" "${@:3}" 2>&1) <&0 &
-  fi
+if [ -z "$COVERAGE_DIR" ]; then
+  ("${TEST_PATH}" "$@" 2>&1) <&0 &
 else
-  set -o pipefail
-  if [ -z "$COVERAGE_DIR" ]; then
-    ("${TEST_PATH}" "$@" 2>&1 | tee -a "${XML_OUTPUT_FILE}.log") <&0 &
-  else
-    ("$1" "$TEST_PATH" "${@:3}" 2>&1 | tee -a "${XML_OUTPUT_FILE}.log") <&0 &
-  fi
-  set +o pipefail
+  ("$1" "$TEST_PATH" "${@:3}" 2>&1) <&0 &
 fi
 childPid=$!
 
@@ -383,11 +299,6 @@ wait $cleanupPid
 for signal in $signals; do
   trap - ${signal}
 done
-if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" != "1" ]]; then
-  # This call to write_xml_output_file does nothing if a a test.xml already
-  # exists, e.g., because we received SIGTERM and the trap handler created it.
-  write_xml_output_file
-fi
 
 # Add all of the files from the undeclared outputs directory to the manifest.
 if [[ -n "$TEST_UNDECLARED_OUTPUTS_DIR" && -n "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ]]; then

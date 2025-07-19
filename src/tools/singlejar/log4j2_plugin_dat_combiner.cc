@@ -188,6 +188,9 @@ bool Log4J2PluginDatCombiner::Merge(const CDH *cdh, const LH *lh) {
 }
 
 void *Log4J2PluginDatCombiner::OutputEntry(bool compress) {
+  if (categories_.empty()) {
+    return nullptr;
+  }
   auto buffer = writeLog4j2PluginCacheFile(categories_);
   concatenator_->Append(reinterpret_cast<const char *>(buffer.data()),
                         buffer.size());

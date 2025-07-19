@@ -17,13 +17,6 @@
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/objc/semantics.bzl", "semantics")
 
-# TODO(b/288421584): necessary because IDE aspect can't see toolchains
-_CC_TOOLCHAIN_RULE = {
-    "_cc_toolchain": attr.label(
-        default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain",
-    ),
-}
-
 _COMPILING_RULE = {
     "srcs": attr.label_list(
         allow_files = True,
@@ -217,7 +210,6 @@ def _union(*dictionaries):
 common_attrs = struct(
     union = _union,
     ALWAYSLINK_RULE = _ALWAYSLINK_RULE,
-    CC_TOOLCHAIN_RULE = _CC_TOOLCHAIN_RULE,
     COMPILING_RULE = _COMPILING_RULE,
     COMPILE_DEPENDENCY_RULE = _COMPILE_DEPENDENCY_RULE,
     COPTS_RULE = _COPTS_RULE,

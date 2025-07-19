@@ -25,15 +25,9 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
-import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -60,11 +54,9 @@ import com.google.devtools.build.lib.query2.engine.QuerySyntaxException;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeTargetPatternEvaluator;
 import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWithSkyframeForTesting;
@@ -92,12 +84,13 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 /** An implementation of AbstractQueryHelper to support testing bazel query. */
 public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
+  private static final String FAKE_INSTALL_MD5_STRING = "abcedf1234567890abcedf1234567890";
+
   protected SkyframeExecutor skyframeExecutor;
   protected FileSystem fileSystem =
       new InMemoryFileSystem(BlazeClock.instance(), DigestHashFunction.SHA256);
@@ -133,7 +126,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                 outputBase,
                 outputBase.getRelative(ServerDirectories.EXECROOT),
                 useVirtualSourceRoot() ? Root.fromPath(rootDirectory) : null,
-                /* installMD5= */ null),
+                FAKE_INSTALL_MD5_STRING),
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
@@ -383,31 +376,18 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   }
 
   protected SkyframeExecutor createSkyframeExecutor(ConfiguredRuleClassProvider ruleClassProvider) {
+    var extraPrecomputedValues =
+        ImmutableList.<PrecomputedValue.Injected>builder()
+            .addAll(analysisMock.getPrecomputedValues())
+            .add(
+                PrecomputedValue.injected(
+                    ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())))
+            .build();
     PackageFactory pkgFactory =
         ((PackageFactoryBuilderWithSkyframeForTesting)
                 TestPackageFactoryBuilderFactory.getInstance().builder(directories))
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-            .setExtraPrecomputeValues(
-                ImmutableList.of(
-                    PrecomputedValue.injected(
-                        ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
-                    PrecomputedValue.injected(
-                        ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
-                    PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
-                    PrecomputedValue.injected(
-                        ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
-                    PrecomputedValue.injected(
-                        BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
-                        CheckDirectDepsMode.WARNING),
-                    PrecomputedValue.injected(
-                        YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
-                    PrecomputedValue.injected(
-                        BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
-                        BazelCompatibilityMode.ERROR),
-                    PrecomputedValue.injected(
-                        RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
-                    PrecomputedValue.injected(
-                        BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE)))
+            .setExtraPrecomputeValues(extraPrecomputedValues)
             .build(ruleClassProvider, fileSystem);
     SkyframeExecutor skyframeExecutor =
         BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
@@ -418,32 +398,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(delegatingSyscallCache)
             .build();
-    skyframeExecutor.injectExtraPrecomputedValues(
-        ImmutableList.of(
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
-            PrecomputedValue.injected(
-                RepositoryMappingFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
-            PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.FORCE_FETCH,
-                RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
-            PrecomputedValue.injected(
-                ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
-            PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
-            PrecomputedValue.injected(ModuleFileFunction.INJECTED_REPOSITORIES, ImmutableMap.of()),
-            PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
-            PrecomputedValue.injected(
-                BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
-                CheckDirectDepsMode.WARNING),
-            PrecomputedValue.injected(
-                YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
-            PrecomputedValue.injected(
-                BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
-                BazelCompatibilityMode.ERROR),
-            PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE)));
+    skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     return skyframeExecutor;
   }

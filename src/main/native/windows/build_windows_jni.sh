@@ -1,4 +1,4 @@
-#!/bin/bash -eu
+#!/usr/bin/env bash
 
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -18,6 +18,8 @@
 # JVM, so we need to build it with Visual Studio. However, Bazel doesn't
 # support multiple compilers in the same build yet, so we need to hack around
 # this limitation using a genrule.
+
+set -eu
 
 DLL="$1"
 shift 1
@@ -120,7 +122,7 @@ cat > "${VSTEMP}/windows_jni.bat" <<EOF
 @$pwd_drive
 @cd "$abs_pwd"
 @set TMP=$(cygpath -a -w "${VSTEMP}")
-@CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "%TMP%" /I . ${WINDOWS_SOURCES[*]} /link /DEFAULTLIB:advapi32.lib
+@CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "%TMP%" /I . /I ${JNI_HEADERS_DIR} ${WINDOWS_SOURCES[*]} /link /DEFAULTLIB:advapi32.lib
 EOF
 
 # Invoke the file and hopefully generate the .DLL .

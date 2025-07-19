@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2022 The Bazel Authors. All rights reserved.
 #
@@ -425,8 +425,10 @@ EOF
 }
 
 function test_upload_minimal_upload_testlogs() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = 'test',
   srcs = ['test.sh'],
@@ -451,8 +453,10 @@ EOF
 }
 
 function test_upload_all_upload_testlogs() {
+  add_rules_shell "MODULE.bazel"
   mkdir -p a
   cat > a/BUILD <<EOF
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
   name = 'test',
   srcs = ['test.sh'],

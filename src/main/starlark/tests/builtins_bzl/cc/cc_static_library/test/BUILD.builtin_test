@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_import.bzl", "cc_import")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load(":starlark_tests.bzl", "analysis_test_suite")
 
 cc_static_library(
@@ -36,6 +39,32 @@ cc_import(
     name = "static_import",
     hdrs = ["bar.h"],
     static_library = ":static",
+)
+
+cc_import(
+    name = "static_import_strip_include_prefix",
+    hdrs = ["nested/stripped_bar.h"],
+    static_library = ":static",
+    strip_include_prefix = "nested",
+)
+
+cc_test(
+    name = "test_static_import_strip_include_prefix",
+    srcs = ["test_static_import_strip_include_prefix.cc"],
+    deps = [":static_import_strip_include_prefix"],
+)
+
+cc_import(
+    name = "static_import_includes",
+    hdrs = ["nested/nested_bar.h"],
+    includes = ["nested"],
+    static_library = ":static",
+)
+
+cc_test(
+    name = "test_static_import_includes",
+    srcs = ["test_static_import_includes.cc"],
+    deps = [":static_import_includes"],
 )
 
 cc_test(

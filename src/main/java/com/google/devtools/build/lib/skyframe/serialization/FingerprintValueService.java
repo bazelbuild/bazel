@@ -18,7 +18,7 @@ import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.devtools.build.lib.skyframe.serialization.WriteStatuses.WriteStatus;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.concurrent.Executor;
@@ -30,13 +30,6 @@ import javax.annotation.Nullable;
  */
 public final class FingerprintValueService {
 
-  /** A factory interface that create {@link FingerprintValueService}. */
-  public interface Factory {
-
-    /** Constructs a {@link FingerprintValueService} using the build request's options. */
-    FingerprintValueService create(OptionsParsingResult options);
-  }
-
   /** Injectable implementation of the fingerprint function. */
   public interface Fingerprinter {
     PackedFingerprint fingerprint(byte[] input);
@@ -44,7 +37,7 @@ public final class FingerprintValueService {
 
   /** A {@link Fingerprinter} implementation for non-production use. */
   public static final Fingerprinter NONPROD_FINGERPRINTER =
-      input -> PackedFingerprint.fromBytes(murmur3_128().hashBytes(input).asBytes());
+      input -> PackedFingerprint.fromBytesOffsetZeros(murmur3_128().hashBytes(input).asBytes());
 
   private final Executor executor;
   private final FingerprintValueStore store;
@@ -97,8 +90,12 @@ public final class FingerprintValueService {
   }
 
   /** Delegates to {@link FingerprintValueStore#put}. */
-  public ListenableFuture<Void> put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
+  public WriteStatus put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
     return store.put(fingerprint, serializedBytes);
+  }
+
+  public FingerprintValueStore.Stats getStats() {
+    return store.getStats();
   }
 
   /** Delegates to {@link FingerprintValueStore#get}. */

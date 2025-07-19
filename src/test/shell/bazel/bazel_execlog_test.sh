@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2019 The Bazel Authors. All rights reserved.
 #
@@ -120,9 +120,12 @@ EOF
 }
 
 function test_empty_file_in_runfiles() {
+  add_rules_python "MODULE.bazel"
   mkdir d
   touch d/main.py
   cat > BUILD <<'EOF'
+load("@rules_python//python:py_binary.bzl", "py_binary")
+
 py_binary(
     name = "py_tool",
     main = "d/main.py",
@@ -204,7 +207,10 @@ EOF
 }
 
 function test_coverage() {
+  add_rules_shell "MODULE.bazel"
+
   cat > BUILD <<'EOF'
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 sh_test(
     name = "test",
     srcs = ["test.sh"],

@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingServicesSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.SingleFileSystemSyscallCache;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -67,7 +67,9 @@ public final class WorkspaceBuilder {
 
   private boolean allowExternalRepositories = true;
   @Nullable private Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier = null;
-  @Nullable private FingerprintValueService.Factory fingerprintValueServiceFactory = null;
+
+  @Nullable
+  private RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier = null;
 
   WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
@@ -139,7 +141,7 @@ public final class WorkspaceBuilder {
         allocationTracker,
         singleFsSyscallCache,
         analysisCodecRegistrySupplier,
-        fingerprintValueServiceFactory,
+        remoteAnalysisCachingServicesSupplier,
         allowExternalRepositories);
   }
 
@@ -248,9 +250,9 @@ public final class WorkspaceBuilder {
   }
 
   @CanIgnoreReturnValue
-  public WorkspaceBuilder setFingerprintValueServiceFactory(
-      FingerprintValueService.Factory factory) {
-    this.fingerprintValueServiceFactory = factory;
+  public WorkspaceBuilder setRemoteAnalysisCachingServicesSupplier(
+      RemoteAnalysisCachingServicesSupplier remoteAnalysisCachingServicesSupplier) {
+    this.remoteAnalysisCachingServicesSupplier = remoteAnalysisCachingServicesSupplier;
     return this;
   }
 }

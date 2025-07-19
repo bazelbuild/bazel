@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -35,7 +34,6 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
-import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -123,23 +121,21 @@ public class SkyframeExecutorTestUtils {
         getAllExistingConfiguredTargets(skyframeExecutor), input -> input.getLabel().equals(label));
   }
 
-  /**
-   * Returns all configured targets currently in the graph.
-   */
-  public static Iterable<ConfiguredTarget> getAllExistingConfiguredTargets(
+  /** Returns all configured targets currently in the graph. */
+  public static ImmutableList<ConfiguredTarget> getAllExistingConfiguredTargets(
       SkyframeExecutor skyframeExecutor) {
     Collection<SkyValue> values =
         Maps.filterKeys(
                 skyframeExecutor.getEvaluator().getValues(),
                 SkyFunctions.isSkyFunction(SkyFunctions.CONFIGURED_TARGET))
             .values();
-    List<ConfiguredTarget> cts = Lists.newArrayList();
+    var cts = ImmutableList.<ConfiguredTarget>builder();
     for (SkyValue value : values) {
       if (value != null) {
         cts.add(((ConfiguredTargetValue) value).getConfiguredTarget());
       }
     }
-    return cts;
+    return cts.build();
   }
 
   /**

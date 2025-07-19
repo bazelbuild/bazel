@@ -23,6 +23,7 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.StringEncoding;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -280,76 +281,66 @@ public class FileSystemUtils {
   }
 
   /**
-   * Creates or updates a symbolic link from 'link' to 'target'. Replaces
-   * existing symbolic links with target, and skips the link creation if it is
-   * already present. Will also create any missing ancestor directories of the
-   * link. This method is non-atomic
+   * Creates or updates an existing symbolic link from 'link' to 'target'. Missing ancestor
+   * directories of 'link' will also be created.
    *
-   * <p>Note: this method will throw an IOException if there is an unequal
-   * non-symlink at link.
+   * <p>This operation is not atomic.
    *
-   * @throws IOException if the creation of the symbolic link was unsuccessful
-   *         for any reason.
+   * @throws NotASymlinkException if the path already exists and is not a symbolic link
+   * @throws IOException if creating the symbolic link or its ancestor directories failed for any
+   *     other reason
    */
-  @ThreadSafe  // but not atomic
+  @ThreadSafe // but not atomic
   public static void ensureSymbolicLink(Path link, Path target) throws IOException {
     ensureSymbolicLink(link, target.asFragment());
   }
 
   /**
-   * Creates or updates a symbolic link from 'link' to 'target'. Replaces
-   * existing symbolic links with target, and skips the link creation if it is
-   * already present. Will also create any missing ancestor directories of the
-   * link. This method is non-atomic
+   * Creates or updates an existing symbolic link from 'link' to 'target'. Missing ancestor
+   * directories of 'link' will also be created.
    *
-   * <p>Note: this method will throw an IOException if there is an unequal
-   * non-symlink at link.
+   * <p>This operation is not atomic.
    *
-   * @throws IOException if the creation of the symbolic link was unsuccessful
-   *         for any reason.
+   * @throws NotASymlinkException if the path already exists and is not a symbolic link
+   * @throws IOException if creating the symbolic link or its ancestor directories failed for any
+   *     other reason
    */
-  @ThreadSafe  // but not atomic
+  @ThreadSafe // but not atomic
   public static void ensureSymbolicLink(Path link, String target) throws IOException {
     ensureSymbolicLink(link, PathFragment.create(target));
   }
 
   /**
-   * Creates or updates a symbolic link from 'link' to 'target'. Replaces
-   * existing symbolic links with target, and skips the link creation if it is
-   * already present. Will also create any missing ancestor directories of the
-   * link. This method is non-atomic
+   * Creates or updates an existing symbolic link from 'link' to 'target'. Missing ancestor
+   * directories of 'link' will also be created.
    *
-   * <p>Note: this method will throw an IOException if there is an unequal
-   * non-symlink at link.
+   * <p>This operation is not atomic.
    *
-   * @throws IOException if the creation of the symbolic link was unsuccessful
-   *         for any reason.
+   * @throws NotASymlinkException if the path already exists and is not a symbolic link
+   * @throws IOException if creating the symbolic link or its ancestor directories failed for any
+   *     other reason
    */
-  @ThreadSafe  // but not atomic
+  @ThreadSafe // but not atomic
   public static void ensureSymbolicLink(Path link, PathFragment target) throws IOException {
     // TODO(bazel-team): (2009) consider adding the logic for recovering from the case when
     // we have already created a parent directory symlink earlier.
+    boolean parentKnownToExist = false;
     try {
+      // This will throw if the path already exists and is not a symbolic link.
       if (link.readSymbolicLink().equals(target)) {
-        return;  // Do nothing if the link is already there.
+        // Nothing to do.
+        return;
       }
-    } catch (IOException e) { // link missing or broken
-      /* fallthru and do the work below */
+      // The symlink exists, but points elsewhere.
+      link.delete();
+      parentKnownToExist = true;
+    } catch (FileNotFoundException e) {
+      // Path does not exist; fall through.
     }
-    if (link.isSymbolicLink()) {
-      link.delete(); // Remove the symlink since it is pointing somewhere else.
-    } else {
+    if (!parentKnownToExist) {
       link.getParentDirectory().createDirectoryAndParents();
     }
-    try {
-      link.createSymbolicLink(target);
-    } catch (IOException e) {
-      // Only pass on exceptions caused by a true link creation failure.
-      if (!link.isSymbolicLink() ||
-          !link.resolveSymbolicLinks().equals(link.getRelative(target))) {
-        throw e;
-      }
-    }
+    link.createSymbolicLink(target);
   }
 
   public static ByteSource asByteSource(final Path path) {
@@ -451,7 +442,6 @@ public class FileSystemUtils {
   @ThreadSafe // but not atomic
   public static MoveResult moveFile(Path from, Path to) throws IOException {
     // We don't try-catch here for better performance.
-    to.delete();
     try {
       from.renameTo(to);
       return MoveResult.FILE_MOVED;
@@ -459,6 +449,9 @@ public class FileSystemUtils {
       // Fallback to a copy.
       FileStatus stat = from.stat(Symlinks.NOFOLLOW);
       if (stat.isFile()) {
+        // Target may be a symlink, in which case opening a stream below would not actually replace
+        // it.
+        to.delete();
         try (InputStream in = from.getInputStream();
             OutputStream out = to.getOutputStream()) {
           copyLargeBuffer(in, out);
@@ -480,7 +473,15 @@ public class FileSystemUtils {
         }
         to.setExecutable(from.isExecutable()); // Copy executable bit.
       } else if (stat.isSymbolicLink()) {
-        to.createSymbolicLink(from.readSymbolicLink());
+        PathFragment fromTarget = from.readSymbolicLink();
+        try {
+          to.createSymbolicLink(fromTarget);
+        } catch (IOException unused2) {
+          // May have failed due the target file existing, but not being a symlink.
+          // TODO: Only catch FileAlreadyExistsException once we throw that.
+          to.delete();
+          to.createSymbolicLink(fromTarget);
+        }
       } else {
         throw new IOException("Don't know how to copy " + from);
       }
@@ -556,8 +557,7 @@ public class FileSystemUtils {
 
   /**
    * Copies all dir trees under a given 'from' dir to location 'to', while overwriting all files in
-   * the potentially existing 'to'. Resolves symbolic links if {@code followSymlinks ==
-   * Symlinks#FOLLOW}. Otherwise copies symlinks as-is.
+   * the potentially existing 'to'. Symlinks are copied as-is.
    *
    * <p>The source and the destination must be non-overlapping, otherwise an
    * IllegalArgumentException will be thrown. This method cannot be used to copy a dir tree to a sub
@@ -568,22 +568,27 @@ public class FileSystemUtils {
    * occur. (e.g. read errors)
    */
   @ThreadSafe
-  public static void copyTreesBelow(Path from, Path to, Symlinks followSymlinks)
-      throws IOException {
+  public static void copyTreesBelow(Path from, Path to) throws IOException {
     if (to.startsWith(from)) {
       throw new IllegalArgumentException(to + " is a subdirectory of " + from);
     }
 
-    Collection<Path> entries = from.getDirectoryEntries();
-    for (Path entry : entries) {
-      Path toPath = to.getChild(entry.getBaseName());
-      if (!followSymlinks.toBoolean() && entry.isSymbolicLink()) {
-        FileSystemUtils.ensureSymbolicLink(toPath, entry.readSymbolicLink());
-      } else if (entry.isFile()) {
-        copyFile(entry, toPath);
-      } else {
-        toPath.createDirectory();
-        copyTreesBelow(entry, toPath, followSymlinks);
+    for (Dirent dirent : from.readdir(Symlinks.NOFOLLOW)) {
+      Path fromChild = from.getChild(dirent.getName());
+      Path toChild = to.getChild(dirent.getName());
+      switch (dirent.getType()) {
+        case FILE:
+          copyFile(fromChild, toChild);
+          break;
+        case SYMLINK:
+          FileSystemUtils.ensureSymbolicLink(toChild, fromChild.readSymbolicLink());
+          break;
+        case DIRECTORY:
+          toChild.createDirectory();
+          copyTreesBelow(fromChild, toChild);
+          break;
+        default:
+          throw new IOException("Don't know how to copy " + fromChild);
       }
     }
   }
@@ -703,55 +708,25 @@ public class FileSystemUtils {
     asByteSink(outputFile).write(content);
   }
 
-  /**
-   * Writes lines to file using the given encoding, ending every line with a system specific line
-   * break character.
-   */
+  /** Writes lines to file using the given encoding, ending every line with '\n'. */
   @ThreadSafe // but not atomic
   public static void writeLinesAs(Path file, Charset charset, String... lines) throws IOException {
     writeLinesAs(file, charset, Arrays.asList(lines));
   }
 
-  /**
-   * Writes lines to file using the given encoding, ending every line with a system specific line
-   * break character.
-   */
+  /** Writes lines to file using the given encoding, ending every line with '\n'. */
   @ThreadSafe // but not atomic
   public static void writeLinesAs(Path file, Charset charset, Iterable<String> lines)
       throws IOException {
     file.getParentDirectory().createDirectoryAndParents();
-    asByteSink(file).asCharSink(charset).writeLines(lines);
+    asByteSink(file).asCharSink(charset).writeLines(lines, "\n");
   }
 
-  /**
-   * Writes lines to file using the given encoding, ending every line with a given line break
-   * character.
-   */
-  @ThreadSafe // but not atomic
-  public static void writeLinesAs(
-      Path file, Charset charset, Iterable<String> lines, String lineBreak) throws IOException {
-    file.getParentDirectory().createDirectoryAndParents();
-    asByteSink(file).asCharSink(charset).writeLines(lines, lineBreak);
-  }
-
-  /**
-   * Appends lines to file using the given encoding, ending every line with a system specific line
-   * break character.
-   */
+  /** Appends lines to file using the given encoding, ending every line with '\n'. */
   @ThreadSafe // but not atomic
   public static void appendLinesAs(Path file, Charset charset, String... lines) throws IOException {
-    appendLinesAs(file, charset, Arrays.asList(lines));
-  }
-
-  /**
-   * Appends lines to file using the given encoding, ending every line with a system specific line
-   * break character.
-   */
-  @ThreadSafe // but not atomic
-  public static void appendLinesAs(Path file, Charset charset, Iterable<String> lines)
-      throws IOException {
     file.getParentDirectory().createDirectoryAndParents();
-    asByteSink(file, true).asCharSink(charset).writeLines(lines);
+    asByteSink(file, true).asCharSink(charset).writeLines(Arrays.asList(lines), "\n");
   }
 
   /**

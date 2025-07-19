@@ -88,7 +88,8 @@ public class RecursivePkgFunction implements SkyFunction {
   private static class MyPackageDirectoryConsumer
       implements RecursiveDirectoryTraversalFunction.PackageDirectoryConsumer {
 
-    private final NestedSetBuilder<String> packages = new NestedSetBuilder<>(Order.STABLE_ORDER);
+    private final NestedSetBuilder<String> packages =
+        NestedSetBuilder.newBuilder(Order.STABLE_ORDER);
     private boolean hasErrors = false;
 
     @Override

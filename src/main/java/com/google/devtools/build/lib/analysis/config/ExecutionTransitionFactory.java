@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.packages.DeclaredExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
+import com.google.devtools.build.lib.packages.DeclaredExecGroup;
 import com.google.devtools.build.lib.rules.config.FeatureFlagValue;
 import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi.ExecTransitionFactoryApi;
 import com.google.devtools.build.lib.util.Pair;
@@ -50,18 +51,12 @@ import javax.annotation.Nullable;
 public class ExecutionTransitionFactory
     implements TransitionFactory<AttributeTransitionData>, ExecTransitionFactoryApi {
 
-  /**
-   * Returns a new {@link ExecutionTransitionFactory} for the default {@link
-   * com.google.devtools.build.lib.packages.ExecGroup}.
-   */
+  /** Returns a new {@link ExecutionTransitionFactory} for the default {@link DeclaredExecGroup}. */
   public static ExecutionTransitionFactory createFactory() {
     return new ExecutionTransitionFactory(DEFAULT_EXEC_GROUP_NAME);
   }
 
-  /**
-   * Returns a new {@link ExecutionTransitionFactory} for the given {@link
-   * com.google.devtools.build.lib.packages.ExecGroup}.
-   */
+  /** Returns a new {@link ExecutionTransitionFactory} for the given {@link DeclaredExecGroup}. */
   public static ExecutionTransitionFactory createFactory(String execGroup) {
     return new ExecutionTransitionFactory(execGroup);
   }
@@ -263,8 +258,12 @@ public class ExecutionTransitionFactory
           options.underlying().get(CoreOptions.class).affectedByStarlarkTransition;
       coreOptions.executionInfoModifier =
           options.underlying().get(CoreOptions.class).executionInfoModifier;
-      coreOptions.overrideNamePlatformInOutputDirEntries =
-          options.underlying().get(CoreOptions.class).overrideNamePlatformInOutputDirEntries;
+      coreOptions.overridePlatformCpuName =
+          options.underlying().get(CoreOptions.class).overridePlatformCpuName;
+      coreOptions.disabledSelectOptions =
+          options.underlying().get(CoreOptions.class).disabledSelectOptions;
+      coreOptions.incompatibleTargetCpuFromPlatform =
+          options.underlying().get(CoreOptions.class).incompatibleTargetCpuFromPlatform;
       return result;
     }
   }

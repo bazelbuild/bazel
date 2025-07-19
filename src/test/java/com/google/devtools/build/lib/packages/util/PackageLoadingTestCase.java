@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -39,7 +40,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -215,11 +216,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
-    skyframeExecutor.injectExtraPrecomputedValues(
-        ImmutableList.of(
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty())));
+                RepositoryDirectoryValue.VENDOR_DIRECTORY, Optional.empty())));
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
@@ -314,6 +311,23 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   }
 
   /**
+   * Loads a package with the given name in the main repo.
+   *
+   * @throws NoSuchPackageException if the package does not exist
+   * @throws LabelSyntaxException if the package name is not syntactically valid
+   * @throws InterruptedException if loading is interrupted
+   */
+  protected Package getPackage(String packageName)
+      throws NoSuchPackageException, LabelSyntaxException, InterruptedException {
+    return getPackageManager().getPackage(reporter, PackageIdentifier.parse(packageName));
+  }
+
+  protected Package getPackage(PackageIdentifier packageIdentifier)
+      throws NoSuchPackageException, InterruptedException {
+    return getPackageManager().getPackage(reporter, packageIdentifier);
+  }
+
+  /**
    * Create and return a scratch rule.
    *
    * @param packageName the package name of the rule.
@@ -394,10 +408,6 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   }
 
   protected PackageManager getPackageManager() {
-    skyframeExecutor.injectExtraPrecomputedValues(
-        ImmutableList.of(
-            PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     return skyframeExecutor.getPackageManager();
   }
 

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.shell;
 
+import static com.google.devtools.build.lib.util.BazelCleaner.CLEANER;
+
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.windows.WindowsProcesses;
 import java.io.IOException;
@@ -29,8 +31,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /** A Windows subprocess backed by a native object. */
 public class WindowsSubprocess implements Subprocess {
-  private static final Cleaner cleaner = Cleaner.create();
-
   // For debugging purposes.
   private String commandLine;
 
@@ -200,7 +200,7 @@ public class WindowsSubprocess implements Subprocess {
             stderrRedirected
                 ? null
                 : new ProcessInputStream(WindowsProcesses.getStderr(nativeProcess)));
-    cleanable = cleaner.register(this, nativeState);
+    cleanable = CLEANER.register(this, nativeState);
     // As per the spec of Command, we should only apply timeouts that are > 0.
     this.timeoutMillis = timeoutMillis <= 0 ? -1 : timeoutMillis;
     // Every Windows process we start consumes a thread here. This is suboptimal, but seems to be

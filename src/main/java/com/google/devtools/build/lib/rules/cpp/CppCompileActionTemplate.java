@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -188,7 +188,7 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable ArtifactExpander artifactExpander,
+      @Nullable InputMetadataProvider inputMetadataProvider,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     CompileCommandLine commandLine =
@@ -215,8 +215,9 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
           cppCompileActionBuilder.getBuiltinIncludeDirectories(),
           cppCompileActionBuilder.getInputsForInvalidation(),
           getMnemonic(),
-          // TODO(fmeum): Replace this with the actual value once CppCompileActionTemplate supports
-          //  path mapping.
+          // This method is not called during actual execution (action templates are always expanded
+          // into individual actions that then have their action key computed), so path mapping is
+          // supported and fingerprinted correctly even with this set to OFF.
           OutputPathsMode.OFF);
     } catch (EvalException e) {
       throw new CommandLineExpansionException(e.getMessage());
@@ -244,22 +245,22 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
 
     CcToolchainVariables.Builder buildVariables =
         CcToolchainVariables.builder(cppCompileActionBuilder.getVariables());
-    buildVariables.overrideArtifactVariable(
+    buildVariables.overrideVariable(
         CompileBuildVariables.SOURCE_FILE.getVariableName(), sourceTreeFileArtifact);
-    buildVariables.overrideArtifactVariable(
+    buildVariables.overrideVariable(
         CompileBuildVariables.OUTPUT_FILE.getVariableName(), outputTreeFileArtifact);
     if (dotdFileArtifact != null) {
-      buildVariables.overrideArtifactVariable(
+      buildVariables.overrideVariable(
           CompileBuildVariables.DEPENDENCY_FILE.getVariableName(), dotdFileArtifact);
     }
     if (diagnosticsFileArtifact != null) {
-      buildVariables.overrideArtifactVariable(
+      buildVariables.overrideVariable(
           CompileBuildVariables.SERIALIZED_DIAGNOSTICS_FILE.getVariableName(),
           diagnosticsFileArtifact);
     }
 
     if (ltoIndexFileArtifact != null) {
-      buildVariables.overrideArtifactVariable(
+      buildVariables.overrideVariable(
           CompileBuildVariables.LTO_INDEXING_BITCODE_FILE.getVariableName(), ltoIndexFileArtifact);
     }
 

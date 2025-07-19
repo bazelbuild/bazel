@@ -20,12 +20,15 @@ import static java.util.Objects.requireNonNull;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.StarlarkList;
 
 /**
  * Represents a node in the external dependency graph during module resolution (discovery &
@@ -87,6 +90,13 @@ public abstract class InterimModule extends ModuleBase {
   public abstract ImmutableMap<String, DepSpec> getOriginalDeps();
 
   /**
+   * The "nodep" dependencies of this module: these don't actually add a dependency on the specified
+   * module, but if specified module is somehow in the dependency graph, it'll be at least at this
+   * version.
+   */
+  public abstract ImmutableList<DepSpec> getNodepDeps();
+
+  /**
    * The registry where this module came from. Must be null iff the module has a {@link
    * NonRegistryOverride}.
    */
@@ -109,9 +119,20 @@ public abstract class InterimModule extends ModuleBase {
    * Returns a new {@link InterimModule} with all values in {@link #getDeps} transformed using the
    * given function.
    */
-  public InterimModule withDepSpecsTransformed(UnaryOperator<DepSpec> transform) {
+  public InterimModule withDepsTransformed(UnaryOperator<DepSpec> transform) {
     return toBuilder()
         .setDeps(ImmutableMap.copyOf(Maps.transformValues(getDeps(), transform::apply)))
+        .build();
+  }
+
+  /**
+   * Returns a new {@link InterimModule} with all values in {@link #getDeps} and {@link
+   * #getNodepDeps} transformed using the given function.
+   */
+  public InterimModule withDepsAndNodepDepsTransformed(UnaryOperator<DepSpec> transform) {
+    return toBuilder()
+        .setDeps(ImmutableMap.copyOf(Maps.transformValues(getDeps(), transform::apply)))
+        .setNodepDeps(ImmutableList.copyOf(Lists.transform(getNodepDeps(), transform::apply)))
         .build();
   }
 
@@ -160,6 +181,16 @@ public abstract class InterimModule extends ModuleBase {
     public abstract Builder setOriginalDeps(ImmutableMap<String, DepSpec> value);
 
     public abstract Builder setDeps(ImmutableMap<String, DepSpec> value);
+
+    abstract ImmutableList.Builder<DepSpec> nodepDepsBuilder();
+
+    @CanIgnoreReturnValue
+    public final Builder addNodepDep(DepSpec value) {
+      nodepDepsBuilder().add(value);
+      return this;
+    }
+
+    public abstract Builder setNodepDeps(ImmutableList<DepSpec> value);
 
     public abstract Builder setRegistry(Registry value);
 
@@ -219,29 +250,12 @@ public abstract class InterimModule extends ModuleBase {
     if (singleVersion.patches().isEmpty()) {
       return repoSpec;
     }
-    ImmutableMap.Builder<String, Object> attrBuilder = ImmutableMap.builder();
+    Dict.Builder<String, Object> attrBuilder = Dict.builder();
     attrBuilder.putAll(repoSpec.attributes().attributes());
-    attrBuilder.put("patches", singleVersion.patches());
-    attrBuilder.put("patch_cmds", singleVersion.patchCmds());
-    attrBuilder.put("patch_args", ImmutableList.of("-p" + singleVersion.patchStrip()));
-    return new RepoSpec(repoSpec.repoRuleId(), AttributeValues.create(attrBuilder.buildOrThrow()));
-  }
-
-  static UnaryOperator<DepSpec> applyOverrides(
-      ImmutableMap<String, ModuleOverride> overrides, String rootModuleName) {
-    return depSpec -> {
-      if (rootModuleName.equals(depSpec.name())) {
-        return DepSpec.fromModuleKey(ModuleKey.ROOT);
-      }
-
-      Version newVersion =
-          switch (overrides.get(depSpec.name())) {
-            case NonRegistryOverride nro -> Version.EMPTY;
-            case SingleVersionOverride svo when !svo.version().isEmpty() -> svo.version();
-            case null, default -> depSpec.version();
-          };
-
-      return DepSpec.create(depSpec.name(), newVersion, depSpec.maxCompatibilityLevel());
-    };
+    attrBuilder.put("patches", StarlarkList.immutableCopyOf(singleVersion.patches()));
+    attrBuilder.put("patch_cmds", StarlarkList.immutableCopyOf(singleVersion.patchCmds()));
+    attrBuilder.put("patch_args", StarlarkList.immutableOf("-p" + singleVersion.patchStrip()));
+    return new RepoSpec(
+        repoSpec.repoRuleId(), AttributeValues.create(attrBuilder.buildImmutable()));
   }
 }

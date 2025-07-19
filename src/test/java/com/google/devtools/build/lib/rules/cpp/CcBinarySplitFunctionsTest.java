@@ -124,7 +124,7 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
         .containsMatch("-fsplit-machine-functions");
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
-        .containsMatch("-DBUILD_PROPELLER_TYPE=\"split\"");
+        .containsMatch("-DBUILD_MFS_ENABLED=1");
   }
 
   /**
@@ -329,7 +329,7 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
         .containsMatch("-fbasic-block-sections=list=");
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
-        .containsMatch("-DBUILD_PROPELLER_TYPE=\"full\"");
+        .containsMatch("-DBUILD_PROPELLER_ENABLED=1");
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
         .doesNotMatch("-DBUILD_PROPELLER_TYPE=\"split\"");
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
@@ -346,6 +346,46 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
   @Test
   public void fsafdoPropellerOptimizeDisablesImplicitSplitFunctions() throws Exception {
     propellerOptimizeDisablesImplicitSplitFunctions(CppRuleClasses.FSAFDO);
+  }
+
+  /**
+   * Helps check that split_functions can be mixed with propeller_optimize, when explicitly enabled.
+   */
+  private void propellerOptimizeWithSplitFunctions(String fdoFlavor) throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        """
+        package(features = ["thin_lto"])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
+    scratch.file("pkg/binfile.cc", "int main() {}");
+    scratch.file("pkg/profile.zip", "");
+
+    LtoBackendAction backendAction =
+        setupAndRunToolchainActions(
+            fdoFlavor,
+            "--features=split_functions",
+            "--propeller_optimize_absolute_cc_profile=/tmp/cc.txt");
+
+    assertThat(Joiner.on(" ").join(backendAction.getArguments()))
+        .containsMatch("-fbasic-block-sections=list=");
+    assertThat(Joiner.on(" ").join(backendAction.getArguments()))
+        .containsMatch("-DBUILD_PROPELLER_ENABLED=1");
+    assertThat(Joiner.on(" ").join(backendAction.getArguments()))
+        .containsMatch("-DBUILD_MFS_ENABLED=1");
+    assertThat(Joiner.on(" ").join(backendAction.getArguments()))
+        .containsMatch("-fsplit-machine-functions");
+  }
+
+  /** Tests that split_functions can be mixed with propeller_optimize, when explicitly enabled. */
+  @Test
+  public void fdoPropellerOptimizeWithSplitFunctions() throws Exception {
+    propellerOptimizeWithSplitFunctions(CppRuleClasses.FDO_OPTIMIZE);
   }
 
   /**

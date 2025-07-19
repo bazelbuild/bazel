@@ -18,8 +18,8 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition.COMMAND_LINE_OPTION_PREFIX;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
+import static com.google.devtools.build.lib.cmdline.LabelConstants.COMMAND_LINE_OPTION_PREFIX;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Joiner;
@@ -32,6 +32,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.CustomFlagConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.OptionInfo;
@@ -217,13 +218,15 @@ public final class FunctionTransitionUtil {
     return buildOptions.get(CoreOptions.class).customFlagsToPropagate.stream()
         .anyMatch(
             flagToPropagate ->
-                (flagToPropagate.equals(starlarkFlag.toString())
-                    || (flagToPropagate.endsWith("/...")
+                (flagToPropagate.equals(starlarkFlag.getUnambiguousCanonicalForm())
+                    || (flagToPropagate.endsWith(CustomFlagConverter.SUBPACKAGES_SUFFIX)
                         && starlarkFlag
-                            .toString()
+                            .getUnambiguousCanonicalForm()
                             .startsWith(
                                 flagToPropagate.substring(
-                                    0, flagToPropagate.lastIndexOf("/..."))))));
+                                    0,
+                                    flagToPropagate.lastIndexOf(
+                                        CustomFlagConverter.SUBPACKAGES_SUFFIX))))));
   }
 
   /**
