@@ -545,6 +545,40 @@ public class SelectionTest {
   }
 
   @Test
+  public void maxCompatibilityBasedSelection_attribution() throws Exception {
+    // Regression test for https://github.com/bazelbuild/bazel/issues/22972.
+    ImmutableMap<ModuleKey, InterimModule> depGraph =
+        ImmutableMap.<ModuleKey, InterimModule>builder()
+            .put(
+                InterimModuleBuilder.create("root", Version.EMPTY)
+                    .setKey(ModuleKey.ROOT)
+                    .addDep("bar_from_root", createModuleKey("bar", "2"))
+                    .addDep("foo_from_root", createModuleKey("foo", "1"))
+                    .addDep("quux_from_root", createModuleKey("quux", "1"))
+                    .buildEntry())
+            .put(InterimModuleBuilder.create("bar", "1", 1).buildEntry())
+            .put(InterimModuleBuilder.create("bar", "2", 2).buildEntry())
+            .put(
+                InterimModuleBuilder.create("foo", "1")
+                    .addDep("bar_from_foo", createDepSpec("bar", "1", 2))
+                    .buildEntry())
+            .put(
+                InterimModuleBuilder.create("quux", "1")
+                    .addDep("bar_from_quux", createModuleKey("bar", "1"))
+                    .buildEntry())
+            .buildOrThrow();
+
+    ExternalDepsException e =
+        assertThrows(
+            ExternalDepsException.class,
+            () -> Selection.run(depGraph, /* overrides= */ ImmutableMap.of()));
+    String error = e.getMessage();
+    assertThat(error).contains("quux@1 depends on bar@1 with compatibility level 1");
+    assertThat(error).contains("<root> depends on bar@2 with compatibility level 2");
+    assertThat(error).contains("which is different");
+  }
+
+  @Test
   public void maxCompatibilityBasedSelection_unreferencedNotSelected() throws Exception {
     // aaa 1.0 -> bbb 1.0 -> ccc 2.0
     //       \-> ccc 1.0 (max_compatibility_level=2)
