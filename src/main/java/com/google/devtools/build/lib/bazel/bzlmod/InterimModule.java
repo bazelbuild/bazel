@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static java.util.Objects.requireNonNull;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -62,15 +63,18 @@ public abstract class InterimModule extends ModuleBase {
       requireNonNull(version, "version");
     }
 
-    public static DepSpec create(String name, Version version, int maxCompatibilityLevel) {
-      return new DepSpec(name, version, maxCompatibilityLevel);
-    }
+    public static final DepSpec ROOT_MODULE = fromModuleKey(ModuleKey.ROOT);
 
+    @VisibleForTesting
     public static DepSpec fromModuleKey(ModuleKey key) {
-      return create(key.name(), key.version(), -1);
+      return new DepSpec(key.name(), key.version(), -1);
     }
 
-    public final ModuleKey toModuleKey() {
+    public DepSpec withVersion(Version version) {
+      return new DepSpec(name(), version, maxCompatibilityLevel());
+    }
+
+    public ModuleKey toModuleKey() {
       return new ModuleKey(name(), version());
     }
   }
