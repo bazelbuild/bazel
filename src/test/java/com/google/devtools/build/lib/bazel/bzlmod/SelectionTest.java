@@ -667,6 +667,61 @@ public class SelectionTest {
   }
 
   @Test
+  public void maxCompatibilityBasedSelection_withMultipleVersionOverride() throws Exception {
+    ImmutableMap<ModuleKey, InterimModule> depGraph =
+        ImmutableMap.<ModuleKey, InterimModule>builder()
+            .put(
+                InterimModuleBuilder.create("aaa", Version.EMPTY)
+                    .setKey(ModuleKey.ROOT)
+                    .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
+                    .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
+                    .buildEntry())
+            .put(
+                InterimModuleBuilder.create("bbb", "1.0")
+                    .addDep("ccc_from_bbb", createDepSpec("ccc", "1.5", 2))
+                    .buildEntry())
+            .put(InterimModuleBuilder.create("ccc", "1.0").buildEntry())
+            .put(InterimModuleBuilder.create("ccc", "1.5").buildEntry())
+            .put(InterimModuleBuilder.create("ccc", "2.0", 2).buildEntry())
+            .buildOrThrow();
+    ImmutableMap<String, ModuleOverride> overrides =
+        ImmutableMap.of(
+            "ccc",
+            MultipleVersionOverride.create(
+                ImmutableList.of(Version.parse("1.0"), Version.parse("2.0")), ""));
+
+    Selection.Result selectionResult = Selection.run(depGraph, overrides);
+    assertThat(selectionResult.resolvedDepGraph().entrySet())
+        .containsExactly(
+            InterimModuleBuilder.create("aaa", Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
+                .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
+                .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
+                .buildEntry(),
+            InterimModuleBuilder.create("bbb", "1.0")
+                .addDep("ccc_from_bbb", createDepSpec("ccc", "2.0", 2))
+                .addOriginalDep("ccc_from_bbb", createDepSpec("ccc", "1.5", 2))
+                .buildEntry(),
+            InterimModuleBuilder.create("ccc", "2.0", 2).buildEntry())
+        .inOrder();
+
+    assertThat(selectionResult.unprunedDepGraph().entrySet())
+        .containsExactly(
+            InterimModuleBuilder.create("aaa", Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
+                .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
+                .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
+                .buildEntry(),
+            InterimModuleBuilder.create("bbb", "1.0")
+                .addDep("ccc_from_bbb", createDepSpec("ccc", "2.0", 2))
+                .addOriginalDep("ccc_from_bbb", createDepSpec("ccc", "1.5", 2))
+                .buildEntry(),
+            InterimModuleBuilder.create("ccc", "1.0").buildEntry(),
+            InterimModuleBuilder.create("ccc", "1.5").buildEntry(),
+            InterimModuleBuilder.create("ccc", "2.0", 2).buildEntry()).inOrder();
+  }
+
+  @Test
   public void differentCompatibilityLevelIsOkIfUnreferenced() throws Exception {
     // aaa 1.0 -> bbb 1.0 -> ccc 2.0
     //       \-> ccc 1.0
