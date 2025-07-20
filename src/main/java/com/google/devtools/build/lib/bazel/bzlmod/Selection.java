@@ -221,28 +221,28 @@ final class Selection {
       }
     }
     ImmutableMap<ModuleKey, InterimModule> newDepGraph = newDepGraphBuilder.buildOrThrow();
-    ImmutableMap<ModuleKey, InterimModule> unprunedNonUnifiedDepGraph =
+    ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph =
         unprunedDepGraphBuilder.buildOrThrow();
 
-    // Further, removes unreferenced modules from the graph. We can find out which modules are
-    // referenced by collecting deps transitively from the root.
-    var prunedNonUnifiedDepGraph =
+    // Keep only referenced modules by collecting deps transitively from the root.
+    var preUnificationDepGraph =
         new DepGraphWalker(newDepGraph, overrides, selectionGroups).walk(/* validate= */ false);
 
     // Upgrade deps with max_compatibility_level to the next higher supported compatibility level
     // (if using a multiple-version override) or else the highest compatibility level that remains
-    // in the graph.
-    var prunedUnifiedDepGraph =
-        unifyDepSpecs(prunedNonUnifiedDepGraph, overrides, selectionGroups, selectedVersions);
+    // in the graph after pruning.
+    var postUnificationDepGraph =
+        unifyDepSpecs(preUnificationDepGraph, overrides, selectionGroups, selectedVersions);
 
     // Check that none of the remaining modules conflict with each other (e.g. same module name but
-    // different compatibility levels, or not satisfying multiple_version_override).
+    // different compatibility levels, or not satisfying multiple_version_override). Along the way,
+    // prune once more as deps unification may have made more modules unreachable.
     var prunedDepGraph =
-        new DepGraphWalker(prunedUnifiedDepGraph, overrides, selectionGroups)
+        new DepGraphWalker(postUnificationDepGraph, overrides, selectionGroups)
             .walk(/* validate= */ true);
 
-    // Return the result containing both the pruned and un-pruned dep graphs
-    return new Result(prunedDepGraph, unprunedNonUnifiedDepGraph);
+    // Return the result containing both the pruned and unpruned dep graphs.
+    return new Result(prunedDepGraph, unprunedDepGraph);
   }
 
   private static ImmutableMap<ModuleKey, InterimModule> unifyDepSpecs(
@@ -269,6 +269,10 @@ final class Selection {
               depSpec.maxCompatibilityLevel() < 0
                   ? minCompatibilityLevel
                   : depSpec.maxCompatibilityLevel();
+          // Among all possible selection groups:
+          // - in the case of a multiple-version override, pick the first selection group with a
+          //   target version that doesn't compare lower than the dep. Assuming that the
+          //   compatibility level is monotonic in the version...
           var resolvedGroup =
               selectionGroupsByName.get(depSpec.name()).stream()
                   .filter(
@@ -323,7 +327,7 @@ final class Selection {
         ModuleKey key = moduleKeyAndDependent.moduleKey();
         InterimModule module = oldDepGraph.get(key);
         if (validate) {
-          visit(key, module, moduleKeyAndDependent.dependent());
+          validate(key, module, moduleKeyAndDependent.dependent());
         }
 
         for (DepSpec depSpec : module.getDeps().values()) {
@@ -336,7 +340,7 @@ final class Selection {
       return newDepGraph.buildOrThrow();
     }
 
-    void visit(ModuleKey key, InterimModule module, @Nullable ModuleKey from)
+    void validate(ModuleKey key, InterimModule module, @Nullable ModuleKey from)
         throws ExternalDepsException {
       if (overrides.get(key.name()) instanceof MultipleVersionOverride override) {
         if (selectionGroups.get(key).targetAllowedVersion().isEmpty()) {
