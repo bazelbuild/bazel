@@ -32,6 +32,7 @@ import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.function.UnaryOperator;
@@ -259,8 +260,8 @@ final class Selection {
                     mapping(
                         Map.Entry::getValue,
                         toImmutableSortedSet(
-                            comparing(SelectionGroup::compatibilityLevel)
-                                .thenComparing(SelectionGroup::targetAllowedVersion)))));
+                            comparing(SelectionGroup::targetAllowedVersion)
+                                .thenComparing(SelectionGroup::compatibilityLevel)))));
     UnaryOperator<DepSpec> unifyDepSpec =
         depSpec -> {
           int minCompatibilityLevel =
@@ -273,17 +274,19 @@ final class Selection {
           // - in the case of a multiple-version override, pick the first selection group with a
           //   target version that doesn't compare lower than the dep. Assuming that the
           //   compatibility level is monotonic in the version...
-          var resolvedGroup =
+          var candidateGroups =
               selectionGroupsByName.get(depSpec.name()).stream()
                   .filter(
                       group ->
                           group.compatibilityLevel() >= minCompatibilityLevel
                               && group.compatibilityLevel() <= maxCompatibilityLevel
-                              && group.targetAllowedVersion().compareTo(depSpec.version()) >= 0)
-                  .reduce(
-                      overrides.get(depSpec.name()) instanceof MultipleVersionOverride
-                          ? (a, b) -> a
-                          : (a, b) -> b);
+                              && group.targetAllowedVersion().compareTo(depSpec.version()) >= 0);
+          Optional<SelectionGroup> resolvedGroup;
+          if (overrides.get(depSpec.name()) instanceof MultipleVersionOverride) {
+            resolvedGroup = candidateGroups.findFirst();
+          } else {
+            resolvedGroup = candidateGroups.reduce((a, b) -> b);
+          }
           return depSpec.withVersion(
               resolvedGroup.map(selectedVersions::get).orElse(depSpec.version()));
         };

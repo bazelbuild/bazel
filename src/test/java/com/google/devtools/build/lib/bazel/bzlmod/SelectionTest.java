@@ -713,8 +713,7 @@ public class SelectionTest {
                 .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                 .buildEntry(),
             InterimModuleBuilder.create("bbb", "1.0")
-                .addDep("ccc_from_bbb", createDepSpec("ccc", "2.0", 2))
-                .addOriginalDep("ccc_from_bbb", createDepSpec("ccc", "1.5", 2))
+                .addDep("ccc_from_bbb", createDepSpec("ccc", "1.5", 2))
                 .buildEntry(),
             InterimModuleBuilder.create("ccc", "1.0").buildEntry(),
             InterimModuleBuilder.create("ccc", "1.5").buildEntry(),
