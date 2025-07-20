@@ -123,6 +123,20 @@ filegroup(
     srcs = ["collect_coverage.sh"],
 )
 
+filegroup(
+    name = "collect_coverage_wrapper",
+    srcs = ["collect_coverage_wrapper.bat"],
+)
+
+filegroup(
+    name = "coverage_scripts",
+    srcs = [
+        "collect_coverage.sh",
+        "collect_coverage_wrapper.bat",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 alias(
     name = "coverage_report_generator",
     actual = "@remote_coverage_tools//:coverage_report_generator",

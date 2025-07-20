@@ -116,6 +116,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.Keep;
@@ -304,7 +305,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                         ExecutionTransitionFactory.createFactory(
                             DEFAULT_TEST_RUNNER_EXEC_GROUP_NAME))
                     .singleArtifact()
-                    .value(labelCache.get(toolsRepository + "//tools/test:collect_coverage")))
+                    .value(labelCache.get(toolsRepository + 
+                        (OS.getCurrent() == OS.WINDOWS ? 
+                            "//tools/test:collect_coverage_wrapper" : 
+                            "//tools/test:collect_coverage"))))
             // Input files for test actions collecting code coverage
             .add(
                 attr(":coverage_support", LABEL)

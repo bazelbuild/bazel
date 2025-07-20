@@ -419,6 +419,11 @@ launcher_flag_alias(
         )
 
         filegroup(
+            name = "collect_coverage_wrapper",
+            srcs = ["collect_coverage_wrapper.bat"],
+        )
+
+        filegroup(
             name = "lcov_merger",
             srcs = ["lcov_merger.sh"],
         )

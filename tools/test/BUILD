@@ -37,6 +37,11 @@ filegroup(
     srcs = ["collect_cc_coverage.sh"],
 )
 
+filegroup(
+    name = "collect_coverage_wrapper",
+    srcs = ["collect_coverage_wrapper.bat"],
+)
+
 # Test wrapper binary to run tests on Windows.
 # This target just wraps the actual code in "tw_lib" to make it into a binary.
 # See https://github.com/bazelbuild/bazel/issues/5508
@@ -86,6 +91,15 @@ cc_library(
     }),
 )
 
+filegroup(
+    name = "collect_coverage_scripts",
+    srcs = [
+        "collect_coverage_wrapper.bat",
+        "collect_coverage.sh",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 cc_test(
     name = "tw_test",
     srcs = select({
@@ -125,6 +139,7 @@ filegroup(
         "@bazel_tools//src/conditions:windows": [
             "tw",
             "xml",
+            "collect_coverage_wrapper.bat",
         ],
         "//conditions:default": [
             "dummy.sh",
