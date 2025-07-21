@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -179,21 +178,18 @@ public final class RunfilesTest extends FoundationTestCase {
   @Test
   public void testRunfileAdded() {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
-    PathFragment workspaceName = PathFragment.create("wsname");
     PathFragment pathB = PathFragment.create("repo/b");
     PathFragment legacyPathB = LabelConstants.EXTERNAL_PATH_PREFIX.getRelative(pathB);
     PathFragment runfilesPathB = LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX.getRelative(pathB);
     Artifact artifactB = ActionsTestUtil.createArtifactWithRootRelativePath(root, legacyPathB);
 
-    Runfiles.ManifestBuilder builder =
-        new Runfiles.ManifestBuilder(workspaceName, warningPrefixConflictReceiver());
+    Runfiles runfiles = new Runfiles.Builder("wsname").addSymlink(runfilesPathB, artifactB).build();
 
-    Map<PathFragment, Artifact> inputManifest = ImmutableMap.of(runfilesPathB, artifactB);
-    builder.addUnderWorkspace(inputManifest);
-
-    assertThat(builder.build())
+    assertThat(
+            runfiles.getRunfilesInputs(
+                warningPrefixConflictReceiver(), /* repoMappingManifest= */ null))
         .containsExactly(
-            workspaceName.getRelative(".runfile"), null, PathFragment.create("repo/b"), artifactB);
+            PathFragment.create("wsname/.runfile"), null, PathFragment.create("repo/b"), artifactB);
     assertNoEvents();
   }
 
