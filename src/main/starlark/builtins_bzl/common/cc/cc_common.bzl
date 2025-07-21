@@ -778,7 +778,6 @@ def _create_lto_backend_artifacts(
     )
 
 def _create_cc_launcher_info(*, cc_info, compilation_outputs):
-    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return CcLauncherInfo(cc_info = cc_info, compilation_outputs = compilation_outputs)
 
 def _objcopy(*, ctx, cc_toolchain):
