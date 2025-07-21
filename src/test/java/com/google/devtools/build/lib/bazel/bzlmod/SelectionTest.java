@@ -684,7 +684,79 @@ public class SelectionTest {
                 .buildEntry(),
             InterimModuleBuilder.create("ccc", "1.0").buildEntry(),
             InterimModuleBuilder.create("ccc", "1.5").buildEntry(),
-            InterimModuleBuilder.create("ccc", "2.0", 2).buildEntry()).inOrder();
+            InterimModuleBuilder.create("ccc", "2.0", 2).buildEntry())
+        .inOrder();
+  }
+
+  @Test
+  public void maxCompatibilityBasedSelection_nonGreedySelection() throws Exception {
+    // A dep graph in which always picking the highest (or lowest) reachable compatibility level for
+    // each module does *not* result in a valid selection: c@1.0 and b@2.0 mutually depend on each
+    // other and so do c@2.0 and b@1.0.
+    ImmutableMap<ModuleKey, InterimModule> depGraph =
+        ImmutableMap.<ModuleKey, InterimModule>builder()
+            .put(
+                InterimModuleBuilder.create("aaa", Version.EMPTY)
+                    .setKey(ModuleKey.ROOT)
+                    .addDep("bbb_from_aaa", createDepSpec("bbb", "1.0", 2))
+                    .addDep("ccc_from_aaa", createDepSpec("ccc", "1.0", 2))
+                    .buildEntry())
+            .put(
+                InterimModuleBuilder.create("bbb", "1.0", 1)
+                    .addDep("ccc_from_bbb", createModuleKey("ccc", "2.0"))
+                    .buildEntry())
+            .put(
+                InterimModuleBuilder.create("bbb", "2.0", 2)
+                    .addDep("ccc_from_bbb", createModuleKey("ccc", "1.0"))
+                    .buildEntry())
+            .put(
+                InterimModuleBuilder.create("ccc", "1.0", 1)
+                    .addDep("bbb_from_ccc", createModuleKey("bbb", "2.0"))
+                    .buildEntry())
+            .put(
+                InterimModuleBuilder.create("ccc", "2.0", 2)
+                    .addDep("bbb_from_ccc", createModuleKey("bbb", "1.0"))
+                    .buildEntry())
+            .buildOrThrow();
+
+    Selection.Result selectionResult = Selection.run(depGraph, ImmutableMap.of());
+    assertThat(selectionResult.resolvedDepGraph().entrySet())
+        .containsExactly(
+            InterimModuleBuilder.create("aaa", Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
+                .addDep("bbb_from_aaa", createDepSpec("bbb", "1.0", 2))
+                .addDep("ccc_from_aaa", createDepSpec("ccc", "2.0", 2))
+                .addOriginalDep("ccc_from_aaa", createDepSpec("ccc", "1.0", 2))
+                .buildEntry(),
+            InterimModuleBuilder.create("bbb", "1.0", 1)
+                .addDep("ccc_from_bbb", createModuleKey("ccc", "2.0"))
+                .buildEntry(),
+            InterimModuleBuilder.create("ccc", "2.0", 2)
+                .addDep("bbb_from_ccc", createModuleKey("bbb", "1.0"))
+                .buildEntry())
+        .inOrder();
+
+    assertThat(selectionResult.unprunedDepGraph().entrySet())
+        .containsExactly(
+            InterimModuleBuilder.create("aaa", Version.EMPTY)
+                .setKey(ModuleKey.ROOT)
+                .addDep("bbb_from_aaa", createDepSpec("bbb", "1.0", 2))
+                .addDep("ccc_from_aaa", createDepSpec("ccc", "2.0", 2))
+                .addOriginalDep("ccc_from_aaa", createDepSpec("ccc", "1.0", 2))
+                .buildEntry(),
+            InterimModuleBuilder.create("bbb", "1.0", 1)
+                .addDep("ccc_from_bbb", createModuleKey("ccc", "2.0"))
+                .buildEntry(),
+            InterimModuleBuilder.create("bbb", "2.0", 2)
+                .addDep("ccc_from_bbb", createModuleKey("ccc", "1.0"))
+                .buildEntry(),
+            InterimModuleBuilder.create("ccc", "1.0", 1)
+                .addDep("bbb_from_ccc", createModuleKey("bbb", "2.0"))
+                .buildEntry(),
+            InterimModuleBuilder.create("ccc", "2.0", 2)
+                .addDep("bbb_from_ccc", createModuleKey("bbb", "1.0"))
+                .buildEntry())
+        .inOrder();
   }
 
   @Test
