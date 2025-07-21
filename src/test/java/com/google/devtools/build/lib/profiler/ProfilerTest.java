@@ -1042,11 +1042,11 @@ public final class ProfilerTest {
   public void testSlimProfileSize() throws Exception {
     ByteArrayOutputStream fatOutputStream = getJsonProfileOutputStream(/* slimProfile= */ false);
     String fatOutput = fatOutputStream.toString();
-    assertThat(fatOutput).doesNotContain("merged");
+    assertThat(fatOutput).doesNotContain("x foo");
 
     ByteArrayOutputStream slimOutputStream = getJsonProfileOutputStream(/* slimProfile= */ true);
     String slimOutput = slimOutputStream.toString();
-    assertThat(slimOutput).contains("merged");
+    assertThat(slimOutput).contains("x foo");
 
     long fatProfileLen = fatOutputStream.size();
     long slimProfileLen = slimOutputStream.size();
