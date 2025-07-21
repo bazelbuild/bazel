@@ -464,8 +464,8 @@ public interface JavaCommonApi<
         @Param(name = "injecting_rule_kind"),
         @Param(name = "enable_direct_classpath"),
         @Param(name = "additional_inputs"),
-        @Param(name = "header_compilation_jar", defaultValue = "None", named = true),
-        @Param(name = "header_compilation_direct_deps", defaultValue = "None", named = true),
+        @Param(name = "header_compilation_jar", named = true),
+        @Param(name = "header_compilation_direct_deps", named = true),
       })
   void createHeaderCompilationAction(
       StarlarkRuleContextT ctx,
@@ -485,8 +485,8 @@ public interface JavaCommonApi<
       Object injectingRuleKind,
       boolean enableDirectClasspath,
       Sequence<?> additionalInputs,
-      Object headerCompilationJar,
-      Object headerCompilationDirectDeps)
+      FileT headerCompilationJar,
+      Depset headerCompilationDirectDeps)
       throws EvalException,
           TypeException,
           RuleErrorException,

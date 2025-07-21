@@ -128,18 +128,7 @@ public record JavaCompilationArgsProvider(
             javaInfo, "_transitive_full_compile_time_jars"),
         /* compileTimeJavaDependencyArtifacts= */ getDepset(
             javaInfo, "_compile_time_java_dependencies"),
-        /* directHeaderCompilationJars= */ maybeGetDepset(
-            javaInfo, "header_compilation_direct_deps"));
-  }
-
-  // TODO: b/417791104 - make this unconditional once Bazel 8.3.0 is released
-  private static final NestedSet<Artifact> maybeGetDepset(StructImpl javaInfo, String name)
-      throws EvalException, TypeException {
-    Depset depset = javaInfo.getValue(name, Depset.class);
-    if (depset == null) {
-      return NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-    }
-    return depset.getSet(Artifact.class);
+        /* directHeaderCompilationJars= */ getDepset(javaInfo, "header_compilation_direct_deps"));
   }
 
   private static final NestedSet<Artifact> getDepset(StructImpl javaInfo, String name)

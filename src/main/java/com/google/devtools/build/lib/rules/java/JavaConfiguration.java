@@ -77,7 +77,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final Label javaLauncherLabel;
   private final boolean useIjars;
   private final boolean useHeaderCompilation;
-  private final boolean javaHeaderCompilationDirectDeps;
   private final boolean generateJavaDeps;
   private final OneVersionEnforcementLevel enforceOneVersion;
   private final boolean enforceOneVersionOnJavaTests;
@@ -110,7 +109,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.javaLauncherLabel = javaOptions.javaLauncher;
     this.useIjars = javaOptions.useIjars;
     this.useHeaderCompilation = javaOptions.headerCompilation;
-    this.javaHeaderCompilationDirectDeps = javaOptions.javaHeaderCompilationDirectDeps;
     this.generateJavaDeps =
         javaOptions.javaDeps || javaOptions.javaClasspath != JavaClasspathMode.OFF;
     this.javaClasspath = javaOptions.javaClasspath;
@@ -238,10 +236,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   public boolean useHeaderCompilationStarlark(StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
     return useHeaderCompilation();
-  }
-
-  public boolean javaHeaderCompilationDirectDeps() {
-    return javaHeaderCompilationDirectDeps;
   }
 
   /** Returns true iff dependency information is generated after compilation. */
@@ -463,10 +457,11 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return autoCreateDeployJarForJavaTests;
   }
 
+  // TODO: b/417791104 - Remove this method once usages are removed.
   @Override
   public boolean getUseHeaderCompilationDirectDepsInStarlark(StarlarkThread thread)
       throws EvalException {
     checkPrivateAccess(thread);
-    return javaHeaderCompilationDirectDeps;
+    return true;
   }
 }
