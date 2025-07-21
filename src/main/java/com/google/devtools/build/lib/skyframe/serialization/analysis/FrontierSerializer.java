@@ -148,10 +148,13 @@ public final class FrontierSerializer {
       reporter.handle(
           Event.info(
               String.format(
-                  "Serialized %s frontier nodes into %s bytes and %s entries in %s",
+                  "Serialized %s frontier nodes into %s/%s key/value bytes and %s entries "
+                      + "(%s batches) in %s",
                   serializedCount.get(),
+                  stats.keyBytesSent(),
                   stats.valueBytesSent(),
                   stats.entriesWritten(),
+                  stats.setBatches(),
                   stopwatch)));
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
