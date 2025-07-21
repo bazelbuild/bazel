@@ -31,6 +31,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -94,6 +95,19 @@ public class Scrubber {
       }
     }
     return null;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof Scrubber scrubber)) {
+      return false;
+    }
+    return spawnScrubbers.equals(scrubber.spawnScrubbers);
+  }
+
+  @Override
+  public int hashCode() {
+    return spawnScrubbers.hashCode();
   }
 
   /**
@@ -174,6 +188,31 @@ public class Scrubber {
     /** Returns the scrubbing salt. */
     public String getSalt() {
       return salt;
+    }
+
+    @Override
+    public final boolean equals(Object o) {
+      if (!(o instanceof SpawnScrubber that)) return false;
+
+      return matchTools == that.matchTools
+          && Objects.equals(mnemonicPattern, that.mnemonicPattern)
+          && Objects.equals(labelPattern, that.labelPattern)
+          && Objects.equals(kindPattern, that.kindPattern)
+          && Objects.equals(omittedInputPatterns, that.omittedInputPatterns)
+          && Objects.equals(argReplacements, that.argReplacements)
+          && Objects.equals(salt, that.salt);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(
+          mnemonicPattern,
+          labelPattern,
+          kindPattern,
+          matchTools,
+          omittedInputPatterns,
+          argReplacements,
+          salt);
     }
   }
 }
