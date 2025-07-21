@@ -15,16 +15,27 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
+import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import java.util.List;
+import java.util.stream.Stream;
+import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,6 +50,113 @@ public final class CppSysrootTest extends BuildViewTestCase {
     scratch.file("dummy/BUILD", "cc_library(name='library')");
   }
 
+  /**
+   * Supply CC_FLAGS Make variable value computed from FeatureConfiguration. Appends them to
+   * original CC_FLAGS, so FeatureConfiguration can override legacy values.
+   */
+  public static class CcFlagsSupplier implements MakeVariableSupplier {
+
+    private final RuleContext ruleContext;
+
+    public CcFlagsSupplier(RuleContext ruleContext) {
+      this.ruleContext = Preconditions.checkNotNull(ruleContext);
+    }
+
+    @Override
+    @Nullable
+    public String getMakeVariable(String variableName) throws ExpansionException {
+      if (!variableName.equals(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME)) {
+        return null;
+      }
+
+      try {
+        CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
+        return computeCcFlags(ruleContext, toolchain);
+      } catch (RuleErrorException | EvalException e) {
+        throw new ExpansionException(e.getMessage());
+      }
+    }
+
+    @Override
+    public ImmutableMap<String, String> getAllMakeVariables() throws ExpansionException {
+      return ImmutableMap.of(
+          CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME,
+          getMakeVariable(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME));
+    }
+
+    /**
+     * Computes the appropriate value of the {@code $(CC_FLAGS)} Make variable based on the given
+     * toolchain.
+     */
+    public static String computeCcFlags(
+        RuleContext ruleContext, CcToolchainProvider toolchainProvider)
+        throws RuleErrorException, EvalException {
+
+      // Determine the original value of CC_FLAGS.
+      String originalCcFlags = toolchainProvider.getLegacyCcFlagsMakeVariable();
+      String sysrootCcFlags = "";
+      if (toolchainProvider.getSysrootPathFragment() != null) {
+        sysrootCcFlags = SYSROOT_FLAG + toolchainProvider.getSysrootPathFragment();
+      }
+
+      // Fetch additional flags from the FeatureConfiguration.
+      List<String> featureConfigCcFlags =
+          computeCcFlagsFromFeatureConfig(ruleContext, toolchainProvider);
+
+      // Combine the different flag sources.
+      ImmutableList.Builder<String> ccFlags = new ImmutableList.Builder<>();
+      ccFlags.add(originalCcFlags);
+
+      // Only add the sysroot flag if nothing else adds sysroot, _but_ it must appear before
+      // the feature config flags.
+      if (!containsSysroot(originalCcFlags, featureConfigCcFlags)) {
+        ccFlags.add(sysrootCcFlags);
+      }
+
+      ccFlags.addAll(featureConfigCcFlags);
+      return Joiner.on(" ").join(ccFlags.build());
+    }
+
+    private static boolean containsSysroot(String ccFlags, List<String> moreCcFlags) {
+      return Stream.concat(Stream.of(ccFlags), moreCcFlags.stream())
+          .anyMatch(str -> str.contains(SYSROOT_FLAG));
+    }
+
+    private static List<String> computeCcFlagsFromFeatureConfig(
+        RuleContext ruleContext, CcToolchainProvider toolchainProvider) throws RuleErrorException {
+      FeatureConfiguration featureConfiguration = null;
+      CppConfiguration cppConfiguration;
+      cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+      try {
+        featureConfiguration =
+            CcCommon.configureFeaturesOrThrowEvalException(
+                ruleContext.getFeatures(),
+                ruleContext.getDisabledFeatures(),
+                Language.CPP,
+                toolchainProvider,
+                cppConfiguration);
+      } catch (EvalException e) {
+        ruleContext.ruleError(e.getMessage());
+      }
+      if (featureConfiguration.actionIsConfigured(CppActionNames.CC_FLAGS_MAKE_VARIABLE)) {
+        try {
+          CcToolchainVariables buildVariables = toolchainProvider.getBuildVars();
+          return CppHelper.getCommandLine(
+              ruleContext,
+              featureConfiguration,
+              buildVariables,
+              CppActionNames.CC_FLAGS_MAKE_VARIABLE);
+
+        } catch (EvalException e) {
+          throw new RuleErrorException(e.getMessage());
+        }
+      }
+      return ImmutableList.of();
+    }
+  }
+
+  private static final String SYSROOT_FLAG = "--sysroot=";
+
   void testCCFlagsContainsSysroot(
       BuildConfigurationValue config, String sysroot, boolean shouldContain) throws Exception {
 
@@ -49,7 +167,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
             ruleContext.getTarget().getPackageDeclarations(),
             config,
             ruleContext.getDefaultTemplateVariableProviders(),
-            ImmutableList.of(new CcCommon.CcFlagsSupplier(ruleContext)));
+            ImmutableList.of(new CcFlagsSupplier(ruleContext)));
     if (shouldContain) {
       assertThat(context.lookupVariable("CC_FLAGS")).contains("--sysroot=" + sysroot);
     } else {
@@ -148,7 +266,7 @@ public final class CppSysrootTest extends BuildViewTestCase {
             ruleContext.getTarget().getPackageDeclarations(),
             targetConfig,
             ruleContext.getDefaultTemplateVariableProviders(),
-            ImmutableList.of(new CcCommon.CcFlagsSupplier(ruleContext)));
+            ImmutableList.of(new CcFlagsSupplier(ruleContext)));
     assertThat(context.lookupVariable("CC_FLAGS"))
         .contains("fc-start --sysroot=a/grte/top-from-feature fc-end");
     assertThat(context.lookupVariable("CC_FLAGS")).doesNotContain("--sysroot=a/grte/top fc");
