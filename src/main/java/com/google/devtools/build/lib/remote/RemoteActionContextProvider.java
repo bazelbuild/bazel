@@ -183,6 +183,7 @@ final class RemoteActionContextProvider {
               env.getCommandId().toString(),
               digestUtil,
               checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
+              checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)),
               combinedCache,
               remoteExecutor,
               tempPathGenerator,

@@ -36,9 +36,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
-import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
@@ -203,7 +201,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
             .setInputBytes(action.getInputBytes())
             .setInputFiles(action.getInputFiles());
 
-    maybeWriteParamFilesLocally(spawn);
+    remoteExecutionService.maybeWriteParamFilesLocally(spawn);
 
     spawnMetrics.setParseTimeInMs((int) totalTime.elapsed().toMillis());
 
@@ -533,17 +531,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
             && !message.isEmpty();
     if (printMessage) {
       outErr.printErr("Remote server execution message: " + message + "\n");
-    }
-  }
-
-  private void maybeWriteParamFilesLocally(Spawn spawn) throws IOException {
-    if (!executionOptions.shouldMaterializeParamFiles()) {
-      return;
-    }
-    for (ActionInput actionInput : spawn.getInputFiles().toList()) {
-      if (actionInput instanceof ParamFileActionInput paramFileActionInput) {
-        paramFileActionInput.atomicallyWriteRelativeTo(execRoot);
-      }
     }
   }
 

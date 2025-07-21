@@ -349,6 +349,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             "command-id",
             DIGEST_UTIL,
             remoteOptions,
+            Options.getDefaults(ExecutionOptions.class),
             remoteCache,
             executor,
             tempPathGenerator,
