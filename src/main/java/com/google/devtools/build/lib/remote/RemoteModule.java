@@ -112,6 +112,7 @@ import io.grpc.ManagedChannel;
 import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.rxjava3.plugins.RxJavaPlugins;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -348,6 +349,38 @@ public final class RemoteModule extends BlazeModule {
     boolean enableRemoteDownloader = shouldEnableRemoteDownloader(remoteOptions);
 
     if (enableDiskCache) {
+      // Check that the disk cache directory, which is managed by a garbage collecting idle task,
+      // does not contain the output base. Since the specified output base path may be a symlink,
+      // we resolve it fully. Intermediate symlinks do not have to be checked as the garbage
+      // collector ignores symlinks. We also resolve the disk cache directory, where intermediate
+      // symlinks also don't matter since deletion only occurs under the fully resolved path.
+      Path resolvedOutputBase = env.getOutputBase();
+      try {
+        resolvedOutputBase = resolvedOutputBase.resolveSymbolicLinks();
+      } catch (FileNotFoundException ignored) {
+        // Will be created later.
+      } catch (IOException e) {
+        throw createOptionsExitException(
+            "Failed to resolve output base: %s".formatted(e.getMessage()),
+            FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
+      }
+      Path resolvedDiskCache = env.getWorkingDirectory().getRelative(remoteOptions.diskCache);
+      try {
+        resolvedDiskCache = resolvedDiskCache.resolveSymbolicLinks();
+      } catch (FileNotFoundException ignored) {
+        // Will be created later.
+      } catch (IOException e) {
+        throw createOptionsExitException(
+            "Failed to resolve disk cache directory: %s".formatted(e.getMessage()),
+            FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
+      }
+      if (resolvedOutputBase.startsWith(resolvedDiskCache)) {
+        // This is dangerous as the disk cache GC may delete files in the output base.
+        throw createOptionsExitException(
+            "The output base [%s] cannot be a subdirectory of the --disk_cache directory [%s]"
+                .formatted(resolvedOutputBase, resolvedDiskCache),
+            FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
+      }
       var gcIdleTask =
           DiskCacheGarbageCollectorIdleTask.create(remoteOptions, env.getWorkingDirectory());
       if (gcIdleTask != null) {
@@ -1229,5 +1262,4 @@ public final class RemoteModule extends BlazeModule {
   Downloader getRemoteDownloader() {
     return remoteDownloader;
   }
-
 }
