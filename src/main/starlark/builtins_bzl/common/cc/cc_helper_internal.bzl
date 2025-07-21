@@ -148,7 +148,7 @@ extensions = struct(
 )
 
 def check_private_api():
-    cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST, depth = 2)
 
 def wrap_with_check_private_api(symbol):
     """

@@ -90,6 +90,7 @@ import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Structure;
@@ -1458,11 +1459,20 @@ public abstract class CcModule
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = Tuple.class),
             }),
+        @Param(
+            name = "depth",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "1"),
       })
-  public void checkPrivateApi(Object allowlistObject, StarlarkThread thread) throws EvalException {
+  public void checkPrivateApi(Object allowlistObject, Object depth, StarlarkThread thread)
+      throws EvalException {
     // This method may be called anywhere from builtins, but not outside (because it's not exposed
     // in cc_common.bzl
-    Module module = Module.ofInnermostEnclosingStarlarkFunction(thread, 1);
+    Module module =
+        Module.ofInnermostEnclosingStarlarkFunction(
+            thread, depth == null ? 1 : ((StarlarkInt) depth).toIntUnchecked());
     if (module == null) {
       // The module is null when the call is coming from one of the callbacks passed to execution
       // phase
