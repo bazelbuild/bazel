@@ -75,18 +75,6 @@ java_library(
 )
 
 java_library(
-    name = "bazel_configuration",
-    srcs = ["BazelConfiguration.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment",
-        "//src/main/java/com/google/devtools/build/lib/analysis/config:fragment_options",
-        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
-        "//src/main/java/com/google/devtools/common/options",
-    ],
-)
-
-java_library(
     name = "builtin_command_module",
     srcs = ["BazelBuiltinCommandModule.java"],
     deps = [
