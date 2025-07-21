@@ -31,6 +31,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -42,7 +43,7 @@ import javax.annotation.Nullable;
  * <p>See the documentation for the {@code --experimental_remote_scrub_config} flag for more
  * information.
  */
-public class Scrubber {
+public final class Scrubber {
 
   /** An error that occurred while parsing the scrubbing configuration. */
   public static class ConfigParseException extends Exception {
@@ -96,11 +97,24 @@ public class Scrubber {
     return null;
   }
 
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    return o instanceof Scrubber that && spawnScrubbers.equals(that.spawnScrubbers);
+  }
+
+  @Override
+  public int hashCode() {
+    return spawnScrubbers.hashCode();
+  }
+
   /**
    * Encapsulates a set of transformations required to scrub the remote cache key for a set of
    * spawns.
    */
-  public static class SpawnScrubber {
+  public static final class SpawnScrubber {
 
     private final Pattern mnemonicPattern;
     private final Pattern labelPattern;
@@ -174,6 +188,33 @@ public class Scrubber {
     /** Returns the scrubbing salt. */
     public String getSalt() {
       return salt;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      return o instanceof SpawnScrubber that
+          && matchTools == that.matchTools
+          && Objects.equals(mnemonicPattern, that.mnemonicPattern)
+          && Objects.equals(labelPattern, that.labelPattern)
+          && Objects.equals(kindPattern, that.kindPattern)
+          && Objects.equals(omittedInputPatterns, that.omittedInputPatterns)
+          && Objects.equals(argReplacements, that.argReplacements)
+          && Objects.equals(salt, that.salt);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(
+          mnemonicPattern,
+          labelPattern,
+          kindPattern,
+          matchTools,
+          omittedInputPatterns,
+          argReplacements,
+          salt);
     }
   }
 }
