@@ -95,11 +95,22 @@ public interface OsPathPolicy {
     return os == OS.WINDOWS ? WindowsOsPathPolicy.INSTANCE : UnixOsPathPolicy.INSTANCE;
   }
 
-  // We *should* use a case-insensitive policy for OS.DARWIN, but we currently don't handle this.
-  OsPathPolicy HOST_POLICY = of(OS.getCurrent());
+  /** The policy for the OS of the machine running the Bazel server's JVM. */
+  OsPathPolicy HOST_POLICY = getFilePathOs(OS.getCurrent());
 
   static OsPathPolicy getFilePathOs() {
     return HOST_POLICY;
+  }
+
+  static OsPathPolicy getFilePathOs(OS os) {
+    if (os != OS.WINDOWS) {
+      // We *should* use a case-insensitive policy for OS.DARWIN, but we currently don't handle
+      // this.
+      return UnixOsPathPolicy.INSTANCE;
+    }
+    return os == OS.getCurrent()
+        ? WindowsOsPathPolicy.INSTANCE
+        : WindowsOsPathPolicy.CROSS_PLATFORM_INSTANCE;
   }
 
   /** Utilities for implementations of {@link OsPathPolicy}. */
