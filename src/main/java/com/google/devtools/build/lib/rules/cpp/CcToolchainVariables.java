@@ -617,7 +617,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public boolean isTruthy() {
-      return values.isEmpty();
+      return !values.isEmpty();
     }
 
     @Override
