@@ -22,6 +22,8 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.CombinedCache.createFailureDetail;
+import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionForCredentialHelperException;
+import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionFromRemoteExecutionCapabilitiesException;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
@@ -80,6 +82,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
@@ -104,9 +107,12 @@ import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer.MerkleTree;
+import com.google.devtools.build.lib.remote.merkletree.v2.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
@@ -189,6 +195,7 @@ public class RemoteExecutionService {
   private final String buildRequestId;
   private final String commandId;
   private final DigestUtil digestUtil;
+  private final MerkleTreeComputer merkleTreeComputer;
   private final RemoteOptions remoteOptions;
   private final ExecutionOptions executionOptions;
   @Nullable private final CombinedCache combinedCache;
@@ -241,6 +248,14 @@ public class RemoteExecutionService {
     this.executionOptions = executionOptions;
     this.combinedCache = combinedCache;
     this.remoteExecutor = remoteExecutor;
+    this.merkleTreeComputer =
+        new MerkleTreeComputer(
+            digestUtil,
+            combinedCache instanceof RemoteExecutionCache remoteExecutionCache
+                ? remoteExecutionCache
+                : null,
+            buildRequestId,
+            commandId);
 
     Caffeine<Object, Object> merkleTreeCacheBuilder = Caffeine.newBuilder().softValues();
     // remoteMerkleTreesCacheSize = 0 means limitless.
@@ -317,7 +332,9 @@ public class RemoteExecutionService {
           .setValue(internalToUnicode(env.get(var)));
     }
 
-    return command.setWorkingDirectory(remotePathResolver.getWorkingDirectory()).build();
+    return command
+        .setWorkingDirectory(remotePathResolver.getWorkingDirectory().getPathString())
+        .build();
   }
 
   private boolean useRemoteCache() {
@@ -379,71 +396,6 @@ public class RemoteExecutionService {
       }
     }
     return outputDirMap;
-  }
-
-  private MerkleTree buildInputMerkleTree(
-      Spawn spawn,
-      SpawnExecutionContext context,
-      ToolSignature toolSignature,
-      @Nullable SpawnScrubber spawnScrubber,
-      RemotePathResolver remotePathResolver)
-      throws IOException {
-    // Add output directories to inputs so that they are created as empty directories by the
-    // executor. The spec only requires the executor to create the parent directory of an output
-    // directory, which differs from the behavior of both local and sandboxed execution.
-    SortedMap<PathFragment, ActionInput> outputDirMap =
-        buildOutputDirMap(spawn, remotePathResolver);
-    boolean useMerkleTreeCache = remoteOptions.remoteMerkleTreeCache;
-    if (toolSignature != null || spawnScrubber != null) {
-      // The Merkle tree cache is not yet compatible with scrubbing or marking tool files.
-      useMerkleTreeCache = false;
-    }
-    if (useMerkleTreeCache) {
-      InputMetadataProvider inputMetadataProvider = context.getInputMetadataProvider();
-      ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
-      remotePathResolver.walkInputs(
-          spawn,
-          context,
-          (Object nodeKey, InputWalker walker) ->
-              subMerkleTrees.add(
-                  buildMerkleTreeVisitor(
-                      nodeKey,
-                      walker,
-                      inputMetadataProvider,
-                      context.getPathResolver(),
-                      spawnScrubber)));
-      if (!outputDirMap.isEmpty()) {
-        subMerkleTrees.add(
-            MerkleTree.build(
-                outputDirMap,
-                inputMetadataProvider,
-                execRoot,
-                context.getPathResolver(),
-                /* spawnScrubber= */ null,
-                digestUtil));
-      }
-      return MerkleTree.merge(subMerkleTrees, digestUtil);
-    } else {
-      SortedMap<PathFragment, ActionInput> inputMap =
-          remotePathResolver.getInputMapping(
-              context, /* willAccessRepeatedly= */ !remoteOptions.remoteDiscardMerkleTrees);
-      if (!outputDirMap.isEmpty()) {
-        // The map returned by getInputMapping is mutable, but must not be mutated here as it is
-        // shared with all other strategies.
-        SortedMap<PathFragment, ActionInput> newInputMap = new TreeMap<>();
-        newInputMap.putAll(inputMap);
-        newInputMap.putAll(outputDirMap);
-        inputMap = newInputMap;
-      }
-      return MerkleTree.build(
-          inputMap,
-          toolSignature == null ? ImmutableSet.of() : toolSignature.toolInputs,
-          context.getInputMetadataProvider(),
-          execRoot,
-          context.getPathResolver(),
-          spawnScrubber,
-          digestUtil);
-    }
   }
 
   private MerkleTree buildMerkleTreeVisitor(
@@ -629,8 +581,15 @@ public class RemoteExecutionService {
         serverHighestVersion == null || serverHighestVersion.compareTo(ApiVersion.twoPointOne) >= 0;
   }
 
+  @VisibleForTesting
+  RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
+      throws IOException, ExecException, InterruptedException {
+    return buildRemoteAction(spawn, context, MerkleTreeComputer.SubTreePolicy.UPLOAD);
+  }
+
   /** Creates a new {@link RemoteAction} instance from spawn. */
-  public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
+  public RemoteAction buildRemoteAction(
+      Spawn spawn, SpawnExecutionContext context, MerkleTreeComputer.SubTreePolicy subTreePolicy)
       throws IOException, ExecException, InterruptedException {
     maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.REMOTE_SETUP);
     try {
@@ -641,9 +600,21 @@ public class RemoteExecutionService {
       RemotePathResolver remotePathResolver =
           RemotePathResolver.createMapped(baseRemotePathResolver, execRoot, spawn.getPathMapper());
       ToolSignature toolSignature = getToolSignature(spawn, context);
-      SpawnScrubber spawnScrubber = scrubber != null ? scrubber.forSpawn(spawn) : null;
-      final MerkleTree merkleTree =
-          buildInputMerkleTree(spawn, context, toolSignature, spawnScrubber, remotePathResolver);
+      MerkleTree merkleTree;
+      try {
+        merkleTree =
+            merkleTreeComputer.buildForSpawn(
+                spawn,
+                toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
+                scrubber,
+                context,
+                remotePathResolver,
+                subTreePolicy);
+      } catch (CredentialHelperException e) {
+        throw createExecExceptionForCredentialHelperException(e);
+      } catch (RemoteExecutionCapabilitiesException e) {
+        throw createExecExceptionFromRemoteExecutionCapabilitiesException(e);
+      }
 
       // Get the remote platform properties.
       Platform platform;
@@ -655,6 +626,7 @@ public class RemoteExecutionService {
         platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
       }
 
+      SpawnScrubber spawnScrubber = scrubber != null ? scrubber.forSpawn(spawn) : null;
       Command command =
           buildCommand(
               useOutputPaths(),
@@ -669,7 +641,7 @@ public class RemoteExecutionService {
       Action action =
           Utils.buildAction(
               commandHash,
-              merkleTree.getRootDigest(),
+              merkleTree.rootDigest(),
               platform,
               context.getTimeout(),
               Spawns.mayBeCachedRemotely(spawn),
@@ -1991,17 +1963,21 @@ public class RemoteExecutionService {
     // network connection.
     maybeAcquireRemoteActionBuildingSemaphore(ProfilerTask.UPLOAD_TIME);
     try {
-      MerkleTree merkleTree = action.getMerkleTree();
-      if (merkleTree == null) {
-        // --experimental_remote_discard_merkle_trees was provided.
-        // Recompute the input root.
+      var merkleTree = action.getMerkleTree();
+      if (merkleTree == null || force) {
+        // --experimental_remote_discard_merkle_trees was provided or the remote lost a shared
+        // subtree uploaded previously. Recompute the input root and upload everything.
         Spawn spawn = action.getSpawn();
         SpawnExecutionContext context = action.getSpawnExecutionContext();
         ToolSignature toolSignature = getToolSignature(spawn, context);
-        SpawnScrubber spawnScrubber = scrubber != null ? scrubber.forSpawn(spawn) : null;
         merkleTree =
-            buildInputMerkleTree(
-                spawn, context, toolSignature, spawnScrubber, action.getRemotePathResolver());
+            merkleTreeComputer.buildForSpawn(
+                spawn,
+                toolSignature != null ? toolSignature.toolInputs : ImmutableSet.of(),
+                scrubber,
+                context,
+                action.getRemotePathResolver(),
+                MerkleTreeComputer.SubTreePolicy.FORCE_UPLOAD);
       }
 
       remoteExecutionCache.ensureInputsPresent(

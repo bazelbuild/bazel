@@ -35,17 +35,19 @@ import java.util.concurrent.ConcurrentHashMap;
 public interface RemotePathResolver {
 
   /**
-   * Returns the {@code workingDirectory} for a remote action. Empty string if working directory is
-   * the input root.
+   * Returns the {@code workingDirectory} for a remote action. Empty if working directory is the
+   * input root.
    */
-  String getWorkingDirectory();
+  PathFragment getWorkingDirectory();
 
   /**
    * Returns a {@link SortedMap} which maps from input paths for remote action to {@link
    * ActionInput}.
    */
-  SortedMap<PathFragment, ActionInput> getInputMapping(
-      SpawnExecutionContext context, boolean willAccessRepeatedly);
+  default SortedMap<PathFragment, ActionInput> getInputMapping(
+      SpawnExecutionContext context, boolean willAccessRepeatedly) {
+    return context.getInputMapping(getWorkingDirectory(), willAccessRepeatedly);
+  }
 
   void walkInputs(
       Spawn spawn, SpawnExecutionContext context, SpawnInputExpander.InputVisitor visitor)
@@ -94,14 +96,8 @@ public interface RemotePathResolver {
     }
 
     @Override
-    public String getWorkingDirectory() {
-      return "";
-    }
-
-    @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(
-        SpawnExecutionContext context, boolean willAccessRepeatedly) {
-      return context.getInputMapping(PathFragment.EMPTY_FRAGMENT, willAccessRepeatedly);
+    public PathFragment getWorkingDirectory() {
+      return PathFragment.EMPTY_FRAGMENT;
     }
 
     @Override
@@ -145,24 +141,19 @@ public interface RemotePathResolver {
   class SiblingRepositoryLayoutResolver implements RemotePathResolver {
 
     private final Path execRoot;
+    private final PathFragment workingDirectory;
 
     public SiblingRepositoryLayoutResolver(Path execRoot) {
       this.execRoot = execRoot;
-    }
-
-    @Override
-    public String getWorkingDirectory() {
-      return execRoot.getBaseName();
-    }
-
-    @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(
-        SpawnExecutionContext context, boolean willAccessRepeatedly) {
       // The "root directory" of the action from the point of view of RBE is the parent directory of
       // the execroot locally. This is so that paths of artifacts in external repositories don't
       // start with an uplevel reference.
-      return context.getInputMapping(
-          PathFragment.create(checkNotNull(getWorkingDirectory())), willAccessRepeatedly);
+      this.workingDirectory = PathFragment.create(checkNotNull(execRoot.getBaseName()));
+    }
+
+    @Override
+    public PathFragment getWorkingDirectory() {
+      return workingDirectory;
     }
 
     @Override
@@ -179,7 +170,7 @@ public interface RemotePathResolver {
     }
 
     private Path getBase() {
-        return execRoot;
+      return execRoot;
     }
 
     @Override
@@ -217,7 +208,7 @@ public interface RemotePathResolver {
           new ConcurrentHashMap<>();
 
       @Override
-      public String getWorkingDirectory() {
+      public PathFragment getWorkingDirectory() {
         return base.getWorkingDirectory();
       }
 
