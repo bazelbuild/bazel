@@ -19,6 +19,7 @@ load(
     _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST",
 )
 load(":common/cc/cc_info.bzl", "CcInfo", "CcNativeLibraryInfo", "create_linking_context", "merge_linking_contexts")
+load(":common/cc/cc_launcher_info.bzl", "CcLauncherInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/compile/compile.bzl", "compile")
 load(":common/cc/link/create_extra_link_time_library.bzl", "build_libraries", "create_extra_link_time_library")
@@ -777,7 +778,8 @@ def _create_lto_backend_artifacts(
     )
 
 def _create_cc_launcher_info(*, cc_info, compilation_outputs):
-    return cc_common_internal.create_cc_launcher_info(cc_info = cc_info, compilation_outputs = compilation_outputs)
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return CcLauncherInfo(cc_info = cc_info, compilation_outputs = compilation_outputs)
 
 def _objcopy(*, ctx, cc_toolchain):
     cc_common_internal.check_private_api(allowlist = _OLD_STARLARK_API_ALLOWLISTED_PACKAGES)
@@ -865,7 +867,7 @@ cc_common = struct(
     # Google internal methods.
     create_cc_launcher_info = _create_cc_launcher_info,
     # TODO: b/295221112 - Remove after migrating launchers to Starlark flags
-    launcher_provider = _builtins.internal.cc_internal.launcher_provider,
+    launcher_provider = CcLauncherInfo,
     objcopy = _objcopy,
     objcopy_tool_path = _objcopy_tool_path,
     ld_tool_path = _ld_tool_path,

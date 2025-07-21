@@ -20,6 +20,7 @@ These may change at any time and are closely coupled to the rule implementation.
 
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_launcher_info.bzl", "CcLauncherInfo")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 
 _py_builtins = _builtins.internal.py_builtins
@@ -158,7 +159,7 @@ def _strip_opts(ctx):
 
 # This replaces the Java-defined name using exports.bzl toplevels mapping.
 py_internal = struct(
-    CcLauncherInfo = _builtins.internal.cc_internal.launcher_provider,
+    CcLauncherInfo = CcLauncherInfo,
     PackageSpecificationInfo = PackageSpecificationInfo,
     add_py_extra_pseudo_action = _add_py_extra_pseudo_action,
     are_action_listeners_enabled = _are_action_listeners_enabled,

@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
-import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -236,11 +235,6 @@ public class CcStarlarkInternal implements StarlarkValue {
         .getDefaultHdrsCheck();
   }
 
-  @StarlarkMethod(name = "launcher_provider", documented = false, structField = true)
-  public ProviderApi getCcLauncherInfoProvider() throws EvalException {
-    return CcLauncherInfo.PROVIDER;
-  }
-
   /**
    * TODO(bazel-team): This can be re-written directly to Starlark but it will cause a memory
    * regression due to the way StarlarkComputedDefault is stored for each rule.
@@ -258,28 +252,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(name = "stl_computed_default", documented = false)
   public ComputedDefault getStlComputedDefault() {
     return new StlComputedDefault();
-  }
-
-  @StarlarkMethod(
-      name = "create_cc_launcher_info",
-      doc = "Create a CcLauncherInfo instance.",
-      parameters = {
-        @Param(
-            name = "cc_info",
-            positional = false,
-            named = true,
-            doc = "CcInfo instance.",
-            allowedTypes = {@ParamType(type = CcInfo.class)}),
-        @Param(
-            name = "compilation_outputs",
-            positional = false,
-            named = true,
-            doc = "CcCompilationOutputs instance.",
-            allowedTypes = {@ParamType(type = CcCompilationOutputs.class)})
-      })
-  public CcLauncherInfo createCcLauncherInfo(
-      CcInfo ccInfo, CcCompilationOutputs compilationOutputs) {
-    return new CcLauncherInfo(ccInfo, compilationOutputs);
   }
 
   @SerializationConstant @VisibleForSerialization
