@@ -174,7 +174,7 @@ public class BazelRuleClassProvider {
           env.put("PATH", null);
         }
 
-        // Signal Unicode support to locale-aware tools. A samdboxed environment
+        // Signal Unicode support to locale-aware tools. A sandboxed environment
         // without any locale variable set would typically be interpreted as an
         // ASCII-only setup, which may not support special characters in filenames.
         env.put("LC_CTYPE", "C.UTF-8");
