@@ -145,4 +145,13 @@ public class PathFragmentPrefixTrieTest {
     assertThat(trie.toString()).isEqualTo("[included: [a, a/b/c, e], excluded: [a/b, a/b/d]]");
   }
 
+  @Test
+  public void testHasIncludedPaths() throws Exception {
+    PathFragmentPrefixTrie trie = new PathFragmentPrefixTrie();
+
+    assertThat(trie.hasIncludedPaths()).isFalse();
+
+    trie.put(PathFragment.create("a"), true);
+    assertThat(trie.hasIncludedPaths()).isTrue();
+  }
 }
