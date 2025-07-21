@@ -329,6 +329,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
     return switch (value) {
       case ConfiguredTargetValue configuredTargetValue ->
           configuredTargetValue.getConfiguredTarget();
+      // The value is intentionally ignored as the key implements CqueryNode.
       case AspectValue ignored when key instanceof AspectKey aspectKey -> aspectKey;
       case null -> null;
       default -> throw new IllegalStateException("unknown value type for CqueryNode");
