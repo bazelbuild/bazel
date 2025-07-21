@@ -213,4 +213,9 @@ public final class PathFragmentPrefixTrie {
               pathFragment, included ? "included" : "excluded", trieString));
     }
   }
+
+  /** Returns true if there are any included paths in the trie. */
+  public boolean hasIncludedPaths() {
+    return !includedPaths.isEmpty();
+  }
 }
