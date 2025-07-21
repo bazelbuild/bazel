@@ -1185,7 +1185,7 @@ public class BuildTool {
 
     private final ExtendedEventHandler eventHandler;
 
-    public static RemoteAnalysisCachingDependenciesProvider forAnalysis(
+    static RemoteAnalysisCachingDependenciesProvider forAnalysis(
         CommandEnvironment env, Optional<PathFragmentPrefixTrie> maybeActiveDirectoriesMatcher)
         throws InterruptedException, AbruptExitException, InvalidConfigurationException {
       var options = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
@@ -1244,22 +1244,32 @@ public class BuildTool {
         case RemoteAnalysisCacheMode.DUMP_UPLOAD_MANIFEST_ONLY:
           // Upload or Dump mode: allow overriding the project file matcher with the active
           // directories flag.
-          List<String> activeDirectories =
+          List<String> activeDirectoriesFromFlag =
               env.getOptions().getOptions(SkyfocusOptions.class).activeDirectories;
-          if (activeDirectories.isEmpty()) {
-            return maybeProjectFileMatcher;
+          var result = maybeProjectFileMatcher;
+          if (!activeDirectoriesFromFlag.isEmpty()) {
+            env.getReporter()
+                .handle(
+                    Event.warn(
+                        "Specifying --experimental_active_directories will override the active"
+                            + " directories specified in the PROJECT.scl file"));
+            try {
+              result = Optional.of(PathFragmentPrefixTrie.of(activeDirectoriesFromFlag));
+            } catch (PathFragmentPrefixTrieException e) {
+              throw new InvalidConfigurationException(
+                  "Active directories configuration error: " + e.getMessage(),
+                  Code.INVALID_PROJECT);
+            }
           }
-          env.getReporter()
-              .handle(
-                  Event.warn(
-                      "Specifying --experimental_active_directories will override the active"
-                          + " directories specified in the PROJECT.scl file"));
-          try {
-          return Optional.of(PathFragmentPrefixTrie.of(activeDirectories));
-          } catch (PathFragmentPrefixTrieException e) {
+
+          if (result.isEmpty() || !result.get().hasIncludedPaths()) {
             throw new InvalidConfigurationException(
-                "Active directories configuration error: " + e.getMessage(), Code.INVALID_PROJECT);
+                "Active directories configuration error: No active directories definitions found in"
+                    + " --experimental_active_directories or PROJECT.scl, they are necessary to"
+                    + " filter for targets to upload with Skycache.");
           }
+
+          return result;
         default:
           throw new IllegalStateException("Unknown RemoteAnalysisCacheMode: " + mode);
       }

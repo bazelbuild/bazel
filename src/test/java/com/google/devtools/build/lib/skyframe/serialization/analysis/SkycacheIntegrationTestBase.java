@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -86,7 +87,20 @@ public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCa
   }
 
   @Test
-  public void serializingFrontierWithNoProjectFile_hasNoError_withNothingSerialized()
+  public void expectCheckedInvalidConfiguration_withDuplicateActiveDirectories() throws Exception {
+    write("foo/BUILD", "filegroup(name='A', srcs = [])");
+    addOptions("--experimental_active_directories=foo,foo", UPLOAD_MODE_OPTION);
+    InvalidConfigurationException e =
+        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:A"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Active directories configuration error: foo has already been explicitly marked as"
+                + " included. Current state: [included: [foo], excluded: []]");
+  }
+
+  @Test
+  public void expectCheckedInvalidConfiguration_withNoActiveDirectoriesOrProjectScl()
       throws Exception {
     write(
         "foo/BUILD",
@@ -94,12 +108,65 @@ public abstract class SkycacheIntegrationTestBase extends BuildIntegrationTestCa
         package_group(name = "empty")
         """);
     addOptions(UPLOAD_MODE_OPTION);
-    buildTarget("//foo:empty");
-    assertThat(
-            getCommandEnvironment()
-                .getRemoteAnalysisCachingEventListener()
-                .getSerializedKeysCount())
-        .isEqualTo(0);
+    InvalidConfigurationException e =
+        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:empty"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Active directories configuration error: No active directories definitions found in"
+                + " --experimental_active_directories or PROJECT.scl");
+  }
+
+  @Test
+  public void expectCheckedInvalidConfiguration_withExplicitEmptyActiveDirectoriesFlag()
+      throws Exception {
+    write("foo/BUILD", "filegroup(name='A', srcs = [])");
+    addOptions("--experimental_active_directories=");
+    addOptions(UPLOAD_MODE_OPTION);
+    InvalidConfigurationException e =
+        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:A"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Active directories configuration error: No active directories definitions found in"
+                + " --experimental_active_directories or PROJECT.scl");
+  }
+
+  @Test
+  public void expectCheckedInvalidConfiguration_withNoActiveDirectoriesInProjectScl()
+      throws Exception {
+    write("foo/BUILD", "filegroup(name='A', srcs = [])");
+    writeProjectSclDefinition("test/project_proto.scl", /* alsoWriteBuildFile= */ true);
+    write(
+        "foo/PROJECT.scl",
+"""
+load("//test:project_proto.scl", "project_pb2")
+project = project_pb2.Project.create(project_directories = []) # empty
+""");
+    addOptions(UPLOAD_MODE_OPTION);
+    InvalidConfigurationException e =
+        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:A"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Active directories configuration error: No active directories definitions found in"
+                + " --experimental_active_directories or PROJECT.scl");
+  }
+
+  @Test
+  public void
+      expectCheckedInvalidConfiguration_withOnlyExcludedDirectories_withActiveDirectoriesFlag()
+          throws Exception {
+    write("foo/BUILD", "filegroup(name='A', srcs = [])");
+    addOptions("--experimental_active_directories=-foo");
+    addOptions(UPLOAD_MODE_OPTION);
+    InvalidConfigurationException e =
+        assertThrows(InvalidConfigurationException.class, () -> buildTarget("//foo:A"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "Active directories configuration error: No active directories definitions found in"
+                + " --experimental_active_directories or PROJECT.scl");
   }
 
   @Test
