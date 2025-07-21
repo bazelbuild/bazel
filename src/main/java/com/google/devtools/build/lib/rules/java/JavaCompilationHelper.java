@@ -430,10 +430,7 @@ public final class JavaCompilationHelper {
 
     JavaHeaderCompileAction.Builder builder = getJavaHeaderCompileActionBuilder();
     builder.setOutputJar(outputJar);
-    if (getJavaConfiguration().javaHeaderCompilationDirectDeps()
-        && headerCompilationOutputJar != null) {
-      builder.setHeaderCompilationOutputJar(headerCompilationOutputJar);
-    }
+    builder.setHeaderCompilationOutputJar(headerCompilationOutputJar);
     builder.setOutputDepsProto(headerDeps);
     builder.setPlugins(plugins);
     if (plugins
@@ -461,10 +458,7 @@ public final class JavaCompilationHelper {
     builder.setJavacOpts(customJavacOpts);
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
-    builder.setHeaderCompilationDirectJars(
-        getJavaConfiguration().javaHeaderCompilationDirectDeps()
-            ? attributes.getHeaderCompilationDirectJars()
-            : attributes.getDirectJars());
+    builder.setHeaderCompilationDirectJars(attributes.getHeaderCompilationDirectJars());
     builder.setDirectJars(attributes.getDirectJars());
     builder.setTargetLabel(attributes.getTargetLabel());
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());

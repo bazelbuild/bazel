@@ -1,3 +1,24 @@
+## Release 9.0.0-pre.20250714.1 (2025-07-18)
+
+```
+Baseline: e08faa5de8095fe27223b6af84b41fd135aa9b4a
+```
+
+Incompatible changes:
+
+  - `linking_context.linkstamps` has been removed.
+
+Important changes:
+
+  - If a cc toolchain feature named `shorten_virtual_includes` is
+    enabled, virtual include header files are linked under
+    `bin/_virtual_includes/<hash of target path>` instead of
+    `bin/<target package path>/_virtual_includes/<target name>`. This
+    shortens the virtual include paths which is critical for
+    mitigating long path issue with MSVC on Windows.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim.
+
 ## Release 9.0.0-pre.20250710.1 (2025-07-16)
 
 ```

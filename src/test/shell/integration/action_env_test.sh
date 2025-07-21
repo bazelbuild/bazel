@@ -124,6 +124,31 @@ function test_simple_latest_wins() {
   expect_log "BAR=bar"
 }
 
+function test_simple_latest_wins_removed() {
+  export FOO=environmentfoo
+  export BAR=environmentbar
+  bazel build --action_env=FOO=foo \
+      --action_env=BAR=willbeoverridden --action_env==BAR pkg:showenv \
+      || fail "${PRODUCT_NAME} build showenv failed"
+
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
+  expect_log "FOO=foo"
+  expect_not_log "BAR"
+}
+
+function test_simple_latest_wins_removed_then_added() {
+  export FOO=environmentfoo
+  export BAR=environmentbar
+  bazel build --action_env=FOO=foo \
+      --action_env=BAR=willbeoverridden --action_env==BAR \
+      --action_env=BAR=override pkg:showenv \
+      || fail "${PRODUCT_NAME} build showenv failed"
+
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
+  expect_log "FOO=foo"
+  expect_log "BAR=override"
+}
+
 function test_client_env() {
   export FOO=startup_foo
   bazel clean --expunge
@@ -134,6 +159,18 @@ function test_client_env() {
 
   cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
   expect_log "FOO=client_foo"
+}
+
+function test_empty() {
+  export FOO=startup_foo
+  bazel clean --expunge
+  bazel help build > /dev/null || fail "${PRODUCT_NAME} help failed"
+  export FOO=client_foo
+  bazel build --action_env=FOO= pkg:showenv || \
+    fail "${PRODUCT_NAME} build showenv failed"
+
+  cat `bazel info ${PRODUCT_NAME}-genfiles`/pkg/env.txt > $TEST_log
+  expect_log "FOO=$"
 }
 
 function test_redo_action() {
