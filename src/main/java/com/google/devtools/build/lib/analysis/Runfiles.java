@@ -255,15 +255,6 @@ public final class Runfiles implements RunfilesApi {
     return emptyFilesSupplier.getExtraPaths(manifestKeys);
   }
 
-  /**
-   * Returns the symlinks as a map from path fragment to artifact.
-   *
-   * @param checker If not null, check for conflicts using this checker.
-   */
-  Map<PathFragment, Artifact> getSymlinksAsMap(ConflictChecker checker) {
-    return entriesToMap(symlinks, checker);
-  }
-
   @VisibleForTesting
   static Map<PathFragment, Artifact> filterListForObscuringSymlinks(
       @Nullable BiConsumer<ConflictType, String> receiver,
@@ -344,8 +335,10 @@ public final class Runfiles implements RunfilesApi {
   SortedMap<PathFragment, Artifact> getRunfilesInputs(
       @Nullable BiConsumer<ConflictType, String> receiver, @Nullable Artifact repoMappingManifest) {
     ConflictChecker checker = new ConflictChecker(receiver);
-    Map<PathFragment, Artifact> manifest = getSymlinksAsMap(checker);
-    // Add artifacts (committed to inclusion on construction of runfiles).
+    Map<PathFragment, Artifact> manifest = new LinkedHashMap<>();
+    for (SymlinkEntry entry : symlinks.toList()) {
+      checker.put(manifest, entry.getPath(), entry.getArtifact());
+    }
     for (Artifact artifact : artifacts.toList()) {
       checker.put(manifest, artifact.getRunfilesPath(), artifact);
     }
@@ -362,7 +355,7 @@ public final class Runfiles implements RunfilesApi {
     // "myworkspace/mylib.so"->"/path/to/mylib.so".
     ManifestBuilder builder = new ManifestBuilder(PathFragment.create(prefix));
     builder.addUnderWorkspace(manifest, checker);
-    builder.addRootSymlinks(getRootSymlinksAsMap(checker), checker);
+    builder.addRootSymlinks(rootSymlinks, checker);
     if (repoMappingManifest != null) {
       checker.put(builder.manifest, REPO_MAPPING_PATH_FRAGMENT, repoMappingManifest);
     }
@@ -399,9 +392,9 @@ public final class Runfiles implements RunfilesApi {
     }
 
     /** Adds a map to the root directory. */
-    void addRootSymlinks(Map<PathFragment, Artifact> inputManifest, ConflictChecker checker) {
-      for (Map.Entry<PathFragment, Artifact> entry : inputManifest.entrySet()) {
-        checker.put(manifest, checkForWorkspace(entry.getKey()), entry.getValue());
+    void addRootSymlinks(NestedSet<SymlinkEntry> rootSymlinks, ConflictChecker checker) {
+      for (SymlinkEntry entry : rootSymlinks.toList()) {
+        checker.put(manifest, checkForWorkspace(entry.getPath()), entry.getArtifact());
       }
     }
 
@@ -443,15 +436,6 @@ public final class Runfiles implements RunfilesApi {
   }
 
   /**
-   * Returns the root symlinks as a map from path fragment to artifact.
-   *
-   * @param checker If not null, check for conflicts using this checker.
-   */
-  private Map<PathFragment, Artifact> getRootSymlinksAsMap(ConflictChecker checker) {
-    return entriesToMap(rootSymlinks, checker);
-  }
-
-  /**
    * Returns the manifest expander specified for this runfiles tree.
    */
   private EmptyFilesSupplier getEmptyFilesProvider() {
@@ -485,23 +469,6 @@ public final class Runfiles implements RunfilesApi {
    */
   public boolean isEmpty() {
     return artifacts.isEmpty() && symlinks.isEmpty() && rootSymlinks.isEmpty();
-  }
-
-  /**
-   * Flatten a sequence of entries into a single map.
-   *
-   * @param entrySet Sequence of entries to add.
-   * @param checker If not null, check for conflicts with this checker, otherwise silently allow
-   *     entries to overwrite previous entries.
-   * @return Map<PathFragment, Artifact> Map of runfile entries.
-   */
-  private static Map<PathFragment, Artifact> entriesToMap(
-      NestedSet<SymlinkEntry> entrySet, ConflictChecker checker) {
-    Map<PathFragment, Artifact> map = new LinkedHashMap<>();
-    for (SymlinkEntry entry : entrySet.toList()) {
-      checker.put(map, entry.getPath(), entry.getArtifact());
-    }
-    return map;
   }
 
   /** Returns currently policy for conflicting symlink entries. */

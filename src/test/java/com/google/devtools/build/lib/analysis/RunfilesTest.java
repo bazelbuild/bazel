@@ -53,8 +53,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class RunfilesTest extends FoundationTestCase {
 
-  private static final ConflictChecker IGNORE_CHECKER = new ConflictChecker(/* receiver= */ null);
-
   private void checkWarning() {
     assertContainsEvent("obscured by a -> x");
     assertWithMessage("Runfiles.filterListForObscuringSymlinks should have warned once")
@@ -251,15 +249,23 @@ public final class RunfilesTest extends FoundationTestCase {
     ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
     Artifact artifactA = ActionsTestUtil.createArtifact(root, "a/target");
     Artifact artifactB = ActionsTestUtil.createArtifact(root, "b/target");
-    PathFragment sympathA = PathFragment.create("a/symlink");
-    PathFragment sympathB = PathFragment.create("b/symlink");
-    Runfiles runfilesA = new Runfiles.Builder("TESTING").addSymlink(sympathA, artifactA).build();
-    Runfiles runfilesB = new Runfiles.Builder("TESTING").addSymlink(sympathB, artifactB).build();
+    Runfiles runfilesA =
+        new Runfiles.Builder("TESTING")
+            .addSymlink(PathFragment.create("a/symlink"), artifactA)
+            .build();
+    Runfiles runfilesB =
+        new Runfiles.Builder("TESTING")
+            .addSymlink(PathFragment.create("b/symlink"), artifactB)
+            .build();
     StarlarkThread thread = newStarlarkThread();
 
     Runfiles runfilesC = runfilesA.merge(runfilesB, thread);
-    assertThat(runfilesC.getSymlinksAsMap(IGNORE_CHECKER))
-        .containsExactly(sympathA, artifactA, sympathB, artifactB);
+    assertThat(runfilesC.getRunfilesInputs(/* repoMappingManifest= */ null))
+        .containsExactly(
+            PathFragment.create("TESTING/a/symlink"),
+            artifactA,
+            PathFragment.create("TESTING/b/symlink"),
+            artifactB);
   }
 
   @Test
@@ -268,18 +274,30 @@ public final class RunfilesTest extends FoundationTestCase {
     Artifact artifactA = ActionsTestUtil.createArtifact(root, "a/target");
     Artifact artifactB = ActionsTestUtil.createArtifact(root, "b/target");
     Artifact artifactC = ActionsTestUtil.createArtifact(root, "c/target");
-    PathFragment sympathA = PathFragment.create("a/symlink");
-    PathFragment sympathB = PathFragment.create("b/symlink");
-    PathFragment sympathC = PathFragment.create("c/symlink");
-    Runfiles runfilesA = new Runfiles.Builder("TESTING").addSymlink(sympathA, artifactA).build();
-    Runfiles runfilesB = new Runfiles.Builder("TESTING").addSymlink(sympathB, artifactB).build();
-    Runfiles runfilesC = new Runfiles.Builder("TESTING").addSymlink(sympathC, artifactC).build();
+    Runfiles runfilesA =
+        new Runfiles.Builder("TESTING")
+            .addSymlink(PathFragment.create("a/symlink"), artifactA)
+            .build();
+    Runfiles runfilesB =
+        new Runfiles.Builder("TESTING")
+            .addSymlink(PathFragment.create("b/symlink"), artifactB)
+            .build();
+    Runfiles runfilesC =
+        new Runfiles.Builder("TESTING")
+            .addSymlink(PathFragment.create("c/symlink"), artifactC)
+            .build();
     StarlarkThread thread = newStarlarkThread();
 
     Runfiles runfilesMerged =
         runfilesA.mergeAll(StarlarkList.immutableOf(runfilesB, runfilesC), thread);
-    assertThat(runfilesMerged.getSymlinksAsMap(IGNORE_CHECKER))
-        .containsExactly(sympathA, artifactA, sympathB, artifactB, sympathC, artifactC);
+    assertThat(runfilesMerged.getRunfilesInputs(/* repoMappingManifest= */ null))
+        .containsExactly(
+            PathFragment.create("TESTING/a/symlink"),
+            artifactA,
+            PathFragment.create("TESTING/b/symlink"),
+            artifactB,
+            PathFragment.create("TESTING/c/symlink"),
+            artifactC);
   }
 
   @Test
