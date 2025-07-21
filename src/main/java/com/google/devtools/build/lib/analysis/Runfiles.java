@@ -50,7 +50,6 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
-import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -177,11 +176,8 @@ public final class Runfiles implements RunfilesApi {
    *
    * <p>Note that conflicts are found relatively late, when the manifest file is created, not when
    * the symlinks are added to runfiles.
-   *
-   * <p>If no EventHandler is available, all values are treated as IGNORE.
    */
   public enum ConflictPolicy {
-    IGNORE,
     WARN,
     ERROR,
   }
@@ -257,8 +253,7 @@ public final class Runfiles implements RunfilesApi {
 
   @VisibleForTesting
   static Map<PathFragment, Artifact> filterListForObscuringSymlinks(
-      @Nullable BiConsumer<ConflictType, String> receiver,
-      Map<PathFragment, Artifact> workingManifest) {
+      RunfilesConflictReceiver receiver, Map<PathFragment, Artifact> workingManifest) {
     Map<PathFragment, Artifact> newManifest =
         Maps.newHashMapWithExpectedSize(workingManifest.size());
     Set<PathFragment> noFurtherObstructions = new HashSet<>();
@@ -279,15 +274,14 @@ public final class Runfiles implements RunfilesApi {
         Artifact ancestor = workingManifest.get(prefix);
         if (ancestor != null) {
           // This is an obscuring symlink, so just drop it and move on if there's no reporter.
-          if (receiver == null) {
+          if (receiver == RunfilesConflictReceiver.NO_OP) {
             continue outer;
           }
           PathFragment suffix = source.subFragment(n - j, n);
           PathFragment viaAncestor = ancestor.getExecPath().getRelative(suffix);
           PathFragment expected = symlink.getExecPath();
           if (!viaAncestor.equals(expected)) {
-            receiver.accept(
-                ConflictType.PREFIX_CONFLICT,
+            receiver.prefixConflict(
                 "runfiles symlink "
                     + source
                     + " -> "
@@ -318,8 +312,9 @@ public final class Runfiles implements RunfilesApi {
    *     entries and elements that live outside the source tree. Null values represent empty input
    *     files.
    */
-  public SortedMap<PathFragment, Artifact> getRunfilesInputs(Artifact repoMappingManifest) {
-    return getRunfilesInputs(/* receiver= */ null, repoMappingManifest);
+  public SortedMap<PathFragment, Artifact> getRunfilesInputs(
+      @Nullable Artifact repoMappingManifest) {
+    return getRunfilesInputs(RunfilesConflictReceiver.NO_OP, repoMappingManifest);
   }
 
   /**
@@ -333,31 +328,30 @@ public final class Runfiles implements RunfilesApi {
    *     and elements that live outside the source tree. Null values represent empty input files.
    */
   SortedMap<PathFragment, Artifact> getRunfilesInputs(
-      @Nullable BiConsumer<ConflictType, String> receiver, @Nullable Artifact repoMappingManifest) {
-    ConflictChecker checker = new ConflictChecker(receiver);
+      RunfilesConflictReceiver receiver, @Nullable Artifact repoMappingManifest) {
     Map<PathFragment, Artifact> manifest = new LinkedHashMap<>();
     for (SymlinkEntry entry : symlinks.toList()) {
-      checker.put(manifest, entry.getPath(), entry.getArtifact());
+      checkAndPut(manifest, receiver, entry.getPath(), entry.getArtifact());
     }
     for (Artifact artifact : artifacts.toList()) {
-      checker.put(manifest, artifact.getRunfilesPath(), artifact);
+      checkAndPut(manifest, receiver, artifact.getRunfilesPath(), artifact);
     }
 
     manifest = filterListForObscuringSymlinks(receiver, manifest);
 
     // TODO(bazel-team): Create /dev/null-like Artifact to avoid nulls?
     for (PathFragment extraPath : emptyFilesSupplier.getExtraPaths(manifest.keySet())) {
-      checker.put(manifest, extraPath, null);
+      manifest.put(extraPath, null);
     }
 
     // Copy manifest map to another manifest map, prepending the workspace name to every path.
     // E.g. for workspace "myworkspace", the runfile entry "mylib.so"->"/path/to/mylib.so" becomes
     // "myworkspace/mylib.so"->"/path/to/mylib.so".
-    ManifestBuilder builder = new ManifestBuilder(PathFragment.create(prefix));
-    builder.addUnderWorkspace(manifest, checker);
-    builder.addRootSymlinks(rootSymlinks, checker);
+    ManifestBuilder builder = new ManifestBuilder(PathFragment.create(prefix), receiver);
+    builder.addUnderWorkspace(manifest);
+    builder.addRootSymlinks(rootSymlinks);
     if (repoMappingManifest != null) {
-      checker.put(builder.manifest, REPO_MAPPING_PATH_FRAGMENT, repoMappingManifest);
+      checkAndPut(builder.manifest, receiver, REPO_MAPPING_PATH_FRAGMENT, repoMappingManifest);
     }
     return builder.build();
   }
@@ -366,35 +360,36 @@ public final class Runfiles implements RunfilesApi {
   @VisibleForTesting
   static final class ManifestBuilder {
     // Manifest of paths to artifacts. Path fragments are relative to the .runfiles directory.
-    private final SortedMap<PathFragment, Artifact> manifest;
+    private final SortedMap<PathFragment, Artifact> manifest = new TreeMap<>();
     private final PathFragment workspaceName;
+    private final RunfilesConflictReceiver receiver;
 
     // Whether we saw the local workspace name in the runfiles.
     private boolean sawWorkspaceName = false;
 
-    ManifestBuilder(PathFragment workspaceName) {
-      this.manifest = new TreeMap<>();
+    ManifestBuilder(PathFragment workspaceName, RunfilesConflictReceiver receiver) {
       this.workspaceName = workspaceName;
+      this.receiver = receiver;
     }
 
     /** Adds a map under the workspaceName. */
-    void addUnderWorkspace(Map<PathFragment, Artifact> inputManifest, ConflictChecker checker) {
+    void addUnderWorkspace(Map<PathFragment, Artifact> inputManifest) {
       for (Map.Entry<PathFragment, Artifact> entry : inputManifest.entrySet()) {
         PathFragment path = entry.getKey();
         if (isUnderWorkspace(path)) {
           sawWorkspaceName = true;
-          checker.put(manifest, workspaceName.getRelative(path), entry.getValue());
+          checkAndPut(manifest, receiver, workspaceName.getRelative(path), entry.getValue());
         } else {
           // Always add the non-legacy .runfiles/repo/whatever path.
-          checker.put(manifest, getExternalPath(path), entry.getValue());
+          checkAndPut(manifest, receiver, getExternalPath(path), entry.getValue());
         }
       }
     }
 
     /** Adds a map to the root directory. */
-    void addRootSymlinks(NestedSet<SymlinkEntry> rootSymlinks, ConflictChecker checker) {
+    void addRootSymlinks(NestedSet<SymlinkEntry> rootSymlinks) {
       for (SymlinkEntry entry : rootSymlinks.toList()) {
-        checker.put(manifest, checkForWorkspace(entry.getPath()), entry.getArtifact());
+        checkAndPut(manifest, receiver, checkForWorkspace(entry.getPath()), entry.getArtifact());
       }
     }
 
@@ -483,54 +478,46 @@ public final class Runfiles implements RunfilesApi {
     return this;
   }
 
-  /** What kind of conflict in the runfiles tree is being reported. */
-  public enum ConflictType {
-    NESTED_RUNFILES_TREE, // A runfiles tree artifact in a runfiles tree
-    PREFIX_CONFLICT, // An entry is the prefix of another
+  /** Informed of conflicts in the runfiles tree. */
+  interface RunfilesConflictReceiver {
+
+    /** Called when a runfiles tree artifact is detected inside another runfiles tree. */
+    void nestedRunfilesTree(Artifact runfilesTree);
+
+    /** Called when one runfiles entry is a prefix of another. */
+    void prefixConflict(String message);
+
+    RunfilesConflictReceiver NO_OP =
+        new RunfilesConflictReceiver() {
+          @Override
+          public void nestedRunfilesTree(Artifact runfilesTree) {}
+
+          @Override
+          public void prefixConflict(String message) {}
+        };
   }
 
-  /** Checks for conflicts between entries in a runfiles tree while putting them in a map. */
-  @VisibleForTesting
-  static final class ConflictChecker {
-    @Nullable private final BiConsumer<ConflictType, String> receiver;
-
-    /** Construct a ConflictChecker for the given reporter with the given behavior */
-    ConflictChecker(@Nullable BiConsumer<ConflictType, String> receiver) {
-      this.receiver = receiver;
-    }
-
-    /**
-     * Add an entry to a Map of symlinks.
-     *
-     * @param map Manifest of runfile entries.
-     * @param path Path fragment to use as key in map.
-     * @param artifact Artifact to store in map. This may be null to indicate an empty file.
-     */
-    void put(Map<PathFragment, Artifact> map, PathFragment path, Artifact artifact) {
-      if (artifact != null && artifact.isRunfilesTree()) {
-        if (receiver != null) {
-          receiver.accept(
-              ConflictType.NESTED_RUNFILES_TREE,
-              "Runfiles must not contain runfiles tree artifacts: " + artifact);
-        }
-        return;
-      }
-
+  private static void checkAndPut(
+      Map<PathFragment, Artifact> map,
+      RunfilesConflictReceiver receiver,
+      PathFragment path,
+      @Nullable Artifact artifact) {
+    if (artifact != null && artifact.isRunfilesTree()) {
+      receiver.nestedRunfilesTree(artifact);
+    } else {
       map.put(path, artifact);
     }
   }
 
-  /**
-   * Builder for Runfiles objects.
-   */
+  /** Builder for Runfiles objects. */
   public static final class Builder {
 
     /** This is set to the workspace name */
     private final String prefix;
 
     /**
-     * This must be COMPILE_ORDER because {@link ConflictChecker#put} overwrites earlier entries
-     * with later ones, so we want a post-order iteration.
+     * This must be COMPILE_ORDER because {@link #getRunfilesInputs(RunfilesConflictReceiver,
+     * Artifact)} overwrites earlier entries with later ones, so we want a post-order iteration.
      */
     private final NestedSetBuilder<Artifact> artifactsBuilder = NestedSetBuilder.compileOrder();
 
@@ -540,7 +527,7 @@ public final class Runfiles implements RunfilesApi {
     private EmptyFilesSupplier emptyFilesSupplier = DUMMY_EMPTY_FILES_SUPPLIER;
 
     /** Build the Runfiles object with this policy */
-    private ConflictPolicy conflictPolicy = ConflictPolicy.IGNORE;
+    private ConflictPolicy conflictPolicy = ConflictPolicy.WARN;
 
     /**
      * Only used for Runfiles.EMPTY.
@@ -669,8 +656,8 @@ public final class Runfiles implements RunfilesApi {
     /** Adds the other {@link Runfiles} object transitively. */
     @CanIgnoreReturnValue
     public Builder merge(Runfiles runfiles) {
-      // Propagate the most strict conflict checking from merged-in runfiles
-      if (runfiles.conflictPolicy.compareTo(conflictPolicy) > 0) {
+      // Propagate the most strict conflict checking from merged-in runfiles.
+      if (conflictPolicy == ConflictPolicy.WARN) {
         conflictPolicy = runfiles.conflictPolicy;
       }
       if (runfiles.isEmpty()) {

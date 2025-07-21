@@ -28,8 +28,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.analysis.Runfiles.ConflictPolicy;
-import com.google.devtools.build.lib.analysis.Runfiles.ConflictType;
+import com.google.devtools.build.lib.analysis.Runfiles.RunfilesConflictReceiver;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -55,7 +54,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /**
@@ -232,20 +230,26 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       throws ExecException {
     StoredEventHandler eventHandler = new StoredEventHandler();
     boolean[] seenNestedRunfilesTree = new boolean[] {false};
-    BiConsumer<ConflictType, String> receiver =
-        (conflictType, message) -> {
-          EventKind kind =
-              switch (conflictType) {
-                case NESTED_RUNFILES_TREE -> {
-                  seenNestedRunfilesTree[0] = true;
-                  yield EventKind.ERROR;
-                }
-                case PREFIX_CONFLICT ->
-                    runfiles.getConflictPolicy() == ConflictPolicy.ERROR
-                        ? EventKind.ERROR
-                        : EventKind.WARNING;
-              };
-          eventHandler.handle(Event.of(kind, getOwner().getLocation(), message));
+    RunfilesConflictReceiver receiver =
+        new RunfilesConflictReceiver() {
+          @Override
+          public void nestedRunfilesTree(Artifact runfilesTree) {
+            seenNestedRunfilesTree[0] = true;
+            eventHandler.handle(
+                Event.error(
+                    getOwner().getLocation(),
+                    "Runfiles must not contain runfiles tree artifacts: " + runfilesTree));
+          }
+
+          @Override
+          public void prefixConflict(String message) {
+            EventKind eventKind =
+                switch (runfiles.getConflictPolicy()) {
+                  case ERROR -> EventKind.ERROR;
+                  case WARN -> EventKind.WARNING;
+                };
+            eventHandler.handle(Event.of(eventKind, getOwner().getLocation(), message));
+          }
         };
 
     Map<PathFragment, Artifact> runfilesInputs =
