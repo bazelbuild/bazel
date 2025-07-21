@@ -3838,7 +3838,7 @@ EOF
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     //a:gen >& $TEST_log && fail "build //a:gen should fail"
-  expect_log "The file type of 'a/dir/symlink.txt' is not supported."
+  expect_log "The file type of '.*a/dir/symlink.txt' is not supported."
 }
 
 run_suite "Remote execution and remote cache tests"

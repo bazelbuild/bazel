@@ -65,7 +65,7 @@ public class RemotePathResolverTest {
   public void getWorkingDirectory_default_isInputRoot() {
     RemotePathResolver remotePathResolver = RemotePathResolver.createDefault(execRoot);
 
-    String workingDirectory = remotePathResolver.getWorkingDirectory();
+    String workingDirectory = remotePathResolver.getWorkingDirectory().getPathString();
 
     assertThat(workingDirectory).isEqualTo("");
   }
@@ -74,7 +74,7 @@ public class RemotePathResolverTest {
   public void getWorkingDirectory_sibling_isExecRootBaseName() {
     RemotePathResolver remotePathResolver = new SiblingRepositoryLayoutResolver(execRoot);
 
-    String workingDirectory = remotePathResolver.getWorkingDirectory();
+    String workingDirectory = remotePathResolver.getWorkingDirectory().getPathString();
 
     assertThat(workingDirectory).isEqualTo("main");
   }
