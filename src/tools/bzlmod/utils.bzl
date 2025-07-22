@@ -110,7 +110,8 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
                     found_repos.append(repo_name)
 
                     http_artifacts.append({
-                        "sha256": attributes["sha256"],
+                        "sha256": attributes.get("sha256", None),
+                        "integrity": attributes.get("integrity", None),
                         "url": extract_url(attributes),
                     })
 
