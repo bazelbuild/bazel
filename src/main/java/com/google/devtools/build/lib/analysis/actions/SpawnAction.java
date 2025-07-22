@@ -300,7 +300,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
                 .setSpawn(
                     FailureDetails.Spawn.newBuilder().setCode(Code.COMMAND_LINE_EXPANSION_FAILURE))
                 .build());
-    return new ActionExecutionException(e, this, /*catastrophe=*/ false, detailedExitCode);
+    return new ActionExecutionException(e, this, /* catastrophe= */ false, detailedExitCode);
   }
 
   @VisibleForTesting
@@ -333,7 +333,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         commandLines.allArguments(),
         this,
         /* env= */ ImmutableMap.of(),
-        /* envResolved= */ false,
         inputs,
         // SpawnInfo doesn't report the runfiles trees of the Spawn, so it's fine to just pass in
         // an empty list here.
@@ -348,26 +347,15 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    */
   public Spawn getSpawn(ActionExecutionContext actionExecutionContext)
       throws CommandLineExpansionException, InterruptedException {
-    return getSpawn(
-        actionExecutionContext,
-        actionExecutionContext.getClientEnv(),
-        /* envResolved= */ false,
-        /* reportOutputs= */ true);
+    return getSpawn(actionExecutionContext, /* reportOutputs= */ true);
   }
 
   /**
    * Return a spawn that is representative of the command that this Action will execute in the given
    * environment.
-   *
-   * @param envResolved If set to true, the passed environment variables will be used as the Spawn
-   *     effective environment. Otherwise they will be used as client environment to resolve the
-   *     action env.
    */
-  protected Spawn getSpawn(
-      ActionExecutionContext actionExecutionContext,
-      Map<String, String> env,
-      boolean envResolved,
-      boolean reportOutputs)
+  protected final Spawn getSpawn(
+      ActionExecutionContext actionExecutionContext, boolean reportOutputs)
       throws CommandLineExpansionException, InterruptedException {
     PathMapper pathMapper =
         PathMappers.create(this, outputPathsMode, this instanceof StarlarkAction);
@@ -381,8 +369,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return new ActionSpawn(
         expandedCommandLines.arguments(),
         this,
-        env,
-        envResolved,
+        actionExecutionContext.getClientEnv(),
         getInputs(),
         expandedCommandLines.getParamFiles(),
         reportOutputs,
@@ -527,7 +514,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   /** A spawn instance that is tied to a specific SpawnAction. */
   private static final class ActionSpawn extends BaseSpawn {
     private final NestedSet<ActionInput> inputs;
-    private final ImmutableMap<String, String> effectiveEnvironment;
     private final boolean reportOutputs;
     private final PathMapper pathMapper;
 
@@ -540,8 +526,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private ActionSpawn(
         ImmutableList<String> arguments,
         SpawnAction parent,
-        Map<String, String> env,
-        boolean envResolved,
+        ImmutableMap<String, String> clientEnv,
         NestedSet<Artifact> inputs,
         Iterable<? extends ActionInput> additionalInputs,
         boolean reportOutputs,
@@ -549,7 +534,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         throws CommandLineExpansionException {
       super(
           arguments,
-          ImmutableMap.of(),
+          parent.getEffectiveEnvironment(clientEnv, pathMapper),
           parent.getExecutionInfo(),
           parent,
           parent.resourceSetOrBuilder);
@@ -559,26 +544,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
               .addAll(additionalInputs)
               .build();
       this.pathMapper = pathMapper;
-
-      // If the action environment is already resolved using the client environment, the given
-      // environment variables are used as they are. Otherwise, they are used as clientEnv to
-      // resolve the action environment variables.
-      if (envResolved) {
-        effectiveEnvironment = ImmutableMap.copyOf(env);
-      } else {
-        effectiveEnvironment = parent.getEffectiveEnvironment(env);
-      }
       this.reportOutputs = reportOutputs;
     }
 
     @Override
     public PathMapper getPathMapper() {
       return pathMapper;
-    }
-
-    @Override
-    public ImmutableMap<String, String> getEnvironment() {
-      return effectiveEnvironment;
     }
 
     @Override
@@ -592,9 +563,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
   }
 
-  /**
-   * Builder class to construct {@link SpawnAction} instances.
-   */
+  /** Builder class to construct {@link SpawnAction} instances. */
   public static class Builder {
 
     private final NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.stableOrder();

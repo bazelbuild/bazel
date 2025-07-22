@@ -202,14 +202,7 @@ public final class ExtraAction extends SpawnAction {
   @Override
   public Spawn getSpawn(ActionExecutionContext actionExecutionContext)
       throws CommandLineExpansionException, InterruptedException {
-    if (!createDummyOutput) {
-      return super.getSpawn(actionExecutionContext);
-    }
-    return getSpawn(
-        actionExecutionContext,
-        actionExecutionContext.getClientEnv(),
-        /* envResolved= */ false,
-        /* reportOutputs= */ false);
+    return super.getSpawn(actionExecutionContext, /* reportOutputs= */ !createDummyOutput);
   }
 
   @Override

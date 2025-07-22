@@ -128,6 +128,7 @@ public class PathMappersTest extends BuildViewTestCase {
         "        inputs = ctx.files.srcs,",
         "        executable = ctx.executable._tool,",
         "        arguments = [args],",
+        "        env = {'MY_TOOL': ctx.executable._tool.path},",
         "        mnemonic = 'MyRuleAction',",
         format("        execution_requirements = %s,", Starlark.repr(executionRequirements)),
         "    )",
@@ -202,6 +203,8 @@ public class PathMappersTest extends BuildViewTestCase {
             "-source",
             "<pkg/source.txt:pkg/source.txt::pkg>")
         .inOrder();
+    assertThat(spawn.getEnvironment())
+        .containsExactly("MY_TOOL", format("%s/cfg/bin/tool/tool", outDir));
   }
 
   @Test
@@ -234,6 +237,8 @@ public class PathMappersTest extends BuildViewTestCase {
             "-source",
             "<pkg/source.txt:pkg/source.txt::pkg>")
         .inOrder();
+    assertThat(spawn.getEnvironment())
+        .containsExactly("MY_TOOL", format("%s/cfg/bin/tool/tool", outDir));
   }
 
   @Test

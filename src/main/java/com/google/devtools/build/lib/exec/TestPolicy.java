@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.util.UserUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -86,13 +87,16 @@ public class TestPolicy {
     }
 
     // Overwrite with the environment common to all actions, see --action_env.
-    testAction.getConfiguration().getActionEnvironment().resolve(env, clientEnv);
+    testAction.getConfiguration().getActionEnvironment().resolve(env, clientEnv, PathMapper.NOOP);
 
     // Overwrite with the environment common to all tests, see --test_env.
-    testAction.getConfiguration().getTestActionEnvironment().resolve(env, clientEnv);
+    testAction
+        .getConfiguration()
+        .getTestActionEnvironment()
+        .resolve(env, clientEnv, PathMapper.NOOP);
 
     // Rule-specified test env.
-    testAction.getExtraTestEnv().resolve(env, clientEnv);
+    testAction.getExtraTestEnv().resolve(env, clientEnv, PathMapper.NOOP);
 
     // Setup any test-specific env variables; note that this does not overwrite existing values for
     // TEST_RANDOM_SEED or TEST_SIZE if they're already set.

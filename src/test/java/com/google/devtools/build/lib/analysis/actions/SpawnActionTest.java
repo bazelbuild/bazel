@@ -257,12 +257,7 @@ public final class SpawnActionTest extends BuildViewTestCase {
             .setMetadataProvider(new FakeActionInputFileCache())
             .build();
 
-    Spawn spawn =
-        action.getSpawn(
-            actionExecutionContext,
-            ImmutableMap.of(),
-            /* envResolved= */ false,
-            /* reportOutputs= */ true);
+    Spawn spawn = action.getSpawn(actionExecutionContext);
     String paramFileName = output.getExecPathString() + "-0.params";
     // The spawn's primary arguments should reference the param file
     assertThat(spawn.getArguments())
