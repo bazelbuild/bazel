@@ -452,9 +452,9 @@ sh_test(
     srcs = ["bazel_coverage_cc_test_gcc.sh"],
     args = ["released"],
     data = [":test-deps"],
-    # tags = [
-    #     "no_windows",
-    # ],
+    tags = [
+        "no_windows",
+    ],
 )
 
 sh_test(
@@ -467,9 +467,9 @@ sh_test(
         ":test-deps",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
     ],
-    # tags = [
-    #     "no_windows",
-    # ],
+    tags = [
+        "no_windows",
+    ],
 )
 
 sh_test(
@@ -628,9 +628,9 @@ sh_test(
     name = "bazel_coverage_compatibility_test",
     srcs = ["bazel_coverage_compatibility_test.sh"],
     data = [":test-deps"],
-    # tags = [
-    #     "no_windows",
-    # ],
+    tags = [
+        "no_windows",
+    ],
 )
 
 sh_test(
