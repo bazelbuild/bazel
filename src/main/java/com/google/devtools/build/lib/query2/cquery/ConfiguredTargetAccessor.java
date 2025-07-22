@@ -13,16 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -61,9 +62,12 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
   private final WalkableGraph walkableGraph;
   private final ConfiguredTargetQueryEnvironment queryEnvironment;
   private final SkyFunction.LookupEnvironment lookupEnvironment;
+  private final ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects;
 
   public ConfiguredTargetAccessor(
-      WalkableGraph walkableGraph, ConfiguredTargetQueryEnvironment queryEnvironment) {
+      WalkableGraph walkableGraph,
+      ConfiguredTargetQueryEnvironment queryEnvironment,
+      ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects) {
     this.walkableGraph = walkableGraph;
     this.queryEnvironment = queryEnvironment;
     this.lookupEnvironment =
@@ -80,6 +84,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
                     "Thread interrupted in the middle of looking up: " + key, e);
               }
             });
+    this.topLevelTargetAspects = topLevelTargetAspects;
   }
 
   @Override
@@ -159,7 +164,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
             rule,
             configConditions,
             keyedConfiguredTarget.getConfigurationChecksum(),
-            /*alwaysSucceed=*/ false);
+            /* alwaysSucceed= */ false);
     if (!attributeMapper.has(attrName)) {
       throw new QueryException(
           caller,
@@ -262,5 +267,24 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
                         .setConfigurationKey(kct.getConfigurationKey())
                         .build()))
             .getConfiguredTarget();
+  }
+
+  ImmutableList<ConfiguredAspect> getTopLevelAspects(CqueryNode cn) {
+    if (!(cn.getLookupKey() instanceof ConfiguredTargetKey key)) {
+      return ImmutableList.of();
+    }
+    return topLevelTargetAspects.get(key);
+  }
+
+  CqueryNode mergeWithTopLevelAspects(CqueryNode cn) {
+    if (!(cn.getLookupKey() instanceof ConfiguredTargetKey key)) {
+      return cn;
+    }
+    try {
+      return MergedConfiguredTarget.of((ConfiguredTarget) cn, topLevelTargetAspects.get(key));
+    } catch (MergedConfiguredTarget.MergingException e) {
+      throw new IllegalStateException(
+          "Unexpectedly failed to merge target with top-level aspects: " + key, e);
+    }
   }
 }

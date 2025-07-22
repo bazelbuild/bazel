@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.query2.cquery.CqueryOptions;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -48,8 +51,8 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<CqueryNode
       CommandEnvironment env,
       TopLevelConfigurations configurations,
       ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
-      WalkableGraph walkableGraph)
-      throws InterruptedException {
+      ImmutableListMultimap<ConfiguredTargetKey, ConfiguredAspect> topLevelTargetAspects,
+      WalkableGraph walkableGraph) {
     ImmutableList<QueryFunction> extraFunctions =
         new ImmutableList.Builder<QueryFunction>()
             .addAll(ConfiguredTargetQueryEnvironment.CQUERY_FUNCTIONS)
@@ -65,6 +68,7 @@ public final class CqueryProcessor extends PostAnalysisQueryProcessor<CqueryNode
         extraFunctions,
         configurations,
         transitiveConfigurations,
+        topLevelTargetAspects,
         mainRepoTargetParser,
         env.getPackageManager().getPackagePath(),
         () -> walkableGraph,
