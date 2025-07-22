@@ -403,8 +403,7 @@ public final class RuleConfiguredTargetBuilder {
 
   /**
    * Compute the artifacts to put into the {@link FilesToRunProvider} for this target. These are the
-   * filesToBuild, the runfiles tree of the rule if it exists, as well as the executable for
-   * Starlark rules.
+   * filesToBuild, the runfiles tree of the rule if it exists, as well as the executable.
    */
   private NestedSet<Artifact> buildFilesToRun(
       NestedSet<Artifact> runfilesTrees, NestedSet<Artifact> filesToBuild) {
