@@ -603,6 +603,7 @@ sh_test(
     args = ["released"],
     data = [":test-deps"],
     tags = [
+        # TODO: Drop after the next coverage tools release.
         "no_windows",
     ],
 )
@@ -618,9 +619,6 @@ sh_test(
         ":test-deps",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_empty_workspace",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
-    ],
-    tags = [
-        "no_windows",
     ],
 )
 

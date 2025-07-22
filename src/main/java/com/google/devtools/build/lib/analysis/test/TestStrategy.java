@@ -218,6 +218,7 @@ public abstract class TestStrategy implements TestActionContext {
       args.add(
           testAction
               .getCollectCoverageScript()
+              .getExecutable()
               .getExecPath()
               .getCallablePathStringForOs(executionOs));
     }
