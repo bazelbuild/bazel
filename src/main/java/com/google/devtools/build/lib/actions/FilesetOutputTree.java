@@ -18,6 +18,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.util.Fingerprint;
+import java.util.Comparator;
+import java.util.List;
 
 /** A collection of {@link FilesetOutputSymlink}s comprising the output tree of a fileset. */
 public final class FilesetOutputTree implements RichArtifactData {
@@ -28,8 +30,10 @@ public final class FilesetOutputTree implements RichArtifactData {
     return other.isEmpty() ? EMPTY : new FilesetOutputTree(other.symlinks, true);
   }
 
-  public static FilesetOutputTree create(ImmutableList<FilesetOutputSymlink> symlinks) {
-    return symlinks.isEmpty() ? EMPTY : new FilesetOutputTree(symlinks, false);
+  public static FilesetOutputTree create(List<FilesetOutputSymlink> symlinks) {
+    ImmutableList<FilesetOutputSymlink> sortedSymlinks =
+        ImmutableList.sortedCopyOf(Comparator.comparing(FilesetOutputSymlink::name), symlinks);
+    return symlinks.isEmpty() ? EMPTY : new FilesetOutputTree(sortedSymlinks, false);
   }
 
   private final ImmutableList<FilesetOutputSymlink> symlinks;
@@ -40,6 +44,7 @@ public final class FilesetOutputTree implements RichArtifactData {
     this.forwarded = forwarded;
   }
 
+  /** Returns the symlinks in the fileset, ordered by {@link FilesetOutputSymlink#name()}. */
   public ImmutableList<FilesetOutputSymlink> symlinks() {
     return symlinks;
   }
