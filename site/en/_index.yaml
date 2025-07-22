@@ -139,10 +139,9 @@ landing_page:
     items_across: 4
     items:
     - heading: "What's new?<br><b>—</b>"
-      image_path: /images/new_0.svg
       description: >
         Catch up on the latest documentation, community events, and programs.
-    - heading: "Roadmap"
+    - heading: Roadmap
       path: /about/roadmap
       image_path: /images/new_1.svg
       description: >
