@@ -1,7 +1,7 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 package(default_visibility = ["//visibility:public"])
 
 # Members of this filegroup shouldn't have duplicate basenames, otherwise
@@ -22,9 +22,12 @@ filegroup(
     srcs = ["generate-xml.sh"],
 )
 
-filegroup(
+alias(
     name = "collect_coverage",
-    srcs = ["collect_coverage.sh"],
+    actual = select({
+        "@platforms//os:windows": ":collect_coverage_wrapper.bat",
+        "//conditions:default": ":collect_coverage.sh",
+    }),
 )
 
 filegroup(
@@ -35,11 +38,6 @@ filegroup(
 filegroup(
     name = "collect_cc_coverage",
     srcs = ["collect_cc_coverage.sh"],
-)
-
-filegroup(
-    name = "collect_coverage_wrapper",
-    srcs = ["collect_coverage_wrapper.bat"],
 )
 
 # Test wrapper binary to run tests on Windows.
@@ -89,15 +87,6 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
-)
-
-filegroup(
-    name = "collect_coverage_scripts",
-    srcs = [
-        "collect_coverage_wrapper.bat",
-        "collect_coverage.sh",
-    ],
-    visibility = ["//visibility:public"],
 )
 
 cc_test(

@@ -51,8 +51,8 @@ function uses_llvm() {
 
 # Returns 0 if gcov must be used, 1 otherwise.
 function uses_gcov() {
-  [[ "$GCOV_COVERAGE" -eq "1"  ]] && return 0
-  return 1
+  [[ "$GCOV_COVERAGE" == "0" ]] && return 1
+  return 0
 }
 
 function init_gcov() {
@@ -186,7 +186,9 @@ function gcov_coverage() {
 }
 
 function main() {
-  init_gcov
+  if uses_gcov; then
+      init_gcov
+  fi
 
   # If llvm code coverage is used, we output the raw code coverage report in
   # the $COVERAGE_OUTPUT_FILE. This report will not be converted to any other

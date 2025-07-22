@@ -398,9 +398,12 @@ launcher_flag_alias(
             srcs = ["test-xml-generator.sh"],
         )
 
-        filegroup(
+        alias(
             name = "collect_coverage",
-            srcs = ["collect_coverage.sh"],
+            actual = select({
+                "@platforms//os:windows": ":collect_coverage_wrapper.bat",
+                "//conditions:default": ":collect_coverage.sh",
+            }),
         )
 
         filegroup(
@@ -416,11 +419,6 @@ launcher_flag_alias(
         filegroup(
             name = "coverage_report_generator",
             srcs = ["coverage_report_generator.sh"],
-        )
-
-        filegroup(
-            name = "collect_coverage_wrapper",
-            srcs = ["collect_coverage_wrapper.bat"],
         )
 
         filegroup(
