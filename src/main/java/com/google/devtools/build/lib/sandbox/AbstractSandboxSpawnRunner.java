@@ -194,7 +194,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     }
   }
 
-  private final SpawnResult run(
+  private SpawnResult run(
       Spawn originalSpawn, SandboxedSpawn sandbox, SpawnExecutionContext context)
       throws IOException, InterruptedException {
 
@@ -205,8 +205,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
     SubprocessBuilder subprocessBuilder = new SubprocessBuilder(clientEnv);
     subprocessBuilder.setWorkingDirectory(sandbox.getSandboxExecRoot().getPathFile());
-    subprocessBuilder.setStdout(outErr.getOutputPath().devirtualize().getPathFile());
-    subprocessBuilder.setStderr(outErr.getErrorPath().devirtualize().getPathFile());
+    subprocessBuilder.setStdout(outErr.getOutputPath().getPathFile());
+    subprocessBuilder.setStderr(outErr.getErrorPath().getPathFile());
     subprocessBuilder.setEnv(sandbox.getEnvironment());
     subprocessBuilder.setArgv(ImmutableList.copyOf(sandbox.getArguments()));
     boolean useSubprocessTimeout = sandbox.useSubprocessTimeout();
@@ -321,7 +321,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     return spawnResultBuilder.build();
   }
 
-  private String getSandboxDebugOutput(SandboxedSpawn sandbox) throws IOException {
+  private static String getSandboxDebugOutput(SandboxedSpawn sandbox) throws IOException {
     Optional<String> sandboxDebugOutput = Optional.empty();
     Path sandboxDebugPath = sandbox.getSandboxDebugPath();
     if (sandboxDebugPath != null && sandboxDebugPath.exists()) {
@@ -338,7 +338,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         .collect(joining("\n"));
   }
 
-  private boolean wasTimeout(Duration timeout, Duration wallTime) {
+  private static boolean wasTimeout(Duration timeout, Duration wallTime) {
     return !timeout.isZero() && wallTime.compareTo(timeout) > 0;
   }
 
@@ -404,7 +404,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     return writablePaths.build();
   }
 
-  private void addWritablePath(
+  private static void addWritablePath(
       Path sandboxExecRoot,
       ImmutableSet.Builder<Path> writablePaths,
       String pathString,

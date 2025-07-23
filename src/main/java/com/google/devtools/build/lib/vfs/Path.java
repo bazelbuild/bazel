@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.StringEncoding;
-import com.google.devtools.build.lib.vfs.FileSystem.PathDevirtualizer;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -83,12 +82,6 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
 
   public String getPathString() {
     return pathFragment.getPathString();
-  }
-
-  public Path devirtualize() {
-    return fileSystem instanceof PathDevirtualizer pathDevirtualizer
-        ? pathDevirtualizer.devirtualizePath(this)
-        : this;
   }
 
   @Override

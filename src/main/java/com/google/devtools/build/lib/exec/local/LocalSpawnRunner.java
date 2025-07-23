@@ -106,7 +106,7 @@ public class LocalSpawnRunner implements SpawnRunner {
       BinTools binTools,
       ProcessWrapper processWrapper,
       RunfilesTreeUpdater runfilesTreeUpdater) {
-    this.execRoot = execRoot.devirtualize();
+    this.execRoot = execRoot;
     this.processWrapper = processWrapper;
     this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
     this.hostName = NetUtil.getCachedShortHostName();
@@ -368,8 +368,8 @@ public class LocalSpawnRunner implements SpawnRunner {
 
         SubprocessBuilder subprocessBuilder = new SubprocessBuilder(context.getClientEnv());
         subprocessBuilder.setWorkingDirectory(execRoot.getPathFile());
-        subprocessBuilder.setStdout(outErr.getOutputPath().devirtualize().getPathFile());
-        subprocessBuilder.setStderr(outErr.getErrorPath().devirtualize().getPathFile());
+        subprocessBuilder.setStdout(outErr.getOutputPath().getPathFile());
+        subprocessBuilder.setStderr(outErr.getErrorPath().getPathFile());
         subprocessBuilder.setEnv(environment);
         ImmutableList<String> args;
         if (processWrapper != null) {
