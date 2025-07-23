@@ -29,10 +29,8 @@ import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputF
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
-import javax.annotation.Nullable;
 
 /**
  * An output formatter that prints the labels of the targets, preceded by
@@ -43,7 +41,6 @@ import javax.annotation.Nullable;
 class LocationOutputFormatter extends AbstractUnorderedFormatter {
 
   private boolean relativeLocations;
-  @Nullable private PathFragment overrideSourceRoot;
 
   @Override
   public String getName() {
@@ -55,11 +52,6 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
       CommonQueryOptions options, AspectResolver aspectResolver, HashFunction hashFunction) {
     super.setOptions(options, aspectResolver, hashFunction);
     this.relativeLocations = options.relativeLocations;
-  }
-
-  @Override
-  public void setOverrideSourceRoot(PathFragment overrideSourceRoot) {
-    this.overrideSourceRoot = overrideSourceRoot;
   }
 
   @Override
@@ -90,7 +82,7 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
         final String lineTerm = options.getLineTerminator();
         for (Target target : partialResult) {
           writer
-              .append(FormatUtils.getLocation(target, relativeLocations, overrideSourceRoot))
+              .append(FormatUtils.getLocation(target, relativeLocations))
               .append(": ")
               .append(target.getTargetKind())
               .append(" ")
