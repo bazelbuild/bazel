@@ -85,11 +85,18 @@ single_version_override(
     version = "31.1",
 )
 
-# Remove once https://github.com/grpc/grpc-java/pull/12148 is available in a grpc-java release.
+# Remove once the following PRs are available in a grpc-java release.
+#   https://github.com/grpc/grpc-java/pull/12148
+#   https://github.com/grpc/grpc-java/pull/12207
+#   https://github.com/grpc/grpc-java/pull/12222
 single_version_override(
     module_name = "grpc-java",
     patch_strip = 1,
-    patches = ["//third_party:grpc-java.patch"],
+    patches = [
+        "//third_party:grpc-java.patch",
+        "//third_party:grpc-java-12207.patch",
+        "//third_party:grpc-java-12222.patch",
+    ],
 )
 
 local_path_override(
