@@ -65,7 +65,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -88,6 +88,29 @@ import javax.annotation.Nullable;
  * expressed via references (e.g., keys to a other {@link FingerprintValueService} entries).
  */
 final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, SelectionMarking>> {
+  static final class SerializationStats {
+    private final AtomicLong analysisNodes = new AtomicLong(0);
+    private final AtomicLong executionNodes = new AtomicLong(0);
+
+    SerializationStats() {}
+
+    void registerAnalysisNode() {
+      analysisNodes.incrementAndGet();
+    }
+
+    void registerExecutionNode() {
+      executionNodes.incrementAndGet();
+    }
+
+    long analysisNodes() {
+      return analysisNodes.get();
+    }
+
+    long executionNodes() {
+      return executionNodes.get();
+    }
+  }
+
   private final InMemoryGraph graph;
   private final ObjectCodecs codecs;
   private final FrontierNodeVersion frontierVersion;
@@ -101,7 +124,7 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
 
   private final EventBus eventBus;
   private final ProfileCollector profileCollector;
-  private final AtomicInteger serializedCount;
+  private final SerializationStats serializationStats;
 
   /** Uploads the entries of {@code selection} to {@code fingerprintValueService}. */
   static ListenableFuture<Void> uploadSelection(
@@ -113,7 +136,7 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
       FingerprintValueService fingerprintValueService,
       EventBus eventBus,
       ProfileCollector profileCollector,
-      AtomicInteger serializedCount) {
+      SerializationStats serializationStats) {
     var fileOpNodes = new FileOpNodeMemoizingLookup(graph);
     var fileDependencySerializer =
         new FileDependencySerializer(versionGetter, graph, fingerprintValueService);
@@ -129,7 +152,7 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
             writeStatuses,
             eventBus,
             profileCollector,
-            serializedCount);
+            serializationStats);
     selection.entrySet().parallelStream().forEach(serializer);
     writeStatuses.notifyAllStarted();
     return writeStatuses;
@@ -145,7 +168,7 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
       WriteStatusesFuture writeStatuses,
       EventBus eventBus,
       ProfileCollector profileCollector,
-      AtomicInteger serializedCount) {
+      SerializationStats serializationStats) {
     this.graph = graph;
     this.codecs = codecs;
     this.frontierVersion = frontierVersion;
@@ -156,7 +179,7 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
     this.writeStatuses = writeStatuses;
     this.eventBus = eventBus;
     this.profileCollector = profileCollector;
-    this.serializedCount = serializedCount;
+    this.serializationStats = serializationStats;
   }
 
   @Override
@@ -167,20 +190,22 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
     try {
       switch (key) {
         case ActionLookupKey actionLookupKey:
+          serializationStats.registerAnalysisNode();
           uploadEntry(actionLookupKey, actionLookupKey);
           break;
         case ActionLookupData lookupData:
+          serializationStats.registerExecutionNode();
           uploadEntry(lookupData, checkNotNull(lookupData.getActionLookupKey(), lookupData));
           break;
         case DerivedArtifact artifact:
           // This case handles the subclasses of DerivedArtifact. DerivedArtifact itself will show
           // up here as ActionLookupData.
+          serializationStats.registerExecutionNode();
           uploadEntry(artifact, checkNotNull(artifact.getArtifactOwner(), artifact));
           break;
         default:
           throw new AssertionError("Unexpected selected type: " + key.getCanonicalName());
       }
-      serializedCount.getAndIncrement();
       eventBus.post(new SerializedNodeEvent(key));
     } catch (SerializationException e) {
       writeStatuses.addWriteStatus(immediateFailedFuture(e));
