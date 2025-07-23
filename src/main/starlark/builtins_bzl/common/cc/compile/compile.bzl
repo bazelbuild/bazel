@@ -24,6 +24,7 @@ load(
     "should_create_per_object_debug_info",
 )
 load(":common/cc/compile/cc_compilation_helper.bzl", "cc_compilation_helper")
+load(":common/cc/compile/compile_build_variables.bzl", "get_specific_compile_build_variables")
 load(":common/paths.bzl", "paths")
 
 cc_common_internal = _builtins.internal.cc_common
@@ -745,28 +746,74 @@ def _create_cc_compile_actions(
             category = artifact_category.GENERATED_HEADER,
             output_name = output_name,
         )
+        specific_compile_build_variables = get_specific_compile_build_variables(
+            feature_configuration,
+            use_pic = generate_pic_action,
+            source_file = cpp_compile_action_builder.source_file,
+            output_file = cpp_compile_action_builder.output_file,
+            dotd_file = cpp_compile_action_builder.dotd_file,
+            diagnostics_file = cpp_compile_action_builder.diagnostics_file,
+            cpp_module_map = cc_compilation_context.module_map(),
+            direct_module_maps = cc_compilation_context.direct_module_maps(),
+            user_compile_flags = _get_copts(
+                language = language,
+                cpp_configuration = cpp_configuration,
+                source_file = cpp_compile_action_builder.source_file,
+            ),
+        )
         header_token_file = cc_internal.create_parse_header_action(
             action_construction_context = action_construction_context,
-            cc_compilation_context = cc_compilation_context,
-            cc_toolchain = cc_toolchain,
             configuration = configuration,
-            conlyopts = conlyopts,
-            copts = copts,
-            cpp_configuration = cpp_configuration,
-            cxxopts = cxxopts,
-            fdo_context = fdo_context,
-            auxiliary_fdo_inputs = auxiliary_fdo_inputs,
             feature_configuration = feature_configuration,
             use_pic = generate_pic_action,
             label = label,
             common_compile_build_variables = common_compile_build_variables,
-            fdo_build_variables = fdo_build_variables,
+            specific_compile_build_variables = specific_compile_build_variables,
             cpp_semantics = cpp_semantics,
-            source_label = cpp_source.label,
             output_name_base = output_name_base,
             cpp_compile_action_builder = cpp_compile_action_builder,
         )
         outputs.add_header_token_file(header_token_file)
+
+_SOURCE_TYPES_FOR_CXXOPTS = set(
+    extensions.CC_SOURCE +
+    extensions.CC_HEADER +
+    [".cppmap"] +  # cpp module map
+    [".pcm", ".gcm", ".ifc"] +  # clif input proto
+    [".mm"],  # objc source
+)
+
+def _get_copts(
+        language,
+        cpp_configuration,
+        source_file,
+        conlyopts,
+        copts,
+        cxxopts,
+        label):
+    result = []
+    result.extend(_copts_from_options(language, cpp_configuration, source_file))
+    result.extend(copts)
+    if source_file.extension in extensions.C_SOURCE:
+        result.extend([conlyopts])
+    if source_file.extension in _SOURCE_TYPES_FOR_CXXOPTS:
+        result.extend([cxxopts])
+    if label:
+        result.extend(cc_internal.per_file_copts(cpp_configuration, source_file, label))
+    return result
+
+def _copts_from_options(language, cpp_configuration, source_file):
+    result = []
+    result.extend(cpp_configuration.copts)
+    if source_file.extension in extensions.C_SOURCE:
+        result.extend(cpp_configuration.conlyopts)
+    if source_file.extension in _SOURCE_TYPES_FOR_CXXOPTS:
+        result.extend(cpp_configuration.cxxopts)
+    if source_file.extension in [".m", ".mm"] or (
+        language == "objc" and source_file.extension in extensions.CC_HEADER
+    ):
+        result.extend(cpp_configuration.objccopts)
+    return result
 
 def _calculate_output_name_map_by_type(sources, prefix_dir):
     return (
