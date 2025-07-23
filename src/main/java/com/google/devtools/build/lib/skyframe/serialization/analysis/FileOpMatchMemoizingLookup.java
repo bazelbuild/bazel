@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.AlwaysMatch.ALWAYS_MATCH_RESULT;
 import static java.lang.Math.min;
 
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.FileSystemD
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * Matches {@link FileOpDependency} instances representing cached value dependencies against {@link
@@ -115,7 +115,8 @@ final class FileOpMatchMemoizingLookup
           break;
         case FutureFileOpMatchResult future:
           increment();
-          Futures.addCallback(future, (FutureCallback<FileOpMatchResult>) this, directExecutor());
+          Futures.addCallback(
+              future, (FutureCallback<FileOpMatchResult>) this, ForkJoinPool.commonPool());
           break;
       }
     }

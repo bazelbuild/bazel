@@ -64,6 +64,7 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -269,7 +270,7 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
           onSuccess(nodeOrEmpty);
           break;
         case FutureFileOpNode future:
-          Futures.addCallback(future, this, directExecutor());
+          Futures.addCallback(future, this, ForkJoinPool.commonPool());
           break;
       }
     }
@@ -284,13 +285,13 @@ final class SelectedEntrySerializer implements Consumer<Map.Entry<SkyKey, Select
               handler.onSuccess(dataInfo);
               break;
             case FutureFileDataInfo futureFile:
-              Futures.addCallback(futureFile, handler, directExecutor());
+              Futures.addCallback(futureFile, handler, ForkJoinPool.commonPool());
               break;
             case FutureListingDataInfo futureListing:
-              Futures.addCallback(futureListing, handler, directExecutor());
+              Futures.addCallback(futureListing, handler, ForkJoinPool.commonPool());
               break;
             case FutureNodeDataInfo futureNode:
-              Futures.addCallback(futureNode, handler, directExecutor());
+              Futures.addCallback(futureNode, handler, ForkJoinPool.commonPool());
               break;
           }
           break;
