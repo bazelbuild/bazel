@@ -49,8 +49,6 @@ import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -65,13 +63,11 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -84,7 +80,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.SpawnInputExpander.InputWalker;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -105,8 +100,7 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
-import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
-import com.google.devtools.build.lib.remote.merkletree.v2.MerkleTreeComputer;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
@@ -150,13 +144,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
@@ -192,7 +181,6 @@ public class RemoteExecutionService {
   @Nullable private final RemoteExecutionClient remoteExecutor;
   private final TempPathGenerator tempPathGenerator;
   @Nullable private final Path captureCorruptedOutputsDir;
-  private final Cache<Object, CompletableFuture<MerkleTree>> merkleTreeCache;
   private final Set<String> reportedErrors = new HashSet<>();
   private final Phaser backgroundTaskPhaser = new Phaser(1);
 
@@ -247,13 +235,7 @@ public class RemoteExecutionService {
             buildRequestId,
             commandId);
 
-    Caffeine<Object, Object> merkleTreeCacheBuilder = Caffeine.newBuilder().softValues();
-    // remoteMerkleTreesCacheSize = 0 means limitless.
-    if (remoteOptions.remoteMerkleTreeCacheSize != 0) {
-      merkleTreeCacheBuilder.maximumSize(remoteOptions.remoteMerkleTreeCacheSize);
-    }
     this.scrubber = remoteOptions.scrubber;
-    this.merkleTreeCache = merkleTreeCacheBuilder.build();
 
     this.tempPathGenerator = tempPathGenerator;
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
@@ -365,85 +347,6 @@ public class RemoteExecutionService {
         && remoteExecutor != null
         && Spawns.mayBeExecutedRemotely(spawn)
         && !isScrubbedSpawn(spawn, scrubber);
-  }
-
-  @VisibleForTesting
-  Cache<Object, CompletableFuture<MerkleTree>> getMerkleTreeCache() {
-    return merkleTreeCache;
-  }
-
-  private SortedMap<PathFragment, ActionInput> buildOutputDirMap(
-      Spawn spawn, RemotePathResolver remotePathResolver) {
-    TreeMap<PathFragment, ActionInput> outputDirMap = new TreeMap<>();
-    for (ActionInput output : spawn.getOutputFiles()) {
-      if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
-        outputDirMap.put(
-            PathFragment.create(remotePathResolver.getWorkingDirectory())
-                .getRelative(remotePathResolver.localPathToOutputPath(output.getExecPath())),
-            output);
-      }
-    }
-    return outputDirMap;
-  }
-
-  private MerkleTree buildMerkleTreeVisitor(
-      Object nodeKey,
-      InputWalker walker,
-      InputMetadataProvider inputMetadataProvider,
-      ArtifactPathResolver artifactPathResolver,
-      @Nullable SpawnScrubber spawnScrubber)
-      throws IOException {
-    // Deduplicate concurrent computations for the same node. It's not possible to use
-    // MerkleTreeCache#get(key, loader) because the loading computation may cause other nodes to be
-    // recursively looked up, which is not allowed. Instead, use a future as described at
-    // https://github.com/ben-manes/caffeine/wiki/Faq#recursive-computations.
-    var freshFuture = new CompletableFuture<MerkleTree>();
-    var priorFuture = merkleTreeCache.asMap().putIfAbsent(nodeKey, freshFuture);
-    if (priorFuture == null) {
-      // No preexisting cache entry, so we must do the computation ourselves.
-      try {
-        freshFuture.complete(
-            uncachedBuildMerkleTreeVisitor(
-                walker, inputMetadataProvider, artifactPathResolver, spawnScrubber));
-      } catch (Exception e) {
-        freshFuture.completeExceptionally(e);
-      }
-    }
-    try {
-      return (priorFuture != null ? priorFuture : freshFuture).join();
-    } catch (CompletionException e) {
-      Throwable cause = checkNotNull(e.getCause());
-      if (cause instanceof IOException ioException) {
-        throw ioException;
-      } else {
-        checkState(cause instanceof RuntimeException);
-        throw (RuntimeException) cause;
-      }
-    }
-  }
-
-  @VisibleForTesting
-  public MerkleTree uncachedBuildMerkleTreeVisitor(
-      InputWalker walker,
-      InputMetadataProvider inputMetadataProvider,
-      ArtifactPathResolver artifactPathResolver,
-      @Nullable SpawnScrubber scrubber)
-      throws IOException {
-    ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
-    subMerkleTrees.add(
-        MerkleTree.build(
-            walker.getLeavesInputMapping(),
-            inputMetadataProvider,
-            execRoot,
-            artifactPathResolver,
-            scrubber,
-            digestUtil));
-    walker.visitNonLeaves(
-        (Object subNodeKey, InputWalker subWalker) ->
-            subMerkleTrees.add(
-                buildMerkleTreeVisitor(
-                    subNodeKey, subWalker, inputMetadataProvider, artifactPathResolver, scrubber)));
-    return MerkleTree.merge(subMerkleTrees, digestUtil);
   }
 
   @Nullable
@@ -653,7 +556,6 @@ public class RemoteExecutionService {
     }
   }
 
-  @Nullable
   private ToolSignature computePersistentWorkerSignature(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, InterruptedException {
     WorkerParser workerParser =
