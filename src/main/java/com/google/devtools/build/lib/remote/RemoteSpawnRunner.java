@@ -61,7 +61,7 @@ import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
-import com.google.devtools.build.lib.remote.merkletree.v2.MerkleTreeComputer;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;

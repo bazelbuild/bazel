@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
 import com.google.devtools.build.lib.actions.ActionUploadFinishedEvent;
 import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -110,7 +109,7 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.SiblingRepositoryLayoutResolver;
-import com.google.devtools.build.lib.remote.merkletree.v2.MerkleTreeComputer;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions.ConcurrentChangesCheckLevel;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
@@ -154,7 +153,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.random.RandomGeneratorFactory;
 import javax.annotation.Nullable;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -748,7 +746,7 @@ public class RemoteExecutionServiceTest {
             });
 
     assertThat(digestUtil.compute(rootDirectory)).isEqualTo(expectedDigest);
-    assertThat(service.buildRemoteAction(spawn, context).getMerkleTree().getRootDigest())
+    assertThat(service.buildRemoteAction(spawn, context).getMerkleTree().rootDigest())
         .isEqualTo(expectedDigest);
   }
 
@@ -2578,134 +2576,6 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  @Ignore
-  public void buildMerkleTree_withMemoization_works() throws Exception {
-    // Test that Merkle tree building can be memoized.
-
-    // TODO: Would like to check that NestedSet.getNonLeaves() is only called once per node, but
-    //       cannot Mockito.spy on NestedSet as it is final.
-
-    // arrange
-    // Single node NestedSets are folded, so always add a dummy file everywhere.
-    ActionInput dummyFile = ActionInputHelper.fromPath("file");
-    fakeFileCache.createScratchInput(dummyFile, "file");
-
-    SpecialArtifact tree =
-        ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "tree");
-    fakeFileCache.addTreeArtifact(tree, TreeArtifactValue.newBuilder(tree).build());
-
-    ActionInput barFile = ActionInputHelper.fromPath("bar/file");
-    NestedSet<ActionInput> nodeBar =
-        NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile, barFile);
-    fakeFileCache.createScratchInput(barFile, "bar");
-
-    ActionInput foo1File = ActionInputHelper.fromPath("foo1/file");
-    NestedSet<ActionInput> nodeFoo1 =
-        NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile, foo1File);
-    fakeFileCache.createScratchInput(foo1File, "foo1");
-
-    ActionInput foo2File = ActionInputHelper.fromPath("foo2/file");
-    NestedSet<ActionInput> nodeFoo2 =
-        NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile, foo2File);
-    fakeFileCache.createScratchInput(foo2File, "foo2");
-
-    ActionInput runfilesArtifact = ActionsTestUtil.createRunfilesArtifact(artifactRoot, "runfiles");
-
-    NestedSet<ActionInput> nodeRoot1 =
-        NestedSet.<ActionInput>builder(Order.STABLE_ORDER)
-            .add(dummyFile)
-            .add(runfilesArtifact)
-            .add(tree)
-            .addTransitive(nodeBar)
-            .addTransitive(nodeFoo1)
-            .build();
-    NestedSet<ActionInput> nodeRoot2 =
-        NestedSet.<ActionInput>builder(Order.STABLE_ORDER)
-            .add(dummyFile)
-            .add(runfilesArtifact)
-            .add(tree)
-            .addTransitive(nodeBar)
-            .addTransitive(nodeFoo2)
-            .build();
-
-    Artifact toolDat = ActionsTestUtil.createArtifact(artifactRoot, "tool.dat");
-    fakeFileCache.createScratchInput(toolDat, "tool.dat");
-
-    RunfilesTree runfilesTree =
-        createRunfilesTree("tools/tool.runfiles", ImmutableList.of(toolDat));
-
-    fakeFileCache.addRunfilesTree(runfilesArtifact, runfilesTree);
-
-    Spawn spawn1 =
-        new SimpleSpawn(
-            new FakeOwner("foo", "bar", "//dummy:label"),
-            /* arguments= */ ImmutableList.of(),
-            /* environment= */ ImmutableMap.of(),
-            /* executionInfo= */ ImmutableMap.of(),
-            /* inputs= */ nodeRoot1,
-            /* outputs= */ ImmutableSet.of(),
-            ResourceSet.ZERO);
-
-    Spawn spawn2 =
-        new SimpleSpawn(
-            new FakeOwner("foo", "bar", "//dummy:label"),
-            /* arguments= */ ImmutableList.of(),
-            /* environment= */ ImmutableMap.of(),
-            /* executionInfo= */ ImmutableMap.of(),
-            /* inputs= */ nodeRoot2,
-            /* outputs= */ ImmutableSet.of(),
-            ResourceSet.ZERO);
-
-    FakeSpawnExecutionContext context1 = newSpawnExecutionContext(spawn1);
-    FakeSpawnExecutionContext context2 = newSpawnExecutionContext(spawn2);
-    remoteOptions.remoteMerkleTreeCache = true;
-    remoteOptions.remoteMerkleTreeCacheSize = 0;
-    RemoteExecutionService service = spy(newRemoteExecutionService(remoteOptions));
-
-    // act first time
-    service.buildRemoteAction(spawn1, context1);
-
-    // assert first time
-    verify(service, times(5)).uncachedBuildMerkleTreeVisitor(any(), any(), any(), any());
-    assertThat(service.getMerkleTreeCache().asMap().keySet())
-        .containsExactly(
-            ImmutableList.of(
-                PathFragment.create("tools/tool.runfiles"),
-                PathFragment.EMPTY_FRAGMENT,
-                PathMapper.NOOP.getClass()),
-            ImmutableList.of(tree, PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
-            ImmutableList.of(
-                nodeRoot1.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
-            ImmutableList.of(
-                nodeFoo1.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
-            ImmutableList.of(
-                nodeBar.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()));
-
-    // act second time
-    service.buildRemoteAction(spawn2, context2);
-
-    // assert second time
-    verify(service, times(5 + 2)).uncachedBuildMerkleTreeVisitor(any(), any(), any(), any());
-    assertThat(service.getMerkleTreeCache().asMap().keySet())
-        .containsExactly(
-            ImmutableList.of(
-                PathFragment.create("tools/tool.runfiles"),
-                PathFragment.EMPTY_FRAGMENT,
-                PathMapper.NOOP.getClass()),
-            ImmutableList.of(tree, PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
-            ImmutableList.of(
-                nodeRoot1.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
-            ImmutableList.of(
-                nodeRoot2.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
-            ImmutableList.of(
-                nodeFoo1.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
-            ImmutableList.of(
-                nodeFoo2.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()),
-            ImmutableList.of(
-                nodeBar.toNode(), PathFragment.EMPTY_FRAGMENT, PathMapper.NOOP.getClass()));
-  }
-
-  @Test
   public void buildRemoteActionForRemotePersistentWorkers(
       @TestParameter boolean enablePathMapping, @TestParameter boolean siblingRepositoryLayout)
       throws Exception {
@@ -2897,10 +2767,7 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void buildRemoteActionWithPathMapping(@TestParameter boolean remoteMerkleTreeCache)
-      throws Exception {
-    remoteOptions.remoteMerkleTreeCache = remoteMerkleTreeCache;
-
+  public void buildRemoteActionWithPathMapping() throws Exception {
     var mappedInput = ActionsTestUtil.createArtifact(artifactRoot, "bin/config/input1");
     fakeFileCache.createScratchInput(mappedInput, "value1");
     var unmappedInput = ActionsTestUtil.createArtifact(artifactRoot, "bin/input2");

@@ -192,11 +192,6 @@ public class RemoteSpawnCacheTest {
       }
 
       @Override
-      public SpawnInputExpander getSpawnInputExpander() {
-        return new SpawnInputExpander();
-      }
-
-      @Override
       public Duration getTimeout() {
         return Duration.ZERO;
       }
@@ -209,7 +204,7 @@ public class RemoteSpawnCacheTest {
       @Override
       public SortedMap<PathFragment, ActionInput> getInputMapping(
           PathFragment baseDirectory, boolean willAccessRepeatedly) {
-        return getSpawnInputExpander().getInputMapping(spawn, fakeFileCache, baseDirectory);
+        return new SpawnInputExpander().getInputMapping(spawn, fakeFileCache, baseDirectory);
       }
 
       @Override

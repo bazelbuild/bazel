@@ -1,6 +1,7 @@
 package com.google.devtools.build.lib.remote.merkletree;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -406,9 +407,10 @@ public final class MerkleTreeComputer {
           inputBytes += directoryBlobDigest.getSizeBytes();
           var topDirectory = directoryStack.peek();
           if (topDirectory == null) {
+            var builtBlobs = blobs.buildKeepingLast();
+            checkState(subTreePolicy != SubTreePolicy.DISCARD || builtBlobs.isEmpty());
             return new MerkleTree(
-                new MerkleTreeRoot(directoryBlobDigest, inputFiles, inputBytes),
-                blobs.buildKeepingLast());
+                new MerkleTreeRoot(directoryBlobDigest, inputFiles, inputBytes), builtBlobs);
           }
           topDirectory
               .addDirectoriesBuilder()
