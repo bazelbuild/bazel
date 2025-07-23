@@ -16,10 +16,14 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.skyframe.SkyKey;
+import javax.annotation.Nullable;
 
 /** State to track the {@link SkyKey}s that were deserialized from the remote analysis cache. */
 public record RemoteAnalysisCachingState(
-    FrontierNodeVersion version, ImmutableSet<SkyKey> deserializedKeys) {
+    @Nullable FrontierNodeVersion version,
+    ImmutableSet<SkyKey> deserializedKeys,
+    @Nullable ClientId clientId) {
   public static final RemoteAnalysisCachingState EMPTY =
-      new RemoteAnalysisCachingState(null, ImmutableSet.of());
+      new RemoteAnalysisCachingState(
+          /* version= */ null, /* deserializedKeys= */ ImmutableSet.of(), /* clientId= */ null);
 }

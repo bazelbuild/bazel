@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyKeySerializationH
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.ByteString;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
@@ -53,17 +54,20 @@ public final class AnalysisCacheInvalidator {
   private final FingerprintValueService fingerprintService;
   private final ExtendedEventHandler eventHandler;
   private final FrontierNodeVersion currentVersion;
+  private final ClientId currentClientId;
 
   public AnalysisCacheInvalidator(
       RemoteAnalysisCacheClient analysisCacheClient,
       ObjectCodecs objectCodecs,
       FingerprintValueService fingerprintValueService,
       FrontierNodeVersion currentVersion,
+      ClientId currentClientId,
       ExtendedEventHandler eventHandler) {
     this.analysisCacheClient = checkNotNull(analysisCacheClient, "analysisCacheClient");
     this.codecs = checkNotNull(objectCodecs, "objectCodecs");
     this.fingerprintService = checkNotNull(fingerprintValueService, "fingerprintValueService");
     this.currentVersion = checkNotNull(currentVersion, "currentVersion");
+    this.currentClientId = checkNotNull(currentClientId, "currentClientId");
     this.eventHandler = checkNotNull(eventHandler, "eventHandler");
   }
 
@@ -90,6 +94,12 @@ public final class AnalysisCacheInvalidator {
               + " version: %s.",
           previousVersion, currentVersion);
       return remoteAnalysisCachingState.deserializedKeys(); // everything must be invalidated
+    }
+
+    if (Objects.equals(currentClientId, remoteAnalysisCachingState.clientId())) {
+      // The current client state is the same as the previous client state, so
+      // no invalidation is needed because all deserialized keys are still valid.
+      return ImmutableSet.of();
     }
 
     Stopwatch stopwatch = Stopwatch.createStarted();

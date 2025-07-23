@@ -29,6 +29,7 @@ java_test(
         "//third_party:mockito",
         "//third_party:truth",
         "@com_google_protobuf//:protobuf_java",
+        "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
 

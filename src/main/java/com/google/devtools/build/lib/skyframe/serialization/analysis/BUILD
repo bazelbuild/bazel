@@ -15,6 +15,7 @@ java_library(
     name = "event_listener",
     srcs = ["RemoteAnalysisCachingEventListener.java"],
     deps = [
+        ":client_id",
         ":remote_analysis_cache_client",
         ":remote_analysis_caching_state",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
@@ -218,6 +219,10 @@ java_library(
 java_library(
     name = "client_id",
     srcs = ["ClientId.java"],
+    deps = [
+        "//third_party:error_prone_annotations",
+        # Do NOT add Bazel-specific dependencies here.
+    ],
 )
 
 java_library(
@@ -272,6 +277,7 @@ java_library(
     name = "analysis_cache_invalidator",
     srcs = ["AnalysisCacheInvalidator.java"],
     deps = [
+        ":client_id",
         ":remote_analysis_cache_client",
         ":remote_analysis_caching_state",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -288,8 +294,10 @@ java_library(
     name = "remote_analysis_caching_state",
     srcs = ["RemoteAnalysisCachingState.java"],
     deps = [
+        ":client_id",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )

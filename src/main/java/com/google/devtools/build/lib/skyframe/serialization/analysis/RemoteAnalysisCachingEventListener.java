@@ -66,6 +66,8 @@ public class RemoteAnalysisCachingEventListener {
   @Nullable private FingerprintValueStore.Stats fingerprintValueStoreStats;
   @Nullable private RemoteAnalysisCacheClient.Stats remoteAnalysisCacheStats;
 
+  @Nullable private ClientId clientId;
+
   @Subscribe
   @AllowConcurrentEvents
   @SuppressWarnings("unused")
@@ -167,11 +169,20 @@ public class RemoteAnalysisCachingEventListener {
     this.skyValueVersion.set(version);
   }
 
+  public void setClientId(ClientId clientId) {
+    this.clientId = clientId;
+  }
+
+  public ClientId getClientId() {
+    return clientId;
+  }
+
   /**
    * Returns the {@link RemoteAnalysisCachingState} for this build with information about all the
    * cache hits.
    */
   public RemoteAnalysisCachingState getLatestBuildState() {
-    return new RemoteAnalysisCachingState(skyValueVersion.get(), ImmutableSet.copyOf(cacheHits));
+    return new RemoteAnalysisCachingState(
+        skyValueVersion.get(), ImmutableSet.copyOf(cacheHits), clientId);
   }
 }

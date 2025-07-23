@@ -1322,9 +1322,11 @@ public class BuildTool {
       }
       RemoteAnalysisCachingServicesSupplier servicesSupplier =
           env.getBlazeWorkspace().remoteAnalysisCachingServicesSupplier();
+      ClientId clientId =
+          this.snapshot.orElse(new LongVersionClientId(this.evaluatingVersion.getVal()));
+      listener.setClientId(clientId);
       servicesSupplier.configure(
-          env.getOptions().getOptions(RemoteAnalysisCachingOptions.class),
-          this.snapshot.orElse(new LongVersionClientId(this.evaluatingVersion.getVal())));
+          env.getOptions().getOptions(RemoteAnalysisCachingOptions.class), clientId);
       this.fingerprintValueServiceFuture = servicesSupplier.getFingerprintValueService();
       this.analysisCacheClient = servicesSupplier.getAnalysisCacheClient();
       this.eventHandler = env.getReporter();
@@ -1485,7 +1487,12 @@ public class BuildTool {
             }
             localRef =
                 new AnalysisCacheInvalidator(
-                    client, codecs, fingerprintService, getSkyValueVersion(), eventHandler);
+                    client,
+                    codecs,
+                    fingerprintService,
+                    getSkyValueVersion(),
+                    listener.getClientId(),
+                    eventHandler);
           }
         }
       }
