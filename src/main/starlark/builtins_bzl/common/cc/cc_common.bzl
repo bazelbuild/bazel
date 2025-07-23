@@ -822,6 +822,27 @@ def _implementation_deps_allowed_by_allowlist(*, ctx):
     cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.implementation_deps_allowed_by_allowlist(ctx = ctx)
 
+def _get_cc_native_library_info_provider():
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return CcNativeLibraryInfo
+
+def _get_artifact_name_for_category(*, cc_toolchain, category, output_name):
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return _builtins.internal.cc_internal.get_artifact_name_for_category(
+        cc_toolchain = cc_toolchain,
+        category = category,
+        output_name = output_name,
+    )
+
+def _absolute_symlink(*, ctx, output, target_path, progress_message):
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    _builtins.internal.cc_internal.absolute_symlink(
+        ctx = ctx,
+        output = output,
+        target_path = target_path,
+        progress_message = progress_message,
+    )
+
 cc_common = struct(
     link = _link,
     create_lto_compilation_context = _create_lto_compilation_context,
@@ -874,4 +895,7 @@ cc_common = struct(
     implementation_deps_allowed_by_allowlist = _implementation_deps_allowed_by_allowlist,
     CcSharedLibraryHintInfo = CcSharedLibraryHintInfo,
     build_extra_link_time_libraries = build_libraries,
+    get_cc_native_library_info_provider = _get_cc_native_library_info_provider,
+    get_artifact_name_for_category = _get_artifact_name_for_category,
+    absolute_symlink = _absolute_symlink,
 )
