@@ -35,7 +35,7 @@ def _impl(ctx):
     )
 
     make_variables = cc_toolchain._additional_make_variables
-    cc_provider_make_variables = cc_helper.get_toolchain_global_make_variables(feature_configuration, cc_toolchain)
+    cc_provider_make_variables = cc_helper.get_toolchain_global_make_variables(cc_toolchain, feature_configuration = feature_configuration)
     template_variable_info = TemplateVariableInfo(make_variables | cc_provider_make_variables)
     toolchain = ToolchainInfo(
         cc = cc_toolchain,

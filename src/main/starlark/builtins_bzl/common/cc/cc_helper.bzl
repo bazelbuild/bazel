@@ -544,13 +544,21 @@ _TOOL_NAMES_TO_ACTION_NAMES = {
 }
 
 def _tool_or_action_path(cc_toolchain, feature_configuration, tool):
+    # For backwards compatibility with old rulesets, we must fallback
+    # to the old behaviour when feature_configuration doesn't exist
+    if feature_configuration == None:
+        return cc_toolchain._tool_paths.get(tool, None)
+
     action_name = _TOOL_NAMES_TO_ACTION_NAMES.get(tool, None)
     if action_name != None and cc_common.action_is_enabled(feature_configuration = feature_configuration, action_name = action_name):
         return cc_common.get_tool_for_action(feature_configuration = feature_configuration, action_name = action_name)
     else:
         return cc_toolchain._tool_paths.get(tool, None)
 
-def _get_toolchain_global_make_variables(feature_configuration, cc_toolchain):
+# feature_configuration is an optional parameter so that existing rules
+# that call this function continue to work. We will fallback to the
+# original behaviour if no feature_configuration is passed in.
+def _get_toolchain_global_make_variables(cc_toolchain, feature_configuration = None):
     result = {
         "CC": _tool_or_action_path(cc_toolchain, feature_configuration, TOOL_NAMES.gcc),
         "AR": _tool_or_action_path(cc_toolchain, feature_configuration, TOOL_NAMES.ar),

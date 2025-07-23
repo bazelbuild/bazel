@@ -205,7 +205,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
       StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       Dict<?, ?> makeVarsDict =
           (Dict<?, ?>)
-              Starlark.positionalOnlyCall(thread, getMakeVariables, FeatureConfigurationForStarlark.from(featureConfiguration), ccToolchainProvider.getValue());
+              Starlark.positionalOnlyCall(thread, getMakeVariables, ccToolchainProvider.getValue(), FeatureConfigurationForStarlark.from(featureConfiguration));
       return ImmutableMap.copyOf(
           Dict.cast(makeVarsDict, String.class, String.class, "make_vars_for_test"));
     }
