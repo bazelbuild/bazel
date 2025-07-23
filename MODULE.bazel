@@ -75,6 +75,34 @@ single_version_override(
     ],
 )
 
+# 1. Expose @com_google_protobuf//java/core:lite_runtime_only
+# due to https://github.com/protocolbuffers/protobuf/commit/079be27925955348d1b3cb30ffbfa33dcec5778c
+# We need to package the lite runtime jar for Bazel's bootstrap build
+# 2. Rename protobuf's maven install back to the default "maven" namespace to avoid duplication of maven jar dependencies.
+# See https://github.com/bazel-contrib/rules_jvm_external/issues/916#issuecomment-3045506487
+# 3. Fix a protobuf upb issue while cross-compiling for windows arm64 platform.
+# See https://github.com/protocolbuffers/protobuf/commit/37c3384a4fb29de2e9dba6ddb3a50d632b12d23a
+single_version_override(
+    module_name = "protobuf",
+    patch_strip = 1,
+    patches = ["//third_party:protobuf.patch"],
+    version = "31.1",
+)
+
+# Remove once the following PRs are available in a grpc-java release.
+#   https://github.com/grpc/grpc-java/pull/12148
+#   https://github.com/grpc/grpc-java/pull/12207
+#   https://github.com/grpc/grpc-java/pull/12222
+single_version_override(
+    module_name = "grpc-java",
+    patch_strip = 1,
+    patches = [
+        "//third_party:grpc-java.patch",
+        "//third_party:grpc-java-12207.patch",
+        "//third_party:grpc-java-12222.patch",
+    ],
+)
+
 local_path_override(
     module_name = "remoteapis",
     path = "./third_party/remoteapis",
