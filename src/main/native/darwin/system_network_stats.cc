@@ -35,16 +35,25 @@ Java_com_google_devtools_build_lib_profiler_SystemNetworkStats_getNetIoCountersN
                 NET_RT_IFLIST2,  // operation
                 0};
 
+  std::vector<char> buf;
   size_t buf_len;
-  if (sysctl(mib, 6, nullptr, &buf_len, nullptr, 0) < 0) {
-    PostException(env, errno, "sysctl");
-    return;
-  }
+  for (;;) {
+    if (sysctl(mib, 6, nullptr, &buf_len, nullptr, 0) < 0) {
+      PostException(env, errno, "sysctl");
+      return;
+    }
 
-  std::vector<char> buf(buf_len);
-  if (sysctl(mib, 6, buf.data(), &buf_len, nullptr, 0) < 0) {
-    PostException(env, errno, "sysctl");
-    return;
+    buf.resize(buf_len);
+    if (sysctl(mib, 6, buf.data(), &buf_len, nullptr, 0) == 0) {
+      break;
+    }
+    if (errno != ENOMEM) {
+      PostException(env, errno, "sysctl");
+      return;
+    }
+
+    // The list of network interfaces grew between the first and second
+    // call to sysctl(), causing it to fail with ENOMEM. Perform a retry.
   }
 
   jclass map_class = env->GetObjectClass(counters_map);
