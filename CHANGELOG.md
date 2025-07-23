@@ -1,3 +1,20 @@
+## Release 9.0.0-pre.20250716.1 (2025-07-23)
+
+```
+Baseline: 3e62cbbd9410e2a52d551cc7c00b9e2984d7ec02
+```
+
+Important changes:
+
+  - `ctx.actions.write` now supports path mapping when passed an
+    `Args` object. Use the `mnemonics` attribute to assign it a
+    dedicated mnemonic, which can then be used with
+    `--modify_execution_info` to opt in to path mapping (see
+    https://github.com/bazelbuild/bazel/discussions/22658 for details
+    on path mapping).
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jonathan Woodbury, Jordan Mele.
+
 ## Release 9.0.0-pre.20250714.1 (2025-07-18)
 
 ```
