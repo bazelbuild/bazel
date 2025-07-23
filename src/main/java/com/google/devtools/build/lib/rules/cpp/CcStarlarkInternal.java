@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.rules.cpp.CppHelper.asDict;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -45,7 +44,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
-import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Types;
@@ -53,8 +51,6 @@ import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.MapVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -76,7 +72,6 @@ import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Tuple;
-import net.starlark.java.syntax.Location;
 
 /** Utility methods for rules in Starlark Builtins */
 @StarlarkBuiltin(name = "cc_internal", category = DocCategory.BUILTIN, documented = false)
@@ -254,19 +249,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     return new StlComputedDefault();
   }
 
-  @SerializationConstant @VisibleForSerialization
-  static final StarlarkProvider starlarkCcTestRunnerInfo =
-      StarlarkProvider.builder(Location.BUILTIN)
-          .buildExported(
-              new StarlarkProvider.Key(
-                  keyForBuild(Label.parseCanonicalUnchecked("//tools/cpp/cc_test:toolchain.bzl")),
-                  "CcTestRunnerInfo"));
-
-  @StarlarkMethod(name = "CcTestRunnerInfo", documented = false, structField = true)
-  public StarlarkProvider ccTestRunnerInfo() throws EvalException {
-    return starlarkCcTestRunnerInfo;
-  }
-
   @StarlarkMethod(
       name = "create_cpp_source",
       doc = "Creates a CppSource instance.",
@@ -294,21 +276,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     return CppSource.create(source, label, CppSource.Type.valueOf(type));
   }
 
-  @SerializationConstant @VisibleForSerialization
-  static final StarlarkProvider buildSettingInfo =
-      StarlarkProvider.builder(Location.BUILTIN)
-          .buildExported(
-              new StarlarkProvider.Key(
-                  keyForBuild(
-                      Label.parseCanonicalUnchecked(
-                          "//third_party/bazel_skylib/rules:common_settings.bzl")),
-                  "BuildSettingInfo"));
-
-  @StarlarkMethod(name = "BuildSettingInfo", documented = false, structField = true)
-  public StarlarkProvider buildSettingInfo() throws EvalException {
-    return buildSettingInfo;
-  }
-
   @StarlarkMethod(
       name = "escape_label",
       documented = false,
@@ -317,18 +284,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   public String escapeLabel(Label label) {
     return Actions.escapeLabel(label);
-  }
-
-  @StarlarkMethod(
-      name = "licenses",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-      },
-      allowReturnNones = true)
-  @Nullable
-  public StarlarkList<String> getLicenses(StarlarkRuleContext starlarkRuleContext) {
-    return null;
   }
 
   @StarlarkMethod(

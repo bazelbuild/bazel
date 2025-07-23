@@ -89,7 +89,6 @@ def _attributes(ctx):
         supports_param_files = ctx.attr.supports_param_files,
         runtime_solib_dir_base = "_solib__" + cc_internal.escape_label(label = ctx.label),
         cc_toolchain_config_info = _provider(ctx.attr.toolchain_config, CcToolchainConfigInfo),
-        licenses_provider = cc_internal.licenses(ctx = ctx),
         static_runtime_lib = ctx.attr.static_runtime_lib,
         dynamic_runtime_lib = ctx.attr.dynamic_runtime_lib,
         supports_header_parsing = ctx.attr.supports_header_parsing,
@@ -128,8 +127,6 @@ def _attributes(ctx):
 def _cc_toolchain_impl(ctx):
     attributes = _attributes(ctx)
     providers = []
-    if attributes.licenses_provider != None:
-        providers.append(attributes.licenses_provider)
 
     cc_toolchain = get_cc_toolchain_provider(ctx, attributes)
     if cc_toolchain == None:
