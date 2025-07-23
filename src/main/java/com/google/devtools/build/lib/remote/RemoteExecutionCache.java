@@ -43,8 +43,9 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.Blob;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
-import com.google.devtools.build.lib.remote.merkletree.v2.MerkleTreeComputer;
-import com.google.devtools.build.lib.remote.merkletree.v2.MerkleTreeComputer.MerkleTreeUploader;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer.MerkleTree;
+import com.google.devtools.build.lib.remote.merkletree.MerkleTreeComputer.MerkleTreeUploader;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
@@ -132,7 +133,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
    */
   public void ensureInputsPresent(
       RemoteActionExecutionContext context,
-      MerkleTreeComputer.MerkleTree merkleTree,
+      MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
       boolean force,
       @Nullable RemotePathResolver remotePathResolver)
@@ -177,7 +178,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   @Override
   public void ensureInputsPresent(
       RemoteActionExecutionContext context,
-      MerkleTreeComputer.MerkleTree merkleTree,
+      MerkleTree merkleTree,
       boolean force,
       RemotePathResolver remotePathResolver)
       throws IOException, InterruptedException {
@@ -256,7 +257,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
   private ListenableFuture<Void> uploadBlob(
       RemoteActionExecutionContext context,
       Digest digest,
-      MerkleTreeComputer.MerkleTree merkleTree,
+      MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
       @Nullable RemotePathResolver remotePathResolver) {
     var upload = merkleTree.upload(this, context, remotePathResolver, digest);
@@ -285,7 +286,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
 
   private Single<List<UploadTask>> createUploadTasks(
       RemoteActionExecutionContext context,
-      MerkleTreeComputer.MerkleTree merkleTree,
+      MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
       Iterable<Digest> allDigests,
       boolean force,
@@ -309,7 +310,7 @@ public class RemoteExecutionCache extends CombinedCache implements MerkleTreeUpl
 
   private Maybe<UploadTask> maybeCreateUploadTask(
       RemoteActionExecutionContext context,
-      MerkleTreeComputer.MerkleTree merkleTree,
+      MerkleTree merkleTree,
       Map<Digest, Message> additionalInputs,
       Digest digest,
       boolean force,
