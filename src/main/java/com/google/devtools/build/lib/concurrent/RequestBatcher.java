@@ -157,13 +157,9 @@ public class RequestBatcher<RequestT, ResponseT> {
   private final ConcurrentFifo<Operation<RequestT, ResponseT>> queue;
 
   /** Injectable batching logic. */
-  // TODO: b/390533627 - delete this interface
-  private sealed interface ClientBatchExecutionStrategy<RequestT, ResponseT>
-      permits Multiplexer, CallbackMultiplexer, PerResponseMultiplexer {}
 
   /** Batching strategy where a single batch request returns a single batch future response. */
-  public non-sealed interface Multiplexer<RequestT, ResponseT>
-      extends ClientBatchExecutionStrategy<RequestT, ResponseT> {
+  public interface Multiplexer<RequestT, ResponseT> {
     /**
      * Evaluates {@code requests} as a batch.
      *
@@ -199,8 +195,7 @@ public class RequestBatcher<RequestT, ResponseT> {
    * A batching strategy where the implementation provides concrete response values asynchronously
    * via callbacks.
    */
-  public non-sealed interface CallbackMultiplexer<RequestT, ResponseT>
-      extends ClientBatchExecutionStrategy<RequestT, ResponseT> {
+  public interface CallbackMultiplexer<RequestT, ResponseT> {
     /**
      * Executes the batch of {@code requests}, pushing results directly to the corresponding {@link
      * ResponseSink} instances in the {@code sinks} list.
@@ -235,8 +230,7 @@ public class RequestBatcher<RequestT, ResponseT> {
   }
 
   /** Batching strategy when a single batch request returns a response per future request. */
-  public non-sealed interface PerResponseMultiplexer<RequestT, ResponseT>
-      extends ClientBatchExecutionStrategy<RequestT, ResponseT> {
+  public interface PerResponseMultiplexer<RequestT, ResponseT> {
     /** Executes {@code requests} in a batch and populates corresponding {@code responses}. */
     void execute(
         List<RequestT> requests, ImmutableList<? extends FutureResponseSink<ResponseT>> responses);
@@ -266,11 +260,7 @@ public class RequestBatcher<RequestT, ResponseT> {
   }
 
   public static <RequestT, ResponseT> RequestBatcher<RequestT, ResponseT> create(
-      // TODO: b/390533627 - this will no longer be needed
-      Executor responseDistributionExecutor,
-      // TODO: b/390533627 - make this BatchExecutionStrategy instead. Clients should use the
-      // adapter classes to create BatchExecutionStrategy instances.
-      ClientBatchExecutionStrategy<RequestT, ResponseT> batchExecutionStrategy,
+      BatchExecutionStrategy<RequestT, ResponseT> batchExecutionStrategy,
       int maxBatchSize,
       int maxConcurrentRequests) {
     long baseAddress = createPaddedBaseAddress(4);
@@ -289,14 +279,7 @@ public class RequestBatcher<RequestT, ResponseT> {
             // the `queueDrainingExecutor`. It is possible for this to overrun, but the work is
             // relatively lightweight and the batch round trip latency is expected to dominate.
             /* queueDrainingExecutor= */ newFixedThreadPool(maxConcurrentRequests),
-            switch (batchExecutionStrategy) {
-              case Multiplexer<RequestT, ResponseT> multiplexer ->
-                  createBatchExecutionStrategy(multiplexer, responseDistributionExecutor);
-              case CallbackMultiplexer<RequestT, ResponseT> callbackMultiplexer ->
-                  createCallbackBatchExecutionStrategy(callbackMultiplexer);
-              case PerResponseMultiplexer<RequestT, ResponseT> perResponseMultiplexer ->
-                  createPerResponseBatchExecutionStrategy(perResponseMultiplexer);
-            },
+            batchExecutionStrategy,
             maxBatchSize,
             maxConcurrentRequests,
             countersAddress,

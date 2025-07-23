@@ -20,6 +20,9 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.concurrent.PaddedAddresses.createPaddedBaseAddress;
 import static com.google.devtools.build.lib.concurrent.PaddedAddresses.getAlignedAddress;
+import static com.google.devtools.build.lib.concurrent.RequestBatcher.createBatchExecutionStrategy;
+import static com.google.devtools.build.lib.concurrent.RequestBatcher.createCallbackBatchExecutionStrategy;
+import static com.google.devtools.build.lib.concurrent.RequestBatcher.createPerResponseBatchExecutionStrategy;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 import static org.junit.Assert.assertThrows;
 
@@ -57,9 +60,8 @@ public final class RequestBatcherTest {
     // This covers Step 1A in the documentation.
     var batcher =
         RequestBatcher.<Request, Response>create(
-            commonPool(),
-            (RequestBatcher.Multiplexer<Request, Response>)
-                requests -> immediateFuture(respondTo(requests)),
+            createBatchExecutionStrategy(
+                requests -> immediateFuture(respondTo(requests)), commonPool()),
             /* maxBatchSize= */ 255,
             /* maxConcurrentRequests= */ 1);
     ListenableFuture<Response> response = batcher.submit(new Request(1));
@@ -74,8 +76,7 @@ public final class RequestBatcherTest {
     var multiplexer = new SettableMultiplexer();
     var batcher =
         RequestBatcher.<Request, Response>create(
-            commonPool(),
-            multiplexer,
+            createBatchExecutionStrategy(multiplexer, commonPool()),
             /* maxBatchSize= */ batchSize - 1,
             /* maxConcurrentRequests= */ 1);
     ListenableFuture<Response> response0 = batcher.submit(new Request(0));
@@ -132,7 +133,9 @@ public final class RequestBatcherTest {
     var multiplexer = new SettableMultiplexer();
     var batcher =
         RequestBatcher.<Request, Response>create(
-            commonPool(), multiplexer, /* maxBatchSize= */ 255, /* maxConcurrentRequests= */ 1);
+            createBatchExecutionStrategy(multiplexer, commonPool()),
+            /* maxBatchSize= */ 255,
+            /* maxConcurrentRequests= */ 1);
     ListenableFuture<Response> response1 = batcher.submit(new Request(1));
     BatchedOperations requestResponses1 = multiplexer.queue.take();
 
@@ -170,7 +173,7 @@ public final class RequestBatcherTest {
     var batcher =
         new RequestBatcher<Request, Response>(
             /* queueDrainingExecutor= */ queueDrainingExecutor,
-            RequestBatcher.createBatchExecutionStrategy(
+            createBatchExecutionStrategy(
                 requests -> immediateFuture(respondTo(requests)), commonPool()),
             /* maxBatchSize= */ 255,
             /* maxConcurrentRequests= */ 1,
@@ -210,9 +213,8 @@ public final class RequestBatcherTest {
   public void randomRaces_executeCorrectly() throws Exception {
     var batcher =
         RequestBatcher.<Request, Response>create(
-            commonPool(),
-            (RequestBatcher.Multiplexer<Request, Response>)
-                requests -> immediateFuture(respondTo(requests)),
+            createBatchExecutionStrategy(
+                requests -> immediateFuture(respondTo(requests)), commonPool()),
             /* maxBatchSize= */ 255,
             /* maxConcurrentRequests= */ 4);
 
@@ -256,13 +258,12 @@ public final class RequestBatcherTest {
   public void perResponseMultiplexer_simpleSubmit_executes() throws Exception {
     var batcher =
         RequestBatcher.<Request, Response>create(
-            commonPool(),
-            (RequestBatcher.PerResponseMultiplexer<Request, Response>)
+            createPerResponseBatchExecutionStrategy(
                 (requests, sinks) -> {
                   assertThat(requests).hasSize(1);
                   assertThat(sinks).hasSize(1);
                   sinks.get(0).acceptFutureResponse(immediateFuture(new Response(1)));
-                },
+                }),
             /* maxBatchSize= */ 255,
             /* maxConcurrentRequests= */ 1);
 
@@ -276,8 +277,7 @@ public final class RequestBatcherTest {
     var multiplexer = new PerResponseSettableMultiplexer();
     var batcher =
         RequestBatcher.<Request, Response>create(
-            commonPool(),
-            multiplexer,
+            createPerResponseBatchExecutionStrategy(multiplexer),
             /* maxBatchSize= */ 1, // actual batch size is 2
             /* maxConcurrentRequests= */ 1);
 
@@ -318,8 +318,7 @@ public final class RequestBatcherTest {
     var multiplexer = new PerResponseSettableMultiplexer();
     var batcher =
         RequestBatcher.<Request, Response>create(
-            commonPool(),
-            multiplexer,
+            createPerResponseBatchExecutionStrategy(multiplexer),
             /* maxBatchSize= */ 1, // actual batch size is 2
             /* maxConcurrentRequests= */ 1);
 
@@ -370,7 +369,9 @@ public final class RequestBatcherTest {
 
     var batcher =
         RequestBatcher.<Request, Response>create(
-            commonPool(), multiplexer, /* maxBatchSize= */ 255, /* maxConcurrentRequests= */ 1);
+            createPerResponseBatchExecutionStrategy(multiplexer),
+            /* maxBatchSize= */ 255,
+            /* maxConcurrentRequests= */ 1);
 
     // Blocks the first worker to allow a batch to form.
     ListenableFuture<Response> response0 = batcher.submit(new Request(0));
@@ -414,8 +415,7 @@ public final class RequestBatcherTest {
     var multiplexer = new SettableMultiplexer();
     var batcher =
         RequestBatcher.<Request, Response>create(
-            crashDetectingExecutor,
-            multiplexer,
+            createBatchExecutionStrategy(multiplexer, crashDetectingExecutor),
             /* maxBatchSize= */ 255,
             /* maxConcurrentRequests= */ 1);
 
@@ -496,7 +496,9 @@ public final class RequestBatcherTest {
         };
 
     return RequestBatcher.<Request, Response>create(
-        commonPool(), multiplexer, /* maxBatchSize= */ 1, /* maxConcurrentRequests= */ 1);
+        createCallbackBatchExecutionStrategy(multiplexer),
+        /* maxBatchSize= */ 1,
+        /* maxConcurrentRequests= */ 1);
   }
 
   @Test
