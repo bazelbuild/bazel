@@ -38,7 +38,7 @@ import javax.annotation.Nullable;
  * {@linkplain com.google.devtools.build.lib.runtime.BlazeModule#getOutputService provides} an
  * {@link OutputService}.
  */
-public final class LocalOutputService implements OutputService {
+public class LocalOutputService implements OutputService {
   private final BlazeDirectories directories;
 
   public LocalOutputService(BlazeDirectories directories) {
