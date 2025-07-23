@@ -413,6 +413,10 @@ final class AspectFunction implements SkyFunction {
               computeDependenciesState,
               ConfiguredTargetKey.fromConfiguredTarget(associatedTarget),
               topologicalAspectPath,
+              // Relevant for exec-config deps of the aspect itself. May need to pass the actual
+              // key if there's a use case for an aspect to be applied to exec-config deps of an
+              // aspect.
+              /* loadExecAspectsKey= */ null,
               buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache(),
               starlarkExecTransition.orElse(null),
               env,

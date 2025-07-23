@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BaseTargetPrerequisitesSupplier;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.LoadAspectsKey;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import javax.annotation.Nullable;
@@ -41,6 +42,9 @@ public final class PrerequisiteParameters {
   private final Target target;
 
   private final ImmutableList<Aspect> aspects;
+  // This is the key for loading the aspects passed to the --exec_aspects flag, which get attached
+  // to targets in the exec configuration.
+  @Nullable private final LoadAspectsKey loadExecAspectsKey;
   @Nullable private final StarlarkAttributeTransitionProvider starlarkTransitionProvider;
   private final StarlarkTransitionCache transitionCache;
   @Nullable private final ToolchainCollection<ToolchainContext> toolchainContexts;
@@ -69,6 +73,7 @@ public final class PrerequisiteParameters {
       ConfiguredTargetKey configuredTargetKey,
       Target target,
       Iterable<Aspect> aspects,
+      @Nullable LoadAspectsKey loadExecAspectsKey,
       @Nullable StarlarkAttributeTransitionProvider starlarkTransitionProvider,
       StarlarkTransitionCache transitionCache,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
@@ -80,6 +85,7 @@ public final class PrerequisiteParameters {
     this.configuredTargetKey = configuredTargetKey;
     this.target = target;
     this.aspects = ImmutableList.copyOf(aspects);
+    this.loadExecAspectsKey = loadExecAspectsKey;
     this.starlarkTransitionProvider = starlarkTransitionProvider;
     this.transitionCache = transitionCache;
     this.toolchainContexts = toolchainContexts;
@@ -120,6 +126,11 @@ public final class PrerequisiteParameters {
 
   public ImmutableList<Aspect> aspects() {
     return aspects;
+  }
+
+  @Nullable
+  public LoadAspectsKey loadExecAspectsKey() {
+    return loadExecAspectsKey;
   }
 
   @Nullable

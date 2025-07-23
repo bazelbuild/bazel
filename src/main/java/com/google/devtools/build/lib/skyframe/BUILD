@@ -43,7 +43,7 @@ java_library(
         "ExternalFilesHelper.java",
         "FileStateFunction.java",
         "HighWaterMarkLimiter.java",
-        "LoadTopLevelAspectsFunction.java",
+        "LoadAspectsFunction.java",
         "LocalRepositoryLookupFunction.java",
         "MacroInstanceFunction.java",
         "NonFinalizerPackagePiecesFunction.java",
@@ -147,6 +147,8 @@ java_library(
         ":ignored_subdirectories_value",
         ":incremental_artifact_conflict_finder",
         ":invalid_glob_pattern_exception",
+        ":load_aspects_key",
+        ":load_aspects_value",
         ":loading_phase_started_event",
         ":local_repository_lookup_value",
         ":map_as_package_roots",
@@ -343,7 +345,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/config:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding",
         "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:rewindable_graph_inconsistency_receiver",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:dependencies_provider",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:options",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:remote_analysis_caching_state",
@@ -1993,6 +1994,30 @@ java_library(
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "load_aspects_key",
+    srcs = ["LoadAspectsKey.java"],
+    deps = [
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "load_aspects_value",
+    srcs = ["LoadAspectsValue.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
     ],
 )
 

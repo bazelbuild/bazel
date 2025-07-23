@@ -1010,6 +1010,19 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "If true, use the target platform for running tests rather than the test exec group.")
   public boolean useTargetPlatformForTests;
 
+  @Option(
+      name = "exec_aspects",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      allowMultiple = true,
+      help =
+          "Comma-separated list of aspects to be applied to exec-configured targets, regardless of"
+              + " whether or not they are top-level targets. This is an experimental feature and"
+              + " is subject to change.")
+  public List<String> execAspects;
+
   public Optional<String> getPlatformCpuNameOverride(Label platform) {
     // As highest priority, use the last entry that matches in name override option.
     return Streams.findLast(

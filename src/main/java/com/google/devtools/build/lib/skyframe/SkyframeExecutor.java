@@ -848,7 +848,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ruleClassProvider,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             this::getExistingPackage));
-    map.put(SkyFunctions.BUILD_TOP_LEVEL_ASPECTS_DETAILS, new LoadTopLevelAspectsFunction());
+    map.put(SkyFunctions.LOAD_ASPECTS, new LoadAspectsFunction());
     map.put(GenQueryPackageProviderFactory.GENQUERY_SCOPE, GenQueryPackageProviderFactory.FUNCTION);
     map.put(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING, new ActionLookupConflictFindingFunction());
     map.put(

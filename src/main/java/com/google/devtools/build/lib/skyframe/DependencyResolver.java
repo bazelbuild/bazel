@@ -22,6 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
@@ -72,8 +73,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
+import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildOptionsScopeFunction.BuildOptionsScopeFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
@@ -91,6 +94,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeS
 import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import com.google.devtools.build.skyframe.state.Driver;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -388,12 +392,34 @@ public final class DependencyResolver {
         return false;
       }
 
+      LoadAspectsKey loadExecAspectsKey = null;
+      if (configuredTargetKey.getConfigurationKey() != null
+          && !configuredTargetKey
+              .getConfigurationKey()
+              .getOptions()
+              .get(CoreOptions.class)
+              .execAspects
+              .isEmpty()) {
+        ImmutableList<AspectClass> aspectClasses =
+            createAspectClasses(
+                configuredTargetKey
+                    .getConfigurationKey()
+                    .getOptions()
+                    .get(CoreOptions.class)
+                    .execAspects);
+        if (!aspectClasses.isEmpty()) {
+          loadExecAspectsKey =
+              LoadAspectsKey.create(
+                  aspectClasses, /* topLevelAspectsParameters= */ ImmutableMap.of());
+        }
+      }
       // Calculate the dependencies of this target.
       depValueMap =
           computeDependencies(
               state,
               configuredTargetKey,
               /* aspects= */ ImmutableList.of(),
+              loadExecAspectsKey,
               transitionCache,
               starlarkExecTransition.orElse(null),
               env,
@@ -603,6 +629,8 @@ public final class DependencyResolver {
    * <p>REQUIRES: {@code state.dependencyContext} is populated.
    *
    * @param state the compute state
+   * @param loadExecAspectsKey key associated with the aspects passed to the --exec_aspects flag
+   *     that are attached to exec-configured targets.
    * @param configuredTargetKey key associated with {@code state.targetAndConfiguration}'s
    *     configuration
    * @param starlarkTransitionProvider the Starlark transition that implements exec transition
@@ -622,6 +650,7 @@ public final class DependencyResolver {
       State state,
       ConfiguredTargetKey configuredTargetKey,
       ImmutableList<Aspect> aspects,
+      LoadAspectsKey loadExecAspectsKey,
       StarlarkTransitionCache transitionCache,
       @Nullable StarlarkAttributeTransitionProvider starlarkTransitionProvider,
       LookupEnvironment env,
@@ -663,6 +692,7 @@ public final class DependencyResolver {
                         configuredTargetKey,
                         ctgValue.getTarget(),
                         aspects,
+                        loadExecAspectsKey,
                         starlarkTransitionProvider,
                         transitionCache,
                         toolchainContexts,
@@ -850,5 +880,18 @@ public final class DependencyResolver {
               prioritizedDetailedExitCode, c.getDetailedExitCode());
     }
     return prioritizedDetailedExitCode;
+  }
+
+  private ImmutableList<AspectClass> createAspectClasses(List<String> aspectNames)
+      throws AspectCreationException {
+    ImmutableList.Builder<AspectClass> aspectClassesBuilder = ImmutableList.builder();
+    for (String aspect : aspectNames) {
+      try {
+        aspectClassesBuilder.add(StarlarkAspectClass.getAspectClassFromName(aspect));
+      } catch (StarlarkAspectClass.AspectClassCreationException e) {
+        throw new AspectCreationException(e.getMessage(), getTargetAndConfiguration().getLabel());
+      }
+    }
+    return aspectClassesBuilder.build();
   }
 }
