@@ -110,6 +110,7 @@ public class HardlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpa
     }
   }
 
+  @Nullable
   @Override
   public Optional<String> getInteractiveDebugInstructions() {
     if (interactiveDebugArguments == null) {
