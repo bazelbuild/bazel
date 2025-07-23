@@ -192,12 +192,6 @@ public interface SpawnRunner {
      */
     InputMetadataProvider getInputMetadataProvider();
 
-    /** A spawn input expander. */
-    // TODO(moroten): This is only used for the remote cache and remote execution to optimize
-    // Merkle tree generation. Having both this and the getInputMapping method seems a bit
-    // duplicated.
-    SpawnInputExpander getSpawnInputExpander();
-
     /** The {@link ArtifactPathResolver} to use when directly writing output files. */
     default ArtifactPathResolver getPathResolver() {
       return ArtifactPathResolver.IDENTITY;
