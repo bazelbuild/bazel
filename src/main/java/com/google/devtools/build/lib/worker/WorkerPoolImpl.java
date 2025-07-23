@@ -231,9 +231,7 @@ public class WorkerPoolImpl implements WorkerPool {
         if (workerIdsToEvict.contains(worker.getWorkerId())) {
           evictedWorkerIds.add(worker.getWorkerId());
           worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_MEMORY_PRESSURE);
-          // Currently when evicting idle workers, we do not shrink the pool. The pool is only
-          // shrunk when we have to postpone invalidation of the worker.
-          invalidateWorker(worker, /* shouldShrinkPool= */ false);
+          invalidateWorker(worker, /* shouldShrinkPool= */ true);
           idleWorkers.remove(worker);
           logger.atInfo().log(
               "Evicted %s worker (id %d, key hash %d).",
