@@ -21,5 +21,7 @@ exported_toplevels = {
     "py_internal": py_internal,
     "java_common": java_common_export_for_bazel,
 }
-exported_rules = {}
+exported_rules = {
+    "cc_toolchain_suite": lambda name, **kwargs: _builtins.toplevel.native.filegroup(name = name),
+}
 exported_to_java = {}
