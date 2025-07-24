@@ -84,7 +84,6 @@ public final class RuleConfiguredTargetBuilder {
   /** These are supported by all configured targets and need to be specially handled. */
   private NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
-  private final NestedSetBuilder<Artifact> filesToRunBuilder = NestedSetBuilder.stableOrder();
   private RunfilesSupport runfilesSupport;
   private Artifact executable;
   private final ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
@@ -404,17 +403,18 @@ public final class RuleConfiguredTargetBuilder {
 
   /**
    * Compute the artifacts to put into the {@link FilesToRunProvider} for this target. These are the
-   * filesToBuild, any artifacts added by the rule with {@link #addFilesToRun}, and the runfiles
-   * tree of the rule if it exists.
+   * filesToBuild, the runfiles tree of the rule if it exists, as well as the executable.
    */
   private NestedSet<Artifact> buildFilesToRun(
       NestedSet<Artifact> runfilesTrees, NestedSet<Artifact> filesToBuild) {
-    filesToRunBuilder.addTransitive(filesToBuild);
-    filesToRunBuilder.addTransitive(runfilesTrees);
+    var builder =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(filesToBuild)
+            .addTransitive(runfilesTrees);
     if (executable != null && ruleContext.getRule().getRuleClassObject().isStarlark()) {
-      filesToRunBuilder.add(executable);
+      builder.add(executable);
     }
-    return filesToRunBuilder.build();
+    return builder.build();
   }
 
   /**
@@ -478,16 +478,6 @@ public final class RuleConfiguredTargetBuilder {
                 (ExecutionInfo) providersBuilder.getProvider(ExecutionInfo.PROVIDER.getKey()))
             .build();
     return new TestProvider(testParams);
-  }
-
-  /**
-   * Add files required to run the target. Artifacts from {@link #setFilesToBuild} and the runfiles
-   * tree, if any, are added automatically.
-   */
-  @CanIgnoreReturnValue
-  public RuleConfiguredTargetBuilder addFilesToRun(NestedSet<Artifact> files) {
-    filesToRunBuilder.addTransitive(files);
-    return this;
   }
 
   /**
