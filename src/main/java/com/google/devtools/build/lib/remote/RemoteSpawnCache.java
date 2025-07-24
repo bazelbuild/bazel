@@ -176,6 +176,7 @@ final class RemoteSpawnCache implements SpawnCache {
                     result.getExecutionMetadata().getExecutionCompletedTimestamp(),
                     spawnMetrics.build(),
                     spawn.getMnemonic());
+            remoteExecutionService.maybeWriteParamFilesLocally(spawn);
             return SpawnCache.success(spawnResult);
           }
         } catch (CacheNotFoundException e) {
@@ -215,6 +216,7 @@ final class RemoteSpawnCache implements SpawnCache {
                 .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
                 .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
             SpawnMetrics buildMetrics = spawnMetrics.build();
+            remoteExecutionService.maybeWriteParamFilesLocally(spawn);
             return SpawnCache.success(
                 new SpawnResult.DelegateSpawnResult(previousResult) {
                   @Override

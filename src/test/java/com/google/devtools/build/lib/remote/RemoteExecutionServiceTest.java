@@ -93,6 +93,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.CombinedCache.CachedActionResult;
@@ -2671,6 +2672,7 @@ public class RemoteExecutionServiceTest {
         "none",
         digestUtil,
         remoteOptions,
+        Options.getDefaults(ExecutionOptions.class),
         cache,
         executor,
         tempPathGenerator,

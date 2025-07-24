@@ -1163,7 +1163,6 @@ public class RemoteSpawnRunnerTest {
   private void testParamFilesAreMaterializedForFlag(String flag) throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     ExecutionOptions executionOptions = Options.parse(ExecutionOptions.class, flag).getOptions();
-    executionOptions.materializeParamFiles = true;
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
             directExecutor(),
@@ -1175,6 +1174,7 @@ public class RemoteSpawnRunnerTest {
             "command-id",
             digestUtil,
             remoteOptions,
+            executionOptions,
             cache,
             executor,
             tempPathGenerator,
@@ -1712,6 +1712,7 @@ public class RemoteSpawnRunnerTest {
                 "command-id",
                 digestUtil,
                 remoteOptions,
+                Options.getDefaults(ExecutionOptions.class),
                 cache,
                 executor,
                 tempPathGenerator,
