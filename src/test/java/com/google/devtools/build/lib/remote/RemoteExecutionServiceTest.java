@@ -676,8 +676,12 @@ public class RemoteExecutionServiceTest {
                                         file("bar.txt", "content of srcs/system-root/bar.txt")),
                                     ImmutableMap.of())))))));
 
+    var expectedDigest =
+        DigestUtil.fromString(
+            "79419efe6586ca5048180744d9005896cd67339d6e012a7bec15ed0720e1fec7/82");
+    assertThat(digestUtil.compute(rootDirectory)).isEqualTo(expectedDigest);
     assertThat(service.buildRemoteAction(spawn, context).getMerkleTree().getRootDigest())
-        .isEqualTo(digestUtil.compute(rootDirectory));
+        .isEqualTo(expectedDigest);
   }
 
   private FileNode file(String name, String content) {
