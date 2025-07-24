@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
@@ -164,7 +163,6 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     return this;
   }
 
-  @StarlarkMethod(name = "source_file", structField = true, documented = false)
   public Artifact getSourceFile() {
     return sourceFile;
   }
@@ -531,17 +529,14 @@ public final class CppCompileActionBuilder implements StarlarkValue {
     return this;
   }
 
-  @StarlarkMethod(name = "output_file", structField = true, documented = false)
   public Artifact getOutputFile() {
     return outputFile;
   }
 
-  @StarlarkMethod(name = "dotd_file", structField = true, documented = false)
   public Artifact getDotdFile() {
     return this.dotdFile;
   }
 
-  @StarlarkMethod(name = "diagnostics_file", structField = true, documented = false)
   public Artifact getDiagnosticsFile() {
     return this.diagnosticsFile;
   }
