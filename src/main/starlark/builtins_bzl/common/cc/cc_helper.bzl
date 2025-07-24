@@ -34,7 +34,6 @@ config_common = _builtins.toplevel.config_common
 coverage_common = _builtins.toplevel.coverage_common
 platform_common = _builtins.toplevel.platform_common
 
-artifact_category = _artifact_category
 extensions = _extensions
 
 # LINT.IfChange(linker_mode)
@@ -497,6 +496,8 @@ def _collect_native_cc_libraries(deps, libraries):
     return CcNativeLibraryInfo(libraries_to_link = depset(direct = libraries, transitive = transitive_libraries))
 
 # LINT.IfChange(forked_exports)
+
+artifact_category = _artifact_category
 
 def _get_compilation_contexts_from_deps(deps):
     compilation_contexts = []
