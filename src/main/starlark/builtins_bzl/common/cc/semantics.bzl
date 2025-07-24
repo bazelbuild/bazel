@@ -30,9 +30,6 @@ def _should_create_empty_archive():
 def _validate_attributes(ctx):
     pass
 
-def _get_semantics():
-    return _builtins.internal.bazel_cc_internal.semantics
-
 def _get_stl():
     return attr.label()
 
@@ -167,7 +164,6 @@ semantics = struct(
     ],
     ALLOWED_RULES_WITH_WARNINGS_IN_DEPS = [],
     validate_attributes = _validate_attributes,
-    get_semantics = _get_semantics,
     get_repo = _get_repo,
     get_platforms_root = _get_platforms_root,
     additional_fragments = _additional_fragments,

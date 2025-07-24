@@ -169,8 +169,18 @@ def should_create_per_object_debug_info(feature_configuration, cpp_configuration
     return cpp_configuration.fission_active_for_current_compilation_mode() and \
            feature_configuration.is_enabled("per_object_debug_info")
 
+# LINT.IfChange(forked_exports)
+
 def is_versioned_shared_library_extension_valid(shared_library_name):
-    # validate against the regex "^.+\\.((so)|(dylib))(\\.\\d\\w*)+$",
+    """Validates the name against the regex "^.+\\.((so)|(dylib))(\\.\\d\\w*)+$",
+
+    Args:
+        shared_library_name: (str) the name to validate
+
+    Returns:
+        (bool)
+    """
+
     # must match VERSIONED_SHARED_LIBRARY.
     for ext in (".so.", ".dylib."):
         name, _, version = shared_library_name.rpartition(ext)
@@ -184,17 +194,6 @@ def is_versioned_shared_library_extension_valid(shared_library_name):
                         return False
             return True
     return False
-
-def is_shared_library(file):
-    return file.extension in ["so", "dylib", "dll", "pyd", "wasm", "tgt", "vpi"]
-
-def is_versioned_shared_library(file):
-    # Because regex matching can be slow, we first do a quick check for ".so." and ".dylib."
-    # substring before risking the full-on regex match. This should eliminate the performance
-    # hit on practically every non-qualifying file type.
-    if ".so." not in file.basename and ".dylib." not in file.basename:
-        return False
-    return is_versioned_shared_library_extension_valid(file.basename)
 
 def _is_repository_main(repository):
     return repository == ""
@@ -236,6 +235,19 @@ def repository_exec_path(repository, sibling_repository_layout):
     if repository.startswith("@"):
         repository = repository[1:]
     return paths.get_relative(prefix, repository)
+
+# LINT.ThenChange(@rules_cc//cc/common/cc_helper_internal.bzl:forked_exports)
+
+def is_shared_library(file):
+    return file.extension in ["so", "dylib", "dll", "pyd", "wasm", "tgt", "vpi"]
+
+def is_versioned_shared_library(file):
+    # Because regex matching can be slow, we first do a quick check for ".so." and ".dylib."
+    # substring before risking the full-on regex match. This should eliminate the performance
+    # hit on practically every non-qualifying file type.
+    if ".so." not in file.basename and ".dylib." not in file.basename:
+        return False
+    return is_versioned_shared_library_extension_valid(file.basename)
 
 def use_pic_for_binaries(cpp_config, feature_configuration):
     """
