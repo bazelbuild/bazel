@@ -114,6 +114,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/common/options:html_utils",
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/spelling",

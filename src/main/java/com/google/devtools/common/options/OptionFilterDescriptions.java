@@ -41,8 +41,7 @@ public class OptionFilterDescriptions {
     OptionDocumentationCategory.UNCATEGORIZED
   };
 
-  static ImmutableMap<OptionDocumentationCategory, String> getOptionCategoriesEnumDescription(
-      String productName) {
+  static ImmutableMap<OptionDocumentationCategory, String> getOptionCategoriesEnumDescription() {
     ImmutableMap.Builder<OptionDocumentationCategory, String> optionCategoriesBuilder =
         ImmutableMap.builder();
     optionCategoriesBuilder

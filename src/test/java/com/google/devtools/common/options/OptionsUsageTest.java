@@ -37,21 +37,21 @@ public final class OptionsUsageTest {
 
   private String getHtmlUsageWithoutTags(String fieldName) {
     StringBuilder builder = new StringBuilder();
-    OptionsUsage.getUsageHtml(
+    HtmlUtils.getUsageHtml(
         data.getOptionDefinitionFromName(fieldName), builder, HTML_ESCAPER, data, false, null);
     return builder.toString();
   }
 
   private String getHtmlUsageWithTags(String fieldName) {
     StringBuilder builder = new StringBuilder();
-    OptionsUsage.getUsageHtml(
+    HtmlUtils.getUsageHtml(
         data.getOptionDefinitionFromName(fieldName), builder, HTML_ESCAPER, data, true, null);
     return builder.toString();
   }
 
   private String getHtmlUsageWithCommandName(String fieldName, String commandName) {
     StringBuilder builder = new StringBuilder();
-    OptionsUsage.getUsageHtml(
+    HtmlUtils.getUsageHtml(
         data.getOptionDefinitionFromName(fieldName),
         builder,
         HTML_ESCAPER,
