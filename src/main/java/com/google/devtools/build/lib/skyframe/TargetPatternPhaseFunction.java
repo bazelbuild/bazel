@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSetMultimap.flatteningToImmutableSetMultimap;
 import static java.util.Objects.requireNonNull;
 
@@ -88,6 +89,13 @@ final class TargetPatternPhaseFunction implements SkyFunction {
         env.valuesMissing()
             ? null
             : mergeAll(expandedPatterns, !failedPatterns.isEmpty(), env, options);
+
+    // Record labels before they're expanded. For example, if the build requests a test_suite //foo,
+    // record //foo here instead of the tests the suite expands to.
+    ImmutableSet<Label> nonExpandedLabels =
+        targets == null
+            ? ImmutableSet.of()
+            : targets.getTargets().stream().map(Target::getLabel).collect(toImmutableSet());
 
     // If the --build_tests_only option was specified or we want to run tests, we need to determine
     // the list of targets to test. For that, we remove manual tests and apply the command-line
@@ -184,12 +192,10 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     maybeReportDeprecation(env.getListener(), targets.getTargets());
 
     ResolvedTargets.Builder<Label> expandedLabelsBuilder = ResolvedTargets.builder();
-    ImmutableSet.Builder<Label> nonExpandedLabelsBuilder = ImmutableSet.builder();
     ImmutableMap.Builder<Label, ImmutableSet<Label>> testSuiteExpansions =
         ImmutableMap.builderWithExpectedSize(testExpansionKeys.size());
     for (Target target : targets.getTargets()) {
       Label label = target.getLabel();
-      nonExpandedLabelsBuilder.add(label);
       if (TargetUtils.isTestSuiteRule(target) && options.isExpandTestSuites()) {
         SkyKey expansionKey = Preconditions.checkNotNull(testExpansionKeys.get(label));
         var value = (TestsForTargetPatternValue) expandedTests.get(expansionKey);
@@ -216,8 +222,6 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
     ImmutableSet<Label> removedTargetLabels =
         testSuiteTargets.stream().map(Target::getLabel).collect(ImmutableSet.toImmutableSet());
-
-    ImmutableSet<Label> nonExpandedLabels = nonExpandedLabelsBuilder.build();
     TargetPatternPhaseValue result =
         new TargetPatternPhaseValue(
             targetLabels.getTargets(),
