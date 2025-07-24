@@ -319,6 +319,57 @@ EOF
   bazel build //pkg:a &>$TEST_log || fail "expected build to succeed"
 }
 
+function test_empty_tree_artifact_in_runfiles() {
+  # Test that when an empty tree artifact is in runfiles, an empty directory is
+  # created in the sandbox for action to read.
+
+  mkdir -p pkg
+
+  cat > pkg/def.bzl <<'EOF'
+def _r(ctx):
+    empty_d = ctx.actions.declare_directory("%s/empty_dir" % ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [empty_d],
+        command = "mkdir -p %s" % empty_d.path,
+    )
+    executable = ctx.actions.declare_file("%s/executable" % ctx.label.name)
+    ctx.actions.write(
+        output = executable,
+        content = """
+#!/bin/sh
+if [ ! -d "$0.runfiles/_main/{empty_dir}" ]; then
+  echo "Expected $0.runfiles/_main/{empty_dir} to be a directory" >&2
+  exit 1
+fi
+        """.format(empty_dir = empty_d.short_path),
+        is_executable = True,
+    )
+    return [
+        DefaultInfo(
+            executable = executable,
+            runfiles = ctx.runfiles([empty_d]),
+        ),
+    ]
+
+r = rule(implementation = _r, executable = True)
+EOF
+
+cat > pkg/BUILD <<'EOF'
+load(":def.bzl", "r")
+
+r(name = "a")
+
+genrule(
+    name = "b",
+    outs = ["b.txt"],
+    tools = [":a"],
+    cmd = "$(location :a) && echo 'Runfiles check passed' > $@",
+)
+EOF
+
+  bazel build //pkg:b &>$TEST_log || fail "expected build to succeed"
+}
+
 # Sets up targets under //test that, when building //test:all, verify that the
 # sandbox setup ensures that /tmp contents written by one action are not visible
 # to another action.
