@@ -304,6 +304,9 @@ public class TestRunnerAction extends AbstractAction
                 // instead.
                 baseDir.getChild("coverage.dat"),
                 baseDir.getChild("test.zip")); // Delete files fetched from remote execution.
+    if (!TEST_XML_IS_ACTION_OUTPUT) {
+      filesToDeleteBuilder.add(testXml.getExecPath());
+    }
     if (testShard != null) {
       filesToDeleteBuilder.add(testShard);
     }
