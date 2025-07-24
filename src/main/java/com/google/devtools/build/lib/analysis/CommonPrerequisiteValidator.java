@@ -68,9 +68,6 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
 
   protected abstract boolean checkVisibilityForExperimental(RuleContext.Builder context);
 
-  protected abstract boolean checkVisibilityForToolchains(
-      RuleContext.Builder context, Label prerequisite);
-
   protected abstract boolean allowExperimentalDeps(RuleContext.Builder context);
 
   /**
@@ -161,9 +158,9 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       return;
     }
 
-    // Determine whether we should check toolchain target visibility.
-    if (attrName.equals(RuleContext.TOOLCHAIN_ATTR_NAME)
-        && !checkVisibilityForToolchains(context, prerequisite.getTargetLabel())) {
+    // Don't check the visibility of toolchain implementations since toolchain resolution
+    // intentionally decouples the definition of the implementation from the toolchain usage.
+    if (attrName.equals(RuleContext.TOOLCHAIN_ATTR_NAME)) {
       return;
     }
 

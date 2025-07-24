@@ -191,12 +191,6 @@ bazel_fragments["AppleCommandLineOptions"] = fragment(
     },
 )
 
-bazel_fragments["BazelConfigurarion$Options"] = fragment(
-    propagate = [
-        "//command_line_option:incompatible_check_visibility_for_toolchains",
-    ],
-)
-
 bazel_fragments["BazelPythonConfiguration$Options"] = fragment(
     propagate = [
         "//command_line_option:python_top",
